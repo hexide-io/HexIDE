@@ -124,6 +124,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64bitové",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32bitové",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64bitové",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Zobrazit podmíněný překlad jako",
     "Str.Tool.Properties.ExportPicture": "Exportovat obrázek...",
     "Str.Tool.Properties.ExportPictureTitle": "Export obrázku",

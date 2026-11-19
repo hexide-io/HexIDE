@@ -523,7 +523,7 @@ public class ShippedPackParityTests
                 "Str.Options.Keymap.Break", // The keyboard key label.
                 "Str.Tool.FindReferences.Error",
                 "Str.Options.Addin.Status.Incompatible",
-                "Str.CodeEditor.ViewAs.Vb6", "Str.Tool.Locals.Ellipsis",
+                "Str.CodeEditor.ViewAs.Vb6", "Str.CodeEditor.ViewAs.Rdcore", "Str.Tool.Locals.Ellipsis",
                 "Str.Dialog.AddProcedure.Type.Sub", "Str.Dialog.MenuEditor.Visible",
                 "Str.Dialog.MenuEditor.Shortcut.CtrlFormat", "Str.Dialog.MenuEditor.Shortcut.AltFormat",
                 "Str.Dialog.MenuEditor.Shortcut.FunctionFormat", "Str.Dialog.MenuEditor.Shortcut.InsertKey",

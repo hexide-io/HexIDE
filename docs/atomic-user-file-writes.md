@@ -39,12 +39,15 @@ user-file audit. Compiler workspaces and extracted archives are disposable stagi
 and interpreter `Open`/`Put`/`Print`/`FileCopy` operations retain their language semantics;
 this change makes no claim about them.
 
-`Vb6ToolchainService.RunVb6Async` still invokes `vb6.exe /make` against the saved
-project, allowing that external compiler to write its output beside the project. This
-path remains unprotected: the oracle records neither output redirection nor the complete
-set of compiler output files. Redirecting it without that evidence would guess VB6
-behaviour. It needs a measured staging/publication contract in a later slice. The
-twinBASIC compiler is not inspected or executed by this work; its existing preparation
+`Vb6ToolchainService` stages Standard EXEs without `AutoIncrementVer=1` in a unique
+child of the existing destination folder, using `/outdir`. A successful build flushes
+the staged exe and renames it over the destination; failures and timeouts discard the
+staging folder. Compiler-written `Path32` is restored through the shared atomic writer,
+keeping other compiler edits (#4757; measured output contract in
+[oracle PR #4756](https://github.com/hexide-io/HexIDE/pull/4756)). Missing destination
+folders are not created. Auto-incrementing projects and other project types still build
+in place: write-back and COM registration prevent this publication scheme (#2503).
+The twinBASIC compiler is not inspected or executed by this work; its existing preparation
 copies are disposable workspace files.
 
 ## Portable refusal tests
@@ -169,7 +172,7 @@ the Integration hang monitor initially failed creating a mutex in the read-only 
 directory. Full suite results above come from the built xUnit executables with
 `-parallel none -verbose`, not those stalled launches. Feature status and
 `MISSING_LANGUAGE.md` rows/counts are unchanged. External VB6 compiler publication
-remains the unmeasured exception described in the inventory.
+now has the scoped staging contract described in the inventory (#4757).
 
 The full IDE run completed: **4,896 passed, 44 skipped, no failures or errors**
 (4,940 total), in 848.093 seconds, above the 4,481-case CI floor; its XML error

@@ -330,6 +330,46 @@ public class CodeEditorViewModelTests : IDisposable
         CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(expected);
     }
 
+    // #4821: the constants target takes precedence over the bitness default, for forms and modules.
+    [AvaloniaTheory]
+    [InlineData(VbaBitness.None)]
+    [InlineData(VbaBitness.Bit32)]
+    [InlineData(VbaBitness.Bit64)]
+    public void RDCore_project_defaults_to_RDCore_preview(VbaBitness bitness)
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.Target = ProjectTarget.RDCore;
+        module.Owner.VbaBitness = bitness;
+        var moduleVm = CreateSut().Initialize(module);
+        moduleVm.ConditionalTargetIndex.Should().Be(5);
+        moduleVm.Dispose();
+        var form = TestHelpers.CreateForm(name: "Form1");
+        form.Owner.Target = ProjectTarget.RDCore;
+        form.Owner.VbaBitness = bitness;
+        CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(5);
+    }
+
+    // #4821: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.8-alpha; Excel for Mac 16.115.
+    [AvaloniaTheory]
+    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), "0,1,1,0,0,0,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.RDCore), "0,0,0,1,0,0,1,1")]
+    [InlineData("LINUX", nameof(ProjectTarget.RDCore), "0,0,0,0,1,1,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.None), "0,0,1,1,0,0,1,1")]
+    public void Editor_greying_uses_the_recorded_host_table(string host, string targetName, string row)
+    {
+        var target = Enum.Parse<ProjectTarget>(targetName);
+        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(target, VbaBitness.Bit64,
+            System.Runtime.InteropServices.OSPlatform.Create(host));
+        var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7" };
+        var values = row.Split(',');
+        var condition = string.Join(" And ", names.Select((name, i) => $"({name} = {values[i]})"));
+        var source = $"#If {condition} Then\nactive\n#Else\ninactive\n#End If\n";
+        new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode().InactiveLines(source,
+            new HexIDE.Language.ConditionalConstants(HexIDE.Language.ConditionalConstants.NoArguments) { BuiltIns = builtIns })
+            .Should().Equal(new HexIDE.Language.LineRange(4, 4));
+        builtIns.Keys.Should().BeEquivalentTo(target == ProjectTarget.RDCore ? names : names.Except(["Linux", "Linux64"]));
+    }
+
     [AvaloniaFact]
     public async Task AddWatchInDeclarationsDefaultsToActiveModule()
     {

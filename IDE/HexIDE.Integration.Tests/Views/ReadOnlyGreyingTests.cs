@@ -309,6 +309,38 @@ public class ReadOnlyGreyingTests : IDisposable
         }
     }
 
+    // #4821: use the real selector, debounce and rendered line transformer on this host.
+    [AvaloniaTheory]
+    [InlineData(nameof(ProjectTarget.RDCore))]
+    [InlineData(nameof(ProjectTarget.None))]
+    public async Task Project_target_greys_the_same_NavalBattle_branch_as_the_run(string targetName)
+    {
+        var target = Enum.Parse<ProjectTarget>(targetName);
+        var themes = new ThemeService();
+        using var scope = TheIdesThemes(themes);
+        var project = new ProjectDefinition(VBProjectType.EXE, "NavalBattle") { Target = target, VbaBitness = VbaBitness.Bit64 };
+        var module = new ModuleDefinition(project, "Pause", ModuleKind.StandardModule);
+        module.UpdateCode("#If Win32 Or Win64 Then\nDebug.Print \"Declare\"\n#Else\nDebug.Print \"Timer\"\n#End If\n");
+        var vm = MakeViewModel().Initialize(module);
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
+        if (target == ProjectTarget.RDCore) selector.ItemCount.Should().Be(6);
+        selector.SelectedIndex.Should().Be(target == ProjectTarget.RDCore ? 5 : 2);
+        // Changing away and back exercises SelectionChanged and the actual dispatcher timer.
+        selector.SelectedIndex = 0;
+        selector.SelectedIndex = target == ProjectTarget.RDCore ? 5 : 2;
+        await WaitForConditionalEvaluation(view);
+        var windowsBranch = target != ProjectTarget.RDCore || OperatingSystem.IsWindows();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, windowsBranch ? "Debug.Print \"Timer\"" : "Debug.Print \"Declare\""))
+            .Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, windowsBranch ? "Debug.Print \"Declare\"" : "Debug.Print \"Timer\""))
+            .Should().Contain(c => c != grey);
+        ConditionalCompiler.Preprocess(vm.BufferBody, CompilationConstants.ForProject(project)).InactiveLines
+            .Should().Equal(windowsBranch ? new LineRange(4, 4) : new LineRange(2, 2));
+    }
+
     [AvaloniaTheory]
     [InlineData(0, 6)]
     [InlineData(1, 2)]
@@ -330,6 +362,8 @@ public class ReadOnlyGreyingTests : IDisposable
         await WaitForConditionalEvaluation(view);
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         grey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
+        // #4821: on a Mac, VBA 64-bit is Excel for Mac's table, where Win32 is 0, so VBA6 And Win32 takes its #Else.
+        var win32Branch = target == 1 || (target == 2 && !OperatingSystem.IsMacOS());
         foreach (var line in new[] { 2, 4, 6 })
         {
             var text = "Debug.Print " + (line == 2 ? "7" : line == 4 ? "64" : "6");
@@ -337,9 +371,9 @@ public class ReadOnlyGreyingTests : IDisposable
             if (line == activeLine) ColoursOn(editor, actual).Should().Contain(c => c != grey);
             else ColoursOn(editor, actual).Should().OnlyContain(c => c == grey);
         }
-        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 32" : "Debug.Print 0"))
+        ColoursOn(editor, LineOf(editor, win32Branch ? "Debug.Print 0" : "Debug.Print 32"))
             .Should().OnlyContain(c => c == grey);
-        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 0" : "Debug.Print 32"))
+        ColoursOn(editor, LineOf(editor, win32Branch ? "Debug.Print 32" : "Debug.Print 0"))
             .Should().Contain(c => c != grey);
         var runtimeConstants = CompilationConstants.ForProject(vm.ModuleDefinition!.Owner);
         runtimeConstants.BuiltIns.Should().BeSameAs(CompilationConstants.Vb6BuiltIns);
@@ -353,7 +387,7 @@ public class ReadOnlyGreyingTests : IDisposable
         RunJobsKeepingContext();
         var switchedGrey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         switchedGrey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
-        ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 32" : "Debug.Print 0"))
+        ColoursOn(editor, LineOf(editor, win32Branch ? "Debug.Print 0" : "Debug.Print 32"))
             .Should().OnlyContain(c => c == switchedGrey);
     }
 

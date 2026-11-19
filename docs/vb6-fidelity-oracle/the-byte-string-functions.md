@@ -70,3 +70,70 @@ with no error, the 0A not in the file.
 - **Refused:** a result of an odd number of bytes, and so `ChrB`, which is always one. HexIDE's strings are whole UTF-16
   characters and cannot hold one. That representation is the rest of #1510, with the `MidB` statement and `InputB`.
 - **`ByteStringTests`** pins each row HexIDE can run, its errors, and the refusals.
+- **Since #4576 (2026-11-18)** HexIDE holds a String of an odd number of bytes, and `ChrB` and odd-length `MidB`,
+  `LeftB` and `RightB` results run. The bullet above records what came first. MISSING_LANGUAGE's `ChrB` row lists the uses
+  of such a String HexIDE supports. `InputB` is #4895, below.
+
+### InputB, by file mode (2026-11-19, #4895, SP6)
+
+**`InputB` reads bytes where `Input` reads characters, and converts nothing.** In Input mode it follows the `Input`
+function's rules (the oracle's "LOF, Loc, Seek and the Input function"), 62 at the end or at a Ctrl+Z included. In
+Binary mode a read past the end is no error, and the bytes past the end are whatever the runtime's buffer last held.
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds logged
+  every line identically.
+- **The program:** one Sub Main under `On Error Resume Next`. It writes each file byte by byte with Binary `Put`, then
+  logs each read's `Err`, the String's bytes, `LenB` and `Len`, then `Loc`, `Seek`, `EOF` and `LOF`.
+- **The files:** `b.bin` is 41 42 43, `hi.txt` is 78 E9 79 (`x`, `é` in code page 1252, `y`), `crlf.txt` is 61 0D 0A
+  62, and `z.txt` is 61 1A 62 (`a`, Ctrl+Z, `b`).
+
+**For Binary**, each from a fresh `Open` unless it follows the row above:
+
+| Read | Err | Bytes | LenB, Len | Loc, Seek, EOF after |
+|---|---|---|---|---|
+| `InputB(2, #1)` of b.bin | 0 | 41 42 | 2, 1 | 2, 3, False |
+| then `InputB(1, #1)` | 0 | 43 | 1, 0 | 3, 4, False |
+| `InputB(LOF(1), #1)` | 0 | 41 42 43 | 3, 1 | 3, 4, False |
+| `InputB(0, #1)` | 0 | (empty) | 0, 0 | 0, 1, False |
+| then `InputB(-1, #1)`, `s` holding `"x"` | 5 | `s` still `"x"` | | 0, 1, False |
+| then `Seek #1, 2` and `InputB(2, #1)` | 0 | 42 43 | 2, 1 | 3, 4, False |
+| `InputB(4, #1)` of crlf.txt | 0 | 61 0D 0A 62 | 4, 2 | 4, 5, False |
+
+**For Input:**
+
+| Read | Err | Bytes | LenB, Len | Loc, Seek, EOF after |
+|---|---|---|---|---|
+| `InputB(3, #1)` of hi.txt | 0 | 78 E9 79 | 3, 1 | 1, 4, True |
+| `InputB(2, #1)` of hi.txt | 0 | 78 E9 | 2, 1 | 1, 3, False |
+| then `Input(1, #1)` | 0 | `y` | | 1, 4, True |
+| `InputB(4, #1)` of hi.txt | 62 | `s`, `""` before, still `""` | | 1, 4, True |
+| `InputB(4, #1)` of crlf.txt | 0 | 61 0D 0A 62 | 4, 2 | 1, 5, True |
+| `InputB(3, #1)` of z.txt | 62 | `s`, `""` before, still `""` | | 1, 6, True |
+| `InputB(1, #1)` of z.txt | 0 | 61 | 1, 0 | 1, 2, True |
+| then `InputB(1, #1)` | 62 | | | 1, 6, True |
+| `InputB$(2, #1)` of hi.txt | 0 | 78 E9 | 2, 1 | 1, 3, False |
+
+**And:**
+- `InputB(1, #2)` on an Output file is 54, and `InputB(2, #3)` on a Random file of `Len = 2` is 54 too.
+- `InputB(1, #9)` with nothing open is 52.
+- `InputB(1, 1)`, without the `#`, is a `String`.
+
+- **Binary EOF is True only after a read past the end.** Reading exactly to the end, as `InputB(LOF(1), #1)` does,
+  leaves it False. Input mode's EOF is True as soon as nothing is left, as the `Input` function's is.
+- **Input mode keeps `Input`'s rules for the end and for a Ctrl+Z.** A read that reaches either is 62. After a Ctrl+Z,
+  Seek answers the length plus the Ctrl+Z's position plus 1, as on that page: 6 for z.txt.
+- **Nothing is converted:** é stays the one byte E9, and CR LF stays two bytes.
+
+**Measured, but no rule I would defend:** a Binary read past the end returns as many bytes as asked, with no error and
+EOF True, and the bytes past the end are stale:
+- `InputB(4, #1)` of b.bin from a fresh open gave 41 42 43 **00**.
+- A second `InputB(2, #1)` from the last byte gave 43 **42**: the 42 was left from the first read.
+- `InputB(1, #1)` at the end, after reading all three, gave **43** again.
+- The 2026-10-25 probe above got 43 **0A** in the same place.
+
+The obvious guess was that it stops at the end, as the `Input` function does on a Binary file. It doesn't, and what fills
+the rest depends on what was read before.
+
+**In HexIDE (#4895):** on main at 7264e1f50, `InputB` throws "InputB is not implemented (#1510)." whatever its arguments
+(`VB6BuiltIns.cs:290`, read from the code).

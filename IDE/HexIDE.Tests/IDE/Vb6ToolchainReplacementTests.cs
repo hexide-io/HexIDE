@@ -48,6 +48,7 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         var result = TestHelpers.CreateProjectWithForm();
         result.AbsolutePath = Path.Combine(directory, "Test.vbp");
         result.UnknownPreSectionLines.Add((0, "ExeName32=\"Output.exe\""));
+        File.WriteAllText(result.AbsolutePath, "Type=Exe\r\nExeName32=\"Output.exe\"\r\n");
         return result;
     }
 
@@ -70,10 +71,19 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         public int Builds { get; private set; }
         public int Starts { get; private set; }
         public int ExitCode { get; set; }
-        internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath)
+        public bool Timeout { get; set; }
+        public bool WriteOnFailure { get; set; }
+        public string? OutputDirectory { get; private set; }
+        public Action<string>? DuringBuild { get; set; }
+        internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath, string? outputDirectory)
         {
             Builds++;
-            if (ExitCode == 0) File.WriteAllText(exePath, "built by RunVb6Async " + Builds);
+            OutputDirectory = outputDirectory;
+            DuringBuild?.Invoke(projectPath);
+            if (ExitCode == 0 || WriteOnFailure)
+                File.WriteAllText(outputDirectory is null ? exePath : Path.Combine(outputDirectory, Path.GetFileName(exePath)),
+                    "built by RunVb6Async " + Builds);
+            if (Timeout) return Task.FromResult<Vb6BuildOutcome?>(null);
             return Task.FromResult<Vb6BuildOutcome?>(new(ExitCode, ""));
         }
         internal override void StartExe(string path)
@@ -101,6 +111,7 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         File.ReadAllText(ExePath).Should().Be("original");
         events.DidNotReceive().Publish(Arg.Any<ApplyAllUnsavedChangesEvent>());
         File.Exists(SidecarPath).Should().BeFalse();
+        Directory.GetDirectories(directory).Should().BeEmpty();
     }
 
     [Fact]
@@ -281,6 +292,7 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         var compiler = NewBuild(sidecar, Path.Combine(directory, "out", "Output.exe"));
         compiler.ExitCode = 1;
         await compiler.RunWithVb6Async(project);
+        compiler.OutputDirectory.Should().BeNull();
         Directory.Exists(Path.Combine(directory, "out")).Should().BeFalse();
         compiler.Starts.Should().Be(0);
         sidecar.GetLastRunExe(project).Should().BeNull();
@@ -316,6 +328,90 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         await compiler.RunWithVb6Async(project);
         await Asked(2);
         compiler.Starts.Should().Be(1);
+    }
+
+    // Staging policy and /outdir measurements: issue #4757 and oracle PR #4756.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Staged_failure_or_timeout_keeps_old_output(bool timeout)
+    {
+        File.WriteAllText(ExePath, "original");
+        build.ExitCode = 1;
+        build.Timeout = timeout;
+        build.WriteOnFailure = true;
+        (await build.MakeWithVb6Async(project)).Should().BeFalse();
+        File.ReadAllText(ExePath).Should().Be("original");
+        Directory.GetDirectories(directory).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Staged_success_swaps_output_from_a_unique_child_folder()
+    {
+        File.WriteAllText(ExePath, "original");
+        (await build.MakeWithVb6Async(project)).Should().BeTrue();
+        build.OutputDirectory.Should().NotBeNull();
+        Path.GetDirectoryName(build.OutputDirectory).Should().Be(directory);
+        File.ReadAllText(ExePath).Should().Be("built by RunVb6Async 1");
+        Directory.Exists(build.OutputDirectory).Should().BeFalse();
+        var first = build.OutputDirectory;
+        (await build.MakeWithVb6Async(project)).Should().BeTrue();
+        build.OutputDirectory.Should().NotBe(first);
+        Directory.GetDirectories(directory).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Ineligible_project_builds_in_place(bool dll)
+    {
+        if (dll) project.ProjectType = VBProjectType.OleDll;
+        else
+        {
+            project.UnknownPreSectionLines.Add((1, "AutoIncrementVer=1"));
+            File.AppendAllText(project.AbsolutePath!, "AutoIncrementVer=1\r\n");
+        }
+        File.WriteAllText(ExePath, "original");
+        (await build.MakeWithVb6Async(project)).Should().BeTrue();
+        build.OutputDirectory.Should().BeNull();
+        Directory.GetDirectories(directory).Should().BeEmpty();
+        File.ReadAllText(ExePath).Should().Be("built by RunVb6Async 1");
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task Staged_build_repairs_only_Path32(bool hadPath, bool failed)
+    {
+        var original = "Type=Exe\r\n" + (hadPath ? "  Path32 = \".\"\r\n" : "") + "Name=Before\r\n";
+        // Capture after pending editor changes have been applied, not before the save event.
+        events.When(e => e.Publish(Arg.Any<ApplyAllUnsavedChangesEvent>()))
+            .Do(_ => File.WriteAllText(project.AbsolutePath!, original));
+        build.ExitCode = failed ? 1 : 0;
+        build.DuringBuild = path => File.WriteAllText(path,
+            "Type=Exe\r\nPath32=\"..\\x\"\r\nName=After\r\nRevisionVer=9\r\n");
+        (await build.MakeWithVb6Async(project)).Should().Be(!failed);
+        File.ReadAllText(project.AbsolutePath!).ReplaceLineEndings("\n").Should().Be(
+            ("Type=Exe\n" + (hadPath ? "  Path32 = \".\"\n" : "") + "Name=After\nRevisionVer=9\n"));
+        Directory.GetDirectories(directory).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Staged_swap_failure_reports_error_and_cleans_up()
+    {
+        strings.GetString("Str.Vb6Toolchain.CompilationFailed").Returns("Compilation failed: {0}");
+        // A directory at the destination refuses File.Move on Linux as well as Windows.
+        Directory.CreateDirectory(ExePath);
+        File.WriteAllText(Path.Combine(ExePath, "original"), "old bytes");
+        (await build.MakeWithVb6Async(project)).Should().BeFalse();
+        File.ReadAllText(Path.Combine(ExePath, "original")).Should().Be("old bytes");
+        Directory.GetDirectories(directory).Should().Equal(ExePath);
+        // Windows' own text names no file, so the message names the destination itself.
+        await windows.Received(1).MessageBox(
+            Arg.Is<string>(message => message.StartsWith("Compilation failed: " + ExePath + ": ")),
+            "Str.Vb6Toolchain.BuildFailedTitle", MessageBoxButtons.Ok, MessageBoxIcon.Error);
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);
