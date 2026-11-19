@@ -98,7 +98,7 @@ public class VBLoader
         void OnPlaced(ComponentInstance component, Control control, Canvas host)
         {
             if (control is VBCommonDialog dialog)
-                dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#1084)");
+                dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#4148)");
             placed[component] = control;
             if (control is IVBContainerControl { ChildHost: { } childHost })
                 AvaloniaInterop.ContainerMembers.Register(childHost, new Vb6Value(control));
