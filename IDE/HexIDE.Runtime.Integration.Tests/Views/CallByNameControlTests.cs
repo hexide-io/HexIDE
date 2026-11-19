@@ -132,6 +132,9 @@ public sealed class CallByNameControlTests : IDisposable
     [InlineData("v = CallByName(Text1, \"Text\", 3)", "String|Text1")]
     [InlineData("Set o = Picture1.Font\nCallByName Text1, \"Font\", VbSet, o\nv = (Text1.Font Is o)", "Boolean|True")]
     [InlineData("Set o = Picture1.Font\nCallByName Text1, \"Font\", VbLet, o\nv = Text1.FontName", "String|MS Sans Serif")]
+    // callbyname.md: a New StdFont named Courier New, set and let through CallByName.
+    [InlineData("Dim f As New StdFont\nf.Name = \"Courier New\"\nCallByName Text1, \"Font\", VbSet, f\nv = Text1.Font.Name", "String|Courier New")]
+    [InlineData("Dim f As New StdFont\nf.Name = \"Courier New\"\nCallByName Text1, \"Font\", VbLet, f\nv = Err.Number", "Long|0")]
     public Task Measured_values(string code, params string[] expected) => Check(
         "Dim v As Variant\nDim o As Object\n" + code + "\nDebug.Print TypeName(v) & \"|\" & v",
         (printed, _) => printed.Should().Equal(expected));
@@ -216,8 +219,6 @@ public sealed class CallByNameControlTests : IDisposable
         """, (printed, _) => printed.Should().Equal("True", "True"));
 
     [AvaloniaTheory]
-    [InlineData("Dim f As New StdFont\nCallByName Text1, \"Font\", VbSet, f", "New StdFont")]
-    [InlineData("Dim f As New StdFont\nCallByName Text1, \"Font\", VbLet, f", "New StdFont")]
     [InlineData("v = CallByName(Me, \"TextWidth\", VbMethod, \"abc\")", "TextWidth")]
     public Task Existing_member_gaps_stay_untrappable(string code, string member) => CheckRefusal(code, member);
 

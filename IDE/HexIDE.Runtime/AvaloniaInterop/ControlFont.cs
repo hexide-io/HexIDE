@@ -17,8 +17,13 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
     private static readonly ConditionalWeakTable<Control, ControlFont> fonts = new();
     private readonly List<WeakReference<Control>> owners = new();
     private VBFont font;
+    private bool standalone;
 
     private ControlFont(VBFont font) => this.font = font;
+
+    // Initial values measured on VB6 SP6, native and p-code (#4781).
+    internal static ControlFont CreateStandalone() => new(FontMembers.Snapped(
+        new VBFont("MS Sans Serif", 8.25, charset: 0, weight: VBFont.NormalWeight))) { standalone = true };
 
     internal static bool AppliesTo(Control control) => FormRoot.View(control) is not null || control is VBLabel or VBTextBox
         or VBCommandButton or VBCheckBox or VBOptionButton or VBComboBox or VBListBox or VBFrame or VBPictureBox
@@ -125,6 +130,8 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
             "italic" => new Vb6Value(font.Italic),
             "weight" => new Vb6Value(font.Weight > 550 ? 700 : 400),
             "charset" => new Vb6Value(font.Charset),
+            "underline" when standalone => new Vb6Value(font.Underline),
+            "strikethrough" when standalone => new Vb6Value(font.Strikethrough),
             _ => throw new NotImplementedException($"Font.{name} is not implemented (#934)"),
         };
         return true;
@@ -132,6 +139,11 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
 
     public bool TrySetProperty(string name, Vb6Value value)
     {
+        if (standalone && TrySetStandalone(name, value))
+        {
+            Publish();
+            return true;
+        }
         // #4448 measured Bold = True, including a StdFont shared with Set Font.
         if (name.Equals("Bold", StringComparison.OrdinalIgnoreCase)
             && value.Type == Vb6Value.ValueType.Boolean && value.Value is true)
@@ -151,7 +163,97 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
             Publish();
             return true;
         }
-        throw new NotImplementedException($"Assigning this value to Font.{name} is not implemented (#934)");
+        throw new NotImplementedException(standalone
+            ? $"Assigning this value to StdFont.{name} is not implemented (#4807)"
+            : $"Assigning this value to Font.{name} is not implemented (#934)");
+    }
+
+    private bool TrySetStandalone(string name, Vb6Value value)
+    {
+        // Exact standalone assignment rows: VB6 SP6 native/p-code, #4807. Do not infer other substitutions.
+        var member = name.ToLowerInvariant();
+        if (value.IsNull && member is "name" or "size" or "bold")
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        switch (member)
+        {
+            case "name" when value.Type == Vb6Value.ValueType.String && value.Value is string family:
+                if (family is "No Such Font" or "")
+                    return true;
+                if (family is "Wingdings" or "Symbol" or "Verdana" or "Times New Roman")
+                {
+                    font = new VBFont(family, font.Size, italic: font.Italic,
+                        charset: family is "Wingdings" or "Symbol" ? 2 : 0,
+                        underline: font.Underline, strikethrough: font.Strikethrough, weight: font.Weight);
+                    return true;
+                }
+                if (family is "Arial" or "Courier New" or "Tahoma" or "Courier")
+                {
+                    font = FontMembers.Named(font, value);
+                    return true;
+                }
+                break;
+            case "name" when value.Type == Vb6Value.ValueType.Integer && value.Value is int number && number == 5:
+                return true;
+            case "size":
+                if (value.Type == Vb6Value.ValueType.String && value.Value is string text && text is "x" or "10" or "11"
+                    || value.Type == Vb6Value.ValueType.Integer && value.Value is int size && size is -1 or 0 or 1 or 9 or 10 or 12 or 14 or 20 or 2048 or 2160 or 100000
+                    || value.Type == Vb6Value.ValueType.Long && value.Value is long large && large == 100000
+                    || value.Type == Vb6Value.ValueType.Integer && value.Value is int seven && seven == 7 && font.FontFamilyName == "Arial"
+                    || value.Type == Vb6Value.ValueType.Double && value.Value is double fraction && fraction is 7.5 or 9.75 or 10.5)
+                {
+                    var sized = FontMembers.Sized(font, value);
+                    var asked = Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture);
+                    if (font.FontFamilyName == "MS Sans Serif")
+                    {
+                        // Each measured on a fresh font: 10.5 reads Arial 10.5, where FontMembers keeps the bitmap's 9.75.
+                        if (asked is 1 or 9 or 10.5 or 11 or 14 or 20)
+                            sized = new VBFont("Arial", asked == 1 ? 1.5 : asked is 9 or 10.5 ? asked : asked + .25,
+                                italic: font.Italic, charset: 0, underline: font.Underline,
+                                strikethrough: font.Strikethrough, weight: font.Weight);
+                        else if (asked == 7.5)
+                            sized = new VBFont("Small Fonts", 7.5, italic: font.Italic, charset: 0,
+                                underline: font.Underline, strikethrough: font.Strikethrough, weight: font.Weight);
+                    }
+                    font = sized;
+                    return true;
+                }
+                break;
+            case "bold" when value.Type == Vb6Value.ValueType.Boolean
+                || value.Type == Vb6Value.ValueType.Integer && value.Value is int bold && bold is -1 or 0 or 1
+                || value.Type == Vb6Value.ValueType.String && value.Value is string flag && flag == "True":
+                var enabled = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value is true;
+                font = FontMembers.With(font, weight: enabled ? VBFont.BoldWeight : VBFont.NormalWeight);
+                // Bold sets Weight 700 or 400, and either makes MS Sans Serif read Arial: True, False, -1, 0 and 1 alike.
+                if (font.FontFamilyName == "MS Sans Serif")
+                    font = new VBFont("Arial", font.Size, italic: font.Italic, charset: 0,
+                        underline: font.Underline, strikethrough: font.Strikethrough, weight: font.Weight);
+                return true;
+            case "weight" when value.Type == Vb6Value.ValueType.Integer && value.Value is int weight
+                && weight is -1 or 0 or 100 or 400 or 550 or 551 or 600 or 700 or 900 or 1000 or 32767:
+                if (weight is -1 or 32767)
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                font = FontMembers.With(font, weight: weight > 550 ? VBFont.BoldWeight : VBFont.NormalWeight);
+                // Exactly 400 or 700 makes MS Sans Serif read Arial; 0, 100, 550, 551, 600, 900 and 1000 keep it (measured).
+                if (weight is 400 or 700 && font.FontFamilyName == "MS Sans Serif")
+                    font = new VBFont("Arial", font.Size, italic: font.Italic, charset: 0,
+                        underline: font.Underline, strikethrough: font.Strikethrough, weight: font.Weight);
+                return true;
+            case "italic" or "underline" or "strikethrough" when value.Type == Vb6Value.ValueType.Boolean && value.Value is bool set:
+                font = FontMembers.With(font,
+                    italic: member == "italic" ? set : null,
+                    underline: member == "underline" ? set : null,
+                    strikethrough: member == "strikethrough" ? set : null);
+                return true;
+            case "charset" when value.Type == Vb6Value.ValueType.Integer && value.Value is int charset
+                && charset is -1 or 0 or 1 or 2 or 128 or 255 or 256:
+                if (charset is -1 or 256)
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                font = new VBFont(charset switch { 2 => "Wingdings", 128 => "MS PGothic", 255 => "Arial", _ => font.FontFamilyName },
+                    font.Size, italic: font.Italic, charset: charset == 1 ? 0 : charset,
+                    underline: font.Underline, strikethrough: font.Strikethrough, weight: font.Weight);
+                return true;
+        }
+        return false;
     }
 
     public void Call(string method, List<Vb6Value> args) =>
