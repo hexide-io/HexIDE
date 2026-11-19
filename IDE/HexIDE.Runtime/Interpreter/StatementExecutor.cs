@@ -2326,9 +2326,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// String variable or a Variant: "ab" is a Byte() 0 To 3 holding 97 0 98 0, and "" a Byte() 0 To -1 (measured).
     /// </para>
     /// </summary>
-    private Vb6Value ArrayStore(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context, string? declaredClass = null)
+    private Vb6Value ArrayStore(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context, string? declaredClass = null, int? fixedStringWidth = null)
     {
         value.RefuseOddBytes("Array assignment");
+        if (value.Value is VBArray sourceStrings && sourceStrings.FixedStringWidth != fixedStringWidth)
+        {
+            if (IsDeclaredArrayVariable(context.valueStmt()))
+                throw new VBCompileErrorException("Can't assign to array");
+            throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+        }
         // Object is not a wildcard in a named array assignment; through a Variant only the array type counts (#999).
         if (value.Type == declared && value.Value is VBArray { ElementType: var element } source
             && element == Vb6Value.ValueType.Object && IsDeclaredArrayVariable(context.valueStmt())
@@ -2959,11 +2965,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
                 // A dynamic one takes what a Function declared with its type takes. The slot's array carries the declared
                 // type, since nothing else is ever stored there, and a ByRef parameter's is its caller's.
-                value = ArrayStore(oldLet.Type, value, context, (oldLet.Value as VBArray)?.DeclaredClass);
+                value = ArrayStore(oldLet.Type, value, context, (oldLet.Value as VBArray)?.DeclaredClass,
+                    (oldLet.Value as VBArray)?.FixedStringWidth);
             }
-            if (oldLet.Value is VBArray { FixedStringWidth: not null })
-                throw new NotImplementedException("Assigning a whole fixed-length String array is not implemented (#179): its assignment rules are unmeasured");
-            var stored = interpreter.CopyForStore(value);
+            if (value.Value is VBArray { FixedStringWidth: not null } && !IntoArray(context))
+            {
+                // Into a variable declared with a scalar type it is VB6's "Type mismatch" (measured for String and Long, #179
+                // review); into a Variant, or a Function As Variant, the coercion error (measured).
+                if (currentEnv.TryGetVariableLocation(identifier, out var scalarTarget)
+                    && interpreter.ExecutionContext.State.DeclaredTypeOf(scalarTarget) is { } scalarType
+                    && scalarType != Vb6Value.ValueType.EmptyVariant && !scalarType.IsArray)
+                    throw new VBCompileErrorException("Type mismatch");
+                throw new VBCompileErrorException("Can't assign or coerce array of fixed-length string or user-defined type to Variant");
+            }
+            var stored = IntoArray(context) ? interpreter.CopyDeclaredArrayForStore(value) : interpreter.CopyForStore(value);
             if (IntoArray(context) && stored.Value is VBArray { ElementType: var storedElement } storedArray
                 && storedElement == Vb6Value.ValueType.Object)
                 storedArray.DeclaredClass = (oldLet.Value as VBArray)?.DeclaredClass;
@@ -4829,7 +4844,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : currentModule.PrePass.DefaultTypeOf(variableName) ?? Vb6Value.ValueType.EmptyVariant;
                 var arrayType = redim.asTypeClause() is { } clause ? ExtractArrayType(clause)
                     : new Vb6Value.ValueType(elementType, true);
-                value = new Vb6Value(arrayType);
+                value = redim.asTypeClause()?.fieldLength() is { } initialLength
+                    ? new Vb6Value(arrayType).WithArray(FixedLengthString.Array(
+                        FixedLengthString.Width(initialLength, currentEnv, interpreter.ExecutionContext.State), null))
+                    : new Vb6Value(arrayType);
                 interpreter.ExecutionContext.AllocVariable(currentEnv, variableName, value);
                 if (currentEnv.TryGetOwnVariableLocation(variableName, out var localLoc))
                 {
@@ -4868,8 +4886,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!preserve && declaredArray && !variant && redim.asTypeClause() is not null && type != value.Type)
                 throw new VBCompileErrorException("Can't change data types of array elements");
 
-            if (redim.asTypeClause() is not null && value.Value is VBArray { FixedStringWidth: not null })
-                throw new NotImplementedException("ReDim As on a fixed-length String array is not implemented (#179): its width rules are unmeasured");
+            var requestedWidth = redim.asTypeClause()?.fieldLength() is { } redimLength
+                ? FixedLengthString.Width(redimLength, currentEnv, interpreter.ExecutionContext.State) : (int?)null;
+            if (variant && requestedWidth is not null)
+                throw new VBCompileErrorException("Can't assign or coerce array of fixed-length string or user-defined type to Variant");
+            if (redim.asTypeClause() is not null && declaredArray && !variant
+                && requestedWidth != (value.Value as VBArray)?.FixedStringWidth)
+                throw new VBCompileErrorException("Can't change data types of array elements");
             var objectClass = redim.asTypeClause() is { } objectClause
                 ? ObjectArrayClass(objectClause) : (value.Value as VBArray)?.DeclaredClass;
             if (redim.asTypeClause()?.type()?.complexType() is { } redimType
@@ -4883,6 +4906,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     && SplitTypeName(ct.GetText()) is var named
                     && interpreter.TryResolveType(named.Name, currentModule, named.Qualifier, out var def))
                     result = interpreter.NewUdtArray(def, bounds);
+                else if (requestedWidth is { } width)
+                {
+                    var strings = FixedLengthString.Array(width, bounds);
+                    strings.IsDynamic = true;
+                    result = new Vb6Value(type).WithArray(strings);
+                }
                 else if (value.Value is VBArray { ElementType: var et } previous
                     && (et == Vb6Value.ValueType.UserDefinedType || previous.FixedStringWidth is not null) && redim.asTypeClause() is null)
                     result = value.WithArray(previous.NewWithBounds(bounds));
@@ -5632,13 +5661,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         throw new VBCompileErrorException("Can't assign to array");
                     if (array.IsLocked)
                         throw new VBRunTimeException(ctx, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
-                    if (array.FixedStringWidth is not null)
-                        throw new NotImplementedException("Assigning a whole fixed-length String array is not implemented (#179): its assignment rules are unmeasured");
-                    value = ArrayStore(field.Type, value, ctx);
+                    value = ArrayStore(field.Type, value, ctx, fixedStringWidth: array.FixedStringWidth);
                 }
                 if (bag.IsObjectField(fieldName))
                     RefuseLetIntoObject(field, fieldName, ctx);
-                bag.TrySet(fieldName, interpreter.CopyForStore(value), ctx);
+                bag.TrySet(fieldName, field.Value is VBArray
+                    ? interpreter.CopyDeclaredArrayForStore(value) : interpreter.CopyForStore(value), ctx);
                 await interpreter.ReleaseRef(field);
                 return;
             }

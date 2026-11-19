@@ -1084,7 +1084,7 @@ public class PrePass : VB6BaseVisitor<object?>
         foreach (var arg in argList.arg())
         {
             if (arg.asTypeClause() is { } fixedType && fixedType.fieldLength() is not null
-                && fixedType.type()?.baseType()?.STRING() is not null)
+                && fixedType.type()?.baseType()?.STRING() is not null && arg.LPAREN() is null)
                 throw new VBCompileErrorException("Expected array");
             // `Sub F(n%)` is `Sub F(n As Integer)`, and an As clause beside the character is VB6's compile error (measured,
             // #742). With neither, the DefType's for the name's letter (measured, #169: `Sub ITake(i7)` under DefInt, given
@@ -1111,7 +1111,8 @@ public class PrePass : VB6BaseVisitor<object?>
                     && (defaultType is null ? DeclaresVariant(arg.asTypeClause()) : defaultType == Vb6Value.ValueType.Object),
                 TypeName: NamedType(arg.asTypeClause()),
                 DeclaredObject: arg.LPAREN() == null
-                    && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object)));
+                    && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object))
+            { FixedStringLength = arg.asTypeClause()?.fieldLength() });
         }
         return result;
     }

@@ -160,7 +160,10 @@ public sealed record ParamInfo(
     // Whether it is declared `As Object`: it reads as a Variant does (ReadsAsVariant), but it is an object variable, so a
     // Let into it is the held object's default member (measured, #1493: `x = 1` with `x As Object`, ByRef or ByVal, is
     // 438 where `x As Variant` takes 1).
-    bool DeclaredObject = false);
+    bool DeclaredObject = false)
+{
+    internal VB6Parser.FieldLengthContext? FixedStringLength { get; init; }
+}
 
 /// <summary>
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller

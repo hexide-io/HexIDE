@@ -86,7 +86,7 @@ public class FixedLengthStringTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Const N = 1.5\nDim fx As String * N", "Fixed-length string width conversion is not implemented (#179)")]
+    [InlineData("Const N = \"unmeasured\"\nDim fx As String * N", "Fixed-length string width conversion is not implemented (#179)")]
     public async Task Remaining_storage_paths_are_explicitly_refused(string program, string message)
     {
         var run = () => Run(program);
