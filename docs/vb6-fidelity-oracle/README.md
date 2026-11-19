@@ -630,6 +630,7 @@ added afterwards.
 - [A Let into an object variable (2026-10-23, #1493)](a-let-into-an-object-variable.md#a-let-into-an-object-variable-2026-10-23-1493)
 - [An unset Function of an object type returns Nothing (2026-11-18, #4622, SP6)](a-let-into-an-object-variable.md#an-unset-function-of-an-object-type-returns-nothing-2026-11-18-4622-sp6)
 - [A default member, by kind and by target (2026-11-18, #4694)](a-let-into-an-object-variable.md#a-default-member-by-kind-and-by-target-2026-11-18-4694)
+- [A variable declared As Control (2026-11-19, #4864, SP6)](a-variable-declared-as-control.md#a-variable-declared-as-control-2026-11-19-4864-sp6)
 - [The size of a control added from the toolbox (2026-10-23, #1473, design-time, IDE, release build)](the-size-of-a-control-added-from-the-toolbox.md#the-size-of-a-control-added-from-the-toolbox-2026-10-23-1473-design-time-ide-release-build)
 - [What the toolbox's tooltips read (2026-11-18, #2751, SP6, IDE)](the-size-of-a-control-added-from-the-toolbox.md#what-the-toolboxs-tooltips-read-2026-11-18-2751-sp6-ide)
 - [An undeclared variable passed ByRef (2026-10-23, #1505)](an-undeclared-variable-passed-byref.md#an-undeclared-variable-passed-byref-2026-10-23-1505)
