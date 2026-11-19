@@ -43,6 +43,10 @@ file; they were run again with `Err.Clear` after it, and only the second run is 
 | `String * 5` "ab"; `String * 2` "abcd" | `61 62 20 20 20`; `61 62`: padded or cut, no length |
 | Type (Integer 1, `String * 3` "a") | `01 00 61 20 20` |
 
+**Refined 2026-11-19 (#179):** `?` only where nothing in the code page looks like the character. Neither α
+(U+03B1) nor ā (U+0101) has a byte in code page 1252, and both are written as `61`, an `a`; Ж has no lookalike and
+is `3F`. The rows are in [fixed-length-strings.md](fixed-length-strings.md).
+
 **A String's length**, where it has one, is 2 bytes below 65,535 and `FF FF` then 4 bytes from 65,535 on: a Variant
 String of 40,000 is `08 00 40 9C`, of 65,535 `08 00 FF FF FF FF 00 00`, and of 70,000 `08 00 FF FF 70 11 01 00`, and a
 Type's String field of 70,000 is the same. A String has a length in a Random record, in a Type, in an array and in a
