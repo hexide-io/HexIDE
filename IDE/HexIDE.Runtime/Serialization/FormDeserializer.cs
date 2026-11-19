@@ -764,7 +764,10 @@ public class FormDeserializer
                             serializedComponent.Properties[serializedComponent.Properties.Keys.First(k =>
                                 k.Equals("TabIndex", StringComparison.OrdinalIgnoreCase))] = value;
                         }));
-                else
+                // An intrinsic class models TabIndex wherever VB6 gives it one, so a raw line on VB.Shape, Image, Line,
+                // Timer or Menu belongs to a class with none (#1974). It stays carried and takes no number. What VB6
+                // itself does with such a line at load isn't measured.
+                else if (!componentClass.VBTypeName.StartsWith("VB.", StringComparison.OrdinalIgnoreCase))
                 {
                     var rawIndex = instance.UnknownRawProperties.FindIndex(p =>
                         p.Name.Equals("TabIndex", StringComparison.OrdinalIgnoreCase));

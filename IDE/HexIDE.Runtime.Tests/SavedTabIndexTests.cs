@@ -102,6 +102,19 @@ public class SavedTabIndexTests
     }
 
     [Fact]
+    public void A_TabIndex_line_on_a_class_VB6_gives_none_takes_no_number()
+    {
+        // Counted, the Shape's 0 would take Text1's place and push Text1 to 2. Left out, 0 and 1 are already VB6's numbers.
+        var form = Read(Control("VB.Shape", "Shape1", 0) + Control("VB.TextBox", "Text1", 0) + Control("VB.TextBox", "Text2", 1));
+        Indices(form).Should().Equal(0, 1);
+        var shape = form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Shape1");
+        shape.UnknownRawProperties.Single(p => p.Name == "TabIndex").EditedValue.Should().BeNull();
+        var (text, _) = new FormSerializer().Serialize(form, "Form1.frm");
+        // The save writes the Shape after the windowed TextBoxes, so compare the lines without their order.
+        PreservedControlText.TabIndexes(text).Should().BeEquivalentTo([0, 0, 1]);
+    }
+
+    [Fact]
     public void An_absent_index_keeps_its_class_default()
     {
         var form = Read(Control("VB.TextBox", "Text1", 0) + Control("VB.TextBox", "Text2", null));
