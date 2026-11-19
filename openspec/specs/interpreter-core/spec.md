@@ -1424,7 +1424,7 @@ Measured in [a form's own ActiveControl](../../../docs/vb6-fidelity-oracle/a-for
 - **WHEN** the form is shown
 - **THEN** the control SHALL read its own visibility value
 - **AND** Line SHALL keep reading its own value through Load, Show and Hide
-- **AND** the setter and existing Label, Image, Shape and hidden-container behavior SHALL remain unchanged
+- **AND** the setter and existing Label, Image, Shape, menu and hidden-container behavior SHALL remain unchanged
 
 Measured button, Line, ProgressBar and loaded button-array rows: [#4829](https://github.com/hexide-io/HexIDE/issues/4829).
 Hidden Frame/PictureBox ancestry and immediate reads after setting Visible on a hidden form remain unmeasured.
