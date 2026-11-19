@@ -3,6 +3,10 @@
 Measured with `scripts/vb6-oracle.ps1` in the Windows oracle guest, native and p-code (`CompilationType=-1`).
 Both modes returned the same values and errors. The clipboard belongs to the guest, not the development desktop.
 
+That script runs in session 0. Re-run on the guest's console (2026-11-18, #4768), on the console user's clipboard,
+the IDE, p-code and native agreeing: every row of the defaults, the format table, `U` and `KeepFormats` read the same,
+and so did the late-bound `c.Clear 1`'s 450. `c.SetText` and `c.GetFormat` weren't repeated.
+
 ### Defaults, text and format presence
 
 `Clipboard.Clear` followed by `Clipboard.GetText` returns an empty **String**, and `GetFormat(1)` is **Boolean False**.

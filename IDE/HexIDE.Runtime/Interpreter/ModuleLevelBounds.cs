@@ -87,6 +87,11 @@ internal sealed class ModuleLevelBounds
         => new ModuleLevelBounds(interpreter, module, env, "Const " + constant.ambiguousIdentifier().GetText() + "'s value", plural: false)
             .Walk(constant.valueStmt(), inConst: true, position: constant.Start.TokenIndex);
 
+    internal static Task CheckEnumMember(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env,
+        VB6Parser.EnumerationStmt_ConstantContext member)
+        => new ModuleLevelBounds(interpreter, module, env, "Enum member " + member.ambiguousIdentifier().GetText(), plural: false)
+            .Walk(member.valueStmt(), inConst: true, position: member.Start.TokenIndex);
+
     // Procedure expressions have different measured rules from module expressions. Leave other names and calls
     // to today's evaluator; only a bare read of a later local Const is classified here (#894).
     public static void CheckProcedure(ModuleInfo module, ProcedureInfo procedure, IParseTree expression, int position, bool inConst, int depth = 0)
@@ -179,6 +184,10 @@ internal sealed class ModuleLevelBounds
         // ambiguous, as a bare read anywhere is (ProjectNames).
         // Another module's Public Enum member is a constant too, a class's included (measured, #889: Module2's `colMax` makes
         // `Const K = colMax + 1` 3 and `Dim d(colMax)` 0 To 2, and Class1's `clsA = 40` sizes `Dim d(clsA)` 0 To 40).
+        foreach (var owner in interpreter.Modules.All)
+            if (!ReferenceEquals(owner, module) && owner.Kind == InterpreterModuleKind.Standard
+                && owner.PrePass.HasPendingEnumMember(name))
+                await interpreter.RunModuleDeclarations(owner);
         ModuleInfo? exporter = null;
         var isConst = false;
         long? exported = null;
@@ -245,7 +254,11 @@ internal sealed class ModuleLevelBounds
             throw ConstantExpressionRequired();
 
         if (interpreter.Modules.TryGet(parts[0], out var other) && other.Kind == InterpreterModuleKind.Standard)
+        {
+            if (other.PrePass.DeferredEnums.Count != 0)
+                await interpreter.RunModuleDeclarations(other);
             return await ModuleMember(other, parts, text);
+        }
         if (interpreter.TryResolveEnum(parts[0], module, out var enumMembers))
         {
             if (parts.Length != 2 || !enumMembers.TryGetValue(parts[1], out var member))

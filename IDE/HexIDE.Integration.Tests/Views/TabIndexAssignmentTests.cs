@@ -1,5 +1,7 @@
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Headless.XUnit;
 using HexIDE.IDE;
@@ -89,14 +91,18 @@ public class TabIndexAssignmentTests
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, source, new NullSink())!;
         project.AddForm(form);
+        return (OpenDesigner(form), form);
+    }
+
+    private static FormEditViewModel OpenDesigner(FormDefinition form)
+    {
         var settings = Substitute.For<ISettingsService>();
         settings.GridWidth.Returns(8);
         settings.GridHeight.Returns(8);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             new ComponentRegistry(), Substitute.For<ILocalizationService>());
-        var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
+        return new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
             settings, Substitute.For<ILocalizationService>()).Initialize(form);
-        return (vm, form);
     }
 
     private static string Add(FormEditViewModel vm, ComponentBaseClass type)
@@ -240,6 +246,88 @@ public class TabIndexAssignmentTests
             "End");
 
         PreservedControlText.TabIndexes(block).Should().Equal(4, 6);
+    }
+
+    // #4825: ListView is modelled, but its TabIndex is carried as a raw property.
+    // Consecutive values only: VB6 renumbers a form's TabIndexes when it loads it, which HexIDE doesn't yet (#4843).
+    private static string FormWithListView(string tabIndex, bool withTextBox = false) =>
+        "VERSION 5.00\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        (withTextBox
+            ? "   Begin VB.TextBox Text1 \r\n      TabIndex        =   0\r\n   End\r\n"
+            : "") +
+        "   Begin MSComctlLib.ListView ListView1 \r\n" +
+        $"      TabIndex        =   {tabIndex}\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n";
+
+    [AvaloniaFact]
+    public async Task A_control_added_to_a_VBP_form_counts_the_ListViews_TabIndex()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            var projectPath = Path.Combine(directory.FullName, "Project1.vbp");
+            File.WriteAllText(projectPath, "Type=Exe\r\nForm=Form1.frm\r\n");
+            File.WriteAllText(Path.Combine(directory.FullName, "Form1.frm"), FormWithListView("0"));
+            var loaded = await new ProjectLoader().LoadAsync(projectPath, new NullSink());
+            var form = loaded.Project.Forms.Single();
+            var vm = OpenDesigner(form);
+
+            var name = Add(vm, CommandButtonComponentClass.Instance);
+
+            (TabIndex(vm, form, "ListView1"), TabIndex(vm, form, name)).Should().Be(("0", "1"));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_control_added_counts_the_highest_TabIndex_when_carried_as_a_property()
+    {
+        var (vm, form) = Open(FormWithListView("1", withTextBox: true));
+
+        var name = Add(vm, CommandButtonComponentClass.Instance);
+
+        TabIndex(vm, form, name).Should().Be("2");
+    }
+
+    [AvaloniaFact]
+    public void A_control_pasted_counts_the_ListViews_TabIndex()
+    {
+        var (vm, form) = Open(FormWithListView("1", withTextBox: true));
+
+        CopyAndPaste(vm, "Text1");
+
+        TabIndex(vm, form, vm.SelectedComponent!.Name).Should().Be("2");
+    }
+
+    [AvaloniaFact]
+    public void A_malformed_ListView_TabIndex_does_not_use_up_a_number()
+    {
+        var (vm, form) = Open(FormWithListView("1invalid", withTextBox: true));
+
+        var name = Add(vm, CommandButtonComponentClass.Instance);
+
+        TabIndex(vm, form, name).Should().Be("1");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("1", "2")]
+    [InlineData("invalid", "1")]
+    public void An_edited_raw_TabIndex_supersedes_the_original_line(string edited, string expected)
+    {
+        var (vm, form) = Open(FormWithListView("3", withTextBox: true));
+        var properties = vm.AllComponents.Single(c => c.Name == "ListView1").Instance.UnknownRawProperties;
+        var index = properties.FindIndex(p => p.Name == "TabIndex");
+        properties[index] = properties[index] with { EditedValue = edited };
+
+        var name = Add(vm, CommandButtonComponentClass.Instance);
+
+        TabIndex(vm, form, name).Should().Be(expected);
     }
 
     [AvaloniaFact]
