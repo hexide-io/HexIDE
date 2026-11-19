@@ -71,3 +71,47 @@ The control is the duplicate-only form, which loaded clean: there, Ctrl+S saved 
 **What this overturned.** It was reasonable to guess VB6 refuses a duplicated property, or keeps the first. It takes
 each line in turn, silently. And the refusal people remember, "Errors during load", turned out to cost the whole form
 only in a `/make` build. The IDE opens the form, leaves the failed lines unset, and then declines to save it in place.
+
+### Which values a .frm line can hold, by the property's type (2026-11-19, #4317, `/make`, SP6)
+
+**The question.** "Had an invalid value" is the log entry for a line VB6 can't read, and the rows above measure one
+case of it, `ClientHeight = abc`. Which other texts does VB6 refuse, and does it depend on the property's type?
+
+**The probe.**
+- **The software:** VB6 SP6 6.00.9782.
+- **The form:** one form holding 28 CommandButtons. Each block names one property twice: a readable value, then the
+  text under test on the next line.
+- **The types:**
+  - Height, a Single, with 15 texts;
+  - TabIndex, an Integer, with 4;
+  - BackColor, a colour, with 4;
+  - Style, an enum, with 3;
+  - Caption, a string, with 2.
+- **The run:** one `/make` in session 0. It fails, because some lines are refused, and its log lists every refused line
+  by number. A line with no log entry was accepted.
+
+| Property | Refused: "had an invalid value" | Accepted: no log entry |
+|---|---|---|
+| Height (Single) | `abc`, `x`, `Fixed`, `5abc`, `1D2`, `1,5`, `"500"`, `&H10`, `&H10&`, `&O17`, `&H8000000F&` | `1e3`, `--5`, `1.5.2` |
+| TabIndex (Integer) | `abc`, `1.5`, `"3"` | `&H3` |
+| BackColor | `abc`, `"255"` | `255`, `&H02C0C0C0&` |
+| Style (enum) | `abc`, `1.5`, `Graphical` | |
+| Caption (string) | `abc` and `5`, logged as "must be a quoted string" | |
+
+- **An empty value,** `Height =` with nothing after it, was logged as "could not be loaded", not "had an invalid value",
+  and against the line after it (78 for a value on line 77).
+- **What an accepted text sets isn't measured.** The build failed, so nothing read `--5` or `1.5.2` back.
+
+**What it says.**
+- **A word is refused for every type,** even the enum's own name: `Graphical` for Style.
+- **A quoted value is refused on a property that isn't a string,** even a quoted number.
+- **A number isn't always accepted.** An Integer or an enum refuses `1.5`. A Single refuses `1,5`, `1D2`, and `&H` and
+  `&O` forms, where an Integer accepts `&H3`.
+- **VB6 accepts some texts that don't look like numbers,** `--5` and `1.5.2` on a Single. I have no rule for which.
+
+**Where HexIDE's reader and this disagree,** read from `FormDeserializer.cs` and `VbFrmFormatDeserializer.cs` on main
+`d5c6dc78d`, not run:
+- **HexIDE can't read these, though VB6 does:** `--5` and `1.5.2` on a Single, `&H3` on an Integer, and `255` on a
+  colour.
+- **HexIDE reads these, though VB6 refuses them:** `1,5` on a Single, read as a number with a thousands separator, and
+  `1.5` on an Integer or an enum.
