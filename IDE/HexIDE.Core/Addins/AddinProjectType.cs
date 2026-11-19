@@ -57,11 +57,19 @@ public sealed record AddinProjectType(string Title)
     /// neither reads nor renders through it again.
     /// </para>
     /// <para>
-    /// The controls on a form are the add-in's own <see cref="HexIDE.Runtime.Components.IComponentClass"/>es, which
-    /// <see cref="IHexIdeHost.RegisterComponent"/> offers in the toolbox.
+    /// With this reader the controls on a form are the add-in's own <see cref="HexIDE.Runtime.Components.IComponentClass"/>es, which
+    /// <see cref="IHexIdeHost.RegisterComponent"/> offers in the toolbox. Naming <see cref="FormFormat"/> instead uses
+    /// HexIDE's format and controls. These two properties cannot be set together.
     /// </para>
     /// </remarks>
     public HexIDE.IDE.IFormFileReader? Forms { get; init; }
+
+    /// <summary>
+    /// The id of a built-in format that reads and writes this type's forms, UserControls and PropertyPages, using
+    /// HexIDE's controls: <c>"vb6"</c> selects its VB6 format. Resolved when used; an unknown id leaves each form out
+    /// with an explanation. Cannot be set together with <see cref="Forms"/>.
+    /// </summary>
+    public string? FormFormat { get; init; }
 
     /// <summary>
     /// What renders its projects' own files, so that HexIDE can write the changes it offers to them. Without one, HexIDE never
@@ -117,6 +125,9 @@ public sealed record AddinProjectContent(string Name)
 
     /// <summary>Its references, in priority order.</summary>
     public IReadOnlyList<AddinProjectReference> References { get; init; } = [];
+
+    /// <summary>Its component libraries, as a VB6 project's Object= lines name them.</summary>
+    public IReadOnlyList<AddinProjectComponent> Components { get; init; } = [];
 
     /// <summary>Its folders, relative to the project file's folder, including any that hold nothing.</summary>
     public IReadOnlyList<string> Folders { get; init; } = [];
@@ -187,4 +198,20 @@ public interface IAddinProjectChanges
 
     /// <summary>The project's references are now these, in priority order.</summary>
     void ReferencesChanged(IReadOnlyList<AddinProjectReference> references);
+}
+
+/// <summary>A component library a contributed project names.</summary>
+public sealed class AddinProjectComponent
+{
+    /// <summary>The type library's GUID.</summary>
+    public required Guid Guid { get; init; }
+
+    /// <summary>The major version.</summary>
+    public required int Major { get; init; }
+
+    /// <summary>The minor version.</summary>
+    public required int Minor { get; init; }
+
+    /// <summary>The component library's file name.</summary>
+    public required string FileName { get; init; }
 }

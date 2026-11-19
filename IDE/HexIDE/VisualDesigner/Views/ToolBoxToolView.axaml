@@ -22,7 +22,8 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="visualDesigner:ComponentToolViewModel">
                     <ToggleButton IsChecked="{CompiledBinding IsSelected}"
-                                  ToolTip.Tip="{CompiledBinding Name}"
+                                  ToolTip.Tip="{CompiledBinding DisplayName}"
+                                  AutomationProperties.Name="{CompiledBinding DisplayName}"
                                   Width="28" Height="28" Padding="4"
                                   DoubleTapped="OnToolDoubleTap">
                         <Image Source="{CompiledBinding Icon}" Width="20" Height="20" />

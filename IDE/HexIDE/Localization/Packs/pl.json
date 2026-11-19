@@ -151,6 +151,7 @@
     "Str.Archive.FolderReadyFormat": "Folder źródeł zsynchronizowano z zapisanego archiwum:\n{0}\n\nZmiany w folderze zatrzymują synchronizację; nie są importowane. Załaduj projekt ponownie, aby odświeżyć podglądy.",
     "Str.Archive.FolderErrorFormat": "Synchronizacja folderu źródeł została zatrzymana:\n{0}\n\nArchiwum nie zostało zmienione.",
     "Str.Archive.OpenErrorFormat": "Nie można otworzyć {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "żaden zainstalowany format nie odczytuje formularzy „{0}”",
     "Str.ContributedProject.OpenError": "Nie można otworzyć {0} za pomocą {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} otwiera {1}: jego pliki dodaje i usuwa program, do którego należy, a nie HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "Program, do którego należy {1}, usunął {0} z projektu. Najpierw zapisać zmiany?",

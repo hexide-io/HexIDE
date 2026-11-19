@@ -15,9 +15,8 @@ namespace HexIDE.Runtime.Tests;
 /// </para>
 ///
 /// <para>
-/// <c>AppActivate</c> and <c>GoSub</c> stand for every unimplemented construct. They were chosen as the
-/// least likely to be implemented soon: <c>GoSub</c> is the tree-walk limit in <c>interpreter-gaps.md</c>.
-/// If either is implemented, substitute another.
+/// <c>AppActivate</c> stands for every unimplemented construct. GoSub also stood here until #4726.
+/// If AppActivate is implemented, substitute another.
 /// </para>
 /// </summary>
 public class UnimplementedIsNotTrappableTests : BaseVBTestFixture
@@ -25,7 +24,6 @@ public class UnimplementedIsNotTrappableTests : BaseVBTestFixture
     [Theory]
     // A statement of the procedure body itself: ExecuteProcedureBody's Resume Next catch.
     [InlineData("AppActivate \"Notepad\"", "AppActivate", "")]
-    [InlineData("GoSub Later", "GoSub", "    Exit Sub\nLater:\n    Return\n")]
     // A statement inside a nested block: VisitBlock's per-block catch, a different trap.
     [InlineData("If True Then\n        AppActivate \"Notepad\"\n    End If", "AppActivate", "")]
     public async Task On_Error_Resume_Next_does_not_step_over_an_unimplemented_statement(

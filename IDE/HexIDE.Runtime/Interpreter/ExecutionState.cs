@@ -92,9 +92,9 @@ public class ExecutionState
 
     /// <summary>The declared class/interface name of a slot, or null when the slot isn't class-typed.</summary>
     public string? DeclaredClassOf(int location) =>
-        DeclaredViewOf(location) is { } name && name != "Object" ? name : null;
+        DeclaredViewOf(location) is { } name && name is not ("Object" or "Control") ? name : null;
 
-    // Object selects late binding on a read, but imposes no class constraint on a store (#1435).
+    // Object/Control select named-call late binding on a read, but impose no class constraint on a store (#1435, #4737).
     public string? DeclaredViewOf(int location) =>
         declaredClasses.TryGetValue(location, out var c) ? c : null;
 

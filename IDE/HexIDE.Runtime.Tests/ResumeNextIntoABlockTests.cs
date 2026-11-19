@@ -830,7 +830,7 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     {
         // Resume Next traps VB6's errors, not HexIDE's refusals: an untrappable refusal raised while a condition is
         // evaluated must still end the run.
-        var run = () => RunResumingNext("If Refused() Then c = \"Then\"\nFunction Refused()\n    GoSub There\nThere:\nEnd Function\n");
+        var run = () => RunResumingNext("If Refused() Then c = \"Then\"\nFunction Refused()\n    AppActivate \"Notepad\"\nEnd Function\n");
 
         await run.Should().ThrowAsync<NotImplementedException>();
     }
