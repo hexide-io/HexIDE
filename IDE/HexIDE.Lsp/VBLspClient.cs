@@ -490,6 +490,11 @@ public sealed class VBLspClient : ILspClient
         };
         rpc.Disconnected += _rpcDisconnected;
         _rpc = rpc;
+        // Disconnected reports the loss; observe Completion even when StopAsync never awaits it (#4875).
+        _ = rpc.Completion.ContinueWith(t =>
+            _logger.LogDebug(t.Exception, "VB LSP connection completed with an error"),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
         rpc.StartListening();
 
         await InitializeAsync(cancellationToken, attempt);
