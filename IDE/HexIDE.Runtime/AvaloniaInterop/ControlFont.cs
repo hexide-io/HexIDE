@@ -128,7 +128,7 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
             "size" => Vb6Value.NewCurrency((decimal)font.Size),
             "bold" => new Vb6Value(font.Weight > 550),
             "italic" => new Vb6Value(font.Italic),
-            "weight" => new Vb6Value(font.Weight > 550 ? 700 : 400),
+            "weight" => new Vb6Value(standalone && font.Weight is 350 or 500 ? font.Weight : font.Weight > 550 ? 700 : 400),
             "charset" => new Vb6Value(font.Charset),
             "underline" when standalone => new Vb6Value(font.Underline),
             "strikethrough" when standalone => new Vb6Value(font.Strikethrough),
@@ -172,8 +172,11 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
     {
         // Exact standalone assignment rows: VB6 SP6 native/p-code, #4807. Do not infer other substitutions.
         var member = name.ToLowerInvariant();
-        if (value.IsNull && member is "name" or "size" or "bold")
+        if (value.IsNull && (member is "name" or "size" or "bold" || IsFresh
+            && member is "italic" or "underline" or "strikethrough" or "weight" or "charset"))
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (IsFresh && TrySetFreshStandalone(member, value))
+            return true;
         switch (member)
         {
             case "name" when value.Type == Vb6Value.ValueType.String && value.Value is string family:
@@ -255,6 +258,172 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
         }
         return false;
     }
+
+    private bool IsFresh => font.FontFamilyName == "MS Sans Serif" && font.Size == 8.25
+        && font.Weight == 400 && font.Charset == 0 && !font.Italic && !font.Underline && !font.Strikethrough;
+
+    private bool TrySetFreshStandalone(string member, Vb6Value value)
+    {
+        // Fresh-font rows only: oracle PR #4943, a-free-standing-stdfonts-values-of-every-type.md.
+        // Share conversions only across the member types measured there; never infer a font substitution.
+        var type = value.Type;
+        var common = type == Vb6Value.ValueType.EmptyVariant || type == Vb6Value.ValueType.Boolean
+            || type == Vb6Value.ValueType.Integer || type == Vb6Value.ValueType.Long
+            || type == Vb6Value.ValueType.Double || type == Vb6Value.ValueType.String;
+        switch (member)
+        {
+            case "bold" or "italic" or "underline" or "strikethrough"
+                when common || type == Vb6Value.ValueType.Single || type == Vb6Value.ValueType.Byte || type == Vb6Value.ValueType.Currency:
+                var flag = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value is true;
+                font = member == "bold"
+                    ? new VBFont("Arial", 8.25, weight: flag ? 700 : 400)
+                    : FontMembers.With(font, italic: member == "italic" ? flag : null,
+                        underline: member == "underline" ? flag : null,
+                        strikethrough: member == "strikethrough" ? flag : null);
+                return true;
+            case "weight" or "charset" when common || type == Vb6Value.ValueType.Byte || type == Vb6Value.ValueType.Currency:
+                var integer = (int)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value!;
+                if (integer < 0 || integer > (member == "weight" ? 1000 : 255))
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                if (member == "weight")
+                {
+                    font = new VBFont(integer is 400 or 700 ? "Arial" : "MS Sans Serif", 8.25,
+                        weight: integer > 550 ? 700 : 400);
+                    return true;
+                }
+                var family = integer switch
+                {
+                    0 or 1 => "MS Sans Serif",
+                    2 => "Wingdings",
+                    128 => "MS PGothic",
+                    129 or 136 => "Ebrima",
+                    130 => "Nirmala UI Semilight",
+                    134 => "SimSun",
+                    222 => "Leelawadee UI",
+                    3 or 4 or 77 or 86 or 161 or 162 or 163 or 177 or 178 or 186 or 204 or 238 or 254 or 255 => "Arial",
+                    _ => null,
+                };
+                if (family is null)
+                    return false;
+                font = new VBFont(family, 8.25, charset: integer == 1 ? 0 : integer,
+                    weight: integer == 130 ? 350 : 400);
+                return true;
+            case "size" when common || type == Vb6Value.ValueType.Single || type == Vb6Value.ValueType.Byte
+                || type == Vb6Value.ValueType.Currency || type == Vb6Value.ValueType.Date:
+                // CoerceOnStore's Currency path does not read a Date's serial; Size measured that conversion too.
+                var numeric = type == Vb6Value.ValueType.Date ? new Vb6Value(((VbDate)value.Value!).Serial) : value;
+                var size = (decimal)VbNumeric.CoerceOnStore(numeric, Vb6Value.ValueType.Currency, null).Value!;
+                if (size <= 0)
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                if (size >= 24576)
+                    throw new VBRunTimeException(VBStandardError.Overflow);
+                if (!FreshSizes.TryGetValue(size, out var sized))
+                    return false;
+                font = new VBFont(sized.Name, sized.Size, charset: 0, weight: 400);
+                return true;
+            case "name" when type == Vb6Value.ValueType.EmptyVariant || type == Vb6Value.ValueType.Boolean && value.Value is true
+                || type == Vb6Value.ValueType.Double && value.Value is double number && number == 5.5
+                || type == Vb6Value.ValueType.String:
+                var asked = (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value!;
+                if (asked.Length > 31)
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                if (type != Vb6Value.ValueType.String || asked is "" or "Arial " or " Arial" || asked == new string('A', 31))
+                    return true;
+                var named = asked switch
+                {
+                    "Arial" or "arial" or "ARIAL" => "Arial",
+                    "MS Sans Serif" or "ms sans serif" => "MS Sans Serif",
+                    _ => null,
+                };
+                // These names were measured with this spelling only.
+                if (asked is "Microsoft Sans Serif" or "Segoe UI" or "Lucida Console" or "MS Serif" or "Small Fonts" or "Courier New" or "Tahoma")
+                    named = asked;
+                if (named is not null)
+                {
+                    font = new VBFont(named, 8.25, charset: 0, weight: 400);
+                    return true;
+                }
+                if (asked is "System" or "Terminal" or "Fixedsys" or "Webdings" or "Marlett")
+                {
+                    font = new VBFont(asked, asked switch { "System" => 9.75, "Terminal" => 6, "Fixedsys" => 9, _ => 8.25 },
+                        charset: asked switch { "Terminal" => 255, "Webdings" or "Marlett" => 2, _ => 0 },
+                        weight: asked switch { "System" or "Terminal" => 700, "Marlett" => 500, _ => 400 });
+                    return true;
+                }
+                break;
+        }
+        return false;
+    }
+
+    private static readonly Dictionary<decimal, (string Name, double Size)> FreshSizes = new()
+    {
+        [0.1m] = ("Arial", 1.5),
+        [0.5m] = ("Arial", 1.5),
+        [0.75m] = ("Arial", 1.5),
+        [1m] = ("Arial", 1.5),
+        [2m] = ("Small Fonts", 2.25),
+        [3m] = ("Small Fonts", 3),
+        [4m] = ("Small Fonts", 3.75),
+        [5m] = ("Small Fonts", 5.25),
+        [6m] = ("Small Fonts", 6),
+        [7m] = ("Small Fonts", 6.75),
+        [8m] = ("MS Sans Serif", 8.25),
+        [8.25m] = ("MS Sans Serif", 8.25),
+        [9m] = ("Arial", 9),
+        [9.5m] = ("MS Sans Serif", 9.75),
+        [10m] = ("MS Sans Serif", 9.75),
+        [10.25m] = ("Arial", 10.5),
+        [10.5m] = ("Arial", 10.5),
+        [11m] = ("Arial", 11.25),
+        [12m] = ("MS Sans Serif", 12),
+        [12.3m] = ("MS Sans Serif", 12),
+        [12.5m] = ("Arial", 12.75),
+        [12.6m] = ("Arial", 12.75),
+        [12.75m] = ("Arial", 12.75),
+        [13m] = ("Arial", 12.75),
+        [14m] = ("Arial", 14.25),
+        [15m] = ("MS Sans Serif", 15),
+        [16m] = ("Arial", 15.75),
+        [17m] = ("MS Sans Serif", 17.25),
+        [18m] = ("MS Sans Serif", 18),
+        [19m] = ("Arial", 18.75),
+        [20m] = ("Arial", 20.25),
+        [21m] = ("Arial", 21),
+        [22m] = ("Arial", 21.75),
+        [23m] = ("Arial", 23.25),
+        [24m] = ("MS Sans Serif", 24),
+        [25m] = ("Arial", 24.75),
+        [26m] = ("Arial", 26.25),
+        [27m] = ("Arial", 27),
+        [28m] = ("Arial", 27.75),
+        [29m] = ("Arial", 29.25),
+        [30m] = ("MS Sans Serif", 30),
+        [31m] = ("Arial", 30.75),
+        [32m] = ("Arial", 32.25),
+        [33m] = ("Arial", 33),
+        [34m] = ("Arial", 33.75),
+        [35m] = ("Arial", 35.25),
+        [36m] = ("Arial", 36),
+        [37m] = ("Arial", 36.75),
+        [38m] = ("Arial", 38.25),
+        [39m] = ("Arial", 39),
+        [40m] = ("Arial", 39.75),
+        [48m] = ("Arial", 48),
+        [72m] = ("Arial", 72),
+        [96m] = ("Arial", 96),
+        [144m] = ("Arial", 144),
+        [500m] = ("Arial", 500.25),
+        [1000m] = ("Arial", 999.75),
+        [2000m] = ("Arial", 2000.25),
+        [2159m] = ("Arial", 2159.25),
+        [2161m] = ("Arial", 2160.75),
+        [3000m] = ("Arial", 3000),
+        [3001m] = ("Arial", 3000.75),
+        [5000m] = ("Arial", 5000.25),
+        [10000m] = ("Arial", 9999.75),
+        [20000m] = ("Arial", 20000.25),
+        [24575m] = ("Arial", 24575.25),
+    };
 
     public void Call(string method, List<Vb6Value> args) =>
         throw new NotImplementedException($"Font.{method} is not implemented (#934)");
