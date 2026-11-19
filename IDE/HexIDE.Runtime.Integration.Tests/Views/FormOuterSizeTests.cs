@@ -254,7 +254,7 @@ public class FormOuterSizeTests
     [InlineData(false, true, true)]
     [InlineData(false, false, false)]
     [InlineData(false, true, false)]
-    public void Unmeasured_MDI_and_wrapped_bars_stay_refused(bool mdi, bool hidden, bool shown)
+    public void MDI_and_wrapped_bar_changes_stay_refused(bool mdi, bool hidden, bool shown)
     {
         var frm = Form(Style(1), "Form1", menu: true);
         frm = mdi ? frm.Replace("   BorderStyle", "   MDIChild = -1\r\n   BorderStyle")
@@ -266,23 +266,50 @@ public class FormOuterSizeTests
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<System.NotImplementedException>()
             .Which.Message.Should().Contain("#4946");
     }
+    // Issue #4946's final comment records the native/p-code measurements from oracle PR #4977.
     [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Reversing_a_pending_bar_change_stays_refused_until_its_timing_is_measured(bool hidden)
+    [InlineData(false, false, false, "", "mnuFile.Visible = False\nmnuFile.Visible = True", 0, 0)]
+    [InlineData(false, false, false, "", "mnuFile.Visible = False\nmnuFile.Visible = True\nmnuFile.Visible = False", 300, 1)]
+    [InlineData(false, false, false, "", "mnuFile.Visible = False\nmnuFile.Visible = False", 300, 1)]
+    [InlineData(false, false, false, "mnuFile.Visible = False\nDoEvents", "mnuFile.Visible = True\nmnuFile.Visible = False", 0, 0)]
+    [InlineData(true, false, false, "", "mnuGame.Visible = False\nmnuFile.Visible = True", 0, 0)]
+    [InlineData(true, false, false, "mnuGame.Visible = False\nmnuFile.Visible = True\nDoEvents", "mnuFile.Visible = False\nmnuGame.Visible = True", 0, 0)]
+    [InlineData(false, false, true, "", "mnuFile.Visible = False\nmnuFile.Visible = True", 0, 0)]
+    [InlineData(false, true, false, "", "mnuFile.Visible = True\nmnuFile.Visible = False", 0, 0)]
+    [InlineData(false, true, false, "Load mnuFile(1)\nmnuFile(1).Visible = True\nDoEvents", "Unload mnuFile(1)\nmnuFile(0).Visible = True", 0, 0)]
+    [InlineData(false, true, false, "", "Load mnuFile(1)\nmnuFile(1).Visible = True\nUnload mnuFile(1)", 0, 0)]
+    [InlineData(false, true, false, "Load mnuFile(1)\nmnuFile(1).Visible = True\nDoEvents", "Unload mnuFile(1)\nLoad mnuFile(1)\nmnuFile(1).Visible = True", 0, 0)]
+    public void Pending_menu_bar_changes_apply_the_final_target(bool secondMenu, bool hidden, bool unshown,
+        string setup, string statements, int delta, int resizes)
     {
-        var frm = Form(Style(1), "Form1", menu: true);
-        if (hidden)
+        var array = statements.Contains("mnuFile(");
+        var frm = Form(Style(1), "Form1", menu: true).Replace("2520", "3420");
+        if (hidden || secondMenu)
             frm = frm.Replace("      Caption", "      Visible = 0\r\n      Caption");
-        var run = RunLoad(frm, """
-            Me.Show
+        if (array)
+            frm = frm.Replace("   Begin VB.Menu mnuFile", "   Begin VB.Menu mnuFile\r\n      Index = 0");
+        if (secondMenu)
+            frm = frm.Replace("End\r\nAttribute", Menu.Replace("mnuFile", "mnuGame") + "End\r\nAttribute");
+        var run = RunLoad(frm, (unshown ? "" : "Me.Show\nDoEvents\n") + setup + "\n" + """
+            Dim before As Single, outer As Single
+            before = ScaleHeight
+            outer = Height
+            watching = True
+            """ + "\n" + statements + "\n" + """
             DoEvents
-            mnuFile.Visible = Not mnuFile.Visible
-            mnuFile.Visible = Not mnuFile.Visible
-            DoEvents
+            Debug.Print ScaleHeight - before
+            Debug.Print Height = outer
+            Debug.Print changes
+            watching = False
+            """, """
+            Private watching As Boolean
+            Private changes As Integer
+            Private Sub Form_Resize()
+                If watching Then changes = changes + 1
+            End Sub
             """);
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<System.NotImplementedException>()
-            .Which.Message.Should().Contain("#4946");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Select(line => line.Trim()).Should().Equal(delta.ToString(), "True", resizes.ToString());
     }
 
 }
