@@ -718,6 +718,7 @@ added afterwards.
 - [A standard module's Property procedures (2026-10-27, #977)](a-standard-modules-property-procedures.md#a-standard-modules-property-procedures-2026-10-27-977)
 - [A control's Font object (2026-10-27, #934)](a-controls-font-object.md#a-controls-font-object-2026-10-27-934)
 - [A free-standing StdFont: Bold, Weight 400 and 700, and one assignment after another (2026-11-19, #4807)](a-free-standing-stdfonts-bold-and-weight.md)
+- [A free-standing StdFont: values of every type, and the font a Size, Charset or Name reads (2026-11-19, #4926, SP6)](a-free-standing-stdfonts-values-of-every-type.md)
 - [AutoSize on a Label and a PictureBox (2026-10-27, #922)](autosize-on-a-label-and-a-picturebox.md#autosize-on-a-label-and-a-picturebox-2026-10-27-922)
 - [An icon picture's size, and the image it draws (2026-11-14, #2626)](an-icon-pictures-size-and-the-image-it-draws.md#an-icon-pictures-size-and-the-image-it-draws-2026-11-14-2626)
 - [The Screen object (2026-10-28, #2431)](the-screen-object.md#the-screen-object-2026-10-28-2431)
