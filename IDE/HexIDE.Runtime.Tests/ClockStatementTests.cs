@@ -28,19 +28,73 @@ public class ClockStatementTests : BaseVBTestFixture
         }
     }
 
-    public static IEnumerable<object[]> UnmeasuredRows()
+    // SP6 native and p-code, Basic User: https://github.com/hexide-io/HexIDE/issues/4733
+    // Measurement: https://github.com/hexide-io/HexIDE/pull/4777.
+    public static IEnumerable<object[]> AdditionalMeasuredRows()
     {
         foreach (var statement in new[] { "Date", "Time", "Date$", "Time$" })
-            foreach (var value in new[] { "CInt(1)", "CLng(1)", "CCur(1)", "Empty", "True", "CSng(1)", "CDec(1)", "New Collection" })
-                yield return [statement, value];
+            foreach (var (value, error) in new (string, int)[]
+            {
+                ("CInt(5)", 13), ("CLng(5)", 13), ("CByte(5)", 13), ("CSng(5)", 13),
+                ("CLng(Date)", 13), ("CCur(CLng(Date))", 13), ("CDec(CLng(Date))", 13),
+                ("-1", 13), ("True", 13), ("Empty", 13), ("CVErr(5)", 13),
+                ("CInt(0)", 13), ("CSng(0.5)", 13), ("CCur(0.5)", 13),
+                ("\"12/31/9999\"", 70), ("\"1/1/100\"", 70), ("\"1/1/99\"", 70),
+                ("CDate(-1)", 70), ("\"1/1/10000\"", 13), ("\"25:00\"", 13)
+            })
+                yield return [statement, value, error];
     }
 
     [Theory]
-    [MemberData(nameof(UnmeasuredRows))]
-    public async Task UnmeasuredTypesExplicitlyRefuse(string statement, string value)
+    [MemberData(nameof(AdditionalMeasuredRows))]
+    public async Task AdditionalMeasuredConversionBeforePermission(string statement, string value, int error)
     {
-        var run = () => Run($"{statement} = {value}");
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4681*");
+        await Run($"On Error Resume Next\n{statement} = {value}\nDebug.Print Err.Number");
+        AssertDebugLog([new Vb6Value((long)error)]);
+    }
+
+    [Theory]
+    [InlineData("Date", "ClockValue")]
+    [InlineData("Date", "Object")]
+    [InlineData("Time", "ClockValue")]
+    [InlineData("Time", "Object")]
+    [InlineData("Date$", "ClockValue")]
+    [InlineData("Date$", "Object")]
+    [InlineData("Time$", "ClockValue")]
+    [InlineData("Time$", "Object")]
+    public async Task DateDefaultMemberIsRead(string statement, string declaredType)
+    {
+        await RunClasses($"Dim c As {declaredType}\nSet c = New ClockValue\nOn Error Resume Next\n{statement} = c\nDebug.Print Err.Number",
+            ("ClockValue", "Public Function Value() As Date\nAttribute Value.VB_UserMemId = 0\nValue = Date\nEnd Function\n"));
+        AssertDebugLog([new Vb6Value(70L)]);
+    }
+
+    [Theory]
+    [InlineData("Date")]
+    [InlineData("Time")]
+    [InlineData("Date$")]
+    [InlineData("Time$")]
+    public async Task UnmeasuredObjectsExplicitlyRefuse(string statement)
+    {
+        foreach (var body in new[] { "Public Tag As Long\n",
+            "Public Function Value() As Long\nAttribute Value.VB_UserMemId = 0\nValue = 5\nEnd Function\n" })
+        {
+            var run = () => RunClasses($"Dim c As ClockValue\nSet c = New ClockValue\n{statement} = c",
+                ("ClockValue", body));
+            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4733*");
+        }
+    }
+
+    [Theory]
+    [InlineData("Date")]
+    [InlineData("Time")]
+    [InlineData("Date$")]
+    [InlineData("Time$")]
+    public async Task UnmeasuredNestedDefaultExplicitlyRefuses(string statement)
+    {
+        var run = () => RunClasses($"Dim c As ClockValue\nSet c = New ClockValue\n{statement} = c",
+            ("ClockValue", "Public Function Value() As Object\nAttribute Value.VB_UserMemId = 0\nSet Value = Nothing\nEnd Function\n"));
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4733*");
     }
 
     [Theory]

@@ -30,6 +30,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 {
     // The program window that was active when a Pause stop brought the IDE forward, for Continue to restore (#4262).
     private Window? _pauseWindow;
+    internal IWindowRaiser WindowRaiser { get; set; } = new WindowRaiser();
     // Every open window. The desktop lifetime lists them too, but a headless session has no desktop lifetime.
     private static readonly HashSet<Window> opened = TrackWindows();
 
@@ -541,7 +542,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
         var window = _pauseWindow;
         _pauseWindow = null;
         if (window is { IsVisible: true } && debugController.State == DebugState.Paused)
+        {
+            foreach (var other in RunningProgram.Current.ShownWindows(window))
+                if (other is Window form && !ReferenceEquals(form, window))
+                    WindowRaiser.Raise(form);
             window.Activate();
+        }
         debugController.Continue();
     }
 

@@ -20,6 +20,8 @@ returning `Me`. Each block is followed by a log line, so the order shows where `
 So the object is made when the `With` line runs and held for the block. It is released at `End With`, and
 terminates there unless the block stored another reference.
 
+**In HexIDE:** fixed by #4599 in batch 385 (`88ddab7cb`).
+
 ## A class's default instance named in its own `Class_Initialize` (#4605)
 
 `Class1` with `Attribute VB_PredeclaredId = True`, whose initializer is:
@@ -45,6 +47,9 @@ built.** It isn't made a second time, so there is no recursion. `If Me Is ClassN
 its default instance apart from the start. The obvious guess, that the name isn't bound until `Initialize`
 returns, would recurse, and that is what HexIDE did: error 28 (#4605).
 
+**In HexIDE:** fixed by #4605 in batch 384 (`1f2d7eede`). The [auto-made object page](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6) measures the same for
+every `As New` slot, which the fix covers too.
+
 ## Set through members (#4600, #4601, #4602, #4606, #4607)
 
 Measured with `scripts/vb6-oracle.ps1 -Classes`, plus the same script with `CompilationType=-1` added. The classes:
@@ -66,6 +71,7 @@ Measured with `scripts/vb6-oracle.ps1 -Classes`, plus the same script with `Comp
 
 Every row raised nothing. These are ordinary VB6, so none was in doubt. They are recorded because HexIDE failed
 each one when this page was written (450, 461, 91, 13, and a refusal), and the issues pin these values.
+**Since fixed:** #4600, #4602, #4606 and #4607 in batch 384 (`1f2d7eede`), and #4601 in batch 385 (`88ddab7cb`).
 
 ## Measured by hexide-int: interface views, a bare Function, and LSet on a member (#4601, #4624, #4626)
 
@@ -103,6 +109,8 @@ parameter loses the view, and `x.Q` is 438. Giving that copy the view would answ
 - `GetIt.Q` and `GetC.Count` were 424 "Object required": a Function called bare at the head of a chain wasn't
   called (#4624).
 - `LSet .S` and `RSet .S` parsed as a Let on a variable named `LSet` (#4626).
+
+**Since fixed:** #4601, #4624 and #4626, all in batch 385 (`88ddab7cb`).
 
 ## Measured by hexide-int: a default member that takes arguments (#4606)
 
@@ -146,7 +154,91 @@ the object the Get returns. Nothing raises 91 either way.
 **In HexIDE,** at `23a38af17`, every row above failed (#4606). For example, `v("x") = "v"` was 13, `f("q")` the
 compile error "Sub or Function not defined", and `MakeBag()("x")` a refusal naming #174.
 
+**Since fixed** by #4606 in batch 384 (`1f2d7eede`). One holder was left out: a Let through an object held in a Type
+field, `t.d("k") = v`, is #4725.
+
 **Still unmeasured:**
 - a Variant or `As Object` holding Nothing, given arguments;
 - the order in which a Let's arguments and value are evaluated, for an object;
 - a default member reached through a Property Get that takes arguments of its own.
+
+### When the default member can't take the arguments (2026-11-18, #4747)
+
+**The question.** The table above gives arguments to a default member that takes them. What does VB6 do when the
+default member can't: when there's no default member, or it's a Sub, a variable, or a Get or Function with no Let?
+
+**The probe.** VB6 SP6, `/make`, native code and p-code, which logged every row identically. Each early-bound row
+(`Dim e As <class>`) is a project of its own, because a compile error stops the whole build. The late-bound rows
+(`Dim o As Object`) share one project. Each row runs under `On Error Resume Next` and logs `Err.Number` after every
+statement. The classes, each in its own module:
+- **`CN`:** no default member, only `Function F(ByVal i As Long)`;
+- **`CS`:** a default `Sub Value(ByVal i As Long)`, which logs `Sub <i>`;
+- **`CV`:** a default `Public Value As Variant` (`VB_VarUserMemId = 0`), set to `Array(10, 20, 30)` in
+  `Class_Initialize`;
+- **`CVS`:** the same, holding 7;
+- **`CG`:** a default `Property Get Value(ByVal i As Long)`, returning `i * 10`, with no Let;
+- **`CF`:** a default `Function Value(ByVal i As Long)`, returning `i * 10`;
+- **`CG2`** and **`CF2`:** as `CG` and `CF`, but each logs `Get <i>` or `Function <i>` first;
+- **`CVE`:** a default `Public Value As Variant` that is never set;
+- **`CVT`:** a default `Public Value As Long`, set to 7.
+
+| Class | Statement | Early-bound | Late-bound |
+|---|---|---|---|
+| `CN` | `x = e(1)` | 438 | 438 |
+| `CN` | `e(1) = 5` | 438 | 438 |
+| `CS` | `x = e(1)` | compile error "Expected Function or variable" | logs `Sub 1`; `x` is Empty, no error |
+| `CS` | `e(1) = 5` | compile error "Expected Function or variable" | logs `Sub 1`, then 451 |
+| `CV` | `x = e(1)` | `x` is 20, an Integer | 451 |
+| `CV` | `e(1) = 5` | no error, and the array is still 10, 20, 30 | 451 |
+| `CV` | `x = e(5)` | 9 | not measured |
+| `CV` | `e(5) = 1` | 9 | not measured |
+| `CV` | `x = e.Value(1)` | 20 (see below) | 451 |
+| `CVS` | `x = e(1)` | 13 | 451 |
+| `CVS` | `e(1) = 5` | 13 | 451 |
+| `CVE` | `x = e(1)` | 13 | 451 |
+| `CVE` | `e(1) = 5` | 13 | not measured |
+| `CVT` | `x = e(1)` | compile error "Wrong number of arguments or invalid property assignment" | 451 |
+| `CVT` | `e(1) = 5` | compile error "Can't assign to read-only property" | 451 |
+| `CG` | `e(1) = 5` | 424 | 451 |
+| `CF` | `e(1) = 5` | 424 | 451 |
+| `CG2` | `e(1) = 5` | logs `Get 1`, then 424 | logs `Get 1`, then 451 |
+| `CF2` | `e(1) = 5` | logs `Function 1`, then 424 | logs `Function 1`, then 451 |
+
+451 is "Property let procedure not defined and property get procedure did not return an object". The early-bound
+`CV` read through `.Value(1)` comes from the `e(1) = 5` row's log line, which concatenated `e.Value(0)` to
+`e.Value(2)`, so its type was not recorded.
+
+**Held in a Variant.** The late-bound rows again, with `Dim o As Variant` in place of `As Object`, in one project.
+Every row matched `As Object` but three, all a Let through a default Sub or Function:
+
+| Class | Statement | Held in a Variant | `As Object`, from the table |
+|---|---|---|---|
+| `CS` | `o(1) = 5` | **450**, and `Sub 1` is not printed | prints `Sub 1`, then 451 |
+| `CF` | `o(1) = 5` | **450** | 451 |
+| `CF2` | `o(1) = 5` | **450**, and `Function 1` is not printed | prints `Function 1`, then 451 |
+
+450 is "Wrong number of arguments or invalid property assignment". The Get-only `CG2` behaves the same both ways:
+it prints `Get 1`, then raises 451. So does every read, the Sub's included, which prints `Sub 1` and gives Empty.
+
+**Readings:**
+- **No default member is 438 both ways,** read or assigned.
+- **Early-bound, a default Variant is indexed as its value.** An array gives its element, and an index past its
+  bounds is 9. A scalar or Empty is 13. An assignment indexes a copy: no error, and the array is unchanged.
+- **Early-bound, a typed default field doesn't compile with arguments,** and the two compile errors differ: a read
+  is "Wrong number of arguments or invalid property assignment", an assignment "Can't assign to read-only
+  property".
+- **A Let through a Get or Function with no Let calls it with the arguments first,** then needs an object from it. A
+  number is 424 early-bound and 451 late-bound. That is the same route as `h.State("k2") = "w"` above, where the Get
+  did return an object.
+- **Late-bound through `As Object`, every case but no default member and a Sub's read is 451.** Arguments to a default variable are 451
+  even through its name, `o.Value(1)`. A default Sub is run for its arguments, and gives Empty to a read or 451 to an
+  assignment.
+- **Held in a Variant, a Let through a default Sub or Function is 450, and the member isn't called.** That is the
+  one place a Variant and `As Object` part.
+
+**In HexIDE,** at `7929177e6`, probes of every row but `e(5) = 1` and the `CG2` and `CF2` rows were refused as
+unmeasured, citing #4606 (#4747 since then). The two `.Value(1)` reads are the exception: the late-bound one was
+already 451, and the early-bound one 20.
+
+**Still unmeasured:** an index out of range through a late-bound reference; and a Let with arguments through a
+parameterless Property Get whose value isn't an object.

@@ -117,6 +117,7 @@
     "Str.Archive.FolderReadyFormat": "Pasta de código-fonte sincronizada a partir do arquivo guardado:\n{0}\n\nAs alterações na pasta interrompem a sincronização; não são importadas. Recarregue o projeto para atualizar as pré-visualizações.",
     "Str.Archive.FolderErrorFormat": "A sincronização da pasta de código-fonte foi interrompida:\n{0}\n\nO arquivo não foi modificado.",
     "Str.Archive.OpenErrorFormat": "Não foi possível abrir {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "nenhum formato instalado lê formulários '{0}'",
     "Str.ContributedProject.OpenError": "Não foi possível abrir {0} com {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} é aberto por {1}: os seus ficheiros são adicionados e removidos pelo programa a que pertence, não pelo HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "O programa a que pertence {1} retirou {0} do projeto. Guardar primeiro as suas alterações?",

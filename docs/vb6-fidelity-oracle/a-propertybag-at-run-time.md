@@ -119,3 +119,50 @@ FFFF00001100040064B10EE4180000006200790074006500070000000E000300
 - a PropertyBag passed to a UserControl's `ReadProperties` and `WriteProperties` (MISSING_LANGUAGE's rows have their own measurements);
 - a long String or one outside ASCII;
 - a Variant holding an object that is persistable but not a `StdFont`;
+
+### A StdFont in a bag (2026-11-18, #4741)
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged every row identically.
+- **Each row:**
+  - a `New StdFont`, with the properties the row names set on it and then all of them read;
+  - `pb.WriteProperty "F", f` into a new bag, and a dump of `pb.Contents`;
+  - the bytes copied into a second bag, then `Set g = p2.ReadProperty("F")`.
+- **A tenth case,** a 40-character Name, ended both runs at a time-out before its first line. It isn't counted.
+
+| The font, as its properties read before the write | `Contents` |
+|---|---|
+| a fresh `New StdFont`: MS Sans Serif, 8.25, weight 400, charset 0 | `93B20000 40000000` `0900 0100 66000000 00000000 6600` `0352E30B918FCE119DE300AA004BB851` `01 0000 00 9001 44420100 0D 4D532053616E73205365726966` `0000` |
+| Arial, Size set to 10, which reads 9.75 | … `01 0000 00 9001 DC7C0100 05 417269616C` `0000` |
+| Arial 9.75, Bold True, which reads weight 700 | … `01 0000 00 BC02 DC7C0100 05 417269616C` `0000` |
+| Arial 9.75, Italic | … `01 0000 02 9001 DC7C0100 05 …` |
+| Arial 9.75, Underline | … `01 0000 04 9001 DC7C0100 05 …` |
+| Arial 9.75, Strikethrough | … `01 0000 08 9001 DC7C0100 05 …` |
+| Arial, Weight set to 600, which reads 700 and Bold True | … `01 0000 00 BC02 DC7C0100 05 …`, the same as Bold |
+| Arial, Charset set to 2, after which Name reads **Wingdings** | … `01 0200 00 9001 DC7C0100 09 57696E6764696E6773` `0000` |
+| Courier New 9.75 | … `01 0000 00 9001 DC7C0100 0B 436F7572696572204E6577`, no padding |
+| Tahoma 10.5, Bold and Italic | … `01 0000 02 BC02 289A0100 06 5461686F6D61` `00` |
+
+**The entry**, read off these dumps:
+- **The usual header for an object:** variant type `0009`, the name's length, its hash, and the distance to the next entry. That distance is `00000000` here, since the only entry points back to itself.
+- **The name in UTF-16,** then StdFont's CLSID, `{0BE35203-8F91-11CE-9DE3-00AA004BB851}`.
+- **The font's stream, in order:**
+  - **a version byte,** `01`;
+  - **the charset**, 16 bits little-endian;
+  - **a flag byte:** `02` Italic, `04` Underline, `08` Strikethrough. **Bold sets no flag here**: it shows as weight 700;
+  - **the weight**, 16 bits: `9001` 400, `BC02` 700;
+  - **the size in ten-thousandths of a point**, 32 bits: `44420100` 82,500 for 8.25, `DC7C0100` 97,500 for 9.75, `289A0100` 105,000 for 10.5;
+  - **the name:** a length byte, then the name in ANSI.
+- **Padding:** zeros to the next multiple of 4, which the entry's length counts.
+
+**Reading it back:**
+- **`Set g = p2.ReadProperty("F")`** gives a new Font (`g Is f` False) whose Name, Size, Bold, Italic, Underline, Strikethrough, Weight and Charset all read as the written font's did, in every row.
+- **`v = p2.ReadProperty("F")` without `Set`** gives a String, the font's Name: its default member.
+
+**Two fonts that look the same are not:** the font in this page's first dump above was written without any of its properties being read. Its stream is `01 0100 00 0000 80380100 00`: charset 1, weight 0, size 8.0, and an empty name. A `New StdFont` whose properties have been read writes MS Sans Serif, 8.25, weight 400, charset 0. **No rule I would defend** for when a font takes its realized values. Reading them is enough to make it, and these rows don't separate the properties.
+
+**Not measured:**
+- a font whose stream sets flag `01`;
+- a name outside ASCII;
+- a long name (the 40-character row didn't finish);
+- a `Picture`, or any other persistable object.

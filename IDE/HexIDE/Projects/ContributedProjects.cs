@@ -23,6 +23,10 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
 
     internal void Withdraw() => _withdrawn.Cancel();
 
+    internal Func<string, IProjectFileFormat?>? FindFormFormat { get; init; }
+
+    internal IFormFileReader? Forms => Type.FormFormat is { } id ? FindFormFormat?.Invoke(id) : Type.Forms;
+
     /// <summary>
     /// What a project of this type offers: its forms written where its type can render them, and its own file, with
     /// membership and references where that file carries them, where its type has a writer. Never Components, Make or Run.
@@ -32,7 +36,7 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
     {
         SetsProperties = Type.ProjectFile is { } properties && properties.Carries.HasFlag(ProjectFileParts.Properties),
         SetsReferences = Type.ProjectFile is { } references && references.Carries.HasFlag(ProjectFileParts.References),
-        WritesForms = Type.Forms is IFormFileFormat,
+        WritesForms = Forms is IFormFileFormat,
         WritesProjectFile = Type.ProjectFile is not null,
         ChangesMembership = Type.ProjectFile is { } writer && writer.Carries.HasFlag(ProjectFileParts.Members),
     };
@@ -51,12 +55,16 @@ internal sealed class ContributedProjectFile(ContributedProjectType type, string
     /// <summary>The project file the type read, which is the only place it's written.</summary>
     internal string OpenedFrom { get; } = Path.GetFullPath(openedFrom);
 
+    internal bool HasOmittedMembers { get; set; }
+
     public ProjectFileParts Carries => type.Type.ProjectFile?.Carries ?? ProjectFileParts.None;
 
     public System.Text.Encoding Encoding => type.Type.ProjectFile?.Encoding ?? new System.Text.UTF8Encoding(false);
 
     public string RenderProject(ProjectDefinition project, string path, Func<object, string?>? pathOf)
     {
+        if (HasOmittedMembers)
+            throw Refused(project.Name, "members were left out at open");
         if (type.Withdrawn.IsCancellationRequested)
             throw Refused(project.Name, "it's no longer loaded");
         if (type.Type.ProjectFile is not { } writer)
@@ -112,7 +120,7 @@ internal sealed class ContributedProjectFile(ContributedProjectType type, string
 /// companion is read too.
 /// </para>
 /// </remarks>
-internal sealed class ContributedFormFormat(ContributedProjectType type) : IFormFileFormat
+internal sealed class ContributedFormFormat(ContributedProjectType type, ILocalizationService localization) : IFormFileFormat
 {
     /// <summary>The type whose format this is, and so the add-in that reads and writes these forms.</summary>
     internal ContributedProjectType Type => type;
@@ -133,9 +141,11 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
             problems.LogError($"{type.Origin} is no longer loaded, so nothing can read this form.");
             return null;
         }
-        if (type.Type.Forms is not { } forms)
+        if (type.Forms is not { } forms)
         {
-            problems.LogError($"{type.Origin} lists this as a form, but its project type has nothing that reads forms.");
+            problems.LogError(type.Type.FormFormat is { } id
+                ? string.Format(localization.GetString("Str.ContributedProject.UnknownFormFormat"), id)
+                : $"{type.Origin} lists this as a form, but its project type has nothing that reads forms.");
             return null;
         }
 
@@ -181,7 +191,7 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
     {
         if (type.Withdrawn.IsCancellationRequested)
             throw Refused(document, "it's no longer loaded");
-        if (type.Type.Forms is not IFormFileFormat format)
+        if (type.Forms is not IFormFileFormat format)
             throw Refused(document, "its project type has nothing that writes forms");
         try
         {
@@ -207,7 +217,7 @@ internal sealed class ContributedFormFormat(ContributedProjectType type) : IForm
         string? companion;
         try
         {
-            companion = type.Type.Forms?.CompanionPath(path);
+            companion = type.Forms?.CompanionPath(path);
         }
         catch (Exception ex)
         {
@@ -296,19 +306,19 @@ public sealed partial class ContributedProjects
     }
 
     // The formats registered for the kinds of member a project holds (#3411 slice 10b-3).
-    private readonly List<(IReadOnlySet<ModuleKind> Modules, bool Forms, IProjectFileFormat Format)> memberFormats = [];
+    private readonly List<(IReadOnlySet<ModuleKind> Modules, bool Forms, IProjectFileFormat Format, string? FormFormat)> memberFormats = [];
 
     /// <summary>
     /// Adds the format that reads members of the kinds named: modules of <paramref name="modules"/>, and forms where
     /// <paramref name="forms"/> says so. Only HexIDE's own types may, as only they may carry a whole format.
     /// </summary>
     /// <returns>What takes it out again.</returns>
-    internal IDisposable RegisterMembers(IReadOnlySet<ModuleKind> modules, bool forms, IProjectFileFormat format, AddinOrigin origin)
+    internal IDisposable RegisterMembers(IReadOnlySet<ModuleKind> modules, bool forms, IProjectFileFormat format, AddinOrigin origin, string? formFormat = null)
     {
         ArgumentNullException.ThrowIfNull(format);
         if (!origin.IsFirstParty)
             throw new InvalidOperationException($"{origin.Title} registers a format for project members, which only HexIDE's own project types may.");
-        var entry = (Modules: modules, Forms: forms, Format: format);
+        var entry = (Modules: modules, Forms: forms, Format: format, FormFormat: formFormat);
         memberFormats.Add(entry);
         return new HexIDE.Utils.ActionDisposable(() => memberFormats.Remove(entry));
     }
@@ -321,6 +331,9 @@ public sealed partial class ContributedProjects
     internal IProjectFileFormat? FormatForMembers(ProjectDefinition project) => memberFormats.FirstOrDefault(entry =>
         (entry.Forms || project.Forms.Count == 0) && project.Modules.All(module => entry.Modules.Contains(module.Kind))).Format;
 
+    internal IProjectFileFormat? FindFormFormat(string id) => memberFormats.FirstOrDefault(entry =>
+        entry.Forms && string.Equals(entry.FormFormat, id, StringComparison.Ordinal)).Format;
+
     /// <summary>Adds an add-in's project type.</summary>
     /// <returns>What takes it out again.</returns>
     internal IDisposable Register(AddinProjectType type, AddinOrigin origin)
@@ -332,6 +345,8 @@ public sealed partial class ContributedProjects
             throw new ArgumentException("A project type needs the files it reads and what reads them.", nameof(type));
         if (type.GroupFileNames is { Count: > 0 } && type.Format is null)
             throw new ArgumentException("A project type reads group files only through a format of its own.", nameof(type));
+        if (type.Forms is not null && type.FormFormat is not null)
+            throw new ArgumentException("A project type cannot supply both Forms and FormFormat.", nameof(type));
         // A format runs at every open, save, dirty check, recovery capture and close of the type's projects, which is more
         // than an add-in has been trusted with so far, so for now only HexIDE's own types may bring one (#3411 slice 10b,
         // and #4132 for opening it up).
@@ -350,7 +365,7 @@ public sealed partial class ContributedProjects
                 throw new ArgumentException($"'{name}' is neither a file name nor a pattern of the form '*.ext'.", nameof(type));
 
         var contributed = new ContributedProjectType(type with { FileNames = names, GroupFileNames = groupNames }, origin.Id,
-            origin.Title);
+            origin.Title) { FindFormFormat = FindFormFormat };
         lock (_gate)
         {
             foreach (var name in names.Concat(groupNames))
@@ -441,7 +456,7 @@ public sealed partial class ContributedProjects
         string path, AddinProjectContent content, ContributedProjectType type, Vb6TextEncoding hostAnsi,
         Action<string, byte[]>? fileRead, ILocalizationService localization)
     {
-        var format = new ContributedFormFormat(type);
+        var format = new ContributedFormFormat(type, localization);
         var project = new ProjectDefinition(VBProjectType.EXE, content.Name)
         {
             ContributedBy = type.AddinId,
@@ -458,8 +473,11 @@ public sealed partial class ContributedProjects
         project.ItemLinesDirectory = Path.GetDirectoryName(path)!;
         project.ListedFolders = [.. content.Folders];
         project.SetReferences(content.References.Select(ToVbReference));
+        foreach (var component in content.Components)
+            project.AddObjectLine($"Object={{{component.Guid.ToString().ToUpperInvariant()}}}#{component.Major:x}.{component.Minor:x}#0; {component.FileName}");
 
         var problems = new List<string>();
+        var omitted = false;
         // UserControls first, as a .vbp's are: a form can hold them, so its read has to find them there. In order otherwise.
         foreach (var member in content.Members.OrderBy(member => member.Kind != AddinMemberKind.UserControl))
         {
@@ -469,12 +487,23 @@ public sealed partial class ContributedProjects
             }
             catch (MemberNameTakenException ex)
             {
+                omitted = true;
                 problems.Add(ex.Message);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
             {
+                omitted = true;
                 problems.Add($"{member.Path}: {ex.Message}");
             }
+        }
+        if (omitted)
+        {
+            project.Offers = project.Offers with
+            {
+                WritesProjectFile = false, ChangesMembership = false, SetsReferences = false, SetsProperties = false,
+            };
+            if (project.ProjectFileWriter is ContributedProjectFile writerWithOmissions)
+                writerWithOmissions.HasOmittedMembers = true;
         }
         // Its members are read and written by the format registered for their kind: VB6's, for an .rdproj of VB6 files
         // (#3411 slice 10b-3). Its forms and its file stay its type's.

@@ -70,7 +70,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private PrePass prepass;
     internal bool StartupMainReturned { get; private set; }
 
-    // The startup form's Initialize/Load dispatch keeps its unmeasured stepping positions (#4619).
+    // Distinguishes a startup form from a form loaded by an executing statement (#4449).
     internal bool InStartupDispatch { get; set; }
 
     // Weak entries preserve creation order without retaining objects after their last VB reference.
@@ -177,7 +177,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (value.Value is null)
             throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
-            throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4606)");
+            throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4747)");
         var proc = member.Kind switch
         {
             PrePass.DefaultMemberKind.Property => obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get,
@@ -185,9 +185,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             _ => null
         };
         if (proc is null)
-            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4606)");
+            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4747)");
         return await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames)
-            ?? throw new NotImplementedException("A default member without a value is unmeasured (#4606)");
+            ?? throw new NotImplementedException("A default member without a value is unmeasured (#4747)");
     }
 
     internal async Task LetDefaultMember(Vb6Value value, List<CallArg> args, Vb6Value assigned,
@@ -198,7 +198,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member
             || member.Kind != PrePass.DefaultMemberKind.Property
             || obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Let is not { } letter)
-            throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4606)");
+            throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4747)");
         args.Add(new CallArg(assigned, null));
         await RunProcedure(obj.ClassDef, letter, args, obj.InstanceEnv, value, frames);
     }
@@ -338,7 +338,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     /// <summary>How many procedures an unwinding error, Stop or End passes between yields, under a debugger (#3250). Small
     /// enough to keep the inline nesting shallow; large enough that a shallow unwind, the usual one, never yields.</summary>
-    private const int UnwindYieldEvery = 32;
+    internal const int UnwindYieldEvery = 32;
 
     /// <summary>The live procedure-activation call stack (outermost first). Read by the debugger only.</summary>
     public IReadOnlyList<StatementExecutor> ActivationStack => activationStack;
@@ -470,7 +470,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // EnsureTypeBounds has already run the owner's declarations where they could run; what is still unresolved is a
         // Type allocated inside its own module's walk, above its declaration, or a class's before the instance's walk.
         if (def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
-            throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4595)");
+            throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4734)");
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
@@ -658,7 +658,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             if (Forms is null)
                 throw new NotImplementedException($"New {className} requires a forms program (#4598).");
-            return await Forms.MakeInstance(classDef);
+            return await Forms.MakeInstance(classDef, publish);
         }
         var instanceEnv = classDef.ModuleEnv.Clone();
         await RunDeclarationItems(classDef, instanceEnv);
@@ -1435,9 +1435,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     /// <summary>
-    /// True while the modules' or a form's declarations run (#1010 review). The debugger's gate is skipped then: VB6 never
-    /// stops on a declaration, so F8 from design mode breaks on the first statement of the event that follows, and a
-    /// breakpoint can't be hit there either. A class's field initialisers, run at New, still pass the gate (D13).
+    /// True while module-level declarations run (#1010 review). The debugger's gate is skipped then; procedure
+    /// declaration stops are handled separately (#4449). A breakpoint can't be hit on a field declaration. A class's field initialisers, run at New, still pass the gate (D13).
     /// </summary>
     internal bool RunningDeclarations { get; private set; }
 
@@ -1837,7 +1836,6 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         ExecutionEnvironment? baseEnv = null, Vb6Value? me = null, Stack<List<Vb6Value>>? callerFrames = null,
         bool isEntry = false)
     {
-        var breakpointOnlyEnd = isEntry && (InStartupDispatch || me is null);
         if (me?.Value is VbObject accessedInstance)
             NoteMemberAccess(accessedInstance, proc.Name);
         // Immediate-window evaluation forbids running USER code — its statements would hit the paused pause-gate on
@@ -1905,6 +1903,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         bool completed = false;
         bool holdsMe = false;
         bool hasReturnSlot = false;
+        var walk = Events?.Current;
+        var previousEventInstance = walk?.EventInstance;
+        if (walk is not null && previousEventInstance is null && isEntry && me?.Value is VbObject eventInstance)
+            walk.EventInstance = eventInstance;
         try
         {
             if (me is { } m)
@@ -1957,19 +1959,26 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 try
                 {
                     await executor.HoistDeclaredLocals(proc);
+                    // #4449: a step into Sub Main, or into a form's Load or Initialize, stops at its declaration, as
+                    // VB6 does from design mode and from `Form1.Show` in Sub Main (measured). Direct calls keep their
+                    // existing rule. So does any other module's event during the startup load, such as a class's or a
+                    // UserControl's: where those stop is unmeasured.
                     if (proc.Declaration is VB6Parser.SubStmtContext declaration)
-                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true, entry: true);
+                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true, entry: true,
+                            stepEntry: isEntry && (me is null ||
+                                !(InStartupDispatch && owner.Kind != InterpreterModuleKind.Form) &&
+                                (proc.Name.Equals("Form_Load", StringComparison.OrdinalIgnoreCase) ||
+                                 proc.Name.Equals("Form_Initialize", StringComparison.OrdinalIgnoreCase))));
                     if (proc.Body is { } procedureBody)
                         await executor.Execute(procedureBody);
                     // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller
                     // goes on with what the call returned (#766).
                     if (Events is { } events)
                         await events.WaitForRaised();
-                    // Event handlers stop on End Sub (#4619). The startup dispatch and Sub Main keep
-                    // their unmeasured End positions; capture that choice before this activation yields.
+                    // Startup procedures stop on End as event handlers do (#4449, #4619).
                     if ((proc.Body == null || executor.ReachedProcedureEnd) && proc.Declaration is { } ending)
                         await executor.ProcedureBoundary(ending.Stop.Line,
-                            breakpointOnly: breakpointOnlyEnd || ending is VB6Parser.PropertyGetStmtContext);
+                            breakpointOnly: ending is VB6Parser.PropertyGetStmtContext);
                 }
                 // Searched from the top, where the frame almost always is: Remove searched from the bottom, which made a
                 // return N calls deep cost N (#3250).
@@ -2051,6 +2060,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             }
             finally
             {
+                if (walk is not null)
+                    walk.EventInstance = previousEventInstance;
                 foreach (var slot in callee.AllocatedSlots)
                     ExecutionContext.State.Free(slot);
             }

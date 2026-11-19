@@ -34,6 +34,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Automation/ProgramWindowTests.cs` | split |
 | `Automation/RunningCodeEditTests.cs` | split |
 | `Automation/RunningFormNamesTests.cs` | split |
+| `Automation/ToolboxAutomationNameTests.cs` | split |
 | `Automation/TypeKeysTests.cs` | split |
 | `Automation/UiAutomationDriverTests.cs` | split |
 | `Automation/UiSaveAnswerTimingTests.cs` | split |
