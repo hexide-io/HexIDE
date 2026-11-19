@@ -349,11 +349,13 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
   Array fields have indexed reads/writes and whole-array store checks. Constant-expression Type-field bounds
   resolve in declaration order ([#4595, measured](https://github.com/hexide-io/HexIDE/issues/4595));
-  allocation before their Type resolves, inverted bounds and array fields As New remain refused. Get/Put of UDT
+  private Types allocated above their declaration in their own module or class resolve from Consts above the Type,
+  including Consts below the variable and chains of preceding Consts ([#4734, measured](https://github.com/hexide-io/HexIDE/issues/4734), oracle PR #4800).
+  Public Types and allocation from another module retain their existing behaviour ([#4907](https://github.com/hexide-io/HexIDE/issues/4907)); inverted bounds and array fields As New remain refused. Get/Put of UDT
   arrays and Types containing array fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
   and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
 
-  Array fields have indexed reads/writes and whole-array store checks. Nonliteral or inverted Type-field bounds,
+  Array fields have indexed reads/writes and whole-array store checks. Inverted Type-field bounds and
   array fields As New remain refused. Get/Put of UDT arrays and Types containing array
   fields also remain refused pending record-layout measurements. ByVal UDT parameters are refused when a call
   binds them ([#4673’s measurements](https://github.com/hexide-io/HexIDE/issues/4673)); VB6 refuses the build, so one in a
@@ -411,7 +413,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   Get-only/Function assignments execute the member then raise 424 early-bound or 451 through As Object. Held in
   a Variant, an assignment through a default Sub or Function raises 450 without calling it (measured).
   Assignments through object-returning defaults and default members without a value remain unmeasured
-  and refuse naming #4747. Nothing in Variant/Object slots and object argument/value evaluation
+  and refuse naming #4906. Nothing in Variant/Object slots and object argument/value evaluation
   order retain today's behaviour, unmeasured.
   No-argument Lets into class/Object variables, class fields, With members and object-array elements now call
   the held class's default Property Let or store into its Variant default field, preserving the object

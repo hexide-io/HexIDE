@@ -374,7 +374,25 @@ public class CircleDrawingTests
 
     [AvaloniaTheory]
     [MemberData(nameof(ArcRefusals))]
-    public void Circle_arcs_and_sectors_refuse_until_all_five_grids_match(string target, string angles)
+    public void Circle_arcs_and_sectors_refuse_until_all_measured_grids_match(string target, string angles)
+    {
+        var run = RunLoad(Form, $"On Error Resume Next\n{target}Circle (40, 40), 10, , {angles}\nDebug.Print \"continued\"");
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+            .Which.Message.Should().Be("Circle arcs and sectors is not implemented (#988)");
+        run.Printed.Should().BeEmpty();
+    }
+
+    public static IEnumerable<object[]> SingleAngleRefusals()
+    {
+        foreach (var target in new[] { "", "Picture1." })
+        foreach (var angles in new[] { "0", ", 1.5708" })
+            yield return [target, angles];
+    }
+
+    // #4771: the other angle's default is unmeasured, so a single angle refuses rather than guess it.
+    [AvaloniaTheory]
+    [MemberData(nameof(SingleAngleRefusals))]
+    public void Circle_with_only_one_angle_refuses_without_guessing_the_other(string target, string angles)
     {
         var run = RunLoad(Form, $"On Error Resume Next\n{target}Circle (40, 40), 10, , {angles}\nDebug.Print \"continued\"");
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()

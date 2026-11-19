@@ -234,6 +234,6 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
             End Property
 
             """));
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4747*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4906*");
     }
 }

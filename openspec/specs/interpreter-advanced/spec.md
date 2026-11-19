@@ -185,7 +185,7 @@ code.
 - **AND** preceding Consts, Enum members and expressions of them size the fields as measured in [#4595](https://github.com/hexide-io/HexIDE/issues/4595)
 - **AND** a later Const or a variable raises "Constant expression required"
 - **AND** allocation of an unresolved Type first runs its standard module's declarations if they have neither run nor started
-- **AND** otherwise unresolved allocation refuses explicitly with #4734 rather than using placeholder values
+- **AND** otherwise unresolved allocation refuses explicitly with #4907 rather than using placeholder values
 
 #### Scenario: Object array fields in a record
 - **WHEN** a Type declares a fixed or dynamic array of a project class, Object or Collection

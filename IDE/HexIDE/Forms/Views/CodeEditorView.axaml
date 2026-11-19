@@ -64,6 +64,7 @@
                 <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Vba64}" />
                 <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.TwinBasic32}" />
                 <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.TwinBasic64}" />
+                <ComboBoxItem Content="{DynamicResource Str.CodeEditor.ViewAs.Rdcore}" />
             </ComboBox>
         </Grid>
         <!-- The code and its minimap read left to right whatever the IDE's language, so the minimap stays beside the

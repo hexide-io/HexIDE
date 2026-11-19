@@ -131,6 +131,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bitu",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bitu",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bitu",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Skatīt nosacīto kompilāciju kā",
     "Str.Tool.Properties.ExportPicture": "Eksportēt attēlu...",
     "Str.Tool.Properties.ExportPictureTitle": "Eksportēt attēlu",
