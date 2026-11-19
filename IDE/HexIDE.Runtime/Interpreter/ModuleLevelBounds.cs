@@ -280,6 +280,10 @@ internal sealed class ModuleLevelBounds
                         && VB6InBoxLibraries.ContainerBelongsTo(qualifier.Name!, parts[1])
                         && VB6InBoxLibraries.TryInLibraryContainer(qualifier.Name!, parts[1], parts[2], out value):
                     return value;   // `VBRUN.KeyCodeConstants.vbKeyA`
+                case BasicInterpreter.QualifierKind.Library when parts.Length == 3:
+                    throw new VBCompileErrorException(VB6InBoxLibraries.TryInLibrary(qualifier.Name!, parts[1], out _)
+                        ? "Invalid qualifier"
+                        : "Method or data member not found");
                 case BasicInterpreter.QualifierKind.InBoxContainer when parts.Length == 2:
                     // `KeyCodeConstants.vbKeyA`; a member of another container is refused (measured:
                     // `KeyCodeConstants.vbCancel` is "Method or data member not found").

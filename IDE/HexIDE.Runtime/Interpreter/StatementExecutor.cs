@@ -3636,7 +3636,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         catch (VBRunTimeException ex) when (ex.Error.ErrNo == 6)
         {
-            throw new NotImplementedException("On GoTo/GoSub selector outside Integer range is unmeasured (#4726)");
+            throw new NotImplementedException("On GoTo/GoSub selector outside Integer range is unmeasured (#4880)");
         }
         if (n is < 0 or > 255)
             throw new VBRunTimeException(context, VBStandardError.InvalidProcedureCall);
@@ -4479,7 +4479,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var name = UdtFieldName(parts[^1]);
                 if (target.Value is ICSharpPropertyBag bag && bag.TrySetProperty(name, value)) return default;
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
-                throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#1087)");
+                throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#4882)");
             }
             if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown or ImageComboModel or VBImageCombo or ImageComboItems or ImageComboItem)
             {
@@ -6096,7 +6096,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             catch (ResumeSignal r)
             {
                 if (nested && faultPc < 0)
-                    throw Raised(new NotImplementedException("Resume of a handler error from a GoSub routine is unmeasured (#4726)"));
+                    throw Raised(new NotImplementedException("Resume of a handler error from a GoSub routine is unmeasured (#4880)"));
                 if (faultPc < 0)
                     throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;

@@ -70,11 +70,10 @@ public class CancellationWireShapeTests
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         var logger = Substitute.For<ILogger<VBLspClient>>();
+        await using var serverStream = serverSide;
         await using var client = new VBLspClient(transport, logger,
             "vb6", capture: log, connectionId: "probe");
         client.RequestTimeout = deadline ? TimeSpan.FromMilliseconds(500) : TimeSpan.FromSeconds(30);
-        // Close the peer before disposing the client even when an assertion or deadline fails.
-        await using var serverStream = serverSide;
 
         // Read real frames rather than binding params through a JSON-RPC handler, which could hide their shape.
         var starting = client.StartAsync(ct);
@@ -131,8 +130,8 @@ public class CancellationWireShapeTests
             && e.CorrelationId == secondFrame.RootElement.GetProperty("id").GetRawText())
             .Which.Outcome.Should().Be(ConversationOutcome.Answered);
         client.IsRunning.Should().BeTrue();
-        // End the connection to release StreamJsonRpc's abandoned pending entries.
-        serverSide.Dispose();
+        // End the client before closing the pipe under its read loop and pending requests.
+        await client.DisposeAsync();
         await pending.WaitAsync(ct);
     }
 

@@ -114,7 +114,8 @@ to.
 **Not followed:**
 - The p-code order after the row that resisted explanation: HexIDE lists 1, 2, 3, as native code does.
 - `For Each t In Controls` with `t As TextBox`: HexIDE binds every control and raises nothing, where VB6 raises 13 at the
-  Timer. A missing error, filed as #1563.
+  Timer. A missing error, filed as #1563. Followed since #4832 (2026-11-19): the 13 at the Timer, one pass of the body,
+  and `t` left Nothing, as the table above records.
 
 **Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.
 

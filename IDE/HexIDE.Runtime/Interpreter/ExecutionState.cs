@@ -9,6 +9,8 @@ public class ExecutionState
 {
     public Dictionary<int, Vb6Value> memory = new();
 
+    internal AvaloniaInterop.DrawingHandles DrawingHandles { get; } = new();
+
     /// <summary>The slots of a standard module's procedures' <c>Static</c> locals, for the run (#1491).</summary>
     internal StaticLocals ModuleStatics { get; } = new();
 
