@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
@@ -295,6 +296,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // after its gate; `_suspendedAtTopLevel` is true only while paused AT the top-level gate (false at a nested
     // If/For/Do block gate), so a move is refused when paused inside a nested construct.
     private VB6Parser.BlockStmtContext[]? _bodyStmts;
+    private Dictionary<string, int>? bodyLabels;
+    private int gosubDepth;
+    // How many GoSubs may be pending before Error 28 (#4726). A count, not the stack probe alone, for two reasons: the
+    // procedure's own handler traps that 28 (measured) and runs where the GoSub stood, so it needs stack left; and under
+    // a debugger's time slice the probe can't see async depth, as for MaxCallDepth. Measured on Windows x64, Debug: with
+    // the probe alone a thread reaches 2,770 nested passes on 8 MiB and 290 on 1 MiB, and the handler then has no stack.
+    // At 2,000 it ran on 8 MiB, the stack the interpreter has on macOS (its main thread: 8,372,224 bytes, measured on
+    // macOS 27.2); Windows and Linux give it 64 MiB. VB6 p-code reached 252,154: a depth divergence, in interpreter-gaps.
+    internal const int MaxGoSubDepth = 2_000;
     // Where a GoTo from outside a construct to a head on its closing line goes, by name (#2529), for this body.
     private Dictionary<string, (int Pc, ParserRuleContext? Construct)> closingTargets = new();
     // A Do ... Loop While that a GoTo to its Loop line entered: it tests its condition before running its body (#2529).
@@ -1955,7 +1965,40 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitGoSubStmt(VB6Parser.GoSubStmtContext context)
     {
-        throw new NotImplementedException("GoSub not implemented");
+        return await GoSub(context.valueStmt().GetText(), context);
+    }
+
+    private async Task<ControlFlow> GoSub(string label, ParserRuleContext context)
+    {
+        if (bodyLabels is null)
+            throw new NotImplementedException("GoSub not implemented");
+        var start = ResolveLabel(bodyLabels, label);
+        if (gosubDepth >= MaxGoSubDepth || !RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            throw new VBRunTimeException(context, VBStandardError.OutOfStackSpace);
+        gosubDepth++;
+        try
+        {
+            return await RunPass(start, nested: true, null);
+        }
+        catch (Exception signal) when (signal is VBRunTimeException or VBCompileErrorException or Debugging.StopExecutionSignal)
+        {
+            // As RunProcedure does for a procedure (#3247, #3250), and for the same two reasons. Every await rethrows what
+            // passes it, appending to the trace it carries, so a 28 leaving 8,000 nested passes took 149 s to reach the
+            // caller's handler, and 2,000 took 4.5 s (Debug, measured). A fresh throw keeps only this pass's trace; the
+            // object is the same, so Err and Erl are untouched. And under a debugger's time slice, the continuations of
+            // passes it left waiting run inline inside one another as the error unwinds: a yield every few passes starts
+            // that nesting again from the dispatcher.
+            if (interpreter.DebugController is not null && SynchronizationContext.Current is not null
+                && gosubDepth % BasicInterpreter.UnwindYieldEvery == 0)
+                await Task.Yield();
+#pragma warning disable CA2200 // Rethrow to preserve stack details: resetting it is the point.
+            throw signal;
+#pragma warning restore CA2200
+        }
+        finally
+        {
+            gosubDepth--;
+        }
     }
 
     public override async Task<ControlFlow> VisitGoToStmt(VB6Parser.GoToStmtContext context)
@@ -3495,12 +3538,34 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitOnGoToStmt(VB6Parser.OnGoToStmtContext context)
     {
-        throw new NotImplementedException("OnGoTo not implemented");
+        return await OnBranch(context.valueStmt(), context, gosub: false);
     }
 
     public override async Task<ControlFlow> VisitOnGoSubStmt(VB6Parser.OnGoSubStmtContext context)
     {
-        throw new NotImplementedException("OnGoSub not implemented");
+        return await OnBranch(context.valueStmt(), context, gosub: true);
+    }
+
+    private async Task<ControlFlow> OnBranch(VB6Parser.ValueStmtContext[] values, ParserRuleContext context, bool gosub)
+    {
+        var selector = await expressionExecutor.EvaluateValue(values[0]);
+        int n;
+        try
+        {
+            n = Convert.ToInt32(VB6BuiltIns.NarrowNum(selector, Vb6Value.ValueType.Integer).Value);
+        }
+        catch (VBRunTimeException ex) when (ex.Error.ErrNo == 6)
+        {
+            throw new NotImplementedException("On GoTo/GoSub selector outside Integer range is unmeasured (#4726)");
+        }
+        if (n is < 0 or > 255)
+            throw new VBRunTimeException(context, VBStandardError.InvalidProcedureCall);
+        if (n == 0 || n >= values.Length)
+            return ControlFlow.Nothing;
+        var label = values[n].GetText();
+        if (gosub)
+            return await GoSub(label, context);
+        throw new GoToSignal(label, context);
     }
 
     // Open For Input, Output or Append (#1145). Random and Binary aren't implemented. An Access clause is taken as it
@@ -3750,7 +3815,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitReturnStmt(VB6Parser.ReturnStmtContext context)
     {
-        throw new NotImplementedException("Return not implemented");
+        if (gosubDepth == 0)
+            throw new VBRunTimeException(context, VBStandardError.ReturnWithoutGoSub);
+        throw new ReturnSignal();
     }
 
     public override async Task<ControlFlow> VisitRmdirStmt(VB6Parser.RmdirStmtContext context)
@@ -5711,7 +5778,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     // Runs a procedure body's TOP-LEVEL statements with an explicit program counter so On Error GoTo <label>,
-    // GoTo, Resume, and labels work. Labels/handlers are always top-level statements of the body, so only the
+    // GoTo, GoSub, Return, Resume, and labels work. GoSub runs a nested pass from its label. Only the
     // top-level list is linearised; nested blocks keep going through VisitBlock (which carries the Resume Next
     // trap). GoTo/Resume are control-signal exceptions that unwind nested constructs up to here.
     //   Documented limitation: for a fault nested inside a top-level construct, faultPc is that construct's
@@ -5817,9 +5884,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         erlNumbers = LineNumbersOf(block);
         closingTargets = ClosingTargetsOf(block, stmts);
 
-        int pc = 0;
-        int faultPc = -1;       // index of the statement that faulted (for Resume); -1 = no active error
+        bodyLabels = labels;
         inHandler = false;
+        await RunPass(0, nested: false, moduleDeclarations);
+    }
+
+    private async Task<ControlFlow> RunPass(int start, bool nested, bool? moduleDeclarations)
+    {
+        var stmts = _bodyStmts!;
+        var labels = bodyLabels!;
+        int pc = start;
+        int faultPc = -1;       // index of the statement that faulted (for Resume); -1 = no active error
         var retry = false;      // the statement a halt retries, whose break has just been resumed (#1011)
 
         while (pc < stmts.Length)
@@ -5860,10 +5935,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 stmtFrames.Push(new List<Vb6Value>());
                 try
                 {
-                    if (await Visit(stmts[pc]) != ControlFlow.Nothing)
+                    var flow = await Visit(stmts[pc]);
+                    if (flow != ControlFlow.Nothing)
                     {
                         LeaveHandler();
-                        return;   // Exit Sub/Function/Property — leave the body
+                        return flow;   // Exit Sub/Function/Property — leave the body
                     }
                     pc++;
                 }
@@ -5878,8 +5954,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 pc = ResolveLabel(labels, g.Label);
             }
+            catch (ReturnSignal) when (nested)
+            {
+                return ControlFlow.Nothing;
+            }
             catch (ResumeSignal r)
             {
+                if (nested && faultPc < 0)
+                    throw Raised(new NotImplementedException("Resume of a handler error from a GoSub routine is unmeasured (#4726)"));
                 if (faultPc < 0)
                     throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;
@@ -5916,6 +5998,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         ReachedProcedureEnd = true;
         LeaveHandler();
+        return nested ? ControlFlow.ExitSub : ControlFlow.Nothing;
     }
 
     // A procedure left from its handler, by Exit or by its end, clears Err, as a Resume would, whatever On Error the
@@ -6201,6 +6284,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         public string Label { get; } = label;
         public Antlr4.Runtime.ParserRuleContext Context { get; } = context;
     }
+
+    private sealed class ReturnSignal : Exception;
 
     private enum ResumeKind { Same, Next, Label }
 
