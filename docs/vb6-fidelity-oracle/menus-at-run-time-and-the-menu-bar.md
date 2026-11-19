@@ -242,9 +242,16 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
     or more. On the console they wrapped with 6, 5, 4, 3 or 0 and stayed with 7, 10 or more.
   - **An item that starts a row stays on it, however little is spare.** At a 54-px console client, Project (51 px)
     and Format (52 px) each sat alone on a row, with 3 and 2 px spare.
-  - That is on Fixed Single forms only, whose items start 3 px in from the window's edge. Each session's margin is
-    half its item padding, above: 6 of 12, and 7 of 14. With only two sessions, that is consistent, not separated from
-    a margin that is simply different on each desktop.
+  - **The margin is counted against the client width, whatever the BorderStyle.** A fifth probe gave Form3's six
+    menus to a form of each of the six BorderStyles. It narrowed each one by 15 twips at a time, from a 231-px client
+    to 195, native and p-code agreeing, in both sessions.
+    - **All six styles broke at the same client width.** In session 0, Alpha to Echo (197 px) stayed on the first row
+      at a 203-px client and Echo wrapped at 202. On the console (221 px) they stayed at 228 and wrapped at 227.
+    - **The frames differed:** the items start where the client does, 3 px in for None, Fixed Single, Fixed Dialog and
+      Fixed ToolWindow, and 4 in session 0 or 8 on the console for the two sizable styles.
+    - None with a menu gets Fixed Single's frame, as *A form's Width and Height* has it.
+  - Each session's margin is half its item padding, above: 6 of 12, and 7 of 14. With only two sessions, that is
+    consistent, not separated from a margin that is simply different on each desktop.
 - **A Width change re-wraps the bar at once.** Form3 in session 0 unwrapped when its client went from 246 to 256 px:
   ScaleHeight went from 3420 to 3690 and Height stayed 4350. In the first probe, `Width = Width + 3000` unwrapped it
   the same way, and its Resize came inside the `Width` statement, before the next line read anything. Form4 narrowing
@@ -256,8 +263,8 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
 - **The window stopped narrowing** at 56 px wide in session 0 and 60 on the console, however far Width went below
   that. Not explored further.
 
-**Not measured:** an MDI child's menu bar, so a change to it isn't either; a bar on a form of another BorderStyle; and
-which of the client width or the window's width the spare pixels are measured against.
+**Not measured:** an MDI child's menu bar, so a change to it isn't either; and the bar's rows, rather than its break,
+on the BorderStyles other than Fixed Single.
 
 **In HexIDE (#4946),** from main at 7383762e3:
 - **A change reversed before it lands** is refused as not implemented, from `MenuMembers.cs:121-122`, read from the
