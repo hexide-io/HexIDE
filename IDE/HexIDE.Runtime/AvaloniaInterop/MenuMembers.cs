@@ -116,10 +116,9 @@ internal static class MenuMembers
         var root = bar.FindLogicalAncestorOfType<IModuleExecutionRoot>();
         var window = bar.FindLogicalAncestorOfType<Window>();
         var change = barChanges.GetOrCreateValue(bar);
-        if (change.Pending is { } pending)
+        if (change.Pending is not null)
         {
-            if (pending != visible)
-                throw new NotImplementedException("Reversing a menu bar change before message delivery is not implemented (#4946)");
+            change.Pending = visible;
             return;
         }
         if (bar.IsVisible == visible)
@@ -136,25 +135,26 @@ internal static class MenuMembers
 
         Task Apply()
         {
+            var target = change.Pending ?? visible;
             change.Pending = null;
-            if (bar.IsVisible == visible)
+            if (bar.IsVisible == target)
                 return Task.CompletedTask;
-            bar.IsVisible = visible;
+            bar.IsVisible = target;
             if (window is not null)
-                FormFrame.ChangeMenu(window, visible);
+                FormFrame.ChangeMenu(window, target);
             // DockPanel lays the canvas out in the area left below the bar; do not resize the window.
             window?.UpdateLayout();
             try
             {
                 // A bar first shown from code has no item extents until this layout.
-                if (visible)
+                if (target)
                     RefuseWrapped(bar, window);
             }
             catch (NotImplementedException)
             {
-                bar.IsVisible = !visible;
+                bar.IsVisible = !target;
                 if (window is not null)
-                    FormFrame.ChangeMenu(window, !visible);
+                    FormFrame.ChangeMenu(window, !target);
                 window?.UpdateLayout();
                 throw;
             }
