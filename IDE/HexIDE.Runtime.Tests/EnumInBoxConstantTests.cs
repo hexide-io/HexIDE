@@ -209,7 +209,7 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
     public async Task Unmeasured_qualifier_member_stays_refused(string expression, string module, string source)
     {
         var act = () => RunModules(Declaration(expression), (module, source));
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4762");
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4914");
     }
 
     // Explicit HexIDE refusals; these are not VB6 measurements.
@@ -221,6 +221,6 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
     public async Task Unmeasured_project_names_stay_refused(bool own, string source)
     {
         var act = () => RunModules(Declaration("vbRed") + (own ? source : ""), ("Module2", own ? "" : source));
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4762").And.Contain("M");
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4914").And.Contain("M");
     }
 }
