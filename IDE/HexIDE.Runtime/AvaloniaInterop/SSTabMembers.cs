@@ -99,12 +99,13 @@ internal static class SSTabMembers
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
-    internal static PanelPicture ControlPicture(byte[]? bytes)
+    /// <param name="png">Whether a PNG reads back, which is for a control in a run that takes RDCore's additions (#4967).</param>
+    internal static PanelPicture ControlPicture(byte[]? bytes, bool png = false)
     {
         if (bytes is not { Length: > 0 }) return new PanelPicture([]);
         var offset = Serialization.FrxDeserializer.PayloadOffset(bytes);
         offset += VBImage.StdPictureHeaderLength(bytes, offset);
-        return PanelPicture.FromFile(bytes[offset..]);
+        return PanelPicture.FromFile(bytes[offset..], png: png);
     }
 
     private static int Index(VBSSTab tab, string name, IReadOnlyList<Vb6Value> args)

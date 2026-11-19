@@ -65,6 +65,9 @@ public partial class VB6BuiltIns
 
     internal VbaBitness VbaBitness { get; init; }
 
+    /// <summary>The run's <c>BasicInterpreter.RDCoreAdditions</c>: <c>LoadPicture</c> then also reads PNG (#4967).</summary>
+    internal bool RDCoreAdditions { get; init; }
+
     internal Func<Vb6Value, string, Task<Vb6Value>>? ResolveDefaultForUse { get; set; }
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args, bool compareText = false)
@@ -245,7 +248,7 @@ public partial class VB6BuiltIns
         RegisterArray(d);
         RegisterResources(d);
         RegisterInspection(d);
-        d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);
+        d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files, png: self.RDCoreAdditions);
         RegisterDateTime(d);
         RegisterFormat(d);
         RegisterColor(d);

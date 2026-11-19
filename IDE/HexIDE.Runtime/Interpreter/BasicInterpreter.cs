@@ -977,6 +977,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         BuiltIns = new VB6BuiltIns(stdLib)
         {
             VbaBitness = VbaBitness,
+            RDCoreAdditions = RDCoreAdditions,
             ResolveDefaultForUse = (value, use) => ResolveDefaultMember(value, use).AsTask(),
             AppTitle = () => App.TitleOrNull,
             ProjectResources = () => Resources,
@@ -1192,6 +1193,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private readonly CompilationConstants compilationConstants;
     internal VbaBitness VbaBitness => compilationConstants.VbaBitness;
     internal bool IsVba64 => VbaBitness == VbaBitness.Bit64;
+
+    /// <summary>
+    /// Whether this run takes RDCore's additions to VB6, which is when its project targets RDCore (#4967): PNG in
+    /// <c>LoadPicture</c>, and an Image's <c>Opacity</c>. A VB6 or VBA project has none of them. This is the one place a run
+    /// decides it; the built-ins and the forms' controls are told from here.
+    /// </summary>
+    internal bool RDCoreAdditions => compilationConstants.Target == ProjectTarget.RDCore;
 
     // Each module's conditional compilation is applied before it is parsed, so an inactive branch is never parsed, as in
     // vb6.exe, and a directive's error stops the program as it loads (#1112). The text is the parser's alone: the code

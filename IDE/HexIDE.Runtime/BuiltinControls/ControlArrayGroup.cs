@@ -102,6 +102,8 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         // cloned with it. Pinned as a test rather than asserted as correct — what VB6 does when you Load a
         // new element of a Frame array is an open oracle question (see the change's open list).
         var control = ((ComponentBaseClass)tmpl.BaseClass).Instantiate(tmpl);
+        // Its form file's RDCore members, as the template had them when it was placed (#4967).
+        AvaloniaInterop.RDCoreMembers.ApplyFormFile(control, tmpl, VBProps.GetRDCoreAdditions(parent));
         if (control is VBCommonDialog dialog && elements[templateIndex] is VBCommonDialog sourceDialog)
             dialog.host = sourceDialog.host;
         control.IsVisible = false;

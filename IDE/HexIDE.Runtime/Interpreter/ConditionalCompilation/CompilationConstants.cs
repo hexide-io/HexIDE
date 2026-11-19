@@ -31,6 +31,12 @@ public sealed class CompilationConstants
 
     public VbaBitness VbaBitness { get; init; }
 
+    /// <summary>
+    /// The project's target. Besides choosing <see cref="BuiltIns"/>, RDCore switches on RDCore's run-time additions to
+    /// VB6 (#4967): a run asks <c>BasicInterpreter.RDCoreAdditions</c>, which reads this and nothing else.
+    /// </summary>
+    internal ProjectTarget Target { get; init; }
+
     /// <summary>A program with no project arguments, under VB6's built-ins.</summary>
     public static readonly CompilationConstants Vb6 = new(CompilationArguments.None);
 
@@ -60,12 +66,12 @@ public sealed class CompilationConstants
     /// </summary>
     public bool NullIsUndetermined { get; init; }
 
-    /// <summary>A project's CondComp and its target's predefined constants (#4821).</summary>
+    /// <summary>A project's CondComp and its target's predefined constants (#4821), and the target itself (#4967).</summary>
     public static CompilationConstants ForProject(ProjectDefinition project) => ForProject(project, null);
 
     internal static CompilationConstants ForProject(ProjectDefinition project, OSPlatform? host) =>
         new(CompilationArguments.ForProject(project), BuiltInsFor(project.Target, project.VbaBitness, host, project.Win64OnlySetOnWindows))
-        { VbaBitness = project.VbaBitness };
+        { VbaBitness = project.VbaBitness, Target = project.Target };
 
     /// <summary>The predefined constants shared by interpreter runs and editor previews, on the current or specified host.</summary>
     internal static IReadOnlyDictionary<string, Vb6Value> BuiltInsFor(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null, bool win64OnlySetOnWindows = false) =>
