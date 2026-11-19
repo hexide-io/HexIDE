@@ -57,7 +57,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var d in _disposables)
+        foreach (var d in _disposables.AsEnumerable().Reverse())
         {
             try { await d.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
@@ -66,6 +66,15 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         // UnobservedTaskException, which the IDE logs, and another test's captured log took it in (#4809).
         _ = _serverLoop?.ContinueWith(static t => _ = t.Exception, CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        await _cts.CancelAsync();
+        if (_serverLoop is not null)
+        {
+            try { await _serverLoop; } catch { /* observe the fake server before releasing its lifetime */ }
+        }
+        if (_starting is not null)
+        {
+            try { await _starting; } catch { /* initialization may have been interrupted */ }
+        }
         _cts.Dispose();
         GC.SuppressFinalize(this);
     }
