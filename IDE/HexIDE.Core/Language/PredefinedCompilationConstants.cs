@@ -15,26 +15,28 @@ public static class PredefinedCompilationConstants
     private static readonly IReadOnlyDictionary<string, int> Vba32 =
         Numbers(("VBA6", 1), ("VBA7", 1), ("Win32", 1), ("Win64", 0), ("Win16", 0), ("Mac", 0));
 
-    // #4821: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.8-alpha (unchanged since 0.1.0-alpha).
+    // #4890: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.11-alpha.
     // HexIDE runs 64-bit only. DEBUG is deliberately omitted.
     private static readonly IReadOnlyDictionary<string, int> RdcoreWindowsBuiltIns =
-        Numbers(("Win16", 0), ("Win32", 1), ("Win64", 1), ("Mac", 0), ("Linux", 0), ("Linux64", 0), ("VBA6", 1), ("VBA7", 1));
+        Numbers(("Win16", 0), ("Win32", 1), ("Win64", 1), ("Mac", 0), ("Linux", 0), ("Is64BitEnv", 1), ("VBA6", 1), ("VBA7", 1));
     private static readonly IReadOnlyDictionary<string, int> RdcoreMacBuiltIns =
-        Numbers(("Win16", 0), ("Win32", 0), ("Win64", 0), ("Mac", 1), ("Linux", 0), ("Linux64", 0), ("VBA6", 1), ("VBA7", 1));
+        Numbers(("Win16", 0), ("Win32", 0), ("Win64", 1), ("Mac", 1), ("Linux", 0), ("Is64BitEnv", 1), ("VBA6", 1), ("VBA7", 1));
+    private static readonly IReadOnlyDictionary<string, int> RdcoreMacWindowsOnlyBuiltIns =
+        Numbers(("Win16", 0), ("Win32", 0), ("Win64", 0), ("Mac", 1), ("Linux", 0), ("Is64BitEnv", 1), ("VBA6", 1), ("VBA7", 1));
     private static readonly IReadOnlyDictionary<string, int> RdcoreLinuxBuiltIns =
-        Numbers(("Win16", 0), ("Win32", 0), ("Win64", 0), ("Mac", 0), ("Linux", 1), ("Linux64", 1), ("VBA6", 1), ("VBA7", 1));
+        Numbers(("Win16", 0), ("Win32", 0), ("Win64", 0), ("Mac", 0), ("Linux", 1), ("Is64BitEnv", 1), ("VBA6", 1), ("VBA7", 1));
 
     // Excel for Mac 16.115, arm64: measured in #4821. Linux/Linux64 are not defined.
     private static readonly IReadOnlyDictionary<string, int> VbaMacBuiltIns =
         Numbers(("VBA6", 1), ("VBA7", 1), ("Win32", 0), ("Win64", 1), ("Win16", 0), ("Mac", 1));
 
     /// <summary>Select the target's table on the current or specified host; this selects constants only.</summary>
-    internal static IReadOnlyDictionary<string, int> ForTarget(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null)
+    internal static IReadOnlyDictionary<string, int> ForTarget(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null, bool win64OnlySetOnWindows = false)
     {
         host ??= OperatingSystem.IsWindows() ? OSPlatform.Windows :
             OperatingSystem.IsMacOS() ? OSPlatform.OSX : OperatingSystem.IsLinux() ? OSPlatform.Linux : default;
         if (target == ProjectTarget.RDCore)
-            return host == OSPlatform.OSX ? RdcoreMacBuiltIns :
+            return host == OSPlatform.OSX ? (win64OnlySetOnWindows ? RdcoreMacWindowsOnlyBuiltIns : RdcoreMacBuiltIns) :
                 host == OSPlatform.Linux ? RdcoreLinuxBuiltIns : RdcoreWindowsBuiltIns;
         // Linux has no VBA to measure, so its VBA7 projects retain the Windows tables.
         if (bitness == VbaBitness.Bit64)

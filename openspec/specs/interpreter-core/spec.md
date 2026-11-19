@@ -229,14 +229,18 @@ predefined constants.
 #### Scenario: Recorded host tables
 - **WHEN** the target and host are one of the following rows
 - **THEN** the constants are the numeric 0 or 1 values shown, with undefined names omitted
-- **AND** the external backend table mirrors SDK `PredefinedConditionalConstants.cs` (`Of`) at version 0.1.8-alpha, omitting `DEBUG`, on HexIDE's 64-bit hosts
+- **AND** the external backend table mirrors SDK `PredefinedConditionalConstants.cs` (`Of`) at version 0.1.11-alpha ([#4890](https://github.com/hexide-io/HexIDE/issues/4890)), omitting `DEBUG`, on HexIDE's 64-bit hosts
 
-| Target | Host | Win16 | Win32 | Win64 | Mac | Linux | Linux64 | VBA6 | VBA7 |
+| Target | Host | Win16 | Win32 | Win64 | Mac | Linux | Is64BitEnv | VBA6 | VBA7 |
 |---|---|---|---|---|---|---|---|---|---|
-| `Targets=RDCore` | Windows | 0 | 1 | 1 | 0 | 0 | 0 | 1 | 1 |
-| `Targets=RDCore` | macOS | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 1 |
+| `Targets=RDCore` | Windows | 0 | 1 | 1 | 0 | 0 | 1 | 1 | 1 |
+| `Targets=RDCore` | macOS | 0 | 0 | 1 | 1 | 0 | 1 | 1 | 1 |
 | `Targets=RDCore` | Linux | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
 | VBA7 64-bit | macOS | 0 | 0 | 1 | 1 | undefined | undefined | 1 | 1 |
+
+For `Targets=RDCore`, `[HexIDE] Win64OnlySetOnWindows=1` SHALL change only macOS's `Win64` to 0.
+Absent or `0` SHALL mean false. The key SHALL have no effect without that target.
+`Linux64` SHALL be undefined unless the project or module defines it.
 
 #### Scenario: Default targets and unmeasured hosts
 - **WHEN** a 64-bit VBA7 project has no target key on macOS
@@ -250,9 +254,10 @@ predefined constants.
 - **AND** the project's run offers are unchanged
 
 #### Scenario: A portable pause avoids a Windows Declare
-- **WHEN** a project selects `Targets=RDCore` on macOS or Linux and tests `#If Win32 Or Win64 Then`
+- **WHEN** a project selects `Targets=RDCore` on macOS with `Win64OnlySetOnWindows=1`, or on Linux with either key value, and tests `#If Win32 Or Win64 Then`
 - **THEN** execution and default editor greying select its `#Else` Timer loop
-- **AND** the same project with `VbaBitness=64` and no target key selects its Windows Declare branch on macOS
+- **AND** on macOS the default RDCore table, or `VbaBitness=64` with no target key, selects its Windows Declare branch
+- **AND** on Windows either key value selects the Windows Declare branch
 
 #### Scenario: Program definitions override the selected target
 - **WHEN** a project argument defines `Mac=0` for the external backend target on macOS

@@ -164,4 +164,52 @@ public class VbaBitnessPersistenceTests : IDisposable
         File.ReadAllBytes(path).Should().Equal(bytes);
     }
 
+    // HexIDE metadata and SDK default, #4890; unknown values must retain their position and spelling.
+    [Theory]
+    [InlineData("1", true)]
+    [InlineData("0", false)]
+    [InlineData("future", false)]
+    [InlineData("utf-8", false)]
+    [InlineData("", false)]
+    public async Task Win64_option_round_trips_in_place(string value, bool enabled)
+    {
+        var path = Path.Join(directory, "Test.vbp");
+        var original = new ProjectSerializer().Serialize(new ProjectDefinition(VBProjectType.EXE, "Test"), path) +
+            $"\r\n[Other]\r\nWin64OnlySetOnWindows=1\r\n[HexIDE]\r\n' before\r\nWin64OnlySetOnWindows = {value}  \r\n' after\r\nTargets=RDCore\r\n";
+        File.WriteAllText(path, original);
+        var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        read.Win64OnlySetOnWindows.Should().Be(enabled);
+        new ProjectSerializer().Serialize(read, path).Should().Be(original);
+    }
+
+    [Fact]
+    public async Task Win64_option_keeps_neighboring_metadata_and_blank_lines_in_order()
+    {
+        var path = Path.Join(directory, "Test.vbp");
+        var original = new ProjectSerializer().Serialize(new ProjectDefinition(VBProjectType.EXE, "Test"), path) +
+            "\r\n[HexIDE]\r\nVbaBitness=64\r\nTargets=RDCore\r\n\r\n' before\r\nWin64OnlySetOnWindows=1\r\n' after\r\n";
+        File.WriteAllText(path, original);
+        var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        new ProjectSerializer().Serialize(read, path).Should().Be(original);
+        var tail = "[HexIDE]\r\nTargets=RDCore\r\nMain.bas=utf-8\r\n' before\r\nWin64OnlySetOnWindows=1\r\n' after\r\n";
+        ProjectEncodingRecords.Write(tail, ["Main.bas"], VbaBitness.None, ProjectTarget.RDCore, true).Should().Be(tail);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Setting_Win64_option_survives_fresh_open_without_a_target(bool enabled)
+    {
+        var path = Path.Join(directory, "Test.vbp");
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Win64OnlySetOnWindows = enabled };
+        File.WriteAllText(path, new ProjectSerializer().Serialize(project, path));
+        var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        read.Win64OnlySetOnWindows.Should().Be(enabled);
+        read.Target.Should().Be(ProjectTarget.None);
+        read.Win64OnlySetOnWindows = !enabled;
+        File.WriteAllText(path, new ProjectSerializer().Serialize(read, path));
+        var changed = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        changed.Win64OnlySetOnWindows.Should().Be(!enabled);
+    }
+
 }

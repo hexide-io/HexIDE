@@ -19,6 +19,9 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     /// <summary>The target whose predefined #If constants are used; it does not select the run engine (#4821).</summary>
     internal ProjectTarget Target { get; set; }
 
+    /// <summary>Restrict RDCore Win64 to Windows; selects constants only (#4890).</summary>
+    internal bool Win64OnlySetOnWindows { get; set; }
+
     private FormDefinition? startupForm;
     private bool startsAtSubMain;
     private string? absolutePath;
