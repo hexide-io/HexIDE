@@ -19,6 +19,9 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 internal sealed class RuntimeDrawing
 {
     private static readonly ConditionalWeakTable<Control, RuntimeDrawing> drawings = new();
+    private readonly DrawingHandles handles;
+    private readonly int windowHandle;
+    private int redrawHandle;
     private readonly Control owner;
     private readonly Canvas host;
     private int currentX, currentY;
@@ -30,9 +33,11 @@ internal sealed class RuntimeDrawing
     private WriteableBitmap? bitmap;
     private bool dirty;
 
-    private RuntimeDrawing(Control owner, Canvas host, ComponentInstance component)
+    private RuntimeDrawing(Control owner, Canvas host, ComponentInstance component, DrawingHandles handles)
     {
         this.owner = owner;
+        this.handles = handles;
+        windowHandle = handles.Issue(this);
         this.host = host;
         drawWidth = VBLoader.RawNumber(component, "DrawWidth") ?? 1;
         drawStyle = VBLoader.RawNumber(component, "DrawStyle") ?? 0;
@@ -41,6 +46,7 @@ internal sealed class RuntimeDrawing
         fillColor = SavedFillColor(component);
         autoRedraw = VBLoader.RawDouble(component, "AutoRedraw") is { } savedAuto
             ? savedAuto != 0 : component.GetPropertyOrDefault(VBProperties.AutoRedrawProperty);
+        if (autoRedraw) redrawHandle = handles.Issue(this);
         fontTransparent = (VBLoader.RawDouble(component, "FontTransparent") ?? -1) != 0;
         drawings.Add(owner, this);
         drawings.Add(host, this);
@@ -70,8 +76,8 @@ internal sealed class RuntimeDrawing
         return component.GetPropertyOrDefault(VBProperties.FillColorProperty);
     }
 
-    internal static void Initialize(Control owner, Canvas host, ComponentInstance component) =>
-        _ = new RuntimeDrawing(owner, host, component);
+    internal static void Initialize(Control owner, Canvas host, ComponentInstance component, DrawingHandles handles) =>
+        _ = new RuntimeDrawing(owner, host, component, handles);
 
     internal static RuntimeDrawing? Of(Control owner) => drawings.TryGetValue(owner, out var drawing) ? drawing : null;
 
@@ -100,6 +106,10 @@ internal sealed class RuntimeDrawing
         if (Of(owner) is not { } drawing) return false;
         switch (name.ToUpperInvariant())
         {
+            case "HDC":
+                drawing.EnsureSurface();
+                value = new Vb6Value((long)(drawing.autoRedraw ? drawing.redrawHandle : drawing.windowHandle));
+                return true;
             case "CURRENTX": value = new Vb6Value(drawing.ReadPosition(drawing.currentX, false)); return true;
             case "CURRENTY": value = new Vb6Value(drawing.ReadPosition(drawing.currentY, true)); return true;
             case "DRAWWIDTH": value = new Vb6Value(drawing.drawWidth); return true;
@@ -122,7 +132,16 @@ internal sealed class RuntimeDrawing
             case "CURRENTX": drawing.currentX = drawing.Twips(value, false); return true;
             case "CURRENTY": drawing.currentY = drawing.Twips(value, true); return true;
             case "FILLCOLOR": drawing.fillColor = VBColor.FromOle(AvaloniaInteroperability.OleColor(value)); return true;
-            case "AUTOREDRAW": drawing.autoRedraw = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!; return true;
+            case "HDC": throw new NotImplementedException("Assigning PictureBox.hDC is unmeasured and not implemented (#4849)");
+            case "AUTOREDRAW":
+                var enabled = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
+                if (enabled != drawing.autoRedraw)
+                {
+                    drawing.handles.Retire(drawing.redrawHandle);
+                    drawing.autoRedraw = enabled;
+                    if (enabled) drawing.redrawHandle = drawing.handles.Issue(drawing);
+                }
+                return true;
             case "FONTTRANSPARENT": throw Refused("Setting FontTransparent");
             case "DRAWWIDTH": case "DRAWSTYLE": case "DRAWMODE": case "FILLSTYLE":
                 var number = Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value);
@@ -155,6 +174,7 @@ internal sealed class RuntimeDrawing
         if (name.Equals("Cls", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
         {
             drawing.EnsureSurface();
+            drawing.RenewRedrawHandle();
             Array.Fill(drawing.pixels, drawing.Background());
             drawing.currentX = drawing.currentY = 0;
             drawing.Changed();
@@ -305,6 +325,49 @@ internal sealed class RuntimeDrawing
         bitmap?.Dispose();
         bitmap = null;
         dirty = true;
+        RenewRedrawHandle();
+    }
+
+    private void RenewRedrawHandle()
+    {
+        if (!autoRedraw) return;
+        handles.Retire(redrawHandle);
+        redrawHandle = handles.Issue(this);
+    }
+
+    internal bool HasHandle(int handle)
+    {
+        EnsureSurface();
+        return handle == (autoRedraw ? redrawHandle : windowHandle);
+    }
+
+    internal void DrawImage(ImageListPictureObject picture, VBImageList list, int xTwips, int yTwips, int style, int backColor)
+    {
+        EnsureSurface();
+        var left = Whole((double)xTwips / VBScaleModeExtensions.PixelToTwips);
+        var top = Whole((double)yTwips / VBScaleModeExtensions.PixelToTwips);
+        using var image = ToolbarImage.Decode(picture, list);
+        using var buffer = image.Lock();
+        if (buffer.Format != PixelFormat.Bgra8888 && buffer.Format != PixelFormat.Rgba8888)
+            throw new NotImplementedException("ListImage.Draw with this pixel format is not implemented (#4849)");
+        var bytes = new byte[buffer.RowBytes * buffer.Size.Height];
+        Marshal.Copy(buffer.Address, bytes, 0, bytes.Length);
+        var red = buffer.Format == PixelFormat.Bgra8888 ? 2 : 0;
+        var background = MethodColor(new Vb6Value((long)backColor));
+        var highlight = MethodColor(new Vb6Value(unchecked((long)(int)0x8000000D)));
+        for (var y = 0; y < list.ImageHeight; y++)
+        for (var x = 0; x < list.ImageWidth; x++)
+        {
+            var sourceX = x * buffer.Size.Width / list.ImageWidth;
+            var sourceY = y * buffer.Size.Height / list.ImageHeight;
+            var offset = sourceY * buffer.RowBytes + sourceX * 4;
+            var masked = bytes[offset + 3] == 0;
+            if (masked && style == 1) continue;
+            var colour = masked ? background : style >= 2 && (x + y) % 2 == 0 ? highlight
+                : unchecked((int)0xFF000000) | bytes[offset + red] << 16 | bytes[offset + 1] << 8 | bytes[offset + 2 - red];
+            Put(left + x, top + y, colour);
+        }
+        Changed();
     }
 
     private void Changed() { dirty = true; Publish(); }
