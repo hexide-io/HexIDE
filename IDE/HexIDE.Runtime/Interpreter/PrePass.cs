@@ -15,6 +15,7 @@ public class PrePass : VB6BaseVisitor<object?>
     private readonly bool allowIndexedLet;
     private readonly bool allowIndexedSet;
     public Dictionary<string, ProcedureInfo> Procedures = new(StringComparer.OrdinalIgnoreCase);
+    internal HashSet<string> DeclareSubs { get; } = new(StringComparer.OrdinalIgnoreCase);
     // `Property Get/Let/Set` accessors, keyed by property name (each name owns up to three accessors).
     public Dictionary<string, PropertyInfo> Properties = new(StringComparer.OrdinalIgnoreCase);
     // Names this (class) module declares as `Public Event Foo(...)` — Phase 5. Recorded for completeness; dispatch
@@ -561,6 +562,8 @@ public class PrePass : VB6BaseVisitor<object?>
             throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;
         DeclareModuleName(context.ambiguousIdentifier().GetText(), exported: !IsPrivate(context.visibility()));
+        if (context.SUB() != null && !IsPrivate(context.visibility()))
+            DeclareSubs.Add(context.ambiguousIdentifier().GetText());
         return default;
     }
 

@@ -171,24 +171,56 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
     }
 
     // These are HexIDE's explicit refusals, not additional VB6 measurements.
+    // VB6 SP6 native/p-code measurements, 2026-11-18: #4762's supervisor comment (oracle PR #4818).
     [Theory]
-    [InlineData("VBA.vbBinaryCompare", "VBA", "")]
-    [InlineData("VBA.vbRed", "VBA", "")]
-    [InlineData("VBRUN.vbRed", "Module2", "Public Enum VBRUN\nOther = 3\nEnd Enum\n")]
-    [InlineData("VbCompareMethod.vbDatabaseCompare", "VbCompareMethod", "")]
-    public async Task Project_qualifier_requires_project_resolution(string expression, string module, string source)
+    [InlineData("VBA.vbBinaryCompare", "VBA", "", "Name conflicts with existing module, project, or object library")]
+    [InlineData("VBRUN.vbRed", "Module2", "Public Enum VBRUN\nOther = 3\nEnd Enum\n", "Name conflicts with existing module, project, or object library")]
+    [InlineData("VbCompareMethod.vbDatabaseCompare", "VbCompareMethod", "", "Method or data member not found")]
+    public async Task Project_qualifier_hides_library(string expression, string module, string source, string error)
     {
         var act = () => RunModules(Declaration(expression), (module, source));
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4762").And.Contain("M");
+        (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message
+            .ReplaceLineEndings("\n").Should().Be("Compile error:\n\n" + error);
     }
 
     [Theory]
-    [InlineData("Sub vbRed()\nEnd Sub\n")]
-    [InlineData("Declare Sub vbRed Lib \"unused\" ()\n")]
-    [InlineData("Public Enum OtherEnum\nvbRed = 3\nEnd Enum\n")]
-    public async Task Other_project_names_are_not_library_values(string source)
+    [InlineData(true, "Sub vbRed()\nEnd Sub\n")]
+    [InlineData(false, "Public Sub vbRed()\nEnd Sub\n")]
+    [InlineData(false, "Public Declare Sub vbRed Lib \"x\" ()\n")]
+    public async Task Project_Sub_hides_library(bool own, string source)
     {
-        var act = () => RunModules(Declaration("vbRed"), ("Module2", source));
+        var act = () => RunModules(Declaration("vbRed") + (own ? source : ""), ("Module2", own ? "" : source));
+        (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message
+            .ReplaceLineEndings("\n").Should().Be("Compile error:\n\nExpected Function or variable");
+    }
+
+    [Fact]
+    public async Task Public_Enum_member_hides_library()
+    {
+        await RunModules(Declaration("vbRed") + "Debug.Print M\nDebug.Print TypeName(M)\n",
+            ("Module2", "Public Enum O\nvbRed = 3\nEnd Enum\n"));
+        AssertDebugLog([new Vb6Value(3L), new Vb6Value("Long")]);
+    }
+
+    [Theory]
+    [InlineData("VbCompareMethod.vbDatabaseCompare", "VbCompareMethod", "Public Const vbDatabaseCompare As Long = 3\n")]
+    // A module named after a library, not a library Enum: VB6's answer is unmeasured.
+    [InlineData("VBRUN.vbRed", "VBRUN", "")]
+    public async Task Unmeasured_qualifier_member_stays_refused(string expression, string module, string source)
+    {
+        var act = () => RunModules(Declaration(expression), (module, source));
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4762");
+    }
+
+    // Explicit HexIDE refusals; these are not VB6 measurements.
+    [Theory]
+    [InlineData(true, "Declare Sub vbRed Lib \"x\" ()\n")]
+    [InlineData(true, "Public Enum O\nvbRed = 3\nEnd Enum\n")]
+    [InlineData(false, "Public Function vbRed() As Long\nEnd Function\n")]
+    [InlineData(false, "Private Enum O\nvbRed = 3\nEnd Enum\n")]
+    public async Task Unmeasured_project_names_stay_refused(bool own, string source)
+    {
+        var act = () => RunModules(Declaration("vbRed") + (own ? source : ""), ("Module2", own ? "" : source));
         (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4762").And.Contain("M");
     }
 }
