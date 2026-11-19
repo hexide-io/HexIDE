@@ -596,6 +596,7 @@ added afterwards.
 - [A control's minimum size (2026-11-16, #4071)](a-controls-minimum-size.md#a-controls-minimum-size-2026-11-16-4071)
 - [Visible before a form is shown, by kind of control (2026-11-19, #4829)](visible-before-a-form-is-shown.md#visible-before-a-form-is-shown-by-kind-of-control-2026-11-19-4829)
 - [Menus at run time, and the menu bar (2026-10-17, #1126, #1127)](menus-at-run-time-and-the-menu-bar.md#menus-at-run-time-and-the-menu-bar-2026-10-17-1126-1127)
+- [Changing the bar twice before it lands, and a bar that wraps (2026-11-19, #4946)](menus-at-run-time-and-the-menu-bar.md#changing-the-bar-twice-before-it-lands-and-a-bar-that-wraps-2026-11-19-4946)
 - [When a menu's Click is raised (2026-10-22, #1344)](when-a-menus-click-is-raised.md#when-a-menus-click-is-raised-2026-10-22-1344)
 - [Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)](choosing-a-menu-item-leaves-checked-to-the-program.md#choosing-a-menu-item-leaves-checked-to-the-program-2026-10-18-1158-measured-by-1159)
 - [What VB6 writes for a menu in a .frm (2026-11-16, #4141, IDE)](what-vb6-writes-for-a-menu-in-a-frm.md#what-vb6-writes-for-a-menu-in-a-frm-2026-11-16-4141-ide)
