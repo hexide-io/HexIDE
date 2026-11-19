@@ -890,11 +890,11 @@ public class SeveralFormsTests
         run.Closed.Should().NotContain("Form2", "a hidden form is still loaded");
     }
 
-    // #3936's modal Visible measurements (native and p-code), including Hide's side effect before 402 (#4032).
+    // #3936's modal Visible measurements, corrected by #4766's console measurements: 402 leaves the form shown.
     [AvaloniaTheory]
     [InlineData("Form3.Visible = True", "Form3", 401, false, false)]
     [InlineData("Form1.Visible = False", "Form1", 0, false, false)]
-    [InlineData("Form1.Hide", "Form1", 402, false, false)]
+    [InlineData("Form1.Hide", "Form1", 402, true, false)]
     [InlineData("Me.Visible = False", "Me", 0, false, true)]
     public void Modal_visibility_reports_the_error_and_visibility_before_Show_returns(
         string statement, string target, int error, bool visible, bool returned)
@@ -1042,10 +1042,10 @@ public class SeveralFormsTests
     [AvaloniaTheory]
     [InlineData("Form2.Hide")]
     [InlineData("Form2.Visible = False")]
-    public void A_modal_form_beneath_the_innermost_is_hidden_with_402_and_its_modal_loop_waits_on(string statement)
+    public void A_modal_form_beneath_the_innermost_stays_shown_with_402_and_its_modal_loop_waits_on(string statement)
     {
-        // Measured, native and p-code: Form2, modal beneath Form3, is hidden and given 402 by Hide and by Visible = False
-        // alike, and Form1's Show vbModal returns only once Form2 unloads, not when it hides (#3936, #4032).
+        // Measured on the console in the IDE, native and p-code (#4766): Hide and Visible = False both raise 402
+        // and leave Form2 shown beneath Form3. Its modal loop still waits after Form3 goes away.
         using var run = Start(ShowsForm2Modally, Form2Clicked("""
                 Form3.Show vbModal
                 Debug.Print "f2 after f3, visible " & Me.Visible
@@ -1068,9 +1068,9 @@ public class SeveralFormsTests
         Pump();
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal(["error 402, form2 visible False", "f2 after f3, visible False"],
-            "Form2's modal loop goes on waiting while it is hidden, so Form1's Show vbModal hasn't returned");
-        run.Closed.Should().NotContain("Form2", "a hidden form is still loaded");
+        run.Printed.Should().Equal(["error 402, form2 visible True", "f2 after f3, visible True"],
+            "Form2 stays shown and its modal loop waits, so Form1's Show vbModal hasn't returned");
+        run.Closed.Should().NotContain("Form2", "the refused hide leaves the form loaded");
     }
 
     [AvaloniaFact]
