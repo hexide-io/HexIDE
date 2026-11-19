@@ -151,6 +151,7 @@
     "Str.Archive.FolderReadyFormat": "저장된 아카이브에서 소스 폴더를 동기화했습니다:\n{0}\n\n폴더를 수정하면 동기화가 중단되며 수정 사항은 가져오지 않습니다. 미리 보기를 갱신하려면 프로젝트를 다시 로드하세요.",
     "Str.Archive.FolderErrorFormat": "소스 폴더 동기화가 중단되었습니다:\n{0}\n\n아카이브는 변경되지 않았습니다.",
     "Str.Archive.OpenErrorFormat": "{0}을(를) 열 수 없습니다:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "'{0}' 폼을 읽는 형식이 설치되어 있지 않습니다",
     "Str.ContributedProject.OpenError": "{1}(으)로 {0}을(를) 열 수 없습니다:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0}은(는) {1}이(가) 엽니다. 파일은 HexIDE가 아니라 소속된 프로그램이 추가하고 제거합니다.",
     "Str.ContributedProject.RemovedWithChanges": "{1}이(가) 속한 프로그램이 {0}을(를) 프로젝트에서 뺐습니다. 먼저 변경 내용을 저장하시겠습니까?",

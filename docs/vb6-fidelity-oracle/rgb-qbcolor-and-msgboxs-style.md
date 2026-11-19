@@ -11,6 +11,11 @@ and 20 (the icon) it held, and posted a click on No, else Cancel, else Ignore, e
 first posted `WM_CLOSE` or `WM_SYSCOMMAND`/`SC_CLOSE` three times, then reported whether the box was still open.
 Timers keep running under `MsgBox` in a compiled program, which is what makes this possible without a person.
 
+**Re-run on the console (2026-11-18, #4768).** Session 0 displays no window, so this probe was rebuilt and run again on
+the guest's console, p-code and native, logging its session id. The dismissal rows, three style rows (`vbYesNo +
+vbQuestion`, 22 and 4100) and the Timer under `MsgBox` gave the same. The rows about a hidden owner did not: see
+*Hiding the box's owner* below.
+
 ### RGB
 
 | Call | Value | Type | Err |
@@ -201,10 +206,10 @@ in `If MsgBox("Delete all?", vbOKCancel) = vbOK Then` took the OK branch.
 **Hiding the box's owner does not answer it.** A form Timer set `Me.Visible = False` while a box was open, then
 looked for the box twice before pressing a button:
 
-| Buttons | After `Me.Visible = False` | Pressed | Returned |
-|---|---|---|---|
-| vbYesNo | the box still exists, **not visible** | No | 7, a Long |
-| vbOKCancel | the box still exists, not visible | OK | 1, a Long |
+| Buttons | After `Me.Visible = False` | Pressed | Returned | on the console |
+|---|---|---|---|---|
+| vbYesNo | the box still exists, **not visible** | No | 7, a Long | **shown**, owned by the hidden form; No → 7 |
+| vbOKCancel | the box still exists, not visible | OK | 1, a Long | **shown**, owned by the hidden form; Cancel → 2 |
 
 So VB6 hides the box with its owner and keeps `MsgBox` waiting. A person cannot answer a box they cannot see, so in
 practice that program hangs.
@@ -212,10 +217,16 @@ practice that program hangs.
 **A form hidden before the box opens is the same.** A later probe set `Me.Visible = False` and then called `MsgBox`
 from that form, with the Timer looking twice before pressing:
 
-| Buttons | While open | Pressed | Returned |
-|---|---|---|---|
-| vbYesNo | the box exists, **not visible**; the form stays hidden | No | 7, a Long |
-| vbOKCancel | the box exists, not visible | OK | 1, a Long |
+| Buttons | While open | Pressed | Returned | on the console |
+|---|---|---|---|---|
+| vbYesNo | the box exists, **not visible**; the form stays hidden | No | 7, a Long | **shown, with no owner**; the form stays hidden; No → 7 |
+| vbOKCancel | the box exists, not visible | OK | 1, a Long | **shown, with no owner**; Cancel → 2 |
+
+**Re-run on the console (2026-11-18, #4768): the box stays shown.** Hiding the owner while the box was open left the
+box shown, `IsWindowVisible` 1, still owned by the now hidden form, and a click on No or Cancel answered it as
+usual. Hiding the form first gave a box shown with **no owner** (`GW_OWNER` 0). In session 0 the same probe read
+the box as not visible before the owner was hidden as well as after, which is the tables' reading. So *VB6 hides the
+box with its owner*, and the hang, describe session 0: on the console the program goes on.
 
 HexIDE's dialog refused a hidden owner outright ("Cannot show window with non-visible owner") and ended the run as
 Internal error 51. It now goes straight to the unowned box.

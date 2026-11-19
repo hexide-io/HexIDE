@@ -37,3 +37,83 @@ and every row agreed.
 So a Font is an object with Name as its default member, and its Size is a Currency. `Set` makes the control hold the
 object it is given, not a copy, so a change through either name reaches every control that holds it. A Font is not
 shared with the form until it is set: `form-font-inheritance.md` measured `Command1.Font Is Form1.Font` False too.
+
+### A free-standing StdFont's assignments (2026-11-18)
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds logged all 48 rows identically.
+- **Each row:** a fresh `Set f = New StdFont`, the row's assignments under `On Error Resume Next`, then the error and every member read back.
+- **The starting font** reads MS Sans Serif, 8.25, Weight 400, Charset 0, no flags. It's recorded in "A StdFont in a bag" on the PropertyBag page.
+- **Every member is read in every row,** so only the members that changed are shown.
+
+**Name.**
+
+| Assignment | Error | Reads afterwards |
+|---|---|---|
+| `"Verdana"`, `"Times New Roman"` | none | that name, 8.25, Charset 0 |
+| `"Wingdings"`, `"Symbol"` | none | that name, 8.25, **Charset 2** |
+| `"Courier"` | none | Courier, **9.75** |
+| `"No Such Font"`, `""`, `5` | none | **unchanged**: MS Sans Serif, 8.25 |
+| `Null` | **13** | unchanged |
+
+**Size.**
+
+| Assignment | Error | Reads afterwards |
+|---|---|---|
+| `12` | none | MS Sans Serif, 12 |
+| `9` | none | **Arial**, 9 |
+| `14` | none | **Arial**, 14.25 |
+| `7.5` | none | **Small Fonts**, 7.5 |
+| `20` | none | **Arial**, 20.25 |
+| `1` | none | **Arial**, 1.5 |
+| `2048` | none | **Arial**, 2048.25 |
+| `2160` | none | **Arial**, 2160 |
+| `"11"` | none | **Arial**, 11.25 |
+| `0`, `-1` | **380** | unchanged |
+| `100000` | **6** | unchanged |
+| `"x"`, `Null` | **13** | unchanged |
+| `Name = "Arial"`, then `Size = 12` | none | Arial, 12 |
+| `Name = "Arial"`, then `Size = 7` | none | Arial, **6.75** |
+
+**Bold, Italic, Underline and Strikethrough.**
+
+| Assignment | Error | Reads afterwards |
+|---|---|---|
+| `Bold = True`, then `Bold = False` | none | Bold False, Weight 400, and Name **Arial** |
+| `Bold = 1`, `Bold = "True"` | none | Bold True, Weight 700, and Name **Arial** |
+| `Bold = Null` | **13** | unchanged |
+| `Italic`, `Underline` or `Strikethrough = True`, then `= False` | none | that flag False, Name MS Sans Serif |
+
+**Weight.**
+
+| Assignment | Error | Reads afterwards |
+|---|---|---|
+| `0`, `100`, `550` | none | Weight **400**, Bold False |
+| `551`, `900`, `1000` | none | Weight **700**, Bold True, Name MS Sans Serif |
+| `700` | none | Weight 700, Bold True, and Name **Arial** |
+| `-1`, `32767` | **380** | unchanged |
+
+**Charset.**
+
+| Assignment | Error | Reads afterwards |
+|---|---|---|
+| `0`, `1` | none | Charset 0, MS Sans Serif |
+| `128` | none | Charset 128, Name **MS PGothic** |
+| `255` | none | Charset 255, Name **Arial** |
+| `256`, `-1` | **380** | unchanged |
+| `Name = "Verdana"`, then `Charset = 2` | none | Charset 2, Name **Wingdings** |
+
+**What these say, read as measured:**
+- **A failed assignment changes nothing.** Every error row reads the starting font afterwards.
+- **A name with no font behind it is not an error:** the font keeps its name.
+- **Size and Weight are rounded to what the font has,** and the font named can change with them. MS Sans Serif keeps 12, but 9, 14 and 20 read as Arial, and 7.5 reads as Small Fonts.
+- **Weight reads only 400 or 700.** 550 and below read 400; 551 and above read 700.
+- **Charset can change the name:** 2 gives Wingdings, 128 MS PGothic, 255 Arial.
+
+**What resisted explanation.** `Weight = 700`, `Bold = 1` and `Bold = "True"` leave the name reading Arial, and so does `Bold = True` then `False`. But `Weight = 551`, `900` and `1000` leave it reading MS Sans Serif, with the same Weight 700 and Bold True. Measured, but no rule I would defend.
+
+**Not measured:**
+- the same assignments on a control's Font;
+- Sizes between those above;
+- names outside ASCII;
+- a machine with another ANSI code page.

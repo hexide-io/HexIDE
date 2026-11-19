@@ -425,5 +425,43 @@ public sealed class AddProjectGroupTests : IDisposable
         finally { localization.Apply("en"); }
     }
 
+    [AvaloniaFact]
+    public async Task A_named_format_in_a_two_project_group_keeps_the_group_unchanged()
+    {
+        WriteProject("First");
+        var second = Path.Join(directory, "Second.sproj");
+        var form = Path.Join(directory, "Second.frm");
+        File.WriteAllText(second, "stand-in");
+        File.WriteAllText(form, "VERSION 5.00\r\nBegin VB.Form Second\r\nEnd\r\nAttribute VB_Name = \"Second\"\r\n");
+        using var registration = types.Register(new AddinProjectType("Stand-in projects")
+        {
+            FileNames = ["*.sproj"], FormFormat = "vb6",
+            OpenAsync = (_, _, _) => Task.FromResult(new AddinProjectContent("Second")
+            {
+                Members = [new(form, AddinMemberKind.Form)],
+            }),
+        }, new AddinOrigin("provider", "Provider"));
+        var path = Path.Join(directory, "Existing.vbg");
+        var bytes = System.Text.Encoding.ASCII.GetBytes("VBGROUP 5.0\r\nProject=First.vbp\r\nStartupProject=Second.sproj\r\n");
+        File.WriteAllBytes(path, bytes);
+        await service.OpenProject(path);
+        var group = manager.CurrentGroup;
+        var project = manager.LoadedProjects.Last();
+        var designer = project.Forms.Should().ContainSingle().Subject;
+        designer.UpdateCode("Private Sub Probe()\r\nEnd Sub\r\n");
+
+        await service.SaveProject(project, saveAs: false);
+
+        File.ReadAllText(form).Should().Contain("Private Sub Probe()");
+        File.ReadAllBytes(path).Should().Equal(bytes);
+        manager.CurrentGroup.Should().BeSameAs(group);
+        group!.Name.Should().Be("Existing");
+        group.AbsolutePath.Should().Be(path);
+        manager.LoadedProjects.Select(p => p.Name).Should().Equal("First", "Second");
+        manager.StartupProject.Should().BeSameAs(project);
+        manager.LoadedProjects.Should().OnlyContain(p => !service.HasUnsavedChanges(p));
+        service.CaptureUnsavedWork().Should().BeEmpty();
+    }
+
     public void Dispose() => Directory.Delete(directory, recursive: true);
 }

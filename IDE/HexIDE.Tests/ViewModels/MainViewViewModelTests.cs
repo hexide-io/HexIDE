@@ -1921,7 +1921,7 @@ public class MainViewViewModelTests
     [InlineData(false)]
     public void A_run_that_ended_or_never_started_is_shown_and_End_on_its_dialog_ends_no_later_run(bool runFailed)
     {
-        const string text = "HexIDE does not implement this yet:\n\nGoSub not implemented";
+        const string text = "HexIDE does not implement this yet:\n\nAppActivate not implemented";
         var dialog = new TaskCompletionSource<bool>();
         _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(dialog.Task);
         _runnerService.CanEndProject.Returns(false);
@@ -1968,7 +1968,7 @@ public class MainViewViewModelTests
         // run ended in the log: no dialog, and nothing for get_last_runtime_error to return.
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
-        module.UpdateCode("Sub Main()\r\n    GoSub Later\r\n    Exit Sub\r\nLater:\r\n    Return\r\nEnd Sub\r\n");
+        module.UpdateCode("Sub Main()\r\n    AppActivate \"Notepad\"\r\nEnd Sub\r\n");
         project.AddModule(module);
         project.StartsAtSubMain = true;
         var localization = Substitute.For<ILocalizationService>();
@@ -1983,7 +1983,7 @@ public class MainViewViewModelTests
 
         var recorded = sut.RuntimeErrors.Last;
         recorded.Should().NotBeNull("get_last_runtime_error reads this");
-        recorded!.Value.Message.Should().StartWith("Not implemented yet: ").And.Contain("GoSub");
+        recorded!.Value.Message.Should().StartWith("Not implemented yet: ").And.Contain("AppActivate");
         _windowManager.Received(1).ShowDialog(
             Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == recorded.Value.Message));
         runner.IsRunning.Should().BeFalse();
