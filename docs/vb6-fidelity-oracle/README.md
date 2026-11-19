@@ -859,3 +859,4 @@ added afterwards.
 - [In the IDE too: the line break is in the description itself (2026-11-18, #4676, SP6)](errobject-as-a-declared-type.md#in-the-ide-too-the-line-break-is-in-the-description-itself-2026-11-18-4676-sp6)
 - [A control's and a form's members through CallByName (2026-11-18, #4520)](callbyname.md#a-controls-and-a-forms-members-through-callbyname-2026-11-18-4520)
 - [Where `/make` puts its output: Path32, /outdir, a failed build, and an ActiveX DLL's registration (2026-11-18, #4538, #2503, SP6)](where-make-puts-its-output.md#where-make-puts-its-output-path32-outdir-a-failed-build-and-an-activex-dlls-registration-2026-11-18-4538-2503-sp6)
+- [The `Date` and `Time` statements: the other value types, an object, and the date range (2026-11-18, #4733)](the-date-and-time-statements.md#the-other-value-types-an-object-and-the-date-range-2026-11-18-4733)
