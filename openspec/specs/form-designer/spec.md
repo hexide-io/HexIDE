@@ -630,6 +630,22 @@ or saving. Automation replies SHALL name the resulting element or plain control.
 - **AND** existing event signatures and new handler stubs remain unchanged, tracked by
   [#4205](https://github.com/hexide-io/HexIDE/issues/4205); renaming to join an array remains #1397
 
+### Requirement: Assign TabIndex when adding or pasting a control
+
+For a control that models `TabIndex`, the designer SHALL assign the next index after the highest on the
+form when adding or pasting it, starting at 0 for a form with no indexed controls. A paste assigns a
+container's index before its children's. A Timer takes no index and uses none up, as measured in
+[#925](../../../docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md) on a densely numbered form.
+VB6 renumbers a form's indexes to 0..N−1 when it loads it, which HexIDE does not yet do
+([#4843](https://github.com/hexide-io/HexIDE/issues/4843)), so on a form saved with gaps the two can differ.
+
+#### Scenario: A ListView holds an index as property text
+
+- **GIVEN** a form with a TextBox whose `TabIndex` is 0 and, after it, a ListView whose saved `TabIndex` is 1
+- **WHEN** a CommandButton is added or the TextBox is copied and pasted
+- **THEN** the designer assigns the new control `TabIndex` 2, counting the ListView's preserved property
+  ([#4825](https://github.com/hexide-io/HexIDE/issues/4825))
+
 ### Requirement: Designer keyboard selection follows measured tab order
 
 Tab and Shift+Tab in the designer SHALL move the selection through every control with a TabIndex in

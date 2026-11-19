@@ -445,4 +445,24 @@ public class ForegroundWindowTests : IDisposable
         ForegroundWindow.Resolve("Window/Button[Find Next]", "Find", find, main, "Find").Error
             .Should().NotContain("window on top", "the dialog is on top of nothing of its name");
     }
+
+    // inspect_element's owner names a window by the value Pick takes back to it (#4795): a lone window by its name, one of
+    // two that answer to a name with its place among them, and the IDE as "ide".
+    [AvaloniaFact]
+    public void A_windows_address_is_the_value_Pick_resolves_back_to_it()
+    {
+        var main = Shown("HexIDE");
+        var lone = Shown("Lone");
+        var first = Shown("Same");
+        var second = Shown("Same");
+        IReadOnlyList<Window> all = [main, lone, first, second];
+
+        ForegroundWindow.Address(main, main, all).Should().Be("ide");
+        ForegroundWindow.Address(lone, main, all).Should().Be("Lone");
+        ForegroundWindow.Address(first, main, all).Should().Be("Same#1");
+        ForegroundWindow.Address(second, main, all).Should().Be("Same#2");
+        foreach (var window in new[] { lone, first, second })
+            ForegroundWindow.Pick(ForegroundWindow.Address(window, main, all), main, all).Window.Should().BeSameAs(window);
+        ForegroundWindow.Address(Track(new Window { Title = "" }), main, all).Should().BeNull("a window with no title and no form has no name");
+    }
 }

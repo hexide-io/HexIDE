@@ -85,15 +85,20 @@ Initialize declares `textDocument.completion` with all 25 LSP completion kinds, 
 Resolve, commit characters, context and other list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
-while the displayed label and insertion fallback remain the label. The full list stays visible. Using the
-whole word around the caret and ignoring case, an item the whole word matches is selected ahead of an
-earlier item it only starts, so a typed `x` selects `x`, not `Xor` ([#3613](https://github.com/hexide-io/HexIDE/issues/3613));
-otherwise the first prefix match is. Within each, a preselected item comes first. An empty or unmatched
-word leaves no item selected. Enter accepts a selected item then commits a
-new line; Space accepts then types a space; with no selection those keys only type. Tab accepts the
-selected item or, with no selection, the first outlined item, replacing the whole word. Escape closes
-without accepting. Complete Word inserts a unique prefix match immediately (#3056). Descriptions
-show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
+while the displayed label and insertion fallback remain the label. The full list stays visible. Matching
+ignores case and prefers a whole-word match over a prefix match. Within each, a preselected item comes first,
+followed by list order. An empty or unmatched word leaves no item selected. In the VB6 code window, a list
+opened by typing a letter keeps the match as the Tab target with no selection. VB6 SP6 opens no list for
+a bare word, so this keeps ordinary typing on Space and Enter while still offering suggestions.
+The first Down or Up selects that match, as VB6's first Down selects its outlined item (#3056).
+Trigger-character and Complete Word lists select matches. VB6 was measured for
+[#3613](https://github.com/hexide-io/HexIDE/issues/3613).
+
+Enter accepts a selected item then commits a new line. Space accepts then types a space. With no selection,
+those keys close the list and type through. Tab accepts the selected item, the unselected match if present,
+or the first item, replacing the whole word. Escape closes the list. Complete Word inserts a unique prefix
+match immediately (#3056). Descriptions show detail alongside string or MarkupContent documentation,
+rendered as plain text (including markdown
 source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
 glyphs; kinds without a counterpart have none.
 The VB code editor suppresses completion in comments and string literals, independently of the server
@@ -1258,6 +1263,8 @@ Envelopes — direction, method, id, size, outcome, latency — are recorded for
 **always**, without arming anything and without retaining any document content. Bodies are kept only for a
 connection that has been armed, except each connection's opening, which is always kept because a handshake
 cannot be captured after the fact. `--capture-lsp` arms everything before the first connection exists.
+Captured request and notification bodies are stored before their envelopes become visible to readers
+(#4839). Retention limits can still evict or refuse bodies.
 
 The grid stays fixed until Refresh. While the tab is visible, its pending indicator polls a monotonic
 entry counter every half second, without copying the record. The count covers all connections regardless
@@ -1321,6 +1328,12 @@ filters by kind while retaining ancestors, and refreshes after edits independent
 Symbol refreshes flush only unsent edits; an unchanged buffer sends no `didChange`, so diagnostics
 cannot feed a change/request loop. A diagnostic-driven symbol update also cancels the Outline’s pending
 refresh for that edit. It displays the server’s structure; it does not infer missing symbols or regions.
+Symbol `detail` appears beside the Outline name and is included in its automation name, without changing
+the identifier or document order (#4783). The code window’s General Procedure list formats Property Get,
+Let and Set details (or the bundled server’s accessor suffixes) as `Value [PropertyGet]`,
+`Value [PropertyLet]` and `Value [PropertySet]`, ordered by name then Get/Let/Set, as
+[measured in VB6](vb6-fidelity-oracle/the-procedure-boxs-entries-for-a-propertys-accessors.md). Each displayed entry maps to its own
+symbol for navigation and selection across refreshes. Other details do not appear in that list.
 
 Signature help asks eligible document claimants concurrently within one shared one-second budget
 (#2027). A typed `(` or `,` goes only to servers advertising that character in
@@ -1377,8 +1390,9 @@ A key with nothing pending adds no fixed delay. The formatting request's own 250
 
 Completion requests use the start of the identifier around the caret, including for Complete Word,
 so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
-The editor keeps that list visible and selects against the whole word around the caret, a whole-word match first;
-it does not select PascalCase hump matches. A position after `.` or `(` stays after that punctuation.
+The editor keeps that list visible and matches the whole word around the caret, using only whole-word and
+prefix matches. A list opened by typing a letter in the VB6 code window leaves the match unselected.
+A position after `.` or `(` stays after that punctuation.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
@@ -2114,6 +2128,18 @@ frames, not evidence that the intermittent corruption reported in
 The checker's own tests (`CheckerAcceptsFragmentedAndCoalescedFramesAndMatchesForeignHeaders`
 and `CheckerDetectsCorruptAndTruncatedFrames`) always run. The measured attempts so far are
 in `scripts/probes/3520-validation.md`.
+
+## Unobserved task probe (#4833)
+
+Set `HEXIDE_UNOBSERVED_PROBE` to an output file when running `HexIDE.Tests` to diagnose
+faulted tasks that nobody awaited or observed. The assembly-level `UnobservedTaskProbe`
+forces two garbage-collection/finalizer cycles after each test and appends the test display
+name and each exception. With the variable unset it does nothing. Attribution can land
+one test late, so rerun a suspected class alone before assigning a cause. The deliberate-leak
+self-test uses a separate output file. The teardown regression checks in
+`UnobservedTaskProbeTests` also run only with the variable set; each launches a separate
+MTP host and includes the existing final collection to collect the last fixture's faults.
+This is an opt-in diagnostic, not a CI guard.
 
 ## Known client limitations
 

@@ -1,3 +1,4 @@
+using HexIDE.Infrastructure;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
@@ -16,6 +17,14 @@ internal sealed class CapturedLog : ILogEventSink, IDisposable
     private readonly List<(string Fragment, TaskCompletionSource Seen)> awaited = [];
     public List<string> Messages { get; } = [];
 
+    /// <summary>
+    /// Faulted tasks nothing observed, with their exceptions, kept out of <see cref="Messages"/>. Once a test has run
+    /// App's startup, which hooks <see cref="TaskScheduler.UnobservedTaskException"/> for the rest of the run, the
+    /// finalizer thread logs one whenever a GC collects such a task, whichever test leaked it. In Messages, another test's
+    /// leak broke an exact assertion here (#4809).
+    /// </summary>
+    public List<string> Unobserved { get; } = [];
+
     public CapturedLog() =>
         Log.Logger = new LoggerConfiguration().MinimumLevel.Verbose().WriteTo.Sink(this).CreateLogger();
 
@@ -24,6 +33,11 @@ internal sealed class CapturedLog : ILogEventSink, IDisposable
         var message = logEvent.RenderMessage();
         lock (gate)
         {
+            if (logEvent.MessageTemplate.Text == LoggingSetup.UnobservedTaskMessage)
+            {
+                Unobserved.Add(message + Environment.NewLine + logEvent.Exception);
+                return;
+            }
             Messages.Add(message);
             foreach (var (fragment, seen) in awaited)
                 if (message.Contains(fragment, StringComparison.Ordinal))

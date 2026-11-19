@@ -8,6 +8,7 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // VB6 SP6 native and p-code: oracle "In-box controls: the CommonDialog", dialog results (#1084).
+// Refusals cite the remaining work in #4148, as requested there; their behavior is unchanged.
 // These run on the headless session, like every test that builds a control. Built on one of xunit's own threads,
 // a VBCommonDialog gave that thread a dispatcher of its own while the session was resetting the UI dispatcher for
 // another test, and so took the UI thread; the session's setup then threw and the run hung (#2530).
@@ -51,7 +52,7 @@ public class CommonDialogFileResultTests
         var dialog = Dialog(new VbFileDialogAnswer(@"C:\hexoracle-cdfiles\a.txt", null, [second]));
         dialog.TrySetProperty("Flags", new Vb6Value((long)flags));
         Func<Task> show = async () => await dialog.CallAsync("ShowOpen", []);
-        await show.Should().ThrowAsync<NotImplementedException>().WithMessage("*multi-select*");
+        await show.Should().ThrowAsync<NotImplementedException>().WithMessage("*multi-select* (#4148)");
         Read(dialog, "FileName").Should().Be(new Vb6Value(""));
     }
 
@@ -111,7 +112,7 @@ public class CommonDialogFileResultTests
         var dialog = Dialog(new VbFileDialogAnswer(@"C:\hexoracle-cdfiles\e", null));
         dialog.TrySetProperty("Filter", new Vb6Value(filter));
         Func<Task> show = async () => await dialog.CallAsync("ShowSave", []);
-        await show.Should().ThrowAsync<NotImplementedException>().WithMessage("*extension*filter*");
+        await show.Should().ThrowAsync<NotImplementedException>().WithMessage("*extension*filter* (#4148)");
     }
 
     [AvaloniaFact]

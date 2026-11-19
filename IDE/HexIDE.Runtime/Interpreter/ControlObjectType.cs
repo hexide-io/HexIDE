@@ -3,10 +3,20 @@ using HexIDE.Runtime.Components.InBox;
 
 namespace HexIDE.Runtime.Interpreter;
 
-// Runtime identities for the measured common-control classes (#2265). The 5.0 controls still
+// Runtime identities for measured control classes (#1563, #2265). The 5.0 controls still
 // refused at F5 are not instantiated here; ProgressBar carries the library it was loaded under.
 internal static class ControlObjectType
 {
+    // Scalar intrinsic control declarations checked by Set (#1563); arrays and UserControls are not measured here.
+    private static readonly HashSet<string> IntrinsicClasses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CheckBox", "ComboBox", "CommandButton", "Data", "DirListBox", "DriveListBox", "FileListBox", "Frame",
+        "HScrollBar", "Image", "Label", "Line", "ListBox", "Menu", "OLE", "OptionButton", "PictureBox", "Shape",
+        "TextBox", "Timer", "VScrollBar",
+    };
+
+    internal static bool IsIntrinsic(string name) => IntrinsicClasses.Contains(name);
+
     internal static string? Of(object? value)
     {
         if (value is VBProgressBar bar) return bar.Library.TypeName("ProgressBar");

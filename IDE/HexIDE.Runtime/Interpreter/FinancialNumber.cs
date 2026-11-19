@@ -12,7 +12,7 @@ internal readonly struct FinancialNumber
 
     private FinancialNumber(BigInteger numerator, BigInteger denominator)
     {
-        if (denominator.IsZero) throw new NotImplementedException("A singular financial calculation is unmeasured (#2523)");
+        if (denominator.IsZero) throw new NotImplementedException("A singular financial calculation is unmeasured (#4883)");
         var gcd = BigInteger.GreatestCommonDivisor(numerator, denominator);
         this.numerator = numerator / gcd * denominator.Sign;
         this.denominator = BigInteger.Abs(denominator / gcd);
@@ -22,7 +22,7 @@ internal readonly struct FinancialNumber
 
     public static FinancialNumber FromDouble(double value)
     {
-        if (!double.IsFinite(value)) throw new NotImplementedException("Non-finite financial arguments are unmeasured (#2523)");
+        if (!double.IsFinite(value)) throw new NotImplementedException("Non-finite financial arguments are unmeasured (#4883)");
         var bits = BitConverter.DoubleToUInt64Bits(value);
         var exponent = (int)((bits >> 52) & 0x7ff);
         BigInteger mantissa = bits & 0xfffffffffffff;
@@ -72,7 +72,7 @@ internal readonly struct FinancialNumber
     {
         // Bound work and refuse unmeasured extreme domains instead of inventing their VB6 errors.
         if ((numerator.Sign <= 0 && !(signedIntegerBase && periods == Math.Truncate(periods))) || !double.IsFinite(periods) || Math.Abs(periods) > 10000)
-            throw new NotImplementedException("This financial power domain is unmeasured (#2523)");
+            throw new NotImplementedException("This financial power domain is unmeasured (#4883)");
         if (periods < 0) return 1 / Pow(-periods, signedIntegerBase);
         int whole = (int)periods;
         FinancialNumber result = new(BigInteger.Pow(numerator, whole), BigInteger.Pow(denominator, whole));
@@ -113,7 +113,7 @@ internal readonly struct FinancialNumber
     public FinancialNumber PowReciprocal(int divisor)
     {
         if (numerator.Sign <= 0 || divisor < 1 || divisor > 10000)
-            throw new NotImplementedException("This MIRR power domain is unmeasured (#2525)");
+            throw new NotImplementedException("This MIRR power domain is unmeasured (#4883)");
         if (divisor == 1) return this;
         FinancialNumber result = 1;
         var root = this;
@@ -136,7 +136,7 @@ internal readonly struct FinancialNumber
     public FinancialNumber Log()
     {
         if (numerator.Sign <= 0)
-            throw new NotImplementedException("This financial logarithm domain is unmeasured (#2523)");
+            throw new NotImplementedException("This financial logarithm domain is unmeasured (#4883)");
         int exponent = BinaryExponent(numerator, denominator);
         var scaled = exponent >= 0 ? new FinancialNumber(numerator, denominator << exponent)
             : new FinancialNumber(numerator << -exponent, denominator);

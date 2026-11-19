@@ -49,6 +49,7 @@ public partial class RelatedDocumentEditorView : UserControl
     private sealed class CarriedFileCompletionRules(RelatedDocumentEditorViewModel vm) : IEditorCompletionRules
     {
         public bool MayOpenCompletion() => vm.Settings.AutoListMembers && vm.LoadError is null;
+        public bool LettersSelect => true;
         public bool RefusesTyping(int offset, int length) => vm.LoadError is not null;
         public bool Commits(Avalonia.Input.Key key) => key is Avalonia.Input.Key.Return or Avalonia.Input.Key.Tab;
         public bool HandlesReturn => true;

@@ -111,34 +111,45 @@ public class ForeignAdapterTests
                     terminatedEvent.TrySetException(exception);
                 }
             }, token);
-            var breakpoints = await session.LaunchAsync(adapter, launch, [new(source, [breakpointLine])], token);
-            breakpoints.Should().ContainSingle();
-            breakpoints[0].Body!.Value.GetProperty("breakpoints").GetArrayLength().Should().Be(1);
-            var stopped = await stoppedEvent.Task.WaitAsync(token);
-            stopped.Event!.Body!.Value.GetProperty("reason").GetString().Should().Be("breakpoint");
-            var stop = stopped.Snapshot.Stop!;
-            var threads = (await session.ThreadsAsync(stop, token)).Body!.Value.GetProperty("threads");
-            threads.EnumerateArray().Should().Contain(t => t.GetProperty("id").GetInt32() == stop.ThreadId);
-            var stack = (await session.StackTraceAsync(stop, stop.ThreadId!.Value, token)).Body!.Value.GetProperty("stackFrames");
-            stack.GetArrayLength().Should().BeGreaterThan(0);
-            var frame = stack[0];
-            frame.GetProperty("line").GetInt32().Should().Be(breakpointLine);
-            Path.GetFullPath(frame.GetProperty("source").GetProperty("path").GetString()!).Should().Be(source);
-            var scopes = (await session.ScopesAsync(stop, frame.GetProperty("id").GetInt32(), token)).Body!.Value.GetProperty("scopes");
-            var locals = scopes.EnumerateArray().First(s => s.GetProperty("name").GetString()!.Contains("Locals", StringComparison.OrdinalIgnoreCase));
-            var variables = (await session.VariablesAsync(stop, locals.GetProperty("variablesReference").GetInt32(), token)).Body!.Value.GetProperty("variables");
-            variables.EnumerateArray().Should().Contain(v => v.GetProperty("name").GetString() == "answer" && v.GetProperty("value").GetString() == "41");
-            await session.ResumeAsync(stop, "continue", stop.ThreadId.Value, token);
-            await terminatedEvent.Task.WaitAsync(token);
-            await session.DisconnectAsync(token);
-            var result = await session.ProcessCompletion!.WaitAsync(token);
-            result.ExitCode.Should().Be(0, result.StandardErrorTail);
-            result.ForcedTermination.Should().BeFalse(result.StandardErrorTail);
-            result.CleanupFailure.Should().BeNull();
-            await observer.WaitAsync(token);
-            session.Snapshot.State.Should().Be(DapSessionState.Ended);
-            await log.DrainAsync();
-            AssertConversation(log, adapter, source, breakpointLine);
+            try
+            {
+                var breakpoints = await session.LaunchAsync(adapter, launch, [new(source, [breakpointLine])], token);
+                breakpoints.Should().ContainSingle();
+                breakpoints[0].Body!.Value.GetProperty("breakpoints").GetArrayLength().Should().Be(1);
+                var stopped = await stoppedEvent.Task.WaitAsync(token);
+                stopped.Event!.Body!.Value.GetProperty("reason").GetString().Should().Be("breakpoint");
+                var stop = stopped.Snapshot.Stop!;
+                var threads = (await session.ThreadsAsync(stop, token)).Body!.Value.GetProperty("threads");
+                threads.EnumerateArray().Should().Contain(t => t.GetProperty("id").GetInt32() == stop.ThreadId);
+                var stack = (await session.StackTraceAsync(stop, stop.ThreadId!.Value, token)).Body!.Value.GetProperty("stackFrames");
+                stack.GetArrayLength().Should().BeGreaterThan(0);
+                var frame = stack[0];
+                frame.GetProperty("line").GetInt32().Should().Be(breakpointLine);
+                Path.GetFullPath(frame.GetProperty("source").GetProperty("path").GetString()!).Should().Be(source);
+                var scopes = (await session.ScopesAsync(stop, frame.GetProperty("id").GetInt32(), token)).Body!.Value.GetProperty("scopes");
+                var locals = scopes.EnumerateArray().First(s => s.GetProperty("name").GetString()!.Contains("Locals", StringComparison.OrdinalIgnoreCase));
+                var variables = (await session.VariablesAsync(stop, locals.GetProperty("variablesReference").GetInt32(), token)).Body!.Value.GetProperty("variables");
+                variables.EnumerateArray().Should().Contain(v => v.GetProperty("name").GetString() == "answer" && v.GetProperty("value").GetString() == "41");
+                await session.ResumeAsync(stop, "continue", stop.ThreadId.Value, token);
+                await terminatedEvent.Task.WaitAsync(token);
+                await session.DisconnectAsync(token);
+                var result = await session.ProcessCompletion!.WaitAsync(token);
+                result.ExitCode.Should().Be(0, result.StandardErrorTail);
+                result.ForcedTermination.Should().BeFalse(result.StandardErrorTail);
+                result.CleanupFailure.Should().BeNull();
+                await observer.WaitAsync(token);
+                session.Snapshot.State.Should().Be(DapSessionState.Ended);
+                await log.DrainAsync();
+                AssertConversation(log, adapter, source, breakpointLine);
+            }
+            finally
+            {
+                await session.DisposeAsync();
+                await observer;
+                // Launch can fail before either event is awaited.
+                _ = stoppedEvent.Task.Exception;
+                _ = terminatedEvent.Task.Exception;
+            }
         }
         catch (Exception error)
         {

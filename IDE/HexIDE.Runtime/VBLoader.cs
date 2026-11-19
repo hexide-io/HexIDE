@@ -56,6 +56,7 @@ public class VBLoader
         {
             ClipToBounds = true
         };
+        AvaloniaInterop.DrawingHandles.Register(canvas, executionContext.State.DrawingHandles);
         // The form's ScaleMode is the unit its controls' positions are read and written in (#933). The .frm holds them
         // in twips whatever it is.
         VBProps.SetScaleMode(canvas, (VBScaleMode)(element.Scale?.Mode ?? (int)VBScaleMode.Twip));
@@ -98,7 +99,7 @@ public class VBLoader
         void OnPlaced(ComponentInstance component, Control control, Canvas host)
         {
             if (control is VBCommonDialog dialog)
-                dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#1084)");
+                dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#4148)");
             placed[component] = control;
             if (control is IVBContainerControl { ChildHost: { } childHost })
                 AvaloniaInterop.ContainerMembers.Register(childHost, new Vb6Value(control));
@@ -380,7 +381,7 @@ public class VBLoader
         if (form?.FormWindow is Window window)
         {
             AvaloniaInterop.RuntimeScale.Initialize(window, canvas, element);
-            AvaloniaInterop.RuntimeDrawing.Initialize(window, canvas, FormComponentOf(element));
+            AvaloniaInterop.RuntimeDrawing.Initialize(window, canvas, FormComponentOf(element), executionContext.State.DrawingHandles);
         }
         return root;
     }
@@ -795,6 +796,8 @@ public class VBLoader
     {
         var componentClass = (ComponentBaseClass)component.BaseClass;
         var control = componentClass.Instantiate(component);
+        if (control is VBImageList images)
+            images.DrawingHandles = AvaloniaInterop.DrawingHandles.For(formCanvas);
         var target = componentClass.IsVisual ? host : formCanvas;
 
         Canvas.SetLeft(control, component.GetPropertyOrDefault(VBProperties.LeftProperty));
@@ -832,7 +835,7 @@ public class VBLoader
         if (control is VBPictureBox picture)
         {
             AvaloniaInterop.RuntimeScale.Initialize(picture, component);
-            AvaloniaInterop.RuntimeDrawing.Initialize(picture, picture.ChildHost!, component);
+            AvaloniaInterop.RuntimeDrawing.Initialize(picture, picture.ChildHost!, component, AvaloniaInterop.DrawingHandles.For(formCanvas));
         }
         // Where a 3-D bordered TextBox's or ListBox's client area starts, which is where its mouse X and Y count from: 2
         // pixels in, and at the edge when it is flat or has no border (measured with GetClientRect, #974).

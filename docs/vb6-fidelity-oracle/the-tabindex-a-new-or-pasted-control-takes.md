@@ -33,3 +33,43 @@ below are VB6's saved file.
     Command4, Command3, Timer2, Command2, then Frame1 and the rest as read. HexIDE appends a new control's block last
     (#1481).
 
+## What a form's saved TabIndexes become when it loads (2026-11-19, #4843, SP6, run time)
+
+**The question.** A form saved with gaps or repeats in its TabIndexes doesn't keep them. `docs/vb6-designer-geometry.md`
+read `0,0,9,9,4,(absent)` back as `0,1,2,3,4,5`. The [SSTab page](in-box-controls-the-sstab.md)'s IDE re-save ("TabIndex is
+renumbered in the saved file") proposed a rule from that and one more form, and checked it against those two only:
+- each in-range TabIndex keeps its place;
+- a repeated one takes the next place free;
+- the out-of-range ones fill the remaining places in file order.
+
+The same two forms also fit "renumber every control in file order". Which is it, and what is "the next place free"?
+
+**The probe.**
+- **Seven forms in one program,** each holding three or four TextBoxes, Text1 onwards in that file order, with the
+  TabIndex values below saved in the `.frm`.
+- **Each form's `Form_Load` logged its TabIndex values.** Form1 loaded and unloaded the others.
+- **Run in session 0,** as a made exe. p-code and native code logged the same lines. This is a load at run time, not in
+  the designer.
+
+| Saved, in file order | Read at load | What it tells apart |
+|---|---|---|
+| 2, 0, 1 | 2, 0, 1 | kept as saved, so not renumbered in file order |
+| 1, 1, 0 | 1, 2, 0 | the first of two 1s keeps it |
+| 0, 5, 1 | 0, 2, 1 | an out-of-range value takes the free number |
+| 0, 0, 1 | 0, 2, 1 | not "move each control to its saved place as it loads", which gives 2, 0, 1 |
+| 9, 7, 0 | 1, 2, 0 | the controls without a place take the free numbers in file order, not by saved value |
+| 2, 2, 0, 9 | 2, 1, 0, 3 | the repeated 2 takes 1, the smallest free number, not 3, the next free after 2 |
+| 1, 1, 3, 9 | 1, 0, 3, 2 | the repeated 1 takes 0, again the smallest free number |
+
+**What it shows:**
+- **A control keeps its saved value when it's within 0..N−1 and no control earlier in the file holds it.**
+- **Every other control, repeated or out of range alike, takes the numbers left free, smallest first, in file order.**
+- **"The next place free" means the smallest free number, not the next one after the control's own value.** The
+  natural reading of the SSTab page's rule is overturned by the last two rows. Its own rows can't tell the two apart.
+- **The rule fits every row so far:** this table's seven, the geometry page's `0,0,9,9,4,(absent)`, and the SSTab page's
+  IDE re-save. A control saved without a TabIndex appears only in the geometry page's row, where it took the last free
+  number.
+- **Not measured:**
+  - the designer's own load: these rows are a made exe's, and the SSTab re-save is the only IDE row;
+  - controls inside containers;
+  - classes other than TextBox.

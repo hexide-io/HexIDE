@@ -10,7 +10,7 @@ public partial class VB6BuiltIns
     {
         d["DDB"] = (_, a, _) =>
         {
-            if (a.Count is not (4 or 5)) throw new NotImplementedException("DDB argument count is not measured (#2524)");
+            if (a.Count is not (4 or 5)) throw new NotImplementedException("DDB argument count is not measured (#4883)");
             var cost = FinancialNumber.FromDouble(AsDouble(a[0]));
             var salvage = FinancialNumber.FromDouble(AsDouble(a[1]));
             var life = AsDouble(a[2]);
@@ -26,7 +26,7 @@ public partial class VB6BuiltIns
         };
         d["SLN"] = (_, a, _) =>
         {
-            if (a.Count != 3) throw new NotImplementedException("SLN argument count is not measured (#2524)");
+            if (a.Count != 3) throw new NotImplementedException("SLN argument count is not measured (#4883)");
             var cost = DepreciationNumber.From(AsDouble(a[0]));
             var salvage = DepreciationNumber.From(AsDouble(a[1]));
             var life = AsDouble(a[2]);
@@ -35,7 +35,7 @@ public partial class VB6BuiltIns
         };
         d["SYD"] = (_, a, _) =>
         {
-            if (a.Count != 4) throw new NotImplementedException("SYD argument count is not measured (#2524)");
+            if (a.Count != 4) throw new NotImplementedException("SYD argument count is not measured (#4883)");
             var cost = DepreciationNumber.From(AsDouble(a[0]));
             var salvage = DepreciationNumber.From(AsDouble(a[1]));
             var life = AsDouble(a[2]);
@@ -65,7 +65,7 @@ public partial class VB6BuiltIns
         public static DepreciationNumber From(double value)
         {
             if (!double.IsFinite(value))
-                throw new NotImplementedException("Non-finite depreciation arguments are not measured (#2524)");
+                throw new NotImplementedException("Non-finite depreciation arguments are not measured (#4883)");
             var bits = BitConverter.DoubleToUInt64Bits(value);
             var biased = (int)((bits >> 52) & 0x7FF);
             BigInteger mantissa = bits & 0xF_FFFF_FFFF_FFFF;

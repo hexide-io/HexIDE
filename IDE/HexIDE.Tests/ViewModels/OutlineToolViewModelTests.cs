@@ -18,6 +18,18 @@ public class OutlineToolViewModelTests
             new Range(new Position(start, 0), new Position(end, 0)),
             new Range(new Position(start, 2), new Position(start, 5)), Children: children);
 
+    [Theory]
+    [InlineData("Property Let", "Value, Property Let")]
+    [InlineData(null, "Value")]
+    [InlineData("", "Value")]
+    public void Node_PreservesNameAndExposesDetailAndAutomationName(string? detail, string automationName)
+    {
+        var symbol = Symbol("Value", SymbolKind.Property, 0, 1) with { Detail = detail };
+        var node = OutlineToolViewModel.Build([symbol], null).Single();
+        node.Should().BeEquivalentTo(new { Name = "Value", Detail = detail, AutomationName = automationName });
+        node.Symbol.Should().BeSameAs(symbol);
+    }
+
     [Fact]
     public void Tree_PreservesNestingAndFlatReplies()
     {

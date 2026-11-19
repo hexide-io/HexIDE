@@ -40,11 +40,18 @@ public class RenameWireShapeTests : IAsyncDisposable
     private readonly List<IAsyncDisposable> _disposables = [];
     private readonly CancellationTokenSource _cts = new(TimeSpan.FromSeconds(30));
 
+    private Task? _serverLoop;
+
     public async ValueTask DisposeAsync()
     {
-        foreach (var d in _disposables)
+        foreach (var d in _disposables.AsEnumerable().Reverse())
         {
             try { await d.DisposeAsync(); } catch { /* teardown is best effort */ }
+        }
+        await _cts.CancelAsync();
+        if (_serverLoop is not null)
+        {
+            try { await _serverLoop; } catch { /* observe the fake server before releasing its lifetime */ }
         }
         _cts.Dispose();
         GC.SuppressFinalize(this);
@@ -138,7 +145,9 @@ public class RenameWireShapeTests : IAsyncDisposable
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
-        _ = Task.Run(async () =>
+        _disposables.Add(clientSide);
+        _disposables.Add(serverSide);
+        _serverLoop = Task.Run(async () =>
         {
             try
             {

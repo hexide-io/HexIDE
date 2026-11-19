@@ -42,7 +42,7 @@ public sealed partial class VBStatusBar : TemplatedControl
             return;
         }
         if (!double.IsFinite(pixels))
-            throw new NotImplementedException("StatusBar spring layout needs a known width (#1087)");
+            throw new NotImplementedException("StatusBar spring layout needs a known width (#4882)");
         foreach (var panel in visible.Where(p => p.autoSize == 2))
         {
             if (panel.Text.Length != 0)
