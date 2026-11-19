@@ -2581,3 +2581,24 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** error 6 is raised without changing either current coordinate
 - **AND** Point returns Long -1 at the two measured outside points, but raises 6 for Point(1E+30, 0)
 - **AND** no additional VB6 backing-store boundary is asserted beyond the measured row outside the client area
+
+### Requirement: Date and Time statements convert before denying clock changes
+
+The interpreter SHALL evaluate `Date`, `Date$`, `Time` and `Time$` assignment operands before
+raising the measured conversion error or error 70. It SHALL never change the host clock, even
+elevated (deliberate divergence from VB6). Measurements: #4681 and
+[#4733](https://github.com/hexide-io/HexIDE/issues/4733), SP6 native and p-code, measurement PR #4777.
+
+#### Scenario: Scalar conversion precedes permission
+- **WHEN** a clock statement receives Integer, Long, Byte, Single, Double, Currency, Decimal, Boolean, Empty, Error, Null or an array
+- **THEN** it raises error 13
+- **WHEN** it receives a Date or a convertible String, including the measured boundary dates
+- **THEN** it raises error 70 without changing the host clock
+- **AND** String `"1/1/10000"` or `"25:00"` raises error 13
+
+#### Scenario: An object operand
+- **WHEN** the object holds Nothing
+- **THEN** it raises error 91
+- **WHEN** a class default member returns a Date, including through an As Object variable
+- **THEN** the member is read and the statement raises error 70
+- **AND** an object with no default member or a default returning anything other than Date or String explicitly refuses as not implemented, citing #4733, pending measurement

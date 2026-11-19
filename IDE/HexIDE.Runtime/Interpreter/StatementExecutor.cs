@@ -749,12 +749,31 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     private async Task<ControlFlow> AssignClock(VB6Parser.ValueStmtContext context)
     {
-        // SP6 native and p-code, #4681: conversion precedes the clock privilege check.
+        // SP6 native and p-code, #4681/#4733: conversion precedes the clock privilege check.
         var value = await expressionExecutor.EvaluateValue(context);
-        if (value.Type == Vb6Value.ValueType.Double || value.IsNull || value.Value is VBArray)
+        if (value.Type == Vb6Value.ValueType.Object)
+        {
+            if (value.Value is null)
+                throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+            try
+            {
+                value = await interpreter.ResolveDefaultMember(value, callerFrames: stmtFrames);
+            }
+            catch (NotImplementedException ex)
+            {
+                throw new NotImplementedException("Date/Time assignment from this object is not implemented (#4733)", ex);
+            }
+            // Other default results remain unmeasured for these statements (#4733).
+            if (value.Type != Vb6Value.ValueType.Date && value.Type != Vb6Value.ValueType.String)
+                throw new NotImplementedException("Date/Time assignment from this object is not implemented (#4733)");
+        }
+        if (value.Type == Vb6Value.ValueType.Integer || value.Type == Vb6Value.ValueType.Long
+            || value.Type == Vb6Value.ValueType.Byte || value.Type == Vb6Value.ValueType.Single
+            || value.Type == Vb6Value.ValueType.Double || value.Type == Vb6Value.ValueType.Currency
+            || value.Type == Vb6Value.ValueType.Decimal || value.Type == Vb6Value.ValueType.Boolean
+            || value.Type == Vb6Value.ValueType.EmptyVariant || value.Type == Vb6Value.ValueType.Error
+            || value.IsNull || value.Value is VBArray)
             throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
-        if (value.Type == Vb6Value.ValueType.Object && value.Value is null)
-            throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         if (value.Type != Vb6Value.ValueType.Date && value.Type != Vb6Value.ValueType.String)
             throw new NotImplementedException("Date/Time assignment conversion from this type is not implemented (#4733)");
         _ = VB6BuiltIns.CDate(value);
