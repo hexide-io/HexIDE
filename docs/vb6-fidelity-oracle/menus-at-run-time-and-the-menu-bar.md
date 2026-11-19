@@ -235,6 +235,34 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
   Form3 in session 0 had Foxtrot hidden and was then made to hide Echo. Straight after that statement, the items sat
   on one row and ScaleHeight still read 3420. After the `DoEvents` it read 3690, with one Resize. Showing Echo again
   moved it back the same way.
+- **Every change that changes the row count lands that way, and one reversed before the message changes nothing.**
+  Two more probes on Form3, `Sub Main` reading `ScaleHeight Height` straight after the statements and after a
+  `DoEvents`, native and p-code agreeing. These rows are the console's. Session 0 gave the same pattern wherever its
+  narrower items reached the same break, and B1 and B2 with its 37 px bar.
+
+  | Row | Statements before the `DoEvents` | Rows | `ScaleHeight Height` after | Resizes |
+  |---|---|---|---|---|
+  | V2 | `mnuEcho.Visible = False`, then `True`, on Form3 with Foxtrot hidden | 2, 2 | `3420 4440` | 0 |
+  | V3 | `mnuEcho.Visible = False` | 2 to 1 | `3705 4440` | 1 |
+  | V4 | `mnuEcho.Visible = True`, then `False` | 1, 1 | `3705 4440` | 0 |
+  | C1 | at a 228-px client, Foxtrot hidden, one row: `mnuBravo.Caption = "&Bravoo"` | 1 to 2 | `3420 4440` | 1 |
+  | C2 | `mnuBravo.Caption = "&Bravo"` | 2 to 1 | `3705 4440` | 1 |
+  | C3 | `"&Bravoo"`, then `"&Bravo"` | 1, 1 | `3705 4440` | 0 |
+  | L1 | `Load mnuArr(1)`, a top-level array hidden in the .frm, then `mnuArr(1).Visible = True` | 1 to 2 | `3420 4440` | 1 |
+  | L2 | `Unload mnuArr(1)` | 2 to 1 | `3705 4440` | 1 |
+  | L3 | `Load mnuArr(1)`, show it, `Unload mnuArr(1)` | 1, 1 | `3705 4440` | 0 |
+  | B1 | at a 196-px client, two rows: all six menus hidden | 2 to none | `4005 4440` | 1 |
+  | B2 | all six shown again | none to 2 | `3420 4440` | 1 |
+  | V12 | `mnuEcho.Visible = False`, then `Width = Width + 3000` | 2 to 1 | `3705 4440`, already after the `Width` line | 1, inside the `Width` statement |
+  | V13 | `mnuEcho.Visible = True`, then `Width = Width - 3000` | 1 to 2 | `3420 4440`, already after the `Width` line | 1, inside the `Width` statement |
+
+  - **The menu changes at the statement.** Straight after it, `GetMenuItemRect` already gave the new row count.
+  - **The client area follows at the next message,** taking the row count the menus give then. If that is the count
+    the bar had, nothing happens. Otherwise one Resize comes, Height stays, and ScaleHeight moves by the bar's
+    change: 19 px a row, or the whole 39 px bar with B1 and B2.
+  - **A Width change on the way re-wraps the bar at once,** with its own Resize. The message then finds nothing left to
+    change (V12, V13).
+  - **Caption, Load and Unload behave as Visible does** (C1 to C3, L1 to L3).
 - **The window stopped narrowing** at 56 px wide in session 0 and 60 on the console, however far Width went below
   that. Not explored further.
 
