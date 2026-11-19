@@ -527,7 +527,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // EnsureTypeBounds has already run the owner's declarations where they could run; what is still unresolved is a
         // Type allocated inside its own module's walk, above its declaration, or a class's before the instance's walk.
         if (def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
-            throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4595)");
+            throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4734)");
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);

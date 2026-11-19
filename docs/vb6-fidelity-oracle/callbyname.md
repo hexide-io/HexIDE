@@ -128,3 +128,79 @@ Collection's.
 - `VbLet` on `Item` and an unknown name with `VbMethod` are both 438.
 
 **Not measured:** `Add` with four arguments, or with none; `Remove` with none or two; `VbSet`; omitted arguments.
+
+## A control's and a form's members through CallByName (2026-11-18, #4520)
+
+**The question.** #4508 measured one control member through `CallByName`, a CommonDialog's Color. Does `CallByName` reach a built-in control's and a form's properties and methods generally, and with which errors?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged all 56 rows identically.
+- **The form:** a ListBox `List1`, a ComboBox `Combo1`, a TextBox `Text1` and a PictureBox `Picture1`. Every row ran in `Form_Load`, before the form showed, under `On Error Resume Next`.
+- **The helper:** `G what, o, member, kind, args…` ran `v = CallByName(o, member, kind, args…)` into a Variant `v`, through a `ByVal o As Object` parameter, and logged `TypeName(v)` and its value or the error. A statement row is `CallByName …` on its own.
+
+**Properties:**
+
+| Statement | VB6 |
+|---|---|
+| `CallByName(Text1, "Text", VbGet)`; and `"text"` | String, the text: names are case-insensitive |
+| `CallByName Text1, "Text", VbLet, "abc"` | ok; `Text1.Text` is abc |
+| `CallByName(Text1, "Left", VbGet)` | **Single** 2400 |
+| `CallByName Text1, "Left", VbLet, 300`, then `"400"` | ok; 300, then 400: a String converts |
+| `CallByName(Text1, "Name", VbGet)` | String "Text1" |
+| `CallByName(Text1, "Visible", VbGet)` | Boolean False (the form hadn't shown yet) |
+| `CallByName(Text1, "", VbGet)` | String "abc": an empty name reads the default member, `Text` |
+| `CallByName(List1, "ListCount", VbGet)`; `Combo1`'s | **Integer** 2; Integer 0 |
+| `CallByName List1, "ListCount", VbLet, 5` | **383** "Set not supported (read-only property)" |
+| `CallByName(List1, "List", VbGet, 1)` | String "a" |
+| `CallByName List1, "List", VbLet, 0, "zz"` | ok: the index comes first, the value last |
+| `CallByName(List1, "List", VbGet)`, no index | **385** "Need property array index" |
+| `CallByName(Me, "Caption", VbGet)`; `VbLet, "NewCap"` | String; ok |
+| `CallByName(Text1, "Font", VbGet)` into a Variant | String "MS Sans Serif": **the Font's default member**, its Name |
+| `Set o = CallByName(Text1, "Font", VbGet)`, `o As Object` | ok; `TypeName(o)` Font |
+| `CallByName Text1, "Font", VbSet, f`, `f` a `New StdFont` named Courier New | ok; `Text1.Font.Name` Courier New |
+| `CallByName Text1, "Font", VbLet, f` | ok |
+| `CallByName(Text1, "Container", VbGet)` into a Variant | **450**: the form's default member needs an argument |
+| `CallByName(Me, "Text1", VbGet)` into a Variant | String "abc": the control's default member |
+| `Set o = CallByName(Me, "Text1", VbGet)` | ok; `TypeName(o)` TextBox |
+| `CallByName(v, "Text", VbGet)`, `v` a Variant holding Text1 | String "abc" |
+
+**Methods:**
+
+| Statement | VB6 |
+|---|---|
+| `CallByName Text1, "Move", VbMethod, 500, 2500` | ok; at 500, 2500 |
+| `CallByName Text1, "SetFocus", VbMethod` | **5**, as `Text1.SetFocus` is before the form shows |
+| `CallByName List1, "AddItem", VbMethod, "a"`; `"b", 0` | ok; `[b][a]` |
+| `CallByName List1, "AddItem", VbMethod`, no argument | **450** |
+| `CallByName List1, "AddItem", VbMethod, "c", 0, 1`, one too many | **450**, and nothing is added |
+| `CallByName List1, "RemoveItem", VbMethod, 0` | ok |
+| `CallByName List1, "Clear", VbMethod` | ok; `ListCount` 0 |
+| `CallByName(Picture1, "ScaleX", VbMethod, 1440, vbTwips, vbPixels)` | Single 96 |
+| `CallByName(Me, "TextWidth", VbMethod, "abc")` | Single 270 |
+| `CallByName Me, "Move", VbMethod, 800, 900` | ok; the form at 800, 900 |
+
+**The wrong call type, and a missing member:**
+
+| Statement | VB6 |
+|---|---|
+| `CallByName(Text1, "Foo", VbGet)`, `VbLet, 1`, `VbMethod` | **438** each |
+| `CallByName(Text1, "Text", VbMethod)`: a property as a method | **438** |
+| `CallByName(Text1, "Move", VbGet, 1, 2)`; `CallByName(List1, "Clear", VbGet)`: a method as a property | **438** |
+| `CallByName Text1, "Text", VbSet, "x"`: Set on a String property | **438** |
+| `CallByName(Text1, "Text", 3)`: VbGet Or VbMethod | String "abc": read as a property |
+
+**Readings:**
+- **`CallByName` on a control or a form reaches its own properties and methods** with the types the control gives them: Single for Left, Integer for ListCount, String for Text.
+- **The call type must fit the member.**
+  - A method through `VbGet`, a property through `VbMethod`, and `VbSet` on a property that isn't an object are all 438, as an unknown name is.
+  - Call type 3 reads a property.
+- **A property's own errors pass through:** 383 for a read-only one, 385 for a property array read with no index.
+- **Arity is 450, `CallByName`'s own,** in both directions, as #4688 found for a Collection.
+- **An object property, read into a Variant without `Set`, gives its default member.** The Font's is its Name, the form's (through `Container`) needs an argument, so 450, and a control's is its value property. With `Set`, it gives the object.
+- **A Variant holding the control works as the control does.**
+
+**Not measured:**
+- other controls' members;
+- `VbSet` with a non-object;
+- omitted arguments;
+- named arguments to `CallByName` itself.

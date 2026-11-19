@@ -39,6 +39,10 @@ namespace HexIDE.Infrastructure;
 /// <item>#6310 (2021) added today's query handling.</item>
 /// <item>PR #22711, still open, adds the same kind of deferral for macOS termination only.</item>
 /// </list>
+/// <para>
+/// We asked for session-end events, or a supported hook on this window, in AvaloniaUI/Avalonia#22881. When a release
+/// has either, this subclass and its class-name dependency can go.
+/// </para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
 internal sealed class Win32SessionEndHook

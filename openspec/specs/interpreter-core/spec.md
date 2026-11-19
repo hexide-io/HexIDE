@@ -18,9 +18,9 @@ worse than one that is obviously incomplete.
 >   The measured non-object Variant, Nothing and Collection paths are covered by #257; a form member through
 >   Object likewise raises 438 when absent.
 >
-> `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs and ImageList Images. Over any other
-> control or proxy, a control array included, it stops the run as not implemented rather than raising an error a handler could
-> trap. User classes dispatch their -4 enumeration member (#4679).
+> `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs, ImageList Images and control arrays
+> (CommonDialog retains #4148's restrictions). Over any other control or proxy, it stops the run as not implemented
+> rather than raising an error a handler could trap. User classes dispatch their -4 enumeration member (#4679).
 >
 > Separately, some of the engine's own refusals carry no message of their own. Such a run does end, and its dialog
 > quotes the statement that reached the refusal, where that statement is known.
@@ -29,6 +29,20 @@ worse than one that is obviously incomplete.
 > here, not the intent.
 
 ## Requirements
+
+### Requirement: For Each walks control-array indices captured at entry
+
+The interpreter SHALL walk a control array in sorted index order, capturing the indices once and resolving each
+element when reached, following [#4716's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4716).
+CommonDialog's existing enumeration restrictions remain unchanged.
+
+#### Scenario: Controls change during the walk
+- **WHEN** a new index is loaded during the loop
+- **THEN** it is not visited
+- **WHEN** an index captured at entry is unloaded before its turn
+- **THEN** error 340 names that index; under On Error Resume Next the error is recorded and the walk continues at the next index
+- **WHEN** that index is unloaded and reloaded before its turn
+- **THEN** the replacement control is visited
 
 ### Requirement: A running form accepts Icon assignments
 
@@ -597,6 +611,35 @@ may not be named", and named IMEStatus "Wrong number of arguments or invalid pro
 #### Scenario: Reordered financial parameters with omitted optionals
 - **WHEN** `FV(Pmt:=-100, NPer:=12, Rate:=0.01)` executes
 - **THEN** its value equals `FV(0.01, 12, -100)`
+
+### Requirement: Measured control and form named arguments
+
+The interpreter SHALL bind the control/form parameter names measured by
+[#1474](https://github.com/hexide-io/HexIDE/issues/1474) in parameter order. Unknown/repeated names and
+missing required parameters SHALL raise the measured compile errors as the statement executes.
+Unmeasured names SHALL remain unimplemented. Name binding SHALL preserve existing method execution refusals.
+
+#### Scenario: Measured method signatures
+- **WHEN** an early-bound control or form method receives named arguments
+- **THEN** ListBox/ComboBox AddItem takes Item/Index and RemoveItem takes Index; TextBox/form Move takes Left/Top/Width/Height; ZOrder takes Position; form TextWidth takes Str; PictureBox ScaleX takes Width/FromScale/ToScale
+- **AND** form TextWidth and form ZOrder execution remain explicitly unimplemented
+
+#### Scenario: AddItem evaluates its parameters in order
+- **WHEN** `List1.AddItem Index:=F(1), Item:=F("c")` executes early-bound
+- **THEN** F receives "c" before 1 and c is inserted at index 1
+
+#### Scenario: A gap prevents a move
+- **WHEN** `Text1.Move 200, Height:=400` executes
+- **THEN** error 448 is raised and no position or size changes
+- **AND** optional gaps in TextBox/form Move and PictureBox ScaleX raise 448 whether named or positional
+
+#### Scenario: A late-bound control takes no names
+- **WHEN** an Object holding a ListBox executes `o.AddItem Item:="late"`
+- **THEN** error 448 is raised and the list stays unchanged
+- **AND** all named method arguments on the measured control/form targets through Object or Variant raise 448, including repeated names
+- **AND** `As Control` and `As VB.Control` ListBox AddItem and TextBox Move calls with names raise 448 without changing the target, while positional calls still work ([#4737](https://github.com/hexide-io/HexIDE/issues/4737), SP6 native/p-code, measuring PR #4753)
+- **AND** a variable declared as the control's or form's own class (`As ListBox`, `As TextBox`, `As Form`, `As Form1`) binds the names
+- **AND** a Collection retains its existing named binding
 
 ### Requirement: Measured straight-line and sum-of-years depreciation
 
@@ -1587,10 +1630,18 @@ accept these styles without changing window state. WindowStyle SHALL convert thr
 to 2 when omitted. Values outside 0–9 SHALL raise 5. These styles and defaults are measured in
 [#4146](https://github.com/hexide-io/HexIDE/issues/4146); the original argument/result measurements are in
 [the Shell oracle](../../../docs/vb6-fidelity-oracle/shell.md).
-Empty paths, directories and recognisable ASCII text documents (including associated documents) SHALL raise 5, missing programs
-53 and Null arguments 94. Unix SHALL retain direct process launching and map non-executable document
-failures to 5 where distinguishable. Non-string PathName conversions, access denied to executables,
-programs that exist but cannot start, and ambiguous/binary document classification SHALL refuse explicitly as not implemented pending measurement (#4406).
+PathName SHALL convert scalar values through CStr; Empty paths and directories SHALL raise 5,
+Null SHALL raise 94, arrays and Error values SHALL raise 13, Nothing SHALL raise 91, and a
+Collection SHALL raise 450. Other live objects and unmeasured PathName types (including UDTs
+and unsigned Automation values) SHALL refuse explicitly as not implemented.
+Windows launch errors 2/3 SHALL raise 53 and 5/193/216 SHALL raise 5 regardless of file content
+or association; batch files SHALL launch and return their process ID. Unix SHALL retain direct
+launching: ENOENT for a missing program SHALL raise 53, and EACCES/ENOEXEC on an existing file
+SHALL raise 5 regardless of content or execute permissions. Other launch failures, including an
+existing Unix script with a missing interpreter, SHALL refuse explicitly, naming the native error.
+These additional measurements are recorded in [#4406](https://github.com/hexide-io/HexIDE/issues/4406)
+and [oracle PR #4721](https://github.com/hexide-io/HexIDE/pull/4721), extending
+[the Shell oracle](../../../docs/vb6-fidelity-oracle/shell.md).
 
 #### Scenario: A program launches a helper
 - **WHEN** code calls `Shell` with a quoted executable path, arguments and an accepted explicit style
