@@ -338,7 +338,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     /// <summary>How many procedures an unwinding error, Stop or End passes between yields, under a debugger (#3250). Small
     /// enough to keep the inline nesting shallow; large enough that a shallow unwind, the usual one, never yields.</summary>
-    private const int UnwindYieldEvery = 32;
+    internal const int UnwindYieldEvery = 32;
 
     /// <summary>The live procedure-activation call stack (outermost first). Read by the debugger only.</summary>
     public IReadOnlyList<StatementExecutor> ActivationStack => activationStack;

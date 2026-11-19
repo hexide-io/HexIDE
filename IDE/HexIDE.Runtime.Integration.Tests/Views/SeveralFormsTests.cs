@@ -370,6 +370,7 @@ public class SeveralFormsTests
                     Form2.Show
                     Exit Sub
                 End If
+                Form2.Hide
                 Form2.Show vbModal
                 Form2.Show
             End Sub
@@ -925,8 +926,9 @@ public class SeveralFormsTests
         run.Closed.Should().BeEmpty("hiding keeps the forms loaded");
     }
 
+    // #4765 corrects the displayed modal form’s own Show from session 0’s 405 to console 400.
     [AvaloniaFact]
-    public void Under_a_modal_form_a_modeless_Show_is_401_hiding_another_form_402_and_its_own_modal_Show_405()
+    public void Under_a_modal_form_a_modeless_Show_is_401_hiding_another_form_402_and_its_own_modal_Show_400()
     {
         using var run = Start(ShowsForm2Modally, Form2Clicked("""
                 On Error Resume Next
@@ -957,40 +959,84 @@ public class SeveralFormsTests
             "Form1.Show 401 Can't show non-modal form when modal form is displayed",
             "Me.Show 401",
             "Form1.Hide 402 Must close or hide topmost modal form first",
-            "Me.Show vbModal 405 Unable to show modal form within this context",
+            "Me.Show vbModal 400 Form already displayed; can't show modally",
             "Load Form3 0",
             "f2 queryunload 1", "f2 unload", "after, form1 enabled True");
     }
 
+    // Console measurements in #4765 (IDE, p-code and native agree); session 0's earlier rows did not display forms.
     [AvaloniaFact]
-    public void A_form_shown_modelessly_turns_modal_with_no_error()
+    public void A_form_shown_modelessly_refuses_modal_Show_with_400_and_stays_modeless()
     {
-        // VB6's documented 400, "Form already displayed; can't show modally", never came (measured).
         using var run = Start("""
-            Private shown As Boolean
             Private Sub Command1_Click()
-                If Not shown Then
-                    shown = True
-                    Form2.Show
-                    Exit Sub
-                End If
+                Form2.Show
+                On Error Resume Next
                 Form2.Show vbModal
-                Debug.Print "after " & Err.Number
+                Debug.Print Err.Number & " " & Err.Description
+                Debug.Print "form1 enabled " & Me.Enabled & ", form2 visible " & Form2.Visible
             End Sub
 
             """);
         run.Click("Form1");
         Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "400 Form already displayed; can't show modally",
+            "form1 enabled True, form2 visible True");
+        run.Opened["Form1"].HeldBy.Should().BeNull();
+        run.Opened["Form2"].HeldBy.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void A_displayed_startup_form_refuses_its_own_modal_Show_with_400()
+    {
+        // #4765: Me.Show vbModal with no modal form already open.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                On Error Resume Next
+                Me.Show vbModal
+                Debug.Print Err.Number & " " & Err.Description
+                Debug.Print "visible " & Me.Visible & ", enabled " & Me.Enabled
+            End Sub
+
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("400 Form already displayed; can't show modally", "visible True, enabled True");
+        run.Opened["Form1"].HeldBy.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void A_form_shown_then_hidden_can_turn_modal_without_error()
+    {
+        // #4765: a hidden target is not already displayed, even when previously shown.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show
+                Form2.Hide
+                On Error Resume Next
+                Form2.Show vbModal
+                Debug.Print "after " & Err.Number & ", form1 enabled " & Me.Enabled
+            End Sub
+
+            """);
         run.Click("Form1");
         Pump();
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("f2 initialize", "f2 load");
-        run.Opened["Form1"].HeldBy.Should().NotBeNull();
+        run.Opened["Form2"].IsVisible.Should().BeTrue();
+        run.Opened["Form1"].HeldBy.Should().BeSameAs(run.Opened["Form2"]);
+        run.Opened["Form2"].HeldBy.Should().BeNull();
 
         run.Click("Form2");
         Pump();
-        run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "after 0");
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload",
+            "after 0, form1 enabled True");
+        run.Opened["Form1"].HeldBy.Should().BeNull();
     }
 
     [AvaloniaTheory]
@@ -1061,44 +1107,28 @@ public class SeveralFormsTests
     }
 
     [AvaloniaFact]
-    public void A_form_beneath_the_modal_one_can_turn_modal_over_it_and_is_disabled_again_after()
+    public void A_form_beneath_the_modal_one_refuses_modal_Show_with_400_and_stays_held()
     {
-        // Measured: Form1, beneath Form2's modal, turns modal over it with no error, and Form2's statement returns once Form1
-        // hides itself. Form1 being disabled again after is inferred from the single modal's measurement.
-        using var run = Start("""
-            Private Sub Command1_Click()
-                Debug.Print "f1 click, enabled " & Me.Enabled
-                If Not Form2.Visible Then
-                    Form2.Show vbModal
-                    Debug.Print "after form2's modal"
-                Else
-                    Me.Hide
-                End If
-            End Sub
-
-            """, Form2Clicked("""
+        // #4765: Form1 stays beneath Form2; the refused Show holds or releases nothing.
+        using var run = Start(ShowsForm2Modally, Form2Clicked("""
+                On Error Resume Next
                 Form1.Show vbModal
-                Debug.Print "f2 after form1's modal, form1 enabled " & Form1.Enabled & ", form2 enabled " & Me.Enabled
-                Unload Me
+                Debug.Print Err.Number & " " & Err.Description
+                Debug.Print "form1 enabled " & Form1.Enabled & ", form2 enabled " & Me.Enabled
 
             """));
         run.Click("Form1");
         Pump();
+        var owner = run.Opened["Form2"].Owner;
         run.Click("Form2");
         Pump();
 
-        run.Opened["Form1"].HeldBy.Should().BeNull("Form1 is modal now");
-        run.Opened["Form1"].Owner.Should().BeNull("ownership for promotion over a descendant is unmeasured (#4618)");
-        run.Opened["Form2"].Owner.Should().BeNull("an owned child would stay above the form promoted over it");
-        run.Opened["Form2"].HeldBy.Should().NotBeNull();
-
-        run.Click("Form1");
-        Pump();
-
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("f1 click, enabled True", "f2 initialize", "f2 load", "f1 click, enabled True",
-            "f2 after form1's modal, form1 enabled False, form2 enabled True", "f2 queryunload 1", "f2 unload",
-            "after form2's modal");
+        run.Printed.Should().Equal("before", "f2 initialize", "f2 load",
+            "400 Form already displayed; can't show modally", "form1 enabled False, form2 enabled True");
+        run.Opened["Form1"].HeldBy.Should().BeSameAs(run.Opened["Form2"]);
+        run.Opened["Form2"].HeldBy.Should().BeNull();
+        run.Opened["Form2"].Owner.Should().BeSameAs(owner);
     }
 
     [AvaloniaTheory]

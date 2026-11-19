@@ -421,6 +421,25 @@ Phase-4.2 refcount oracle):
    the `C:\Program Files (x86)\…` path in the same command — the path-guard blocks it; let `/make` overwrite and
    `For Output` truncate instead.
 
+**A form or display probe runs on the console session, and logs its session id.** A program started through
+PowerShell Direct, or by `scripts/vb6-oracle.ps1`'s default route, runs in session 0, which displays no form: `Visible`
+reads False after `Show`, and nothing takes focus or comes to the front. That is fine for an expression. It is wrong for
+any row that reads a form's, a control's or the screen's state, and three such rows were wrong for that reason
+(#4768). Run those through the console agent instead, and write the session id into the probe's log, so a reader can
+see where each row was measured. The console is session 1 on the oracle guest:
+
+```vb
+Private Declare Function GetCurrentProcessId Lib "kernel32" () As Long
+Private Declare Function ProcessIdToSessionId Lib "kernel32" (ByVal dwProcessId As Long, pSessionId As Long) As Long
+
+Public Function SessionId() As Long
+    Dim s As Long
+    If ProcessIdToSessionId(GetCurrentProcessId(), s) <> 0 Then SessionId = s Else SessionId = -1
+End Function
+```
+
+Measured 2026-11-18: the same build logged 1 run through the console agent and 0 run through PowerShell Direct.
+
 ---
 
 ## Extending the oracle (future phases)
@@ -643,6 +662,7 @@ added afterwards.
 - [What the Properties window's object box lists, and in what order (2026-11-18, #1520, design-time, IDE, SP6)](what-the-properties-windows-object-box-lists.md#what-the-properties-windows-object-box-lists-and-in-what-order-2026-11-18-1520-design-time-ide-sp6)
 - [A UserControl's and a PropertyPage's own events (2026-10-24, #1632, design-time, IDE, release build and SP6)](a-usercontrols-and-a-propertypages-own-events.md#a-usercontrols-and-a-propertypages-own-events-2026-10-24-1632-design-time-ide-release-build-and-sp6)
 - [The procedure a designer double-click writes for each control (2026-11-17, #4411, design-time, IDE, SP6)](the-procedure-a-designer-double-click-writes-for-each-control.md#the-procedure-a-designer-double-click-writes-for-each-control-2026-11-17-4411-design-time-ide-sp6)
+- [The Procedure box's entries for a property's accessors (2026-11-18, #4783, design-time, IDE, SP6)](the-procedure-boxs-entries-for-a-propertys-accessors.md#the-procedure-boxs-entries-for-a-propertys-accessors-2026-11-18-4783-design-time-ide-sp6)
 - [Loading an element of a UserControl array (2026-11-16, #4337, SP6)](loading-an-element-of-a-usercontrol-array.md#loading-an-element-of-a-usercontrol-array-2026-11-16-4337-sp6)
 - [Write # and Input # (2026-10-23, #1521)](write--and-input.md#write--and-input--2026-10-23-1521)
 - [Make Project Group (2026-10-23, #746, design-time, IDE, release build)](make-project-group.md#make-project-group-2026-10-23-746-design-time-ide-release-build)
@@ -839,6 +859,7 @@ added afterwards.
 - [Centimetres and millimetres, to the last bit (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#centimetres-and-millimetres-to-the-last-bit-2026-11-18-990-sp6)
 - [A control's size in a flipped scale, and Scale inside With (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#a-controls-size-in-a-flipped-scale-and-scale-inside-with-2026-11-18-990-sp6)
 - [A UserControl's scale, late-bound Scale, and scales saved without extents (2026-11-18, #4693, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#a-usercontrols-scale-late-bound-scale-and-scales-saved-without-extents-2026-11-18-4693-sp6)
+- [More of a UserControl's scale, exact centimetre readbacks, and late-bound and argument-count edges (2026-11-18, #4693, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#more-of-a-usercontrols-scale-exact-centimetre-readbacks-and-late-bound-and-argument-count-edges-2026-11-18-4693-sp6)
 - [The drawing methods: Line, PSet, Circle, Cls and Point (2026-11-18, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#the-drawing-methods-line-pset-circle-cls-and-point-2026-11-18-988-sp6)
 - [Circles, arcs, sectors and thick pens, pixel by pixel (2026-11-18, #988, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#circles-arcs-sectors-and-thick-pens-pixel-by-pixel-2026-11-18-988-sp6)
 - [What an Enum member's value and a Type's array bounds may name (2026-11-18, #4594, #4595, SP6)](what-an-enum-members-value-and-a-types-bounds-may-name.md#what-an-enum-members-value-and-a-types-array-bounds-may-name-2026-11-18-4594-4595-sp6)
@@ -858,3 +879,7 @@ added afterwards.
 - [In the IDE too: the line break is in the description itself (2026-11-18, #4676, SP6)](errobject-as-a-declared-type.md#in-the-ide-too-the-line-break-is-in-the-description-itself-2026-11-18-4676-sp6)
 - [A control's and a form's members through CallByName (2026-11-18, #4520)](callbyname.md#a-controls-and-a-forms-members-through-callbyname-2026-11-18-4520)
 - [Where `/make` puts its output: Path32, /outdir, a failed build, and an ActiveX DLL's registration (2026-11-18, #4538, #2503, SP6)](where-make-puts-its-output.md#where-make-puts-its-output-path32-outdir-a-failed-build-and-an-activex-dlls-registration-2026-11-18-4538-2503-sp6)
+- [The `Date` and `Time` statements: the other value types, an object, and the date range (2026-11-18, #4733)](the-date-and-time-statements.md#the-other-value-types-an-object-and-the-date-range-2026-11-18-4733)
+- [A StdFont in a PropertyBag (2026-11-18, #4741)](a-propertybag-at-run-time.md#a-stdfont-in-a-bag-2026-11-18-4741)
+- [`Set` of a control into a variable of another class (2026-11-18, #1563)](a-forms-controls-collection-and-typeof-on-a-control.md#set-of-a-control-into-a-variable-of-another-class-2026-11-18-1563)
+- [A free-standing StdFont's assignments (2026-11-18)](a-controls-font-object.md#a-free-standing-stdfonts-assignments-2026-11-18)

@@ -31,8 +31,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// </para>
 ///
 /// <para>
-/// <c>GoSub</c> and fixed-length strings stand for any construct the interpreter does not implement. They were
-/// chosen as the least likely to be implemented soon (<c>GoSub</c> is the tree-walk limit in
+/// <c>AppActivate</c> and fixed-length strings stand for constructs the interpreter does not implement (see
 /// <c>interpreter-gaps.md</c>). If either is implemented, substitute another.
 /// </para>
 /// </summary>
@@ -72,16 +71,14 @@ public class RunFaultTests
       + "   End\r\n"
       + "End\r\nAttribute");
 
-    /// <summary>Reaches GoSub with an error trap set, so a trap that swallowed it would print "after".</summary>
-    private static string ReachesGoSub(string procedure) =>
+    /// <summary>Reaches AppActivate with an error trap set, so a trap that swallowed it would print "after".</summary>
+    private static string ReachesAppActivate(string procedure) =>
         $"Private Sub {procedure}()\r\n"
       + "    On Error Resume Next\r\n"
       + "    Debug.Print \"before\"\r\n"
-      + "    GoSub Later\r\n"
+      + "    AppActivate \"Notepad\"\r\n"
       + "    Debug.Print \"after\"\r\n"
       + "    Exit Sub\r\n"
-      + "Later:\r\n"
-      + "    Return\r\n"
       + "End Sub\r\n";
 
     private sealed class Run
@@ -260,7 +257,7 @@ public class RunFaultTests
     [AvaloniaFact]
     public void A_click_handler_that_reaches_something_unimplemented_ends_the_run_and_says_so()
     {
-        var run = FormProject(ReachesGoSub("Command1_Click"));
+        var run = FormProject(ReachesAppActivate("Command1_Click"));
         var printed = Printed(out var sink);
         VBDebugConsole.Output += sink;
         try
@@ -272,7 +269,7 @@ public class RunFaultTests
             Click(window);
 
             run.RunFailed.Should().ContainSingle("the fault is reported once, after the run is torn down")
-                .Which.Should().StartWith("Not implemented yet: ").And.Contain("GoSub");
+                .Which.Should().StartWith("Not implemented yet: ").And.Contain("AppActivate");
             run.StartFailed.Should().BeEmpty("the run started; it was the click that ended it");
             printed.Should().Equal(["before"], "On Error Resume Next must not step over what HexIDE cannot run");
             closed.Should().BeTrue("ending the run closes its form");
@@ -303,7 +300,7 @@ public class RunFaultTests
           + click
           + "End Sub\r\n"
           + "\r\n"
-          + ReachesGoSub("Text1_Change"),
+          + ReachesAppActivate("Text1_Change"),
             FormWithButtonAndTextBox);
         var printed = Printed(out var sink);
         VBDebugConsole.Output += sink;
@@ -314,7 +311,7 @@ public class RunFaultTests
             Click(window);
 
             printed.Should().NotContain("the click carried on", "the click must stop with the event it raised");
-            run.RunFailed.Should().ContainSingle().Which.Should().Contain("GoSub");
+            run.RunFailed.Should().ContainSingle().Which.Should().Contain("AppActivate");
             AssertNothingIsRunning(run);
         }
         finally
@@ -334,7 +331,7 @@ public class RunFaultTests
         // click's own expression carries on with Fn's result (#775 for End, #762 for a fault).
         var change = end
             ? "Private Sub Text1_Change()\r\n    End\r\nEnd Sub\r\n"
-            : ReachesGoSub("Text1_Change");
+            : ReachesAppActivate("Text1_Change");
         var run = FormProject(
             "Private Function Fn() As String\r\n"
           + "    Fn = \"result\"\r\n"
@@ -359,7 +356,7 @@ public class RunFaultTests
             if (end)
                 run.RunFailed.Should().BeEmpty("ending is not an error");
             else
-                run.RunFailed.Should().ContainSingle().Which.Should().Contain("GoSub");
+                run.RunFailed.Should().ContainSingle().Which.Should().Contain("AppActivate");
             AssertNothingIsRunning(run);
         }
         finally
@@ -422,7 +419,7 @@ public class RunFaultTests
         // Form_Load is where a program's first statements run, so it is where most programs will meet a gap
         // first. The run must end, rather than leave an empty form standing. Load runs before the form is shown
         // (#822), so a fault there means the form is never shown at all.
-        var run = FormProject(ReachesGoSub("Form_Load"));
+        var run = FormProject(ReachesAppActivate("Form_Load"));
         var printed = Printed(out var sink);
         VBDebugConsole.Output += sink;
         try
@@ -436,7 +433,7 @@ public class RunFaultTests
             run.Runner.RunProject(run.Project);
             Pump();
 
-            run.RunFailed.Should().ContainSingle().Which.Should().Contain("GoSub");
+            run.RunFailed.Should().ContainSingle().Which.Should().Contain("AppActivate");
             printed.Should().Equal(["before"]);
             window.Should().BeNull("a form whose Load faulted is never shown");
             AssertNothingIsRunning(run);
@@ -512,7 +509,7 @@ public class RunFaultTests
         // that a run reports at most once, as it ends. The run also stops listening then, but that is housekeeping:
         // a leaked listener would stop an already stopped controller, and this test could not tell the difference.
         var stray = new VBWindowContext(Substitute.For<IBasicStandardLibrary>());
-        stray.SetCode(ReachesGoSub("Command1_Click"), "Form1");
+        stray.SetCode(ReachesAppActivate("Command1_Click"), "Form1");
         var faults = new List<Exception>();
         void OnFaulted(VBWindowContext sender, Exception e)
         {
@@ -558,7 +555,7 @@ public class RunFaultTests
         var otherController = new DebugController();
         otherController.Reset();   // same generation as the new run, but a different controller
         var stray = new VBWindowContext(Substitute.For<IBasicStandardLibrary>());
-        stray.SetCode(end ? "Sub Stray()\r\nEnd\r\nEnd Sub\r\n" : ReachesGoSub("Stray"),
+        stray.SetCode(end ? "Sub Stray()\r\nEnd\r\nEnd Sub\r\n" : ReachesAppActivate("Stray"),
             "OldForm", stale ? run.Controller : otherController);
         var raised = 0;
         void OnFaulted(VBWindowContext sender, Exception _) { if (ReferenceEquals(sender, stray)) raised++; }
@@ -592,7 +589,7 @@ public class RunFaultTests
     [AvaloniaFact]
     public void Sub_Main_that_reaches_something_unimplemented_ends_the_run_and_says_so()
     {
-        var run = SubMainProject(ReachesGoSub("Main").Replace("Private Sub", "Sub"));
+        var run = SubMainProject(ReachesAppActivate("Main").Replace("Private Sub", "Sub"));
         var printed = Printed(out var sink);
         VBDebugConsole.Output += sink;
         try
@@ -606,7 +603,7 @@ public class RunFaultTests
         }
 
         run.RunFailed.Should().ContainSingle()
-            .Which.Should().StartWith("Not implemented yet: ").And.Contain("GoSub");
+            .Which.Should().StartWith("Not implemented yet: ").And.Contain("AppActivate");
         run.StartFailed.Should().BeEmpty();
         printed.Should().Equal(["before"]);
         AssertNothingIsRunning(run);

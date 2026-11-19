@@ -44,6 +44,30 @@ CommonDialog's existing enumeration restrictions remain unchanged.
 - **WHEN** that index is unloaded and reloaded before its turn
 - **THEN** the replacement control is visited
 
+### Requirement: GoSub and computed branches execute at procedure-level labels
+
+The interpreter SHALL execute GoSub, Return, On selector GoTo and On selector GoSub using nested passes of the procedure's top-level statement driver, following [#4726's measured rows G1–G35 and G41–G42](https://github.com/hexide-io/HexIDE/issues/4726). It SHALL preserve the existing label lookup, debugger gates and nested-granular Resume limitations.
+
+#### Scenario: Return and procedure exit
+- **WHEN** a GoSub routine executes Return
+- **THEN** execution continues after the innermost pending GoSub
+- **AND** Return with no pending GoSub raises trappable error 3, Return without GoSub
+- **WHEN** the routine executes Exit Sub or reaches the procedure's end
+- **THEN** the procedure ends, including when GoSub was inside a block
+
+#### Scenario: Computed branch selection
+- **WHEN** On selector GoTo or GoSub executes
+- **THEN** the selector is evaluated once and narrowed as CInt, including half-to-even rounding and Null's error 94
+- **AND** a selector below 0 or above 255 raises error 5; 0 or a selector past the label list falls through
+- **AND** conversion overflow beyond Integer range is refused as unmeasured, naming #4726
+
+#### Scenario: Error handling and stack exhaustion
+- **WHEN** an error occurs in a nested pass
+- **THEN** the procedure's handler and that pass's fault position govern Resume, without resetting the handler on pass entry
+- **AND** a Resume in a nested pass with no fault of its own is refused as unmeasured, naming #4726
+- **WHEN** pending GoSubs reach HexIDE's 2,000-level cap or the execution stack guard fails
+- **THEN** ordinary trappable error 28 allows the procedure's own handler to run, including Exit Sub and Resume Next
+
 ### Requirement: A running form accepts Icon assignments
 
 A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.
@@ -393,7 +417,8 @@ be refused as not implemented.
 
 A variable declared `As ErrObject` SHALL accept Err and Nothing. Assigning a Collection SHALL
 raise 13 and preserve the previous reference. `New ErrObject` SHALL raise a trappable run-time
--2147221164, "Class not registered" (VB6 SP6 native/p-code measurements, #2627).
+-2147221164, "Class not registered" followed by CR LF (22 characters; VB6 SP6 native/p-code/IDE
+measurement in [#4676](https://github.com/hexide-io/HexIDE/issues/4676), oracle PR #4731).
 
 #### Scenario: Refused Collection assignment
 
@@ -405,7 +430,7 @@ raise 13 and preserve the previous reference. `New ErrObject` SHALL raise a trap
 
 - **GIVEN** `e As ErrObject` holds Nothing
 - **WHEN** `Set e = New ErrObject` executes under `On Error Resume Next`
-- **THEN** Err.Number is -2147221164, Err.Description is "Class not registered", and e remains Nothing
+- **THEN** Err.Number is -2147221164, Err.Description is "Class not registered" followed by CR LF (length 22), and e remains Nothing
 
 ### Requirement: One engine SHALL serve every execution path
 Running from the IDE, running under automation, and running in tests SHALL all execute through the same
