@@ -115,7 +115,7 @@ public class ProgressBarSerializationTests
     [Fact]
     public void Until_it_is_sized_a_control_keeps_the_extents_it_was_read_with_or_the_default()
     {
-        var disagreeing = Block("MSComctlLib", Line("Height", "211"), Line("Left", "120"), Line("TabIndex", "1"), Line("Top", "600"),
+        var disagreeing = Block("MSComctlLib", Line("Height", "211"), Line("Left", "120"), Line("TabIndex", "0"), Line("Top", "600"),
             Line("Width", "1234"), Line("_ExtentX", "2646"), Line("_ExtentY", "1323"), Line("_Version", "393216"), Line("Appearance", "1"));
         Save(Read(Head6, disagreeing).Form).Should().Contain(disagreeing);
 

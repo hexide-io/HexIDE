@@ -18,6 +18,10 @@ operations do.
 > form is pasted without it unless that form declares the libraries the first one did. Tracked in
 > [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
 
+> **Known divergence.** "Saved TabIndexes normalize when a form loads" is not met where the rule would move a
+> control carried as text: carried text isn't rewritten, so that form keeps all its saved TabIndexes. Tracked in
+> [#4884](https://github.com/hexide-io/HexIDE/issues/4884).
+
 ## Requirements
 
 ### Requirement: Windowless controls draw below windowed siblings regardless of file order
@@ -446,6 +450,26 @@ size (`add_control`) SHALL keep its own container hold and SHALL NOT add that pi
 #### Scenario: Drawing with the grid off
 - **WHEN** a tool drag spans 45 by 17 pixels with snapping disabled
 - **THEN** the preview and the placed rectangle both measure 46 by 18 pixels
+
+### Requirement: Saved TabIndexes normalize when a form loads
+The form reader SHALL normalize saved TabIndexes in depth-first file order across the whole form,
+including container children, as measured in [#4843](https://github.com/hexide-io/HexIDE/issues/4843)
+(oracle PR #4873). For N saved indices, the first occurrence of each value within 0..N−1 SHALL retain
+its value; duplicates and out-of-range values SHALL take the smallest free numbers in file order.
+The designer, runtime and save SHALL use those same values, including a modelled control's raw
+TabIndex property. Carried controls SHALL count in N and SHALL take their number by the same rule.
+A missing TabIndex
+line SHALL retain the class default pending measurement of mixed omitted and explicit values.
+
+#### Scenario: A duplicate precedes a valid zero
+- **GIVEN** three controls saved in file order with TabIndexes 1, 1 and 0
+- **WHEN** the form loads
+- **THEN** the designer, runtime and next save use 1, 2 and 0
+
+#### Scenario: A carried control would change
+- **GIVEN** those same saved indices with the second control carried as text
+- **WHEN** the form loads
+- **THEN** the designer, runtime and next save use 1, 2 and 0, the carried control's included
 
 ### Requirement: The designer SHALL offer a read-only tab-order overlay
 The designer SHALL offer a toggle, initially off, that draws each modelled control's existing `TabIndex` over its

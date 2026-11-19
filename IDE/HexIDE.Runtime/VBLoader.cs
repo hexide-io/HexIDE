@@ -889,6 +889,8 @@ public class VBLoader
         {
             if (!property.Name.Equals(name, StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
                 continue;
+            if (property.EditedValue is { } edited && int.TryParse(edited, out var editedNumber))
+                return editedNumber;
             var line = property.Lines[0];
             var value = line[(line.IndexOf('=') + 1)..].TrimStart();
             var digits = value.Length - value.TrimStart("0123456789".ToCharArray()).Length;
