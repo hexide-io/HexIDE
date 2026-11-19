@@ -4384,7 +4384,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var name = UdtFieldName(parts[^1]);
                 if (target.Value is ICSharpPropertyBag bag && bag.TrySetProperty(name, value)) return default;
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
-                throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#1087)");
+                throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#4882)");
             }
             if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown or ImageComboModel or VBImageCombo or ImageComboItems or ImageComboItem)
             {
