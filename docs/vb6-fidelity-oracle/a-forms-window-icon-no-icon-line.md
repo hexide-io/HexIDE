@@ -104,7 +104,7 @@ and error. p-code and native code logged the same lines. The first file was `ARW
   found, naming the path.
 - **Every error here was trappable** under `On Error Resume Next`.
 
-**Not measured:** an icon file with several images and none of them 32 by 32.
+**Not measured** here: an icon file with several images and none of them 32 by 32. The section on an icon file with no 32-by-32 image, below, measures it.
 
 ### Several 32-by-32 images in one icon file (2026-11-18, #4623, SP6)
 
@@ -138,3 +138,39 @@ colour is drawn as built. The last row repeats the section above's "the 32, wher
 
 **Not measured:** the display's colour depth, which wasn't recorded. The probe ran as a service-session process on
 the guest, so a display set to fewer colours wasn't tried.
+
+### An icon file with no 32-by-32 image, and images without their mask (2026-11-18, #4748, SP6)
+
+**The question.** Both sections above leave two shapes of icon file unmeasured: several images with none of them 32 by
+32, and an image without its AND mask at a depth other than 32 bits.
+
+**The probe.** The same as the section above: VB6 SP6, `/make`, native code and p-code, which logged the same lines.
+The files were hand-built, each image one solid colour:
+- red at 4 bits a pixel;
+- green at 8 or 24;
+- blue at 32.
+
+`PaintPicture p, 0, 0` drew each picture at its own size in a pixel-scaled PictureBox. `Point` then read four pixels
+back, as `&HBBGGRR`, at (5, 5), (20, 20), (40, 40) and (60, 60). The box's background is `F0F0F0`.
+
+| The file's images, in order | Width and Height | Pixels at 5, 20, 40 and 60 |
+|---|---|---|
+| 16 at 4 (red), then 48 at 4 (blue) | 423, 423 | red, then background |
+| 48 at 4 (blue), then 16 at 4 (red) | 1270, 1270 | blue, blue, blue, background |
+| 16 at 32 (red), then 48 at 32 (blue) | 423, 423 | red, then background |
+| 16 at 8 (green), 24 at 8 (red), 48 at 8 (blue) | 423, 423 | green, then background |
+| 48 at 4 (blue), then 64 at 4 (red) | 1270, 1270 | blue, blue, blue, background |
+| 16 at 4 (red), then 24 at 4 (blue) | 423, 423 | red, then background |
+| one 16 at 4 (red); one 48 at 4 (blue) | 423; 1270 | as built, at its own size |
+| one 32 at 4, 8, 24 or 32 bits, each **without its AND mask** | **481** | |
+| a 256 stored as PNG (red), then 48 at 4 (blue) | **481** | |
+| 48 at 4 without its mask (blue), then 16 at 4 (red) | **481** | |
+| 48 at 32 without its mask (blue), then 16 at 4 (red) | **481** | |
+| 16 at 4 (red), then 48 at 32 without its mask (blue) | 423, 423 | red, then background |
+
+**Reading:**
+- **With no 32-by-32 image, it takes the first image, whatever its size,** and draws it at that size. It isn't the
+  largest, and it isn't the one nearest 32: 16 then 24 takes the 16, and 48 then 64 takes the 48.
+- **A missing mask is 481 at every depth.** The section above measured that at 32 bits only.
+- **Only the image it takes is checked.** A first image it can't use is 481, whether a PNG or maskless, even though a
+  later one would load. A maskless image after the one it takes changes nothing.
