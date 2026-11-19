@@ -42,10 +42,16 @@ public class ModuleExecutionContext
                 value = VbNumeric.CoerceOnStore(value, declared, ctx);
             if (state.FixedStringWidthOf(loc) is { } width)
                 value = FixedLengthString.Store(value, width, ctx);
+            // #4864: Control still selects late binding on reads, but these measured non-controls
+            // cannot replace a scalar's reference. Parameters and other object kinds remain unmeasured.
+            if (state.DeclaredViewOf(loc) == "Control" && !env.Parameters.Contains(name)
+                && value.Value is VbObject { ClassDef.HostedControl: false } or VbCollection
+                    or AvaloniaInterop.ControlFont or FormControls)
+                throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             // A class-typed slot enforces its name: the object must BE that class or implement it as an
             // interface. Anything else is Err 13 "Type mismatch" at the Set — measured, both for two unrelated
             // classes and for an interface-typed slot given a non-implementer. Nothing always stores (its Value
-            // is null); a control or proxy is outside this model.
+            // is null); measured intrinsic and common controls are checked by their runtime class too.
             CheckObjectStore(value, value.Value is VbCollectionEnumerator
                 ? state.DeclaredViewOf(loc) : state.DeclaredClassOf(loc), ctx);
             state[loc] = value;
@@ -58,6 +64,15 @@ public class ModuleExecutionContext
     // Scalar slots and array elements enforce the same object type (measured, #1482).
     internal static void CheckObjectStore(Vb6Value value, string? declaredClass, ParserRuleContext? ctx = null)
     {
+        // #1563: inspect the object itself, even through Object/Variant, before replacing the old reference.
+        // ControlTypeName also distinguishes the two scroll bars. UserControl TypeName remains unmeasured (#1631).
+        if (declaredClass is not null && value.Value is Avalonia.Controls.Control control
+            && control is not BuiltinControls.VBUserControl
+            && VB6BuiltIns.ControlTypeName(control) is { } controlClass && ControlObjectType.IsIntrinsic(controlClass)
+            && !declaredClass.Equals("Object", StringComparison.OrdinalIgnoreCase)
+            && !declaredClass.Equals("Control", StringComparison.OrdinalIgnoreCase)
+            && !declaredClass.Equals(controlClass, StringComparison.OrdinalIgnoreCase))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
         if (value.Value is VbCollectionEnumerator && declaredClass is not null
             && !declaredClass.Equals("IUnknown", StringComparison.OrdinalIgnoreCase))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
