@@ -834,6 +834,7 @@ added afterwards.
 - [Pmt, FV, PV, NPer, IPmt, PPmt and Rate (2026-10-28, #2523)](pmt-fv-pv-nper-ipmt-ppmt-and-rate.md#pmt-fv-pv-nper-ipmt-ppmt-and-rate-2026-10-28-2523)
 - [DDB, SLN and SYD (2026-10-28, #2524)](ddb-sln-and-syd.md#ddb-sln-and-syd-2026-10-28-2524)
 - [NPV, IRR and MIRR (2026-10-28, #2525)](npv-irr-and-mirr.md#npv-irr-and-mirr-2026-10-28-2525)
+- [The financial functions: arguments, domains and overflow (2026-11-19, #4883)](financial-functions-arguments-domains-and-overflow.md#the-financial-functions-arguments-domains-and-overflow-2026-11-19-4883)
 - [Partition (2026-10-28, #2526)](partition.md#partition-2026-10-28-2526)
 - [Err.HelpFile, Err.HelpContext and Err.LastDllError (2026-10-28, #2527)](err-helpfile-err-helpcontext-and-err-lastdllerror.md#errhelpfile-errhelpcontext-and-errlastdllerror-2026-10-28-2527)
 - [Erl: the line number an error reports (2026-10-28, #2528)](erl-the-line-number-an-error-reports.md#erl-the-line-number-an-error-reports-2026-10-28-2528)
