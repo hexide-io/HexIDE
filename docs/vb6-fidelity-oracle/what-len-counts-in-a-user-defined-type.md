@@ -8,7 +8,8 @@ every Type with no fixed-length String field, whatever the Type held. Earlier pa
 So what does `Len` count for each kind of field, does it depend on what the fields hold, and what type is the answer?
 
 **The probe.**
-- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same lines.
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same lines. The class rows were a second
+  program, with a class module `Class1`.
 - **What was read:** `Len(u)` and its `TypeName`. Each Type was declared at module level, with a variable `u` of it.
 - **The lengths:** most rows are one program, with every Type in it and none of them assigned. The rows that store a
   value say so.
@@ -22,6 +23,7 @@ So what does `Len` count for each kind of field, does it depend on what the fiel
 | String, empty or holding "hello" | 4 |
 | Variant, empty or holding 5 or "hello" | 16 |
 | Object; Collection | 4; 4 |
+| a project class, then an Integer | 6 |
 | a dynamic array, `x() As Long` or `x() As String`, allocated or not | 4 |
 | `x(2) As Integer`; `x(2) As String`; `x(1) As Variant` | 6; 12; 32 |
 | `x(1, 2) As Byte`; `x(1 To 2) As String * 3` | 6; 6 |
@@ -34,6 +36,7 @@ So what does `Len` count for each kind of field, does it depend on what the fiel
 | a nested Type holding a `String * 3`, then a String | 7 |
 | Integer, `String * 4` | 6 |
 | `Len(arr(1))`, an element of `arr(2)`, an array of the Long Type | 4 |
+| a `Private Type` in a class module: Integer, Variant, `String * 3`, read by a method of the class | 21 |
 
 **Its type:**
 - Every row above is an **Integer**: `Len` of the Integer and `String * 4` Type is 6, an Integer.
@@ -53,5 +56,4 @@ So what does `Len` count for each kind of field, does it depend on what the fiel
 - `fixed-length-strings.md` found `LenB(fx)` an Integer where `Len(fx)` is a Long. A length fixed when the program is
   compiled would explain both. That's reasoned, not checked.
 
-**Not measured:** a Type of a project class, a Type in a class module, and the size between 32,767 and 40,000 where
-the type changes.
+**Not measured:** the size between 32,767 and 40,000 where the type changes.
