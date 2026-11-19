@@ -150,6 +150,56 @@ public class ControlObjectStoreTests
         printed.Should().Equal("True", "True", "True", "True");
     }
 
+    // VB6 SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/4878 (oracle PR #4866).
+    [AvaloniaTheory]
+    [InlineData("col")]
+    [InlineData("Controls")]
+    public void Later_Controls_type_mismatch_clears_the_object_loop_variable(string source)
+    {
+        const string designer = """
+            VERSION 5.00
+            Begin VB.Form Form1
+                Begin VB.TextBox Text1
+                    Left = 0
+                End
+                Begin VB.Timer Timer1
+                    Left = 0
+                End
+                Begin VB.TextBox Text2
+                    Left = 0
+                End
+            End
+            Attribute VB_Name = "Form1"
+
+            """;
+        var (printed, errors) = Run($"""
+            Dim t As TextBox, col As New Collection
+            col.Add Text1: col.Add Timer1: col.Add Text2
+            On Error Resume Next
+            For Each t In {source}
+                Debug.Print "body " & Err.Number & " " & TypeName(t)
+                Err.Clear
+            Next
+            Debug.Print CStr(Err.Number) & " " & TypeName(t)
+            """, designer);
+        errors.Should().BeEmpty();
+        printed.Should().Equal("body 0 TextBox", "13 Nothing");
+    }
+
+    [AvaloniaFact]
+    public void Failed_plain_Set_keeps_the_previous_reference()
+    {
+        var (printed, errors) = Run("""
+            Dim t As TextBox
+            On Error Resume Next
+            Set t = Text1
+            Set t = Timer1
+            Debug.Print CStr(Err.Number) & " " & TypeName(t)
+            """);
+        errors.Should().BeEmpty();
+        printed.Should().Equal("13 TextBox");
+    }
+
     [AvaloniaFact]
     public void For_Each_checks_each_binding_through_the_store()
     {

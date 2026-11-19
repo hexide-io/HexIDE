@@ -187,14 +187,12 @@ public class FormInstanceTests
         run.Printed.Should().Equal("13", "True");
     }
 
-    // For Each binds each element through the same store. 13 at the first element runs the body with the variable unset
-    // and goes on to the next; 13 at a later element ends the loop. VB6 SP6 native/p-code, #4864 (oracle PR #4866).
-    // What the variable holds after the later-element 13 is not pinned here: VB6 leaves it Nothing, HexIDE keeps the
-    // previous element, and that is a separate fault (#4878).
+    // VB6 SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/4878 (oracle PR #4866).
+    // A first-element 13 enters the body and continues; a later 13 ends with the variable Nothing.
     [AvaloniaTheory]
-    [InlineData("col.Add Text1: col.Add Me: col.Add Timer1", "col", "body 0 TextBox|13")]
-    [InlineData("col.Add Me: col.Add Text1", "col", "body 13 Nothing|body 0 TextBox|0")]
-    [InlineData("", "Forms", "body 13 Nothing|0")]
+    [InlineData("col.Add Text1: col.Add Me: col.Add Timer1", "col", "body 0 TextBox|13 Nothing")]
+    [InlineData("col.Add Me: col.Add Text1", "col", "body 13 Nothing|body 0 TextBox|0 Nothing")]
+    [InlineData("", "Forms", "body 13 Nothing|0 Nothing")]
     public void For_Each_into_a_Control_variable_checks_each_element(string fill, string source, string expected)
     {
         var run = RunFormLoad($"""
@@ -206,10 +204,28 @@ public class FormInstanceTests
                 Debug.Print "body " & Err.Number & " " & TypeName(c)
                 Err.Clear
             Next
-            Debug.Print CStr(Err.Number)
+            Debug.Print CStr(Err.Number) & " " & TypeName(c)
             """);
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal(expected.Split('|'));
+    }
+
+    // All three elements and the post-loop read were measured in #4878, native and p-code.
+    [AvaloniaFact]
+    public void Later_element_type_mismatch_clears_the_object_loop_variable()
+    {
+        var run = RunFormLoad("""
+            Dim t As Class1, col As New Collection
+            col.Add New Class1: col.Add New Class2: col.Add New Class1
+            On Error Resume Next
+            For Each t In col
+                Debug.Print "body " & Err.Number & " " & TypeName(t)
+                Err.Clear
+            Next
+            Debug.Print CStr(Err.Number) & " " & TypeName(t)
+            """, ("Class1", ModuleKind.ClassModule, ""), ("Class2", ModuleKind.ClassModule, ""));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("body 0 Class1", "13 Nothing");
     }
 
     // Every row, in order: https://github.com/hexide-io/HexIDE/issues/4640 (VB6 SP6, native and p-code).
