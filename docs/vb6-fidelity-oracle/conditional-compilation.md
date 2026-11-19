@@ -271,9 +271,18 @@ leaves `Win64` on. So code guarded by `#If Win32 Or Win64`, a common way to mean
 in Excel for Mac too. That's how a Windows Declare gets called there: see
 [a Declare whose library is missing](a-declare-whose-library-or-entry-point-is-missing.md).
 
-**Not from a measurement:** RDCore's table. RDCore.SDK's `PredefinedConditionalConstants.cs` sets `Win32` and `Win64` to 0 off
-Windows, `Mac` to 1 on macOS, and its own `Linux` and `Linux64` on Linux. It was read on 2026-11-18, not run. So RDCore and
-Excel for Mac differ on `Win64` (#4821).
+**Not from a measurement:** RDCore's table. It was read in RDCore.SDK 0.1.11-alpha's source, `PredefinedConditionalConstants.Of`,
+on 2026-11-19, and not run:
+- **`Win32`** is 1 on Windows only.
+- **`Win64`** is 1 on 64-bit Windows. It's also 1 on a 64-bit Mac, unless the runtime's `Win64OnlySetOnWindows` opt-in is
+  true; the opt-in is false unless something sets it.
+- **`Mac`** is 1 on macOS, **`Linux`** on Linux, and **`Is64BitEnv`** in a 64-bit process.
+- **`Linux64` is retired.** Nothing defines it, so `#If Linux64` reads 0.
+
+So by default RDCore now agrees with Excel for Mac on `Win64`, and `#If Win32 Or Win64` takes its Windows branch on a Mac
+under both. The table read on 2026-11-18, SDK 0.1.8-alpha, set `Win64` to 0 off Windows, and that's where they differed
+(#4821). RDCore's own `main`, at `6fd4c80a` on 2026-11-19, still builds against SDK 0.1.10-alpha and sets no opt-in. That
+version's table wasn't read, so what `rdc` takes today isn't recorded here.
 
 ### In HexIDE (#1112)
 
@@ -294,7 +303,9 @@ Excel for Mac differ on `Win64` (#4821).
     host, unmeasured here, but `VBA7 = 1` would select declarations HexIDE cannot parse (#1548). That waits for #1113's
     "view as" work;
     - **Off Windows (#4821):** every host takes the same table. #4821 makes it follow the project's engine, as
-      decided on 2026-11-18: RDCore's table for an RDCore project, Excel for Mac's for a VBA7 project on a Mac;
+      decided on 2026-11-18: RDCore's table for an RDCore project, Excel for Mac's for a VBA7 project on a Mac.
+      Since #4890, the RDCore table is SDK 0.1.11-alpha's, above. A project's `[HexIDE] Win64OnlySetOnWindows=1` turns
+      `Win64` off on a Mac, as RDCore's opt-in does;
     - **Measured since in 64-bit VBA7 (#1548):** `VBA7`, `VBA6`, `Win64` and `Win32` are all set there. See
       [LongLong and LongPtr in 64-bit VBA7](longlong-and-longptr-in-64-bit-vba7.md);
   - `Like` was refused, not implemented, until HexIDE had `Like` (#1547). It runs since #1598;
