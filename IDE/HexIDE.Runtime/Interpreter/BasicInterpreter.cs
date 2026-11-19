@@ -7,6 +7,7 @@ using Antlr4.Runtime;
 using Antlr4.Runtime.Atn;
 using Antlr4.Runtime.Misc;
 using HexIDE.IDE;
+using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 namespace HexIDE.Runtime.Interpreter;
@@ -628,6 +629,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return CopyForStore(element, depth);
     }
 
+    internal bool IsStandaloneFont(string name) =>
+        name.Equals("stdole.StdFont", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("StdFont", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(name, out _);
+
     /// <summary>Instantiate a class or form (<c>New ClassName</c>). A form gets its own window context (#4598).
     /// For a class, build this instance's OWN field env by cloning the
     /// class template env (so the shared <c>Debug</c>/<c>Err</c>/global slots carry over) then re-running the
@@ -642,8 +647,6 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // deadlock) and mutate state. Blocked here, before construction. Scoped to Paused (see RunProcedure).
         if (SuppressUserProcedureCalls && DebugController?.State == Debugging.DebugState.Paused)
             throw new Debugging.ImmediateEvalException("Creating objects is not available in the Immediate window.");
-        if (className.Equals("StdFont", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(className, out _))
-            throw new NotImplementedException("New StdFont is not implemented: its initial member values are unmeasured (#934)");
         if (!Modules.TryGet(className, out var classDef) || classDef.Kind is not (InterpreterModuleKind.Class or InterpreterModuleKind.Form) || classDef.HostedControl)
             throw new VBCompileErrorException("User-defined type not defined: " + className);
         // A class that claims an interface must supply all of it. VB6 refuses to BUILD such a program; with no
@@ -1563,6 +1566,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             var collection = new Vb6Value(NewCollection());
             AddRef(collection);
             Store(collection);
+            return;
+        }
+
+        if (IsStandaloneFont(need.AutoNew.ClassName))
+        {
+            Store(new Vb6Value(ControlFont.CreateStandalone()));
             return;
         }
 

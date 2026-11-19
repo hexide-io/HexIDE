@@ -344,6 +344,61 @@ public class FontMembersTests
         Snap("MS Shell Dlg", 16).Should().Be((12, "MS Shell Dlg"));
     }
 
+    // VB6 SP6 native/p-code measurements: https://github.com/hexide-io/HexIDE/issues/4781.
+    [AvaloniaTheory]
+    [InlineData("Dim f As Object: Set f = New StdFont")]
+    [InlineData("Dim f As Object: Set f = New stdole.StdFont")]
+    [InlineData("Dim f As New StdFont")]
+    [InlineData("Dim f As New stdole.StdFont")]
+    public void Standalone_StdFont_starts_with_the_measured_members(string declaration)
+    {
+        // #4781 explicitly permits retaining ControlFont’s TypeName; this is not a VB6 TypeName measurement.
+        Run(declaration + "\n" + """
+                Debug.Print f.Name & " " & f.Size & " " & f.Weight & " " & f.Charset
+                Debug.Print f.Bold & " " & f.Italic & " " & f.Underline & " " & f.Strikethrough
+                Debug.Print TypeName(f) & " " & TypeName(Text1.Font)
+
+            """).Should().Equal("MS Sans Serif 8.25 400 0", "False False False False", "Font Font");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("f.Size = 10", "MS Sans Serif 9.75 400 False False False False 0")]
+    [InlineData("f.Name = \"Arial\": f.Size = 10", "Arial 9.75 400 False False False False 0")]
+    [InlineData("f.Bold = True", "Arial 8.25 700 True False False False 0")]
+    [InlineData("f.Weight = 600", "MS Sans Serif 8.25 700 True False False False 0")]
+    [InlineData("f.Italic = True", "MS Sans Serif 8.25 400 False True False False 0")]
+    [InlineData("f.Underline = True", "MS Sans Serif 8.25 400 False False True False 0")]
+    [InlineData("f.Strikethrough = True", "MS Sans Serif 8.25 400 False False False True 0")]
+    [InlineData("f.Name = \"Courier New\": f.Size = 9.75", "Courier New 9.75 400 False False False False 0")]
+    [InlineData("f.Name = \"Tahoma\": f.Size = 10.5: f.Bold = True: f.Italic = True", "Tahoma 10.5 700 True True False False 0")]
+    public void Standalone_StdFont_assignments_read_the_measured_values(string assignments, string expected)
+    {
+        Run("Dim f As Object: Set f = New StdFont\n" + assignments + "\n" + """
+                Debug.Print f.Name & " " & f.Size & " " & f.Weight & " " & f.Bold & " " & f.Italic _
+                    & " " & f.Underline & " " & f.Strikethrough & " " & f.Charset
+
+            """).Should().Equal(expected);
+    }
+
+    [AvaloniaFact]
+    public void Standalone_StdFont_attaches_to_a_control_and_later_mutations_redraw_it()
+    {
+        Run("""
+                Dim f As New StdFont
+                f.Name = "Arial": f.Size = 10
+                Set Text1.Font = f
+                f.Bold = True
+                Debug.Print Text1.Font Is f
+                Debug.Print Text1.FontName & " " & Text1.FontSize & " " & Text1.Font.Bold
+
+            """, controls =>
+        {
+            controls["Text1"].FontFamily.Name.Should().Be("Arial");
+            controls["Text1"].FontSize.Should().Be(13);
+            controls["Text1"].FontWeight.Should().Be(Avalonia.Media.FontWeight.Bold);
+        }).Should().Equal("True", "Arial 9.75 True");
+    }
+
     [AvaloniaFact]
     public void Font_is_an_object_with_the_measured_members_and_types()
     {
@@ -571,4 +626,92 @@ public class FontMembersTests
             .Which.Error.ErrNo.Should().Be(438);
     }
 
+    // Every member and error measured in https://github.com/hexide-io/HexIDE/issues/4807 (SP6, native/p-code).
+    [AvaloniaTheory]
+    [InlineData("Name = \"Verdana\"", "0|Verdana|8.25|400|0|False|False|False|False")]
+    [InlineData("Name = \"Times New Roman\"", "0|Times New Roman|8.25|400|0|False|False|False|False")]
+    [InlineData("Name = \"Wingdings\"", "0|Wingdings|8.25|400|2|False|False|False|False")]
+    [InlineData("Name = \"Symbol\"", "0|Symbol|8.25|400|2|False|False|False|False")]
+    [InlineData("Name = \"Courier\"", "0|Courier|9.75|400|0|False|False|False|False")]
+    [InlineData("Name = \"No Such Font\"", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Name = \"\"", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Name = 5", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Name = Null", "13|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Size = 12", "0|MS Sans Serif|12|400|0|False|False|False|False")]
+    [InlineData("Size = 9", "0|Arial|9|400|0|False|False|False|False")]
+    [InlineData("Size = 14", "0|Arial|14.25|400|0|False|False|False|False")]
+    [InlineData("Size = 7.5", "0|Small Fonts|7.5|400|0|False|False|False|False")]
+    [InlineData("Size = 20", "0|Arial|20.25|400|0|False|False|False|False")]
+    [InlineData("Size = 1", "0|Arial|1.5|400|0|False|False|False|False")]
+    [InlineData("Size = 2048", "0|Arial|2048.25|400|0|False|False|False|False")]
+    [InlineData("Size = 2160", "0|Arial|2160|400|0|False|False|False|False")]
+    [InlineData("Size = \"11\"", "0|Arial|11.25|400|0|False|False|False|False")]
+    [InlineData("Size = \"10\"", "0|MS Sans Serif|9.75|400|0|False|False|False|False")]
+    [InlineData("Size = 0", "380|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Size = -1", "380|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Size = 100000", "6|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Size = \"x\"", "13|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Size = Null", "13|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Name = \"Arial\": f.Size = 12", "0|Arial|12|400|0|False|False|False|False")]
+    [InlineData("Name = \"Arial\": f.Size = 7", "0|Arial|6.75|400|0|False|False|False|False")]
+    [InlineData("Bold = True: f.Bold = False", "0|Arial|8.25|400|0|False|False|False|False")]
+    [InlineData("Bold = 1", "0|Arial|8.25|700|0|True|False|False|False")]
+    [InlineData("Bold = \"True\"", "0|Arial|8.25|700|0|True|False|False|False")]
+    [InlineData("Bold = Null", "13|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Italic = True: f.Italic = False", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Underline = True: f.Underline = False", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Strikethrough = True: f.Strikethrough = False", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Weight = 0", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Weight = 100", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Weight = 550", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Weight = 551", "0|MS Sans Serif|8.25|700|0|True|False|False|False")]
+    [InlineData("Weight = 900", "0|MS Sans Serif|8.25|700|0|True|False|False|False")]
+    [InlineData("Weight = 1000", "0|MS Sans Serif|8.25|700|0|True|False|False|False")]
+    [InlineData("Weight = 700", "0|Arial|8.25|700|0|True|False|False|False")]
+    [InlineData("Weight = -1", "380|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Weight = 32767", "380|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Charset = 0", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Charset = 1", "0|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Charset = 128", "0|MS PGothic|8.25|400|128|False|False|False|False")]
+    [InlineData("Charset = 255", "0|Arial|8.25|400|255|False|False|False|False")]
+    [InlineData("Charset = 256", "380|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Charset = -1", "380|MS Sans Serif|8.25|400|0|False|False|False|False")]
+    [InlineData("Name = \"Verdana\": f.Charset = 2", "0|Wingdings|8.25|400|2|False|False|False|False")]
+    // Measured 2026-11-19 in #4807's review (SP6, native/p-code): Bold, and Weight 400 or 700, make MS Sans Serif read Arial.
+    [InlineData("Bold = True", "0|Arial|8.25|700|0|True|False|False|False")]
+    [InlineData("Bold = -1", "0|Arial|8.25|700|0|True|False|False|False")]
+    [InlineData("Bold = False", "0|Arial|8.25|400|0|False|False|False|False")]
+    [InlineData("Bold = 0", "0|Arial|8.25|400|0|False|False|False|False")]
+    [InlineData("Weight = 400", "0|Arial|8.25|400|0|False|False|False|False")]
+    [InlineData("Weight = 600", "0|MS Sans Serif|8.25|700|0|True|False|False|False")]
+    [InlineData("Weight = 700: f.Bold = False", "0|Arial|8.25|400|0|False|False|False|False")]
+    [InlineData("Italic = True: f.Bold = True", "0|Arial|8.25|700|0|True|True|False|False")]
+    [InlineData("Size = 12: f.Weight = 700", "0|Arial|12|700|0|True|False|False|False")]
+    [InlineData("Size = 12: f.Bold = True", "0|Arial|12|700|0|True|False|False|False")]
+    [InlineData("Bold = True: f.Size = 12", "0|Arial|12|700|0|True|False|False|False")]
+    [InlineData("Bold = True: f.Weight = 400", "0|Arial|8.25|400|0|False|False|False|False")]
+    [InlineData("Size = 10", "0|MS Sans Serif|9.75|400|0|False|False|False|False")]
+    [InlineData("Size = 9.75", "0|MS Sans Serif|9.75|400|0|False|False|False|False")]
+    [InlineData("Size = 10.5", "0|Arial|10.5|400|0|False|False|False|False")]
+    [InlineData("Size = 9: f.Name = \"Verdana\"", "0|Verdana|9|400|0|False|False|False|False")]
+    [InlineData("Name = \"Verdana\": f.Size = 12", "0|Verdana|12|400|0|False|False|False|False")]
+    [InlineData("Name = \"Wingdings\": f.Size = 9", "0|Wingdings|9|400|2|False|False|False|False")]
+    [InlineData("Name = \"Arial\": f.Bold = True", "0|Arial|8.25|700|0|True|False|False|False")]
+    [InlineData("Name = \"Arial\": f.Bold = True: f.Bold = False", "0|Arial|8.25|400|0|False|False|False|False")]
+    public void Standalone_assignments_match_every_measured_member(string assignment, string expected)
+    {
+        var actual = Run("Dim f As Object: Set f = New StdFont\nOn Error Resume Next\nf." + assignment + "\n" + """
+            Debug.Print "" & Err.Number
+            Debug.Print "" & f.Name
+            Debug.Print "" & f.Size
+            Debug.Print "" & f.Weight
+            Debug.Print "" & f.Charset
+            Debug.Print "" & f.Bold
+            Debug.Print "" & f.Italic
+            Debug.Print "" & f.Underline
+            Debug.Print "" & f.Strikethrough
+
+            """);
+        actual.Should().Equal(expected.Split('|'));
+    }
 }
