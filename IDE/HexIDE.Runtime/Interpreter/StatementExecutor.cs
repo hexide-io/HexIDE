@@ -2519,6 +2519,52 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return false;
     }
 
+    // These panel puts have their own conversion rules, before the general Let-value coercion (#4882).
+    private async Task<bool> TryStorePanelLet(VB6Parser.LetStmtContext context, Vb6Value value)
+    {
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is not { } call)
+            return false;
+        var members = call.iCS_S_MemberCall();
+        if (members.Length == 0 || MemberHasArgs(members[^1]))
+            return false;
+        var name = UdtFieldName(members[^1]).ToLowerInvariant();
+        if (name is not ("picture" or "tag" or "style" or "alignment" or "bevel" or "autosize" or "width" or "minwidth"))
+            return false;
+        Vb6Value target;
+        if (call.iCS_S_VariableOrProcedureCall() is { } lead)
+        {
+            if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, lead.GetText(), out target))
+                return false;
+        }
+        else if (call.iCS_S_ProcedureOrArrayCall() is { } indexed)
+        {
+            if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, indexed.ambiguousIdentifier().CachedText(), out var holder)
+                || holder.Value is not StatusBarPanels)
+                return false;
+            target = (Vb6Value)(await expressionExecutor.EvaluateProcedureOrArrayCall(indexed))!;
+        }
+        else if (withTargets.Count != 0)
+            target = withTargets.Peek();
+        else
+            return false;
+        if (target.Value is not (VBStatusBar or StatusBarPanels or StatusBarPanel))
+            return false;
+        if (members.Length > 1)
+            target = await expressionExecutor.ResolveMemberChain(target, members[..^1], 0, context);
+        if (target.Value is not StatusBarPanel panel)
+            return false;
+        if (name == "tag" && value.Value is VBStatusBar)
+            throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        if (name == "tag" || name != "picture" && value.Value is not null
+            && (value.Type == Vb6Value.ValueType.Object || value.Type == Vb6Value.ValueType.Control
+                || value.Type == Vb6Value.ValueType.CSharpProxyObject))
+            value = await LetValue(context, evaluated: value);
+        value.RefuseOddBytes("Property assignment " + UdtFieldName(members[^1]));
+        if (name != "tag") return panel.TrySetProperty(name, value);
+        await panel.SetTag(interpreter, value);
+        return true;
+    }
+
     // The value a Let stores, with the refusals every Let makes of it.
     private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context, bool intoArray = false, Vb6Value? evaluated = null)
     {
@@ -2866,6 +2912,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var value = await expressionExecutor.EvaluateValueFast(context.valueStmt());
         if (context.PLUS_EQ() is null && context.MINUS_EQ() is null)
         {
+            if (await TryStorePanelLet(context, value))
+                return default;
             if (await TryStoreBareModuleProperty(context.implicitCallStmt_InStmt(), value, false, context))
                 return default;
             if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } propertyTarget
@@ -4514,6 +4562,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var parts = membersCall.iCS_S_MemberCall();
                 if (parts.Length > 1) target = await expressionExecutor.ResolveMemberChain(target, parts[..^1], 0, context);
                 var name = UdtFieldName(parts[^1]);
+                if (target.Value is StatusBarPanel panel && name.Equals("Tag", StringComparison.OrdinalIgnoreCase))
+                {
+                    await panel.SetTag(interpreter, value);
+                    return default;
+                }
                 if (target.Value is ICSharpPropertyBag bag && bag.TrySetProperty(name, value)) return default;
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
                 throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#4882)");

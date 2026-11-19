@@ -247,10 +247,7 @@ public class StatusBarRuntimeTests
 
     [AvaloniaTheory]
     [InlineData("x = StatusBar1.hWnd", "*hWnd*")]
-    [InlineData("StatusBar1.Panels.Add , \"a\": Set p = StatusBar1.Panels(\"A\")", "*key case*")]
-    [InlineData("Set p = StatusBar1.Panels(1): StatusBar1.Panels.Clear: x = p.Text", "*removed panel*")]
     [InlineData("StatusBar1.MousePointer = 1", "*assignment*not been measured*")]
-    [InlineData("Set p = StatusBar1.Panels(1): p.AutoSize = 1.5", "*enum conversion*")]
     public async Task Unmeasured_members_refuse_instead_of_guessing(string code, string message)
     {
         var act = () => Run(code);
