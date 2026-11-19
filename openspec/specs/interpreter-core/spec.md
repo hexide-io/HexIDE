@@ -68,6 +68,33 @@ The interpreter SHALL execute GoSub, Return, On selector GoTo and On selector Go
 - **WHEN** pending GoSubs reach HexIDE's 2,000-level cap or the execution stack guard fails
 - **THEN** ordinary trappable error 28 allows the procedure's own handler to run, including Exit Sub and Resume Next
 
+### Requirement: Set checks intrinsic control classes before storing
+
+Scalar slots declared as an intrinsic VB control class or Form SHALL retain that class, bare or
+`VB.`-qualified. Set SHALL check the actual object rather than the right-hand side's declared type,
+following [#1563's VB6 SP6 measurements](https://github.com/hexide-io/HexIDE/issues/1563)
+(native and p-code, oracle PR #4796).
+
+#### Scenario: An incompatible intrinsic control preserves the previous reference
+- **WHEN** a ListBox is assigned to a TextBox slot, directly or through Object or Variant
+- **THEN** error 13 is raised before the store and the slot retains Nothing or its previous TextBox
+- **AND** HScrollBar and VScrollBar are distinct classes, using the same names as TypeOf and TypeName
+- **AND** an intrinsic control is refused with 13 by a Form or project-class slot
+
+#### Scenario: Compatible controls and form references
+- **WHEN** a control is assigned to its own class, Control, Object or Variant
+- **THEN** the slot retains that same control
+- **AND** a project form can be stored in a Form slot
+- **AND** a form or project-class instance assigned to a control-class slot raises 13
+
+#### Scenario: For Each uses the same store check
+- **GIVEN** a form whose first control is a Timer
+- **WHEN** `For Each t In Controls` runs with `t As TextBox` under On Error Resume Next
+- **THEN** Err.Number is 13, the body runs once and t remains Nothing
+
+Arrays, UserControls, other OCX controls, `As Form1`, and assigning a form to `As Control` retain their
+existing behaviour outside this slice.
+
 ### Requirement: A running form accepts Icon assignments
 
 A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.

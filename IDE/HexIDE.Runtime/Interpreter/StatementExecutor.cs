@@ -5057,9 +5057,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         // slot holds Nothing until it is Set, whatever the type, so knowing it is a type is enough.
                         // A stdole alias for a scalar (`As OLE_COLOR`) is that scalar.
                         value = aliasScalar is { } scalar ? new Vb6Value(scalar) : Vb6Value.Nothing;
-                        if (!isArray && typeName.Equals("Control", StringComparison.OrdinalIgnoreCase)
+                        // Measured scalar Set constraints (#1563), bare or VB-qualified. A project's form name keeps its
+                        // existing view; As Control records a binding view, not a Set constraint (#4737).
+                        if (!isArray && aliasScalar is null
+                            && (qualifier is null || qualifier.Equals("VB", StringComparison.OrdinalIgnoreCase))
+                            && (ControlObjectType.IsIntrinsic(typeName) || typeName.Equals("Form", StringComparison.OrdinalIgnoreCase)))
+                            declaredClass = typeName;
+                        else if (!isArray && typeName.Equals("Control", StringComparison.OrdinalIgnoreCase)
                             && (qualifier is null || qualifier.Equals("VB", StringComparison.OrdinalIgnoreCase)))
-                            declaredClass = "Control"; // A binding view, not a Set constraint (#4737).
+                            declaredClass = "Control";
                     }
                     else
                         throw new VBCompileErrorException("User-defined type not defined: " + typeName);
