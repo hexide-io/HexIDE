@@ -104,15 +104,25 @@ public class ClipboardTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Clipboard.GetData(2)")]
-    [InlineData("Clipboard.GetFormat(2)")]
-    [InlineData("Clipboard.GetText(vbCFRTF)")]
-    [InlineData("Clipboard.GetText(vbCFLink)")]
-    public async Task Unsupported_formats_are_not_silently_skipped(string expression)
+    [InlineData("Clipboard.GetData(2)", 4682)]
+    [InlineData("Clipboard.GetFormat(2)", 4955)]
+    [InlineData("Clipboard.GetText(vbCFRTF)", 4955)]
+    [InlineData("Clipboard.GetText(vbCFLink)", 4955)]
+    public async Task Unsupported_formats_are_not_silently_skipped(string expression, int issue)
     {
         var run = () => Interpreter($"On Error Resume Next\nDebug.Print {expression}\nDebug.Print \"continued\"\n").Execute();
-        await run.Should().ThrowAsync<NotImplementedException>();
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage($"*(#{issue})");
         debug.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("Clipboard.SetData Nothing", 4682)]
+    [InlineData("Clipboard.SetText \"x\", vbCFRTF", 4955)]
+    [InlineData("Clipboard.SetText \"x\", vbCFLink", 4955)]
+    public async Task Unsupported_format_statements_name_the_open_issue(string statement, int issue)
+    {
+        var run = () => Interpreter($"On Error Resume Next\n{statement}\nDebug.Print \"continued\"\n").Execute();
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage($"*(#{issue})");
     }
 
     [Fact]
