@@ -34,7 +34,11 @@ of them shows it.
 - **`Form2.Hide`:** the form stays loaded, and `Forms.Count` is still 2.
 - **Hiding both forms:** the run keeps going. Form1's Timer ticked four more times, until the forms were unloaded.
 - **Activation:** no Deactivate was logged for a hidden form. That was in session 0, and activation there is not
-  trustworthy, so it is unmeasured.
+  trustworthy, so it is unmeasured. Measured on the guest's console (2026-11-18, #4768), the IDE, p-code and native
+  agreeing: with both forms shown and Form2 active, `Form2.Hide` raised **Form2's Deactivate, then Form1's
+  Activate**, and `Screen.ActiveForm` became Form1. Hiding Form1 as well raised nothing, and `Screen.ActiveForm`
+  still read Form1. Session 0, run beside it, logged neither event and left `Screen.ActiveForm` at Form2. HexIDE
+  printed the console's lines, checked live the same day.
 
 **4. Unload, then use again.**
 - **After `Unload Form2`:**
