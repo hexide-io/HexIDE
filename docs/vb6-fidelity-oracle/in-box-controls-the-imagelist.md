@@ -131,6 +131,10 @@ Each row follows the ones above it on the same list.
 - **Style 1, transparent, leaves them showing what was there.**
 - **Styles 2 and 3, selected and focus, cover the image in a checkerboard of the highlight colour,** `&HD77800` here.
   Every pixel whose x + y is even is the highlight, and the others are the image.
+- **Re-run on the console** (2026-11-18, #4768), the IDE, p-code and native agreeing, beside session 0. Style 0
+  drew a masked pixel in the window colour, `&HFFFFFF`, and Style 2's even pixels were `&HD77800`, as above, in both
+  sessions. That image's left half was masked, and there Style 2 left an even pixel and an odd one both at the
+  window colour: **the checkerboard covers only the image's unmasked pixels.** Style 3 wasn't drawn.
 - **The mask follows MaskColor and UseMaskColor as they are when the image is drawn,** for every image, whenever it was
   added:
   - With MaskColor magenta and UseMaskColor True, the magenta corner was masked.

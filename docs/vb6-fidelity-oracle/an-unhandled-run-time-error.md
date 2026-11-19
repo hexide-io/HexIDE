@@ -38,7 +38,10 @@ wrong across an event, whether a control raised the event or `RaiseEvent` did.
 inside `On Error GoTo` (c1):
 - **compiled, native and p-code:** the form's handler catches it, with Err 11;
 - **in the IDE**, under the default *Break in Class Module*, the run stops in the class, and the form's handler never
-  runs.
+  runs. Re-run on the guest's console (2026-11-18, #4768) with `/runexit`: within 15 s the IDE, titled *[run]*,
+  showed the run-time error dialog, "Run-time error '11': Division by zero", with Continue, End, Debug and Help, and
+  the form's handler hadn't run. Debug wasn't pressed, so where the break lands is from the first run. The registry
+  held no Error Trapping value, so the default applied.
 
 The same call to a standard-module Sub (c2) is caught by the form's handler in the IDE and in both builds. So the IDE's
 option decides c1, not the language.
