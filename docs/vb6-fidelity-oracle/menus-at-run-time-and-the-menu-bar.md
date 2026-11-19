@@ -58,12 +58,30 @@ What these show:
   on the console and 285 in session 0. That held loaded or shown, normal or maximized, with no error, and each change
   raised one Resize that read the new ScaleHeight.
 - **Before Show, hiding the only top-level menu did change ScaleHeight here,** where the first probe above logged no
-  change. That probe ran inside `Form_Load`, and this one from `Sub Main` after `Load`, with a `DoEvents` before each
-  read. Which difference matters wasn't measured.
+  change. The difference is when each read came: see *When the change lands*, below.
 - **The IDE's first read differs.** In the IDE, Form1's Height straight after `Load` was 3855, as if it had no bar,
   and the first fit then left ScaleHeight 1695. Every later read matched the compiled builds. Measured once, with no
   rule offered.
 - **Not measured:** an MDI child, and a menu bar that wraps.
+
+**When the change lands (2026-11-18, #1140).** Two more probes read ScaleHeight straight after the statement, then
+again after a `DoEvents`, logging each Resize. On the console, the IDE, p-code and native agreeing, and session 0 the
+same with its 285-twip bar:
+
+| Form1, a Game menu; `ScaleHeight Height` | Read at once | After `DoEvents` |
+|---|---|---|
+| inside `Form_Load`, `mnuGame.Visible = False` | `3420 4155` | `3720 4155` |
+| once `Load` has returned | `3720 4155` | |
+| shown, `mnuGame.Visible = False` | `3420 4155` | `3720 4155` |
+| shown, `mnuGame.Visible = True` again | `3720 4155` | `3420 4155` |
+| Form2, its menu hidden in the .frm, inside `Form_Load`, `mnuGame.Visible = True` | `3420 3855` | `3120 3855` |
+| Form2 shown, `mnuGame.Visible = True` | `3420 3855` | `3120 3855` |
+
+- **The statement changes neither size.** The bar goes or comes at the next message: at a `DoEvents`, measured, and
+  presumably once the running handler has returned, which is reasoned, not checked. One Resize comes then, reading
+  the new ScaleHeight.
+- **So the first probe above saw no change** because it read inside `Form_Load` with no `DoEvents` in between, and the
+  re-run did because it read after one. Both were right about what they read.
 
 **Menus from code:**
 

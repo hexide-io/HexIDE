@@ -28,8 +28,9 @@ internal static class FormMembers
         "Function or interface marked as restricted, or the function uses an Automation type not supported in Visual Basic";
 
     /// <summary>
-    /// The form a bare name in <paramref name="env"/>'s procedure belongs to, and VB6's Form member of that name. False
-    /// outside a form's code, as in a standard module or a class, and for a name VB6's Form doesn't have.
+    /// The form a bare name in <paramref name="env"/>'s procedure belongs to, and VB6's Form member of that name.
+    /// A placed UserControl uses the same lookup for its own coordinate names (#4693); other class names and
+    /// names outside a form or UserControl keep their existing resolution.
     /// </summary>
     public static bool TryBare(ModuleExecutionContext context, ExecutionEnvironment env, string name,
         out VbObject form, out VB6FormMembers.Member member)
@@ -37,13 +38,18 @@ internal static class FormMembers
         form = null!;
         member = null!;
         if (!context.TryInspectVariable(env, "Me", out var me)
-            || me.Value is not VbObject { ClassDef.Kind: InterpreterModuleKind.Form, FormWindow: not null } owner
+            || me.Value is not VbObject owner
+            || !(owner is { ClassDef.Kind: InterpreterModuleKind.Form, FormWindow: not null }
+                 || owner is { ClassDef.HostedControl: true, UserControlHost: not null } && IsCoordinateMember(name))
             || !VB6FormMembers.TryGet(name, out member))
             return false;
         form = owner;
         owner.Interpreter?.NoteMemberAccess(owner, name);
         return true;
     }
+
+    internal static bool IsCoordinateMember(string name) => name.ToUpperInvariant() is
+        "SCALEMODE" or "SCALELEFT" or "SCALETOP" or "SCALEWIDTH" or "SCALEHEIGHT" or "SCALEX" or "SCALEY";
 
     /// <summary>
     /// Whether a call of a Form property, with <paramref name="argCount"/> arguments, is VBA's function of the same name.
@@ -63,7 +69,7 @@ internal static class FormMembers
     /// <summary>Read a property of the form, or refuse it as not implemented where VB6 has it and HexIDE doesn't.</summary>
     public static Vb6Value Read(VbObject form, string name)
     {
-        var window = form.BuiltInMembersFor(name)!;
+        var window = Owner(form, name);
         if (IsIcon(name) && form.FormIconPicture is { } icon)
             return new Vb6Value(icon);
         // A form's Name is its module's, read-only at run time: no property of the window holds it.
@@ -99,7 +105,7 @@ internal static class FormMembers
             throw IdentityMembers.ReadOnlyAtRunTime("Name");
         if (!member.CanLet)
             throw new VBCompileErrorException(AssignToReadOnly);
-        var window = form.BuiltInMembersFor(name)!;
+        var window = Owner(form, name);
         if (RuntimeDrawing.TrySet(window, name, value))
             return;
         if (IsIcon(name))
@@ -128,8 +134,14 @@ internal static class FormMembers
     {
         if (name.Equals("Cls", StringComparison.OrdinalIgnoreCase))
             throw RuntimeDrawing.Refused("Cls used as a value");
-        return form.BuiltInMembersFor(name)!.Call(name, args);
+        var owner = Owner(form, name);
+        return form.ClassDef.HostedControl && RuntimeScale.IsConversion(name)
+            ? RuntimeScale.ConvertUnits(owner, name, args)
+            : owner.Call(name, args);
     }
+
+    private static Avalonia.Controls.Control Owner(VbObject form, string name) => form.ClassDef.HostedControl
+        ? form.UserControlHost! : form.BuiltInMembersFor(name)!;
 
     internal static bool IsIcon(string name) => string.Equals(name, "Icon", StringComparison.OrdinalIgnoreCase);
 

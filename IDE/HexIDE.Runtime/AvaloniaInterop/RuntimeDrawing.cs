@@ -132,7 +132,7 @@ internal sealed class RuntimeDrawing
             case "CURRENTX": drawing.currentX = drawing.Twips(value, false); return true;
             case "CURRENTY": drawing.currentY = drawing.Twips(value, true); return true;
             case "FILLCOLOR": drawing.fillColor = VBColor.FromOle(AvaloniaInteroperability.OleColor(value)); return true;
-            case "HDC": throw new NotImplementedException("Assigning PictureBox.hDC is unmeasured and not implemented (#4849)");
+            case "HDC": throw new NotImplementedException("Assigning PictureBox.hDC is unmeasured and not implemented (#4915)");
             case "AUTOREDRAW":
                 var enabled = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
                 if (enabled != drawing.autoRedraw)
@@ -549,7 +549,7 @@ internal sealed class RuntimeDrawing
         using var image = ToolbarImage.Decode(picture, list);
         using var buffer = image.Lock();
         if (buffer.Format != PixelFormat.Bgra8888 && buffer.Format != PixelFormat.Rgba8888)
-            throw new NotImplementedException("ListImage.Draw with this pixel format is not implemented (#4849)");
+            throw new NotImplementedException("ListImage.Draw with this pixel format is not implemented (#4915)");
         var bytes = new byte[buffer.RowBytes * buffer.Size.Height];
         Marshal.Copy(buffer.Address, bytes, 0, bytes.Length);
         var red = buffer.Format == PixelFormat.Bgra8888 ? 2 : 0;

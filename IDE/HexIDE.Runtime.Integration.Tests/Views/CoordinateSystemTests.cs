@@ -16,7 +16,7 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 
 // #990: measured SP6 native/p-code rows in docs/vb6-fidelity-oracle/
 // the-coordinate-system-scalemode-scale-scalex-and-scaley.md and issue #990's final cm/mm decision.
-public class CoordinateSystemTests
+public partial class CoordinateSystemTests
 {
     private sealed class NullSink : IDeserializeErrorSink
     {
@@ -337,12 +337,25 @@ public class CoordinateSystemTests
     public void Container_units_are_error_5(string target, string setup, string arguments) =>
         Check(setup + $"\nOn Error Resume Next\nDim v\nv = {target}ScaleX({arguments})\nDebug.Print CStr(Err.Number)", "5");
 
+    // /make on SP6, native and p-code alike, in the coordinate oracle's #4693 sections (oracle PRs #4723 and #4751).
     [AvaloniaTheory]
-    [InlineData("Me.ScaleX()")]
-    [InlineData("Me.ScaleX(1, 1, 1, 1)")]
-    [InlineData("Picture1.ScaleY()")]
-    [InlineData("Picture1.ScaleY(1, 1, 1, 1)")]
-    public void Unmeasured_conversion_argument_counts_refuse_naming_the_issue(string call)
+    [InlineData("ScaleX()", "Argument not optional")]
+    [InlineData("ScaleY()", "Argument not optional")]
+    [InlineData("ScaleX(1, 1, 1, 1)", "Wrong number of arguments or invalid property assignment")]
+    [InlineData("ScaleX(1, 1, 1, 1, 1)", "Wrong number of arguments or invalid property assignment")]
+    [InlineData("ScaleY(1, 1, 1, 1)", "Wrong number of arguments or invalid property assignment")]
+    public void Measured_conversion_argument_counts_raise_compile_errors(string call, string expected)
+    {
+        var run = RunLoad(Form, $"Dim v\nv = {call}");
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBCompileErrorException>()
+            .Which.Message.Should().Contain(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ScaleY(1, 1, 1, 1, 1)")]
+    [InlineData("ScaleX(1, 1, 1, 1, 1, 1)")]
+    [InlineData("ScaleY(1, 1, 1, 1, 1, 1)")]
+    public void Unmeasured_conversion_argument_counts_still_refuse(string call)
     {
         var run = RunLoad(Form, $"Dim v\nv = {call}");
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
@@ -350,15 +363,15 @@ public class CoordinateSystemTests
     }
 
     [AvaloniaTheory]
-    [InlineData("As Object", "o.Scale (0, 0)-(100, 100)")]
-    [InlineData("", "o.Scale (0, 0)-(100, 100)")]
-    [InlineData("As Object", "o.Scale")]
-    [InlineData("", "o.Scale")]
-    public void Unmeasured_late_bound_Scale_refuses_naming_the_issue(string declaration, string statement)
+    [InlineData("As Object", "o.Scale (0, 0)-(100, 100)", "0|0|0|100|100")]
+    [InlineData("", "o.Scale (0, 0)-(100, 100)", "0|0|0|100|100")]
+    [InlineData("As Object", "o.Scale (0, 0)-(100, 100)\no.Scale", "1|0|0|6000|3195")]
+    [InlineData("", "o.Scale (0, 0)-(100, 100)\no.Scale", "1|0|0|6000|3195")]
+    public void Late_bound_form_Scale_uses_its_mapping(string declaration, string statement, string expected)
     {
-        var run = RunLoad(Form, $"Dim o {declaration}\nSet o = Me\n{statement}");
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("Late-bound Scale").And.Contain("#4693");
+        var run = RunLoad(Form.Replace("4680", "6000"), $"Dim o {declaration}\nSet o = Me\n{statement}\nDebug.Print " + Snapshot("o."));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected);
     }
 
     [AvaloniaTheory]

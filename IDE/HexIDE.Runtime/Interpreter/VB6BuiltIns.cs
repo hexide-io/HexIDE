@@ -280,14 +280,16 @@ public partial class VB6BuiltIns
         };
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
         // LOF, Loc and Seek are Longs, and Input a String (measured, #1645). Input's file number may be written #n: the
-        // expression executor reads it as a file number. InputB's byte-input conversion remains unimplemented (#1510).
+        // expression executor reads it as a file number, for InputB too (#4895).
         d["LOF"] = (self, a, _) => new Vb6Value(self.Files.Length(AsInt(a[0])));
         d["Loc"] = (self, a, _) => new Vb6Value(self.Files.Loc(AsInt(a[0])));
         d["Seek"] = (self, a, _) => new Vb6Value(self.Files.SeekPosition(AsInt(a[0])));
         d["Input"] = (self, a, _) => a.Count == 2
             ? new Vb6Value(self.Files.Read(AsInt(a[1]), AsInt(a[0])))
             : throw new VBCompileErrorException("Syntax error");
-        d["InputB"] = (_, _, _) => throw new NotImplementedException("InputB is not implemented (#1510).");
+        d["InputB"] = (self, a, _) => a.Count == 2
+            ? Vb6Value.FromStringBytes(self.Files.ReadBytes(AsInt(a[1]), AsInt(a[0])))
+            : throw new VBCompileErrorException("Syntax error");
         // DoEvents, for code run with no window, as a module test's is: nothing can be waiting, so it does nothing. A program
         // running in a window reaches BasicInterpreter.CallBuiltIn first, which runs what is waiting, as VB6 does (#766).
         // VB6 returns the open-form count; Integer 0 lets both `DoEvents` and `x = DoEvents` run (documented approximation).

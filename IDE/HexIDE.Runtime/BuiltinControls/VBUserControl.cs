@@ -55,11 +55,12 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
         Context.AttachControl(program, module);
         if (Child is Panel old)
             old.Children.Remove(ContainerHost);
-        Child = new Grid { Children =
-        {
-            VBLoader.SpawnComponents(definition, Context.ExecutionContext, Context.InstanceEnv, program.StandardLibrary,
-                Context.FormInstance, program), ContainerHost
-        } };
+        var contents = VBLoader.SpawnComponents(definition, Context.ExecutionContext, Context.InstanceEnv, program.StandardLibrary,
+            Context.FormInstance, program);
+        var canvas = contents is Canvas direct ? direct : ((Panel)contents).Children.OfType<Canvas>().Single();
+        RuntimeScale.Initialize(this, canvas, definition);
+        Context.FormInstance!.UserControlHost = this;
+        Child = new Grid { Children = { contents, ContainerHost } };
         ApplyBackground();
         var value = new Vb6Value(new RootObject(this));
         Context.ExecutionContext.AllocVariable(Context.InstanceEnv, "UserControl", value);
@@ -111,11 +112,14 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
     public EventPump? Events => Context?.Events;
     public bool Handles(string name) => Context?.Handles(name) == true;
     // The measured root surface is implemented here; other members remain an explicit engine refusal.
-    private sealed class RootObject(VBUserControl owner) : ICSharpProxy, ICSharpPropertyBag
+    internal sealed class RootObject(VBUserControl owner) : ICSharpProxy, ICSharpPropertyBag
     {
+        internal VBUserControl Owner => owner;
         public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException($"UserControl.{method} is not implemented (#1631)");
         public bool TryGetProperty(string name, out Vb6Value value)
         {
+            if (RuntimeScale.TryGet(owner, name, out value))
+                return true;
             value = name.ToLowerInvariant() switch
             {
                 "containedcontrols" => new Vb6Value(new ContainedControls(owner)),
@@ -127,6 +131,8 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
         }
         public bool TrySetProperty(string name, Vb6Value value)
         {
+            if (RuntimeScale.TrySet(owner, name, value))
+                return true;
             if (name.Equals("BackStyle", StringComparison.OrdinalIgnoreCase))
             {
                 var style = Convert.ToInt16(VB6BuiltIns.NarrowNum(value, Vb6Value.ValueType.Integer).Value);

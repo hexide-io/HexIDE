@@ -229,7 +229,8 @@ public class ToolbarImageListTests
     [InlineData(32, 0, 54, 58)]
     public async Task Bound_image_geometry_keeps_caption_widths_and_uniform_button_space(int size, int alignment, int height, int barHeight)
     {
-        var bar = new VBToolbar { Width = 800 };
+        // #2334 used Align=0 bars; aligned heights are measured separately in #4802.
+        var bar = new VBToolbar { Width = 800, LoadedAlign = 0 };
         bar.TrySetProperty("TextAlignment", new Vb6Value(alignment));
         var images = Images();
         images.ImageWidth = images.ImageHeight = size;

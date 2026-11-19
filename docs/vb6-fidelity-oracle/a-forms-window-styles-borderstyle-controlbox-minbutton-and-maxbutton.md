@@ -10,7 +10,9 @@ Main loads and shows each form in turn and reads:
 - the form's own MinButton, MaxButton, ControlBox, ShowInTaskbar and BorderStyle;
 - `WM_GETICON` for the small and big icons, and the class's icons.
 
-A window's styles are set as it is made, whatever desktop it is on, so session 0 answers this. **Native and p-code
+A window's styles are set as it is made, whatever desktop it is on, so session 0 answers this.
+One bit is about the desktop: a shown form's `WS_VISIBLE` is set in session 0 and on the console alike, and only
+`IsWindowVisible` differs, 0 in session 0 and 1 on the console (re-run 2026-11-18, #4768). **Native and p-code
 agree on every row.**
 
 | Form | The file says | Style | Extended style |

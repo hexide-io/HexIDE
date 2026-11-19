@@ -36,6 +36,12 @@ public sealed class VbObject
     /// </summary>
     public Avalonia.Controls.Control? FormWindow { get; set; }
 
+    /// <summary>
+    /// For an instance of a UserControl module, the placed control it runs in, which answers its own coordinate members
+    /// (ScaleMode, Scale, ScaleX and the rest, #4693). Kept apart from <see cref="FormWindow"/>, which marks a form.
+    /// </summary>
+    public Avalonia.Controls.Control? UserControlHost { get; set; }
+
     // Null until assigned by the program; reading the file/default picture remains unimplemented (#4603).
     internal PanelPicture? FormIconPicture { get; set; }
 
