@@ -291,7 +291,7 @@ cp_Properties
 	| cp_NestedProperty
 	| controlProperties;
 
-// A designer property line. The name may be a DESIGNER_KEY, which an ordinary VB6 expression cannot be:
+// A designer property line. The name may be a bare DESIGNER_KEY:
 // VB6 writes `_ExtentX`, `_ExtentY` and `_Version` into the Begin block of every ActiveX control, and a
 // VB6 identifier may not begin with an underscore. One lexer serves both halves of a .frm, so when the
 // underscore stopped being an identifier character these keys stopped lexing — a false rejection of
@@ -1094,7 +1094,11 @@ subscript
 ambiguousIdentifier
    : (IDENTIFIER | ambiguousKeyword) +
    | L_SQUARE_BRACKET (IDENTIFIER | ambiguousKeyword) + R_SQUARE_BRACKET
-   | L_SQUARE_BRACKET {TokenStream.LT(1).Text.Equals("_NewEnum", StringComparison.OrdinalIgnoreCase)}? DESIGNER_KEY R_SQUARE_BRACKET
+   | L_SQUARE_BRACKET
+     // The token before the bracket must be a member separator, not a type or designer qualifier.
+     {TokenStream.LT(1).Text.Equals("_NewEnum", StringComparison.OrdinalIgnoreCase)
+      || (TokenStream.LT(-2)?.Type is DOT or EXCLAMATIONMARK
+          && $ctx.Parent is not (ComplexTypeContext or Cp_PropertyNameContext))}? DESIGNER_KEY R_SQUARE_BRACKET
    ;
 
 asTypeClause
@@ -2608,9 +2612,8 @@ OCTALLITERAL
 // underscore, which is exactly what makes them safe as property-bag keys that cannot collide with user
 // code. One lexer serves both halves of a .frm, so they need a token of their own.
 //
-// It is reachable only from cp_SingleProperty, so a leading underscore in ORDINARY code still fails — just
-// at the parser rather than the lexer, which is the better error anyway. `_z`, `__` and `_ab` are all
-// refused as before; a lone `_` does not match this at all, because the key needs a name after it.
+// Outside designer property lines, the parser takes this token only in bracketed member names
+// or as `[_NewEnum]`. A lone `_` does not match this token, because the key needs a name after it.
 DESIGNER_KEY
    : '_' LETTERORDIGIT +
    ;

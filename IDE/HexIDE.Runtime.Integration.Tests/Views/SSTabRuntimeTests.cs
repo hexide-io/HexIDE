@@ -7,6 +7,7 @@ using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components.InBox;
+using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
 
@@ -111,6 +112,43 @@ public class SSTabRuntimeTests : WindowTestFixture
             Debug.Print SSTab1.Tab
             """);
         values.Select(v => v.Value).Should().Equal((short)0, (short)2);
+    }
+
+    // Measured by #1090 in docs/vb6-fidelity-oracle/in-box-controls-the-sstab.md.
+    [AvaloniaTheory]
+    [InlineData("", "SSTab1.", "")]
+    [InlineData("Dim o As Object\nSet o = SSTab1", "o.", "")]
+    [InlineData("With SSTab1", ".", "End With")]
+    public async Task ExplicitDefaultMemberIsInert(string setup, string receiver, string cleanup)
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var values = await ContainerRuntimeHarness.Run(ctx, env, $$"""
+            SSTab1.Tab = 2
+            {{setup}}
+            Debug.Print {{receiver}}[_Tab]
+            On Error Resume Next
+            {{receiver}}[_Tab] = 1
+            Debug.Print Err.Number
+            {{cleanup}}
+            Debug.Print SSTab1.Tab
+            """);
+        values.Select(v => v.Value).Should().Equal((short)0, 0L, (short)2);
+    }
+
+    [AvaloniaFact]
+    public async Task UnknownBracketedMemberFailsOnlyWhenCalled()
+    {
+        const string procedure = """
+            Sub ReadUnknown()
+                Debug.Print Text1.[_Nothing]
+            End Sub
+            """;
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var values = await ContainerRuntimeHarness.Run(ctx, env, procedure + "\nDebug.Print 1");
+        values.Single().Value.Should().Be((short)1);
+
+        Func<Task> call = async () => await ContainerRuntimeHarness.Run(ctx, env, procedure + "\nReadUnknown");
+        await call.Should().ThrowAsync<VBMethodOrDataMemberNotFoundException>();
     }
 
     [AvaloniaFact]
