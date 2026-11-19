@@ -2729,10 +2729,10 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **AND** a single supplied angle remains refused with #988 because the other angle's default is unmeasured
 
 #### Scenario: Measured finite thick-pen footprints
-- **WHEN** PSet draws with width 2–8 or 10, or a full transparent Circle draws with width 2/3, physical radius 10 pixels, aspect 1 and a whole-pixel centre
-- **THEN** the pixels SHALL match the corresponding grids on the [drawing oracle](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and [circle/thick-pen oracle](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), as scoped by [#4813](https://github.com/hexide-io/HexIDE/issues/4813)
+- **WHEN** PSet draws with width 2–12, or a full transparent Circle draws with width 2/3, physical radius 10 pixels, aspect 1 and a whole-pixel centre
+- **THEN** the pixels SHALL match the corresponding grids on the [drawing oracle](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and [circle/thick-pen oracle](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), as scoped by [#4813](https://github.com/hexide-io/HexIDE/issues/4813) and [#4841](https://github.com/hexide-io/HexIDE/issues/4841)
 - **AND** PSet ends at its whole-twip point and Circle ends at its centre
-- **WHEN** PSet uses width 9 or above 10, or a thick Circle requests any other shape, width or solid fill
+- **WHEN** PSet uses width above 12, or a thick Circle requests any other shape, width or solid fill
 - **THEN** execution SHALL refuse with NotImplementedException naming #988 before drawing or moving CurrentX/Y
 - **AND** thick Line, B and BF SHALL remain refused together (#4841): neither tried capsule nor stamped-disc model reproduces all measured line grids; width-one drawing is unchanged
 

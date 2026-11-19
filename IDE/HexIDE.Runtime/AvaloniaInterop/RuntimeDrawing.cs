@@ -218,7 +218,7 @@ internal sealed class RuntimeDrawing
             return;
         }
         drawing.CheckPen();
-        if (drawing.drawWidth != 1 && (method != "PSet" || drawing.drawWidth is not (>= 2 and <= 8 or 10)))
+        if (drawing.drawWidth != 1 && (method != "PSet" || drawing.drawWidth is not (>= 2 and <= 12)))
             throw Refused("Drawing with DrawWidth above 1");
         var x1 = shortLine ? drawing.currentX : drawing.Twips(args[0], false, firstStep, drawing.currentX);
         var y1 = shortLine ? drawing.currentY : drawing.Twips(args[1], true, firstStep, drawing.currentY);
@@ -355,8 +355,8 @@ internal sealed class RuntimeDrawing
         }
     }
 
-    // #4813: measured finite pen footprints from the two drawing oracle pages. No symmetry or
-    // ideal-circle rule is imposed on these asymmetric pixels. Width 9 has not been measured.
+    // #4813/#4841: measured finite pen footprints from the two drawing oracle pages. No symmetry or
+    // ideal-circle rule is imposed on these asymmetric pixels. PSet widths above 12 remain unmeasured.
     private sealed record PenPixels(int X, int Y, string[] Rows);
 
     private static readonly PenPixels?[] PointPens =
@@ -370,8 +370,10 @@ internal sealed class RuntimeDrawing
         new(-3, -2, ["..###.", ".#####", "######", ".#####", ".#####", "..###."]),
         new(-3, -3, ["..###..", ".#####.", "#######", "#######", "#######", "#######", ".#####.", "..###.."]),
         new(-4, -3, ["..#####.", ".#######", ".#######", "########", "########", ".#######", ".#######", "..#####."]),
-        null,
+        new(-4, -4, ["...###...", ".#######.", ".#######.", "#########", "#########", "#########", "#########", ".#######.", ".#######.", "...###..."]),
         new(-5, -4, ["...#####..", "..#######.", ".#########", ".#########", "##########", "##########", ".#########", ".#########", "..#######.", "...#####.."]),
+        new(-5, -5, ["....###....", "..#######..", ".#########.", ".#########.", "###########", "###########", "###########", "###########", ".#########.", ".#########.", "..#######..", "....###...."]),
+        new(-6, -5, ["....#####...", "..#########.", "..#########.", ".###########", ".###########", "############", "############", ".###########", ".###########", "..#########.", "..#########.", "....#####..."]),
     ];
 
     private static readonly PenPixels[] CirclePens =
