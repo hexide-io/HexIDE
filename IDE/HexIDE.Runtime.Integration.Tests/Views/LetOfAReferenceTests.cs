@@ -9,8 +9,8 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 /// <summary>
 /// A control where a value is wanted stands for its default member in VB6: <c>s = Text1</c> reads Text1.Text,
 /// <c>v = Command1</c> its Value (measured, <c>docs/vb6-fidelity-oracle/a-control-where-a-value-is-wanted-is-its-default-member.md</c>, "A control where a value is wanted").
-/// HexIDE has no default members yet (#790), and used to store the reference: a String took the .NET type name and
-/// a Variant kept the control. Until #790 a Let of one is refused, and everything that does not read a default
+/// TextBox default reads are implemented (#4520); other controls remain refused (#790). Previously, a String took the .NET type name and
+/// a Variant kept the control. For the remaining controls a Let is refused, and everything that does not read a default
 /// member is left working.
 /// </summary>
 public class LetOfAReferenceTests
@@ -51,17 +51,9 @@ public class LetOfAReferenceTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Dim s As String\r\ns = Text1")]          // VB6: "42", its Text
-    [InlineData("Dim v As Variant\r\nv = Text1")]         // VB6: "42", a String
     [InlineData("Dim v\r\nv = Command1")]                 // VB6: False, its Value
     [InlineData("Dim n As Long\r\nn = Check1")]           // VB6: 0, its Value
-    [InlineData("Dim i As Integer\r\ni = Text1")]         // VB6: 42
-    [InlineData("Dim d As Double\r\nd = Text1")]          // VB6: 42
     [InlineData("Dim b As Boolean\r\nb = Command1")]      // VB6: False
-    [InlineData("x = Text1")]                             // an undeclared Variant
-    [InlineData("Let x = Text1")]                         // Let written out
-    [InlineData("Dim a(1)\r\na(0) = Text1")]              // an array element
-    [InlineData("Dim v\r\nSet v = Text1\r\nDim s As String\r\ns = v")]   // a Variant holding the control
     public async Task A_Let_of_a_control_is_refused_until_default_members_are_implemented(string code)
     {
         // Under On Error Resume Next too: the refusal ends the run, rather than letting the next line see a value
@@ -69,6 +61,22 @@ public class LetOfAReferenceTests
         var act = () => Run("On Error Resume Next\r\n" + code + "\r\n");
 
         (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#790");
+    }
+
+    // #4520's returned TextBox uses the same default-member read as a direct Let (#790 oracle).
+    [AvaloniaTheory]
+    [InlineData("Dim s As String\ns = Text1\nDebug.Print s", "42")]
+    [InlineData("Dim v As Variant\nv = Text1\nDebug.Print v", "42")]
+    [InlineData("Dim i As Integer\ni = Text1\nDebug.Print i", (short)42)]
+    [InlineData("Dim d As Double\nd = Text1\nDebug.Print d", 42d)]
+    [InlineData("x = Text1\nDebug.Print x", "42")]
+    [InlineData("Let x = Text1\nDebug.Print x", "42")]
+    [InlineData("Dim a(1)\na(0) = Text1\nDebug.Print a(0)", "42")]
+    [InlineData("Dim v\nSet v = Text1\nDim s As String\ns = v\nDebug.Print s", "42")]
+    public async Task A_Let_reads_a_TextBoxs_Text(string code, object expected)
+    {
+        var debug = await Run(code);
+        debug.Should().ContainSingle().Which.Value.Should().Be(expected);
     }
 
     [AvaloniaFact]

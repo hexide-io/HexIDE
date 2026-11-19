@@ -707,7 +707,16 @@ same procedure binder as direct calls, preserving conversions, Optional, ParamAr
 Class object results SHALL be returned for Set; a Collection result used as a value raises 450.
 A Sub used as a value SHALL return Empty. Missing or empty class member names and call types 0/16 raise 438;
 Get on a method raises 450, too few arguments 449, and too many 450.
-Forms/controls, private members, non-scalar fields, field Set/indexing and
+TextBox, ListBox, ComboBox, PictureBox and form access SHALL share the existing parse-tree property and method helpers (#4520,
+[SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4520), oracle PR #4759).
+Names SHALL be case-insensitive; call type 3 SHALL read properties. A mismatched call type SHALL raise 438,
+and measured method/property arity errors SHALL raise 450. List Get without an index SHALL raise 385;
+ListCount Let SHALL raise 383. Indexed Let SHALL take its index before its value.
+An empty TextBox member name SHALL read Text. Object results SHALL preserve identity for Set; a TextBox
+consumed by a Let assignment SHALL read Text, a Font its Name, and a form without its default index SHALL raise 450.
+Let arguments SHALL use the same default-value conversion as direct assignment. Members the direct paths
+refuse SHALL remain refused, including TextWidth and New StdFont; no initial StdFont values SHALL be invented.
+Private members, non-scalar fields, field Set/indexing and
 unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
 combinations, omitted arguments and name/call-type conversions. Named arguments SHALL raise the compile
 error "Argument in ParamArray may not be named" as the statement runs (#4145).
@@ -2456,7 +2465,7 @@ measuring PR #4241).
 The interpreter SHALL return a Long for early-bound CommonDialog Color reads and an unsigned Automation Long
 (VarType 19) through Object or Variant, using the measured conversions and assignment rows in
 [#4513](https://github.com/hexide-io/HexIDE/issues/4513) (oracle PR #4508). It SHALL retain explicit refusals for
-unmeasured unsigned numeric uses. CallByName remains outside this support (#4520).
+unmeasured unsigned numeric uses. CallByName SHALL use this same late-bound path (#4520).
 
 #### Scenario: The same system colour is read through different bindings
 - **WHEN** Color is `&H80000005`

@@ -438,7 +438,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
     remain unexplained and unchanged. Container/Parent on controls added at run time remain outside this
     slice. Menu Container was not measured here.
   - **Assigning to a control property converts** to the property's type, with VB6's range checks (#768, #774). Refused as
-    not implemented rather than answered wrong: a palette colour (#786); and a control or an array on the right, where VB6 reads a control's default property (#790). A class
+    not implemented rather than answered wrong: a palette colour (#786); and an array or most controls on the right, where VB6 reads a control's default property (#790). TextBox now reads Text ([#4520](https://github.com/hexide-io/HexIDE/issues/4520)). A class
     instance on the right reads its default at the async Let boundary (#174), or raises 438 if it has none;
     synchronous coercion still refuses defaults, and Err stands for its Number (#840). Still
     different: `Tag` holds what it is given pending its own change (#774). Hex/octal String widths and
