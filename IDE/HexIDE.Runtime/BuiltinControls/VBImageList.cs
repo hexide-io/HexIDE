@@ -271,12 +271,12 @@ internal sealed class ImageListImage(ImageListImages images, VBImageList owner, 
             return Task.FromResult<Vb6Value?>(value);
         }
         if (args.Count is < 1 or > 4 || args[0].IsMissing)
-            throw new NotImplementedException("ListImage.Draw with this argument count is not implemented (#4849)");
+            throw new NotImplementedException("ListImage.Draw with this argument count is not implemented (#4915)");
         int Number(int index)
         {
             if (index >= args.Count || args[index].IsMissing) return 0;
             if (args[index].Type != Vb6Value.ValueType.Integer && args[index].Type != Vb6Value.ValueType.Long)
-                throw new NotImplementedException("This ListImage.Draw argument conversion is unmeasured and not implemented (#4849)");
+                throw new NotImplementedException("This ListImage.Draw argument conversion is unmeasured and not implemented (#4915)");
             return Convert.ToInt32(args[index].Value);
         }
         var handle = Number(0);
@@ -284,7 +284,7 @@ internal sealed class ImageListImage(ImageListImages images, VBImageList owner, 
         var y = Number(2);
         var style = Number(3);
         if (style is < 0 or > 3)
-            throw new NotImplementedException("ListImage.Draw with this Style is unmeasured and not implemented (#4849)");
+            throw new NotImplementedException("ListImage.Draw with this Style is unmeasured and not implemented (#4915)");
         owner.DrawingHandles.Find(handle)?.DrawImage(picture, owner, x, y, style, owner.backColor);
         return Task.FromResult<Vb6Value?>(null);
     }
