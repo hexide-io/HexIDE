@@ -26,16 +26,6 @@ internal sealed class SSTabSavedState(IReadOnlyDictionary<string, object> proper
 
     internal Dictionary<string, object> CopyProperties() => new(properties, StringComparer.OrdinalIgnoreCase);
 
-    // Only the saved dimension conversions recorded by the oracle; no rounding rule was measured.
-    private static double Dimension(int himetric, bool allowZero = false) => himetric switch
-    {
-        0 when allowZero => 0,
-        520 => 295d / 15,
-        900 => 510d / 15,
-        1500 => 850d / 15,
-        _ => throw new NotImplementedException("SSTab saved HIMETRIC rounding is not measured"),
-    };
-
     internal bool CanDesign(ComponentInstance instance)
     {
         if (instance.PreservedChildSubtrees.Count > 0)
@@ -59,8 +49,8 @@ internal sealed class SSTabSavedState(IReadOnlyDictionary<string, object> proper
         tab.TabsPerRow = Number("TabsPerRow", 3);
         tab.VbStyle = Number("Style", 0);
         tab.TabOrientation = Number("TabOrientation", 0);
-        tab.TabHeight = Dimension(Number("TabHeight", 520));
-        tab.TabMaxWidth = Dimension(Number("TabMaxWidth", 0), allowZero: true);
+        tab.TabHeightHimetric = Number("TabHeight", 520) is > 0 and var height ? height : 520;
+        tab.TabMaxWidthHimetric = Math.Max(0, Number("TabMaxWidth", 0));
         tab.WordWrap = Flag("WordWrap", true);
         tab.ShowFocusRect = Flag("ShowFocusRect", true);
         for (var i = 0; i < tab.Tabs; i++)

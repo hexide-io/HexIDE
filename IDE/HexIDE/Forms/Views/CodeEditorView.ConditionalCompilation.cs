@@ -83,7 +83,7 @@ public partial class CodeEditorView
         {
             1 => TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit32),
             2 => TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit64),
-            5 => TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None),
+            5 => TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None, win64OnlySetOnWindows: vm.ConditionalWin64OnlySetOnWindows),
             3 or 4 => TwinBasicBuiltIns(vm.ConditionalTargetIndex == 4, project?.ProjectType),
             _ => null,
         };
@@ -100,8 +100,8 @@ public partial class CodeEditorView
         TextEditor.TextArea.TextView.Redraw();
     }
 
-    internal static IReadOnlyDictionary<string, object?> TargetBuiltIns(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null) =>
-        PredefinedCompilationConstants.ForTarget(target, bitness, host).ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase);
+    internal static IReadOnlyDictionary<string, object?> TargetBuiltIns(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null, bool win64OnlySetOnWindows = false) =>
+        PredefinedCompilationConstants.ForTarget(target, bitness, host, win64OnlySetOnWindows).ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase);
 
     private static IReadOnlyDictionary<string, object?> TwinBasicBuiltIns(bool win64, VBProjectType? projectType)
     {

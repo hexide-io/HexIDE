@@ -167,12 +167,66 @@ public class SSTabRuntimeTests : WindowTestFixture
             """);
         values.Select(v => v.Value).Should().Equal("SSTab", 0L, 0L, 295f, 0f, true, true,
             (short)2, (short)1, 1L, 3L, 500f, 1500f, false, false, "&First", (short)0, 380L);
-        var (_, _, pixelCtx, pixelEnv) = ContainerRuntimeHarness.Spawn(
-            Form.Replace("Begin VB.Form Form1", "Begin VB.Form Form1\n   ScaleMode = 3"));
-        Func<Task> read = async () => await ContainerRuntimeHarness.Run(pixelCtx, pixelEnv, "Debug.Print SSTab1.TabHeight");
-        await read.Should().ThrowAsync<NotImplementedException>();
-        Func<Task> write = async () => await ContainerRuntimeHarness.Run(pixelCtx, pixelEnv, "SSTab1.TabMaxWidth = 100");
-        await write.Should().ThrowAsync<NotImplementedException>();
+        var (pixels, errors) = ControlsAddTests.Run("""
+            Debug.Print CStr(SSTab1.TabHeight)
+            SSTab1.TabMaxWidth = 20.5
+            Debug.Print CStr(SSTab1.TabMaxWidth)
+            ScaleMode = 1
+            Debug.Print CStr(SSTab1.TabMaxWidth)
+            """, "", Form.Replace("Begin VB.Form Form1", "Begin VB.Form Form1\n   ScaleMode = 3"));
+        errors.Should().BeEmpty();
+        pixels.Should().Equal("20", "20", "307");
+    }
+
+    // Assignment measurements: #4953's final comment, VB6 SP6 native and p-code.
+    [AvaloniaTheory]
+    [InlineData("TabHeight", 1, "300.4", 300, 20)]
+    [InlineData("TabHeight", 1, "300.5", 300, 20)]
+    [InlineData("TabHeight", 1, "300.6", 300, 20)]
+    [InlineData("TabHeight", 1, "301", 301, 20)]
+    [InlineData("TabHeight", 1, "308", 308, 21)]
+    [InlineData("TabHeight", 1, "0.4", 1, 0)]
+    [InlineData("TabHeight", 1, "0.6", 1, 0)]
+    [InlineData("TabHeight", 3, "20.4", 306, 20)]
+    [InlineData("TabHeight", 3, "20.5", 307, 20)]
+    [InlineData("TabHeight", 3, "20.6", 309, 21)]
+    [InlineData("TabHeight", 3, "1", 15, 1)]
+    [InlineData("TabHeight", 3, "0.4", 6, 0)]
+    [InlineData("TabMaxWidth", 1, "300.5", 300, 20)]
+    [InlineData("TabMaxWidth", 1, "0.6", 1, 0)]
+    [InlineData("TabMaxWidth", 3, "20.5", 307, 20)]
+    public void AssignedDimensionsRoundInHimetric(string property, int mode, string assigned, int twips, int pixels)
+    {
+        var (values, errors) = ControlsAddTests.Run(
+            $"ScaleMode = {mode}\nSSTab1.{property} = {assigned}\nScaleMode = 1\nDebug.Print CStr(SSTab1.{property})\nScaleMode = 3\nDebug.Print CStr(SSTab1.{property})", "", Form);
+        errors.Should().BeEmpty();
+        values.Should().Equal($"{twips}", $"{pixels}");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("TabHeight", "300.4")]
+    [InlineData("TabHeight", "300.5")]
+    [InlineData("TabMaxWidth", "300.5")]
+    public void RecordedAssignedTwipReadsRemainUnchanged(string property, string assigned)
+    {
+        var (values, errors) = ControlsAddTests.Run(
+            $"SSTab1.{property} = {assigned}\nDebug.Print CStr(SSTab1.{property})", "", Form);
+        errors.Should().BeEmpty();
+        values.Should().Equal("300");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ScaleMode = 6\nDebug.Print SSTab1.TabHeight")]
+    [InlineData("ScaleMode = 7\nDebug.Print SSTab1.TabMaxWidth")]
+    [InlineData("ScaleWidth = 1000\nDebug.Print SSTab1.TabHeight")]
+    [InlineData("ScaleMode = 2\nSSTab1.TabHeight = 20")]
+    [InlineData("SSTab1.TabHeight = 0.2")]
+    [InlineData("SSTab1.TabMaxWidth = 900\nScaleMode = 2\nDebug.Print SSTab1.TabMaxWidth")]
+    public void RemainingDimensionCasesNameFollowup(string code)
+    {
+        var (_, errors) = ControlsAddTests.Run(code, "", Form);
+        errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+            .Which.Message.Should().Contain("#4970");
     }
 
     [AvaloniaFact]

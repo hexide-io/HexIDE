@@ -866,6 +866,7 @@ affect execution or LSP diagnostics, or send language-server requests or notific
 - **WHEN** a code window opens
 - **THEN** its default follows the project's constants target, then its VBA7 bitness, otherwise VB6
 - **AND** a project opened through the `.rdproj` type defaults to the external backend target
+- **AND** the external backend preview follows the project's `Win64OnlySetOnWindows` option, including when selected in the window ([#4890](https://github.com/hexide-io/HexIDE/issues/4890))
 - **AND** that target and the VBA previews share the host tables used by interpreter runs, as specified in interpreter-core, including its fallback for unmeasured host/bitness combinations
 
 #### Scenario: Previewing a VBA branch

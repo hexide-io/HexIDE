@@ -102,3 +102,38 @@ and a form's `FontSize = 13`, which reads 12, changes none of its controls'.
 - **Not modelled:** `Font.Weight` and the rest of the Font object (#934). HexIDE keeps a weight as the file gave it and
   reads FontBold as above 550.
 
+
+### Underline and Strikethrough are drawn, on every control that draws text (2026-11-19, #4971, SP6)
+
+**The probe.**
+- **The software:** VB6 SP6 6.00.9782 and MSVBVM60 6.00.9848.
+- **The form:** a twips form with MS Sans Serif 12 on ten controls:
+  - three Labels;
+  - a CommandButton, a CheckBox, an OptionButton and a Frame, each with a caption;
+  - a TextBox, a ListBox and a ComboBox.
+- **The fonts:**
+  - Each control but one Label has its font in the `.frm` with `Underline = -1` or `Strikethrough = -1`.
+  - The remaining Label has a plain font, and `Form_Load` sets its `FontStrikethru` and `FontUnderline` to True.
+  - The ListBox gets its one item from `AddItem`.
+- **The run:** `/make` as native code and as p-code. Each ran in the guest's interactive console session, and the
+  console was captured from the host while the form showed.
+- **The read-backs:** `Label1.FontStrikethru` read True, and the run-time Label's `FontStrikethru` and `FontUnderline`
+  both read True.
+
+| Control | Font | Drawn, native and p-code alike |
+|---|---|---|
+| Label | Strikethrough in the `.frm` | the caption struck through |
+| Label | Underline in the `.frm` | the caption underlined |
+| Label | both set in `Form_Load` | the caption struck through and underlined |
+| CommandButton | Strikethrough | the caption struck through, centred on the button |
+| CheckBox | Underline | the caption underlined, right of the box |
+| OptionButton | Strikethrough | the caption struck through |
+| Frame | Underline | its caption on the top edge, underlined |
+| TextBox | Strikethrough | its text struck through |
+| ListBox | Underline | the item underlined |
+| ComboBox | Strikethrough | the text in its edit box struck through |
+
+**Each line runs under or through the text alone,** not the control's width. The two builds drew the same frame.
+
+**HexIDE, on `upstream/main` at `ac2cad772`** (read from the code, and seen on Windows by the session that filed #4971):
+the five Font members read and write as above, but no control draws either line. #4971 tracks drawing them.
