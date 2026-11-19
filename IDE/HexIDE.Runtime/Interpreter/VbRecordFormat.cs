@@ -242,7 +242,7 @@ internal static class VbRecordFormat
         if (array.FixedStringWidth is not null)
             throw new NotImplementedException("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
         if (element == Vb6Value.ValueType.UserDefinedType)
-            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
+            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#4925)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
@@ -264,7 +264,7 @@ internal static class VbRecordFormat
         foreach (var (name, value) in udt.EnumerateFields())
         {
             if (value.Value is VBArray)
-                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
+                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#4925)");
             if (value.Value is VbUdt nested)
                 WriteUdt(w, nested);
             else if (udt.IsVariantField(name))
@@ -476,7 +476,7 @@ internal static class VbRecordFormat
         if (array.FixedStringWidth is not null)
             throw new NotImplementedException("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
         if (element == Vb6Value.ValueType.UserDefinedType)
-            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
+            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#4925)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
@@ -511,7 +511,7 @@ internal static class VbRecordFormat
         foreach (var (name, current) in udt.EnumerateFields().ToList())
         {
             if (current.Value is VBArray)
-                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
+                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#4925)");
             try
             {
                 if (current.Value is VbUdt nested)

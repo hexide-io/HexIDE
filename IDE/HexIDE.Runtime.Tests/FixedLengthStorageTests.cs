@@ -10,7 +10,7 @@ public class FixedLengthStorageTests : BaseVBTestFixture
     public async Task Type_fields_initialize_coerce_and_copy_independently()
     {
         await Run("Type T\ni As Integer\ns As String * 4\nEnd Type\nDim u As T, v As T\nDebug.Print u.s\nu.s = \"ab\"\nv = u\nv.s = \"rstuvw\"\nDebug.Print u.s\nDebug.Print v.s\nDebug.Print Len(u)");
-        AssertDebugLog([new Vb6Value(new string('\0', 4)), new Vb6Value("ab  "), new Vb6Value("rstu"), new Vb6Value(6L)]);
+        AssertDebugLog([new Vb6Value(new string('\0', 4)), new Vb6Value("ab  "), new Vb6Value("rstu"), new Vb6Value(6)]);
     }
 
     [Theory]
@@ -47,13 +47,7 @@ public class FixedLengthStorageTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Dim b() As String * 4\nReDim b(1) As String", "ReDim As on a fixed-length String array is not implemented (#179): its width rules are unmeasured")]
-    [InlineData("Dim b() As String * 4\nDim a(1) As String\nb = a", "Assigning a whole fixed-length String array is not implemented (#179): its assignment rules are unmeasured")]
-    [InlineData("Dim a(1) As String * 4\nDim v\nv = a", "Copying a whole fixed-length String array is not implemented (#179): its assignment rules are unmeasured")]
-    [InlineData("Dim fx As String * 5\nTake fx\nSub Take(n As Long)\nEnd Sub", "ByRef fixed-length String to this parameter type is not implemented (#179)")]
-    [InlineData("Dim fx As String * 5\nTake fx\nSub Take(n As Object)\nEnd Sub", "ByRef fixed-length String to this parameter type is not implemented (#179)")]
     [InlineData("Dim fx As String * 5\nTake fx\nSub Take(n As Collection)\nEnd Sub", "ByRef fixed-length String to this parameter type is not implemented (#179)")]
-    [InlineData("Type T\ns As String * 4\nv As String\nEnd Type\nDim u As T\nDebug.Print Len(u)", "Len of a Type with variable-sized fields is not implemented (#179)")]
     public async Task Unmeasured_storage_edges_are_explicitly_refused(string program, string expected)
     {
         var run = () => Run(program);

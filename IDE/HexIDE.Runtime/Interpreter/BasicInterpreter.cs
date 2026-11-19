@@ -126,7 +126,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public EventPump? Events { get; set; }
 
     // Measured uses: docs/vb6-fidelity-oracle/an-object-used-as-a-value.md (#174).
-    internal async Task<Vb6Value> ResolveDefaultMember(Vb6Value value, string? use = null,
+    internal ValueTask<Vb6Value> ResolveDefaultMember(Vb6Value value, string? use = null,
+        Stack<List<Vb6Value>>? callerFrames = null) =>
+        value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is null
+            ? new(value) : ResolveObjectDefaultMember(value, use, callerFrames);
+
+    private async ValueTask<Vb6Value> ResolveObjectDefaultMember(Vb6Value value, string? use,
         Stack<List<Vb6Value>>? callerFrames = null)
     {
         if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
@@ -565,7 +570,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 else
                 {
                     var elementType = f.ScalarType ?? (f.UdtTypeName is { } enumType && Enums.ContainsKey(enumType)
-                        ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#178)"));
+                        ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#4925)"));
                     var arrayType = new Vb6Value.ValueType(elementType, true);
                     fields[f.Name] = bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, bounds);
                     if (fixedWidth is { } width)
@@ -639,6 +644,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// here: it shares the caller's slot.
     /// </summary>
     public Vb6Value CopyForStore(Vb6Value v) => CopyForStore(v, 0);
+
+    // Whole fixed String arrays are only copyable into matching declared arrays (#179 / PR #4923).
+    internal Vb6Value CopyDeclaredArrayForStore(Vb6Value v) => v.Value is VBArray array
+        ? v.WithArray(array.CopyForLet(element => CopyElement(element, 1))) : CopyForStore(v);
 
     private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
     {
@@ -968,7 +977,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         BuiltIns = new VB6BuiltIns(stdLib)
         {
             VbaBitness = VbaBitness,
-            ResolveDefaultForUse = (value, use) => ResolveDefaultMember(value, use),
+            ResolveDefaultForUse = (value, use) => ResolveDefaultMember(value, use).AsTask(),
             AppTitle = () => App.TitleOrNull,
             ProjectResources = () => Resources,
             ErrObject = () => Err,
@@ -1940,11 +1949,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (!proc.HasMissingDeclareLibrary)
                 throw new VBSubOrFunctionNotDefinedException(proc.Name);
             // An Alias names the entry point, which a missing library never reaches: vb6.exe raises the same 53 with one
-            // (measured, native and p-code, #4820). Named arguments are VB6's too, but a Declare is collected without its
-            // parameters, so there is nothing to place them against yet (#4869).
+            // (measured, native and p-code, #4820). Named arguments are placed and evaluated before error 53 (#4869).
             if (NamedArguments.Any(args))
-                throw new NotImplementedException("Named arguments on Declare calls are not implemented (#4869)");
-            // ResolveCallArgs has evaluated each argument once, retaining its ByRef target (#4820).
+                await ArrangeProcedureArguments(proc, args);
+            // ResolveCallArgs has already evaluated positional arguments, retaining their ByRef targets (#4820).
             throw new VBRunTimeException(new VBStandardError(VBStandardError.FileNotFound.ErrNo,
                 "File not found: " + library));
         }
@@ -1987,13 +1995,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // Named arguments go to their parameters, and are evaluated in parameter order (#1465), before anything of the call is
         // set up, so one that raises leaves nothing to undo.
         if (NamedArguments.Any(args))
-        {
-            var names = new List<string>(proc.Parameters.Count);
-            foreach (var parameter in proc.Parameters)
-                names.Add(parameter.Name);
-            args = await NamedArguments.Arrange(args, names, i => proc.Parameters[i] is { Optional: false, ParamArray: false },
-                i => proc.Parameters[i].ParamArray);
-        }
+            args = await ArrangeProcedureArguments(proc, args);
 
         // Surplus arguments are VB6's compile error, raised at execution here (#741). Optional slots count;
         // ParamArray has no maximum. #1476 callers already index parameterless Variant/object results.
@@ -2189,6 +2191,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // statement end): a discarded result terminates then, an assigned one is out-lived by the store's AddRef.
         AdoptReturn(ret, callerFrames);
         return ret;
+    }
+
+    private static Task<IReadOnlyList<CallArg>> ArrangeProcedureArguments(ProcedureInfo proc, IReadOnlyList<CallArg> args)
+    {
+        var names = new List<string>(proc.Parameters.Count);
+        foreach (var parameter in proc.Parameters)
+            names.Add(parameter.Name);
+        return NamedArguments.Arrange(args, names, i => proc.Parameters[i] is { Optional: false, ParamArray: false },
+            i => proc.Parameters[i].ParamArray);
     }
 
     /// <summary>The zero-value a Function's return slot starts at, honouring its declared return type. A
@@ -2518,15 +2529,47 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 IByRefTarget? fixedTarget = arg.Location is { } fixedSlot
                     && ExecutionContext.State.FixedStringWidthOf(fixedSlot) is not null
                     ? new SlotRef(ExecutionContext.State, fixedSlot) : arg.Ref;
+                var parameterWidth = p.FixedStringLength is { } length
+                    ? FixedLengthString.Width(length, owner.ModuleEnv, ExecutionContext.State) : (int?)null;
+                if (arg.Value.Value is VBArray { FixedStringWidth: not null } fixedArray)
+                {
+                    if (p.ReadsAsVariant && !p.DeclaredObject)
+                        throw new VBCompileErrorException("Can't assign or coerce array of fixed-length string or user-defined type to Variant");
+                    if (p.IsArray && p.DeclaredType == new Vb6Value.ValueType(Vb6Value.ValueType.String, true))
+                    {
+                        if (parameterWidth is null)
+                            throw new VBCompileErrorException("Type mismatch: array or user-defined type expected");
+                        if (parameterWidth != fixedArray.FixedStringWidth)
+                            throw new NotImplementedException("Passing an array of another fixed-length String width is not implemented (#179)");
+                    }
+                    else
+                        throw new NotImplementedException("Fixed-length String array to this parameter type is not implemented (#179)");
+                }
+                // Any other array, or a Variant holding one, is VB6's compile error (measured for String(), Long(), Variant()
+                // and a Variant holding a String(), #179 review).
+                else if (parameterWidth is not null && arg.Value.Value is VBArray)
+                    throw new VBCompileErrorException("Type mismatch: array or user-defined type expected");
                 if (p.ByRef && fixedTarget?.FixedStringWidth is not null)
                 {
-                    var stringOrVariant = !p.IsArray && !p.DeclaredObject && p.TypeName is null
+                    if (p.IsArray)
+                    {
+                        if (p.DeclaredType == new Vb6Value.ValueType(Vb6Value.ValueType.String, true)
+                            || p.DeclaredType == new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true))
+                            throw new VBCompileErrorException("Type mismatch: array or user-defined type expected");
+                        throw new NotImplementedException("ByRef fixed-length String to this parameter type is not implemented (#179)");
+                    }
+                    var stringOrVariant = !p.DeclaredObject && p.TypeName is null
                         && (p.DeclaredType == Vb6Value.ValueType.String || p.ReadsAsVariant);
                     if (!stringOrVariant)
+                    {
+                        if (p.DeclaredObject || p.TypeName is null && p.DeclaredType is { } scalar
+                            && scalar != Vb6Value.ValueType.LongLong && VbNumeric.IsDeclarableScalar(scalar))
+                            throw new VBCompileErrorException("ByRef argument type mismatch");
                         throw new NotImplementedException("ByRef fixed-length String to this parameter type is not implemented (#179)");
-                    // #179 measures copy in/out. The parameter's own post-assignment Len is unmeasured;
-                    // use an ordinary String/Variant slot here, applying the width only on return.
-                    ExecutionContext.AllocVariable(callee, p.Name, arg.Value.CopyString(), DeclaredSlotType(p));
+                    }
+                    // #179 / PR #4923: an ordinary String slot until copy-out, even for As Variant.
+                    // Its stores convert to String and Null raises 94; only the caller has a width.
+                    ExecutionContext.AllocVariable(callee, p.Name, arg.Value.CopyString(), Vb6Value.ValueType.String);
                     callee.TryGetOwnVariableLocation(p.Name, out var slot);
                     fixedStringCopies.Add((slot, fixedTarget));
                     continue;

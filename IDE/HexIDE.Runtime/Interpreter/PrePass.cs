@@ -560,8 +560,14 @@ public class PrePass : VB6BaseVisitor<object?>
         declared = true;
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
-        // Collect the name, library and Sub/Function kind without loading native code (#4820).
-        Declares[name] = new ProcedureInfo(name, context.FUNCTION() != null, [],
+        // Collect the signature without loading native code (#4820) or applying procedure parameter checks (#4869).
+        var parameters = new List<ParamInfo>();
+        if (context.argList() is { } argList)
+            foreach (var arg in argList.arg())
+                parameters.Add(new ParamInfo(arg.ambiguousIdentifier().GetText(), ByRef: arg.BYVAL() == null,
+                    Optional: arg.OPTIONAL() != null, ParamArray: arg.PARAMARRAY() != null,
+                    DeclaredType: null, Default: arg.argDefaultValue(), IsArray: arg.LPAREN() != null));
+        Declares[name] = new ProcedureInfo(name, context.FUNCTION() != null, parameters,
             Vb6Value.ValueType.EmptyVariant, null, IsPrivate(context.visibility()))
         {
             Declaration = context,
@@ -981,7 +987,7 @@ public class PrePass : VB6BaseVisitor<object?>
                         break;
                     }
                     if (upper < lower)
-                        throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#178)");
+                        throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#4925)");
                     bounds.Add((lower, upper));
                 }
             }
@@ -997,7 +1003,7 @@ public class PrePass : VB6BaseVisitor<object?>
             if (asType.NEW() != null)
             {
                 if (isArray)
-                    throw new NotImplementedException($"An array field As New inside Type '{name}' is not implemented (#178)");
+                    throw new NotImplementedException($"An array field As New inside Type '{name}' is not implemented (#4925)");
                 fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
                 continue;
             }
@@ -1078,7 +1084,7 @@ public class PrePass : VB6BaseVisitor<object?>
         foreach (var arg in argList.arg())
         {
             if (arg.asTypeClause() is { } fixedType && fixedType.fieldLength() is not null
-                && fixedType.type()?.baseType()?.STRING() is not null)
+                && fixedType.type()?.baseType()?.STRING() is not null && arg.LPAREN() is null)
                 throw new VBCompileErrorException("Expected array");
             // `Sub F(n%)` is `Sub F(n As Integer)`, and an As clause beside the character is VB6's compile error (measured,
             // #742). With neither, the DefType's for the name's letter (measured, #169: `Sub ITake(i7)` under DefInt, given
@@ -1105,7 +1111,8 @@ public class PrePass : VB6BaseVisitor<object?>
                     && (defaultType is null ? DeclaresVariant(arg.asTypeClause()) : defaultType == Vb6Value.ValueType.Object),
                 TypeName: NamedType(arg.asTypeClause()),
                 DeclaredObject: arg.LPAREN() == null
-                    && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object)));
+                    && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object))
+            { FixedStringLength = arg.asTypeClause()?.fieldLength() });
         }
         return result;
     }

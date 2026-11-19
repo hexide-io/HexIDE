@@ -87,7 +87,7 @@ public partial class StatementExecutor
                     var bounds = VbRecordFormat.ReadDescriptor(read);
                     var element = array.ElementType ?? Vb6Value.ValueType.EmptyVariant;
                     if (element == Vb6Value.ValueType.UserDefinedType)
-                        throw new NotImplementedException("Get of a Random file's record into a dynamic array of a user-defined Type is not implemented (#1646, #178)");
+                        throw new NotImplementedException("Get of a Random file's record into a dynamic array of a user-defined Type is not implemented (#4925)");
                     VBArray replaced;
                     if (bounds.Count == 0)
                     {

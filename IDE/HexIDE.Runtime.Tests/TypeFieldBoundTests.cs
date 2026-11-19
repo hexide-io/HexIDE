@@ -136,12 +136,26 @@ public class TypeFieldBoundTests : BaseVBTestFixture
             .EndWith("Constant expression required");
     }
 
+    // These are HexIDE's unmeasured refusals, tracked by hexide-io/HexIDE#4925.
+    [Theory]
+    [InlineData("a(3 To 1) As Long", "")]
+    [InlineData("a(1 To 2) As New Collection", "")]
+    [InlineData("a(1 To 2) As StdFont", "Dim u As T")]
+    [InlineData("n As Long", "Dim u As T\nu.n(1) = 5")]
+    [InlineData("a(1 To 2) As Long", "Dim u As T\nu.a(1)(1) = 5")]
+    public async Task Unmeasured_type_field_keeps_refusal(string field, string body)
+    {
+        Func<Task> run = () => RunModules($"Private Type T\n{field}\nEnd Type\n{body}");
+        (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
+            .EndWith("(#4925)");
+    }
+
     [Fact]
     public async Task Resolved_inverted_bound_keeps_refusal()
     {
         Func<Task> run = () => RunModules("Const N = 0\nPrivate Type T\na(1 To N) As Long\nEnd Type");
         (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .Be("An inverted array bound inside Type 'T' is not implemented (#178)");
+            .Be("An inverted array bound inside Type 'T' is not implemented (#4925)");
     }
 
     [Fact]

@@ -160,8 +160,9 @@ Platform: 5 · Partial: 11 · Other: 1. An entry fixed since the audit is not co
 >   64-bit VBA7, using the issue's measured rows; [#4820](https://github.com/hexide-io/HexIDE/issues/4820)
 >   makes off-Windows calls raise trappable 53 with the original Lib string after evaluating arguments,
 >   except `.dylib`/`.so` names (including versioned `.so`), which retain the Windows refusal
->   "Sub or Function not defined"; a call through an Alias raises the same 53 (measured), and a named-argument call is
->   explicitly not implemented (#4869);
+>   "Sub or Function not defined"; a call through an Alias raises the same 53 (measured), and a named
+>   argument is placed by the Declare's parameter name and evaluated once before error 53
+>   (measured in [#4869](https://github.com/hexide-io/HexIDE/issues/4869));
 >   no native library is loaded) · selection/system/financial intrinsics (IIf, Choose and Switch
 >   have since been added, and of the financials only IRR and MIRR remain refused).
 
@@ -193,7 +194,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
   **String/number comparisons fixed (#211):** [measured typed/Variant rules](vb6-fidelity-oracle/a-string-compared-with-a-number.md)
   now run, including Decimal as a Variant number and Variant Strings against typed Currency, Boolean
   or Date ([#211, 2026-11-18 measurements](https://github.com/hexide-io/HexIDE/issues/211), oracle PR #4687). Default-member reads retain typed/Variant origin for these comparisons (#174; [measurements](vb6-fidelity-oracle/an-object-used-as-a-value.md#a-default-members-value-compared-with-a-string-2026-11-14-174s-review)).
-- **Declare Sub/Function … Lib** — declarations load; off Windows, missing Windows-library calls raise trappable 53 after evaluating arguments ([#4820](https://github.com/hexide-io/HexIDE/issues/4820), measured there). Windows and `.dylib`/`.so` calls retain the refusal; an Alias call raises the same 53 (measured), a named-argument call refuses until a Declare's parameters are collected ([#4869](https://github.com/hexide-io/HexIDE/issues/4869)), and native invocation remains deferred.
+- **Declare Sub/Function … Lib** — declarations load; off Windows, missing Windows-library calls raise trappable 53 after evaluating arguments ([#4820](https://github.com/hexide-io/HexIDE/issues/4820), measured there). Windows and `.dylib`/`.so` calls retain the refusal; an Alias call raises the same 53 (measured), a named argument is placed by the Declare’s parameter name and evaluated once before error 53 (measured in [#4869](https://github.com/hexide-io/HexIDE/issues/4869)), and native invocation remains deferred.
 - ~~**Option Compare [Binary|Text] / Option Private Module** — PrePass.cs:46-50 throws for both (module fails to load).~~ Both load. **`Option Compare Text` is done (#1567)** for the comparison operators, `Select Case` and, with a compare of 1, InStr, InStrRev, Replace, Split, Filter and a Collection's keys, all through `VbTextCompare`, whose rows are vb6.exe's measured order. A string function given no compare takes the module's mode too (#1572). Two things remain:
   - **Other locales are a wrong-value risk, not just a gap.** The rows were measured under en-GB and are applied in every locale. Where Windows tailors the sort, such as Swedish å, ä and ö, or Turkish i, HexIDE would give en-GB's answer and nothing would say so (#1573).
   - **A character outside cp1252 is unmeasured.** It sorts after every measured one, by its invariant lower case.
@@ -351,13 +352,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   resolve in declaration order ([#4595, measured](https://github.com/hexide-io/HexIDE/issues/4595));
   private Types allocated above their declaration in their own module or class resolve from Consts above the Type,
   including Consts below the variable and chains of preceding Consts ([#4734, measured](https://github.com/hexide-io/HexIDE/issues/4734), oracle PR #4800).
-  Public Types and allocation from another module retain their existing behaviour ([#4907](https://github.com/hexide-io/HexIDE/issues/4907)); inverted bounds and array fields As New remain refused. Get/Put of UDT
-  arrays and Types containing array fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
-  and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
-
-  Array fields have indexed reads/writes and whole-array store checks. Inverted Type-field bounds and
-  array fields As New remain refused. Get/Put of UDT arrays and Types containing array
-  fields also remain refused pending record-layout measurements. ByVal UDT parameters are refused when a call
+  Public Types and allocation from another module retain their existing behaviour ([#4907](https://github.com/hexide-io/HexIDE/issues/4907)); inverted bounds and array fields As New remain refused, and so do Get/Put of UDT
+  arrays and of Types containing array fields, whose record layout is unmeasured ([#4925](https://github.com/hexide-io/HexIDE/issues/4925)). ByVal UDT parameters are refused when a call
   binds them ([#4673’s measurements](https://github.com/hexide-io/HexIDE/issues/4673)); VB6 refuses the build, so one in a
   procedure that is never called goes uncaught here.
   UDT-to-Variant assignments remain a divergence from the compile refusals measured for #178.

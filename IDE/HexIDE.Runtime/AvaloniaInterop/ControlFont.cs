@@ -164,7 +164,7 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
             return true;
         }
         throw new NotImplementedException(standalone
-            ? $"Assigning this value to StdFont.{name} is not implemented (#4807)"
+            ? $"Assigning this value to StdFont.{name} is not implemented (#4926)"
             : $"Assigning this value to Font.{name} is not implemented (#934)");
     }
 

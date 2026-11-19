@@ -31,6 +31,25 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     // The guest's locale, which its dates were printed and read in: CDate("1/2/2003") is 1 February.
     private static readonly CultureInfo EnGb = CultureInfo.GetCultureInfo("en-GB");
 
+    // The UDT record layout is unmeasured: hexide-io/HexIDE#4925.
+    [Fact]
+    public async Task Random_Get_into_dynamic_UDT_array_keeps_refusal()
+    {
+        Func<Task> run = () => Run(Probe1 + """
+
+            Private Type T
+                n As Long
+            End Type
+            Dim a() As Long, u() As T
+            ReDim a(0 To 1)
+            Open P("udt.dat") For Random As #1 Len = 32
+            Put #1, 1, a
+            Get #1, 1, u
+            """);
+        (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
+            .EndWith("(#4925)");
+    }
+
     // The Types and helpers of the probes for Binary_Put_writes_each_type_as_vb6_exe_did.
     private string Probe1 => $$"""
 

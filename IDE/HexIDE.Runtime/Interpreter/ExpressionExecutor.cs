@@ -92,21 +92,23 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return args.TrueForAll(a => a.HasFixedType) ? result.AsFixedType() : result;
     }
 
-    public async Task<(Vb6Value, Vb6Value)> GetTwoValues(VB6Parser.ValueStmtContext[] context)
+    public async Task<(Vb6Value, Vb6Value)> GetTwoValues(VB6Parser.ValueStmtContext[] context) => await GetTwoValuesFast(context);
+
+    private async ValueTask<(Vb6Value, Vb6Value)> GetTwoValuesFast(VB6Parser.ValueStmtContext[] context)
     {
         if (context.Length != 2)
             throw new Exception("This should only be called for two operands instructions");
         // Every binary operator's operands come through here: an object stands for its default member (#174).
-        var left = await EvaluateScalar(context[0]);
-        var right = await EvaluateScalar(context[1]);
+        var left = await EvaluateScalarFast(context[0]);
+        var right = await EvaluateScalarFast(context[1]);
         return (left, right);
     }
 
     public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context)
     {
-        var leftRaw = await EvaluateValue(context[0]);
+        var leftRaw = await EvaluateValueFast(context[0]);
         var leftValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(leftRaw, callerFrames: stmtFrames), context[0]);
-        var rightRaw = await EvaluateValue(context[1]);
+        var rightRaw = await EvaluateValueFast(context[1]);
         var rightValue = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(rightRaw, callerFrames: stmtFrames), context[1]);
         if (leftValue.IsOddByteString || rightValue.IsOddByteString)
         {
@@ -339,21 +341,40 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
       return result;
     }
 
-    public async Task<Vb6Value> EvaluateValue(IParseTree arg)
+    public async Task<Vb6Value> EvaluateValue(IParseTree arg) => await EvaluateValueFast(arg);
+
+    internal ValueTask<Vb6Value> EvaluateValueFast(IParseTree arg)
     {
-        if (await Visit(arg) is not Vb6Value vb6Value)
-            throw new NotImplementedException($"{arg.GetType()} expression is not supported");
-        return vb6Value;
+        var evaluated = Visit(arg);
+        return evaluated.IsCompletedSuccessfully ? new(ValueOf(evaluated.Result, arg)) : AwaitValue(evaluated, arg);
     }
+
+    private static Vb6Value ValueOf(object? value, IParseTree arg) => value is Vb6Value vb6Value
+        ? vb6Value : throw new NotImplementedException($"{arg.GetType()} expression is not supported");
+
+    private static async ValueTask<Vb6Value> AwaitValue(Task<object?> value, IParseTree arg) => ValueOf(await value, arg);
 
     /// <summary>
     /// <see cref="EvaluateValue"/> where a value is wanted, not an object: an operand, a condition, a bound, a Select
     /// Case. A class instance there stands for its default member (<see cref="ObjectAsValue"/>).
     /// </summary>
-    public async Task<Vb6Value> EvaluateScalar(IParseTree arg)
+    public async Task<Vb6Value> EvaluateScalar(IParseTree arg) => await EvaluateScalarFast(arg);
+
+    internal ValueTask<Vb6Value> EvaluateScalarFast(IParseTree arg)
     {
-        return ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(await EvaluateValue(arg), callerFrames: stmtFrames), arg as Antlr4.Runtime.ParserRuleContext);
+        var value = EvaluateValueFast(arg);
+        if (!value.IsCompletedSuccessfully)
+            return AwaitScalar(value, arg);
+        var scalar = interpreter.ResolveDefaultMember(value.Result, callerFrames: stmtFrames);
+        return scalar.IsCompletedSuccessfully
+            ? new(ObjectAsValue.Scalar(scalar.Result, arg as Antlr4.Runtime.ParserRuleContext)) : AwaitResolvedScalar(scalar, arg);
     }
+
+    private static async ValueTask<Vb6Value> AwaitResolvedScalar(ValueTask<Vb6Value> value, IParseTree arg) =>
+        ObjectAsValue.Scalar(await value, arg as Antlr4.Runtime.ParserRuleContext);
+
+    private async ValueTask<Vb6Value> AwaitScalar(ValueTask<Vb6Value> value, IParseTree arg) =>
+        ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(await value, callerFrames: stmtFrames), arg as Antlr4.Runtime.ParserRuleContext);
 
     internal async Task<List<int>> ResolveSubscripts(IReadOnlyList<Vb6Value> values)
     {
@@ -375,10 +396,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <para>Positions come from the separators instead: slots = commas + 1, each holding the argument
     /// written between them or <c>null</c> for a blank.</para>
     /// </summary>
-    private static List<VB6Parser.ArgCallContext?> ArgSlots(VB6Parser.ArgsCallContext? context)
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VB6Parser.ArgsCallContext, IReadOnlyList<VB6Parser.ArgCallContext?>> argumentSlots = new();
+    private static readonly IReadOnlyList<VB6Parser.ArgCallContext?> noArguments = [];
+
+    // Shared by every call through the same argument list, so read-only: a caller that changed it would change every later call.
+    private static IReadOnlyList<VB6Parser.ArgCallContext?> ArgSlots(VB6Parser.ArgsCallContext? context) =>
+        context is null ? noArguments : argumentSlots.GetValue(context, ReadArgSlots);
+
+    private static IReadOnlyList<VB6Parser.ArgCallContext?> ReadArgSlots(VB6Parser.ArgsCallContext context)
     {
         var slots = new List<VB6Parser.ArgCallContext?>();
-        if (context?.children is null) return slots;
+        if (context?.children is null) return noArguments;
 
         VB6Parser.ArgCallContext? pending = null;
         var sawAnything = false;
@@ -404,13 +432,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBCompileErrorException("Syntax error");
         // The final slot closes at the end of the list rather than at a separator.
         if (sawAnything) slots.Add(pending);
-        return slots;
+        return slots.ToArray();
     }
 
     public async Task<List<Vb6Value>> EvaluateCallArgs(VB6Parser.ArgsCallContext? context, Func<Task>? beforeLast = null)
     {
         List<Vb6Value> callArgs = new();
-        var slots = ArgSlots(context).ToList();
+        var slots = ArgSlots(context);
         foreach (var arg in slots)
         {
             if (beforeLast is not null && callArgs.Count == slots.Count - 1)
@@ -425,7 +453,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (arg.PARAMARRAY() != null)
                 throw new NotImplementedException("PARAMARRAY arguments are not supported");
 
-            callArgs.Add(await EvaluateValue(arg.valueStmt()));
+            callArgs.Add(await EvaluateValueFast(arg.valueStmt()));
         }
         if (beforeLast is not null && slots.Count == 0)
             await beforeLast();
@@ -439,7 +467,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         var result = new List<CallArg>();
         var named = false;
-        var slots = ArgSlots(context).ToList();
+        var slots = ArgSlots(context);
         foreach (var arg in slots)
         {
             if (beforeLast is not null && result.Count == slots.Count - 1)
@@ -462,7 +490,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 var value = assign.valueStmt();
                 var byVal = arg.BYVAL() != null;
                 result.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
-                    Deferred: () => ResolveArg(value, byVal)));
+                    Deferred: async () => await ResolveArg(value, byVal)));
                 continue;
             }
             if (named)
@@ -477,14 +505,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // One argument, with what a ByRef parameter needs to alias it. A call-site ByVal keyword (or a non-lvalue like a literal
     // or `(x)`) forces a copy.
     /// <summary>An operand as a ByRef argument resolves it: its slot, the field or element it names, or just its value (#1646).</summary>
-    internal Task<CallArg> ResolveByRef(VB6Parser.ValueStmtContext valueStmt) => ResolveArg(valueStmt, byVal: false);
+    internal async Task<CallArg> ResolveByRef(VB6Parser.ValueStmtContext valueStmt) => await ResolveArg(valueStmt, byVal: false);
 
-    private async Task<CallArg> ResolveArg(VB6Parser.ValueStmtContext valueStmt, bool byVal)
+    private async ValueTask<CallArg> ResolveArg(VB6Parser.ValueStmtContext valueStmt, bool byVal)
     {
         if (!byVal && await TryGetArgElement(valueStmt) is var (elementValue, element))
             return new CallArg(elementValue, null, element);
         unclaimedRead = null;
-        var value = await EvaluateValue(valueStmt);
+        var value = await EvaluateValueFast(valueStmt);
         int? location = byVal ? null : TryGetArgLocation(valueStmt) ?? DeclareUnclaimed(valueStmt);
         var field = byVal || location is not null ? null : TryGetArgField(valueStmt);
         return new CallArg(value, location, field);
@@ -516,7 +544,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && slots[1]?.valueStmt() is { } file && file.GetText().StartsWith('#'))
         {
             var input = new VB6BuiltIns.IntrinsicArgumentValues(2);
-            input.AddArgument(await EvaluateValue(count.valueStmt()), false);
+            input.AddArgument(await EvaluateValueFast(count.valueStmt()), false);
             input.AddArgument(new Vb6Value(await FileNumber(file)), false);
             return input;
         }
@@ -536,7 +564,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (values[0].Value is VbUdt wideRecord)
                 wideRecord.RefuseUnmeasuredLongLongLayout();
-            if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values[0].Value is VbUdt { HasFixedStringFields: true } record)
+            if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values[0].Value is VbUdt record)
                 result.LenVariableSize = record.FixedRecordLength();
             // Len sizes a declared scalar, but a Variant still sizes its text (#780, measured). So does LenB, and a number that is
             // not a variable is the same compile error for it (#1510, measured).
@@ -589,7 +617,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             }
         }
         else
-            value = await EvaluateValue(valueStmt);
+            value = await EvaluateValueFast(valueStmt);
         return Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, valueStmt).Value,
             System.Globalization.CultureInfo.InvariantCulture);
     }
@@ -700,12 +728,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 named = true;
                 var value = assign.valueStmt();
                 args.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
-                    Deferred: async () => new CallArg(await EvaluateValue(value), null)));
+                    Deferred: async () => new CallArg(await EvaluateValueFast(value), null)));
                 continue;
             }
             if (named)
                 throw new VBCompileErrorException("Syntax error");
-            args.Add(new CallArg(await EvaluateValue(arg.valueStmt()), null));
+            args.Add(new CallArg(await EvaluateValueFast(arg.valueStmt()), null));
         }
         return args;
     }
@@ -724,7 +752,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             || ics.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall() is not { } name
             || !ReferenceEquals(name, unclaimedRead))
             return null;
-        StatementExecutor.AllocImplicitVariable(interpreter, env, currentModule, name.ambiguousIdentifier().GetText());
+        StatementExecutor.AllocImplicitVariable(interpreter, env, currentModule, name.ambiguousIdentifier().CachedText());
         return TryGetArgLocation(valueStmt);
     }
 
@@ -735,7 +763,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (valueStmt is VB6Parser.VsICSContext ics
             && ics.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall() is { } vp
             && vp.dictionaryCallStmt() == null
-            && env.TryGetVariableLocation(vp.ambiguousIdentifier().GetText(), out var loc)
+            && env.TryGetVariableLocation(vp.ambiguousIdentifier().CachedText(), out var loc)
             && !interpreter.ExecutionContext.State.IsConstant(loc)
             && !interpreter.ExecutionContext.State.IsReadOnly(loc))
             return loc;
@@ -759,7 +787,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             || membersCall.iCS_S_VariableOrProcedureCall() is not { } lead
             || lead.typeHint() != null || lead.dictionaryCallStmt() != null
             || membersCall.dictionaryCallStmt() != null
-            || !env.TryGetVariableLocation(lead.ambiguousIdentifier().GetText(), out var loc))
+            || !env.TryGetVariableLocation(lead.ambiguousIdentifier().CachedText(), out var loc))
             return null;
         var current = interpreter.ExecutionContext.State[loc];
         var chain = membersCall.iCS_S_MemberCall();
@@ -769,7 +797,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 || chain[i].iCS_S_VariableOrProcedureCall() is not { } part
                 || part.typeHint() != null || part.dictionaryCallStmt() != null)
                 return null;
-            var name = part.ambiguousIdentifier().GetText();
+            var name = part.ambiguousIdentifier().CachedText();
             if (i == chain.Length - 1)
                 return bag.Has(name) ? new UdtFieldRef(bag, name) : null;
             if (!bag.TryGet(name, out current))
@@ -816,7 +844,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new NotImplementedException("Type hint is not supported");
         if (context.dictionaryCallStmt() != null)
             throw new NotImplementedException("dictionaryCallStmt is not supported");
-        var identifier = context.ambiguousIdentifier().GetText();
+        var identifier = context.ambiguousIdentifier().CachedText();
         return identifier;
     }
 
@@ -1035,7 +1063,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // `c!key`, a Collection's item by key (#1471).
         if (context.typeHint() is null && context.dictionaryCallStmt() is { } bang)
         {
-            var name = context.ambiguousIdentifier().GetText();
+            var name = context.ambiguousIdentifier().CachedText();
             if (!interpreter.TryReadNow(env, name, out var bangFound, out var bangTarget, out var bangNeed))
                 (bangFound, bangTarget) = await interpreter.ReadVariableAfter(env, name, bangNeed!);
             if (!bangFound && await BareFormMember(name) is { } bangMember)
@@ -1124,7 +1152,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // The shared implicit-call resolver: a bare variable / zero-arg function, a namespace-qualified member
     // (`Module1.Foo`, `VBA.Abs`), a UDT field chain (`e.Address.City`), a `.Member` against a With target, or
     // `arr(i)`. Used by both VsICS (expression position) and a direct implicitCallStmt_InStmt (a With target).
-    private async Task<object?> ResolveImplicitCall(VB6Parser.ImplicitCallStmt_InStmtContext ctx)
+    private async ValueTask<object?> ResolveImplicitCall(VB6Parser.ImplicitCallStmt_InStmtContext ctx)
     {
         if (ctx.iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
@@ -1133,7 +1161,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // #742). Any other name with a type character is still refused.
             if (varOrProcCall.typeHint() is { } hint)
             {
-                var hinted = varOrProcCall.ambiguousIdentifier().GetText();
+                var hinted = varOrProcCall.ambiguousIdentifier().CachedText();
                 if (hint.GetText() == "$" && BareDollarForms.Contains(hinted)
                     && !env.TryGetVariableLocation(hinted, out _)
                     && !interpreter.TryResolveProcedure(hinted, currentModule, out _, out _)
@@ -1172,7 +1200,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             }
             if (varOrProcCall.dictionaryCallStmt() != null)
                 return await VisitICS_S_VariableOrProcedureCall(varOrProcCall);
-            var identifier = varOrProcCall.ambiguousIdentifier().GetText();
+            var identifier = varOrProcCall.ambiguousIdentifier().CachedText();
             RefuseAmbiguousEnumMember(identifier);
 
             if (!interpreter.TryReadNow(env, identifier, out var found, out var variable, out var foundNeed))
@@ -1262,7 +1290,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // A leading dot (`.Member`) has no leading part — resolve against the innermost With target.
             Vb6Value variable;
             if (membersCall.iCS_S_VariableOrProcedureCall() is { } varOrProCall)
-                variable = await EvaluateValue(varOrProCall);
+                variable = await EvaluateValueFast(varOrProCall);
             else if (membersCall.iCS_S_ProcedureOrArrayCall() is { } leadProcOrArray)
                 // `Command1(i).Caption` — the lead is an indexed call (a control-array element or an array); resolve
                 // it to the element value, then read the member off it below.
@@ -1304,7 +1332,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new NotImplementedException($"`{ctx.GetText()}` is supported only on a Collection");
         Vb6Value variable;
         if (membersCall.iCS_S_VariableOrProcedureCall() is { } varOrProCall)
-            variable = await EvaluateValue(varOrProCall);
+            variable = await EvaluateValueFast(varOrProCall);
         else if (membersCall.iCS_S_ProcedureOrArrayCall() is { } leadProcOrArray)
             variable = (Vb6Value)(await EvaluateProcedureOrArrayCall(leadProcOrArray))!;
         else
@@ -1342,8 +1370,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     internal static string BangKey(VB6Parser.DictionaryCallStmtContext bang)
     {
         if (bang.typeHint() != null)
-            throw new NotImplementedException($"A type character after `!{bang.ambiguousIdentifier().GetText()}` is not implemented (#742)");
-        var key = bang.ambiguousIdentifier().GetText();
+            throw new NotImplementedException($"A type character after `!{bang.ambiguousIdentifier().CachedText()}` is not implemented (#742)");
+        var key = bang.ambiguousIdentifier().CachedText();
         return key.Length >= 2 && key[0] == '[' && key[^1] == ']' ? key[1..^1] : key;
     }
 
@@ -1596,7 +1624,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md). The other characters
         // are checked against the program's own Function's return type (measured, #740), or an array's element type, `a%(1)`
         // (measured, #742), and still stop the run on anything else.
-        var name = procOrArrayCall.ambiguousIdentifier().GetText();
+        var name = procOrArrayCall.ambiguousIdentifier().CachedText();
         var dollar = false;
         VB6Parser.TypeHintContext? ownHint = null, variableHint = null;
         if (procOrArrayCall.typeHint() is { } hint)
@@ -1785,7 +1813,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new NotImplementedException($"{name}$ is not implemented: what VB6 does with a $ on {name} is not measured (#742)");
         // A library function's later index groups: before its one argument, `Split(t)(i)` being i then t, and after its two,
         // `Split(s, d)(i)` being s, d, i (measured, #1476). No rule fits both, so each count does as measured.
-        if (beforeLast is not null && ArgSlots(argsCtx).Count() <= 1)
+        if (beforeLast is not null && ArgSlots(argsCtx).Count <= 1)
             await beforeLast();
         var args = await EvaluateIntrinsicArgs(name, argsCtx);
         if (await EvaluateFunction(name, args) is { } builtInResult)
@@ -2076,6 +2104,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
                     return await ThenTheRest(await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames));
                 var args = argsCtx != null ? await EvaluateIntrinsicArgs(memberName, argsCtx) : new List<Vb6Value>();
+                if ((memberName.Equals("Len", StringComparison.OrdinalIgnoreCase) ||
+                     memberName.Equals("LenB", StringComparison.OrdinalIgnoreCase)) &&
+                    args.Count == 1 && args[0].Value is VbUdt)
+                    throw new VBCompileErrorException("Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions");
                 if (await EvaluateFunction(memberName, args) is { } fn)
                     return await ThenTheRest(fn);
                 if (args.Count == 0 && VB6InBoxLibraries.TryInLibrary(library, memberName, out var c))
@@ -2257,7 +2289,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // baseType token (e.g. `.Currency`) rather than an ambiguousIdentifier, so the inner accessor needs its own
     // null-guard — otherwise it NREs instead of falling through to the clean "malformed" error.
     internal static string MemberName(VB6Parser.ICS_S_MemberCallContext m)
-        => m.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier().GetText()
+        => m.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier().CachedText()
            ?? m.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText()
            ?? throw new VBCompileErrorException("Malformed or unsupported qualified member call");
 
@@ -2282,9 +2314,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsAmp(VB6Parser.VsAmpContext context)
     {
-        var leftRaw = await EvaluateValue(context.valueStmt(0));
+        var leftRaw = await EvaluateValueFast(context.valueStmt(0));
         var left = ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(leftRaw, callerFrames: stmtFrames), context);
-        var rightRaw = await EvaluateValue(context.valueStmt(1));
+        var rightRaw = await EvaluateValueFast(context.valueStmt(1));
         if (left.IsOddByteString && !leftRaw.IsOddByteString)
             throw Vb6Value.OddBytesNotImplemented("Concatenation (&)");
         if (left.IsOddByteString || rightRaw.IsOddByteString)
@@ -2333,7 +2365,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // `+` and `-`, one level of the grammar, so taken left to right (#1074).
     public override async Task<object?> VisitVsAdd(VB6Parser.VsAddContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());
         return AddOrSubtract(leftValue, rightValue, context.MINUS() != null, context);
     }
 
@@ -2362,7 +2394,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // `*` and `/`, one level of the grammar (#1074).
     public override async Task<object?> VisitVsMult(VB6Parser.VsMultContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());
         return MultiplyOrDivide(leftValue, rightValue, context.DIV() != null, context);
     }
 
@@ -2382,7 +2414,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsMod(VB6Parser.VsModContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());
         return Modulo(leftValue, rightValue, context);
     }
 
@@ -2397,7 +2429,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public async override Task<object?> VisitVsDiv(VB6Parser.VsDivContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());
         return IntegerDivide(leftValue, rightValue, context);
     }
 
@@ -2412,7 +2444,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsPow(VB6Parser.VsPowContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());
         return Power(leftValue, rightValue, context);
     }
 
@@ -2432,7 +2464,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (context.LIKE() != null)
         {
             // Null on either side is Null; anything else is taken as the text & would make of it (#1547).
-            var (text, pattern) = await GetTwoValues(context.valueStmt());
+            var (text, pattern) = await GetTwoValuesFast(context.CachedValues());
             text.RefuseOddBytes("Like");
             pattern.RefuseOddBytes("Like");
             if (text.IsNull || pattern.IsNull)
@@ -2444,8 +2476,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             // Reference identity on the underlying object (Nothing = null). One line covers a Is b, x Is Nothing,
             // and Nothing Is Nothing — NOT Vb6Value equality (which would run numeric coercion).
-            var leftObject = await EvaluateValue(context.valueStmt(0));
-            var rightObject = await EvaluateValue(context.valueStmt(1));
+            var leftObject = await EvaluateValueFast(context.valueStmt(0));
+            var rightObject = await EvaluateValueFast(context.valueStmt(1));
             leftObject.RefuseOddBytes("Is");
             rightObject.RefuseOddBytes("Is");
             if (leftObject.Type == Vb6Value.ValueType.Error || rightObject.Type == Vb6Value.ValueType.Error)
@@ -2457,7 +2489,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var compareText = currentModule?.PrePass.OptionCompareText == true;
         if (context.EQ() != null || context.NEQ() != null)
         {
-            var (left, right) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
+            var (left, right) = await GetTwoValuesSameTypesOrNull(context.CachedValues());
             if (left.IsOddByteString || right.IsOddByteString)
                 return new Vb6Value(CompareOddBytes(left, right, compareText, context.EQ() != null ? "=" : "<>") == 0);
             if (left.Type == Vb6Value.ValueType.Null || right.Type == Vb6Value.ValueType.Null)
@@ -2469,7 +2501,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             : context.GT() != null ? Order.Greater
             : context.LEQ() != null ? Order.LessOrEqual
             : Order.GreaterOrEqual;
-        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.CachedValues());
         if (leftValue.IsOddByteString || rightValue.IsOddByteString)
             return new Vb6Value(CompareOddBytes(leftValue, rightValue, compareText, context.LT() != null ? "<"
                 : context.GT() != null ? ">" : context.LEQ() != null ? "<=" : ">=") < 0);
@@ -2528,7 +2560,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // result ladder is defined over (Byte with Integer is Integer; Byte with Byte stays Byte) and
         // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
         // to a common type; they reduce each operand to bits independently. (#166)
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());
         return And(leftValue, rightValue, context);
     }
 
@@ -2545,7 +2577,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // result ladder is defined over (Byte with Integer is Integer; Byte with Byte stays Byte) and
         // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
         // to a common type; they reduce each operand to bits independently. (#166)
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());
         return Or(leftValue, rightValue, context);
     }
 
@@ -2562,7 +2594,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // result ladder is defined over (Byte with Integer is Integer; Byte with Byte stays Byte) and
         // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
         // to a common type; they reduce each operand to bits independently. (#166)
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());
         return Xor(leftValue, rightValue, context);
     }
 
@@ -2574,7 +2606,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsNegation(VB6Parser.VsNegationContext context)
     {
-        return Negation(await EvaluateScalar(context.valueStmt()), context);
+        return Negation(await EvaluateScalarFast(context.valueStmt()), context);
     }
 
     internal static Vb6Value Negation(Vb6Value value, Antlr4.Runtime.ParserRuleContext context)
@@ -2588,7 +2620,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsNot(VB6Parser.VsNotContext context)
     {
-        return Not(ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(await EvaluateValue(context.valueStmt()), "Not", stmtFrames), context), context);
+        return Not(ObjectAsValue.Scalar(await interpreter.ResolveDefaultMember(await EvaluateValueFast(context.valueStmt()), "Not", stmtFrames), context), context);
     }
 
     internal static Vb6Value Not(Vb6Value value, Antlr4.Runtime.ParserRuleContext context)
@@ -2605,7 +2637,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsEqv(VB6Parser.VsEqvContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());   // raw — see VisitVsAnd
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());   // raw — see VisitVsAnd
         return Eqv(leftValue, rightValue, context);
     }
 
@@ -2619,7 +2651,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsImp(VB6Parser.VsImpContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());   // raw — see VisitVsAnd
+        var (leftValue, rightValue) = await GetTwoValuesFast(context.CachedValues());   // raw — see VisitVsAnd
         return Imp(leftValue, rightValue, context);
     }
 
@@ -2692,12 +2724,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         string targetName;
         if (targetType == null && operandStmt is VB6Parser.VsCompareContext vsIs && vsIs.IS() != null)
         {
-            operand = await EvaluateValue(vsIs.valueStmt(0));
+            operand = await EvaluateValueFast(vsIs.valueStmt(0));
             targetName = vsIs.valueStmt(1).GetText();
         }
         else
         {
-            operand = await EvaluateValue(operandStmt);
+            operand = await EvaluateValueFast(operandStmt);
             targetName = targetType?.complexType()?.GetText() ?? targetType?.baseType()?.GetText()
                 ?? throw new VBCompileErrorException("Expected a type after TypeOf … Is");
         }

@@ -57,7 +57,7 @@ SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal 
 
 ### Requirement: Missing Declare libraries off Windows
 
-The interpreter SHALL collect Declare names, Lib strings and Sub/Function kinds without probing native libraries. Off Windows, supported missing-library calls SHALL evaluate arguments once, retaining ByRef targets, then raise trappable error 53, `File not found: ` plus the Lib string. Windows and host-library calls SHALL keep their refusal. In the missing-library path, a call through an Alias SHALL raise the same error 53, since the library fails before its entry point is sought (measured), and a named-argument call SHALL refuse as not implemented until a Declare's parameters are collected (#4869).
+The interpreter SHALL collect Declare names, parameter lists, Lib strings and Sub/Function kinds without probing native libraries. Off Windows, supported missing-library calls SHALL evaluate arguments once, retaining ByRef targets, then raise trappable error 53, `File not found: ` plus the Lib string. Windows and host-library calls SHALL keep their refusal. In the missing-library path, a call through an Alias SHALL raise the same error 53, since the library fails before its entry point is sought (measured). A named argument SHALL be placed by the Declare's parameter name and evaluated once before error 53.
 
 #### Scenario: A missing DLL Function evaluates its argument
 
@@ -79,7 +79,7 @@ The interpreter SHALL collect Declare names, Lib strings and Sub/Function kinds 
 #### Scenario: A named-argument Declare call
 
 - **WHEN** an off-Windows missing-library call passes a named argument
-- **THEN** it is refused as not implemented until a Declare's parameters are collected (#4869)
+- **THEN** the argument is placed by name and runs once before error 53 with Err.Description `File not found: ` plus the Lib string, as measured in [#4869](https://github.com/hexide-io/HexIDE/issues/4869)
 - **AND** an uncalled declaration still loads
 
 ### Requirement: For Each walks control-array indices captured at entry
@@ -1485,7 +1485,7 @@ It SHALL share the control Font reference and publish later mutations after `Set
 Assignments SHALL also implement the exact successful and error rows measured in
 [#4807](https://github.com/hexide-io/HexIDE/issues/4807), including name, size and charset substitutions
 and the differing Bold/Weight name results. Failed assignments SHALL preserve every member.
-Other values and conversions SHALL refuse as not implemented, citing #4807. TypeName retains
+Other values and conversions SHALL refuse as not implemented, citing #4926. TypeName retains
 the shared object’s `Font` spelling.
 
 #### Scenario: Two controls share one Font
@@ -2623,7 +2623,7 @@ state and saved form values.
 The interpreter SHALL allocate module, local and Static scalar `String * N` variables with N NUL
 characters. Each store SHALL convert to String, truncate on the right or pad on the right with spaces
 to N characters. Null SHALL raise 94 and leave the stored value unchanged. N SHALL be an integer literal
-or integer Const from 1 to 65,526; an invalid length SHALL report "Invalid length for fixed-length
+or numeric Const from 1 to 65,526, rounded half to even (including numeric text and Date serials); an invalid length SHALL report "Invalid length for fixed-length
 string", and a variable width SHALL report "Constant expression required".
 
 Measured native and p-code behaviour: [#179](https://github.com/hexide-io/HexIDE/issues/179), supervisor
@@ -2634,7 +2634,7 @@ field by its width (Integer plus String * 4 is 6). ByRef String/Variant paramete
 value in and coerce the copy out on return. Get/Put SHALL omit length prefixes for fixed Strings and Type
 fields, using their declared widths
 ([measured record rows](../../../docs/vb6-fidelity-oracle/random-and-binary-files-get-put-and-len.md)).
-Fixed-length String parameters SHALL report "Expected array"; Function and Property Get returns SHALL
+Scalar fixed-length String parameters SHALL report "Expected array"; Function and Property Get returns SHALL
 report "Expected: end of statement".
 
 #### Scenario: Padding is part of the value
@@ -2646,6 +2646,42 @@ report "Expected: end of statement".
 - **WHEN** Mid, LSet or RSet writes a fixed-length scalar String
 - **THEN** it retains its declared width
 - **AND** both LSet and RSet retain the leftmost characters of an overlong source
+
+### Requirement: Fixed-length String arrays and parameter storage
+
+The interpreter SHALL implement the fixed String array storage, ReDim and parameter rows measured
+native and p-code in [#179](https://github.com/hexide-io/HexIDE/issues/179) (oracle PR #4923),
+raising errors as the statements and calls execute.
+
+#### Scenario: Whole-array stores
+- **WHEN** a dynamic fixed String array, including a Type field, receives a matching-width fixed String array
+- **THEN** it owns an independent copy, or becomes unallocated if the source is unallocated
+- **AND** static targets and declared arrays of incompatible widths or String kinds report "Can't assign to array"
+- **AND** an incompatible Variant or expression source raises 13 without changing the target
+- **AND** coercing a fixed String array into Variant reports "Can't assign or coerce array of fixed-length string or user-defined type to Variant"
+- **AND** storing one into a variable declared with a scalar type, such as a String or a Long, reports "Type mismatch"
+
+#### Scenario: ReDim As keeps the declared width
+- **WHEN** ReDim or ReDim Preserve names the same fixed String width
+- **THEN** new elements contain N NULs and surviving preserved elements retain their values
+- **AND** changing width or switching between fixed and variable Strings reports "Can't change data types of array elements"
+- **AND** ReDim As on a new local name declares its width even under Option Explicit
+
+#### Scenario: Fixed String array parameters share storage
+- **WHEN** a fixed String array is passed to an array parameter of the same width
+- **THEN** element stores and ReDim of a dynamic array reach the caller
+- **AND** a fixed String array passed to a variable String array parameter, or any other array or a Variant holding one passed to a fixed-width array parameter, reports "Type mismatch: array or user-defined type expected"
+- **AND** differing fixed widths remain explicitly not implemented because native and p-code disagree
+
+#### Scenario: A Variant parameter retains a String
+- **WHEN** a fixed String is passed ByRef to a Variant parameter
+- **THEN** the parameter uses ordinary String storage, converts stores to String and raises 94 on Null without changing its value
+- **AND** copy-out coerces to the caller's width
+
+#### Scenario: Other measured ByRef types refuse fixed String lvalues
+- **WHEN** a fixed String scalar, array element or Type field is passed ByRef to Integer, Long, Single, Double, Currency, Byte, Boolean, Date or Object
+- **THEN** the call reports "ByRef argument type mismatch"
+- **AND** passing a scalar to a String or Variant array parameter reports "Type mismatch: array or user-defined type expected"
 
 ### Requirement: LSet between plain-data user-defined types
 
