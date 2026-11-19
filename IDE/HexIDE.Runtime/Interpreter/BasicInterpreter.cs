@@ -565,7 +565,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 else
                 {
                     var elementType = f.ScalarType ?? (f.UdtTypeName is { } enumType && Enums.ContainsKey(enumType)
-                        ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#178)"));
+                        ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#4925)"));
                     var arrayType = new Vb6Value.ValueType(elementType, true);
                     fields[f.Name] = bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, bounds);
                     if (fixedWidth is { } width)
