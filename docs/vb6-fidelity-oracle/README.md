@@ -594,6 +594,7 @@ added afterwards.
 - [A negative or zero control size (2026-11-16, #589)](a-negative-or-zero-control-size.md#a-negative-or-zero-control-size-2026-11-16-589)
 - [The same `.frm` in VB6's IDE (2026-11-16, #4179)](a-negative-or-zero-control-size.md#the-same-frm-in-vb6s-ide-2026-11-16-4179)
 - [A control's minimum size (2026-11-16, #4071)](a-controls-minimum-size.md#a-controls-minimum-size-2026-11-16-4071)
+- [Visible before a form is shown, by kind of control (2026-11-19, #4829)](visible-before-a-form-is-shown.md#visible-before-a-form-is-shown-by-kind-of-control-2026-11-19-4829)
 - [Menus at run time, and the menu bar (2026-10-17, #1126, #1127)](menus-at-run-time-and-the-menu-bar.md#menus-at-run-time-and-the-menu-bar-2026-10-17-1126-1127)
 - [When a menu's Click is raised (2026-10-22, #1344)](when-a-menus-click-is-raised.md#when-a-menus-click-is-raised-2026-10-22-1344)
 - [Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)](choosing-a-menu-item-leaves-checked-to-the-program.md#choosing-a-menu-item-leaves-checked-to-the-program-2026-10-18-1158-measured-by-1159)
