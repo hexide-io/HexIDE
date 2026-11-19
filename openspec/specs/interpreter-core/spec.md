@@ -1545,6 +1545,17 @@ Measured in [a form's own ActiveControl](../../../docs/vb6-fidelity-oracle/a-for
 - **WHEN** a form's Visible property is set to False or True
 - **THEN** it SHALL follow Hide or Show respectively, including the active form's control focus and activation transition
 
+#### Scenario: A control on a loaded or hidden form
+- **WHEN** a program reads a windowed control's Visible on a form that is not shown
+- **THEN** it SHALL read False, using the form view's IsShown on desktop and hosted forms
+- **WHEN** the form is shown
+- **THEN** the control SHALL read its own visibility value
+- **AND** Line SHALL keep reading its own value through Load, Show and Hide
+- **AND** the setter and existing Label, Image, Shape, menu and hidden-container behavior SHALL remain unchanged
+
+Measured button, Line, ProgressBar and loaded button-array rows: [#4829](https://github.com/hexide-io/HexIDE/issues/4829).
+Hidden Frame/PictureBox ancestry and immediate reads after setting Visible on a hidden form remain unmeasured.
+
 #### Scenario: The active form unloads with another form shown
 - **WHEN** the active form unloads while a previously active form remains shown
 - **THEN** that remaining form SHALL receive Activate and its remembered control SHALL receive GotFocus

@@ -428,11 +428,14 @@ public class ControlsAddTests
             "add VB.Line -> Line Name=a14 Index=e343 X1=0 Y1=0 X2=0 Y2=0 pos=19/20");
     }
 
-    // Visible as the control's own flag, which vb6.exe's WS_VISIBLE shows: session 0 never showed the form, so its Visible read False.
+    // #4829's console rerun: Visible reads the own flag only on a shown form; session 0 never showed it.
+    // https://github.com/hexide-io/HexIDE/issues/4829
     [AvaloniaFact]
     public void An_added_control_is_hidden_until_its_Visible_is_set()
     {
         Printed("""
+            Me.Show
+            DoEvents
             Dim c As Object, i As Integer, classes
             classes = Array("VB.CommandButton", "VB.TextBox", "VB.PictureBox", "VB.Frame", "VB.ListBox", "VB.ComboBox", "VB.CheckBox")
             For i = 0 To UBound(classes)
