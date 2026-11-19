@@ -239,8 +239,8 @@ internal static class VbRecordFormat
     private static void WriteElements(Writer w, VBArray array)
     {
         var element = array.ElementType;
-        if (array.FixedStringWidth is not null)
-            throw new NotImplementedException("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
+        if (array.FixedStringWidth is not null && !VbFiles.Ansi().IsSingleByte)
+            throw new NotImplementedException("Fixed-length String array records with a double-byte code page are not implemented (#179)");
         if (element == Vb6Value.ValueType.UserDefinedType)
             throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#4925)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
@@ -253,7 +253,7 @@ internal static class VbRecordFormat
             else if (element is null || element == Vb6Value.ValueType.EmptyVariant)
                 WriteVariant(w, value);
             else
-                WriteTyped(w, value, element, prefixed: true);
+                WriteTyped(w, value, element, prefixed: array.FixedStringWidth is null);
         }
     }
 
@@ -473,8 +473,8 @@ internal static class VbRecordFormat
     public static void ReadElementsInto(IRecordSource source, VBArray array)
     {
         var element = array.ElementType;
-        if (array.FixedStringWidth is not null)
-            throw new NotImplementedException("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
+        if (array.FixedStringWidth is not null && !VbFiles.Ansi().IsSingleByte)
+            throw new NotImplementedException("Fixed-length String array records with a double-byte code page are not implemented (#179)");
         if (element == Vb6Value.ValueType.UserDefinedType)
             throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#4925)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
@@ -489,7 +489,8 @@ internal static class VbRecordFormat
                 else if (element is null || element == Vb6Value.ValueType.EmptyVariant)
                     array.SetValue(index, ReadVariant(source));
                 else
-                    array.SetValue(index, ReadTyped(source, element, prefixed: true));
+                    array.SetValue(index, ReadTyped(source, element, prefixed: array.FixedStringWidth is null,
+                        unprefixedLength: array.FixedStringWidth ?? 0));
             }
             catch (RecordGetFailure failure)
             {
