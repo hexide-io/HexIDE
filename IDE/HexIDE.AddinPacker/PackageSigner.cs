@@ -384,16 +384,16 @@ public static class PackageSigner
     // The trust folder's key has to be the one its publisher record names. A firstparty.key left over from an earlier
     // chain, or a release secret not yet changed along with the records, would otherwise sign packages that every HexIDE
     // trusting that record refuses, and nothing would fail until someone tried to load one (#4109). Checked before the
-    // output is read or anything is written.
+    // output is read or anything is written. The match is a signature the record's key accepts, imported and checked as
+    // the IDE does, so pack refuses exactly what the IDE would: a record may encode the same key in other valid bytes.
     private static void RequireKeyOfTheRecord(string trust)
     {
         var keyPath = Path.Combine(trust, "firstparty.key");
         var recordPath = Path.Combine(trust, "publisher.json");
-        string keyHolds;
+        ECDsa key;
         try
         {
-            using var key = PackageCrypto.ImportPrivateKey(File.ReadAllText(keyPath).Trim());
-            keyHolds = PackageCrypto.KeyFingerprint(PackageCrypto.ExportPublicKey(key));
+            key = PackageCrypto.ImportPrivateKey(File.ReadAllText(keyPath).Trim());
         }
         catch (Exception ex) when (ex is CryptographicException or FormatException)
         {
@@ -401,22 +401,33 @@ public static class PackageSigner
             throw new InvalidOperationException($"'{keyPath}' isn't a private key this tool can read. Nothing was packed.");
         }
 
-        var record = JsonSerializer.Deserialize(File.ReadAllBytes(recordPath), AddinJsonContext.Default.PublisherRecord);
-        string recordNames;
-        try
+        using (key)
         {
-            recordNames = PackageCrypto.KeyFingerprint(record?.PublicKey ?? throw new FormatException());
-        }
-        catch (FormatException)
-        {
-            throw new InvalidOperationException($"'{recordPath}' names no public key this tool can read. Nothing was packed.");
-        }
+            var record = JsonSerializer.Deserialize(File.ReadAllBytes(recordPath), AddinJsonContext.Default.PublisherRecord);
+            ECDsa named;
+            try
+            {
+                named = PackageCrypto.ImportPublicKey(record?.PublicKey ?? throw new FormatException());
+            }
+            catch (Exception ex) when (ex is CryptographicException or FormatException)
+            {
+                throw new InvalidOperationException($"'{recordPath}' names no public key this tool can read. Nothing was packed.");
+            }
 
-        if (keyHolds != recordNames)
+            using (named)
+            {
+                var probe = RandomNumberGenerator.GetBytes(32);
+                if (PackageCrypto.Verify(named, probe, PackageCrypto.Sign(key, probe)))
+                    return;
+            }
+
+            // The record's fingerprint is of its key as written, which is what TRUST.md and the trust details show.
             throw new InvalidOperationException(
-                $"'{keyPath}' isn't the key '{recordPath}' names: the key's public half is {keyHolds}, and the record names "
-                + $"{recordNames}. Nothing was packed. If this key is left over from an earlier signing chain, remove it; "
-                + "otherwise get the current key for this record.");
+                $"'{keyPath}' isn't the key '{recordPath}' names: the key's public half is "
+                + $"{PackageCrypto.KeyFingerprint(PackageCrypto.ExportPublicKey(key))}, and the record names "
+                + $"{PackageCrypto.KeyFingerprint(record!.PublicKey)}. Nothing was packed. If this key is left over from an earlier "
+                + "signing chain, remove it; otherwise get the current key for this record.");
+        }
     }
 
     private static void RequireOwnedOutput(string output, string trust)
