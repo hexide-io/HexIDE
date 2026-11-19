@@ -123,6 +123,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 Version.TryParse(r.Version, out var version) ? version.Major : null,
                 Version.TryParse(r.Version, out version) ? version.Minor : null,
                 r.Lcid, r.LibPath is null ? null : SerializedProject.ToHostPath(r.LibPath))).ToArray();
+            references = WithProjectReferences(project, references);
             var arguments = project.ConditionalArguments() ?? ConditionalConstants.NoArguments;
             contexts.Add(new WorkspaceArtifactContext(root,
                 new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments),
@@ -135,6 +136,27 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
         }
         _projects = contexts;
         if (notify) ProjectChanged?.Invoke();
+    }
+
+    private WorkspaceProjectReference[] WithProjectReferences(ProjectDefinition project, WorkspaceProjectReference[] libraries)
+    {
+        if (project.AbsolutePath is not { } definition) return libraries;
+        var folder = Path.GetDirectoryName(definition)!;
+        var ordered = libraries.Select((reference, index) => (Position: index * 2 + 1, Reference: reference)).ToList();
+        foreach (var (slot, line) in project.UnknownPreSectionLines.OrderBy(l => l.PositionHint))
+        {
+            var parts = line.Split('=', 2);
+            if (parts.Length != 2 || !parts[0].Trim().Equals("Reference", StringComparison.OrdinalIgnoreCase)
+                || !parts[1].StartsWith("*\\A", StringComparison.OrdinalIgnoreCase)) continue;
+            var path = Path.GetFullPath(SerializedProject.ToHostPath(parts[1][3..]), folder);
+            var target = _observed!.LoadedProjects.FirstOrDefault(p => p != project && p.AbsolutePath is { } candidate
+                && HexIDE.IO.HostFilePath.Equals(path, candidate));
+            if (target is null) continue;
+            // Unknown lines sit before the known key at their slot; only library references count here.
+            var before = project.KnownLineKeys.Take(slot).Count(k => k.Equals("Reference", StringComparison.OrdinalIgnoreCase));
+            ordered.Add((before * 2, new WorkspaceProjectReference(target.Name) { IsProject = true }));
+        }
+        return ordered.OrderBy(r => r.Position).Select(r => r.Reference).ToArray();
     }
 
     private void Observe(INotifyPropertyChanged item)

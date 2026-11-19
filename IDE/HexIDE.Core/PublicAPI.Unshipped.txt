@@ -17,3 +17,5 @@ HexIDE.Addins.AddinProjectContent.Components.get -> System.Collections.Generic.I
 HexIDE.Addins.AddinProjectContent.Components.init -> void
 HexIDE.Addins.AddinProjectType.FormFormat.get -> string?
 HexIDE.Addins.AddinProjectType.FormFormat.init -> void
+HexIDE.Lsp.WorkspaceProjectReference.IsProject.get -> bool
+HexIDE.Lsp.WorkspaceProjectReference.IsProject.init -> void

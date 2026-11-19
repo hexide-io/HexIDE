@@ -20,6 +20,47 @@ public sealed class RdcoreProjectProviderTests
         return JsonDocument.Parse(output!);
     }
 
+    [Theory]
+    [InlineData(null, "1.3")]
+    [InlineData("""{"version":"0.1.0"}""", "0.1.0")]
+    public void ProjectReferencesKeepTheirPositionAndSelectTheFormat(string? settings, string version)
+    {
+        var project = new WorkspaceProjectSnapshot("Client", null, [File("Main.bas", WorkspaceProjectFileKind.Module)],
+            [new("First"), new("Lib") { IsProject = true }, new("Last")]);
+        var names = Substitute.For<IWorkspaceLibraryNames>();
+        names.NameOf(Arg.Any<WorkspaceProjectReference>()).Returns("LibraryName");
+        using var configured = settings is null ? null : JsonDocument.Parse(settings);
+        using var json = JsonDocument.Parse(new RdcoreProjectProvider().Produce(
+            new WorkspaceArtifactContext(Root, project, configured?.RootElement.Clone(), names))!);
+        json.RootElement.GetProperty("Version").GetString().Should().Be(version);
+        var references = json.RootElement.GetProperty("ProjectInfo").GetProperty("References");
+        references.EnumerateArray().Select(r => r.GetProperty("Name").GetString())
+            .Should().Equal("LibraryName", "Lib", "LibraryName");
+        references[1].GetProperty("IsProject").GetBoolean().Should().BeTrue();
+        references[1].EnumerateObject().Select(p => p.Name).Should().Equal("Name", "IsProject");
+        references[0].TryGetProperty("IsProject", out _).Should().BeFalse();
+        references[2].TryGetProperty("IsProject", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void LibraryReferenceJsonStaysUnchanged()
+    {
+        using var json = Produce(new("Client", null, [File("Main.bas", WorkspaceProjectFileKind.Module)], [new("Library")]));
+        json.RootElement.GetProperty("Version").GetString().Should().Be("1.0");
+        json.RootElement.GetProperty("ProjectInfo").GetProperty("References")[0].GetRawText().ReplaceLineEndings("\n")
+            .Should().Be("""
+            {
+                    "Name": "Library",
+                    "AbsolutePath": null,
+                    "Guid": null,
+                    "Major": null,
+                    "Minor": null,
+                    "TypeLibInfoPath": null,
+                    "IsUnremovable": false
+                  }
+            """.ReplaceLineEndings("\n"));
+    }
+
     [Fact]
     public void ListsEveryCodeFileAsAModuleRelativeToTheRoot()
     {

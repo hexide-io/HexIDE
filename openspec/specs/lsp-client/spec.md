@@ -2287,6 +2287,13 @@ anyway, so it is recorded rather than defended.
 - **AND** it lists no other files, since RDCore parses every listed file as code
 - **AND** it emits nothing for a project with no code files
 
+#### Scenario: RDCore group project references
+- **WHEN** a preserved `Reference=*\A` line resolves relative to its `.vbp` to another loaded project's path
+- **THEN** the snapshot SHALL carry that project's current name at the line's position among library references
+- **AND** the rdcore provider SHALL write only `Name` and `IsProject: true` for it, using format `1.3` unless a configured version overrides it
+- **AND** an unmatched project reference SHALL be omitted, while library-only descriptors retain format `1.0` and their existing reference JSON
+- **AND** a rename or group membership change SHALL refresh the projection without changing the `.vbp` or the interpreter's reference list (#4899)
+
 #### Scenario: Capability boundaries
 - **WHEN** a server declares no artefact
 - **THEN** no artefact is generated for it
