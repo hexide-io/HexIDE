@@ -194,6 +194,22 @@ What these show:
     next pass.
   - The first run of this probe, without the stop, looped until the 60-second timeout, in both builds.
 
+**A fault left behind by a routine, then a Resume in the main flow.** A third probe, measured while #4880's build was
+reviewed, native and p-code agreeing line for line. Each row is a Sub called under `On Error Resume Next`:
+
+| Row | Program | VB6 |
+|---|---|---|
+| Q1 | `On Error GoTo H`; `GoSub A`; `A` raises 5; `H` does `Return` with no Resume (G35); the main flow logs, then does `Resume Next` | `back 5`, then the line after the raise in `A`, with `Err.Number` 0. `A`'s `Return` is then **3**, which `H` traps; `H`'s own `Return` is 3 again, which reaches the caller |
+| Q2 | `On Error Resume Next`; `GoSub A`; `A` raises 5 and returns; the main flow does `Resume Next` | `A after 5`, `back 5`, then **20** on the `Resume Next`, which Resume Next mode goes past, so the caller sees 20 |
+| Q3 | as Q1, but after the Return the main flow does `Err.Raise 6` | `back 5`, then **6 reaches the caller**: `H` doesn't trap it |
+| Q4 | `On Error Resume Next`; `Err.Raise 5`; `Resume Next`, with no GoSub | the line after the raise, with 5; then **20** on the `Resume Next`, and the caller sees 20 |
+
+- **A handler that leaves by `Return` is still running, and its error is still the one Resume resumes.** After Q1's
+  `Return`, a `Resume Next` in the main flow resumed after the fault inside the routine. A new error after the
+  `Return` reached the caller (Q3), as one raised inside a running handler does.
+- **An error that On Error Resume Next went past leaves nothing to resume.** A later `Resume` is 20, in the main flow
+  (Q4) and after a routine's `Return` (Q2).
+
 **Not measured:** a selector held in a typed variable rather than a Variant; and stepping over a GoSub in VB6's
 debugger (D37 in `docs/debugger-vb6-divergences.md`).
 
