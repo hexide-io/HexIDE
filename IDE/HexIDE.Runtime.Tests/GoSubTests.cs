@@ -603,7 +603,7 @@ public class GoSubTests : BaseVBTestFixture
             Main
             """ + "\n");
         (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message
-            .Should().Contain("selector outside Integer range").And.Contain("#4726");
+            .Should().Contain("selector outside Integer range").And.Contain("#4880");
         debug.Should().BeEmpty();
     }
 
@@ -630,7 +630,7 @@ public class GoSubTests : BaseVBTestFixture
             Main
             """ + "\n");
         (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message
-            .Should().Contain("Resume of a handler error").And.Contain("#4726");
+            .Should().Contain("Resume of a handler error").And.Contain("#4880");
         debug.Should().BeEmpty();
     }
 }
