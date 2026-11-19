@@ -171,10 +171,9 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
             host.Children.Remove(control);
         if (menuHosts.TryGetValue(index, out var menu))
         {
-            // Unloading the last visible top-level menu would take the bar away, which is refused as hiding it is.
-            if (menu is Menu bar)
-                AvaloniaInterop.MenuMembers.RefuseBarChange(bar, bar.IsVisible && control.IsVisible
-                    && !bar.Items.OfType<Control>().Any(other => !ReferenceEquals(other, control) && other.IsVisible));
+            if (menu is Menu bar && control.IsVisible
+                && !bar.Items.OfType<Control>().Any(other => !ReferenceEquals(other, control) && other.IsVisible))
+                AvaloniaInterop.MenuMembers.ChangeBar(bar, false);
             menu.Items.Remove(control);
         }
         elements.Remove(index);

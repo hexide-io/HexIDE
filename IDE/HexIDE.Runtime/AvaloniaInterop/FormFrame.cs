@@ -67,6 +67,14 @@ internal static class FormFrame
     public static void Set(Window window, FormChrome chrome, bool menu) =>
         states.GetOrCreateValue(window).Frame = Of(chrome.BorderStyle, chrome.CaptionBar, menu);
 
+    internal static void ChangeMenu(Window window, bool visible)
+    {
+        var state = states.GetOrCreateValue(window);
+        state.Frame = (state.Frame.Across, state.Frame.Down + (visible ? MenuBar : -MenuBar));
+        if (state.Height is { } assigned)
+            state.Height = (assigned.Twips, assigned.Client + (visible ? -MenuBar : MenuBar) / VBScaleModeExtensions.PixelToTwips);
+    }
+
     /// <summary>The form's Width or Height, in twips: what was assigned, or the client area and the frame.</summary>
     public static double Read(Window window, bool vertical)
     {
