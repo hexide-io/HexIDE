@@ -222,6 +222,16 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
   wider on the console: File, Edit, View, Project, Format, Debug and Run are 28, 30, 35, 45, 44, 44 and 32 pixels in
   session 0, and 32, 34, 39, 51, 52, 49 and 35 on the console. Alpha to Foxtrot are 39, 40, 44, 37, 37 and 44 in
   session 0, and 45, 44, 51, 41, 40 and 52 on the console.
+- **An item is its caption's width in the menu font, plus a fixed padding.** A fourth probe read
+  `NONCLIENTMETRICS.lfMenuFont` from `SystemParametersInfo`. It measured each caption, without its `&`, with
+  `GetTextExtentPoint32` in that font. `DrawText` with prefix processing gave the same widths. Native and p-code agreed,
+  in both sessions.
+  - **Session 0:** MS Shell Dlg, `lfHeight` -11, with `SM_CXMENUCHECK` 13. All 13 items are their text plus 12 px.
+    Alpha to Foxtrot measure 27, 28, 32, 25, 25 and 32; File to Run measure 16, 18, 23, 33, 32, 32 and 20.
+  - **Console:** Segoe UI, `lfHeight` -12, with `SM_CXMENUCHECK` 15. All 13 are their text plus 14 px. Alpha to
+    Foxtrot measure 31, 30, 37, 27, 26 and 38; File to Run measure 18, 20, 25, 37, 38, 35 and 21.
+  - In both sessions the padding is `SM_CXMENUCHECK` - 1. `iMenuHeight`, 18 and 19, is `SM_CYMENU` - 1, the height
+    each row adds. With only two sessions, those are consistent, not shown to be rules.
 - **An item moves to the next row when its row would leave too little of the client width spare, and how little
   differs by a pixel between the two sessions.** A third probe narrowed Form4 one pixel at a time, from a 101-px
   client to 90, in both sessions, native and p-code agreeing:
@@ -230,8 +240,11 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
   - **Console:** View and Project, 90 px, stayed at 97, 7 px spare, and wrapped at 96, with 6.
   - **Every row measured fits that.** In session 0, rows wrapped with 5, 4, 2 or 0 px spare and stayed with 6, 7, 9
     or more. On the console they wrapped with 6, 5, 4, 3 or 0 and stayed with 7, 10 or more.
-  - That is on Fixed Single forms only, whose items start 3 px in from the window's edge. No rule is offered for why
-    the two sessions differ.
+  - **An item that starts a row stays on it, however little is spare.** At a 54-px console client, Project (51 px)
+    and Format (52 px) each sat alone on a row, with 3 and 2 px spare.
+  - That is on Fixed Single forms only, whose items start 3 px in from the window's edge. Each session's margin is
+    half its item padding, above: 6 of 12, and 7 of 14. With only two sessions, that is consistent, not separated from
+    a margin that is simply different on each desktop.
 - **A Width change re-wraps the bar at once.** Form3 in session 0 unwrapped when its client went from 246 to 256 px:
   ScaleHeight went from 3420 to 3690 and Height stayed 4350. In the first probe, `Width = Width + 3000` unwrapped it
   the same way, and its Resize came inside the `Width` statement, before the next line read anything. Form4 narrowing
