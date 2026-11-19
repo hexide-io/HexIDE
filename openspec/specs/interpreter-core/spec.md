@@ -382,9 +382,11 @@ failures SHALL retain their not-implemented refusals. No-argument clearing and o
 
 For ICO files, `LoadPicture` SHALL take the first 32×32 directory entry when several images exist,
 following [#4623](https://github.com/hexide-io/HexIDE/issues/4623) and [the order measurements](https://github.com/hexide-io/HexIDE/pull/4692).
-A single-image file SHALL keep its own dimensions. A selected PNG image or a 32-bpp BITMAPINFOHEADER
-image missing its AND mask SHALL raise trappable 481 regardless of image-size/resolution header fields.
-Several images without a 32×32 entry, and missing masks at other depths, SHALL refuse as unmeasured.
+A single-image file SHALL keep its own dimensions. When no entry is 32×32, `LoadPicture` SHALL take
+the first image at its own dimensions, following [#4748](https://github.com/hexide-io/HexIDE/issues/4748)
+and [the measurements in PR #4837](https://github.com/hexide-io/HexIDE/pull/4837). A selected PNG image or
+a BITMAPINFOHEADER image missing its AND mask at any depth SHALL raise trappable 481 regardless of
+image-size/resolution header fields. Only the selected image SHALL undergo these checks.
 Saved pictures, SSTab pictures and resource groups SHALL retain their existing decoding paths.
 
 #### Scenario: An icon contains a larger PNG beside a 32×32 bitmap
