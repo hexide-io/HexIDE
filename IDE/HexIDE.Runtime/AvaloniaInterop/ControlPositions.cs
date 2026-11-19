@@ -187,7 +187,7 @@ internal static class ControlPositions
         if (double.IsNaN(pixels))
             pixels = vertical ? form.ClientSize.Height : form.ClientSize.Width;
         // The window holds the bar here, above the canvas, so the client area is what is left below it. The bar is
-        // visible exactly when VBLoader.HasMenuBar made the window taller for it.
+        // initially visible when VBLoader.HasMenuBar made the window taller; posted menu changes update it (#1140).
         if (vertical)
             pixels -= MenuBarHeight(form);
         return Math.Floor(Math.Max(0, pixels) + 1e-9);

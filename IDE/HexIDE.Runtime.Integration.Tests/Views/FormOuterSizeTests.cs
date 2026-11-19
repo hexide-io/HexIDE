@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -49,11 +50,11 @@ public class FormOuterSizeTests
     private sealed record Run(List<string> Printed, List<System.Exception> Errors);
 
     /// <summary>Run Form1 as F5 does, with <paramref name="load"/> as its Load, then close it.</summary>
-    private static Run RunLoad(string frm, string load)
+    private static Run RunLoad(string frm, string load, string extra = "")
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var code = "Private Sub Form_Load()\r\n" + load.ReplaceLineEndings("\r\n") + "\r\nEnd Sub\r\n";
-        var form = new FormDeserializer().Deserialize(project, frm + code, new NullSink())!;
+        var form = new FormDeserializer().Deserialize(project, frm + code + extra.ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form);
 
         var run = new Run([], []);
@@ -150,4 +151,138 @@ public class FormOuterSizeTests
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("3090 2435 3000 1995");
     }
+
+    // Timing and 300-twip bar measured in issue #1140's final supervisor comment (2026-11-18).
+    // The real walk, Posting queue and DoEvents must all participate in these assertions.
+    [AvaloniaTheory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    public void Menu_bar_changes_wait_for_DoEvents(bool shown, bool maximized, bool hidden)
+    {
+        var frm = Form(Style(1), "Form1", menu: true)
+            .Replace("2520", "3420")
+            .Replace("ClientWidth     =   3420", "ClientWidth     =   2940")
+            .Replace("ScaleWidth      =   3420", "ScaleWidth      =   2940")
+            .Replace("mnuFile", "mnuGame");
+        if (hidden)
+            frm = frm.Replace("      Caption", "      Visible = 0\r\n      Caption");
+        var setup = (shown ? "Me.Show\n" : "") + (maximized ? "WindowState = 2\nDoEvents\n" : "");
+        var run = RunLoad(frm, setup + (maximized ? "" : "Debug.Print CStr(ScaleHeight)\n") + """
+            Dim before As Single, outer As Single
+            before = ScaleHeight
+            outer = Height
+            watching = True
+            mnuGame.Visible = Not mnuGame.Visible
+            Debug.Print ScaleHeight = before
+            Debug.Print Height = outer
+            Debug.Print changes
+            DoEvents
+            Debug.Print ScaleHeight - before
+            Debug.Print Height = outer
+            Debug.Print changes
+            Debug.Print observed = ScaleHeight
+            changes = 0
+            mnuGame.Visible = Not mnuGame.Visible
+            Debug.Print ScaleHeight - before
+            Debug.Print changes
+            DoEvents
+            Debug.Print ScaleHeight = before
+            Debug.Print Height = outer
+            Debug.Print changes
+            Debug.Print observed = ScaleHeight
+            watching = False
+            """, """
+            Private watching As Boolean
+            Private changes As Integer
+            Private observed As Single
+            Private Sub Form_Resize()
+                If watching Then
+                    changes = changes + 1
+                    observed = ScaleHeight
+                End If
+            End Sub
+            """);
+        run.Errors.Should().BeEmpty();
+        var delta = hidden ? "-300" : "300";
+        run.Printed.Select(line => line.Trim()).Should().Equal(
+            (maximized ? System.Array.Empty<string>() : new[] { "3420" })
+            .Concat(new[] { "True", "True", "0", delta, "True", "1", "True", delta, "0", "True", "True", "1", "True" }));
+    }
+
+    [AvaloniaFact]
+    public void Unloading_the_last_visible_menu_posts_the_bar_change()
+    {
+        var frm = Form(Style(1), "Form1", menu: true).Replace("2520", "3420")
+            .Replace("   Begin VB.Menu mnuFile", "   Begin VB.Menu mnuFile\r\n      Index = 0");
+        var run = RunLoad(frm, """
+            Me.Show
+            Load mnuFile(1)
+            mnuFile(0).Visible = False
+            Dim outer As Single
+            outer = Height
+            watching = True
+            Unload mnuFile(1)
+            Debug.Print ScaleHeight
+            Debug.Print Height = outer
+            Debug.Print changes
+            DoEvents
+            Debug.Print ScaleHeight
+            Debug.Print Height = outer
+            Debug.Print changes
+            Debug.Print observed
+            watching = False
+            """, """
+            Private watching As Boolean
+            Private changes As Integer
+            Private observed As Single
+            Private Sub Form_Resize()
+                If watching Then
+                    changes = changes + 1
+                    observed = ScaleHeight
+                End If
+            End Sub
+            """);
+        run.Errors.Should().BeEmpty();
+        run.Printed.Select(line => line.Trim()).Should().Equal("3420", "True", "0", "3720", "True", "1", "3720");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, false, true)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    public void Unmeasured_MDI_and_wrapped_bars_stay_refused(bool mdi, bool hidden, bool shown)
+    {
+        var frm = Form(Style(1), "Form1", menu: true);
+        frm = mdi ? frm.Replace("   BorderStyle", "   MDIChild = -1\r\n   BorderStyle")
+            : frm.Replace("\"File\"", "\"" + new string('W', 100) + "\"");
+        if (hidden)
+            frm = frm.Replace("      Caption", "      Visible = 0\r\n      Caption");
+        var run = RunLoad(frm, (shown ? "Me.Show\nDoEvents\n" : "")
+            + "mnuFile.Visible = Not mnuFile.Visible\nDoEvents");
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<System.NotImplementedException>()
+            .Which.Message.Should().Contain("#1140");
+    }
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Reversing_a_pending_bar_change_stays_refused_until_its_timing_is_measured(bool hidden)
+    {
+        var frm = Form(Style(1), "Form1", menu: true);
+        if (hidden)
+            frm = frm.Replace("      Caption", "      Visible = 0\r\n      Caption");
+        var run = RunLoad(frm, """
+            Me.Show
+            DoEvents
+            mnuFile.Visible = Not mnuFile.Visible
+            mnuFile.Visible = Not mnuFile.Visible
+            DoEvents
+            """);
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<System.NotImplementedException>()
+            .Which.Message.Should().Contain("#1140");
+    }
+
 }

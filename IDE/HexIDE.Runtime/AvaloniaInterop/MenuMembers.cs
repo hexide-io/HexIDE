@@ -1,5 +1,11 @@
+using System;
+using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -85,7 +91,7 @@ internal static class MenuMembers
             if (!visible && menu.Parent is MenuItem owner && !AnyOtherVisible(owner, menu))
                 throw CantSet("Visible");
             if (menu.Parent is Menu bar)
-                RefuseBarChange(bar, bar.IsVisible && !visible && !AnyOtherVisible(bar, menu) || !bar.IsVisible && visible);
+                ChangeBar(bar, visible || AnyOtherVisible(bar, menu));
         }
         if (ReferenceEquals(property, VBProperties.WindowListProperty))
             throw new System.NotImplementedException("Setting a menu's WindowList at run time is not implemented (#1126)");
@@ -97,17 +103,96 @@ internal static class MenuMembers
     private static bool AnyOtherVisible(ItemsControl parent, Control menu) =>
         parent.Items.OfType<Control>().Any(other => !ReferenceEquals(other, menu) && other.IsVisible);
 
-    /// <summary>
-    /// Refuses a change that would make the menu bar appear or go away: the last visible top-level menu hidden, or one shown
-    /// on a form whose top-level menus are all hidden, as a form that only pops its menus up has them. The bar's height is
-    /// taken off the client area, so the window or ScaleHeight would have to change with it, and how is unmeasured.
-    /// Leaving the bar in place would be a wrong ScaleHeight, so the run stops instead (#1140).
-    /// </summary>
-    internal static void RefuseBarChange(Menu bar, bool changes)
+    private sealed class BarChange
     {
-        if (changes)
-            throw new System.NotImplementedException(
-                "Showing or hiding the menu bar at run time, by the last visible top-level menu's Visible, is not implemented (#1140)");
+        public bool? Pending;
+    }
+
+    private static readonly ConditionalWeakTable<Menu, BarChange> barChanges = new();
+
+    // The statement changes the item; the posted message changes the client area (#1140, measured at DoEvents).
+    internal static void ChangeBar(Menu bar, bool visible)
+    {
+        var root = bar.FindLogicalAncestorOfType<IModuleExecutionRoot>();
+        var window = bar.FindLogicalAncestorOfType<Window>();
+        var change = barChanges.GetOrCreateValue(bar);
+        if (change.Pending is { } pending)
+        {
+            if (pending != visible)
+                throw new NotImplementedException("Reversing a menu bar change before message delivery is not implemented (#1140)");
+            return;
+        }
+        if (bar.IsVisible == visible)
+            return;
+        var context = root switch
+        {
+            VBFormRuntime form => form.Context,
+            HostedFormRoot hosted => hosted.Context,
+            _ => null
+        };
+        if (context?.FormDefinition is { } definition && IsMdiChild(definition))
+            throw new System.NotImplementedException("Changing an MDI child's menu bar is not implemented (#1140)");
+        RefuseWrapped(bar, window);
+
+        Task Apply()
+        {
+            change.Pending = null;
+            if (bar.IsVisible == visible)
+                return Task.CompletedTask;
+            bar.IsVisible = visible;
+            if (window is not null)
+                FormFrame.ChangeMenu(window, visible);
+            // DockPanel lays the canvas out in the area left below the bar; do not resize the window.
+            window?.UpdateLayout();
+            try
+            {
+                // A bar first shown from code has no item extents until this layout.
+                if (visible)
+                    RefuseWrapped(bar, window);
+            }
+            catch (NotImplementedException)
+            {
+                bar.IsVisible = !visible;
+                if (window is not null)
+                    FormFrame.ChangeMenu(window, !visible);
+                window?.UpdateLayout();
+                throw;
+            }
+            root?.ExecuteSub("Form_Resize");
+            return Task.CompletedTask;
+        }
+        if (root?.Events is { } events)
+        {
+            using var posting = events.Posting();
+            change.Pending = visible;
+            events.Raise("MenuBar", Apply);
+        }
+        else
+            Apply().GetAwaiter().GetResult();
+    }
+
+    private static void RefuseWrapped(Menu bar, Window? window)
+    {
+        var width = bar.Bounds.Width > 0 ? bar.Bounds.Width : window?.Width ?? 0;
+        if (width <= 0 || double.IsNaN(width))
+            return;
+        bar.Measure(new Size(width, double.PositiveInfinity));
+        if (bar.Items.OfType<Control>().Where(item => item.IsVisible)
+            .Sum(item => item.DesiredSize.Width) > width)
+            throw new NotImplementedException("Changing a wrapped menu bar is not implemented (#1140)");
+    }
+
+    private static bool IsMdiChild(ProjectElements.FormDefinition definition)
+    {
+        foreach (var property in VBLoader.FormComponentOf(definition).UnknownRawProperties)
+        {
+            if (!property.Name.Equals("MDIChild", StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
+                continue;
+            var line = property.Lines[0];
+            var value = line[(line.IndexOf('=') + 1)..].Split('\'')[0].Trim();
+            return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var child) && child != 0;
+        }
+        return false;
     }
 
     private static bool IsShared(PropertyClass property) =>
