@@ -125,7 +125,7 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
     public async Task Unmeasured_library_values_are_refused(string expression)
     {
         var act = () => Run(Declaration(expression));
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4594").And.Contain("M");
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4745").And.Contain("M");
     }
 
     [Theory]

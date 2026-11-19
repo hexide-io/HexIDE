@@ -392,6 +392,19 @@ public sealed class VBProgram : IFormProgram
     /// </summary>
     private readonly HashSet<VBWindowContext> hiddenBeneath = [];
 
+    /// <summary>Shown, non-minimised windows, least recently activated first, for Continue to restack (#4667).</summary>
+    public IReadOnlyList<object> ShownWindows()
+    {
+        var windows = new List<object>();
+        foreach (var context in activationOrder)
+            if (context.FormInstance is { FormLoaded: true }
+                && context.Window is { } window
+                && FormRoot.View(window) is { IsShown: true } view
+                && view.Extent.State != Avalonia.Controls.WindowState.Minimized)
+                windows.Add(window);
+        return windows;
+    }
+
     private VBWindowContext? NextShown(VBWindowContext leaving) =>
         activationOrder.LastOrDefault(context => !ReferenceEquals(context, leaving)
             && context.FormInstance is { FormLoaded: true } && FormRoot.View(context.Window) is { IsShown: true });
@@ -437,6 +450,8 @@ public sealed class VBProgram : IFormProgram
         var over = interpreter.BuiltIns.WatchRunEnd?.Invoke();
         var window = view as VBFormRuntime;
         var showInTaskbar = window?.ShowInTaskbar ?? false;
+        var caller = interpreter.ActivationStack.LastOrDefault();
+        var debug = caller is not null ? interpreter.DebugController : null;
         try
         {
             if (window is not null)
@@ -446,7 +461,8 @@ public sealed class VBProgram : IFormProgram
             var form = context.FormInstance!;
             // Hidden as the innermost form, it is done; hidden while another modal form was over it, it waits on.
             await Events.WhileModal(() => form.FormLoaded && (view.IsShown || hiddenBeneath.Contains(context))
-                && over?.Invoke() != true);
+                && over?.Invoke() != true, debug,
+                caller is not null && debug is not null ? () => caller.PauseAtModalWait(debug) : null);
         }
         finally
         {

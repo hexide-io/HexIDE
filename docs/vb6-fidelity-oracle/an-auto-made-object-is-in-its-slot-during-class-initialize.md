@@ -90,6 +90,10 @@ These rows were run on HexIDE's runtime with the same guard, and #4605 is the fi
 - **Rows 2 to 5:** the first use gives 5, but the innermost nested object finished and was stored, so the second use
   gives 0 where VB6 gives 5.
 
+**Since fixed** by #4605 in batch 384 (`1f2d7eede`). An auto-made object is in its slot before its Initialize runs, and a
+raising Initialize leaves the slot Nothing with no `Class_Terminate`. `PredeclaredClassTests` and `AsNewTests` pin
+rows 1 to 8.
+
 ### A form's As New instance is in its slot during Form_Initialize (2026-11-18, #4640, SP6)
 
 **The probe.** A Sub Main project held Form2 and Module1. Module1 declared `Public g As New Form2`. Form2's

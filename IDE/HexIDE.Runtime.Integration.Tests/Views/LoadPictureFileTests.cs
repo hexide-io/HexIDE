@@ -126,7 +126,7 @@ public class LoadPictureFileTests : WindowTestFixture
     public void UnmeasuredIconLayoutsRefuse(string images)
     {
         var load = () => PanelPicture.FromFile(Icon(images), loadPicture: true);
-        load.Should().Throw<NotImplementedException>().WithMessage("*(#4623)");
+        load.Should().Throw<NotImplementedException>().WithMessage("*(#4748)");
     }
 
     [AvaloniaTheory]

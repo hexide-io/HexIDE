@@ -75,12 +75,14 @@ public sealed class DebugController : IDebugGate
 
     public DebugState State => _state;
     public bool IsAborting => _isAborting;
+    public bool IsPauseRequested => _pauseRequested;
     public bool IsSessionActive => _sessionActive;
     public int Session => _session;
     public StoppedInfo? CurrentStop => _currentStop;
 
     public event Action<StoppedInfo>? Stopped;
     public event Action? Continued;
+    public event Action? PauseRequested;
 
     /// <summary>Prepare for a fresh run: back to Running, clear paused/aborting state. Breakpoints persist (the
     /// front-end owns them). The IDE calls this at the start of every run; a fresh controller already starts here.</summary>
@@ -179,6 +181,18 @@ public sealed class DebugController : IDebugGate
         if (_isAborting)
             throw new StopExecutionSignal();
         return SuspendAtBreakAsync(StopReason.StopStatement, line, module, frame);
+    }
+
+    public ValueTask OnModalPauseAsync(int line, string module, IDebugFrame frame)
+    {
+        if (_isAborting)
+            throw new StopExecutionSignal();
+        if (!_pauseRequested)
+            return ValueTask.CompletedTask;
+        _pauseRequested = false;
+        _stepMode = StepMode.None;
+        _stepAtNextEvent = false;
+        return SuspendAtBreakAsync(StopReason.Pause, line, module, frame);
     }
 
     public ValueTask EnterBreakFromAssertionAsync(int line, string module, IDebugFrame? frame)
@@ -426,6 +440,7 @@ public sealed class DebugController : IDebugGate
         if (!_dispatchIdle)
         {
             _pauseRequested = true;
+            PauseRequested?.Invoke();
             return;
         }
         _pauseRequested = false;

@@ -101,6 +101,16 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **THEN** the program suspends at the next executed statement and enters break mode
 - **AND** between events it enters break mode immediately with no current statement
 
+#### Scenario: Breaking while a handler waits for a modal form
+- **WHEN** Pause is requested while a handler waits in `Show vbModal` with no other code running
+- **THEN** the modal loop SHALL wake and enter break mode with reason Pause on the waiting Show line
+- **AND** Locals and Call Stack SHALL use that calling procedure's frame
+- **AND** Continue SHALL resume the wait without returning from Show or dismissing the modal form
+- **AND** nested modal waits SHALL stop at the innermost waiting Show (a HexIDE choice, unmeasured in VB6)
+
+The single-wait Pause and Continue behavior is measured in [#4708, rows c/d](https://github.com/hexide-io/HexIDE/issues/4708).
+Stepping from that stop retains the ordinary gate rules; its VB6 behavior remains unmeasured.
+
 #### Scenario: Breaking a DoEvents loop from the IDE
 - **WHEN** a running form has focus and its event handler loops with `DoEvents`
 - **THEN** the Standard and Debug toolbar Break buttons remain enabled
@@ -114,7 +124,9 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 #### Scenario: Continue restores the program window active at Pause
 - **WHEN** a Pause stop brings the IDE forward while a running program's window is active
 - **THEN** the IDE SHALL remember that window, including a modal form
+- **AND** Continue through the interpreter runner SHALL first request non-activating raises of the program's other shown, non-minimised forms, least recently activated first, on Windows, macOS and X11 (#4667; X11 window managers may decline the request; Wayland and unknown backends do not raise)
 - **AND** Continue through the interpreter runner SHALL activate it once if still shown
+- **AND** bringing these forms back SHALL add no form Activate or Deactivate events ([measured rows c/d](https://github.com/hexide-io/HexIDE/issues/4667))
 - **AND** Step Into and Step Over SHALL leave the IDE in front and retain that window for a later Continue
 - **AND** ending or starting the run SHALL forget the window
 
