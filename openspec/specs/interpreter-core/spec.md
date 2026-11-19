@@ -1500,7 +1500,13 @@ It SHALL share the control Font reference and publish later mutations after `Set
 Assignments SHALL also implement the exact successful and error rows measured in
 [#4807](https://github.com/hexide-io/HexIDE/issues/4807), including name, size and charset substitutions
 and the differing Bold/Weight name results. Failed assignments SHALL preserve every member.
-Other values and conversions SHALL refuse as not implemented, citing #4926. TypeName retains
+On a font reading exactly as fresh (MS Sans Serif, Size 8.25, Weight 400, Charset 0 and all flags False),
+assignments SHALL additionally implement the conversions and exact substitutions measured in
+[oracle PR #4943](https://github.com/hexide-io/HexIDE/pull/4943)
+([rows](../../../docs/vb6-fidelity-oracle/a-free-standing-stdfonts-values-of-every-type.md)).
+Null SHALL raise 13 for every member in that state. Standalone Weight SHALL retain measured 350 and 500 readbacks.
+Other values and input types, and other font states beyond the earlier supported rows, SHALL refuse as not implemented,
+citing #4926. TypeName retains
 the shared object’s `Font` spelling.
 
 #### Scenario: Two controls share one Font
