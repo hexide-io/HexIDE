@@ -527,7 +527,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // EnsureTypeBounds runs the owner's declarations where possible; the allocation's executor resolves its own
         // Private Type ahead (#4734). Other unresolved allocation orders keep this refusal pending measurement.
         if (def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
-            throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4734)");
+            throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4907)");
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
