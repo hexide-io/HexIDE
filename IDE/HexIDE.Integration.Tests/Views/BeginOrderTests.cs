@@ -83,12 +83,15 @@ public class BeginOrderTests
     ];
 
     // Every control at its own place, so a copy can be told from its source's sibling by where it is.
-    private static string Frm(string spec)
+    // vb6Indexes writes TabIndexes as VB6 saves them, 0 to N-1 and none on a Shape or Image, so a load leaves them
+    // alone (#4843); otherwise each control's TabIndex is its 1-based place among all the nodes.
+    private static string Frm(string spec, bool vb6Indexes = false)
     {
         var text = new StringBuilder(
             "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption         =   \"Form1\"\r\n" +
             "   ClientHeight    =   4500\r\n   ClientWidth     =   6000\r\n");
         var n = 0;
+        var tabIndex = 0;
         void Write(IEnumerable<Node> nodes, string indent)
         {
             foreach (var node in nodes)
@@ -113,7 +116,11 @@ public class BeginOrderTests
                         if (vbType is not "VB.PictureBox")
                             text.Append($"{p}Caption         =   \"{node.Name}\"\r\n");
                         text.Append($"{p}Height          =   495\r\n{p}Left            =   {120 * n}\r\n");
-                        text.Append($"{p}TabIndex        =   {n}\r\n{p}Top             =   {60 * n}\r\n{p}Width           =   1215\r\n");
+                        if (!vb6Indexes)
+                            text.Append($"{p}TabIndex        =   {n}\r\n");
+                        else if (vbType is not ("VB.Shape" or "VB.Image"))
+                            text.Append($"{p}TabIndex        =   {tabIndex++}\r\n");
+                        text.Append($"{p}Top             =   {60 * n}\r\n{p}Width           =   1215\r\n");
                         break;
                 }
                 Write(node.Children, p);
@@ -233,7 +240,7 @@ public class BeginOrderTests
         try
         {
             var path = Path.Combine(dir, "Form1.frm");
-            var source = Frm(spec).Replace("   ClientWidth     =   6000\r\n",
+            var source = Frm(spec, vb6Indexes: true).Replace("   ClientWidth     =   6000\r\n",
                 "   ClientWidth     =   6000\r\n   ScaleHeight     =   4500\r\n   ScaleWidth      =   6000\r\n");
             File.WriteAllText(path, source);
             var projectPath = Path.Combine(dir, "P.vbp");

@@ -82,9 +82,10 @@ public class DesignerTabOrderTests
                 .GetVisualDescendants().OfType<TextBlock>().Single();
             var label = badges.Single(b => b.DataContext is ComponentInstanceViewModel { Name: "Label1" })
                 .GetVisualDescendants().OfType<TextBlock>().Single();
-            label.Text.Should().Be("4");
+            // Saved as 7 and 4, both past the two indexed controls, so the load renumbers them in file order (#4843).
+            label.Text.Should().Be("1");
             label.TextDecorations.Should().BeNullOrEmpty();
-            text.Text.Should().Be("7");
+            text.Text.Should().Be("0");
             badges.Single(b => b.DataContext is ComponentInstanceViewModel { Name: "Text1" })
                 .GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single().IsVisible.Should().BeTrue();
             toggle.IsChecked = false;

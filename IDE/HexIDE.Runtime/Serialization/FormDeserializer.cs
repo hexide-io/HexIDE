@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
@@ -120,7 +121,13 @@ public class FormDeserializer
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
-        IReadOnlyDictionary<string, ComponentBaseClass>? extraComponents = null)
+        IReadOnlyDictionary<string, ComponentBaseClass>? extraComponents = null) =>
+        Deserialize(owner, source, errorSink, frxBlobs, extraComponents, normalizeTabIndexes: true);
+
+    // An isolated carried block's runtime reader must retain its enclosing form's index (#4843).
+    internal FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
+        IReadOnlyDictionary<int, byte[]>? frxBlobs,
+        IReadOnlyDictionary<string, ComponentBaseClass>? extraComponents, bool normalizeTabIndexes)
     {
         VBSerializedComponent rootComponent;
         string code;
@@ -186,6 +193,7 @@ public class FormDeserializer
         // walks containers in turn rather than walking the file. This counter is what restores the file's
         // own order for the flat view.
         var preservedSubtreesSeen = 0;
+        var tabIndexes = new List<(int Saved, Action<int>? Write)>();
 
         // depth: the form itself is 1, its direct children 2, and so on — the same counting the
         // unfaithful-save gate uses. parent is null only for the form.
@@ -216,6 +224,8 @@ public class FormDeserializer
                 var subtreeLines = ReconstructRawSubtree(
                     serializedComponent, depth - 1, frxBlobs, subtreeRecords, ref everyCitationResolved);
                 capturedBlobs.UnionWith(subtreeRecords.Values);
+                foreach (var tabIndex in PreservedControlText.TabIndexes(string.Join("\r\n", subtreeLines)))
+                    tabIndexes.Add((tabIndex, null));
                 // A record it cites is not in the companion, so a save could not put it back.
                 if (!everyCitationResolved)
                     form.MarkUnmodelledBinaryProperty();
@@ -738,6 +748,44 @@ public class FormDeserializer
                 components[0].TryGetProperty(VBProperties.FontProperty, out var formFont))
                 instance.SetProperty(VBProperties.FontProperty, formFont);
 
+            // Only saved lines participate: an absent TabIndex retains its class default (#4843).
+            if (parent is not null
+                && (componentClass is not UserControlComponentClass userClass
+                    || !userClass.Setting("InvisibleAtRuntime")
+                    && (userClass.Setting("CanGetFocus", true) || userClass.Setting("ForwardFocus")))
+                && serializedComponent.Properties.Any(p =>
+                    p.Key.Equals("TabIndex", StringComparison.OrdinalIgnoreCase) && p.Value is int))
+            {
+                if (componentClass.Properties.Contains(VBProperties.TabIndexProperty))
+                    tabIndexes.Add((instance.GetPropertyOrDefault(VBProperties.TabIndexProperty),
+                        value =>
+                        {
+                            instance.SetProperty(VBProperties.TabIndexProperty, value);
+                            serializedComponent.Properties[serializedComponent.Properties.Keys.First(k =>
+                                k.Equals("TabIndex", StringComparison.OrdinalIgnoreCase))] = value;
+                        }));
+                // An intrinsic class models TabIndex wherever VB6 gives it one, so a raw line on VB.Shape, Image, Line,
+                // Timer or Menu belongs to a class with none (#1974). It stays carried and takes no number. What VB6
+                // itself does with such a line at load isn't measured.
+                else if (!componentClass.VBTypeName.StartsWith("VB.", StringComparison.OrdinalIgnoreCase))
+                {
+                    var rawIndex = instance.UnknownRawProperties.FindIndex(p =>
+                        p.Name.Equals("TabIndex", StringComparison.OrdinalIgnoreCase));
+                    if (rawIndex >= 0 && VBLoader.RawNumber(instance, "TabIndex") is { } savedIndex)
+                    {
+                        instance.SetProperty(VBProperties.TabIndexProperty, savedIndex);
+                        tabIndexes.Add((savedIndex, value =>
+                        {
+                            instance.SetProperty(VBProperties.TabIndexProperty, value);
+                            instance.UnknownRawProperties[rawIndex] = instance.UnknownRawProperties[rawIndex] with
+                            { EditedValue = value.ToString(CultureInfo.InvariantCulture) };
+                            serializedComponent.Properties[serializedComponent.Properties.Keys.First(k =>
+                                k.Equals("TabIndex", StringComparison.OrdinalIgnoreCase))] = value;
+                        }));
+                    }
+                }
+            }
+
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
                 LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);
 
@@ -748,6 +796,15 @@ public class FormDeserializer
         }
 
         LoadRecur(rootComponent, null, 1, 0);
+        if (normalizeTabIndexes)
+        {
+            var normalized = SavedTabIndexes.Normalize(tabIndexes.Select(entry => entry.Saved).ToArray());
+            // Carried blocks aren't rewritten yet (#4884). If one would move, preserve the whole form's saved order.
+            if (!tabIndexes.Where((entry, i) => entry.Write is null && entry.Saved != normalized[i]).Any())
+                for (var i = 0; i < tabIndexes.Count; i++)
+                    if (tabIndexes[i].Saved != normalized[i])
+                        tabIndexes[i].Write?.Invoke(normalized[i]);
+        }
         form.RecordUnreproducibleNestingDepth(maxUnreproducibleDepth);
 
         // The refusal gate, decided here rather than from the parser's raw Begin depth, because only the walk

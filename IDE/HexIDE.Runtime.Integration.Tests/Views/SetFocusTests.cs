@@ -358,8 +358,9 @@ public class SetFocusTests
     [InlineData("Label", "Text1")]
     public void Showing_focuses_the_first_eligible_control_after_Activate(string first, string expected)
     {
-        var controls = TextBox("Text2", 600, "      TabIndex = 2\n")
-            + TextBox("Text1", 120, "      TabIndex = 1\n" + (first == "Label" ? "" : "      " + first + "\n"));
+        var controls = TextBox("Text2", 600, first == "Label" ? "      TabIndex = 2\n" : "      TabIndex = 1\n")
+            + TextBox("Text1", 120, (first == "Label" ? "      TabIndex = 1\n" : "      TabIndex = 0\n")
+                + (first == "Label" ? "" : "      " + first + "\n"));
         if (first == "Label")
             controls += "   Begin VB.Label Label1\n      TabIndex = 0\n   End\n";
         using var run = Start("""
