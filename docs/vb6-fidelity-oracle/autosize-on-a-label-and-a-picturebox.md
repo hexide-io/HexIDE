@@ -59,3 +59,83 @@ console session and in the probe runner's session, and all four logs agreed line
   that doesn't fit, and the height fits the lines.
 - **An empty Caption is 45 wide,** three pixels, and one line high.
 - **A PictureBox fits its picture plus its border.** Clearing the picture leaves the size as it was.
+
+### What an AutoSize Label measures its caption by (2026-11-19, #922, SP6)
+
+**The question.** The rows above give an AutoSize Label's size but not the rule behind it. Is the width the caption's
+text width? What do an empty caption, a tab, a mnemonic, a border and a bold or italic font add?
+
+**The probe.**
+- **The software:** VB6 SP6 6.00.9782 and MSVBVM60 6.00.9848, at 15 twips a pixel.
+- **The form:** a twips form with seven AutoSize Labels, each `WordWrap` False and `Alignment` Left:
+  - MS Sans Serif 8.25: plain, bold, with a 3-D Fixed Single border, and with a flat one;
+  - MS Sans Serif 18, Arial 9.75 and Tahoma 8.25.
+- **For each caption:** the program set the Label's Caption, gave the form the Label's font with `Set Form1.Font =
+  lbl.Font`, and logged the Label's Width and Height beside `Form1.TextWidth` and `TextHeight` of the same text.
+- **The builds:** `/make` as native code and as p-code, in session 0. They logged the same 53 rows.
+
+**Without a border or an overhang, the Label is the text's size.** Width is `TextWidth` of the caption as drawn, and
+Height is `TextHeight`:
+
+| Caption, MS Sans Serif 8.25 | Width | `TextWidth` | Height |
+|---|---|---|---|
+| `x`, `i`, `l`, `W` | 75, 30, 30, 165 | the same | 195 |
+| `Hi`, `Hello` | 150, 360 | the same | 195 |
+| `Hello, world, a longer caption` | 2055 | 2055 | 195 |
+| `a b`, `" lead"`, `"trail "`, `"two spaces  x"` | 225, 345, 285, 975 | the same | 195 |
+| `MMMMMMMMMM`, `iiiiiiiiii` | 1350, 300 | the same | 195 |
+| `"two" & vbCrLf & "lines"` | 315 | 315 | 390 |
+| `"a" & vbLf & "b"`, `"a" & vbCr & "b"` | 90 | 90 | 390 |
+
+Arial 9.75 (`Hello` 435, the long caption 2505, Height 240), MS Sans Serif 18 (`Hello` 855, Height 435) and Tahoma
+8.25 (`Hello` 345, the long caption 2100) matched their `TextWidth` and `TextHeight` the same way. So did Arial bold
+(`Hello` 495, the long caption 2835), Arial italic (`Hello` 435, `Hf` 195) and Tahoma bold (`Hello` 420). Spaces count,
+leading and trailing alike, and CR, LF and CRLF each end a line.
+
+**An empty caption is one space wide.**
+
+| Font | Empty caption's Width | `TextWidth(" ")` |
+|---|---|---|
+| MS Sans Serif 8.25 | 45 | 45 |
+| Tahoma 8.25 | 45 | 45 |
+| Arial 9.75 | 60 | 60 |
+| MS Sans Serif 18 | 90 | 90 |
+
+The height stays one line: 195, 195, 240 and 435.
+
+**A tab measures as a space.** `"a" & vbTab & "b"` is 225 wide, as `"a b"` is, where `TextWidth` gives 690.
+`vbTab` alone is 45, one space, where `TextWidth` gives 600. `"tab" & vbTab & "x"` is 345, where `TextWidth` gives 675.
+
+**A mnemonic follows `UseMnemonic`.**
+- **On:** `&File` is 240 wide, the width of `File`. `a&&b` is 270, which is `a&&b`'s 360 less one `&` of 90.
+- **Off:** `&File` is 330 wide, its `TextWidth` with the `&` included.
+
+**A border adds to both sides:**
+- **3-D, Fixed Single:** 4 pixels each way. `Hello` is 420 by 255, the long caption 2115 by 255, and an empty caption
+  105 by 255.
+- **Flat, Fixed Single:** 2 pixels each way. `Hello` is 390 by 225.
+
+**MS Sans Serif's bold and italic add an overhang that `TextWidth` leaves out:**
+
+| Caption | Bold: Width / `TextWidth` | Italic: Width / `TextWidth` |
+|---|---|---|
+| `Hello` | 450 / 435 | 450 / 360 |
+| `Hello, world, a longer caption` | 2520 / 2505 | |
+| `i` | 60 / 45 | |
+| `" "`, and an empty caption | 75 / 60, and 75 | |
+
+So bold adds 15 twips, one pixel, and italic adds 90, six. MS Sans Serif is a raster font, so Windows makes its bold
+and italic by emboldening and slanting, and reports the extra as the font's overhang. That last step is reasoned, not
+measured. Arial in bold and in italic, and Tahoma in bold, all TrueType, added nothing.
+
+**The rule these rows fit:**
+- **Width:** `TextWidth` of the caption as drawn, plus the font's overhang, plus the border.
+  - An empty caption measures as one space, and so does a tab.
+  - With `UseMnemonic` on, each lone `&` is dropped and `&&` measures as one `&`.
+- **Height:** `TextHeight`, one line for each line break, plus the border.
+- **Then** the sizing rows above apply: which edge stays, snapping to whole pixels, and WordWrap.
+
+**Not measured:**
+- other raster fonts, other sizes of MS Sans Serif in bold or italic, and bold italic together;
+- a display other than 15 twips a pixel;
+- an AutoSize Label at design time.
