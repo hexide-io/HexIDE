@@ -131,11 +131,47 @@ Each row follows the ones above it on the same list.
 - **Style 1, transparent, leaves them showing what was there.**
 - **Styles 2 and 3, selected and focus, cover the image in a checkerboard of the highlight colour,** `&HD77800` here.
   Every pixel whose x + y is even is the highlight, and the others are the image.
+- **Re-run on the console** (2026-11-18, #4768), the IDE, p-code and native agreeing, beside session 0. Style 0
+  drew a masked pixel in the window colour, `&HFFFFFF`, and Style 2's even pixels were `&HD77800`, as above, in both
+  sessions. That image's left half was masked, and there Style 2 left an even pixel and an odd one both at the
+  window colour: **the checkerboard covers only the image's unmasked pixels.** Style 3 wasn't drawn.
 - **The mask follows MaskColor and UseMaskColor as they are when the image is drawn,** for every image, whenever it was
   added:
   - With MaskColor magenta and UseMaskColor True, the magenta corner was masked.
   - Setting MaskColor to grey, with no new Add, unmasked it.
   - An image added while UseMaskColor was False was masked once it was True again.
+
+### Where Draw draws: the hDC (2026-11-19, #4849)
+
+**The probe.** A 16×16 image, its left half masked, drawn into a PictureBox whose BackColor is yellow; each object's
+`hDC` read before and after each change. vb6.exe SP6 on the Win10 guest: the console, native and p-code, the IDE with
+`/runexit`, and session 0, all agreeing on every row below.
+
+**`hDC` values.** A program reads one as a `Long`, and can rely only on these:
+
+| Read | Result |
+|---|---|
+| a form loaded and never shown | nonzero, the same on a second read |
+| that form after `Show`, read twice, then after `Hide` and `Show` again | the same value throughout |
+| a PictureBox on the form | its own value, not the form's; the same on a second read |
+| `AutoRedraw = True`, on the PictureBox or the form | a **new** value, stable across reads |
+| then `Cls`, or a resize, with `AutoRedraw` still True | a **new** value each time |
+| `AutoRedraw = False` again | **the first value** back |
+
+**Draw into a handle:**
+
+| Statement | Result |
+|---|---|
+| `Draw 0, 0, 0, 0`; `Draw 12345, 0, 0, 0` | no error, and nothing to be seen |
+| `Draw h, 0, 0, 0`, `h` read before a `Cls` (`AutoRedraw` True) | no error; nothing drawn, and `Point` reads the background |
+| `Draw P.hDC, 0, 0, 0` with `AutoRedraw` False | no error; drawn on the window, where the console's `Point` reads red. Session 0's reads -1 |
+| Style 2 at x 15 twips, 1 pixel | pixel 1 highlight, 2 red, 3 highlight: **the checkerboard counts from the image's corner**, not the target's |
+| Style 3 at 0 | the same checkerboard as Style 2 |
+
+- **A stale handle is not an error.** VB6 doesn't check the value it is given: the GDI call fails and nothing is drawn.
+  That is reasoned from these rows, not checked against GDI.
+- **HexIDE:** #4849 gives a form and a PictureBox an `hDC` from a table of its own, with these identity rules, and draws
+  into the surface the handle names.
 
 ### Double-clicked onto a form
 

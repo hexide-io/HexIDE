@@ -150,6 +150,7 @@
     "Str.Archive.FolderReadyFormat": "Quellordner aus dem gespeicherten Archiv synchronisiert:\n{0}\n\nÄnderungen im Ordner stoppen die Synchronisierung; sie werden nicht importiert. Laden Sie das Projekt neu, um die Vorschau zu aktualisieren.",
     "Str.Archive.FolderErrorFormat": "Synchronisierung des Quellordners angehalten:\n{0}\n\nDas Archiv wurde nicht geändert.",
     "Str.Archive.OpenErrorFormat": "{0} konnte nicht geöffnet werden:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "kein installiertes Format liest Formulare im Format „{0}“",
     "Str.ContributedProject.OpenError": "{0} konnte nicht mit {1} geöffnet werden:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} wird von {1} geöffnet: Seine Dateien werden von dem Programm hinzugefügt und entfernt, zu dem es gehört, nicht von HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "{0} wurde von dem Programm, zu dem {1} gehört, aus dem Projekt genommen. Zuerst Ihre Änderungen daran speichern?",
