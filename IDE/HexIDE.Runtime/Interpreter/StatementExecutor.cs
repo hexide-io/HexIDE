@@ -491,6 +491,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
     }
 
+    internal ValueTask PauseAtModalWait(Debugging.IDebugGate dbg)
+    {
+        // Show is already executing, so Set Next Statement cannot repoint its suspended call.
+        _suspendedAtTopLevel = false;
+        var gate = dbg.OnModalPauseAsync(currentLine, currentModule.Name, this);
+        return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
+    }
+
     public override async Task<ControlFlow> VisitBlock(VB6Parser.BlockContext context)
     {
         var stmts = context.blockStmt();
@@ -738,7 +746,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.Object && value.Value is null)
             throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         if (value.Type != Vb6Value.ValueType.Date && value.Type != Vb6Value.ValueType.String)
-            throw new NotImplementedException("Date/Time assignment conversion from this type is not implemented (#4681)");
+            throw new NotImplementedException("Date/Time assignment conversion from this type is not implemented (#4733)");
         _ = VB6BuiltIns.CDate(value);
         // Deliberate divergence (#4681): never change the host clock, even elevated, where VB6 would set it.
         throw new VBRunTimeException(context, VBStandardError.PermissionDenied);
@@ -1202,6 +1210,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 item = visited ? default : new Vb6Value(snapshot[0].Value);
                 visited = true;
                 return item.Value is not null;
+            }, () => { });
+        }
+        if (collection.Value is ControlArrayGroup group)
+        {
+            // #4716: snapshot sorted indices, but resolve each control only when its turn is reached.
+            var indices = group.Elements.Keys.ToArray();
+            var at = 0;
+            return await ForEachItem(context, varName, (out Vb6Value item) =>
+            {
+                while (at < indices.Length)
+                {
+                    var index = indices[at++];
+                    if (group.TryGetElement(index, out var element))
+                    {
+                        item = new Vb6Value(element);
+                        return true;
+                    }
+                    var error = new VBRunTimeException(context, VBStandardError.ControlArrayElementIsMissing(index));
+                    if (!ResumesNext)
+                        throw error;
+                    CaptureError(error);
+                }
+                item = default;
+                return false;
             }, () => { });
         }
         if (collection.Value is FormControls controls)
@@ -2871,7 +2903,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                             && members[0].iCS_S_ProcedureOrArrayCall() is { } getCall && getCall.argsCall().Length == 1)
                         {
                             var result = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
-                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4606)");
+                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4747)");
                             await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames);
                             return default;
                         }
@@ -5319,6 +5351,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(ctx, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             if (MemberHasArgs(member))
             {
+                // A project-class field holding Nothing raises 91 (#4725, measured); Nothing in an As Object field is
+                // unmeasured, so it keeps the refusal below, as the read does.
+                if (i == members.Length - 1 && bag.IsObjectField(fieldName)
+                    && field.Value is not VBArray && member.iCS_S_ProcedureOrArrayCall().argsCall().Length == 1
+                    && (field.Value is not null || interpreter.ProjectClassFor(field.DeclaredAs ?? "") is not null))
+                {
+                    await interpreter.LetDefaultMember(field,
+                        await expressionExecutor.ResolveCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)),
+                        value, ctx, stmtFrames);
+                    return;
+                }
                 if (field.Value is not VBArray array || member.iCS_S_ProcedureOrArrayCall().argsCall().Length != 1)
                     throw new NotImplementedException("Only a single array index group on a UDT field is implemented (#178)");
                 var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)));
