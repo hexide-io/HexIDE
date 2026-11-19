@@ -309,6 +309,38 @@ public class ReadOnlyGreyingTests : IDisposable
         }
     }
 
+    // #4821: use the real selector, debounce and rendered line transformer on this host.
+    [AvaloniaTheory]
+    [InlineData(nameof(ProjectTarget.RDCore))]
+    [InlineData(nameof(ProjectTarget.None))]
+    public async Task Project_target_greys_the_same_NavalBattle_branch_as_the_run(string targetName)
+    {
+        var target = Enum.Parse<ProjectTarget>(targetName);
+        var themes = new ThemeService();
+        using var scope = TheIdesThemes(themes);
+        var project = new ProjectDefinition(VBProjectType.EXE, "NavalBattle") { Target = target, VbaBitness = VbaBitness.Bit64 };
+        var module = new ModuleDefinition(project, "Pause", ModuleKind.StandardModule);
+        module.UpdateCode("#If Win32 Or Win64 Then\nDebug.Print \"Declare\"\n#Else\nDebug.Print \"Timer\"\n#End If\n");
+        var vm = MakeViewModel().Initialize(module);
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
+        if (target == ProjectTarget.RDCore) selector.ItemCount.Should().Be(6);
+        selector.SelectedIndex.Should().Be(target == ProjectTarget.RDCore ? 5 : 2);
+        // Changing away and back exercises SelectionChanged and the actual dispatcher timer.
+        selector.SelectedIndex = 0;
+        selector.SelectedIndex = target == ProjectTarget.RDCore ? 5 : 2;
+        await WaitForConditionalEvaluation(view);
+        var windowsBranch = target != ProjectTarget.RDCore || OperatingSystem.IsWindows();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, windowsBranch ? "Debug.Print \"Timer\"" : "Debug.Print \"Declare\""))
+            .Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, windowsBranch ? "Debug.Print \"Declare\"" : "Debug.Print \"Timer\""))
+            .Should().Contain(c => c != grey);
+        ConditionalCompiler.Preprocess(vm.BufferBody, CompilationConstants.ForProject(project)).InactiveLines
+            .Should().Equal(windowsBranch ? new LineRange(4, 4) : new LineRange(2, 2));
+    }
+
     [AvaloniaTheory]
     [InlineData(0, 6)]
     [InlineData(1, 2)]

@@ -14,7 +14,7 @@ public class VbaBitnessTests : BaseVBTestFixture
         var project = new ProjectDefinition(VBProjectType.EXE, "Test") { VbaBitness = bitness };
         if (arguments is not null)
             project.UnknownPreSectionLines.Add((0, $"CondComp=\"{arguments}\""));
-        Compilation = CompilationConstants.ForProject(project);
+        Compilation = CompilationConstants.ForProject(project, System.Runtime.InteropServices.OSPlatform.Windows);
     }
 
     [Theory]

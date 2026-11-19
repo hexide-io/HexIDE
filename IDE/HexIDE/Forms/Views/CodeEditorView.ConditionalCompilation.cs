@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -16,13 +17,6 @@ namespace HexIDE.Forms.Views;
 
 public partial class CodeEditorView
 {
-    // The 32-bit set remains an unmeasured preview (#1113); 64-bit is row K recorded in #4245.
-    private static readonly IReadOnlyDictionary<string, object?> Vba32BuiltIns =
-        new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["VBA6"] = 1, ["VBA7"] = 1, ["Win32"] = 1 };
-
-    private static readonly IReadOnlyDictionary<string, object?> Vba64BuiltIns =
-        new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["VBA6"] = 1, ["VBA7"] = 1, ["Win32"] = 1, ["Win64"] = 1, ["Win16"] = 0, ["Mac"] = 0 };
-
     private readonly DispatcherTimer _conditionalTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
     private InactiveCodeColorizer? _inactiveColorizer;
     private IDisposable? _inactiveBrushSubscription;
@@ -87,8 +81,9 @@ public partial class CodeEditorView
         var twinBasic = vm.ConditionalTargetIndex is 3 or 4;
         var builtIns = vm.ConditionalTargetIndex switch
         {
-            1 => Vba32BuiltIns,
-            2 => Vba64BuiltIns,
+            1 => TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit32),
+            2 => TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit64),
+            5 => TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None),
             3 or 4 => TwinBasicBuiltIns(vm.ConditionalTargetIndex == 4, project?.ProjectType),
             _ => null,
         };
@@ -104,6 +99,9 @@ public partial class CodeEditorView
             : [];
         TextEditor.TextArea.TextView.Redraw();
     }
+
+    internal static IReadOnlyDictionary<string, object?> TargetBuiltIns(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null) =>
+        PredefinedCompilationConstants.ForTarget(target, bitness, host).ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase);
 
     private static IReadOnlyDictionary<string, object?> TwinBasicBuiltIns(bool win64, VBProjectType? projectType)
     {
