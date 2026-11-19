@@ -1,5 +1,7 @@
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -44,8 +46,15 @@ internal static class VBVisibility
         control.IsHitTestVisible = visible;
     }
 
-    public static bool Get(Control control) =>
-        control is IVBContainerControl
+    public static bool Get(Control control)
+    {
+        // Windowless controls keep their own value; windowed controls also depend on the form being shown (#4829).
+        if (control is not (VBLine or VBLabel or VBImage or VBShape) && FormRoot.View(control) is null
+            && control.GetLogicalAncestors().OfType<IFormView>().FirstOrDefault() is { IsShown: false })
+            return false;
+
+        return control is IVBContainerControl
             ? control.IsVisible && control.Opacity > 0
             : control.IsVisible;
+    }
 }
