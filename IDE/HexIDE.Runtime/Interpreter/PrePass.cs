@@ -976,7 +976,7 @@ public class PrePass : VB6BaseVisitor<object?>
                         break;
                     }
                     if (upper < lower)
-                        throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#178)");
+                        throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#4925)");
                     bounds.Add((lower, upper));
                 }
             }
@@ -992,7 +992,7 @@ public class PrePass : VB6BaseVisitor<object?>
             if (asType.NEW() != null)
             {
                 if (isArray)
-                    throw new NotImplementedException($"An array field As New inside Type '{name}' is not implemented (#178)");
+                    throw new NotImplementedException($"An array field As New inside Type '{name}' is not implemented (#4925)");
                 fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
                 continue;
             }

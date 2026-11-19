@@ -22,7 +22,7 @@ public class UdtArrayTests : BaseVBTestFixture
             if (read) VbRecordFormat.ReadElementsInto(new UnreadSource(), array);
             else VbRecordFormat.WriteArray(writer, array, descriptor: false);
         };
-        act.Should().Throw<NotImplementedException>().WithMessage("*array of a user-defined Type*#178*");
+        act.Should().Throw<NotImplementedException>().WithMessage("*array of a user-defined Type*#4925*");
         writer.ToArray().Should().BeEmpty();
     }
 
@@ -39,7 +39,7 @@ public class UdtArrayTests : BaseVBTestFixture
             if (read) VbRecordFormat.ReadUdtInto(new UnreadSource(), bag);
             else VbRecordFormat.WriteUdt(writer, bag);
         };
-        act.Should().Throw<NotImplementedException>().WithMessage("*array field*#178*");
+        act.Should().Throw<NotImplementedException>().WithMessage("*array field*#4925*");
         writer.ToArray().Should().BeEmpty();
     }
 

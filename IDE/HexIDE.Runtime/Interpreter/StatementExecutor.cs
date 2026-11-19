@@ -5451,7 +5451,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await ModuleLevelBounds.CheckTypeField(interpreter, currentModule, currentEnv, syntax, type, field.Name);
             var bounds = (await ExtractDimensions(syntax))!;
             if (bounds.Any(b => b.Item2 < b.Item1))
-                throw new NotImplementedException($"An inverted array bound inside Type '{def.Name}' is not implemented (#178)");
+                throw new NotImplementedException($"An inverted array bound inside Type '{def.Name}' is not implemented (#4925)");
             field.ResolvedBounds = bounds;
         }
     }
@@ -5595,7 +5595,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return;
                 }
                 if (field.Value is not VBArray array || member.iCS_S_ProcedureOrArrayCall().argsCall().Length != 1)
-                    throw new NotImplementedException("Only a single array index group on a UDT field is implemented (#178)");
+                    throw new NotImplementedException("Only a single array index group on a UDT field is implemented (#4925)");
                 var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)));
                 try
                 {

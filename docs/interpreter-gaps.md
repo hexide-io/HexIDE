@@ -347,13 +347,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   resolve in declaration order ([#4595, measured](https://github.com/hexide-io/HexIDE/issues/4595));
   private Types allocated above their declaration in their own module or class resolve from Consts above the Type,
   including Consts below the variable and chains of preceding Consts ([#4734, measured](https://github.com/hexide-io/HexIDE/issues/4734), oracle PR #4800).
-  Public Types and allocation from another module retain their existing behaviour ([#4907](https://github.com/hexide-io/HexIDE/issues/4907)); inverted bounds and array fields As New remain refused. Get/Put of UDT
-  arrays and Types containing array fields also remain refused pending record-layout measurements. The existing acceptance of ByVal UDT parameters
-  and UDT-to-Variant assignments remains a divergence from the compile refusals measured for #178.
-
-  Array fields have indexed reads/writes and whole-array store checks. Inverted Type-field bounds and
-  array fields As New remain refused. Get/Put of UDT arrays and Types containing array
-  fields also remain refused pending record-layout measurements. ByVal UDT parameters are refused when a call
+  Public Types and allocation from another module retain their existing behaviour ([#4907](https://github.com/hexide-io/HexIDE/issues/4907)); inverted bounds and array fields As New remain refused, and so do Get/Put of UDT
+  arrays and of Types containing array fields, whose record layout is unmeasured ([#4925](https://github.com/hexide-io/HexIDE/issues/4925)). ByVal UDT parameters are refused when a call
   binds them ([#4673’s measurements](https://github.com/hexide-io/HexIDE/issues/4673)); VB6 refuses the build, so one in a
   procedure that is never called goes uncaught here.
   UDT-to-Variant assignments remain a divergence from the compile refusals measured for #178.
