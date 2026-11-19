@@ -1,6 +1,7 @@
 ## A free-standing StdFont: values of every type, and the font a Size, Charset or Name reads (2026-11-19, #4926, SP6)
 
-**Each member converts its value to its own type first, with VB's usual errors.** Then it takes a range: Weight 0 to
+**Each member converts its value to its own type first, and a value that won't convert is 13, Null included.** Then it
+takes a range: Weight 0 to
 1000, Charset 0 to 255, Size above 0 and below 24576, and a Name of up to 31 characters. Beyond that the font changes to
 one Windows has: Size reads a whole number of pixels, and a Charset or a Name can bring another font with it.
 
@@ -122,10 +123,18 @@ Boolean, Weight and Charset an Integer, Size a Currency and Name a String.
 - **Names:** `Empty`, `True` and `5.5` change nothing and raise nothing, as a name no font has does.
 - **The conversion's own errors come first:** `"x"`, `""` and `Null` are 13, and a Long beyond an Integer is 6.
 
+**Null is 13 for every member here, where VB's own conversion of it is 94.** The four font Booleans of a control or a
+form, given Null, are 94, as `CBool(Null)` is. That control's FontSize is 13, as here
+([a-fonts-fontsize-fontbold-and-the-rest.md](a-fonts-fontsize-fontbold-and-the-rest.md)). So these rows don't show VB
+converting the value before StdFont sees it. Who converts it is not measured.
+- **Reasoned, not checked:** the StdFont object converts it, as OLE Automation converts a Variant, which refuses Null
+  as a type mismatch.
+- **Every other row** reads as `CBool`, `CInt` or `CCur` would convert the value.
+
 **Then each member takes a range, and 380 outside it.**
 - **Weight:** 0 to 1000. 0 and 1000 are on the earlier pages, with −1 and 32767.
 - **Charset:** 0 to 255.
-- **Size:** above 0. From 24576 up it's 6, not 380.
+- **Size:** above 0, measured at 0, −0.5 and −1 below it. From 24576 up it's 6, not 380.
 - **Name:** up to 31 characters. A longer name is 380, even though a name no font has is otherwise accepted.
 - **True is −1:** so it's 380 for Weight, Charset and Size, and False is 0, which only Size refuses.
 
@@ -145,7 +154,7 @@ Semilight reads 350.
 
 **Not measured:**
 - any assignment to a font in another state than fresh;
-- `Dim f As Object`, where the object, not VB, converts the value;
+- `Dim f As Object`, late-bound;
 - Sizes between those above, and a size at exactly half a pixel, such as 1.875;
 - Charsets not listed, and names not listed;
 - Decimal values, and Dates for any member but Size;
