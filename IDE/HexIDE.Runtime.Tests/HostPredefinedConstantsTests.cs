@@ -5,21 +5,25 @@ using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Tests;
 
-// #4821: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.8-alpha, and Excel for Mac 16.115 measurements.
+// #4821: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.11-alpha (#4890), and Excel for Mac 16.115 measurements.
 // https://github.com/hexide-io/HexIDE/issues/4821
 public class HostPredefinedConstantsTests : BaseVBTestFixture
 {
     [Theory]
-    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), "0,1,1,0,0,0,1,1")]
-    [InlineData("OSX", nameof(ProjectTarget.RDCore), "0,0,0,1,0,0,1,1")]
-    [InlineData("LINUX", nameof(ProjectTarget.RDCore), "0,0,0,0,1,1,1,1")]
-    [InlineData("OSX", nameof(ProjectTarget.None), "0,0,1,1,0,0,1,1")]
-    public async Task Target_and_host_select_the_recorded_row(string host, string targetName, string row)
+    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), false, "0,1,1,0,0,1,1,1")]
+    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), true, "0,1,1,0,0,1,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.RDCore), false, "0,0,1,1,0,1,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.RDCore), true, "0,0,0,1,0,1,1,1")]
+    [InlineData("LINUX", nameof(ProjectTarget.RDCore), false, "0,0,0,0,1,1,1,1")]
+    [InlineData("LINUX", nameof(ProjectTarget.RDCore), true, "0,0,0,0,1,1,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.None), false, "0,0,1,1,0,0,1,1")]
+    [InlineData("OSX", nameof(ProjectTarget.None), true, "0,0,1,1,0,0,1,1")]
+    public async Task Target_and_host_select_the_recorded_row(string host, string targetName, bool windowsOnly, string row)
     {
         var target = Enum.Parse<ProjectTarget>(targetName);
         Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test")
-            { Target = target, VbaBitness = VbaBitness.Bit64 }, OSPlatform.Create(host));
-        var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7" };
+            { Target = target, VbaBitness = VbaBitness.Bit64, Win64OnlySetOnWindows = windowsOnly }, OSPlatform.Create(host));
+        var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7" };
         var values = row.Split(',');
         for (var i = 0; i < names.Length; i++)
             await Run($"#If {names[i]} = {values[i]} Then\nDebug.Print \"{names[i]}\"\n#Else\nDebug.Print \"wrong\"\n#End If\n");
@@ -35,7 +39,25 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Target = ProjectTarget.RDCore, VbaBitness = VbaBitness.Bit64 };
         CompilationConstants.ForProject(project, OSPlatform.Create(host)).BuiltIns.Keys.Should()
-            .BeEquivalentTo("Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7");
+            .BeEquivalentTo("Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7");
+    }
+
+    // Retired in SDK 0.1.11-alpha; project definitions still override absence (#4890).
+    [Theory]
+    [InlineData("WINDOWS", false)]
+    [InlineData("OSX", false)]
+    [InlineData("LINUX", false)]
+    [InlineData("WINDOWS", true)]
+    [InlineData("OSX", true)]
+    [InlineData("LINUX", true)]
+    public async Task Linux64_is_undefined_unless_the_project_defines_it(string host, bool defined)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Target = ProjectTarget.RDCore };
+        if (defined) project.UnknownPreSectionLines.Add((0, "CondComp=\"Linux64 = 1\""));
+        Compilation = CompilationConstants.ForProject(project, OSPlatform.Create(host));
+        Compilation.BuiltIns.Should().NotContainKey("Linux64");
+        await Run("#If Linux64 Then\nDebug.Print 1\n#Else\nDebug.Print 0\n#End If");
+        AssertDebugLog([new Vb6Value(defined ? 1 : 0)]);
     }
 
     [Fact]
@@ -47,14 +69,19 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("OSX", nameof(ProjectTarget.RDCore), "Timer")]
-    [InlineData("LINUX", nameof(ProjectTarget.RDCore), "Timer")]
-    [InlineData("OSX", nameof(ProjectTarget.None), "Declare")]
-    public async Task NavalBattle_pause_selects_the_target_branch(string host, string targetName, string expected)
+    [InlineData("OSX", nameof(ProjectTarget.RDCore), false, "Declare")]
+    [InlineData("OSX", nameof(ProjectTarget.RDCore), true, "Timer")]
+    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), false, "Declare")]
+    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), true, "Declare")]
+    [InlineData("LINUX", nameof(ProjectTarget.RDCore), false, "Timer")]
+    [InlineData("LINUX", nameof(ProjectTarget.RDCore), true, "Timer")]
+    [InlineData("OSX", nameof(ProjectTarget.None), false, "Declare")]
+    [InlineData("OSX", nameof(ProjectTarget.None), true, "Declare")]
+    public async Task NavalBattle_pause_selects_the_target_branch(string host, string targetName, bool windowsOnly, string expected)
     {
         var target = Enum.Parse<ProjectTarget>(targetName);
         Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "NavalBattle")
-            { Target = target, VbaBitness = VbaBitness.Bit64 }, OSPlatform.Create(host));
+            { Target = target, VbaBitness = VbaBitness.Bit64, Win64OnlySetOnWindows = windowsOnly }, OSPlatform.Create(host));
         await Run("""
             #If Win32 Or Win64 Then
             Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal milliseconds As Long)
@@ -110,7 +137,7 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
             VbaBitness.Bit64 => CompilationConstants.Vba64BuiltIns,
             _ => CompilationConstants.Vb6BuiltIns,
         };
-        CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test") { VbaBitness = bitness },
+        CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test") { VbaBitness = bitness, Win64OnlySetOnWindows = true },
             OSPlatform.Create(host)).BuiltIns.Should().BeSameAs(expected);
     }
 
@@ -121,7 +148,7 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
         var expected = OperatingSystem.IsWindows() ? OSPlatform.Windows : OperatingSystem.IsMacOS() ? OSPlatform.OSX : OSPlatform.Linux;
         var selected = CompilationConstants.ForProject(project).BuiltIns;
         selected.Should().BeSameAs(CompilationConstants.ForProject(project, expected).BuiltIns);
-        selected.Keys.Should().Contain("Linux").And.Contain("Linux64");
+        selected.Keys.Should().Contain("Linux").And.Contain("Is64BitEnv");
         selected["Linux"].Value.Should().Be(OperatingSystem.IsLinux() ? 1 : 0);
         selected["Win32"].Value.Should().Be(OperatingSystem.IsWindows() ? 1 : 0);
         selected["Mac"].Value.Should().Be(OperatingSystem.IsMacOS() ? 1 : 0);

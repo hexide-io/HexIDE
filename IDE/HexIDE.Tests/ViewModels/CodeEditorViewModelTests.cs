@@ -349,25 +349,63 @@ public class CodeEditorViewModelTests : IDisposable
         CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(5);
     }
 
-    // #4821: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.8-alpha; Excel for Mac 16.115.
+    // #4890: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.11-alpha.
     [AvaloniaTheory]
-    [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), "0,1,1,0,0,0,1,1")]
-    [InlineData("OSX", nameof(ProjectTarget.RDCore), "0,0,0,1,0,0,1,1")]
-    [InlineData("LINUX", nameof(ProjectTarget.RDCore), "0,0,0,0,1,1,1,1")]
-    [InlineData("OSX", nameof(ProjectTarget.None), "0,0,1,1,0,0,1,1")]
-    public void Editor_greying_uses_the_recorded_host_table(string host, string targetName, string row)
+    [InlineData("WINDOWS", false, "0,1,1,0,0,1,1,1")]
+    [InlineData("WINDOWS", true, "0,1,1,0,0,1,1,1")]
+    [InlineData("OSX", false, "0,0,1,1,0,1,1,1")]
+    [InlineData("OSX", true, "0,0,0,1,0,1,1,1")]
+    [InlineData("LINUX", false, "0,0,0,0,1,1,1,1")]
+    [InlineData("LINUX", true, "0,0,0,0,1,1,1,1")]
+    public void Editor_greying_uses_the_recorded_host_table(string host, bool windowsOnly, string row)
     {
-        var target = Enum.Parse<ProjectTarget>(targetName);
-        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(target, VbaBitness.Bit64,
-            System.Runtime.InteropServices.OSPlatform.Create(host));
-        var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7" };
+        var module = TestHelpers.CreateModule();
+        module.Owner.Target = ProjectTarget.RDCore;
+        module.Owner.Win64OnlySetOnWindows = windowsOnly;
+        var vm = CreateSut().Initialize(module);
+        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None,
+            System.Runtime.InteropServices.OSPlatform.Create(host), vm.ConditionalWin64OnlySetOnWindows);
+        var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7" };
         var values = row.Split(',');
         var condition = string.Join(" And ", names.Select((name, i) => $"({name} = {values[i]})"));
         var source = $"#If {condition} Then\nactive\n#Else\ninactive\n#End If\n";
         new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode().InactiveLines(source,
             new HexIDE.Language.ConditionalConstants(HexIDE.Language.ConditionalConstants.NoArguments) { BuiltIns = builtIns })
             .Should().Equal(new HexIDE.Language.LineRange(4, 4));
-        builtIns.Keys.Should().BeEquivalentTo(target == ProjectTarget.RDCore ? names : names.Except(["Linux", "Linux64"]));
+        builtIns.Keys.Should().BeEquivalentTo(names);
+        vm.Dispose();
+    }
+
+    // Excel for Mac 16.115, #4821: the RDCore option leaves VBA previews unchanged.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Mac_VBA_preview_retains_its_table(bool windowsOnly)
+    {
+        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit64,
+            System.Runtime.InteropServices.OSPlatform.OSX, windowsOnly);
+        builtIns.Keys.Should().BeEquivalentTo("Win16", "Win32", "Win64", "Mac", "VBA6", "VBA7");
+        builtIns["Win32"].Should().Be(0);
+        builtIns["Win64"].Should().Be(1);
+        builtIns["Mac"].Should().Be(1);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Mac_editor_pause_preview_follows_the_project_key(bool windowsOnly)
+    {
+        var form = TestHelpers.CreateForm();
+        form.Owner.Target = ProjectTarget.RDCore;
+        form.Owner.Win64OnlySetOnWindows = windowsOnly;
+        var vm = CreateSut().Initialize(form);
+        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None,
+            System.Runtime.InteropServices.OSPlatform.OSX, vm.ConditionalWin64OnlySetOnWindows);
+        new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode().InactiveLines(
+            "#If Win32 Or Win64 Then\nSleep 1\n#Else\nTimer\n#End If",
+            new HexIDE.Language.ConditionalConstants(HexIDE.Language.ConditionalConstants.NoArguments) { BuiltIns = builtIns })
+            .Should().Equal(new HexIDE.Language.LineRange(windowsOnly ? 2 : 4, windowsOnly ? 2 : 4));
+        vm.Dispose();
     }
 
     [AvaloniaFact]

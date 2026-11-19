@@ -64,12 +64,12 @@ public sealed class CompilationConstants
     public static CompilationConstants ForProject(ProjectDefinition project) => ForProject(project, null);
 
     internal static CompilationConstants ForProject(ProjectDefinition project, OSPlatform? host) =>
-        new(CompilationArguments.ForProject(project), BuiltInsFor(project.Target, project.VbaBitness, host))
+        new(CompilationArguments.ForProject(project), BuiltInsFor(project.Target, project.VbaBitness, host, project.Win64OnlySetOnWindows))
         { VbaBitness = project.VbaBitness };
 
     /// <summary>The predefined constants shared by interpreter runs and editor previews, on the current or specified host.</summary>
-    internal static IReadOnlyDictionary<string, Vb6Value> BuiltInsFor(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null) =>
-        Tables.GetOrAdd(PredefinedCompilationConstants.ForTarget(target, bitness, host), static table => Variants(table));
+    internal static IReadOnlyDictionary<string, Vb6Value> BuiltInsFor(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null, bool win64OnlySetOnWindows = false) =>
+        Tables.GetOrAdd(PredefinedCompilationConstants.ForTarget(target, bitness, host, win64OnlySetOnWindows), static table => Variants(table));
 
     /// <summary>An argument's or a built-in's value, as the Variant a constant is.</summary>
     internal bool TryGet(string name, out Vb6Value value)
