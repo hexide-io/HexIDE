@@ -111,6 +111,19 @@ public sealed class LoggingSetupTests : IDisposable
     }
 
     [Fact]
+    public void A_captured_log_keeps_another_tests_unobserved_task_out_of_its_messages()
+    {
+        // What the finalizer thread does when a GC collects a faulted task some other test leaked (#4809).
+        using var log = new HexIDE.Tests.Sidecar.CapturedLog();
+        LoggingSetup.RecordUnobserved(new AggregateException(Thrown("LEAKED_ELSEWHERE")));
+        Serilog.Log.Warning("OWN_MESSAGE");
+
+        log.Messages.Should().ContainSingle().Which.Should().Be("OWN_MESSAGE");
+        log.Unobserved.Should().ContainSingle().Which.Should().Contain(LoggingSetup.UnobservedTaskMessage)
+            .And.Contain("LEAKED_ELSEWHERE");
+    }
+
+    [Fact]
     public void TheHandlerDoesNotThrowWhenWhatWasThrownIsNotAnException()
     {
         // The runtime passes an object: a non-CLS language can throw anything, and a handler that throws while
