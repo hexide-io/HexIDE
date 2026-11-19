@@ -470,6 +470,21 @@ public class SerializationRoundTripTests
     }
 
     [Fact]
+    public void Interleaved_library_and_group_project_references_keep_their_exact_lines()
+    {
+        // Line measured on VB6 SP6 in #4899 / oracle PR #4900; preservation already worked before #4899.
+        const string original = "Type=Exe\r\n"
+            + "Reference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##First\r\n"
+            + "Reference=*\\A..\\Lib\\Lib.vbp\r\n"
+            + "Reference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##Last\r\n"
+            + "Reference=*\\A..\\Other\\Other.vbp\r\nName=\"TestProject\"\r\n";
+        var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(original, NullSink.Instance));
+
+        new ProjectSerializer().Serialize(project, project.AbsolutePath!).Should().Be(original);
+        project.References.Select(r => r.Name).Should().Equal("First", "Last");
+    }
+
+    [Fact]
     public void An_unsupported_item_keeps_its_slot_before_loaded_members()
     {
         const string original = "Type=Exe\r\nUserDocument=Doc1.dob\r\nObject=kept\r\nModule=Module1; Module1.bas\r\nName=\"TestProject\"\r\n";

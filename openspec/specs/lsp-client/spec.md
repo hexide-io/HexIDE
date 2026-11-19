@@ -2287,6 +2287,13 @@ anyway, so it is recorded rather than defended.
 - **AND** it lists no other files, since RDCore parses every listed file as code
 - **AND** it emits nothing for a project with no code files
 
+#### Scenario: RDCore group project references
+- **WHEN** a preserved `Reference=*\A` line resolves relative to its `.vbp` to another loaded project's path
+- **THEN** the snapshot SHALL carry that project's current name at the line's position among library references
+- **AND** the rdcore provider SHALL write only `Name` and `IsProject: true` for it, using format `1.3` unless a configured version overrides it
+- **AND** an unmatched project reference SHALL be omitted, while library-only descriptors retain format `1.0` and their existing reference JSON
+- **AND** a rename or group membership change SHALL refresh the projection without changing the `.vbp` or the interpreter's reference list (#4899)
+
 #### Scenario: Capability boundaries
 - **WHEN** a server declares no artefact
 - **THEN** no artefact is generated for it
@@ -2393,10 +2400,14 @@ The editor SHALL request completion at the start of the identifier around the ca
 Complete Word, so a server filtering by the preceding word can return the full list for that context (#3340).
 
 The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
-`filterText ?? label`, keeping the full list visible. Ignoring case, the editor SHALL initially select an item the whole word matches
+`filterText ?? label`, keeping the full list visible. Ignoring case, the editor SHALL prefer an item the whole word matches
 ahead of an earlier item the word only starts (#3613), otherwise the first prefix match, preferring a preselected item within each,
-and leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
-Object Browser glyphs for corresponding kinds, using none without a counterpart.
+and finding no match for an empty or unmatched word. When a typed letter opens the VB6 code window list, the editor
+SHALL keep the match available to Tab without selecting it, including when the caret moves. A list opened by
+a trigger character or Complete Word SHALL select the match if present. VB6 SP6 opens no list for a bare word.
+HexIDE keeps its suggestions and preserves ordinary Space and Enter typing in that case ([#3613](https://github.com/hexide-io/HexIDE/issues/3613)).
+It SHALL show string or MarkupContent documentation with detail as plain text and reuse Object Browser
+glyphs for corresponding kinds, using none without a counterpart.
 If no item matches the opening word, the editor SHALL retain the server's list for explicit acceptance with Tab.
 
 #### Scenario: Server ranking and selection
@@ -2404,8 +2415,14 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 - **THEN** B appears before A and neither item is selected
 
 #### Scenario: A whole-word match is selected ahead of an earlier prefix match
-- **WHEN** the list holds `Xor` and `x` in that order and the user types `x`
+- **WHEN** Complete Word opens a list holding `Xor` and `x` in that order for the word `x`
 - **THEN** `x` is selected, and Space leaves `x`
+
+#### Scenario: Typing a letter opens completion in the VB6 code window
+- **WHEN** the user types `tot` and the letter-opened list offers `total`
+- **THEN** the list has no selection
+- **AND** Space and Enter type through, while Tab accepts `total`
+- **AND** the first Down or Up selects `total`
 
 #### Scenario: Filter text differs from label
 - **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`
@@ -2424,8 +2441,9 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 In ordinary code the editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts
 a selected ordinary completion and then commits a new line; Tab accepts without a break; Space accepts and
 then types a space; Escape closes without accepting. With no selection, Enter and Space SHALL close
-the list and only type their character, while Tab SHALL accept the first outlined item, replacing the
-whole word including text after the caret. The first Down SHALL highlight that first item.
+the list and only type their character, while Tab SHALL accept the unselected match if present or the first item,
+replacing the whole word including text after the caret. The first Down or Up SHALL highlight the unselected match
+if present, otherwise the first item.
 Complete Word SHALL immediately insert a unique prefix match without opening a list.
 A snippet choice picker's Enter SHALL accept without a line break and keep snippet navigation active.
 

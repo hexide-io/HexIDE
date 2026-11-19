@@ -812,6 +812,20 @@ or clearing the target SHALL replace or remove its previous key while retaining 
 unknown keys. A `VbaBitness` value other than 32 or 64 SHALL read as no target and SHALL be written back
 verbatim. This is HexIDE metadata, not a claim about VBA's native project format.
 
+The section SHALL also store `Targets=RDCore` when the project selects that predefined conditional
+constants table ([#4821](https://github.com/hexide-io/HexIDE/issues/4821)). This key SHALL select only
+predefined `#If` constants, not the engine that runs the project. An absent key SHALL retain the normal
+VB6 or VBA7 selection. A known target SHALL survive a fresh open, and clearing it SHALL remove only that
+key. The key SHALL be `Targets`, plural, and its value a list separated by `;`, so that naming several targets
+needs no second key. A value naming exactly one known target SHALL select it; a list of more than one, an unknown
+value, and the singular key `Target` SHALL read as no target and SHALL be preserved verbatim on save. Existing VB6
+content outside the owned metadata SHALL retain its bytes, and encoding records SHALL remain intact.
+
+#### Scenario: A predefined constants target survives a fresh open
+- **WHEN** a project with `Targets=RDCore` is saved and freshly opened
+- **THEN** its run and default code-window greying use that target's table for the host
+- **AND** the interpreter remains the run engine when it was selected before
+
 #### Scenario: A VBA7 target survives a fresh open
 - **GIVEN** a project whose VBA7 target is 64-bit
 - **WHEN** it is saved and freshly opened

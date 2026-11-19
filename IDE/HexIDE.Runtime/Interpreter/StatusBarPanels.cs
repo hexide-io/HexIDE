@@ -53,7 +53,7 @@ public sealed class StatusBarPanels : ICSharpAsyncProxy, ICSharpPropertyBag, INa
     public Task<Vb6Value?> CallAsync(string method, List<Vb6Value> args)
     {
         var expected = method.ToLowerInvariant() switch { "add" => 5, "item" or "remove" => 1, _ => 0 };
-        if (args.Count > expected) throw new NotImplementedException("This Panels argument count is unmeasured (#1087)");
+        if (args.Count > expected) throw new NotImplementedException("This Panels argument count is unmeasured (#4882)");
         Vb6Value? result = null;
         switch (method.ToLowerInvariant())
         {
@@ -88,7 +88,7 @@ public sealed class StatusBarPanels : ICSharpAsyncProxy, ICSharpPropertyBag, INa
 
     internal StatusBarPanel Item(IReadOnlyList<Vb6Value> args)
     {
-        if (args.Count != 1) throw new NotImplementedException("Panels.Item argument count is unmeasured (#1087)");
+        if (args.Count != 1) throw new NotImplementedException("Panels.Item argument count is unmeasured (#4882)");
         var index = args[0];
         if (index.Type == Vb6Value.ValueType.String)
         {
@@ -114,21 +114,21 @@ public sealed class StatusBarPanels : ICSharpAsyncProxy, ICSharpPropertyBag, INa
     private void RefuseUnmeasuredKeyCase(string key)
     {
         if (Items.Any(p => p.Key != key && p.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
-            throw new NotImplementedException("Panels key case comparison is unmeasured (#1087)");
+            throw new NotImplementedException("Panels key case comparison is unmeasured (#4882)");
     }
 
     private static int PositionNumber(Vb6Value value)
     {
         if (!Vb6Value.TryNumericToDouble(value, out var number) || number < int.MinValue || number > int.MaxValue)
-            throw new NotImplementedException("This Panels index conversion is unmeasured (#1087)");
+            throw new NotImplementedException("This Panels index conversion is unmeasured (#4882)");
         return (int)Math.Round(number, MidpointRounding.ToEven);
     }
 
     internal static long Choice(Vb6Value value, int max)
     {
         if (!Vb6Value.TryNumericToDouble(value, out var number) || number != Math.Truncate(number))
-            throw new NotImplementedException("This StatusBar enum conversion is unmeasured (#1087)");
-        if (number < 0) throw new NotImplementedException("Negative StatusBar enum values are unmeasured (#1087)");
+            throw new NotImplementedException("This StatusBar enum conversion is unmeasured (#4882)");
+        if (number < 0) throw new NotImplementedException("Negative StatusBar enum values are unmeasured (#4882)");
         if (number > max) throw Error(380);
         return (long)number;
     }
@@ -203,13 +203,13 @@ public sealed class StatusBarPanel(StatusBarPanels panels) : ICSharpProxy, ICSha
                 case "textsave": break; // A saved display snapshot is not the panel's Text.
                 case "picture":
                     var record = pictures == null ? null : Serialization.FrxDeserializer.TryExtractBlob((string)value, pictures);
-                    if (record == null) throw new NotImplementedException("The saved Panel.Picture record is missing (#1087)");
+                    if (record == null) throw new NotImplementedException("The saved Panel.Picture record is missing (#4882)");
                     pictureRecord = record;
                     break;
                 default:
                     TrySetProperty(name.StartsWith("Object.", StringComparison.OrdinalIgnoreCase) ? name[7..] : name,
                         value switch { string text => new Vb6Value(text), int number => new Vb6Value(number),
-                            _ => throw new NotImplementedException("This saved panel value is not implemented (#1087)") });
+                            _ => throw new NotImplementedException("This saved panel value is not implemented (#4882)") });
                     break;
             }
         }
@@ -250,7 +250,7 @@ public sealed class StatusBarPanel(StatusBarPanels panels) : ICSharpProxy, ICSha
             case "tag":
                 if (ReferenceEquals(value.Value, panels.Owner)) throw StatusBarPanels.Error(35700);
                 if (value.Value is ICSharpProxy or Avalonia.Controls.Control or VbObject)
-                    throw new NotImplementedException("Panel.Tag object ownership is not implemented (#1087)");
+                    throw new NotImplementedException("Panel.Tag object ownership is not implemented (#4882)");
                 tag = value;
                 break;
             case "style": Style = StatusBarPanels.Choice(value, 7); break;
@@ -289,7 +289,7 @@ public sealed class StatusBarPanel(StatusBarPanels panels) : ICSharpProxy, ICSha
     {
         if (value.Value is PanelPicture assigned) picture = assigned;
         else if (value.Type == Vb6Value.Nothing.Type && value.Value == null) picture = null;
-        else throw new NotImplementedException("This Panel.Picture assignment is unmeasured (#1087)");
+        else throw new NotImplementedException("This Panel.Picture assignment is unmeasured (#4882)");
         pictureRecord = null;
     }
 
@@ -308,7 +308,7 @@ public sealed class StatusBarPanel(StatusBarPanels panels) : ICSharpProxy, ICSha
     private void RefuseRemoved()
     {
         if (!panels.Items.Contains(this))
-            throw new NotImplementedException("Access to a removed panel is unmeasured (#1087)");
+            throw new NotImplementedException("Access to a removed panel is unmeasured (#4882)");
     }
 
     internal void SetText(Vb6Value value) => TrySetProperty("Text", value);
@@ -322,18 +322,18 @@ public sealed class StatusBarPanel(StatusBarPanels panels) : ICSharpProxy, ICSha
             if (ReferenceEquals(panel, this)) return (float)(Math.Round(pixels * 2540 / 96) * 1440 / 2540);
             if (panel.visible) pixels += Math.Floor(panel.CurrentWidth() / 15.0) + 1;
         }
-        throw new NotImplementedException("Reading a removed panel's Left is unmeasured (#1087)");
+        throw new NotImplementedException("Reading a removed panel's Left is unmeasured (#4882)");
     }
 
     private static float Length(Vb6Value value)
     {
         if (!Vb6Value.TryNumericToDouble(value, out var number) || !double.IsFinite(number))
-            throw new NotImplementedException("This panel length conversion is unmeasured (#1087)");
+            throw new NotImplementedException("This panel length conversion is unmeasured (#4882)");
         if (number <= 0) throw StatusBarPanels.Error(380);
         var himetric = number * 2540 / 1440;
         if (!double.IsFinite(himetric) || himetric > int.MaxValue || himetric < 0.5
             || himetric - Math.Floor(himetric) == 0.5)
-            throw new NotImplementedException("This panel length's HIMETRIC conversion is unmeasured (#1087)");
+            throw new NotImplementedException("This panel length's HIMETRIC conversion is unmeasured (#4882)");
         return (float)(Math.Round(himetric) * 1440 / 2540);
     }
 }

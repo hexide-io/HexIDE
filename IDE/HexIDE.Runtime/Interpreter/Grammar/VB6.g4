@@ -928,7 +928,6 @@ valueStmt
    | NEW WS valueStmt                                                # vsNew
    | typeOfStmt                                                      # vsTypeOf
    | ADDRESSOF WS valueStmt                                          # vsAddressOf
-   | implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt                # vsAssign
    | valueStmt WS? POW WS? valueStmt                                 # vsPow
    | MINUS WS? valueStmt                                             # vsNegation
    | PLUS WS? valueStmt                                              # vsPlus
@@ -950,6 +949,8 @@ valueStmt
    | valueStmt WS? XOR WS? valueStmt                                 # vsXor
    | valueStmt WS? EQV WS? valueStmt                                 # vsEqv
    | valueStmt WS? IMP WS? valueStmt                                 # vsImp
+   // Lowest prefix precedence: the value after := includes every operator (#4851, measured).
+   | implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt                # vsAssign
    | implicitCallStmt_InStmt                                         # vsICS
    | midStmt                                                         # vsMid
    ;

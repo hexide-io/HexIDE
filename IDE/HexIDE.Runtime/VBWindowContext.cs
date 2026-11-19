@@ -80,6 +80,13 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </remarks>
     public static event Action<VBWindowContext, Exception>? Faulted;
 
+    /// <summary>
+    /// A Timer event's handler has finished, its outcome reported, an error included. Raised at the dispatch boundary, not
+    /// when the Timer raised the event, which can queue the handler or return part way through it. Only the corpus smoke
+    /// run listens, to wait for a startup Timer's first event (#4774).
+    /// </summary>
+    internal static event Action<VBWindowContext>? TimerEventFinished;
+
     public VBWindowContext(IBasicStandardLibrary standardLibrary)
     {
         this.standardLibrary = standardLibrary;
@@ -834,6 +841,8 @@ public class VBWindowContext : IModuleExecutionRoot
                     finally { state.Free(slot); }
                 }
             });
+            if (coalescing == EventCoalescing.Timer)
+                TimerEventFinished?.Invoke(this);
         }
 
         // Typed in the Immediate window while paused, `Text1.Text = "x"` raises Text1_Change, which is refused there (see

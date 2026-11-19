@@ -709,8 +709,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         await interpreter.ReleaseRef(old);
     }
 
+    internal HashSet<VB6Parser.ConstStmtContext> ConstantsEvaluatedAhead { get; init; } = new();
+
     public override async Task<ControlFlow> VisitConstStmt(VB6Parser.ConstStmtContext context)
     {
+        if (ownedSlots is null && ConstantsEvaluatedAhead.Contains(context))
+            return ControlFlow.Nothing;
         // Module-level const names are hoisted by PrePass so a Sub declared after the Const can see them; here we evaluate
         // the initializer and fill the slot. The slot is marked a constant, so any other store into it is refused (#1003).
         foreach (var sub in context.constSubStmt())
@@ -1042,8 +1046,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitCircleStmt(VB6Parser.CircleStmtContext context)
     {
-        await DrawingTarget(context.receiver, "Circle");
-        throw RuntimeDrawing.Refused("Circle");
+        var target = await DrawingTarget(context.receiver, "Circle");
+        var args = new List<Vb6Value>();
+        foreach (var value in context.graphicsPoint().graphicsValue())
+            args.Add(await expressionExecutor.EvaluateScalar(value.valueStmt()));
+        // Keep positional omissions: graphicsValue() alone loses the empty colour/angle slots.
+        foreach (var child in context.children)
+        {
+            if (child is Antlr4.Runtime.Tree.ITerminalNode token && token.Symbol.Type == VB6Parser.COMMA)
+                args.Add(Vb6Value.Missing);
+            else if (child is VB6Parser.GraphicsValueContext value)
+                args[^1] = await expressionExecutor.EvaluateScalar(value.valueStmt());
+        }
+        RuntimeDrawing.Statement(target, "Circle", args, context.graphicsPoint().STEP() is not null);
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitScaleStmt(VB6Parser.ScaleStmtContext context)
@@ -3047,8 +3063,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                             && members[0].iCS_S_ProcedureOrArrayCall() is { } getCall && getCall.argsCall().Length == 1)
                         {
                             var result = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
-                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4747)");
-                            await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames);
+                                ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4906)");
+                            await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames, expressionExecutor);
                             return default;
                         }
                         if (indexedProperty.Let is not { } indexedLetter
@@ -3321,7 +3337,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && (receiver.Value is VbObject || receiver.Value is null
                     && interpreter.ProjectClassFor(receiver.DeclaredAs ?? "") is not null))
             {
-                await interpreter.LetDefaultMember(receiver, [.. indexes.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+                await interpreter.LetDefaultMember(receiver, [.. indexes.Select(v => new CallArg(v, null))], value, context, stmtFrames, expressionExecutor);
                 return default;
             }
             var indexesAsInt = await expressionExecutor.ResolveSubscripts(indexes);
@@ -3386,7 +3402,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             holder = await expressionExecutor.IndexResult(holder, subscripts, call);
         if (holder.Value is VbObject)
         {
-            await interpreter.LetDefaultMember(holder, [.. last.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+            await interpreter.LetDefaultMember(holder, [.. last.Select(v => new CallArg(v, null))], value, context, stmtFrames, expressionExecutor);
             return ControlFlow.Nothing;
         }
         if (holder.Value is not VBArray inner)
@@ -3615,7 +3631,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         catch (VBRunTimeException ex) when (ex.Error.ErrNo == 6)
         {
-            throw new NotImplementedException("On GoTo/GoSub selector outside Integer range is unmeasured (#4726)");
+            throw new NotImplementedException("On GoTo/GoSub selector outside Integer range is unmeasured (#4880)");
         }
         if (n is < 0 or > 255)
             throw new VBRunTimeException(context, VBStandardError.InvalidProcedureCall);
@@ -4458,7 +4474,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var name = UdtFieldName(parts[^1]);
                 if (target.Value is ICSharpPropertyBag bag && bag.TrySetProperty(name, value)) return default;
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
-                throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#1087)");
+                throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#4882)");
             }
             if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown or ImageComboModel or VBImageCombo or ImageComboItems or ImageComboItem)
             {
@@ -5057,6 +5073,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     && interpreter.TryResolveType(arrayName.Name, currentModule, arrayName.Qualifier, out var arrayDef))
                 {
                     await interpreter.EnsureTypeBounds(arrayDef);
+                    await ResolveOwnTypeBoundsAhead(arrayDef, subStmt);
                     value = interpreter.NewUdtArray(arrayDef, dimensions, dimensions is null);
                 }
                 else if (autoNew is not null)
@@ -5081,7 +5098,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                             && declaration.visibility()?.PUBLIC() != null)
                             throw new VBCompileErrorException(PrePass.PublicMemberOfObjectModule);
                         if (interpreter.TryResolveType(typeName, currentModule, qualifier, out var udtDef))
+                        {
                             await interpreter.EnsureTypeBounds(udtDef);
+                            await ResolveOwnTypeBoundsAhead(udtDef, subStmt);
+                        }
                         value = Vb6Value.NewUdt(interpreter.NewUdt(typeName, qualifier: qualifier, from: currentModule));
                     }
                     else if (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _))
@@ -5128,7 +5148,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         // A stdole alias for a scalar (`As OLE_COLOR`) is that scalar.
                         value = aliasScalar is { } scalar ? new Vb6Value(scalar) : Vb6Value.Nothing;
                         // Measured scalar Set constraints (#1563), bare or VB-qualified. A project's form name keeps its
-                        // existing view; As Control records a binding view, not a Set constraint (#4737).
+                        // existing view; As Control records its late-binding view (#4737) and scalar store constraint (#4864).
                         if (!isArray && aliasScalar is null
                             && (qualifier is null || qualifier.Equals("VB", StringComparison.OrdinalIgnoreCase))
                             && (ControlObjectType.IsIntrinsic(typeName) || typeName.Equals("Form", StringComparison.OrdinalIgnoreCase)))
@@ -5350,6 +5370,60 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private static int ArrayBound(Vb6Value value) => value.Type == Vb6Value.ValueType.LongLong
         ? throw new NotImplementedException("A LongLong array bound is unmeasured (#1548)") : Subscript(value);
 
+    private async Task ResolveOwnTypeBoundsAhead(UdtTypeDef def, VB6Parser.VariableSubStmtContext variable)
+    {
+        if (!def.IsPrivate || !currentModule.PrePass.Types.Values.Contains(def)
+            || !def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
+            return;
+        var type = currentModule.PrePass.DeclarationItems.OfType<VB6Parser.TypeStmtContext>()
+            .First(t => currentModule.PrePass.Types[t.ambiguousIdentifier().GetText()] == def);
+        // Only intervening Consts run ahead (#4734). Re-running an earlier one can re-enter another module's walk.
+        foreach (var block in currentModule.PrePass.DeclarationItems.OfType<VB6Parser.BlockContext>())
+            foreach (var statement in block.blockStmt())
+                if (statement.constStmt() is { } constant
+                    && constant.Start.TokenIndex > variable.Start.TokenIndex
+                    && constant.Start.TokenIndex < type.Start.TokenIndex
+                    && !ConstantsEvaluatedAhead.Contains(constant))
+                {
+                    await VisitConstStmt(constant);
+                    ConstantsEvaluatedAhead.Add(constant);
+                }
+        await ResolveTypeBounds(type);
+    }
+
+    internal async Task ResolveEnumValues(VB6Parser.EnumerationStmtContext enumeration)
+    {
+        var name = enumeration.ambiguousIdentifier().GetText();
+        if (!currentModule.PrePass.DeferredEnums.TryGetValue(name, out var deferred)) return;
+        var members = enumeration.enumerationStmt_Constant();
+        var values = currentModule.PrePass.Enums[name];
+        long next = deferred.First == 0 ? 0 : values[members[deferred.First - 1].ambiguousIdentifier().GetText()] + 1;
+        for (var i = deferred.First; i < members.Length; i++)
+        {
+            var member = members[i];
+            var memberName = member.ambiguousIdentifier().GetText();
+            Vb6Value value;
+            if (member.valueStmt() is { } expression)
+            {
+                try
+                {
+                    await ModuleLevelBounds.CheckEnumMember(interpreter, currentModule, currentEnv, member);
+                }
+                catch (VBCompileErrorException ex) when (ex.Message.Contains("Constant expression required"))
+                {
+                    throw new VBCompileErrorException($"Constant expression required (Enum {name}, member '{memberName}': '{expression.GetText().Trim()}')");
+                }
+                value = VB6BuiltIns.NarrowNum(await expressionExecutor.EvaluateValue(expression), Vb6Value.ValueType.Long);
+            }
+            else value = new Vb6Value(next);
+            var number = Convert.ToInt64(value.Value);
+            values[memberName] = number;
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, memberName, value, fillingConstant: true);
+            next = number + 1;
+        }
+        currentModule.PrePass.DeferredEnums.Remove(name);
+    }
+
     internal async Task ResolveTypeBounds(VB6Parser.TypeStmtContext type)
     {
         var def = currentModule.PrePass.Types[type.ambiguousIdentifier().GetText()];
@@ -5500,7 +5574,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     await interpreter.LetDefaultMember(field,
                         await expressionExecutor.ResolveCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)),
-                        value, ctx, stmtFrames);
+                        value, ctx, stmtFrames, expressionExecutor);
                     return;
                 }
                 if (field.Value is not VBArray array || member.iCS_S_ProcedureOrArrayCall().argsCall().Length != 1)
@@ -6042,7 +6116,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             catch (ResumeSignal r)
             {
                 if (nested && faultPc < 0)
-                    throw Raised(new NotImplementedException("Resume of a handler error from a GoSub routine is unmeasured (#4726)"));
+                    throw Raised(new NotImplementedException("Resume of a handler error from a GoSub routine is unmeasured (#4880)"));
                 if (faultPc < 0)
                     throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;

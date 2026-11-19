@@ -16,6 +16,9 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     /// <summary>The project's VBA7 target, independent of the engine or IDE profile (#4245).</summary>
     public VbaBitness VbaBitness { get; set; }
 
+    /// <summary>The target whose predefined #If constants are used; it does not select the run engine (#4821).</summary>
+    internal ProjectTarget Target { get; set; }
+
     private FormDefinition? startupForm;
     private bool startsAtSubMain;
     private string? absolutePath;

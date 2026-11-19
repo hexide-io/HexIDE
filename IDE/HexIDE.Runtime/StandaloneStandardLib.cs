@@ -100,7 +100,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         if (HostDialogs.File is { } application)
             return await application(request);
         var provider = TopLevel.GetTopLevel(_parent)?.StorageProvider
-                       ?? throw new NotImplementedException("A CommonDialog needs a window to show its dialog over (#1084)");
+                       ?? throw new NotImplementedException("A CommonDialog needs a window to show its dialog over (#4148)");
         var start = await VbFileDialogOptions.StartFolder(provider, request);
         if (request.Save)
         {
@@ -115,23 +115,23 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         var paths = new List<string> { firstPath };
         foreach (var file in opened.Skip(1))
             paths.Add(file.TryGetLocalPath()
-                      ?? throw new NotImplementedException("A CommonDialog non-local file selection is not implemented (#1084)"));
+                      ?? throw new NotImplementedException("A CommonDialog non-local file selection is not implemented (#4148)"));
         return new VbFileDialogAnswer(paths[0], null, paths.Skip(1).ToArray());
     }
 
     public async Task<bool> ShowPrintDialog() =>
         HostDialogs.Print is { } application
             ? await application()
-            : throw new NotImplementedException("A CommonDialog's print dialog is not implemented outside the IDE (#2299)");
+            : throw new NotImplementedException("A CommonDialog's print dialog is not implemented outside the IDE (#4148)");
 
     public async Task<int?> ShowColorDialog(int initial) =>
         HostDialogs.Color is { } application
             ? await application(initial)
-            : throw new NotImplementedException("A CommonDialog's color dialog is not implemented outside the IDE (#2299)");
+            : throw new NotImplementedException("A CommonDialog's color dialog is not implemented outside the IDE (#4148)");
 
     /// <summary>A CommonDialog's ShowFont (#1084): the application's font dialog, where it has one.</summary>
     public async Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
         HostDialogs.Font is { } application
             ? await application(initial)
-            : throw new NotImplementedException("A CommonDialog's font dialog is not implemented outside the IDE (#1084)");
+            : throw new NotImplementedException("A CommonDialog's font dialog is not implemented outside the IDE (#4148)");
 }

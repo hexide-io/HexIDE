@@ -59,12 +59,12 @@ The interpreter SHALL execute GoSub, Return, On selector GoTo and On selector Go
 - **WHEN** On selector GoTo or GoSub executes
 - **THEN** the selector is evaluated once and narrowed as CInt, including half-to-even rounding and Null's error 94
 - **AND** a selector below 0 or above 255 raises error 5; 0 or a selector past the label list falls through
-- **AND** conversion overflow beyond Integer range is refused as unmeasured, naming #4726
+- **AND** conversion overflow beyond Integer range is refused as unmeasured, naming #4880
 
 #### Scenario: Error handling and stack exhaustion
 - **WHEN** an error occurs in a nested pass
 - **THEN** the procedure's handler and that pass's fault position govern Resume, without resetting the handler on pass entry
-- **AND** a Resume in a nested pass with no fault of its own is refused as unmeasured, naming #4726
+- **AND** a Resume in a nested pass with no fault of its own is refused as unmeasured, naming #4880
 - **WHEN** pending GoSubs reach HexIDE's 2,000-level cap or the execution stack guard fails
 - **THEN** ordinary trappable error 28 allows the procedure's own handler to run, including Exit Sub and Resume Next
 
@@ -92,8 +92,19 @@ following [#1563's VB6 SP6 measurements](https://github.com/hexide-io/HexIDE/iss
 - **WHEN** `For Each t In Controls` runs with `t As TextBox` under On Error Resume Next
 - **THEN** Err.Number is 13, the body runs once and t remains Nothing
 
-Arrays, UserControls, other OCX controls, `As Form1`, and assigning a form to `As Control` retain their
-existing behaviour outside this slice.
+#### Scenario: A scalar Control slot refuses measured non-control objects
+- **GIVEN** a scalar variable declared `As Control` or `As VB.Control`
+- **WHEN** Set assigns a form instance, a project-class instance, Collection, StdFont or a form's Controls collection
+- **THEN** error 13 SHALL be raised before storing, retaining Nothing or the previous control reference
+- **AND** the check SHALL inspect the object, including through Object or Variant
+- **AND** rejecting another form SHALL NOT run its Load event
+- **AND** intrinsic controls and Nothing SHALL still store, including a Timer through Object
+- **AND** Control SHALL retain its late-binding view on reads
+
+These scalar Control stores follow [#4864's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4864)
+(oracle PR #4866), including stores in standard modules. Other objects, UserControls, OCX controls,
+control arrays/elements, parameters, Type fields and arrays declared As Control retain their existing
+behaviour pending measurement. `As Form1` remains outside this slice.
 
 ### Requirement: Let into an object target checks its declared view during execution
 
@@ -140,6 +151,47 @@ A running form's default instance SHALL accept icon pictures or Nothing through 
 - **THEN** the interpreter SHALL refuse it as not implemented
 
 
+### Requirement: Predefined conditional constants follow the project target and host
+
+Interpreter runs and default code-window greying SHALL select predefined constants by the project's
+`[HexIDE] Targets=RDCore`, then its VBA7 bitness and host, following
+[#4821](https://github.com/hexide-io/HexIDE/issues/4821). The key SHALL choose constants only, not a run
+engine. Module `#Const` definitions SHALL shadow project `CondComp` arguments, which SHALL shadow
+predefined constants.
+
+#### Scenario: Recorded host tables
+- **WHEN** the target and host are one of the following rows
+- **THEN** the constants are the numeric 0 or 1 values shown, with undefined names omitted
+- **AND** the external backend table mirrors SDK `PredefinedConditionalConstants.cs` (`Of`) at version 0.1.8-alpha, omitting `DEBUG`, on HexIDE's 64-bit hosts
+
+| Target | Host | Win16 | Win32 | Win64 | Mac | Linux | Linux64 | VBA6 | VBA7 |
+|---|---|---|---|---|---|---|---|---|---|
+| `Targets=RDCore` | Windows | 0 | 1 | 1 | 0 | 0 | 0 | 1 | 1 |
+| `Targets=RDCore` | macOS | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 1 |
+| `Targets=RDCore` | Linux | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
+| VBA7 64-bit | macOS | 0 | 0 | 1 | 1 | undefined | undefined | 1 | 1 |
+
+#### Scenario: Default targets and unmeasured hosts
+- **WHEN** a 64-bit VBA7 project has no target key on macOS
+- **THEN** it uses the measured Excel for Mac 16.115 row above
+- **AND** unmeasured 32-bit VBA7 on macOS and VBA7 on Linux retain their Windows tables
+- **AND** VB6 retains its existing table on every host
+
+#### Scenario: A project opened by its external backend type
+- **WHEN** a project is opened through the `.rdproj` project type
+- **THEN** the code window defaults to the external backend constants target
+- **AND** the project's run offers are unchanged
+
+#### Scenario: A portable pause avoids a Windows Declare
+- **WHEN** a project selects `Targets=RDCore` on macOS or Linux and tests `#If Win32 Or Win64 Then`
+- **THEN** execution and default editor greying select its `#Else` Timer loop
+- **AND** the same project with `VbaBitness=64` and no target key selects its Windows Declare branch on macOS
+
+#### Scenario: Program definitions override the selected target
+- **WHEN** a project argument defines `Mac=0` for the external backend target on macOS
+- **THEN** `#If Mac` is false
+- **AND** a module's `#Const Mac=1` overrides that argument
+
 ### Requirement: Measured 32-bit VBA7 integer support
 
 The runtime SHALL start projects targeting `VbaBitness.Bit32` with the Excel x86 behaviour recorded in
@@ -151,7 +203,7 @@ power operator and Declare SHALL accept either presence or absence of PtrSafe (m
 for an As Long result and with it for As Long and As LongPtr; As LongPtr without it is reasoned).
 
 #### Scenario: 32-bit constants
-- **WHEN** a project targets 32-bit VBA7
+- **WHEN** a project targets 32-bit VBA7 and has no predefined constants target
 - **THEN** VBA6, VBA7 and Win32 are numeric 1, and Win64, Win16 and Mac are numeric 0
 
 #### Scenario: 32-bit pointer integer
@@ -248,9 +300,26 @@ or Property Let on a write, preserving the returned value without scalar coercio
 - **WHEN** Holder.State is a parameterless Get returning a Bag with default Item(key)
 - **THEN** `h.State("k")` reads Item("k") and `h.State("k") = "w"` runs its Property Let
 
-#### Scenario: Unmeasured parameterized defaults
-- **WHEN** arguments reach a class without a default, a Variable/Sub default, or a write without a default Property Let
-- **THEN** execution refuses untrappably naming #4606
+#### Scenario: Arguments on a missing default
+- **WHEN** arguments reach a class without a default member
+- **THEN** reads and writes raise 438, following the native and p-code measurements in [#4747](https://github.com/hexide-io/HexIDE/issues/4747)
+
+#### Scenario: Arguments on a Sub default
+- **WHEN** arguments reach a default Sub on a read or write
+- **THEN** an early-bound reference gives the compile error "Expected Function or variable"
+- **AND** a late-bound reference runs the Sub on a read, returning Empty; on a write, As Object runs it and raises 451, and a Variant raises 450 without running it
+
+#### Scenario: Arguments on a variable default
+- **WHEN** arguments reach a default variable
+- **THEN** a late-bound reference raises 451; early-bound Variant arrays return the indexed element, and writes check the index without changing the field
+- **AND** early-bound Variant scalar/Empty fields raise 13, array indexes past the bounds raise 9, and typed scalar fields give "Wrong number of arguments or invalid property assignment" on a read or "Can't assign to read-only property" on a write
+- **AND** these results follow the native and p-code measurements in [#4747](https://github.com/hexide-io/HexIDE/issues/4747)
+
+#### Scenario: Assignment without a default Let
+- **WHEN** an indexed assignment reaches a default Get without a Let, or a default Function
+- **THEN** the member runs with the index arguments and a scalar result raises 424 early-bound or 451 late-bound
+- **AND** held in a Variant, a write through a default Function raises 450 without running it
+- **AND** an object result refuses untrappably naming #4906, pending measurement
 
 ### Requirement: Trailing argument and declared array type refusals
 
@@ -365,9 +434,11 @@ failures SHALL retain their not-implemented refusals. No-argument clearing and o
 
 For ICO files, `LoadPicture` SHALL take the first 32×32 directory entry when several images exist,
 following [#4623](https://github.com/hexide-io/HexIDE/issues/4623) and [the order measurements](https://github.com/hexide-io/HexIDE/pull/4692).
-A single-image file SHALL keep its own dimensions. A selected PNG image or a 32-bpp BITMAPINFOHEADER
-image missing its AND mask SHALL raise trappable 481 regardless of image-size/resolution header fields.
-Several images without a 32×32 entry, and missing masks at other depths, SHALL refuse as unmeasured.
+A single-image file SHALL keep its own dimensions. When no entry is 32×32, `LoadPicture` SHALL take
+the first image at its own dimensions, following [#4748](https://github.com/hexide-io/HexIDE/issues/4748)
+and [the measurements in PR #4837](https://github.com/hexide-io/HexIDE/pull/4837). A selected PNG image or
+a BITMAPINFOHEADER image missing its AND mask at any depth SHALL raise trappable 481 regardless of
+image-size/resolution header fields. Only the selected image SHALL undergo these checks.
 Saved pictures, SSTab pictures and resource groups SHALL retain their existing decoding paths.
 
 #### Scenario: An icon contains a larger PNG beside a 32×32 bitmap
@@ -2612,7 +2683,7 @@ The interpreter SHALL refuse a call to a Sub, Function or Property whose non-Opt
 
 ### Requirement: Form and PictureBox drawing at pen width one
 
-The interpreter SHALL execute Cls, PSet, Line and Point on each form and PictureBox's own surface through its
+The interpreter SHALL execute Cls, PSet, Line, Circle and Point on each form and PictureBox's own surface through its
 coordinate system, with the state, syntax, pixels and refusals measured for
 [#988](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and
 [#990](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
@@ -2639,7 +2710,7 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** it reports VB6's compile error as the statement executes; bare Cls remains an undefined Sub
 
 #### Scenario: Later and unmeasured drawing members refuse explicitly
-- **WHEN** Circle executes, or drawing uses DrawWidth above 1, DrawStyle other than 0, DrawMode other than 13
+- **WHEN** Circle requests an arc/sector or unequal x/y scale-unit sizes, or drawing uses an unsupported thick pen, DrawStyle other than 0, DrawMode other than 13
   or FillStyle other than 0/1
 - **THEN** execution refuses with NotImplementedException naming #988
 - **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
@@ -2657,6 +2728,25 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **AND** a B or BF box includes its far corner; B with FillStyle 0 fills its interior with FillColor
 - **WHEN** Cls runs
 - **THEN** the surface is cleared to BackColor and the current position returns to zero in the default twip scale
+
+#### Scenario: Full circles and ellipses at pen width one
+- **WHEN** a form or PictureBox draws a full Circle with equal-sized x/y scale units
+- **THEN** its outline and solid FillStyle-0 fill match the 12 full-circle Point grids measured in `docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md`
+- **AND** zero radius draws nothing, aspect zero draws one inclusive row, negative aspects use their magnitude, and the radius is the longer half-axis
+- **AND** fractional centres use the drawing statement's whole-twip conversion, CurrentX/Y end at the centre, and Step counts from the previous position
+- **AND** the edge uses the method colour conversion or ForeColor, with FillColor inside
+- **WHEN** a radius is negative or either angle has magnitude above 2π
+- **THEN** error 5 is raised before drawing; the current position after an error is not specified by these measurements
+- **AND** arcs and sectors remain explicitly refused with #988: none of the 63 candidates in the [comparison probe](../../../scripts/probes/circle-arcs/README.md) reproduces all 22 measured grids (five on the [oracle page](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), seventeen supplied by [#4771](https://github.com/hexide-io/HexIDE/issues/4771) from oracle PR #4904)
+- **AND** a single supplied angle remains refused with #988 because the other angle's default is unmeasured
+
+#### Scenario: Measured finite thick-pen footprints
+- **WHEN** PSet draws with width 2–8 or 10, or a full transparent Circle draws with width 2/3, physical radius 10 pixels, aspect 1 and a whole-pixel centre
+- **THEN** the pixels SHALL match the corresponding grids on the [drawing oracle](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and [circle/thick-pen oracle](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), as scoped by [#4813](https://github.com/hexide-io/HexIDE/issues/4813)
+- **AND** PSet ends at its whole-twip point and Circle ends at its centre
+- **WHEN** PSet uses width 9 or above 10, or a thick Circle requests any other shape, width or solid fill
+- **THEN** execution SHALL refuse with NotImplementedException naming #988 before drawing or moving CurrentX/Y
+- **AND** thick Line, B and BF SHALL remain refused together (#4841): neither tried capsule nor stamped-disc model reproduces all measured line grids; width-one drawing is unchanged
 
 #### Scenario: Overflow preserves the current position
 - **WHEN** PSet or Line receives a coordinate that overflows a Long in twips

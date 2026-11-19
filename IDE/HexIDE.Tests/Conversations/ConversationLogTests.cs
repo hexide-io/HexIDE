@@ -136,6 +136,61 @@ public class ConversationLogTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task AnArmedNotificationsBodyIsAvailableAsSoonAsItsEntryIsVisible()
+    {
+        _log.Arm("vb6", true);
+        var body = Body(new string('x', 16 * 1024));
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopped = 0;
+        var reader = Task.Run(() =>
+        {
+            started.SetResult();
+            while (Volatile.Read(ref stopped) == 0)
+            {
+                foreach (var entry in _log.Snapshot("vb6").Reverse())
+                    _log.Body("vb6", entry.Sequence).Should().NotBeNull(
+                        "a visible captured notification must already have its body (#4839)");
+            }
+        }, TestContext.Current.CancellationToken);
+
+        await started.Task;
+        try
+        {
+            for (var i = 0; i < 3_000; i++)
+                _log.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Notification,
+                    "textDocument/publishDiagnostics", null, body.Length, body);
+
+            await _log.DrainAsync();
+        }
+        finally
+        {
+            Volatile.Write(ref stopped, 1);
+            await reader;
+        }
+
+        _log.QueueDropped.Should().Be(0);
+        _log.Snapshot("vb6").Should().HaveCount(3_000);
+    }
+
+    [Theory]
+    [InlineData(ConversationEntryKind.Request)]
+    [InlineData(ConversationEntryKind.Notification)]
+    public async Task EveryDrainedArmedEntryHasItsBody(ConversationEntryKind kind)
+    {
+        _log.Arm("vb6", true);
+        var body = Body("""{"jsonrpc":"2.0","method":"example"}""");
+        for (var i = 0; i < 100; i++)
+            _log.Record("vb6", ConversationDirection.Sent, kind, "example", i.ToString(), body.Length, body);
+
+        await _log.DrainAsync();
+
+        var entries = _log.Snapshot("vb6");
+        entries.Should().HaveCount(100);
+        foreach (var entry in entries)
+            _log.Body("vb6", entry.Sequence).Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task AReconnectGetsItsOwnOpeningAllowance()
     {
         // The handshake exception counts frames, so without resetting it the rule would apply once per

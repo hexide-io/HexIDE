@@ -76,6 +76,12 @@ public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpProp
     public void Raise(long number, string? source = null, string? description = null,
         string? helpFile = null, long? helpContext = null)
     {
+        number = number is 0 or 65536 or int.MaxValue ? 5 : MapNumber(number);
+        if (number == 0)
+        {
+            Clear();
+            return;
+        }
         Number = number;
         if (source != null)
             Source = source;
@@ -83,7 +89,7 @@ public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpProp
             Source = projectName?.Invoke() ?? "";
         Description = description ?? (descriptionSet ? Description : StandardDescription(number));
         HelpFile = helpFile ?? "";
-        HelpContext = helpContext ?? DefaultHelpContext(number);
+        HelpContext = helpContext ?? (number < 0 ? 1000440 : DefaultHelpContext(number));
         throw new VBRunTimeException(new VBStandardError((int)number, Description))
             { VbSource = Source, VbHelpFile = HelpFile, VbHelpContext = HelpContext };
     }
@@ -132,7 +138,7 @@ public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpProp
     {
         switch (name.ToLowerInvariant())
         {
-            case "number":      Number = ToLong(value); return true;
+            case "number":      Number = MapNumber(ToLong(value)); return true;
             case "description": Description = VbDisplay.ToText(value); return true;
             case "helpfile":    HelpFile = HelpFileValue(value); return true;
             case "helpcontext": HelpContext = HelpContextValue(value); return true;
@@ -168,5 +174,31 @@ public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpProp
 
     // The text Err.Raise takes when given no Description: the same table Error(n) answers from, measured (#1560). A
     // number HexIDE raises with words of its own, such as 340, is application-defined here, as it is in vb6.exe.
-    private static string StandardDescription(long number) => VbErrorMessages.For(number);
+    private static string StandardDescription(long number) => number < 0
+        ? HresultDescription.For((int)number) : VbErrorMessages.For(number);
+
+    // Measured in vb6.exe SP6 IDE, native and p-code: #4730 / oracle PR #4731.
+    private static long MapNumber(long number)
+    {
+        if (number is >= unchecked((int)0x800a0000) and <= unchecked((int)0x800affff))
+            return number & 0xffff;
+        return number switch
+        {
+            unchecked((int)0x80040154) or unchecked((int)0x800401e3) or unchecked((int)0x800401f3) => 429,
+            unchecked((int)0x80004001) => 445,
+            unchecked((int)0x80004002) => 430,
+            unchecked((int)0x80004004) => 287,
+            unchecked((int)0x8007000e) => 7,
+            unchecked((int)0x80070005) => 70,
+            unchecked((int)0x80070057) => 5,
+            unchecked((int)0x80020003) or unchecked((int)0x80020006) => 438,
+            unchecked((int)0x80020004) => 448,
+            unchecked((int)0x80020005) => 13,
+            unchecked((int)0x80020008) => 458,
+            unchecked((int)0x8002000a) => 6,
+            unchecked((int)0x8002000e) => 450,
+            unchecked((int)0x80030002) => 432,
+            _ => number
+        };
+    }
 }
