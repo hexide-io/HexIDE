@@ -47,11 +47,11 @@ public sealed class VbClipboard(IBasicStandardLibrary host) : ICSharpAsyncProxy
                 var format = Format(args[0], false);
                 // We cannot report False for an image or RTF which may actually be on the system clipboard.
                 if (format != 1)
-                    throw new NotImplementedException("Clipboard.GetFormat for non-text formats is not implemented (#1156)");
+                    throw new NotImplementedException("Clipboard.GetFormat for non-text formats is not implemented (#4955)");
                 return new Vb6Value(await host.Clipboard.GetText() is not null);
             case "getdata":
             case "setdata":
-                throw new NotImplementedException("Clipboard." + method + " is not implemented (#1156)");
+                throw new NotImplementedException("Clipboard." + method + " is not implemented (#4682)");
             default:
                 throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod, "Clipboard." + method);
         }
@@ -76,7 +76,7 @@ public sealed class VbClipboard(IBasicStandardLibrary host) : ICSharpAsyncProxy
         if (args.Count <= index || args[index].IsMissing) return;
         var format = Format(args[index], true);
         if (format is -16639 or -16640)
-            throw new NotImplementedException("Clipboard RTF and Link text formats are not implemented (#1156)");
+            throw new NotImplementedException("Clipboard RTF and Link text formats are not implemented (#4955)");
         if (format != 1) throw new VBRunTimeException(VBStandardError.InvalidClipboardFormat);
     }
 
