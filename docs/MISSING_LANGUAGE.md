@@ -133,7 +133,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 35 | 50 | 0 | 40 | 125 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **0** | **0** | **41** | **524** | **20** | **608** | **1193** |
+| **Total** | **0** | **0** | **40** | **525** | **20** | **608** | **1193** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -274,7 +274,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 41 names
+## Dies mid-run — 40 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
