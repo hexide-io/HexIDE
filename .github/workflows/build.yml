@@ -293,25 +293,25 @@ jobs:
             echo "::error title=Runtime Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
           done
 
-      # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
-      # PackAIChatAddin target signs and bundles the add-ins. Forks/PRs receive no secret → the value is
-      # empty → packing is skipped and the build still succeeds. The key never lives in the repo.
-      - name: Restore first-party signing key (if configured)
-        env:
-          HEXIDE_FIRSTPARTY_KEY: ${{ secrets.HEXIDE_FIRSTPARTY_KEY }}
+      # First-party add-in packing runs here with a throwaway signing chain, never the real publisher key
+      # (#4740). Every build below runs the build-time code of every package the tree references (source
+      # generators, analyzers, package targets), and nothing in this job ships the add-ins: publish.yml signs
+      # releases. The chain is generated into an empty directory outside the tree and deleted when the job
+      # ends, and the IDE's embedded root refuses what it signs. So pull requests now pack too, where before
+      # they received no secret and skipped packing.
+      - name: Generate a throwaway add-in signing chain
         run: |
-          if [ -n "$HEXIDE_FIRSTPARTY_KEY" ]; then
-            printf '%s' "$HEXIDE_FIRSTPARTY_KEY" > HexIDE.AddinPacker/firstparty/firstparty.key
-            echo "first-party signing key restored — add-ins will be signed"
-          else
-            echo "no HEXIDE_FIRSTPARTY_KEY secret — add-ins unsigned (expected for forks/PRs)"
-          fi
+          set -euo pipefail
+          dotnet build HexIDE.AddinPacker -f net11.0
+          trust="$RUNNER_TEMP/addin-trust-throwaway"
+          dotnet HexIDE.AddinPacker/bin/Debug/net11.0/HexIDE.AddinPacker.dll genkeys "$trust"
+          echo "ADDIN_TRUST_DIR=$trust" >> "$GITHUB_ENV"
 
       # No -o: the first-party add-in packaging targets in HexIDE.Desktop.csproj pack each add-in from
       # its own per-project bin. 'dotnet build -o <dir>' forces every referenced project's output into a
       # single flattened dir, which both breaks those paths and would pack the whole IDE as the add-in.
       - name: Build HexIDE.Desktop (Linux)
-        run: dotnet build HexIDE.Desktop -f net11.0
+        run: dotnet build HexIDE.Desktop -f net11.0 -p:AddinTrustDir="$ADDIN_TRUST_DIR"
 
       - name: Build HexIDE.Standalone (Linux)
         run: dotnet build HexIDE.Standalone -f net11.0
@@ -323,10 +323,29 @@ jobs:
       # (CaptureShipsWithoutTheServerTests), and this asserts the arrangement still compiles — the two
       # fail in different ways and neither subsumes the other.
       - name: Build HexIDE.Desktop in Release (the configuration the server is absent from)
-        run: dotnet build HexIDE.Desktop -f net11.0 -c Release
+        run: dotnet build HexIDE.Desktop -f net11.0 -c Release -p:AddinTrustDir="$ADDIN_TRUST_DIR"
 
       - name: Build HexIDE.Standalone in Release
         run: dotnet build HexIDE.Standalone -f net11.0 -c Release
+
+      # The pack targets run only when the trust directory holds a key, so a wrong path would build green with
+      # nothing packed. Each package must exist and carry the throwaway chain's own publisher record.
+      - name: Check the throwaway chain packed the first-party add-ins
+        run: |
+          set -euo pipefail
+          debug=HexIDE.Desktop/bin/Debug/net11.0/addins
+          release=HexIDE.Desktop/bin/Release/net11.0/addins
+          for d in "$debug/com.hexide.aichat" "$debug/com.hexide.testaddin" "$release/com.hexide.aichat"; do
+            if [ ! -s "$d/addin.sig" ] || ! cmp -s "$ADDIN_TRUST_DIR/publisher.json" "$d/publisher.json"; then
+              echo "::error title=First-party add-ins not packed::$d is missing, or wasn't signed by this run's throwaway chain"
+              exit 1
+            fi
+            echo "packed: $d"
+          done
+
+      - name: Delete the throwaway signing chain
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/addin-trust-throwaway"
 
       - name: Self-test macOS bundle orchestration
         run: bash ../scripts/macos-bundle.selftest.sh

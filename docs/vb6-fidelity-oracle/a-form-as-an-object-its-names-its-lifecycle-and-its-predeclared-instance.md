@@ -71,6 +71,15 @@ What these show:
   Initialize's next statement.
 - **`Show` returns after Load and Resize, and before Activate**, which comes once `Sub Main` has returned. The run
   outlives `Sub Main` while a form is loaded.
+- **Re-run on the console (2026-11-18, #4768): the same.** The second and third probes' orders were measured again in
+  the IDE (`/runexit`), p-code and native, with the probe logging session id 1, and matched session 0's. The re-run
+  read `Me.Name` in every event, which showed two more things:
+  - **`Me.Name` in `Form_Initialize` loads the form,** as touching a control does, so its log reads `load` before
+    `initialize`.
+  - **`Me.Name` in the `Form_Terminate` at the run's end raised Load again in compiled code, and not in the IDE.**
+    After the last form had unloaded, Terminate's read logged a fresh `load`, with no Initialize, in p-code and native,
+    on the console and in session 0. In the IDE no Load came. Measured once per build. No rule is offered, and
+    HexIDE was not checked.
 - **The form's object variables are released after `Form_Terminate`.** In the first probe, the object `o` held is the
   last thing to go.
 
@@ -132,12 +141,12 @@ Form1 holds `Text1`; Module1 holds the logger.
 |---|---|
 | `hWnd = 5` (bare, and as `Me.hWnd = 5`) | does not compile: "Function or interface marked as restricted, or the function uses an Automation type not supported in Visual Basic" |
 | `Count = 1`, `Me.Count = 1`, `HasDC = True`, `hDC = 5` | the same message, for each |
-| `Set ActiveControl = Text1` | compiles; the run stops at a modal dialog before logging, which the harness's timeout cut off |
+| `Set ActiveControl = Text1` | compiles; the run stops at a modal dialog before logging, which the harness's timeout cut off. **Re-run on the console under `On Error Resume Next` (2026-11-18, #4768): run-time error 383, "'ActiveControl' property is read-only"**, in the IDE, p-code and native, and in session 0 too, and the form went on to Resize and Activate. HexIDE stops the run there (#4787) |
 | `Option Explicit`, then `Caption = "set"` and `Caption & "\|" & Me.Caption` | `set\|set` |
 | `Cls`, then `TextWidth("abc") > 0` and its `TypeName` | `cls ok`, then `True Single` |
 | `Dim Caption As String` in Load, `Caption = "local"`, then `Caption & "\|" & Me.Caption` | `local\|Form1` |
 | `TypeName(ScaleWidth)`, `ScaleWidth > 0`, `TypeName(Controls)`, `Controls.Count` | `Single True`, `Object 1` |
-| `Hide` in Load, then `Visible` | `hidden False` |
+| `Hide` in Load, then `Visible` | `hidden False`. Re-run on the console (2026-11-18, #4768): the same, `IsWindowVisible` 0, and the form was never shown: no Resize or Activate followed, as in session 0 |
 | `Name`, `Left("abc", 2)`, `Left = Me.Left` | `Form1 ab True` |
 | `Caption(1)`, where Module1 has `Public Function Caption(ByVal n As Integer) As String` | does not compile: "Wrong number of arguments or invalid property assignment" |
 | `Tag(2)`, where Module1 has `Public Function Tag(ByVal n As Integer) As String` | the same |
@@ -148,7 +157,8 @@ Form1 holds `Text1`; Module1 holds the logger.
 
 What these show:
 - **Assigning a member the Form only reads is refused at compile time,** with a message about restricted functions,
-  not one about read-only properties. That held for every read-only member tried, bare and through `Me`.
+  not one about read-only properties. That held for every read-only member tried, bare and through `Me`, except
+  `Set ActiveControl`, which compiles and raises 383 when it runs.
 - **A bare member is the form's under `Option Explicit` too,** and a local of the same name shadows it.
 - **A bare method runs,** as `Cls` does, and one called for its value returns its value, as `TextWidth` does.
 - **A property called with arguments** is VBA's function when the call fits it, and otherwise refused as the

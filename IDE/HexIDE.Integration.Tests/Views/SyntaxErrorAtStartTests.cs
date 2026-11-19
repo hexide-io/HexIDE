@@ -137,26 +137,35 @@ public class SyntaxErrorAtStartTests
         // failed start, which nothing would close. It now parses first, as VBLoader.RunForm does.
         var project = FormProject(loadBody);
         var h = Runner(project);
+        // The show may come after RunProject returns: any statement the debugger gates can yield to the dispatcher once
+        // its time slice is due, and since #4449 a startup Form_Load's declaration and End Sub are gated too. Whether
+        // 15 ms had passed decided this case, so it passed on one machine and failed on another. Yield at every gate,
+        // then drain, so the case is the same everywhere: the worst case, under which the form must still be shown once.
+        h.Controller.TimeSliceMs = -1;
         var wasSingleView = HexIDE.Static.SingleView;
         HexIDE.Static.SingleView = true;
         try
         {
             h.Runner.RunProject(project);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            if (shown)
+            {
+                h.Windows.ReceivedWithAnyArgs(1).ShowManagedWindow(default!);
+                h.Reported.Should().BeEmpty();
+            }
+            else
+            {
+                AssertAStartThatNeverRan(h).Should().StartWith("Compile error:");
+                h.Windows.DidNotReceiveWithAnyArgs().ShowManagedWindow(default!);
+            }
         }
         finally
         {
+            if (h.Runner.IsRunning)
+                h.Runner.EndProject();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             HexIDE.Static.SingleView = wasSingleView;
-        }
-
-        if (shown)
-        {
-            h.Windows.ReceivedWithAnyArgs(1).ShowManagedWindow(default!);
-            h.Reported.Should().BeEmpty();
-        }
-        else
-        {
-            AssertAStartThatNeverRan(h).Should().StartWith("Compile error:");
-            h.Windows.DidNotReceiveWithAnyArgs().ShowManagedWindow(default!);
         }
     }
 

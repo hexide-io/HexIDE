@@ -32,19 +32,17 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Project_Const_requires_its_value(bool otherModule)
+    public async Task Project_Const_outranks_library(bool otherModule)
     {
-        var act = () => RunModules((otherModule ? "" : "Const vbRed As Long = 3\n") + Declaration("vbRed"),
+        await RunModules((otherModule ? "" : "Const vbRed As Long = 3\n") + Declaration("vbRed") + "Debug.Print E.M\n",
             ("Module2", otherModule ? "Public Const vbRed As Long = 3\n" : ""));
-        var error = (await act.Should().ThrowAsync<NotImplementedException>()).Which;
-        error.Message.Should().Contain("M").And.Contain("#4614");
+        AssertDebugLog([new Vb6Value(3L)]);
     }
 
     [Theory]
     [InlineData("Dim vbRed As Long\n", "", "", "vbRed")]
     [InlineData("", "", "Public vbRed As Long\n", "vbRed + 0")]
     [InlineData("", "Const vbRed As Long = 3\n", "", "vbRed")]
-    [InlineData("Const K As Long = 3\n", "", "", "K + 1")]
     public async Task Existing_constant_expression_refusals(string before, string after, string other, string expression)
     {
         var act = () => RunModules(before + Declaration(expression) + after, ("Module2", other));
@@ -60,6 +58,64 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
         (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain("Constant expression required");
     }
 
+    // VB6 SP6 native/p-code: #4614's latest supervisor comment and
+    // docs/vb6-fidelity-oracle/what-an-enum-members-value-and-a-types-bounds-may-name.md.
+    [Theory]
+    [InlineData("K + 1", "Const K As Long = 5\n", "", 6L)]
+    [InlineData("K + 1", "Const K As Long = 3\n", "", 4L)]
+    [InlineData("Module2.PC + 1", "", "Public Const PC As Long = 40\n", 41L)]
+    [InlineData("PC * 2", "", "Public Const PC As Long = 40\n", 80L)]
+    public async Task Project_constant_values(string expression, string before, string other, long expected)
+    {
+        await RunModules(before + Declaration(expression) + "Debug.Print E.M\nDebug.Print TypeName(M)\n",
+            ("Module2", other));
+        AssertDebugLog([new Vb6Value(expected), new Vb6Value("Long")]);
+    }
+
+    private const string Owner = "Const K As Long = 5\nPublic Enum E\nM = K + 1\nN\nEnd Enum\n";
+
+    [Fact]
+    public async Task Following_member()
+    {
+        await RunModules(Owner + "Debug.Print N\n");
+        AssertDebugLog([new Vb6Value(7L)]);
+    }
+
+    [Fact]
+    public async Task Exported_member_in_const()
+    {
+        await RunModules("Const C As Long = M + 1\nDebug.Print C\n", ("Module2", Owner));
+        AssertDebugLog([new Vb6Value(7L)]);
+    }
+
+    // Composition measured in #4742, quoted in #4614.
+    [Fact]
+    public async Task Composition()
+    {
+        await RunModules("Const C As Long = M + 1\nConst D As Long = Module2.N + 10\nDim a(M) As Long\n"
+            + "Debug.Print M, N, E.M, Module2.M, E.N\nDebug.Print C, D, UBound(a), TypeName(M)\n",
+            ("Module2", Owner));
+        AssertDebugLog([new Vb6Value(6L), new Vb6Value(7L), new Vb6Value(6L), new Vb6Value(6L),
+            new Vb6Value(7L), new Vb6Value(7L), new Vb6Value(17L), new Vb6Value(6L), new Vb6Value("Long")]);
+    }
+
+    [Theory]
+    [InlineData("Public Const C As Long = M + 1", "C", 7L)]
+    [InlineData("Public Const D As Long = ModuleB.N + 10", "D", 17L)]
+    [InlineData("Public a(M) As Long", "UBound(a)", 6L)]
+    public async Task Reader_declarations_before_owner(string declaration, string expression, long expected)
+    {
+        await RunModules("Debug.Print " + expression + "\n", ("ModuleA", declaration + "\n"), ("ModuleB", Owner));
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Fact]
+    public async Task Own_constant_below_enum_is_refused()
+    {
+        var act = () => RunModules(Declaration("K") + "Const K As Long = 5\n");
+        (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain("Constant expression required");
+    }
+
     // These are HexIDE's explicit refusals, not additional VB6 measurements.
     [Theory]
     [InlineData("vbCrLf")]
@@ -69,7 +125,7 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
     public async Task Unmeasured_library_values_are_refused(string expression)
     {
         var act = () => Run(Declaration(expression));
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4594").And.Contain("M");
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4745").And.Contain("M");
     }
 
     [Theory]
@@ -80,7 +136,7 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
     public async Task Project_qualifier_requires_project_resolution(string expression, string module, string source)
     {
         var act = () => RunModules(Declaration(expression), (module, source));
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4614").And.Contain("M");
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4762").And.Contain("M");
     }
 
     [Theory]
@@ -90,6 +146,6 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
     public async Task Other_project_names_are_not_library_values(string source)
     {
         var act = () => RunModules(Declaration("vbRed"), ("Module2", source));
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4614").And.Contain("M");
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4762").And.Contain("M");
     }
 }

@@ -193,7 +193,11 @@ internal sealed class RuntimeDrawing
         bool firstStep, bool secondStep = false, bool shortLine = false, string? box = null)
     {
         var drawing = Of(owner) ?? throw Refused(method + " on this object");
-        if (method == "Circle") throw Refused("Circle");
+        if (method == "Circle")
+        {
+            drawing.Circle(args, firstStep);
+            return;
+        }
         drawing.CheckPen();
         var x1 = shortLine ? drawing.currentX : drawing.Twips(args[0], false, firstStep, drawing.currentX);
         var y1 = shortLine ? drawing.currentY : drawing.Twips(args[1], true, firstStep, drawing.currentY);
@@ -214,6 +218,107 @@ internal sealed class RuntimeDrawing
         drawing.currentX = x2;
         drawing.currentY = y2;
         drawing.Changed();
+    }
+
+    private void Circle(IReadOnlyList<Vb6Value> args, bool step)
+    {
+        static float Number(Vb6Value value) =>
+            Convert.ToSingle(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Single, null).Value);
+        var radius = Number(args[2]);
+        var start = args.Count > 4 && !args[4].IsMissing ? Number(args[4]) : 0;
+        var end = args.Count > 5 && !args[5].IsMissing ? Number(args[5]) : 2 * Math.PI;
+        if (radius < 0 || Math.Abs(start) > 2 * Math.PI || Math.Abs(end) > 2 * Math.PI)
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        CheckPen();
+        if (args.Count > 4 && !args[4].IsMissing || args.Count > 5 && !args[5].IsMissing)
+            throw Refused("Circle arcs and sectors");
+        var unit = Math.Abs(Scale.TwipsPerUnit(false));
+        if (unit != Math.Abs(Scale.TwipsPerUnit(true)))
+            throw Refused("Circle with unequal scale units");
+        var x = Twips(args[0], false, step, currentX);
+        var y = Twips(args[1], true, step, currentY);
+        var aspect = args.Count > 6 && !args[6].IsMissing ? Math.Abs(Number(args[6])) : 1;
+        var r = Whole(radius * unit);
+        var rx = Whole((aspect > 1 ? r / aspect : r) / VBScaleModeExtensions.PixelToTwips);
+        var ry = Whole((aspect > 1 ? r : r * aspect) / VBScaleModeExtensions.PixelToTwips);
+        var colour = args.Count > 3 && !args[3].IsMissing ? MethodColor(args[3]) : Foreground();
+        EnsureSurface();
+        if (r != 0)
+            Ellipse(Whole((double)x / VBScaleModeExtensions.PixelToTwips),
+                Whole((double)y / VBScaleModeExtensions.PixelToTwips), rx, ry, colour);
+        currentX = x;
+        currentY = y;
+        Changed();
+    }
+
+    private void Ellipse(int cx, int cy, int rx, int ry, int colour)
+    {
+        // #4720 / oracle PR #4719: flatten before rasterising, keeping the fractional vertices.
+        // Rounding each vertex first, or rasterising an ideal ellipse, changes the measured grids.
+        var count = 1;
+        while (Math.Max(rx, ry) * (1 - Math.Cos(Math.PI / (4 * count))) > 0.5) count *= 2;
+        var points = new Point[count + 1];
+        var k = 4d / 3 * Math.Tan(Math.PI / 8);
+        for (var i = 0; i <= count; i++)
+        {
+            var t = (double)i / count;
+            var u = 1 - t;
+            points[i] = new Point(rx * (3 * u * u * t * k + 3 * u * t * t + t * t * t),
+                ry * (u * u * u + 3 * u * u * t + 3 * u * t * t * k));
+        }
+        if (fillStyle == 0 && ry != 0)
+        {
+            var fill = MethodColor(new Vb6Value((long)fillColor.ToOle()));
+            for (var y = Math.Max(0, cy - ry); y <= Math.Min(height - 1, cy + ry); y++)
+            {
+                var offset = Math.Abs(y - cy);
+                for (var i = 1; i <= count; i++)
+                {
+                    var a = points[i - 1];
+                    var b = points[i];
+                    if (offset > a.Y || offset < b.Y || a.Y == b.Y) continue;
+                    var edge = Whole(a.X + (offset - a.Y) * (b.X - a.X) / (b.Y - a.Y));
+                    for (var x = Math.Max(0, cx - edge + 1); x < Math.Min(width, cx + edge); x++) Put(x, y, fill);
+                    break;
+                }
+            }
+        }
+        void Plot(int x, int y)
+        {
+            Put(cx + x, cy + y, colour);
+            Put(cx - x, cy + y, colour);
+            Put(cx + x, cy - y, colour);
+            Put(cx - x, cy - y, colour);
+        }
+        bool? previousHorizontal = null;
+        for (var i = 1; i <= count; i++)
+        {
+            var a = points[i - 1];
+            var b = points[i];
+            var dx = b.X - a.X;
+            var dy = b.Y - a.Y;
+            if (dx == 0 && dy == 0) { Plot(Whole(a.X), Whole(a.Y)); continue; }
+            var horizontal = Math.Abs(dx) >= Math.Abs(dy);
+            var first = horizontal ? a.X : b.Y;
+            var last = horizontal ? b.X : a.Y;
+            var centre = horizontal ? cx : cy;
+            var extent = horizontal ? width : height;
+            // Each reflected half has its own visible interval, even when the centre is offscreen.
+            foreach (var sign in new[] { -1, 1 })
+            {
+                var low = Math.Max((int)Math.Ceiling(first), sign > 0 ? -centre : centre - extent + 1);
+                var high = Math.Min((int)Math.Floor(last), sign > 0 ? extent - 1 - centre : centre);
+                for (var major = low; major <= high; major++)
+                {
+                    var minor = horizontal ? Whole(a.Y + (major - a.X) * dy / dx)
+                        : Whole(a.X + (major - a.Y) * dx / dy);
+                    Plot(horizontal ? major : minor, horizontal ? minor : major);
+                }
+            }
+            if (previousHorizontal is { } previous && previous != horizontal)
+                Plot(Whole(a.X), Whole(a.Y));
+            previousHorizontal = horizontal;
+        }
     }
 
     private int Background() => PropertyColor(VBProperties.BackColorProperty);

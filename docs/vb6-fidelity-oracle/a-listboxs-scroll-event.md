@@ -104,7 +104,9 @@ are not.
 MultiSelect list, and before the form is shown, while its rows have never been drawn?
 
 **The probe.**
-- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same lines.
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same lines. Where it ran wasn't recorded.
+  Re-run on the guest's console (2026-11-18, #4768), the IDE, p-code and native agreeing, beside session 0: every
+  row of the table below read the same in both.
 - **The form:** three ListBoxes, each 1,425 twips high and showing 7 rows, with 20 items added after `Load Form1` and
   before `Show`: `List0` with `MultiSelect` 0, `List1` with 1 (Simple), `List2` with 2 (Extended).
 - **The count:** each list's Scroll handler adds 1 to a counter, and each row reads `TopIndex`, `ListIndex`,

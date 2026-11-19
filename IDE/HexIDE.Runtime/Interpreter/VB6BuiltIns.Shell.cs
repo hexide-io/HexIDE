@@ -14,8 +14,24 @@ public partial class VB6BuiltIns
     {
         if (args[0].IsNull)
             throw InvalidUseOfNull();
-        if (args[0].Type != Vb6Value.ValueType.String)
-            throw new NotImplementedException("Shell: non-string PathName conversion has not been measured (#4146)");
+        // vb6.exe SP6, native and p-code: #4406 (oracle PR #4721).
+        if (args[0].Type == Vb6Value.ValueType.Object
+            || args[0].Type == Vb6Value.ValueType.Control
+            || args[0].Type == Vb6Value.ValueType.CSharpProxyObject)
+        {
+            if (args[0].Value is null)
+                throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+            if (args[0].Value is VbCollection)
+                throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+            throw new NotImplementedException("Shell: this object's PathName default member has not been measured (#4406)");
+        }
+        if (args[0].Type == Vb6Value.ValueType.UserDefinedType || args[0].Value is VbUdt
+            || args[0].Type == Vb6Value.ValueType.Missing
+            || args[0].Type == Vb6Value.ValueType.AutomationUnsignedLong
+            || args[0].Type == Vb6Value.ValueType.Color
+            || args[0].Type == Vb6Value.ValueType.File
+            || args[0].Type == Vb6Value.ValueType.Nothing)
+            throw new NotImplementedException("Shell: this PathName conversion has not been measured (#4406)");
         var command = AsStr(args[0]).TrimStart(' ', '\t');
         var style = Supplied(args, 1)
             ? Convert.ToInt32(NarrowNum(args[1], Vb6Value.ValueType.Integer).Value) : 2;
@@ -33,17 +49,21 @@ public partial class VB6BuiltIns
             {
                 Size = Marshal.SizeOf<ShellStartupInfo>(), Flags = 1, ShowWindow = (short)style
             };
-            // CreateProcess receives the original command line, including quoting and argument boundaries.
-            var buffer = (command + '\0').ToCharArray();
+            // Batch files need the command interpreter; other programs receive the original command line.
+            var launchCommand = File.Exists(program) && Path.GetExtension(program).Equals(".bat", StringComparison.OrdinalIgnoreCase)
+                ? "\"" + Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe")
+                    + "\" /c \"" + command + "\""
+                : command;
+            var buffer = (launchCommand + '\0').ToCharArray();
             if (!ShellCreateProcess(null, buffer, IntPtr.Zero, IntPtr.Zero, false, 0, IntPtr.Zero, null,
                     ref startup, out var process))
             {
                 var error = Marshal.GetLastPInvokeError();
                 if (error is 2 or 3)
                     throw new VBRunTimeException(VBStandardError.FileNotFound);
-                if (error == 193 && ShellDocument(File.Exists(command) ? command : program))
+                if (error is 5 or 193 or 216)
                     throw InvalidCall();
-                throw new NotImplementedException("Shell: this process launch failure has not been measured (#4146)");
+                throw new NotImplementedException($"Shell: process launch error {error} has not been measured (#4406)");
             }
             ShellCloseHandle(process.Thread);
             ShellCloseHandle(process.Process);
@@ -65,14 +85,13 @@ public partial class VB6BuiltIns
         {
             throw new VBRunTimeException(VBStandardError.FileNotFound);
         }
-        catch (Win32Exception e) when (!OperatingSystem.IsWindows() && e.NativeErrorCode is 8 or 13 && ShellDocument(program)
-            && (File.GetUnixFileMode(program) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) == 0)
+        catch (Win32Exception e) when (!OperatingSystem.IsWindows() && e.NativeErrorCode is 8 or 13 && ShellProgramExists(program))
         {
             throw InvalidCall();
         }
-        catch (Win32Exception)
+        catch (Win32Exception e)
         {
-            throw new NotImplementedException("Shell: this process launch failure has not been measured (#4146)");
+            throw new NotImplementedException($"Shell: process launch error {e.NativeErrorCode} has not been measured (#4406)");
         }
     }
 
@@ -86,37 +105,6 @@ public partial class VB6BuiltIns
             if (File.Exists(Path.Combine(directory, program)))
                 return true;
         return false;
-    }
-
-    private static bool ShellDocument(string path)
-    {
-        // Do not turn an executable's bad-image or access-denied failure into a measured document error.
-        var extension = Path.GetExtension(path);
-        if (!File.Exists(path) || extension.Length == 0
-            || extension.Equals(".exe", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".com", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".bat", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".sh", StringComparison.OrdinalIgnoreCase))
-            return false;
-        try
-        {
-            // Only identify readable text documents; ambiguous/binary images keep the refusal.
-            using var file = File.OpenRead(path);
-            for (var i = 0; i < 512; i++)
-            {
-                var value = file.ReadByte();
-                if (value < 0)
-                    return true;
-                if (value is < 32 or > 126 && value is not (9 or 10 or 13))
-                    return false;
-            }
-            return true;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

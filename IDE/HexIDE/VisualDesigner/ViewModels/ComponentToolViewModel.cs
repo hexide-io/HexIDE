@@ -50,6 +50,14 @@ public partial class ComponentToolViewModel : ObservableObject
     public string? IconKey { get; init; }
     public string Name { get; }
 
+    /// <summary>
+    /// The control's class for its tooltip and automation name, matching VB6's measured toolbox tips (#2751,
+    /// oracle PR #4729). <see cref="Name"/> remains the prefix a new control's name takes.
+    /// </summary>
+    public string DisplayName => VBTypeName is { } typeName && typeName.LastIndexOf('.') is var dot and >= 0
+        ? typeName[(dot + 1)..]
+        : Name;
+
     public bool IsSelected
     {
         get => parent.SelectedComponent == this;

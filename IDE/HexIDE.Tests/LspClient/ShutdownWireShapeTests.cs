@@ -61,6 +61,11 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         {
             try { await d.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
+        // The server loop reads a stream this teardown just closed, so it can end faulted ("Reading is not allowed after
+        // reader was completed"). Observe that here. Left unobserved, it reached the finalizer thread's
+        // UnobservedTaskException, which the IDE logs, and another test's captured log took it in (#4809).
+        _ = _serverLoop?.ContinueWith(static t => _ = t.Exception, CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         _cts.Dispose();
         GC.SuppressFinalize(this);
     }

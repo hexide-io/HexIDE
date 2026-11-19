@@ -16,7 +16,7 @@ array `mnuLevel(0 To 2)`: "&Beginner" checked, "&Intermediate" and "&Expert". `F
 | `mnuGame.Visible = False`, then `ScaleHeight`, `Height`; and after `= True` again | `3420 4085`, both times |
 
 The same form without a menu has `Height - ScaleHeight` = 375 ("Move, ScaleWidth and ScaleHeight"), and with one it
-is 660: the bar takes 285 twips, 19 pixels at 96 dpi. `ClientHeight` and `ScaleHeight` are the area below it. Hiding
+is 660: the bar takes 285 twips, 19 pixels at 96 dpi, in session 0. On the console it takes 300, 20 pixels (below). `ClientHeight` and `ScaleHeight` are the area below it. Hiding
 the only top-level menu from code changed nothing before the form was shown; what it does once shown is unmeasured.
 
 **A menu hidden at design time is no bar.** A second probe, with `ClientTop = 330`, logs in `Form_Load`, again from a
@@ -30,6 +30,40 @@ Timer once the form is shown, and after `Height = (Height - ScaleHeight) + 2000`
 
 Each cell is `ScaleHeight Height`. A form that keeps its only menu hidden, for `PopupMenu`, is the same size as one with
 no menu at all, so VB6 shows a bar only for a visible top-level menu.
+
+**Re-run on the console, and the bar going away or coming back from code (2026-11-18, #4768, #1140).** The probes
+above ran in session 0, which draws no window and has a smaller frame. One project was built p-code and native and run
+on the guest's console, in the IDE (`/runexit`) and in session 0, logging its session id and `GetSystemMetrics`. Form1 is
+the Fixed Single form above; Form2 is the same with its only top-level menu hidden in the .frm. `Sub Main` loads one and
+runs each step, with a `DoEvents` before each read. Each cell is `ScaleHeight Height`; p-code, native and the IDE agree
+except where noted.
+
+| Step | Console | Session 0 |
+|---|---|---|
+| Form1 loaded | `3420 4155` | `3420 4080` |
+| `Height = (Height - ScaleHeight) + 2000`, then `+ 3420` | `1995 2735`, then `3420 4160` | `1995 2660`, then `3420 4085` |
+| `mnuGame.Visible = False`, not yet shown | **`3720 4160`** | **`3705 4085`** |
+| `mnuGame.Visible = True` | `3420 4160` | `3420 4085` |
+| `Form1.Show`, then `mnuGame.Visible = False` | **`3720 4160`** | **`3705 4085`** |
+| `mnuGame.Visible = True` | `3420 4160` | `3420 4085` |
+| `WindowState = 2`, then `mnuGame.Visible = False`, then `True` | `10875 11610`, **`11175 11610`**, `10875 11610` | the same as not maximized: session 0 keeps WindowState 0 |
+| Form2 loaded, then shown | `3420 3855` | `3420 3795` |
+| Form2's `mnuGame.Visible = True`, then `False` | **`3120 3855`**, then `3420 3855` | **`3135 3795`**, then `3420 3795` |
+
+What these show:
+- **The console's frame is larger.** A Fixed Single form with a menu bar is 735 twips taller than its ScaleHeight, 6 + 23
+  + 20 pixels, against session 0's 660, 6 + 19 + 19. `GetSystemMetrics` read `SM_CYCAPTION` 23 and `SM_CYMENU` 20 on the
+  console, 19 and 19 in session 0. The bar is 300 twips on the console, as "A form's Width and Height" has it.
+- **The bar going away or appearing from code keeps the window's Height and moves ScaleHeight by the bar**, 300 twips
+  on the console and 285 in session 0. That held loaded or shown, normal or maximized, with no error, and each change
+  raised one Resize that read the new ScaleHeight.
+- **Before Show, hiding the only top-level menu did change ScaleHeight here,** where the first probe above logged no
+  change. That probe ran inside `Form_Load`, and this one from `Sub Main` after `Load`, with a `DoEvents` before each
+  read. Which difference matters wasn't measured.
+- **The IDE's first read differs.** In the IDE, Form1's Height straight after `Load` was 3855, as if it had no bar,
+  and the first fit then left ScaleHeight 1695. Every later read matched the compiled builds. Measured once, with no
+  rule offered.
+- **Not measured:** an MDI child, and a menu bar that wraps.
 
 **Menus from code:**
 
@@ -99,7 +133,8 @@ its menu when the array has gaps, and whether it copies a Shortcut.
   top-level menu, or showing one on a form whose top-level menus are all hidden, as a form that only pops its menus up
   has them. The bar's height comes off the client area, and what the window or ScaleHeight does once the form is shown
   is unmeasured; the one case measured, before it is shown, changed nothing. Wanted: ScaleHeight and Height after each
-  direction on a shown form, and on a maximized form and an MDI child. A change that leaves a top-level menu visible
+  direction on a shown form, and on a maximized form and an MDI child. Measured since, all but the MDI child: the
+  console re-run above (#1140). A change that leaves a top-level menu visible
   works, and so does every change to a sub-item.
 - **The text of 340** names the element in vb6.exe, "Control array element '5' doesn't exist", and doesn't here.
   The "Control arrays" rows above give it without the index, which looks abbreviated rather than measured; not

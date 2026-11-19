@@ -184,6 +184,7 @@
     "Str.Archive.FolderReadyFormat": "保存済みアーカイブからソースフォルダーを同期しました:\n{0}\n\nフォルダー内の編集は同期を停止させ、インポートされません。プレビューを更新するにはプロジェクトを再読み込みしてください。",
     "Str.Archive.FolderErrorFormat": "ソースフォルダーの同期を停止しました:\n{0}\n\nアーカイブは変更されていません。",
     "Str.Archive.OpenErrorFormat": "{0} を開けませんでした:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "'{0}' フォームを読み取る形式がインストールされていません",
     "Str.ContributedProject.OpenError": "{1} で {0} を開けませんでした:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} は {1} が開いています。ファイルの追加と削除は HexIDE ではなく、所属するプログラムが行います。",
     "Str.ContributedProject.RemovedWithChanges": "{0} は {1} が属するプログラムによってプロジェクトから外されました。先に変更を保存しますか?",
