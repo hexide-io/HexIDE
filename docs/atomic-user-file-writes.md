@@ -45,8 +45,11 @@ the staged exe and renames it over the destination; failures and timeouts discar
 staging folder. Compiler-written `Path32` is restored through the shared atomic writer,
 keeping other compiler edits (#4757; measured output contract in
 [oracle PR #4756](https://github.com/hexide-io/HexIDE/pull/4756)). Missing destination
-folders are not created. Auto-incrementing projects and other project types still build
-in place: write-back and COM registration prevent this publication scheme (#2503).
+folders are not created. Auto-incrementing Standard EXEs and other project types build
+in place with a flushed copy of the previous output: a failed or stopped build restores
+it for an auto-incrementing Standard EXE, and keeps it beside the output with a notice
+for every other type (#4952). A crash or power cut during an in-place build still
+requires manual recovery (#2503).
 The twinBASIC compiler is not inspected or executed by this work; its existing preparation
 copies are disposable workspace files.
 

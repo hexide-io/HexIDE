@@ -1119,6 +1119,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Atlikta pakeitimų: {0}; praleista failų: {1}, nes HexIDE dar negali jų tiksliai išsaugoti.",
     "Str.FindReplace.Msg.InvalidRegex": "Netinkamas reguliariojo reiškinio šablonas.",
     "Str.FindReplace.Msg.NothingToSearch": "Čia nėra ko ieškoti. Paieška veikia kodo languose ir prie projekto pridėtuose tekstiniuose failuose.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} gali būti sugadintas. Ankstesnė versija išsaugota kaip {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nerastas. Įdiekite VB6 numatytojoje vietoje arba nustatykite aplinkos kintamąjį VB6_EXE.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Sukurti nepavyko",
     "Str.Vb6Toolchain.ProjectNotSaved": "Prieš kompiliuojant su VB6, projektą būtina įrašyti į diską.",

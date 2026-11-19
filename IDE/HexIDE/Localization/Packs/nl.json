@@ -1119,6 +1119,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} vervangingen uitgevoerd; {1} bestanden overgeslagen omdat HexIDE ze nog niet getrouw kan opslaan.",
     "Str.FindReplace.Msg.InvalidRegex": "Ongeldig patroon voor reguliere expressie.",
     "Str.FindReplace.Msg.NothingToSearch": "Hier valt niets te doorzoeken. Zoeken werkt in codevensters en in tekstbestanden die het project bevat.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} is mogelijk beschadigd. De vorige versie wordt bewaard als {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE is niet gevonden. Installeer VB6 op de standaardlocatie of stel de omgevingsvariabele VB6_EXE in.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Bouwen mislukt",
     "Str.Vb6Toolchain.ProjectNotSaved": "Het project moet op schijf worden opgeslagen voordat het met VB6 kan worden gecompileerd.",

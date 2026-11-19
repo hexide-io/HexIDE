@@ -1118,6 +1118,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} substitucións realizadas; {1} ficheiros omitidos porque HexIDE aínda non pode gardalos fielmente.",
     "Str.FindReplace.Msg.InvalidRegex": "Patrón de expresión regular non válido.",
     "Str.FindReplace.Msg.NothingToSearch": "Non hai nada aquí onde buscar. A busca funciona nas xanelas de código e nos ficheiros de texto incluídos no proxecto.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} pode estar danado. A súa versión anterior consérvase como {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "Non se atopou VB6.EXE. Instale VB6 na localización predeterminada ou estableza a variable de contorno VB6_EXE.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Fallou a compilación",
     "Str.Vb6Toolchain.ProjectNotSaved": "Debe gardar o proxecto no disco antes de compilalo con VB6.",
