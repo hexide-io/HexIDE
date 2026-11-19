@@ -112,7 +112,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         await Task.Delay(150);
 
-        var outcome = await RunVb6Async(project.AbsolutePath!);
+        var outcome = await BuildAndPublishAsync(project, exePath);
 
         // The previous build's errors expire here, whatever this one did — including a timeout, which used
         // to return before this point and so was the one path that left them on screen indefinitely.
@@ -157,6 +157,87 @@ public class Vb6ToolchainService : IVb6ToolchainService
         return outcome.ExitCode == 0;
     }
 
+    private async Task<Vb6BuildOutcome?> BuildAndPublishAsync(ProjectDefinition project, string destination)
+    {
+        string? staging = null;
+        try
+        {
+            var folder = Path.GetDirectoryName(destination)!;
+            if (project.ProjectType != VBProjectType.EXE || !Directory.Exists(folder))
+                return await RunVb6Async(project.AbsolutePath!, null);
+
+            var original = File.ReadAllBytes(project.AbsolutePath!);
+            // /outdir writes AutoIncrementVer projects back and ActiveX outputs register in place
+            // (oracle PR #4756, issue #4757). Those must keep building at their final location.
+            if (Regex.IsMatch(System.Text.Encoding.Latin1.GetString(original),
+                    @"^[\t ]*AutoIncrementVer[\t ]*=[\t ]*1[\t ]*\r?$", RegexOptions.Multiline | RegexOptions.IgnoreCase))
+                return await RunVb6Async(project.AbsolutePath!, null);
+
+            staging = Path.Combine(folder, ".hexide-vb6make-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(staging);
+            Vb6BuildOutcome? outcome;
+            try
+            {
+                outcome = await RunVb6Async(project.AbsolutePath!, staging);
+            }
+            finally
+            {
+                RestoreMakePath(project.AbsolutePath!, original);
+            }
+            if (outcome?.ExitCode == 0)
+            {
+                var staged = Path.Combine(staging, Path.GetFileName(destination));
+                using (var stream = new FileStream(staged, FileMode.Open, FileAccess.Write, FileShare.None))
+                    stream.Flush(flushToDisk: true);
+                try
+                {
+                    File.Move(staged, destination, overwrite: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Windows' message doesn't name the file ("Access to the path is denied."), and an exe that's
+                    // running is the usual reason, so say which one couldn't be replaced.
+                    return new Vb6BuildOutcome(1, destination + ": " + ex.Message);
+                }
+            }
+            return outcome;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new Vb6BuildOutcome(1, ex.Message);
+        }
+        finally
+        {
+            if (staging is not null)
+            {
+                try { Directory.Delete(staging, recursive: true); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Log.Warning(ex, "Could not remove VB6 staging folder {Path}", staging);
+                }
+            }
+        }
+    }
+
+    private static void RestoreMakePath(string projectPath, byte[] original)
+    {
+        var updated = File.ReadAllBytes(projectPath);
+        if (original.AsSpan().SequenceEqual(updated)) return;
+
+        // Latin-1 is a byte-preserving view: repair the ASCII key without re-encoding the rest
+        // of VB6's write-back, including its line endings and any ANSI or UTF-8 source bytes.
+        var codec = System.Text.Encoding.Latin1;
+        var pathLine = new Regex(@"^[\t ]*Path32[\t ]*=[^\r\n]*(?:\r\n|\r|\n|$)",
+            RegexOptions.Multiline | RegexOptions.IgnoreCase);
+        var previous = pathLine.Match(codec.GetString(original));
+        var text = codec.GetString(updated);
+        if (pathLine.IsMatch(text))
+            text = pathLine.Replace(text, _ => previous.Success ? previous.Value : "", 1);
+        else if (previous.Success)
+            text += (text.EndsWith('\n') || text.EndsWith('\r') ? "" : "\r\n") + previous.Value;
+        AtomicFileWriter.WriteAllBytes(projectPath, codec.GetBytes(text));
+    }
+
     /// <summary>What one run of <c>VB6.EXE /make</c> reported.</summary>
     /// <param name="ExitCode">Zero when the compiler produced a binary.</param>
     /// <param name="Output">The <c>/out</c> log and both console streams, joined for parsing.</param>
@@ -174,7 +255,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
     /// test say "the compiler exited 0" without one being present.
     /// </para>
     /// </summary>
-    internal virtual async Task<Vb6BuildOutcome?> RunVb6Async(string projectPath)
+    internal virtual async Task<Vb6BuildOutcome?> RunVb6Async(string projectPath, string? outputDirectory)
     {
         // VB6.exe is a GUI app: under /make it writes compile errors to the file named by /out, not
         // reliably to stdout/stderr. Capture the /out log (the authoritative error source) as well as
@@ -183,7 +264,8 @@ public class Vb6ToolchainService : IVb6ToolchainService
 
         var psi = new ProcessStartInfo(Vb6ExePath!)
         {
-            Arguments = $"/make \"{projectPath}\" /out \"{logPath}\"",
+            Arguments = $"/make \"{projectPath}\" /out \"{logPath}\"" +
+                (outputDirectory is null ? "" : $" /outdir \"{outputDirectory}\""),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -204,7 +286,12 @@ public class Vb6ToolchainService : IVb6ToolchainService
         }
         catch (OperationCanceledException)
         {
-            try { process.Kill(entireProcessTree: true); } catch { /* already exited */ }
+            try
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync();
+            }
+            catch { /* already exited */ }
             TryDeleteLog(logPath);
             return null;
         }

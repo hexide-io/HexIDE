@@ -76,7 +76,7 @@ public class Vb6ToolchainDiagnosticsTests
         /// <summary>How many times vb6.exe would have been started.</summary>
         public int Builds { get; private set; }
 
-        internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath)
+        internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath, string? outputDirectory)
         {
             Builds++;
             return Task.FromResult(outcome);
