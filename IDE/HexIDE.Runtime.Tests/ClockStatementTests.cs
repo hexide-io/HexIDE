@@ -40,7 +40,7 @@ public class ClockStatementTests : BaseVBTestFixture
     public async Task UnmeasuredTypesExplicitlyRefuse(string statement, string value)
     {
         var run = () => Run($"{statement} = {value}");
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4681*");
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4733*");
     }
 
     [Theory]

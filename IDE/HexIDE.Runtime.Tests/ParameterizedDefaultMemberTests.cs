@@ -13,6 +13,9 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
             Item = store(CStr(k))
         End Property
         Public Property Let Item(ByVal k As Variant, ByVal v As Variant)
+            On Error Resume Next
+            store.Remove CStr(k)
+            On Error GoTo 0
             store.Add v, CStr(k)
         End Property
         Public Property Get Self() As Bag
@@ -46,6 +49,40 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
     private Task Probe(string code) => RunClasses(code + "\n", ("Bag", Bag), ("Holder", Holder),
         ("FBag", "Public Function Item(ByVal k As Variant) As Variant\nAttribute Item.VB_UserMemId = 0\nItem = \"f\" & k\nEnd Function\n"),
         ("TBag", "Public Property Get Item(ByVal a As Long, ByVal b As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = a * 10 + b\nEnd Property\n"));
+
+    private const string Record = "Private Type TT\n    d As Bag\nEnd Type\nDim t As TT\n";
+
+    // Measured native and p-code in https://github.com/hexide-io/HexIDE/issues/4725.
+    [Theory]
+    [InlineData("t.d(\"k\") = \"v\"\nDebug.Print t.d(\"k\")", "v")]
+    [InlineData("t.d(\"k\") = \"v\"\nDebug.Print TypeName(t.d(\"k\"))", "String")]
+    [InlineData("t.d(\"A1\") = False\nt.d(\"A1\") = True\nDebug.Print CStr(t.d(\"A1\")) & \" \" & TypeName(t.d(\"A1\"))", "True Boolean")]
+    [InlineData("t.d.Item(\"k\") = \"v\"\nDebug.Print t.d(\"k\")", "v")]
+    public async Task Type_field_default_member(string code, string expected)
+    {
+        await Probe(Record + "Set t.d = New Bag\n" + code);
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("t.d(\"k\") = 1")]
+    [InlineData("Dim x As Variant\nx = t.d(\"k\")")]
+    public async Task Type_field_typed_Nothing_raises_91(string statement)
+    {
+        var run = () => Probe(Record + statement);
+        var error = (await run.Should().ThrowAsync<VBRunTimeException>()).Which;
+        error.Error.ErrNo.Should().Be(91);
+    }
+
+    // Unmeasured: Nothing in an As Object Type field, given arguments, stays refused for a Let and a read alike (#4725).
+    [Theory]
+    [InlineData("t.o(\"k\") = 1")]
+    [InlineData("Dim x As Variant\nx = t.o(\"k\")")]
+    public async Task Type_field_As_Object_Nothing_stays_refused(string statement)
+    {
+        var run = () => Probe("Private Type TO\n    o As Object\nEnd Type\nDim t As TO\n" + statement);
+        await run.Should().ThrowAsync<NotImplementedException>();
+    }
 
     [Theory]
     [InlineData("Dim b As New Bag\nb(\"x\") = \"v\"\nDebug.Print b(\"x\") & \" \" & b.Self(\"x\")", "v v")]
@@ -96,6 +133,6 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
     public async Task Unmeasured_members_refuse(string source, string statement)
     {
         var run = () => RunClasses("Dim c As New C\n" + statement + "\n", ("C", source));
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4606*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4747*");
     }
 }
