@@ -15,23 +15,54 @@ public class RpcCompletionTests
     [InlineData("nonzero")]
     [InlineData("exit1")]
     [InlineData("exit2")]
-    public async Task Process_exit_leaves_no_unobserved_task(string mode)
+    public async Task Process_exit_leaves_no_unobserved_task(string mode) =>
+        (await OwnUnobservedFaultsDuring(() =>
+            new StdioProcessFaultTests().Process_lifecycle_is_observable_and_stop_leaves_no_server(mode))).Should().BeEmpty();
+
+    [Fact]
+    public async Task A_fault_that_read_through_an_in_memory_pipe_is_another_tests()
+    {
+        var pipe = new System.IO.Pipelines.Pipe();
+        await pipe.Reader.CompleteAsync();
+        var readCompletedPipe = async () => await pipe.Reader.AsStream().ReadAsync(new byte[1], TestContext.Current.CancellationToken);
+        var inMemory = (await readCompletedPipe.Should().ThrowAsync<InvalidOperationException>()).Which;
+        ReadThroughAnInMemoryPipe(new AggregateException(inMemory)).Should().BeTrue();
+
+        var endOfStream = async () => { await Task.Yield(); throw new EndOfStreamException(); };
+        var own = (await endOfStream.Should().ThrowAsync<EndOfStreamException>()).Which;
+        ReadThroughAnInMemoryPipe(new AggregateException(own)).Should().BeFalse();
+    }
+
+    // The unobserved faults of this test's own connection while run runs (#4875). The event is process-wide, so a read loop
+    // another test leaked can fault and be collected inside this window (#4833), and it used to fail this class on PRs that
+    // never touched it (#4941). This class's connections read a child process's standard output or a WebSocket, never an
+    // in-memory pipe, so a fault that read through one is another test's stand-in, and isn't counted.
+    private static async Task<List<Exception>> OwnUnobservedFaultsDuring(Func<Task> run)
     {
         CollectFinalizers();
         var faults = new List<Exception>();
-        void Record(object? sender, UnobservedTaskExceptionEventArgs e) => faults.Add(e.Exception);
+        void Record(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            if (!ReadThroughAnInMemoryPipe(e.Exception))
+                lock (faults) faults.Add(e.Exception);
+        }
         TaskScheduler.UnobservedTaskException += Record;
         try
         {
-            await new StdioProcessFaultTests().Process_lifecycle_is_observable_and_stop_leaves_no_server(mode);
+            await run();
             CollectFinalizers();
-            faults.Should().BeEmpty();
         }
         finally
         {
             TaskScheduler.UnobservedTaskException -= Record;
         }
+        lock (faults) return [.. faults];
     }
+
+    // System.IO.Pipelines' PipeReaderStream is what Pipe.Reader.AsStream() returns: an in-memory pipe's end.
+    private static bool ReadThroughAnInMemoryPipe(AggregateException fault) =>
+        fault.Flatten().InnerExceptions.Any(e =>
+            e.StackTrace?.Contains("System.IO.Pipelines.PipeReaderStream.", StringComparison.Ordinal) == true);
 
     private static void CollectFinalizers()
     {
@@ -43,23 +74,8 @@ public class RpcCompletionTests
     }
 
     [Fact]
-    public async Task WebSocket_close_and_reconnect_leave_no_unobserved_task()
-    {
-        CollectFinalizers();
-        var faults = new List<Exception>();
-        void Record(object? sender, UnobservedTaskExceptionEventArgs e) => faults.Add(e.Exception);
-        TaskScheduler.UnobservedTaskException += Record;
-        try
-        {
-            await CloseAndReconnectAsync();
-            CollectFinalizers();
-            faults.Should().BeEmpty();
-        }
-        finally
-        {
-            TaskScheduler.UnobservedTaskException -= Record;
-        }
-    }
+    public async Task WebSocket_close_and_reconnect_leave_no_unobserved_task() =>
+        (await OwnUnobservedFaultsDuring(CloseAndReconnectAsync)).Should().BeEmpty();
 
     private static async Task CloseAndReconnectAsync()
     {
