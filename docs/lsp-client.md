@@ -2115,6 +2115,18 @@ The checker's own tests (`CheckerAcceptsFragmentedAndCoalescedFramesAndMatchesFo
 and `CheckerDetectsCorruptAndTruncatedFrames`) always run. The measured attempts so far are
 in `scripts/probes/3520-validation.md`.
 
+## Unobserved task probe (#4833)
+
+Set `HEXIDE_UNOBSERVED_PROBE` to an output file when running `HexIDE.Tests` to diagnose
+faulted tasks that nobody awaited or observed. The assembly-level `UnobservedTaskProbe`
+forces two garbage-collection/finalizer cycles after each test and appends the test display
+name and each exception. With the variable unset it does nothing. Attribution can land
+one test late, so rerun a suspected class alone before assigning a cause. The deliberate-leak
+self-test uses a separate output file. The teardown regression checks in
+`UnobservedTaskProbeTests` also run only with the variable set; each launches a separate
+MTP host and includes the existing final collection to collect the last fixture's faults.
+This is an opt-in diagnostic, not a CI guard.
+
 ## Known client limitations
 
 | Limitation | Consequence | Tracked |

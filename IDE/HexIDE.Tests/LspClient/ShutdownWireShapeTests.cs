@@ -57,9 +57,18 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var d in _disposables)
+        foreach (var d in _disposables.AsEnumerable().Reverse())
         {
             try { await d.DisposeAsync(); } catch { /* teardown is best effort */ }
+        }
+        await _cts.CancelAsync();
+        if (_serverLoop is not null)
+        {
+            try { await _serverLoop; } catch { /* observe the fake server before releasing its lifetime */ }
+        }
+        if (_starting is not null)
+        {
+            try { await _starting; } catch { /* initialization may have been interrupted */ }
         }
         _cts.Dispose();
         GC.SuppressFinalize(this);
