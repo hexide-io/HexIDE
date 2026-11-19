@@ -1,0 +1,8 @@
+No .NET providers were configured.
+
+Linux Perf Events                                                               Enabled By
+cpu-sampling                                                                    --profile
+
+Output File    : artifacts/4775/native-profile
+
+Error: Permission denied (os error 13)

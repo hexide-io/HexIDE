@@ -16,6 +16,54 @@ namespace HexIDE.Runtime.Tests;
 public class ErrorUnwindTests : BaseVBTestFixture
 {
     [Fact]
+    public void ARunawaysError28Unwind_AllocatesAsMuchPerLevelAsAShallowOne()
+    {
+        // #4775: deep recursion costs more per level because each garbage collection costs more on a deep stack,
+        // not because a level allocates more the deeper it is. This guards the second half. A runaway raises Error 28
+        // wherever this platform and build stop it: the stack probe in a Windows Debug build, MaxCallDepth elsewhere.
+        // So the depth is read rather than assumed, and the runaway's walk and unwind are compared, per level, with an
+        // Error 28 raised at a fifth of that depth. It passed on main as it was: it guards, and proves no fix.
+        AllocatedUntilError28(raiseAt: 1000); // Warm the parser and JIT before measuring.
+        AllocatedUntilError28(raiseAt: 1000);
+        var (deepest, deepBytes) = AllocatedUntilError28(raiseAt: null);
+        deepest.Should().BeGreaterThan(2000, "a 64 MiB thread allows a deep walk on every platform measured");
+        var (shallow, shallowBytes) = AllocatedUntilError28(raiseAt: deepest / 5);
+
+        double deepPerLevel = (double)deepBytes / deepest, shallowPerLevel = (double)shallowBytes / shallow;
+        deepPerLevel.Should().BeLessThan(shallowPerLevel * 1.2,
+            $"a runaway stopped at {deepest} levels allocated {deepPerLevel:F0} bytes a level, and an Error 28 at {shallow} " +
+            $"allocated {shallowPerLevel:F0}");
+    }
+
+    private static (long Depth, long Bytes) AllocatedUntilError28(long? raiseAt)
+    {
+        (long Depth, long Bytes) result = default;
+        UiThread.RunOnNewThread(() =>
+        {
+            var log = new List<Vb6Value>();
+            var code = "Dim deepest As Long\nOn Error Resume Next\nUp 1\nDebug.Print Err.Number\nDebug.Print deepest\n" +
+                "Sub Up(ByVal n As Long)\ndeepest = n\n" +
+                (raiseAt is { } at ? $"If n = {at} Then Err.Raise 28\n" : "") +
+                "Up n + 1\nEnd Sub\n";
+            var vb = new BasicInterpreter(new MockStdLib(log), new ModuleExecutionContext(), new ExecutionEnvironment(), code);
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            var run = vb.Execute();
+            run.IsCompleted.Should().BeTrue("the measured walk must stay on the 64 MiB thread");
+            run.GetAwaiter().GetResult();
+            var bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            // A runaway's Error 28 is trappable (#3250), whichever guard raised it.
+            log.Should().HaveCount(2);
+            log[0].Should().Be(new Vb6Value(28L));
+            var depth = Convert.ToInt64(log[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+            if (raiseAt is { } raised)
+                depth.Should().Be(raised);
+            result = (depth, bytes);
+            return 0;
+        }, UiThread.StackBytes);
+        return result;
+    }
+
+    [Fact]
     public async Task AnErrorRaisedDeep_ArrivesWithNoMoreTraceThanOneRaisedShallow()
     {
         var shallow = await TraceLinesOfAnErrorRaised(callsDeep: 20);
@@ -204,7 +252,7 @@ public class ErrorUnwindTests : BaseVBTestFixture
     // The same for GoSub (#4726). Within one procedure each pending GoSub is a nested pass, and each pass throws what
     // leaves it afresh, as each procedure does. Without that, a 28 leaving 2,000 passes took 7.6 to 11.5 s to reach the
     // caller's handler in Debug, and 3.1 s with it, against 1.6 to 1.8 s for 1,999 passes returning normally (#4775
-    // has that deep-stack cost). Unlike the procedure tests above, these read the longest trace the error carries on
+    // named that deep-stack cost, and #4919 cuts it). Unlike the procedure tests above, these read the longest trace the error carries on
     // its way, not the one it leaves the procedure with: RunProcedure throws afresh too, which hides the passes' trace.
     [Fact]
     public async Task AnErrorRaisedDeepInGoSub_CarriesNoMoreTraceOnItsWayThanOneRaisedShallow()
