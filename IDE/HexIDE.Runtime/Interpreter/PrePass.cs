@@ -560,8 +560,14 @@ public class PrePass : VB6BaseVisitor<object?>
         declared = true;
         var name = context.ambiguousIdentifier().GetText();
         DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
-        // Collect the name, library and Sub/Function kind without loading native code (#4820).
-        Declares[name] = new ProcedureInfo(name, context.FUNCTION() != null, [],
+        // Collect the signature without loading native code (#4820) or applying procedure parameter checks (#4869).
+        var parameters = new List<ParamInfo>();
+        if (context.argList() is { } argList)
+            foreach (var arg in argList.arg())
+                parameters.Add(new ParamInfo(arg.ambiguousIdentifier().GetText(), ByRef: arg.BYVAL() == null,
+                    Optional: arg.OPTIONAL() != null, ParamArray: arg.PARAMARRAY() != null,
+                    DeclaredType: null, Default: arg.argDefaultValue(), IsArray: arg.LPAREN() != null));
+        Declares[name] = new ProcedureInfo(name, context.FUNCTION() != null, parameters,
             Vb6Value.ValueType.EmptyVariant, null, IsPrivate(context.visibility()))
         {
             Declaration = context,

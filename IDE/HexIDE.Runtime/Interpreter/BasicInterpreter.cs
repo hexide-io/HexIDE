@@ -1940,11 +1940,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (!proc.HasMissingDeclareLibrary)
                 throw new VBSubOrFunctionNotDefinedException(proc.Name);
             // An Alias names the entry point, which a missing library never reaches: vb6.exe raises the same 53 with one
-            // (measured, native and p-code, #4820). Named arguments are VB6's too, but a Declare is collected without its
-            // parameters, so there is nothing to place them against yet (#4869).
+            // (measured, native and p-code, #4820). Named arguments are placed and evaluated before error 53 (#4869).
             if (NamedArguments.Any(args))
-                throw new NotImplementedException("Named arguments on Declare calls are not implemented (#4869)");
-            // ResolveCallArgs has evaluated each argument once, retaining its ByRef target (#4820).
+                await ArrangeProcedureArguments(proc, args);
+            // ResolveCallArgs has already evaluated positional arguments, retaining their ByRef targets (#4820).
             throw new VBRunTimeException(new VBStandardError(VBStandardError.FileNotFound.ErrNo,
                 "File not found: " + library));
         }
@@ -1987,13 +1986,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // Named arguments go to their parameters, and are evaluated in parameter order (#1465), before anything of the call is
         // set up, so one that raises leaves nothing to undo.
         if (NamedArguments.Any(args))
-        {
-            var names = new List<string>(proc.Parameters.Count);
-            foreach (var parameter in proc.Parameters)
-                names.Add(parameter.Name);
-            args = await NamedArguments.Arrange(args, names, i => proc.Parameters[i] is { Optional: false, ParamArray: false },
-                i => proc.Parameters[i].ParamArray);
-        }
+            args = await ArrangeProcedureArguments(proc, args);
 
         // Surplus arguments are VB6's compile error, raised at execution here (#741). Optional slots count;
         // ParamArray has no maximum. #1476 callers already index parameterless Variant/object results.
@@ -2189,6 +2182,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // statement end): a discarded result terminates then, an assigned one is out-lived by the store's AddRef.
         AdoptReturn(ret, callerFrames);
         return ret;
+    }
+
+    private static Task<IReadOnlyList<CallArg>> ArrangeProcedureArguments(ProcedureInfo proc, IReadOnlyList<CallArg> args)
+    {
+        var names = new List<string>(proc.Parameters.Count);
+        foreach (var parameter in proc.Parameters)
+            names.Add(parameter.Name);
+        return NamedArguments.Arrange(args, names, i => proc.Parameters[i] is { Optional: false, ParamArray: false },
+            i => proc.Parameters[i].ParamArray);
     }
 
     /// <summary>The zero-value a Function's return slot starts at, honouring its declared return type. A

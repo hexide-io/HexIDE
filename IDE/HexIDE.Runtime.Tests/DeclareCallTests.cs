@@ -68,17 +68,25 @@ public class DeclareCallTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(53L), new Vb6Value("File not found: hexide-nosuch.dll")]);
     }
 
-    // VB6 takes a named argument to a Declare and raises 53 (measured, #4869); a Declare has no parameters to place it
-    // against yet, so HexIDE refuses it rather than guess.
+    // Measured in VB6 SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/4869.
     [Fact(Skip = "Off-Windows behavior", SkipWhen = nameof(Windows))]
-    public async Task NamedArguments_AreRefused()
+    public async Task NamedArgument_EvaluatesOnce_BeforeTrappableError()
     {
-        var run = () => Run("""
-            Private Declare Sub NativeCall Lib "hexide-nosuch.dll" (ByVal n As Long)
+        await Run("""
+            Private Declare Function MissNamed Lib "hexide-nosuch.dll" (ByVal n As Long) As Long
+            Dim calls As Long
+            Function Side() As Long
+                calls = calls + 1
+                Side = calls
+            End Function
             On Error Resume Next
-            NativeCall n:=1
+            Dim x As Long
+            x = MissNamed(n:=Side())
+            Debug.Print Err.Number
+            Debug.Print Err.Description
+            Debug.Print calls
             """);
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("Named arguments on Declare calls are not implemented (#4869)");
+        AssertDebugLog([new Vb6Value(53L), new Vb6Value("File not found: hexide-nosuch.dll"), new Vb6Value(1L)]);
     }
 
     [Theory(Skip = "Off-Windows behavior", SkipWhen = nameof(Windows))]
