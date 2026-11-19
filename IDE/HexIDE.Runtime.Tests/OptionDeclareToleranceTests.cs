@@ -5,10 +5,9 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Regression for the interpreter doc-debt sweep: three declaration-section directives that real VB6 modules
 /// routinely carry (`Option Compare`, `Option Private Module`, `Declare … Lib`) used to throw in <c>PrePass</c> and
-/// fail the WHOLE module load. They are now tolerated (accepted no-ops) so the module loads and its real code runs.
-/// Their unsupported semantics are documented divergences (docs/interpreter-gaps.md): `Option Compare Text` is
-/// always treated as Binary, and a `Declare`'d API is not registered (a call to it raises the clean "Sub or
-/// Function not defined").
+/// fail the WHOLE module load. They now load so the module can run its non-API code.
+/// Compare behavior is tested separately; Declare calls report missing Windows libraries off Windows (#4820),
+/// while native invocation remains deferred (docs/interpreter-gaps.md).
 /// </summary>
 public class OptionDeclareToleranceTests : BaseVBTestFixture
 {

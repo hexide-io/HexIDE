@@ -1837,6 +1837,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         ExecutionEnvironment? baseEnv = null, Vb6Value? me = null, Stack<List<Vb6Value>>? callerFrames = null,
         bool isEntry = false)
     {
+        if (proc.DeclareLibrary is { } library)
+        {
+            if (!proc.HasMissingDeclareLibrary)
+                throw new VBSubOrFunctionNotDefinedException(proc.Name);
+            // An Alias names the entry point, which a missing library never reaches: vb6.exe raises the same 53 with one
+            // (measured, native and p-code, #4820). Named arguments are VB6's too, but a Declare is collected without its
+            // parameters, so there is nothing to place them against yet (#4869).
+            if (NamedArguments.Any(args))
+                throw new NotImplementedException("Named arguments on Declare calls are not implemented (#4869)");
+            // ResolveCallArgs has evaluated each argument once, retaining its ByRef target (#4820).
+            throw new VBRunTimeException(new VBStandardError(VBStandardError.FileNotFound.ErrNo,
+                "File not found: " + library));
+        }
+
         var breakpointOnlyEnd = isEntry && (InStartupDispatch || me is null);
         if (me?.Value is VbObject accessedInstance)
             NoteMemberAccess(accessedInstance, proc.Name);
@@ -2114,6 +2128,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     internal static bool TryGetModuleProcedure(ModuleInfo module, string name, out ProcedureInfo procedure, bool own = false)
     {
         if (module.PrePass.Procedures.TryGetValue(name, out procedure!))
+            return true;
+        if (module.PrePass.Declares.TryGetValue(name, out procedure!) && procedure.HasMissingDeclareLibrary)
             return true;
         if ((own || module.Kind == InterpreterModuleKind.Standard)
             && module.PrePass.Properties.TryGetValue(name, out var property) && property.Get is { } getter)

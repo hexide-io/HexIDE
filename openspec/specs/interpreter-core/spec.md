@@ -30,6 +30,28 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Missing Declare libraries off Windows
+
+The interpreter SHALL collect Declare names, Lib strings and Sub/Function kinds without probing native libraries. Off Windows, supported missing-library calls SHALL evaluate arguments once, retaining ByRef targets, then raise trappable error 53, `File not found: ` plus the Lib string. Windows and host-library calls SHALL keep their refusal. In the missing-library path, a call through an Alias SHALL raise the same error 53, since the library fails before its entry point is sought (measured), and a named-argument call SHALL refuse as not implemented until a Declare's parameters are collected (#4869).
+
+#### Scenario: A missing DLL Function evaluates its argument
+
+- **WHEN** a Function declared in `Lib "hexide-nosuch.dll"` is called off Windows with a counted argument under On Error Resume Next
+- **THEN** the argument runs once and Err.Number is 53 with Err.Description `File not found: hexide-nosuch.dll`
+- **AND** the result follows the measurements in [#4820](https://github.com/hexide-io/HexIDE/issues/4820)
+
+#### Scenario: A native call remains deferred
+
+- **WHEN** the host is Windows or the Lib string ends in `.dylib` or `.so`, or contains `.so.` (case-insensitive)
+- **THEN** the call retains the existing "Sub or Function not defined" refusal
+- **AND** no library is loaded or probed
+
+#### Scenario: An unmeasured Declare call form
+
+- **WHEN** an off-Windows missing-library call uses Alias or named arguments
+- **THEN** it is refused as not implemented, without guessing an error number or entry point
+- **AND** an uncalled declaration still loads
+
 ### Requirement: A running form accepts Icon assignments
 
 A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.

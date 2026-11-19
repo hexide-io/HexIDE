@@ -15,6 +15,7 @@ public class PrePass : VB6BaseVisitor<object?>
     private readonly bool allowIndexedLet;
     private readonly bool allowIndexedSet;
     public Dictionary<string, ProcedureInfo> Procedures = new(StringComparer.OrdinalIgnoreCase);
+    internal Dictionary<string, ProcedureInfo> Declares { get; } = new(StringComparer.OrdinalIgnoreCase);
     // `Property Get/Let/Set` accessors, keyed by property name (each name owns up to three accessors).
     public Dictionary<string, PropertyInfo> Properties = new(StringComparer.OrdinalIgnoreCase);
     // Names this (class) module declares as `Public Event Foo(...)` — Phase 5. Recorded for completeness; dispatch
@@ -506,10 +507,6 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public override object? VisitDeclareStmt(VB6Parser.DeclareStmtContext context)
-        // `Declare Sub/Function … Lib` (Win32/DLL API) is a documented deferral (docs/interpreter-gaps.md). Rather
-        // than fail the whole module load, skip the declaration — the name is simply not registered, so an actual
-        // CALL to it raises the clean "Sub or Function not defined" error. This lets a module that merely declares
-        // an API (a near-universal pattern in real VB6) load and run its non-API code.
     {
         // #4245: only active declarations reach this walk, as inactive code is never parsed. vb6.exe refuses an active
         // PtrSafe with "Expected: Sub or Function" (measured, native and p-code). 64-bit VBA7 refuses a Declare without
@@ -523,7 +520,15 @@ public class PrePass : VB6BaseVisitor<object?>
         if (ObjectModule && context.visibility()?.PUBLIC() != null)
             throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;
-        DeclareModuleName(context.ambiguousIdentifier().GetText(), exported: !IsPrivate(context.visibility()));
+        var name = context.ambiguousIdentifier().GetText();
+        DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
+        // Collect the name, library and Sub/Function kind without loading native code (#4820).
+        Declares[name] = new ProcedureInfo(name, context.FUNCTION() != null, [],
+            Vb6Value.ValueType.EmptyVariant, null, IsPrivate(context.visibility()))
+        {
+            Declaration = context,
+            DeclareLibrary = context.STRINGLITERAL(0).GetText()[1..^1].Replace("\"\"", "\"")
+        };
         return default;
     }
 
