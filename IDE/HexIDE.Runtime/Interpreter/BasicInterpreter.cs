@@ -47,17 +47,17 @@ public interface IBasicStandardLibrary
 
     /// <summary>A CommonDialog's <c>ShowOpen</c> or <c>ShowSave</c> (#1084): the file chosen, or null for Cancel.</summary>
     Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
-        throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");
+        throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#4148)");
 
     Task<bool> ShowPrintDialog() =>
-        throw new NotImplementedException("This host does not implement the print dialog (#2299)");
+        throw new NotImplementedException("This host does not implement the print dialog (#4148)");
 
     Task<int?> ShowColorDialog(int initial) =>
-        throw new NotImplementedException("This host does not implement the color dialog (#2299)");
+        throw new NotImplementedException("This host does not implement the color dialog (#4148)");
 
     /// <summary>A CommonDialog's <c>ShowFont</c> (#1084): the font chosen, or null for Cancel.</summary>
     Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
-        throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#1084)");
+        throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#4148)");
 }
 
 public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrErrorListener<int>
