@@ -197,6 +197,10 @@ Changing the UI language does not automatically restart servers (#2210).
 
 A connection records one `disconnected:` lifecycle entry even when client teardown finishes before
 the transport reports its hangup. A disconnection during client shutdown is not a fault (#4273).
+Each connection observes its JSON-RPC `Completion` task, including a stdio crash or a WebSocket
+close followed by reconnect, so a read-loop fault does not become an unobserved task exception.
+The completion fault is logged at Debug level; the existing disconnection warning remains the
+report of the loss. `StopAsync` retains its bounded completion wait (#4875).
 
 Byte-stream transports and test stand-ins use `LspMessageHandler` (#4484). It retains the stream
 ownership of StreamJsonRpc's Stream constructor, with explicit .NET adapters and a private read-buffer
@@ -2204,6 +2208,9 @@ confinement and ownership check as a replace, while an edited one is left alone 
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
 The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
 `.rdproj` RDCore's language server needs at the workspace root. RDCore entries can also seed it before importing (below).
+In a group, `Reference=*\A` lines naming another loaded project become ordered `IsProject` references by that
+project's name; these select format `1.3` unless settings override it, and references outside the group are omitted
+([#4899](https://github.com/hexide-io/HexIDE/issues/4899)).
 
 Completed artefact writes and removals feed `workspace/didChangeWatchedFiles` registrations directly
 (#456). There is no public add-in contract (#457), no undeclared generation,

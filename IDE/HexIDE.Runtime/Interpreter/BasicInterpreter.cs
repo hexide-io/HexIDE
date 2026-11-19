@@ -179,7 +179,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (value.Value is null)
             throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         if (value.Value is not VbObject obj)
-            throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4747)");
+            throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4906)");
         if (obj.ClassDef.PrePass.DefaultMember is not { } member)
             throw new VBRunTimeException(ctx, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (member.Kind == PrePass.DefaultMemberKind.Sub)
@@ -195,9 +195,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name)
             : obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get;
         if (proc is null)
-            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4747)");
+            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4906)");
         return await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames)
-            ?? throw new NotImplementedException("A default member without a value is unmeasured (#4747)");
+            ?? throw new NotImplementedException("A default member without a value is unmeasured (#4906)");
     }
 
     internal async Task LetDefaultMember(Vb6Value value, List<CallArg> args, Vb6Value assigned,
@@ -206,7 +206,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (value.Value is null)
             throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         if (value.Value is not VbObject obj)
-            throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4747)");
+            throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4906)");
         if (obj.ClassDef.PrePass.DefaultMember is not { } member)
             throw new VBRunTimeException(ctx, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (member.Kind == PrePass.DefaultMemberKind.Property
@@ -232,14 +232,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get
             : obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name);
         if (proc is null)
-            throw new NotImplementedException("A default member without a value is unmeasured (#4747)");
+            throw new NotImplementedException("A default member without a value is unmeasured (#4906)");
         var result = await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames);
         if (result is null && member.Kind != PrePass.DefaultMemberKind.Sub)
-            throw new NotImplementedException("A default member without a value is unmeasured (#4747)");
+            throw new NotImplementedException("A default member without a value is unmeasured (#4906)");
         if (result is { } returned && (returned.Type == Vb6Value.ValueType.Object
             || returned.Type == Vb6Value.ValueType.Control || returned.Type == Vb6Value.ValueType.CSharpProxyObject
             || returned.Type == Vb6Value.ValueType.Nothing))
-            throw new NotImplementedException("Let through an object-returning default member is unmeasured (#4747)");
+            throw new NotImplementedException("Let through an object-returning default member is unmeasured (#4906)");
         throw new VBRunTimeException(ctx, IsLateBound(value)
             ? VBStandardError.ObjectNotACollection : VBStandardError.ObjectRequired);
     }
@@ -252,7 +252,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         NoteMemberAccess(obj, member.Name);
         var (found, field) = await ReadVariable(obj.InstanceEnv, member.Name);
         if (!found)
-            throw new NotImplementedException("Default member storage is unavailable (#4747)");
+            throw new NotImplementedException("Default member storage is unavailable (#4906)");
         if (field.Value is not VBArray && field.HasFixedType)
             throw new VBCompileErrorException(let
                 ? "Can't assign to read-only property"
@@ -524,10 +524,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private VbUdt NewUdt(UdtTypeDef def, int depth)
     {
         var typeName = def.Name;
-        // EnsureTypeBounds has already run the owner's declarations where they could run; what is still unresolved is a
-        // Type allocated inside its own module's walk, above its declaration, or a class's before the instance's walk.
+        // EnsureTypeBounds runs the owner's declarations where possible; the allocation's executor resolves its own
+        // Private Type ahead (#4734). Other unresolved allocation orders keep this refusal pending measurement.
         if (def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
-            throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4734)");
+            throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4907)");
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
@@ -1484,11 +1484,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     private async Task RunDeclarationItems(ModuleInfo module, ExecutionEnvironment env, bool? moduleDeclarations = null)
     {
-        var executor = new StatementExecutor(this, env, module);
+        var constantsEvaluatedAhead = new HashSet<VB6Parser.ConstStmtContext>();
+        var executor = new StatementExecutor(this, env, module) { ConstantsEvaluatedAhead = constantsEvaluatedAhead };
         foreach (var item in module.PrePass.DeclarationItems)
         {
             if (moduleDeclarations is null)
-                executor = new StatementExecutor(this, env, module);
+                executor = new StatementExecutor(this, env, module) { ConstantsEvaluatedAhead = constantsEvaluatedAhead };
             if (item is VB6Parser.BlockContext block)
                 await executor.Execute(block, moduleDeclarations);
             else if (item is VB6Parser.TypeStmtContext type)

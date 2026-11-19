@@ -1,11 +1,47 @@
 using HexIDE.IDE;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Tests.LspClient;
 
 public sealed class WorkspaceArtifactProjectTests
 {
+    [Fact]
+    public void GroupProjectReferencesTrackNamesAndMembershipInDeclarationOrder()
+    {
+        // VB6 SP6's line shape is measured in #4899 / oracle PR #4900.
+        var root = Path.Combine(Path.GetTempPath(), "artifact-group");
+        var client = new ProjectDefinition(VBProjectType.EXE, "Client")
+            { AbsolutePath = Path.Combine(root, "Client", "Client.vbp") };
+        var lib = new ProjectDefinition(VBProjectType.OleDll, "Lib")
+            { AbsolutePath = Path.Combine(root, "Lib", "Lib.vbp") };
+        var read = new ProjectDeserializer().Deserialize(
+            "Type=Exe\r\nReference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##First\r\n"
+            + "Reference=*\\A..\\Lib\\Lib.vbp\r\nReference=*\\A..\\Outside\\Outside.vbp\r\n"
+            + "Reference=*\\AClient.vbp\r\n"
+            + "Reference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##Last\r\nName=\"Client\"\r\n",
+            Substitute.For<IDeserializeErrorSink>());
+        client.KnownLineKeys.AddRange(read.KnownLineKeys);
+        foreach (var reference in read.References) client.AddReference(reference);
+        client.UnknownPreSectionLines.AddRange(read.UnknownPreSectionLines);
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(new[] { client, lib });
+        var sut = new ProjectLspWorkspace(() => manager);
+        sut.Projects[0].Project.References.Select(r => (r.Name, r.IsProject))
+            .Should().Equal(("First", false), ("Lib", true), ("Last", false));
+        client.References.Select(r => r.Name).Should().Equal("First", "Last");
+        lib.Name = "Renamed";
+        sut.Projects[0].Project.References[1].Name.Should().Be("Renamed");
+        manager.LoadedProjects.Returns(new[] { client });
+        manager.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(lib);
+        sut.Projects[0].Project.References.Select(r => r.Name).Should().Equal("First", "Last");
+        manager.LoadedProjects.Returns(new[] { client, lib });
+        manager.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(lib);
+        sut.Projects[0].Project.References[1].Name.Should().Be("Renamed");
+        sut.Dispose();
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

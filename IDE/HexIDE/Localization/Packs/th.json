@@ -97,6 +97,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 บิต",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 บิต",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 บิต",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "ดูการคอมไพล์แบบมีเงื่อนไขในรูปแบบ",
     "Str.Tool.Properties.ExportPicture": "ส่งออกรูปภาพ...",
     "Str.Tool.Properties.ExportPictureTitle": "ส่งออกรูปภาพ",
