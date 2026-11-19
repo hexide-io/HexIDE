@@ -777,6 +777,7 @@ added afterwards.
 - [In-box controls: the CommonDialog (2026-10-27, #1084)](in-box-controls-the-commondialog.md#in-box-controls-the-commondialog-2026-10-27-1084)
 - [In-box controls: the SSTab (2026-10-27, #1090)](in-box-controls-the-sstab.md#in-box-controls-the-sstab-2026-10-27-1090)
 - [The SSTab: TabPicture at run time (2026-11-16, #3426, SP6)](in-box-controls-the-sstab.md#tabpicture-at-run-time-2026-11-16-3426-sp6)
+- [The SSTab: saved TabHeight and TabMaxWidth, and reading them in each ScaleMode (2026-11-19, #4953, SP6)](in-box-controls-the-sstab.md#saved-tabheight-and-tabmaxwidth-and-reading-them-in-each-scalemode-2026-11-19-4953-sp6)
 - [A control assigned to an SSTab's TabPicture (2026-11-16, #3426, SP6 native and p-code)](a-control-assigned-to-an-sstabs-tabpicture.md#a-control-assigned-to-an-sstabs-tabpicture-2026-11-16-3426-sp6-native-and-p-code)
 - [A control's Enabled inside a disabled container (2026-10-27)](a-controls-enabled-inside-a-disabled-container.md#a-controls-enabled-inside-a-disabled-container-2026-10-27)
 - [In-box controls: the MSFlexGrid (2026-10-27, #1099)](in-box-controls-the-msflexgrid.md#in-box-controls-the-msflexgrid-2026-10-27-1099)
