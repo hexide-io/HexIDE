@@ -46,10 +46,15 @@ The interpreter SHALL collect Declare names, Lib strings and Sub/Function kinds 
 - **THEN** the call retains the existing "Sub or Function not defined" refusal
 - **AND** no library is loaded or probed
 
-#### Scenario: An unmeasured Declare call form
+#### Scenario: A call through an Alias
 
-- **WHEN** an off-Windows missing-library call uses Alias or named arguments
-- **THEN** it is refused as not implemented, without guessing an error number or entry point
+- **WHEN** an off-Windows missing-library call goes through an Alias
+- **THEN** Err.Number is 53 with Err.Description `File not found: ` plus the Lib string, as without an Alias
+
+#### Scenario: A named-argument Declare call
+
+- **WHEN** an off-Windows missing-library call passes a named argument
+- **THEN** it is refused as not implemented until a Declare's parameters are collected (#4869)
 - **AND** an uncalled declaration still loads
 
 ### Requirement: For Each walks control-array indices captured at entry
