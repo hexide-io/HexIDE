@@ -2725,7 +2725,8 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **AND** the edge uses the method colour conversion or ForeColor, with FillColor inside
 - **WHEN** a radius is negative or either angle has magnitude above 2π
 - **THEN** error 5 is raised before drawing; the current position after an error is not specified by these measurements
-- **AND** arcs and sectors remain explicitly refused with #988, because no rasteriser tried reproduces all five measured grids (#4771)
+- **AND** arcs and sectors remain explicitly refused with #988: none of the 63 candidates in the [comparison probe](../../../scripts/probes/circle-arcs/README.md) reproduces all 22 measured grids (five on the [oracle page](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), seventeen supplied by [#4771](https://github.com/hexide-io/HexIDE/issues/4771) from oracle PR #4904)
+- **AND** a single supplied angle remains refused with #988 because the other angle's default is unmeasured
 
 #### Scenario: Measured finite thick-pen footprints
 - **WHEN** PSet draws with width 2–8 or 10, or a full transparent Circle draws with width 2/3, physical radius 10 pixels, aspect 1 and a whole-pixel centre
