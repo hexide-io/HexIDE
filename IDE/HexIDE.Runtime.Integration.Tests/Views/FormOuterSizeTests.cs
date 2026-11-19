@@ -264,7 +264,7 @@ public class FormOuterSizeTests
         var run = RunLoad(frm, (shown ? "Me.Show\nDoEvents\n" : "")
             + "mnuFile.Visible = Not mnuFile.Visible\nDoEvents");
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<System.NotImplementedException>()
-            .Which.Message.Should().Contain("#1140");
+            .Which.Message.Should().Contain("#4946");
     }
     [AvaloniaTheory]
     [InlineData(false)]
@@ -282,7 +282,7 @@ public class FormOuterSizeTests
             DoEvents
             """);
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<System.NotImplementedException>()
-            .Which.Message.Should().Contain("#1140");
+            .Which.Message.Should().Contain("#4946");
     }
 
 }
