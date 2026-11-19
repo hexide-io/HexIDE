@@ -224,8 +224,6 @@ public class FormDeserializer
                 var subtreeLines = ReconstructRawSubtree(
                     serializedComponent, depth - 1, frxBlobs, subtreeRecords, ref everyCitationResolved);
                 capturedBlobs.UnionWith(subtreeRecords.Values);
-                foreach (var tabIndex in PreservedControlText.TabIndexes(string.Join("\r\n", subtreeLines)))
-                    tabIndexes.Add((tabIndex, null));
                 // A record it cites is not in the companion, so a save could not put it back.
                 if (!everyCitationResolved)
                     form.MarkUnmodelledBinaryProperty();
@@ -235,6 +233,18 @@ public class FormDeserializer
                 // FormComponentClass — so parent is never null here.
                 parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines),
                     subtreeRecords.Count > 0 ? subtreeRecords : null);
+                // Each TabIndex line in the block takes its number by the load's rule, as any control's does, and only
+                // that number is rewritten (#4884). VB6 saves an OCX's control with its new number too (the SSTab page).
+                var carriedParent = parent;
+                var blockIndex = carriedParent.PreservedChildSubtrees.Count - 1;
+                var carriedIndices = PreservedControlText.TabIndexes(carriedParent.PreservedChildSubtrees[blockIndex].Text).ToArray();
+                for (var i = 0; i < carriedIndices.Length; i++)
+                {
+                    var numberIndex = i;
+                    tabIndexes.Add((carriedIndices[i], value => carriedParent.SetPreservedChildText(blockIndex,
+                        PreservedControlText.WithTabIndex(carriedParent.PreservedChildSubtrees[blockIndex].Text, numberIndex, value))));
+                }
+
                 // A control HexIDE runs is kept the same way and saves byte for byte, so there is nothing to warn of: the
                 // warning used to tell the user, as the project opened, that a control which works did not (#1084, #2327).
                 if (!RunsWhenCarried(serializedComponent.Type, serializedComponent.SubComponents.Count != 0,
@@ -799,11 +809,9 @@ public class FormDeserializer
         if (normalizeTabIndexes)
         {
             var normalized = SavedTabIndexes.Normalize(tabIndexes.Select(entry => entry.Saved).ToArray());
-            // Carried blocks aren't rewritten yet (#4884). If one would move, preserve the whole form's saved order.
-            if (!tabIndexes.Where((entry, i) => entry.Write is null && entry.Saved != normalized[i]).Any())
-                for (var i = 0; i < tabIndexes.Count; i++)
-                    if (tabIndexes[i].Saved != normalized[i])
-                        tabIndexes[i].Write?.Invoke(normalized[i]);
+            for (var i = 0; i < tabIndexes.Count; i++)
+                if (tabIndexes[i].Saved != normalized[i])
+                    tabIndexes[i].Write?.Invoke(normalized[i]);
         }
         form.RecordUnreproducibleNestingDepth(maxUnreproducibleDepth);
 

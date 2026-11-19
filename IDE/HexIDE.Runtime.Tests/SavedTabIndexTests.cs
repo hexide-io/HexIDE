@@ -73,13 +73,32 @@ public class SavedTabIndexTests
     [Theory]
     [InlineData(1, 1, 0)]
     [InlineData(9, 7, 0)]
-    public void Changing_a_carried_index_leaves_the_whole_form_as_saved(int first, int carried, int last)
+    public void A_carried_index_follows_the_measured_load_rule(int first, int carried, int last)
     {
         var form = Read(Control("VB.TextBox", "Text1", first)
             + Control("Unknown.Widget", "Carried1", carried) + Control("VB.TextBox", "Text2", last));
-        Indices(form).Should().Equal(first, last);
+        Indices(form).Should().Equal(1, 0);
         var (text, _) = new FormSerializer().Serialize(form, "Form1.frm");
-        PreservedControlText.TabIndexes(text).Should().Equal(first, carried, last);
+        PreservedControlText.TabIndexes(text).Should().Equal(1, 2, 0);
+    }
+
+    // #4884; in-box-controls-the-sstab.md records the carried six taking 4..9 in file order.
+    [Fact]
+    public void Nested_carried_indices_change_only_their_numbers()
+    {
+        string Controls(int[] carried) =>
+            Control("VB.Frame", "Frame1", 0, string.Concat(Enumerable.Range(1, 3)
+                .Select(i => Control("VB.TextBox", $"Text{i}", i))))
+            + Control("Unknown.Container", "Carried1", carried[0],
+                "      BeginProperty Bag\r\n         TabIndex = 99\r\n      EndProperty\r\n"
+                + string.Concat(carried.Skip(1).Select((v, i) => Control("Unknown.Widget", $"Child{i}", v))))
+            + Control("VB.TextBox", "Last", 10);
+        var form = Read(Controls([20, 25, 24, 23, 22, 21]));
+        PreservedControlText.TabIndexes(form.Components[0].PreservedChildSubtrees.Single().Text).Should().Equal(4, 5, 6, 7, 8, 9);
+        var (actual, _) = new FormSerializer().Serialize(form, "Form1.frm");
+        var (expected, _) = new FormSerializer().Serialize(Read(Controls([4, 5, 6, 7, 8, 9])), "Form1.frm");
+        actual.Should().Be(expected);
+        actual.Should().Contain("         TabIndex = 99");
     }
 
     [Fact]

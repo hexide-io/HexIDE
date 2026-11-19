@@ -34,6 +34,22 @@ public class SavedTabIndexTests
             HexIDE.Integration.Tests.Views.ContainerRuntimeHarness.Child(canvas, "Carried1")).Should().Be(1);
     }
 
+    // #4884: the measured 1,1,0 row also applies when the middle control is carried as text.
+    [AvaloniaTheory]
+    [InlineData("MSComctlLib.Toolbar")]
+    [InlineData("MSComCtl2.MonthView")]
+    public void A_carried_control_runs_with_its_normalized_index(string type)
+    {
+        var source = "VERSION 5.00\nBegin VB.Form Form1\nClientWidth = 6000\nClientHeight = 4000\n"
+            + UserControlKeyTests.Block("VB.TextBox", "Text1", 1)
+            + UserControlKeyTests.Block(type, "Carried1", 1)
+            + UserControlKeyTests.Block("VB.TextBox", "Text2", 0)
+            + "End\nAttribute VB_Name = \"Form1\"\n";
+        var (_, canvas, _, _) = HexIDE.Integration.Tests.Views.ContainerRuntimeHarness.Spawn(source);
+        Avalonia.Input.KeyboardNavigation.GetTabIndex(
+            HexIDE.Integration.Tests.Views.ContainerRuntimeHarness.Child(canvas, "Carried1")).Should().Be(2);
+    }
+
     [AvaloniaFact]
     public void A_raw_ListView_index_reaches_the_running_control()
     {

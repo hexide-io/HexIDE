@@ -143,6 +143,10 @@ public partial class ComponentInstance
         int ordinal, int documentOrder, string text, IReadOnlyDictionary<int, byte[]>? records = null)
         => preservedChildSubtrees.Add(new PreservedSubtree(ordinal, documentOrder, text, records));
 
+    /// <summary>Replaces a carried block's text while retaining its place and companion records.</summary>
+    public void SetPreservedChildText(int index, string text)
+        => preservedChildSubtrees[index] = preservedChildSubtrees[index] with { Text = text };
+
     /// <summary>
     /// Gives each carried block a new place among this component's children, in the order they are held, when the designer
     /// has moved a control past one (#1498). The blocks themselves are not touched.

@@ -884,8 +884,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     /// <summary>
     /// The TabIndex a control added or pasted takes: the next after the highest on the form, as VB6's designer gives it
-    /// on a densely numbered form (measured, #925). VB6 renumbers a form's gaps when it loads it, which HexIDE doesn't
-    /// yet (#4843). The first is 0, a Timer neither takes one nor uses one up, and a Label's or a Frame's counts. A paste
+    /// on a densely numbered form (measured, #925). A form's gaps are closed when it loads, as VB6 closes them (#4843).
+    /// The first is 0, a Timer neither takes one nor uses one up, and a Label's or a Frame's counts. A paste
     /// takes a new one for each control, its container's first. A control or TabIndex property carried as text counts too.
     /// </summary>
     private int NextTabIndex() =>
