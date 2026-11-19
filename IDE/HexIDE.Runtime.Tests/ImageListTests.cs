@@ -155,13 +155,21 @@ public class ImageListTests : BaseVBTestFixture
     // Supervisor decisions on #1083: these members exist but refuse rather than fabricate a handle or picture.
     [Theory]
     [InlineData("Debug.Print il.hImageList")]
-    [InlineData("il.ListImages(1).Draw 0")]
     [InlineData("Set p = il.Overlay(1, 2)")]
     [InlineData("Set p = il.ListImages(1).ExtractIcon")]
     public async Task Deferred_members_refuse_even_under_resume_next(string statement)
     {
         Loaded();
         await ((Func<Task>)(() => Run("On Error Resume Next\n" + statement + "\n"))).Should().ThrowAsync<NotImplementedException>();
+    }
+
+    // #4849: zero is known to name no drawing surface, even without a window.
+    [Fact]
+    public async Task Draw_zero_is_a_noop()
+    {
+        Loaded();
+        await Run("il.ListImages(1).Draw 0\nDebug.Print \"survived\"\n");
+        AssertDebugLog(["survived"]);
     }
 
     // #1083 issuecomment-6427015606: defaults, writable mask/color properties, Variant tags and no default member.

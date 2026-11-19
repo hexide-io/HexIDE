@@ -368,6 +368,6 @@ public class LoadPictureFileTests : WindowTestFixture
     public void RecognisedButUndecodablePicturesKeepTheRefusal(string signature)
     {
         var load = () => PanelPicture.FromFile(Convert.FromHexString(signature), loadPicture: true);
-        load.Should().Throw<NotImplementedException>().WithMessage("This Panel.Picture image is not implemented (#1087)");
+        load.Should().Throw<NotImplementedException>().WithMessage("This Panel.Picture image is not implemented (#4882)");
     }
 }

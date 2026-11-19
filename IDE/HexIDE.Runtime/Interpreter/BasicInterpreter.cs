@@ -48,17 +48,17 @@ public interface IBasicStandardLibrary
 
     /// <summary>A CommonDialog's <c>ShowOpen</c> or <c>ShowSave</c> (#1084): the file chosen, or null for Cancel.</summary>
     Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
-        throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");
+        throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#4148)");
 
     Task<bool> ShowPrintDialog() =>
-        throw new NotImplementedException("This host does not implement the print dialog (#2299)");
+        throw new NotImplementedException("This host does not implement the print dialog (#4148)");
 
     Task<int?> ShowColorDialog(int initial) =>
-        throw new NotImplementedException("This host does not implement the color dialog (#2299)");
+        throw new NotImplementedException("This host does not implement the color dialog (#4148)");
 
     /// <summary>A CommonDialog's <c>ShowFont</c> (#1084): the font chosen, or null for Cancel.</summary>
     Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
-        throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#1084)");
+        throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#4148)");
 }
 
 public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrErrorListener<int>
@@ -1044,11 +1044,27 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4762)");
                 if (read.Qualified)
                 {
-                    var lead = read.Name.Split('.')[0];
-                    if (Modules.All.Any(m => m.Kind == InterpreterModuleKind.Standard
-                            && m.Name.Equals(lead, StringComparison.OrdinalIgnoreCase)
-                            || m.PrePass.Enums.ContainsKey(lead)))
+                    var parts = read.Name.Split('.');
+                    var lead = parts[0];
+                    foreach (var owner in Modules.All)
+                    {
+                        var standard = owner.Kind == InterpreterModuleKind.Standard;
+                        var namedModule = standard && owner.Name.Equals(lead, StringComparison.OrdinalIgnoreCase);
+                        var namedEnum = owner.PrePass.Enums.ContainsKey(lead);
+                        if (!namedModule && !namedEnum) continue;
+                        if (module.Kind != InterpreterModuleKind.Standard) throw Unsupported();
+                        // SP6 native/p-code measurements in #4762 (oracle PR #4818).
+                        if (namedModule && lead.Equals("VBA", StringComparison.OrdinalIgnoreCase)
+                            || namedEnum && lead.Equals("VBRUN", StringComparison.OrdinalIgnoreCase))
+                            throw new VBCompileErrorException("Name conflicts with existing module, project, or object library");
+                        // Only a module named after a library Enum (VbCompareMethod) was measured. One named after another
+                        // library, such as VBRUN, is most likely VBA's name conflict too, but it isn't measured: refuse it.
+                        if (namedModule && !lead.Equals("VBRUN", StringComparison.OrdinalIgnoreCase)
+                            && owner.PrePass.ModuleName(parts[1]) is null
+                            && !owner.PrePass.Enums.ContainsKey(parts[1]) && !owner.PrePass.Types.ContainsKey(parts[1]))
+                            throw new VBCompileErrorException("Method or data member not found");
                         throw Unsupported();
+                    }
                     if (read.Refusal is { } qualifiedRefusal) throw qualifiedRefusal;
                     continue;
                 }
@@ -1070,14 +1086,24 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                             throw Unsupported();
                         continue;
                     }
-                    if (own && kind is not null)
+                    if (own && kind is not null
+                        || !own && other.Kind == InterpreterModuleKind.Standard && other.PrePass.HasOtherModuleName(read.Name))
+                    {
+                        if (module.Kind == InterpreterModuleKind.Standard
+                            && (other.PrePass.Procedures.TryGetValue(read.Name, out var procedure) && !procedure.IsFunction
+                                || !own && other.PrePass.DeclareSubs.Contains(read.Name)))
+                            throw new VBCompileErrorException("Expected Function or variable");
                         throw Unsupported();
-                    if (!own && other.Kind == InterpreterModuleKind.Standard
-                        && other.PrePass.HasOtherModuleName(read.Name))
-                        throw Unsupported();
+                    }
                     foreach (var (name, members) in other.PrePass.Enums)
-                        if (!other.PrePass.PrivateEnums.Contains(name) && members.ContainsKey(read.Name))
-                            throw Unsupported();
+                        if (members.ContainsKey(read.Name))
+                        {
+                            if (!own && module.Kind == InterpreterModuleKind.Standard
+                                && other.Kind == InterpreterModuleKind.Standard && !other.PrePass.PrivateEnums.Contains(name))
+                                module.PrePass.DeferEnum(read.Enum, read.Member);
+                            else
+                                throw Unsupported();
+                        }
                 }
                 if (read.Refusal is { } refusal) throw refusal;
             }
