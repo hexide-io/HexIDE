@@ -1258,6 +1258,8 @@ Envelopes — direction, method, id, size, outcome, latency — are recorded for
 **always**, without arming anything and without retaining any document content. Bodies are kept only for a
 connection that has been armed, except each connection's opening, which is always kept because a handshake
 cannot be captured after the fact. `--capture-lsp` arms everything before the first connection exists.
+Captured request and notification bodies are stored before their envelopes become visible to readers
+(#4839). Retention limits can still evict or refuse bodies.
 
 The grid stays fixed until Refresh. While the tab is visible, its pending indicator polls a monotonic
 entry counter every half second, without copying the record. The count covers all connections regardless
