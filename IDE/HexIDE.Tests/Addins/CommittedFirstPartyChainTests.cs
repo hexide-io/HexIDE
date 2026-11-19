@@ -52,5 +52,20 @@ public class CommittedFirstPartyChainTests
             "the IDE labels an add-in first-party only when its publisher key is the embedded first-party key");
     }
 
+    // The root rotation checklist (HexIDE.AddinPacker/README.md) copies each public key into this folder and into the
+    // IDE's Trust folder. The packer reads neither copy here, so a rotation that updated only one would pass everything
+    // else (#4109).
+    [Theory]
+    [InlineData("hexide-root.pub")]
+    [InlineData("hexide-firstparty.pub")]
+    public void The_committed_public_key_copies_are_the_keys_the_IDE_embeds(string name)
+    {
+        var embedded = name == "hexide-root.pub" ? TrustAnchors.RootPublicKey : TrustAnchors.FirstPartyPublicKey;
+        embedded.Should().NotBeNull("HexIDE embeds {0}", name);
+
+        File.ReadAllText(Path.Combine(Folder, name)).Trim().Should().Be(embedded,
+            "{0} here has to be the copy in IDE/HexIDE/Addins/Trust", name);
+    }
+
     private static int Count(byte[] bytes, char c) => bytes.Count(b => b == (byte)c);
 }

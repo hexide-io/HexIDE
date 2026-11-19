@@ -336,6 +336,7 @@ public static class PackageSigner
         if (!AddinCapabilities.IsValid(capabilities))
             throw new ArgumentException("invalid capabilities declaration", nameof(r));
 
+        RequireKeyOfTheRecord(r.TrustDir);
         var output = Path.TrimEndingDirectorySeparator(Path.GetFullPath(r.OutDir));
         RequireOwnedOutput(output, r.TrustDir);
         var staging = output + "." + Guid.NewGuid().ToString("N") + ".staging";
@@ -378,6 +379,44 @@ public static class PackageSigner
         {
             if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
         }
+    }
+
+    // The trust folder's key has to be the one its publisher record names. A firstparty.key left over from an earlier
+    // chain, or a release secret not yet changed along with the records, would otherwise sign packages that every HexIDE
+    // trusting that record refuses, and nothing would fail until someone tried to load one (#4109). Checked before the
+    // output is read or anything is written.
+    private static void RequireKeyOfTheRecord(string trust)
+    {
+        var keyPath = Path.Combine(trust, "firstparty.key");
+        var recordPath = Path.Combine(trust, "publisher.json");
+        string keyHolds;
+        try
+        {
+            using var key = PackageCrypto.ImportPrivateKey(File.ReadAllText(keyPath).Trim());
+            keyHolds = PackageCrypto.KeyFingerprint(PackageCrypto.ExportPublicKey(key));
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException)
+        {
+            // Never echo signing material from parser failures.
+            throw new InvalidOperationException($"'{keyPath}' isn't a private key this tool can read. Nothing was packed.");
+        }
+
+        var record = JsonSerializer.Deserialize(File.ReadAllBytes(recordPath), AddinJsonContext.Default.PublisherRecord);
+        string recordNames;
+        try
+        {
+            recordNames = PackageCrypto.KeyFingerprint(record?.PublicKey ?? throw new FormatException());
+        }
+        catch (FormatException)
+        {
+            throw new InvalidOperationException($"'{recordPath}' names no public key this tool can read. Nothing was packed.");
+        }
+
+        if (keyHolds != recordNames)
+            throw new InvalidOperationException(
+                $"'{keyPath}' isn't the key '{recordPath}' names: the key's public half is {keyHolds}, and the record names "
+                + $"{recordNames}. Nothing was packed. If this key is left over from an earlier signing chain, remove it; "
+                + "otherwise get the current key for this record.");
     }
 
     private static void RequireOwnedOutput(string output, string trust)
