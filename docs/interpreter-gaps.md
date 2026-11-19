@@ -309,6 +309,17 @@ made them look permanent in a way they are not.
   (#868, #3576). X11, the default, and Windows honour all three. A program moving its form at run time is a separate defect on
   every backend (#852).
 
+### HRESULT descriptions outside Windows
+
+[Issue #4730](https://github.com/hexide-io/HexIDE/issues/4730) records vb6.exe SP6 measurements
+(native, p-code and IDE; oracle PR #4731). `Err.Raise` and `Err.Number` map HRESULTs as measured.
+For retained negative numbers, Raise uses HelpContext 1000440 and `Automation error`.
+On Windows, FormatMessage supplies the measured LF and system-message suffix, including its trailing space.
+Other hosts return `Automation error` alone because Windows system messages are unavailable.
+HRESULTs originating in real COM calls remain outside these measurements and retain existing behavior.
+For nonnegative Raise inputs, only the measured 0, 65536 and 2147483647 now raise 5; other
+unmeasured positive inputs retain existing behavior.
+
 ### Reclassified out of this section (2026-09-02)
 
 Now **Deferred**, with the real work named. None needs a bound AST; each is unimplemented, awkward or costly.
