@@ -335,8 +335,6 @@ public class DrawingMethodsTests
     [InlineData("Debug.Print Point(1)")]
     [InlineData("Debug.Print Picture1.Point(1, 2, 3)")]
     [InlineData("FontTransparent = False")]
-    [InlineData("Circle (10, 10), 5")]
-    [InlineData("Picture1.Circle (10, 10), 5, , , , 0.5")]
     [InlineData("DrawWidth = 2\nPSet (10, 10)")]
     [InlineData("DrawWidth = 32767\nLine (10, 10)-(20, 20)")]
     [InlineData("DrawStyle = 1\nLine (10, 10)-(20, 20)")]

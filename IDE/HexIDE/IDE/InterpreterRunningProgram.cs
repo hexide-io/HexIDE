@@ -18,6 +18,9 @@ public sealed class InterpreterRunningProgram : IRunningProgram
         && (FormRoot.Execution(window) is not null || window is Window && VBProps.GetName(form) is not null)
         ? new RunningForm(window, VBProps.GetName(form), FormRoot.Execution(window) is not null) : null;
 
+    public IReadOnlyList<object> ShownWindows(object window) =>
+        FormRoot.View(window)?.Context.Program?.ShownWindows() ?? [];
+
     public IProgramActivity? Activity(object? window)
     {
         if (window is null)

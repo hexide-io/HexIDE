@@ -7,6 +7,11 @@ the two logged the same lines. The one exception is the junk Left and Top an inv
   ImageList. The ImageList is VB6's save of three pictures, red, blue and ico, from [In-box controls: the
   ImageList](in-box-controls-the-imagelist.md). It was driven late-bound under `On Error Resume Next`, as for the
   StatusBar, in session 0.
+- **Re-run on the console (2026-11-18, #4768):** the size rows below were rebuilt into one probe and run on the
+  guest's console, in the IDE (`/runexit`), p-code and native, and again in session 0, which reproduced them. The
+  console's values sit beside session 0's. They follow the rules the later sections measured on the console, Segoe
+  UI 9 captions and a 15 px dropdown arrow, and the bar's height depends on its Align, below. HexIDE's live sizes are
+  #4802.
 - **The files:** a hand-written form holding two configured Toolbars was opened in VB6's IDE, made dirty and saved. The
   second Toolbar's ShowTips was then set to False in the Properties window, by double-clicking its value, and saved
   again. VB6's save is `corpus/inbox-controls/saved/toolbar`.
@@ -66,10 +71,21 @@ the two logged the same lines. The one exception is the junk Left and Top an inv
 | Style, Value | 0, Longs |
 | Image | 0, an Integer |
 | Left, Top | 0 and 30.04725 |
-| Width, Height | 510.2362 and 540.2835 |
+| Width, Height | 510.2362 and 540.2835 in session 0; **569.7638 and 569.7638**, 38 × 38 px, on the console |
 | ButtonMenus.Count | 0 |
 
 The bar's ButtonWidth and ButtonHeight became the button's, 510.2362 and 540.2835. Its Height went from 660 to 630.
+On the console both became 569.7638, and Height stayed 660. This bar is `Align = 1`, at the top, and **the bar's height
+depends on Align.** Three bars side by side on the console (2026-11-18, #4802), the IDE, p-code and native agreeing,
+one "Alpha" button each:
+
+| Bar | Style 0: Height, the button's Top | Style 1 |
+|---|---|---|
+| `Align = 0`, none | 630 and 30.04725: the 38 px buttons + 4 px | 570 and 0: + 0 |
+| `Align = 1`, top, or `2`, bottom | 660 and 30.04725: + 6 px | 600 and 0: + 2 |
+
+The `Align = 0` rows are what #2373 measured on its unaligned bars. In session 0, with 36 px buttons, every Style 0 bar
+was 630, 6 px over its buttons whatever its Align, and Style 1 was 540 unaligned and 570 aligned.
 
 ### Buttons
 
@@ -86,17 +102,17 @@ The same family of errors as the StatusBar's Panels:
   - `("")` is 35603;
   - `(0)` and `(99)` are 35600;
   - `(1.5)` and `(2.5)` are both 2.
-- **Remove and Clear:** the same errors. Clear leaves no buttons, and Height stays 630.
+- **Remove and Clear:** the same errors. Clear leaves no buttons, and Height stays 630 (660 on the console).
 - **Read-only:** `Buttons.Count =` and `Set Buttons =` are 383.
 
 **Each Style's width,** for buttons whose captions fit the bar's ButtonWidth of 510.2362:
 
 | Style | Width |
 |---|---|
-| 0 default, 1 check, 2 button group | 510.2362 |
-| 3 separator | 120.189, 8 px |
+| 0 default, 1 check, 2 button group | 510.2362; 569.7638 on the console |
+| 3 separator | 120.189, 8 px, on the console too |
 | 4 placeholder | 0, until its Width is set |
-| 5 dropdown | 705.2599: the button and a 13 px arrow |
+| 5 dropdown | 705.2599: the button and a 13 px arrow. On the console 794.8347, 53 px: 38 and a 15 px arrow |
 
 ### A button's properties
 
@@ -153,9 +169,10 @@ The same family of errors as the StatusBar's Panels:
 | Assignment | Logged |
 |---|---|
 | Style 0 and 1, TextAlignment 0 and 1 | no error. 2 is **380** for each |
-| `TextAlignment = 1`, captions to the right | ButtonHeight became 329.9528, 22 px |
-| `ButtonWidth = 1000`, `= 10`, `= 0`, `= -5`, `ButtonHeight = 800` | **no error, and no effect.** They read back the size the buttons' contents need, 390.0473 and 540.2835 by then |
-| `Height = 2000` | no error. It reads 630: the bar sizes itself |
+| `TextAlignment = 1`, captions to the right | ButtonHeight became 329.9528, 22 px. **On a bar that has never had a button it stays 569.7643 until the first `Add`**, which makes it 329.9528 (#4768, session 0 and the console alike). "Alpha" is then 870.2363 wide on the console, 58 px, and 810.1418 in session 0, 54, and the bar 420 high, 28 px, in both |
+| `ButtonWidth = 1000`, `= 10`, `= 0`, `= -5`, `ButtonHeight = 800` | **no error, and no effect.** They read back the size the buttons' contents need, 390.0473 and 540.2835 by then. On the console, with one "Alpha" button, 569.7638 and 569.7638 (#4768) |
+| `Height = 2000` | no error. It reads 630: the bar sizes itself. 660 on the console (#4768) |
+| `Style = 1` at run time, with one "Alpha" button (#4768) | no error. Height 570 in session 0 and 600, 40 px, on the console: 2 px more than the buttons, for this top-aligned bar, with the buttons' Top 0. With `Align = 0` the bar is the buttons' height exactly, as #2373 records (the Align table above) |
 | `Wrappable = False`, `BorderStyle = 1` | no error. Height stays 630 |
 
 ### Events

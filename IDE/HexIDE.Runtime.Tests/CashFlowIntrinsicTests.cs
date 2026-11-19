@@ -105,6 +105,6 @@ public class CashFlowIntrinsicTests : BaseVBTestFixture
             Dim answer
             answer = {expression}
             """);
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#2525*");
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4883*");
     }
 }

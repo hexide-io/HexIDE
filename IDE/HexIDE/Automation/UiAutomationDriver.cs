@@ -347,9 +347,20 @@ public static class UiAutomationDriver
 
     private static WindowFrameState ReadFrame(Window window)
     {
-        var (style, exStyle, note) = NativeWindowFrame.Read(window);
+        var (style, exStyle, note, nativeOwner) = NativeWindowFrame.Read(window);
         return new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(), window.CanMinimize,
-            window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(), note, style, exStyle);
+            window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(), note, style, exStyle)
+        {
+            Owner = window.Owner is Window owner ? DescribeOwner(owner) : null,
+            NativeOwner = nativeOwner
+        };
+    }
+
+    internal static WindowOwnerState DescribeOwner(Window window)
+    {
+        var lifetime = Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        return new WindowOwnerState(HexIDE.IDE.ForegroundWindow.Address(window, lifetime?.MainWindow, lifetime?.Windows ?? []),
+            window.Title);
     }
 
     /// <summary>
@@ -6387,7 +6398,26 @@ public record WindowFrameState(bool CanResize, string WindowDecorations, bool Ca
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     uint? NativeStyle = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    uint? NativeExStyle = null);
+    uint? NativeExStyle = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+    public WindowOwnerState? Owner { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    // Null omits an unavailable native owner; a JSON null reports an HWND with no owner.
+    public System.Text.Json.JsonElement? NativeOwner { get; init; }
+}
+
+/// <summary>
+/// An owning window and its current title. <c>Name</c> is the 'window' selector that reaches it, absent when none does;
+/// a window HexIDE didn't make has no name and gives its native <c>ClassName</c> instead (#4795).
+/// </summary>
+public record WindowOwnerState(
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? Name,
+    string? Title,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? ClassName = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);

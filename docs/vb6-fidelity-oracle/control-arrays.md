@@ -80,6 +80,16 @@ only `Controls(1)` reaches it. VB6 kept the control and logged it as an error, b
 same mistake without the first `Index` leaves `/make` hanging, presumably on a prompt nobody can see in session 0, is
 not known.
 
+**Re-run on the console (2026-11-18, #4768).** Session 0 reads every control's Visible as False, so the loaded
+element's False above needed a displayed form to mean anything. On the guest's console, the IDE, p-code and native
+agreeing, the design-time `Command1(0)` read Visible True on the shown form, and `Load Command1(5)` read False with its
+window's `WS_VISIBLE` off, until `Visible = True`. **So a loaded element does start hidden.**
+
+The two unindexed buttons hang `/make` on the console too, so it is **not a prompt that session 0 hides**. VB6.EXE was
+still running 15 s into `/make`, with no window title, and a screenshot of the console showed the desktop and nothing
+else. Its `/out` file said "Errors during load. Refer to 'Form1.log' for details", and `Form1.log` held the one
+"Did not find an index property and control Command1 already exists" line. What it waits on is still not known.
+
 ### Event procedures for an array element, in VB6's IDE (2026-11-16, #4205)
 
 **Asked because** HexIDE can now make a control an array element (#2701). Its code window still writes handlers

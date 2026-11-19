@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
              xmlns:tools="clr-namespace:HexIDE.Tools"
              x:Class="HexIDE.Tools.OutlineToolView"
              x:DataType="tools:OutlineToolViewModel">
@@ -19,12 +20,16 @@
             <TreeView.Styles>
                 <Style Selector="TreeViewItem">
                     <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
-                    <Setter Property="AutomationProperties.Name" Value="{ReflectionBinding Name}" />
+                    <Setter Property="AutomationProperties.Name" Value="{ReflectionBinding AutomationName}" />
                 </Style>
             </TreeView.Styles>
             <TreeView.ItemTemplate>
                 <TreeDataTemplate x:DataType="tools:OutlineNode" ItemsSource="{CompiledBinding Children}">
-                    <TextBlock Text="{CompiledBinding Name}" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{CompiledBinding Name}" />
+                        <TextBlock Text="{CompiledBinding Detail}" IsVisible="{CompiledBinding !!Detail}"
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                    </StackPanel>
                 </TreeDataTemplate>
             </TreeView.ItemTemplate>
         </TreeView>

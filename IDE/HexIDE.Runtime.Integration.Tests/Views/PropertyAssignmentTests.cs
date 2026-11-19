@@ -650,17 +650,23 @@ public class PropertyAssignmentTests
 
     // ── what is not a value to convert fails clearly rather than storing something wrong ──────────
 
+    // Default TextBox value and property coercions: assigning-to-a-control-property.md (#790, #4520).
     [AvaloniaTheory]
-    [InlineData("Label1.Caption = Text1", "Caption")]
-    [InlineData("Command1.Enabled = Text1", "Enabled")]      // ahead of CBool, whose 13 Resume Next would step over
-    [InlineData("Label1.Left = Text1", "Left")]
-    [InlineData("Label1.Tag = Text1", "Tag")]                // Tag keeps what it is given, but not a reference
-    [InlineData("Dim a(2) As Integer\r\nLabel1.Caption = a", "Caption")]
-    public async Task A_control_an_array_or_an_object_on_the_right_is_not_converted(string code, string property)
+    [InlineData("Text1", "Label1.Caption", "Text1", 0)]
+    [InlineData("", "Command1.Enabled", "True", 13)]
+    [InlineData("300", "Label1.Left", "300", 0)]
+    [InlineData("Text1", "Label1.Tag", "Text1", 0)]
+    public async Task A_TextBox_on_the_right_supplies_Text(string text, string property, string expected, int error)
     {
-        // VB6 reads a control's default property here. HexIDE does not implement that, and must not store the
-        // reference's .NET type name as the caption instead.
-        (await Refusal(code)).Should().Contain(property);
+        var (value, err) = await Assign($"Text1.Text = \"{text}\"", property + " = Text1", property);
+        err.Should().Be(error);
+        value.Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public async Task An_array_on_the_right_is_not_converted()
+    {
+        (await Refusal("Dim a(2) As Integer\r\nLabel1.Caption = a")).Should().Contain("Caption");
     }
 
     [Fact]

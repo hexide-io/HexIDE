@@ -154,5 +154,7 @@ public partial class OutlineNode(DocumentSymbol symbol, IReadOnlyList<OutlineNod
     public DocumentSymbol Symbol { get; } = symbol;
     public IReadOnlyList<OutlineNode> Children { get; } = children;
     public string Name => Symbol.Name;
+    public string? Detail => Symbol.Detail;
+    public string AutomationName => string.IsNullOrEmpty(Detail) ? Name : $"{Name}, {Detail}";
     [Notify] private bool isExpanded = true;
 }

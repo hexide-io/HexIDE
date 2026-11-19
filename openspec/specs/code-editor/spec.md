@@ -540,6 +540,22 @@ SHALL NOT navigate the caret when restoring that selection. Choosing a procedure
 - **WHEN** diagnostics cause the document symbols and Procedure list to refresh
 - **THEN** the same Procedure item remains selected and the caret and document text are unchanged
 
+### Requirement: Procedure entries distinguish property accessors
+
+Under General, the Procedure box SHALL display Property symbols with case-insensitive `Property Get`,
+`Property Let` or `Property Set` detail as `Name [PropertyGet]`, `Name [PropertyLet]` or
+`Name [PropertySet]`. When no such detail exists, the bundled server's ` (Get)`, ` (Let)` and
+` (Set)` suffixes SHALL yield the same text. Other symbols and unrecognised details SHALL retain the
+symbol name. The list SHALL begin with Declarations, then sort by base name ignoring case and by
+Get, Let, Set. Object event lists SHALL retain their existing order. Each displayed entry SHALL map
+to its symbol, retaining the first symbol for duplicate display text.
+
+#### Scenario: RDCore reports three identically named accessors
+- **GIVEN** three Property symbols named Value with distinct accessor details and selection ranges
+- **WHEN** the developer chooses `Value [PropertyLet]`
+- **THEN** the caret navigates to the Let's selection line
+- **AND** a symbol refresh preserves that accessor's selection without navigating
+
 ### Requirement: Delete SHALL work without a selection
 The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
 forward deletion. Both the Delete key and the menu command SHALL arm the existing reset prompt when a run is active.
@@ -595,7 +611,14 @@ The IDE SHALL offer a docked Outline window from the View menu for the active co
 editor. It SHALL render the document symbols supplied by that document's language server with their
 hierarchy intact, accepting flat replies as top-level nodes. It SHALL request updated symbols after
 edits without requiring a diagnostics notification. It SHALL discard replies superseded by a newer
-request or buffer contents.
+request or buffer contents. Symbol detail SHALL appear after the name in an existing secondary
+foreground when present, without changing the node name or document order. Its automation name
+SHALL be the name followed by a comma, a space and the detail, or just the name without detail.
+
+#### Scenario: Accessor detail in the outline
+- **WHEN** a Property symbol named Value has detail `Property Let`
+- **THEN** its node retains the name Value and shows Property Let beside it
+- **AND** its automation name is `Value, Property Let`
 
 #### Scenario: Refresh without a notification loop
 

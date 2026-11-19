@@ -35,3 +35,33 @@
 - **Not measured, by design:**
   - an assignment that would change the clock, such as yesterday, a date out of the clock's range, or a time with a non-zero date part to a different day;
   - whether `Date = Now` ignores `Now`'s time part. The elevated run left the date unchanged, as it must have whichever way it works.
+
+### The other value types, an object, and the date range (2026-11-18, #4733)
+
+**The rig:**
+- **Build and run:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0 of the oracle guest.
+- **No clock privilege:** the exe ran as Basic User through `runas /trustlevel:0x20000`, so it held no right to set the clock.
+- **The guard:** the program first ran `Date = Date`, and stopped unless that raised 70. It raised 70, and the guest's date was the same after the run.
+- **The rows:** each statement ran under `On Error Resume Next`, logging the error. Native code and p-code agreed in every row.
+- **`c`:** a `New Class1`, whose default member (`VB_UserMemId = 0`) is a Function returning `Date`.
+
+| Statement | VB6 |
+|---|---|
+| `Date = CInt(5)`, `CLng(5)`, `CByte(5)`, `CSng(5)` | **13** |
+| `Date = n`, `n` a Long holding today's serial; `CCur(n)`; `CDec(n)` | **13** |
+| `Date = -1`, an Integer | **13** |
+| `Date = True`, `Date = Empty`, `Date = CVErr(5)` | **13** each |
+| `Date = c` | **70**: the default member is read, and gives a Date |
+| `Date = o`, `o As Object` holding `c` | **70** |
+| `Date = "12/31/9999"`, `"1/1/100"`, `"1/1/99"` | 70: these convert |
+| `Date = CDate(-1)`, 1899-12-29 | 70 |
+| `Date = "1/1/10000"`, out of range | **13** |
+| `Time = CInt(0)`, `CSng(0.5)`, `CCur(0.5)`, `True`, `Empty`, `CVErr(5)` | **13** each |
+| `Time = c` | 70 |
+| `Time = "25:00"` | **13** |
+
+- **Only a Date or a String converts,** and an object only through a default member that gives one. Every numeric type raises 13, as the Double above does, and so do Boolean, Empty and an Error value. They raise it before the privilege is checked.
+- **A String must name a date in VB6's range,** 1/1/100 to 12/31/9999. Outside it, 13.
+- **The obvious guess was that `Date = 5` converts as `CDate(5)` does,** to 1900-01-04. It doesn't: the statement takes no number.
+
+**Not measured:** an object with no default member, and one whose default member gives something other than a Date or a String.

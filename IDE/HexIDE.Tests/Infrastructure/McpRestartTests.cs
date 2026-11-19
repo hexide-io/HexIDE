@@ -769,6 +769,9 @@ public class McpRestartTests
     [Fact]
     public async Task A_stateful_server_strands_the_SDKs_own_client_after_a_restart()
     {
+        // #4833's probe recorded an unobserved SDK message-processing task here on 2.2.0 (#4874), tracked upstream
+        // at https://github.com/modelcontextprotocol/csharp-sdk/issues/1851. Disposing the client and awaiting its
+        // public Completion did not observe that internal task; #4874 has the probe's stack.
         // The session mechanism, kept as a control. If a later SDK starts a new session by itself on the 404, this
         // fails, and the reasons for running stateless should be looked at again rather than kept out of habit.
         //

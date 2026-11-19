@@ -154,7 +154,8 @@ public partial class VB6BuiltIns
     private static bool ReadsArgumentValue(string name, int index)
     {
         // Picture/resource functions and the financials accept only measured argument shapes; other conversions refuse there.
-        if (name.StartsWith("LoadRes", StringComparison.OrdinalIgnoreCase)
+        if ((index == 0 && string.Equals(name, "Shell", StringComparison.OrdinalIgnoreCase))
+            || name.StartsWith("LoadRes", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "Pmt", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "FV", StringComparison.OrdinalIgnoreCase)

@@ -187,6 +187,10 @@ internal sealed class RuntimeScale
             throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
         if (args.Count > 3)
             throw new NotImplementedException($"{name} with this argument count is not implemented (#4693)");
+        // #1474: ScaleX on a PictureBox refuses an optional gap, including a positional blank.
+        if (owner is VBPictureBox && name.Equals("ScaleX", StringComparison.OrdinalIgnoreCase)
+            && args.Count > 2 && args[1].IsMissing)
+            throw new VBRunTimeException(VBStandardError.NamedArgumentNotFound);
         var vertical = name.Equals("ScaleY", StringComparison.OrdinalIgnoreCase);
         var from = args.Count > 1 && !args[1].IsMissing ? Mode(args[1]) : 8;
         var to = args.Count > 2 && !args[2].IsMissing ? Mode(args[2]) : (int)scale.mode;

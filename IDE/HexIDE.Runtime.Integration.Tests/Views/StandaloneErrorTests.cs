@@ -257,9 +257,7 @@ public sealed class StandaloneErrorTests
     [AvaloniaFact]
     public void An_unimplemented_construct_is_visible() => Check(Project("""
         Private Sub Command1_Click()
-            GoSub there
-        there:
-            Return
+            AppActivate "Notepad"
         End Sub
         """), true, "HexIDE does not implement this yet:");
 }

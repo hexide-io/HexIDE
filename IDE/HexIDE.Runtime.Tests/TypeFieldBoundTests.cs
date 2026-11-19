@@ -79,7 +79,7 @@ public class TypeFieldBoundTests : BaseVBTestFixture
         var error = await run.Should().ThrowAsync<VBCompileErrorException>();
         error.Which.Message.Should().EndWith("Constant expression required");
     }
-    // Policy for unmeasured allocation order and inverted bounds is explicit in #4595's latest comment.
+    // Allocation above the Type is unmeasured (#4734); inverted bounds stay refused under #178.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -90,7 +90,7 @@ public class TypeFieldBoundTests : BaseVBTestFixture
             ? () => RunClasses("Dim o As New Class1\no.Test", ("Class1", declarations + "Public Sub Test()\nEnd Sub"))
             : () => RunModules(declarations);
         (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .Be("Array bounds inside Type 'T' before its declaration are not implemented (#4595)");
+            .Be("Array bounds inside Type 'T' before its declaration are not implemented (#4734)");
     }
 
     [Fact]

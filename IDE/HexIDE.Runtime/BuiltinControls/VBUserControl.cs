@@ -176,13 +176,13 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
             if (UserControlContainers.TryGet(owner, "Container", out _)
                 || !ContainerMembers.TryGet(owner, "Container", out var container)
                 || !FormAmbients.TryForm(container.Value, owner.ambientForm, out var window))
-                throw new NotImplementedException($"Ambient.{name} on a non-form container is not implemented (#4149)");
+                throw new NotImplementedException($"Ambient.{name} on a non-form container is not implemented (#4732)");
             value = name.ToLowerInvariant() switch
             {
                 "backcolor" => new Vb6Value((long)(AttachedProperties.GetBackColor(window)
-                    ?? throw new NotImplementedException("Ambient.BackColor is not implemented (#4149)")).ToOle()),
+                    ?? throw new NotImplementedException("Ambient.BackColor is not implemented (#4732)")).ToOle()),
                 "forecolor" => new Vb6Value((long)(AttachedProperties.GetForeColor(window)
-                    ?? throw new NotImplementedException("Ambient.ForeColor is not implemented (#4149)")).ToOle()),
+                    ?? throw new NotImplementedException("Ambient.ForeColor is not implemented (#4732)")).ToOle()),
                 "font" => new Vb6Value(ControlFont.Get(window)),
                 // A control-array element's name carries its index, as `AmbCtl1(0)` (measured, oracle PR #4271).
                 "displayname" => new Vb6Value(VBProps.GetIndex(owner) is { } index ? $"{owner.ambientName}({index})" : owner.ambientName),
@@ -197,7 +197,7 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
                 "righttoleft" when !owner.ambientRightToLeft && window.FlowDirection == FlowDirection.LeftToRight => new Vb6Value(false),
                 "usermode" => new Vb6Value(true),
                 "supportsmnemonics" or "messagereflect" => new Vb6Value(true),
-                _ => throw new NotImplementedException($"Ambient.{name} is not implemented (#4149)"),
+                _ => throw new NotImplementedException($"Ambient.{name} is not implemented (#4732)"),
             };
             return true;
         }

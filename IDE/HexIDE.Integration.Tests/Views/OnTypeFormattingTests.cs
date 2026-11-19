@@ -362,6 +362,25 @@ public class OnTypeFormattingTests
         f.Editor.CaretOffset.Should().Be(f.Start + 9);
     }
 
+    [AvaloniaFact]
+    public async Task RequestTimeoutNamesEnterWithFocusElsewhere()
+    {
+        await using var f = await Fixture.Open();
+        var other = new TextBox();
+        f.Window.Content = null;
+        f.Window.Content = new StackPanel { Children = { f.View, other } };
+        other.Focus();
+        other.IsFocused.Should().BeTrue();
+        f.Enter();
+        var timeout = await ((Func<Task>)(async () => await f.Request(TimeSpan.FromMilliseconds(50))))
+            .Should().ThrowAsync<TimeoutException>();
+        timeout.Which.Message.Should().Contain("Enter pressed; TextArea focused: False")
+            .And.Contain("supported: True")
+            .And.Contain("live document URI set: True")
+            .And.Contain("client supported: True")
+            .And.Contain("a request started: False");
+    }
+
     private sealed class Server(string trigger)
     {
         public readonly TaskCompletionSource<JsonElement> Request = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -405,6 +424,8 @@ public class OnTypeFormattingTests
         public required string Before;
         public required string Newline;
         public int Start;
+        // A test that presses Enter through automation rather than Enter() records nothing here.
+        private string enterDiagnostics = "Enter not pressed through Fixture.Enter, so no state was recorded";
 
         public static async Task<Fixture> Open(string newline = "\n", string trigger = "\n", bool lastLine = false,
             bool closed = false)
@@ -453,10 +474,26 @@ public class OnTypeFormattingTests
 
         public void Enter()
         {
+            var pending = View.PendingOnTypeFormatting;
+            var uri = Vm.LiveDocumentUri;
+            enterDiagnostics = $"Enter pressed; TextArea focused: {Editor.TextArea.IsFocused}; "
+                + $"supported: {Vm.SupportsOnTypeFormatting("\n")}; live document URI set: {uri is not null}; "
+                + $"client supported: {uri is not null && Client.SupportsOnTypeFormatting(uri, "\n")}";
             Window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
             Window.KeyReleaseQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            enterDiagnostics += $"; a request started: {!ReferenceEquals(pending, View.PendingOnTypeFormatting)}";
         }
-        public Task<JsonElement> Request() => Server.Request.Task.WaitAsync(HangTimeout, TestContext.Current.CancellationToken);
+        public async Task<JsonElement> Request(TimeSpan? wait = null)
+        {
+            try
+            {
+                return await Server.Request.Task.WaitAsync(wait ?? HangTimeout, TestContext.Current.CancellationToken);
+            }
+            catch (TimeoutException ex)
+            {
+                throw new TimeoutException($"Stand-in server did not receive on-type formatting; {enterDiagnostics}", ex);
+            }
+        }
         public void Answer(JsonElement request)
         {
             var line = request.GetProperty("position").GetProperty("line").GetInt32();

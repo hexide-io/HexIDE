@@ -117,6 +117,7 @@
     "Str.Archive.FolderReadyFormat": "Källmappen har synkroniserats från det sparade arkivet:\n{0}\n\nÄndringar i mappen stoppar synkroniseringen; de importeras inte. Läs in projektet igen för att uppdatera förhandsvisningarna.",
     "Str.Archive.FolderErrorFormat": "Synkroniseringen av källmappen stoppades:\n{0}\n\nArkivet ändrades inte.",
     "Str.Archive.OpenErrorFormat": "Kunde inte öppna {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "inget installerat format läser '{0}'-formulär",
     "Str.ContributedProject.OpenError": "Det gick inte att öppna {0} med {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} öppnas av {1}: dess filer läggs till och tas bort av programmet det hör till, inte av HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "{0} togs bort ur {1} av programmet det hör till. Spara dina ändringar först?",
