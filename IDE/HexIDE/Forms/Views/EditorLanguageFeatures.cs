@@ -32,6 +32,7 @@ public interface IEditorDocumentQueries
 internal interface IEditorCompletionRules
 {
     bool MayOpenCompletion();
+    bool LettersSelect { get; }
     bool RefusesTyping(int offset, int length);
     bool Commits(Key key);
     bool HandlesReturn { get; }
@@ -50,6 +51,8 @@ internal sealed class EditorLanguageFeatures : IDisposable
     private readonly Action? dismissHover;
     private readonly Action<CompletionWindow?>? completionChanged;
     private CompletionWindow? _completionWindow;
+    private ICompletionData? _outlinedItem;
+    private bool _selectCompletionMatch;
     private OverloadInsightWindow? _insightWindow;
     private CancellationTokenSource? _completionCts;
     private CancellationTokenSource? _signatureCts;
@@ -125,7 +128,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
     {
         if (e.Text is not { Length: > 0 }) return;
         var ch = e.Text[0];
-        if (char.IsLetter(ch)) TriggerCompletion();
+        if (char.IsLetter(ch)) TriggerCompletion(typedLetter: true);
         else if (queries.CompletionTriggerCharacters.Contains(e.Text)) TriggerCompletion(e.Text);
         if ((rules.FixedSignatureTriggers ?? queries.SignatureHelpTriggerCharacters).Contains(e.Text))
             TriggerSignatureHelp(e.Text);
@@ -142,9 +145,19 @@ internal sealed class EditorLanguageFeatures : IDisposable
             e.Handled = true;
             return;
         }
+        // VB6 (#3056): with an item outlined and nothing selected, the first arrow selects the outlined item. Without
+        // this, the list's own handler steps from no selection to the top of the list.
+        if (e.Key is Key.Down or Key.Up && _completionWindow is { } open && open.CompletionList.SelectedItem is null
+            && _outlinedItem is { } outlined)
+        {
+            open.CompletionList.SelectedItem = outlined;
+            open.CompletionList.ScrollIntoView(outlined);
+            e.Handled = true;
+            return;
+        }
         if (_completionWindow is not { } completion || !rules.Commits(e.Key)) return;
         if (e.Key == Key.Tab && completion.CompletionList.SelectedItem is null)
-            completion.CompletionList.SelectedItem = completion.CompletionList.CompletionData.FirstOrDefault();
+            completion.CompletionList.SelectedItem = _outlinedItem ?? completion.CompletionList.CompletionData.FirstOrDefault();
         var hasSelection = completion.CompletionList.SelectedItem is not null;
         if (hasSelection) completion.CompletionList.RequestInsertion(e);
         else completion.Close();
@@ -168,7 +181,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
         CompletionSnippet.Deactivate(area);
     }
 
-    public void TriggerCompletion(string? triggerCharacter = null, bool completeWord = false)
+    public void TriggerCompletion(string? triggerCharacter = null, bool completeWord = false, bool typedLetter = false)
     {
         if (!rules.MayOpenCompletion())
         {
@@ -176,6 +189,11 @@ internal sealed class EditorLanguageFeatures : IDisposable
             _completionWindow?.Close();
             return;
         }
+
+        // Letters refresh an existing list (or its pending request) without changing how it was opened.
+        var refreshesCompletion = _completionWindow is not null
+            || (!_completionShown.IsCompleted && _completionCts is { IsCancellationRequested: false });
+        _selectCompletionMatch = !typedLetter || rules.LettersSelect || (refreshesCompletion && _selectCompletionMatch);
 
         _completionCts?.Cancel();
         _completionCts?.Dispose();
@@ -185,11 +203,11 @@ internal sealed class EditorLanguageFeatures : IDisposable
         var (start, _) = CompletionWord(area);
         var location = area.Document.GetLocation(rules.CompletionAtWordStart ? start : area.Caret.Offset);
         var lspPos = new Position(location.Line - 1, location.Column - 1);
-        _completionShown = ShowCompletionAsync(lspPos, token, triggerCharacter, completeWord);
+        _completionShown = ShowCompletionAsync(lspPos, token, triggerCharacter, completeWord, _selectCompletionMatch);
     }
 
     private async Task ShowCompletionAsync(Position position, CancellationToken token,
-        string? triggerCharacter, bool completeWord)
+        string? triggerCharacter, bool completeWord, bool selectMatch)
     {
         try
         {
@@ -227,9 +245,15 @@ internal sealed class EditorLanguageFeatures : IDisposable
                 }
                 _completionWindow = new CompletionWindow(area);
                 completionChanged?.Invoke(_completionWindow);
-                FillCompletionList(_completionWindow, items, rules.RefusesTyping, () => queries.DocumentUri, position);
+                FillCompletionList(_completionWindow, items, rules.RefusesTyping, () => queries.DocumentUri, position,
+                    selectMatch ? null : item => _outlinedItem = item);
 
-                _completionWindow.Closed += (_, _) => { _completionWindow = null; completionChanged?.Invoke(null); };
+                _completionWindow.Closed += (_, _) =>
+                {
+                    _completionWindow = null;
+                    _outlinedItem = null;
+                    completionChanged?.Invoke(null);
+                };
                 _completionWindow.Show();
             });
         }
@@ -262,7 +286,8 @@ internal sealed class EditorLanguageFeatures : IDisposable
     }
 
     internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
-        Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null, Position? requestPosition = null)
+        Func<int, int, bool> refusesTyping, Func<string?>? documentUri = null, Position? requestPosition = null,
+        Action<ICompletionData?>? outlineMatch = null)
     {
         var area = window.TextArea;
         var (start, end) = CompletionWord(area);
@@ -277,9 +302,11 @@ internal sealed class EditorLanguageFeatures : IDisposable
         {
             var (wordStart, wordEnd) = CompletionWord(area);
             var word = area.Document.GetText(wordStart, wordEnd - wordStart);
-            window.CompletionList.SelectedItem = SelectionFor(window.CompletionList.CompletionData, word, items);
-            if (window.CompletionList.SelectedItem is { } selected)
-                window.CompletionList.ScrollIntoView(selected);
+            var match = SelectionFor(window.CompletionList.CompletionData, word, items);
+            outlineMatch?.Invoke(match);
+            window.CompletionList.SelectedItem = outlineMatch is null ? match : null;
+            if (match is not null)
+                window.CompletionList.ScrollIntoView(match);
         }
         // Run after the popup's caret handler, which matches only the text before the caret.
         window.Opened += (_, _) =>

@@ -44,6 +44,29 @@ FF SUP=2 SUPErr=0 loadL=-60 loadT=-345 ShowErr=0 L=2820 T=1950 W=9720 H=7605
 - **Under 3 they are ignored**, and the form cascades (FB, at 1320,1320).
 - Under 2 the form is placed only when shown (FF): Left and Top read the Manual origin until then.
 
+**Re-run on the console (2026-11-18, #4768).** Session 0 draws no window and has a smaller frame. The six forms were
+written again by hand, with the same client size and the same lines added, built with SP6, and run on the guest's
+console in the IDE (`/runexit`), p-code and native, and in session 0 again, logging the session id. Every rule above
+held. The console's p-code run:
+
+```
+Screen 15360 11520 15
+FA SUP=0 SUPErr=0 loadL=-120 loadT=-465 ShowErr=0 L=-120 T=-465 W=9840 H=7785
+FB SUP=3 SUPErr=0 loadL=1170 loadT=1170 ShowErr=0 L=1170 T=1170 W=9840 H=7785
+FC SUP=0 SUPErr=0 loadL=-120 loadT=-465 ShowErr=0 L=-120 T=-465 W=9840 H=7785
+FD SUP=0 SUPErr=0 loadL=1875 loadT=1035 ShowErr=0 L=1875 T=1035 W=9840 H=7785
+FE SUP=0 SUPErr=0 loadL=1875 loadT=1035 ShowErr=0 L=1875 T=1035 W=9840 H=7785
+FF SUP=2 SUPErr=0 loadL=-120 loadT=-465 ShowErr=0 L=2760 T=1860 W=9840 H=7785
+```
+
+- **The frame offset is -120/-465 on the console,** 8 and 31 pixels, against session 0's -60/-345. The outer size
+  grows with it: 9840 × 7785 against 9720 × 7605.
+- **Windows Default's cascade is no fixed place.** FB came out at 1170, 1560 and 1950 in the console's p-code, native
+  and IDE runs, one after another, and at 660 in this probe's session-0 run, where the first probe above logged 1320.
+  Reasoned, not checked: Windows gives each new window the next step of its own cascade.
+- **CenterScreen still places the form only when shown,** at (15360 − 9840) / 2 = 2760, and 1860 down: 1867.5, to whole
+  pixels.
+
 So a form HexIDE created before this, once given the `Attribute` block it also lacked (#516), was opened by VB6 at
 the screen's origin, caption off the top, because HexIDE wrote no line and meant 3. The reverse went wrong too: VB6 writes no line for a Manual form, which HexIDE ran
 centred and showed as "3 - Windows Default" in the grid. That half is from reading the code, not run.

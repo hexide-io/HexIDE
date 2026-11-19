@@ -81,7 +81,9 @@ A fourth wrote the form's **own** properties in lowercase: `caption`, `clienthei
 | `Me.Font.Bold` | True | Boolean |
 
 4005 rather than 4000 is the client width rounded up to whole pixels at 15 twips a pixel (267 pixels), so the
-lowercase `clientwidth` was applied. The outer width adds the frame: 4125. `Font.Size` is a Currency, not a
+lowercase `clientwidth` was applied. The outer width adds the frame: 4125, session 0's. A sizable form of the same
+client size, written in the usual case, read 4245 × 3585 on the guest's console, in the IDE, p-code and native, and
+4125 × 3405 in session 0 (#4768, the re-run of "A form's Move"). `Font.Size` is a Currency, not a
 Single or Double. That is VB6's own type for it, recorded here because a program that asks `TypeName` gets it.
 
 **HexIDE, after #811.**
