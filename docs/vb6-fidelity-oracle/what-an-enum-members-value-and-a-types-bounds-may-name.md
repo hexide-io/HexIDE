@@ -50,6 +50,32 @@ found".
 
 #4594 also records `VBA.VbCompareMethod.vbDatabaseCompare` in an Enum member as 2, measured separately.
 
+### An Enum member naming a library constant the project also declares (2026-11-18, #4762)
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds gave identical results in all seven projects.
+- **One project per row,** since a row may be a compile error.
+- **`Module1`** holds `Enum E` with `M = …`, above every procedure. Its `Sub Main` logs `M` and `TypeName(M)`.
+- **The logger** is in a module of its own.
+- **The row's other declaration** sits where the row says.
+
+| `M = …` | The project also has | VB6 |
+|---|---|---|
+| `VBA.vbBinaryCompare` | a module named `VBA` | the project won't load: "Name conflicts with existing module, project, or object library", with no file or line |
+| `VBRUN.vbRed` | `Public Enum VBRUN` in `Module2` | "Name conflicts with existing module, project, or object library", `Module2` line 1 |
+| `VbCompareMethod.vbDatabaseCompare` | a module named `VbCompareMethod` | "Method or data member not found", `Module1` line 2: the qualifier names the module |
+| `vbRed` | `Sub vbRed()` in `Module1` | "Expected Function or variable" |
+| `vbRed` | `Public Sub vbRed()` in `Module2` | "Expected Function or variable" |
+| `vbRed` | `Public Declare Sub vbRed Lib "x" ()` in `Module2` | "Expected Function or variable" |
+| `vbRed` | `Public Enum O` with `vbRed = 3` in `Module2` | **builds: `M` is 3, a Long** |
+
+- **A project can't name a module or an Enum `VBA` or `VBRUN`:** those are library names. So an Enum member qualified by one always means the library.
+- **A module may be named after a library Enum,** such as `VbCompareMethod`. A qualifier of that name then means the module, not the library's Enum.
+- **The project's name hides the library's constant.** A Sub or a Declare of that name is "Expected Function or variable", in the Enum's own module or another. Another module's Enum member of that name gives that member's value.
+- **The obvious guess was that a name the project declares as a Sub would be passed over,** so the library's 255 would be used. It isn't: the project's Sub is found and refused.
+
+**Not measured:** `Sub vbRed` declared `Private` in another module; another Enum's member `vbRed` in the Enum's own module.
+
 ### A Type's array bounds
 
 | Field, in `Type T` in `Module1` | `LBound`, `UBound` |
