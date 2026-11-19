@@ -91,3 +91,39 @@ What it still does not do:
 - **A press on a 3-D TextBox's or ListBox's 2-pixel border** reaches the control in HexIDE with a negative X or Y,
   where VB6 sends the border no mouse message at all.
 
+
+### A transparent Label takes the pointer across its whole rectangle (2026-11-19, #4966, SP6)
+
+**The probe.**
+- **The software:** VB6 SP6 6.00.9782 and MSVBVM60 6.00.9848, at 15 twips a pixel.
+- **The form:** twips, 6000 by 4500. Image1, with no picture, covers 3900 by 2700 from the origin, sent to the back
+  with `ZOrder 1`. Over it are three Labels, each 900 twips square:
+  - LblPlain: transparent, with no border and no caption;
+  - LblBordered: transparent and Fixed Single, as a game's grid cell is;
+  - LblOpaque: opaque and Fixed Single.
+  
+  A fourth, LblFormTransparent, is transparent with no border, over the form clear of Image1.
+- **The input:** a Timer moved the real cursor with `SetCursorPos` every 400 ms. The program ran in the guest's
+  interactive console session, started as a scheduled task. Every MouseMove handler logged its name, X and Y.
+- **The builds:** `/make` as native code and as p-code. The two logged the same lines.
+
+| Cursor | VB6 |
+|---|---|
+| on the form, clear of every control | Form MouseMove `4995 1995` |
+| on Image1, clear of the Labels | Image1 MouseMove `600 1995` |
+| LblPlain's centre, then 5 pixels further in | LblPlain MouseMove `450 450`, then `525 525` |
+| LblBordered's centre, 5 pixels further in, then 1 pixel inside its left edge | LblBordered MouseMove `450 450`, `525 525`, then `15 450` |
+| LblOpaque's centre | LblOpaque MouseMove `450 450` |
+| LblFormTransparent's centre, then 5 pixels further in | LblFormTransparent MouseMove `450 450`, then `525 525` |
+
+No other control raised MouseMove: neither Image1 under a Label, nor the form under LblFormTransparent. 5000 twips is
+pixel 333, so it reads back as 4995.
+
+**A transparent Label takes the mouse across its whole rectangle,** as an opaque Label does, and as an Image with no
+picture does above. A border, a caption or what lies beneath makes no difference.
+
+**HexIDE, before #4966:** a transparent Label drew nothing, and Avalonia hit-tests what a control draws. So only its
+border took the pointer, and the control beneath raised MouseMove for the rest. A game's grid of such Labels over a
+background Image put out its hover light whenever the pointer moved inside a cell, because the Image's MouseMove
+put it out. **Since #4966** a Label is hit-tested across its whole rectangle, as an Image has been since #974.
+`LabelHitTestTests` pins every row above, at a scaling of 1 and of 1.5.

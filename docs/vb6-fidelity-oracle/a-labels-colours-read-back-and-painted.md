@@ -97,3 +97,41 @@ HexIDE had a ListBox's and ComboBox's `ForeColor` default as the button text (`&
 control's. It now overrides it to `&H80000008`. A `.frm` carrying `&H80000019&`, or a palette colour, is now kept
 as written and saved back, where it used to be dropped on save; creating a control with the first used to throw.
 
+
+### Re-measured on SP6, with a game's order (2026-11-19, #4965)
+
+The rows above are from the original release, 6.00.8176. These are from VB6 SP6 6.00.9782 with MSVBVM60 6.00.9848.
+The runs were `/make` as native code and as p-code, in session 0, reading back only. Both builds logged the same lines.
+
+| Label, then statements | `BackColor` reads | `BackStyle` |
+|---|---|---|
+| A: transparent from the form, red from the form; `BackColor = vbBlue` | `255`, unchanged, no error | 0 |
+| A, then `BackStyle = 1` | `255` | 1 |
+| B: opaque red from the form; `BackStyle = 0` | `255` | 0 |
+| B, then `BackColor = vbBlue` | `255`, unchanged | 0 |
+| B, then `BackStyle = 1` | `255` | 1 |
+| B, then `BackColor = vbGreen`, now opaque | `65280` | 1 |
+| C: transparent from the form; `BackStyle = 1`, then `BackColor = vbBlue` | `16711680` | 1 |
+| D: `lblCell(0)` of a control array, transparent, `&H00F5E1C8&` from the form; `BackColor = &HC0C0FF`, then `BackStyle = 1` | `16114120` (`&HF5E1C8`), unchanged | 1 |
+| D, then `BackStyle = 0`, `BackColor = &HC0FFC0`, `BackStyle = 1` | `16114120`, unchanged | 1 |
+
+**SP6 drops a run-time `BackColor` on a transparent Label too.** That holds for one made transparent at run time (B),
+and for a control-array element (D).
+
+D is the order a game's grid used to fill a cell: the colour first, then opaque. Every cell filled that way showed the
+colour the `.frm` gave it, not the one assigned. A cell already opaque when the next colour came took it. So a
+preview drawn over transparent cells mixed the right colour with the `.frm`'s pale blue, depending on which cells had
+been opaque before (#4965). Setting `BackStyle = 1` first, as row C does, gives the colour.
+
+**Dropped, not deferred.** `BackColor` read straight after the assignment returns the old value (rows A and B), and
+the later `BackStyle = 1` shows that old value. So the assignment is lost; it isn't stored to be drawn later.
+
+**Is it a defect HexIDE should not copy?** The question was asked, since the Fidelity Principle keeps VB6's intended
+behaviour, not its bugs. The answer is to keep it, reasoned rather than measured:
+- **A program can see it.** The value reads back unchanged. That's unlike the Object Browser example, where VB6's
+  window chrome was lost and no program could tell.
+- **It is stable.** 6.00.8176 and SP6 do the same.
+- **Programs were written against it.** A VB6 author who filled a transparent Label colour-first saw the old colour and
+  reordered. A program that reads the colour back expects the old one.
+
+Taking the colour would change what such programs show and read. HexIDE has dropped it since #795, and still does.
