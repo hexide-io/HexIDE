@@ -15,6 +15,7 @@ public class PrePass : VB6BaseVisitor<object?>
     private readonly bool allowIndexedLet;
     private readonly bool allowIndexedSet;
     public Dictionary<string, ProcedureInfo> Procedures = new(StringComparer.OrdinalIgnoreCase);
+    internal HashSet<string> DeclareSubs { get; } = new(StringComparer.OrdinalIgnoreCase);
     // `Property Get/Let/Set` accessors, keyed by property name (each name owns up to three accessors).
     public Dictionary<string, PropertyInfo> Properties = new(StringComparer.OrdinalIgnoreCase);
     // Names this (class) module declares as `Public Event Foo(...)` — Phase 5. Recorded for completeness; dispatch
@@ -54,6 +55,43 @@ public class PrePass : VB6BaseVisitor<object?>
     // the interpreter). Public by default — MVP does no Private-Type module-scoping.
     public Dictionary<string, UdtTypeDef> Types = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, Dictionary<string, long>> Enums = new(StringComparer.OrdinalIgnoreCase);
+
+    // Project Const values are read when declarations execute; retain names before their values exist (#4614).
+    internal Dictionary<string, (VB6Parser.EnumerationStmtContext Statement, int First)> DeferredEnums { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, VB6Parser.EnumerationStmtContext> enumStatements = new(StringComparer.OrdinalIgnoreCase);
+
+    internal IEnumerable<string> EnumMemberNames(string enumName)
+    {
+        foreach (var member in enumStatements[enumName].enumerationStmt_Constant())
+            yield return member.ambiguousIdentifier().GetText();
+    }
+
+    internal bool HasPendingEnumMember(string name) => DeferredEnums.Values.Any(p =>
+        p.Statement.enumerationStmt_Constant().Skip(p.First).Any(m => m.ambiguousIdentifier().GetText().Equals(name, StringComparison.OrdinalIgnoreCase)));
+
+    internal void DeferEnum(string enumName, string memberName)
+    {
+        var statement = enumStatements[enumName];
+        var members = statement.enumerationStmt_Constant();
+        var first = Array.FindIndex(members, m => m.ambiguousIdentifier().GetText().Equals(memberName, StringComparison.OrdinalIgnoreCase));
+        if (DeferredEnums.TryGetValue(enumName, out var earlier) && earlier.First <= first)
+            return;
+        DeferredEnums[enumName] = (statement, first);
+        for (var i = first; i < members.Length; i++)
+        {
+            var name = members[i].ambiguousIdentifier().GetText();
+            Enums[enumName].Remove(name);
+            var location = state.Alloc(default(Vb6Value));
+            state.MarkConstant(location);
+            rootEnv.DefineVariable(name, location);
+        }
+        if (!DeclarationItems.Contains(statement))
+        {
+            var index = DeclarationItems.FindIndex(item => item.Start.TokenIndex > statement.Start.TokenIndex);
+            DeclarationItems.Insert(index < 0 ? DeclarationItems.Count : index, statement);
+        }
+    }
 
     /// <summary>Where each Enum is declared, so that a module-level Const or bound above it can be refused, as VB6 refuses
     /// it (measured: "Constant expression required"). Collected, not related: the check runs with the declarations.</summary>
@@ -524,6 +562,8 @@ public class PrePass : VB6BaseVisitor<object?>
             throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;
         DeclareModuleName(context.ambiguousIdentifier().GetText(), exported: !IsPrivate(context.visibility()));
+        if (context.SUB() != null && !IsPrivate(context.visibility()))
+            DeclareSubs.Add(context.ambiguousIdentifier().GetText());
         return default;
     }
 
@@ -537,31 +577,41 @@ public class PrePass : VB6BaseVisitor<object?>
         //
         // Evaluation is a SINGLE FORWARD WALK, and that is measured rather than convenient: VB6 refuses a
         // member that references a later member, and one that references a later Const, both with
-        // "Constant expression required". So source order is the rule, and the lazy-memoised treatment
-        // CLAUDE.md prescribes for Const — which exists precisely because Const is order-independent — is
-        // not wanted here. Collecting values as the walk reaches them stays pure collection.
+        // "Constant expression required". Values naming project Consts complete that forward walk with
+        // the module's declarations, in the same source order.
         var enumName = context.ambiguousIdentifier().GetText();
         DeclareModuleTypeName(enumName);
         var members = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        enumStatements[enumName] = context;
+        int? firstDeferred = null;
+        var memberIndex = 0;
         long next = 0;
         foreach (var c in context.enumerationStmt_Constant())
         {
             var constName = c.ambiguousIdentifier().GetText();
             DeclareModuleName(constName, inEnum: enumName);
-            long value;
-            if (c.valueStmt() is { } vs)
+            long value = 0;
+            if (firstDeferred is null)
             {
-                foldingMember = constName;
-                if (!TryFoldEnumValue(vs, enumName, members, out value))
-                    throw new VBCompileErrorException(
-                        $"Constant expression required (Enum {enumName}, member '{constName}': '{vs.GetText().Trim()}')");
-                next = value + 1;
+                if (c.valueStmt() is { } vs)
+                {
+                    foldingMember = constName;
+                    if (!TryFoldEnumValue(vs, enumName, members, out value))
+                    {
+                        if (!ObjectModule && NamesProjectConstant(vs, enumName))
+                            firstDeferred = memberIndex;
+                        else
+                            throw new VBCompileErrorException(
+                                $"Constant expression required (Enum {enumName}, member '{constName}': '{vs.GetText().Trim()}')");
+                    }
+                    next = value + 1;
+                }
+                else
+                {
+                    value = next++;
+                }
+                if (firstDeferred is null) members[constName] = value;
             }
-            else
-            {
-                value = next++;
-            }
-            members[constName] = value;
 
             // A member name already hoisted by a DIFFERENT enum in this module is AMBIGUOUS. VB6 accepts
             // both declarations and refuses the bare use — "Ambiguous name detected" — so the name is
@@ -577,9 +627,16 @@ public class PrePass : VB6BaseVisitor<object?>
             // Hoisted READ-ONLY. VB6 answers `pTwo = 5` with "Assignment to constant not permitted", and a
             // plain variable slot silently accepted it — so a program could overwrite vbRed and nothing
             // would say so.
-            var location = state.Alloc(new Vb6Value(value));
-            state.MarkReadOnly(location);
+            var location = state.Alloc(firstDeferred is null ? new Vb6Value(value) : default(Vb6Value));
+            if (firstDeferred is null) state.MarkReadOnly(location);
+            else state.MarkConstant(location);
             rootEnv.DefineVariable(constName, location);
+            memberIndex++;
+        }
+        if (firstDeferred is { } first)
+        {
+            DeferredEnums[enumName] = (context, first);
+            DeclarationItems.Add(context);
         }
         Enums[enumName] = members;
         EnumDeclaredAt[enumName] = context.Start.TokenIndex;
@@ -588,15 +645,35 @@ public class PrePass : VB6BaseVisitor<object?>
         return default;
     }
 
+    private bool NamesProjectConstant(Antlr4.Runtime.Tree.IParseTree node, string enumName, int depth = 0)
+    {
+        if (depth > 500) return false;
+        if (node is VB6Parser.VsICSContext read)
+        {
+            var text = read.GetText();
+            if (text.Contains('(')) return false;
+            var parts = text.Split('.');
+            if (parts.Length == 1)
+                return ModuleConsts.ContainsKey(text) || !rootEnv.TryGetVariableLocation(text, out _)
+                    && !VB6InBoxLibraries.TryBare(text, out _);
+            var lead = parts[0];
+            return !VB6InBoxLibraries.IsLibrary(lead) && !VB6InBoxLibraries.IsContainer(lead)
+                && !Enums.ContainsKey(lead) && !lead.Equals(enumName, StringComparison.OrdinalIgnoreCase);
+        }
+        for (var i = 0; i < node.ChildCount; i++)
+            if (NamesProjectConstant(node.GetChild(i), enumName, depth + 1)) return true;
+        return false;
+    }
+
     /// <summary>
     /// Fold one Enum member's value expression to the Long it denotes, or fail.
     ///
     /// <para>
     /// This is a CONSTANT folder, deliberately separate from <see cref="ExpressionExecutor"/>: an Enum body
-    /// is evaluated before anything runs, so there is no environment to evaluate against and nothing here
-    /// may have a side effect. VB6 draws the same line and reports crossing it as "Constant expression
-    /// required". Anything this cannot fold is refused rather than guessed — a member is a value the whole
-    /// program reads, so a wrong one would be wrong everywhere and silently.
+    /// is folded before declarations run, so project Const values are not available here and nothing here
+    /// may have a side effect. Values outside this fold are refused or deferred to the module's declaration
+    /// walk, never guessed — a member is a value the whole program reads, so a wrong one would be wrong
+    /// everywhere and silently.
     /// </para>
     ///
     /// <para>

@@ -981,14 +981,30 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var read in module.PrePass.EnumLibraryNames)
             {
                 NotImplementedException Unsupported() => new(
-                    $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4614)");
+                    $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4762)");
                 if (read.Qualified)
                 {
-                    var lead = read.Name.Split('.')[0];
-                    if (Modules.All.Any(m => m.Kind == InterpreterModuleKind.Standard
-                            && m.Name.Equals(lead, StringComparison.OrdinalIgnoreCase)
-                            || m.PrePass.Enums.ContainsKey(lead)))
+                    var parts = read.Name.Split('.');
+                    var lead = parts[0];
+                    foreach (var owner in Modules.All)
+                    {
+                        var standard = owner.Kind == InterpreterModuleKind.Standard;
+                        var namedModule = standard && owner.Name.Equals(lead, StringComparison.OrdinalIgnoreCase);
+                        var namedEnum = owner.PrePass.Enums.ContainsKey(lead);
+                        if (!namedModule && !namedEnum) continue;
+                        if (module.Kind != InterpreterModuleKind.Standard) throw Unsupported();
+                        // SP6 native/p-code measurements in #4762 (oracle PR #4818).
+                        if (namedModule && lead.Equals("VBA", StringComparison.OrdinalIgnoreCase)
+                            || namedEnum && lead.Equals("VBRUN", StringComparison.OrdinalIgnoreCase))
+                            throw new VBCompileErrorException("Name conflicts with existing module, project, or object library");
+                        // Only a module named after a library Enum (VbCompareMethod) was measured. One named after another
+                        // library, such as VBRUN, is most likely VBA's name conflict too, but it isn't measured: refuse it.
+                        if (namedModule && !lead.Equals("VBRUN", StringComparison.OrdinalIgnoreCase)
+                            && owner.PrePass.ModuleName(parts[1]) is null
+                            && !owner.PrePass.Enums.ContainsKey(parts[1]) && !owner.PrePass.Types.ContainsKey(parts[1]))
+                            throw new VBCompileErrorException("Method or data member not found");
                         throw Unsupported();
+                    }
                     if (read.Refusal is { } qualifiedRefusal) throw qualifiedRefusal;
                     continue;
                 }
@@ -1004,16 +1020,30 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     {
                         if (own && constant.Declaration.Start.TokenIndex >= module.PrePass.EnumDeclaredAt[read.Enum])
                             throw new VBCompileErrorException("Constant expression required");
+                        if (module.Kind == InterpreterModuleKind.Standard)
+                            module.PrePass.DeferEnum(read.Enum, read.Member);
+                        else
+                            throw Unsupported();
+                        continue;
+                    }
+                    if (own && kind is not null
+                        || !own && other.Kind == InterpreterModuleKind.Standard && other.PrePass.HasOtherModuleName(read.Name))
+                    {
+                        if (module.Kind == InterpreterModuleKind.Standard
+                            && (other.PrePass.Procedures.TryGetValue(read.Name, out var procedure) && !procedure.IsFunction
+                                || !own && other.PrePass.DeclareSubs.Contains(read.Name)))
+                            throw new VBCompileErrorException("Expected Function or variable");
                         throw Unsupported();
                     }
-                    if (own && kind is not null)
-                        throw Unsupported();
-                    if (!own && other.Kind == InterpreterModuleKind.Standard
-                        && other.PrePass.HasOtherModuleName(read.Name))
-                        throw Unsupported();
                     foreach (var (name, members) in other.PrePass.Enums)
-                        if (!other.PrePass.PrivateEnums.Contains(name) && members.ContainsKey(read.Name))
-                            throw Unsupported();
+                        if (members.ContainsKey(read.Name))
+                        {
+                            if (!own && module.Kind == InterpreterModuleKind.Standard
+                                && other.Kind == InterpreterModuleKind.Standard && !other.PrePass.PrivateEnums.Contains(name))
+                                module.PrePass.DeferEnum(read.Enum, read.Member);
+                            else
+                                throw Unsupported();
+                        }
                 }
                 if (read.Refusal is { } refusal) throw refusal;
             }
@@ -1406,6 +1436,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 await executor.Execute(block, moduleDeclarations);
             else if (item is VB6Parser.TypeStmtContext type)
                 await executor.ResolveTypeBounds(type);
+            else if (item is VB6Parser.EnumerationStmtContext enumeration)
+                await executor.ResolveEnumValues(enumeration);
         }
     }
 

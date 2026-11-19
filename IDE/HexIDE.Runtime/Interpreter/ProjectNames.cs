@@ -61,7 +61,7 @@ internal sealed class ProjectNames
                 continue;
             foreach (var (enumName, members) in owner.PrePass.Enums)
                 if (!owner.PrePass.PrivateEnums.Contains(enumName))
-                    foreach (var member in members.Keys)
+                    foreach (var member in owner.PrePass.EnumMemberNames(enumName))
                         names.Add(reader, owner, member);
         }
         // A Public variable or Const beside another module's visible procedure or Property is ambiguous as well
@@ -89,8 +89,8 @@ internal sealed class ProjectNames
     {
         if (reader.PrePass.Procedures.ContainsKey(name) || reader.PrePass.Properties.ContainsKey(name))
             return true;
-        foreach (var members in reader.PrePass.Enums.Values)
-            if (members.ContainsKey(name))
+        foreach (var enumName in reader.PrePass.Enums.Keys)
+            if (reader.PrePass.EnumMemberNames(enumName).Contains(name, StringComparer.OrdinalIgnoreCase))
                 return true;
         // A form's own members come before the project's globals: its Caption beats a module's Public Caption (L2,
         // measured). They are looked up after the environment, so a Public of the name must not be found here.
