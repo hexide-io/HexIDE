@@ -1394,7 +1394,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     CaptureError(ex);
                     if (!first)
+                    {
+                        // A later object-store mismatch ends with Nothing under Resume Next (#4878, measured).
+                        if (objectVariable && ex.Error.ErrNo == VBStandardError.TypeMismatch.ErrNo)
+                        {
+                            interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var held);
+                            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, Vb6Value.Nothing);
+                            await interpreter.ReleaseRef(held);
+                        }
                         return ControlFlow.Nothing;
+                    }
                 }
                 first = false;
 
@@ -5128,7 +5137,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         // A stdole alias for a scalar (`As OLE_COLOR`) is that scalar.
                         value = aliasScalar is { } scalar ? new Vb6Value(scalar) : Vb6Value.Nothing;
                         // Measured scalar Set constraints (#1563), bare or VB-qualified. A project's form name keeps its
-                        // existing view; As Control records a binding view, not a Set constraint (#4737).
+                        // existing view; As Control records its late-binding view (#4737) and scalar store constraint (#4864).
                         if (!isArray && aliasScalar is null
                             && (qualifier is null || qualifier.Equals("VB", StringComparison.OrdinalIgnoreCase))
                             && (ControlObjectType.IsIntrinsic(typeName) || typeName.Equals("Form", StringComparison.OrdinalIgnoreCase)))

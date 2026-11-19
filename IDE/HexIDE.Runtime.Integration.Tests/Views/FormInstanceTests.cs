@@ -32,6 +32,9 @@ public class FormInstanceTests
       + "   Caption         =   \"Form1\"\r\n"
       + "   ClientHeight    =   3000\r\n"
       + "   ClientWidth     =   4000\r\n"
+      + "   Begin VB.Timer Timer1\r\n"
+      + "      Left = 3000\r\n"
+      + "   End\r\n"
       + "   Begin VB.TextBox Text1 \r\n"
       + "      Height          =   495\r\n"
       + "      Left            =   120\r\n"
@@ -92,6 +95,138 @@ public class FormInstanceTests
 
     private static Run RunFormLoad(string body, params (string Name, ModuleKind Kind, string Code)[] modules) =>
         RunForm($"Private Sub Form_Load()\n{body}\nEnd Sub\n", modules);
+
+    // VB6 SP6 native/p-code measurements: https://github.com/hexide-io/HexIDE/issues/4864
+    [AvaloniaTheory]
+    [InlineData("Control", "", "Set c = Text1", 0, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = Me", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = New Class1", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = New Collection", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = Text1.Font", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = Controls", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = Form2", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1: Set o = Me", "Set c = o", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1: Set v = Me", "Set c = v", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1: Set v = New Class1", "Set c = v", 13, "c Is Text1")]
+    [InlineData("Control", "Set o = Timer1", "Set c = o", 0, "TypeName(c) = \"Timer\"")]
+    [InlineData("Control", "Set c = Text1", "Set c = Nothing", 0, "c Is Nothing")]
+    [InlineData("Control", "", "Set c = Me", 13, "c Is Nothing")]
+    [InlineData("VB.Control", "", "Set c = Text1", 0, "c Is Text1")]
+    [InlineData("VB.Control", "Set o = Timer1", "Set c = o", 0, "TypeName(c) = \"Timer\"")]
+    [InlineData("VB.Control", "Set c = Text1", "Set c = Me", 13, "c Is Text1")]
+    [InlineData("VB.Control", "Set c = Text1", "Set c = New Class1", 13, "c Is Text1")]
+    [InlineData("VB.Control", "Set c = Text1", "Set c = New Collection", 13, "c Is Text1")]
+    [InlineData("VB.Control", "Set c = Text1: Set o = Me", "Set c = o", 13, "c Is Text1")]
+    public void Control_scalar_store_checks_the_actual_object(string declaration, string setup, string statement,
+        int error, string retained)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project,
+            (FormHeader.Replace("Form1", "Form2") + "Private Sub Form_Load()\nDebug.Print \"unexpected load\"\nEnd Sub")
+            .ReplaceLineEndings("\r\n"), new NullSink())!);
+        var run = RunFormIn(project, $"""
+            Private Sub Form_Load()
+                Dim c As {declaration}, o As Object, v As Variant
+                {setup}
+                On Error Resume Next
+                Err.Clear
+                {statement}
+                Debug.Print CStr(Err.Number)
+                Debug.Print {retained}
+            End Sub
+            """, ("Class1", ModuleKind.ClassModule, ""));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(error.ToString(System.Globalization.CultureInfo.InvariantCulture), "True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("", "Set c = Form1", 13, "c Is Nothing")]
+    [InlineData("", "Set c = Form1.Text1", 0, "c Is Form1.Text1")]
+    [InlineData("Set c = Form1.Text1", "Set c = Form1", 13, "c Is Form1.Text1")]
+    public void Control_scalar_store_in_a_standard_module(string setup, string statement, int error, string retained)
+    {
+        var run = RunFormLoad("Probe", ("Module1", ModuleKind.StandardModule, $"""
+            Public Sub Probe()
+                Dim c As Control
+                {setup}
+                On Error Resume Next
+                Err.Clear
+                {statement}
+                Debug.Print CStr(Err.Number)
+                Debug.Print {retained}
+            End Sub
+            """));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(error.ToString(System.Globalization.CultureInfo.InvariantCulture), "True");
+    }
+
+    // A form's module-level variable, a standard module's Public variable and a class's Public field declared As Control
+    // check the same way. VB6 SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/4864 (oracle PR #4866).
+    [AvaloniaTheory]
+    [InlineData("mc")]
+    [InlineData("gc")]
+    [InlineData("k.c")]
+    public void Control_store_beyond_a_local_checks_the_actual_object(string target)
+    {
+        var run = RunForm($"""
+            Private mc As Control
+
+            Private Sub Form_Load()
+                Dim k As Class1
+                Set k = New Class1
+                Set {target} = Text1
+                On Error Resume Next
+                Err.Clear
+                Set {target} = Me
+                Debug.Print CStr(Err.Number)
+                Debug.Print {target} Is Text1
+            End Sub
+            """, ("Class1", ModuleKind.ClassModule, "Public c As Control\n"),
+            ("Module2", ModuleKind.StandardModule, "Public gc As Control\n"));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("13", "True");
+    }
+
+    // VB6 SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/4878 (oracle PR #4866).
+    // A first-element 13 enters the body and continues; a later 13 ends with the variable Nothing.
+    [AvaloniaTheory]
+    [InlineData("col.Add Text1: col.Add Me: col.Add Timer1", "col", "body 0 TextBox|13 Nothing")]
+    [InlineData("col.Add Me: col.Add Text1", "col", "body 13 Nothing|body 0 TextBox|0 Nothing")]
+    [InlineData("", "Forms", "body 13 Nothing|0 Nothing")]
+    public void For_Each_into_a_Control_variable_checks_each_element(string fill, string source, string expected)
+    {
+        var run = RunFormLoad($"""
+            Dim c As Control, col As New Collection
+            {fill}
+            On Error Resume Next
+            Err.Clear
+            For Each c In {source}
+                Debug.Print "body " & Err.Number & " " & TypeName(c)
+                Err.Clear
+            Next
+            Debug.Print CStr(Err.Number) & " " & TypeName(c)
+            """);
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected.Split('|'));
+    }
+
+    // All three elements and the post-loop read were measured in #4878, native and p-code.
+    [AvaloniaFact]
+    public void Later_element_type_mismatch_clears_the_object_loop_variable()
+    {
+        var run = RunFormLoad("""
+            Dim t As Class1, col As New Collection
+            col.Add New Class1: col.Add New Class2: col.Add New Class1
+            On Error Resume Next
+            For Each t In col
+                Debug.Print "body " & Err.Number & " " & TypeName(t)
+                Err.Clear
+            Next
+            Debug.Print CStr(Err.Number) & " " & TypeName(t)
+            """, ("Class1", ModuleKind.ClassModule, ""), ("Class2", ModuleKind.ClassModule, ""));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("body 0 Class1", "13 Nothing");
+    }
 
     // Every row, in order: https://github.com/hexide-io/HexIDE/issues/4640 (VB6 SP6, native and p-code).
     [AvaloniaFact]
