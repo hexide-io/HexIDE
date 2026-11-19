@@ -21,7 +21,8 @@ namespace HexIDE.Lsp.Providers;
 /// case-sensitive: a camelCase file loads as an empty project.
 /// </para>
 /// <para>
-/// <c>Version</c> names the file's format, not a server's version. RDCore reads and writes format <c>1.0</c>, and from
+/// <c>Version</c> names the file's format, not a server's version. Project references use format <c>1.3</c>
+/// (RDCore <c>69539af97</c>, #4899); library-only projects retain <c>1.0</c>. From
 /// <c>6c1ed90d</c> on it opens a file of any version. A build older than that refuses a version newer than its own,
 /// <c>0.1.0</c>, so settings can stamp that for one.
 /// </para>
@@ -55,13 +56,15 @@ public sealed class RdcoreProjectProvider : IWorkspaceArtifactProvider
         if (modules.Length == 0) return null;
         var version = context.Settings is { ValueKind: JsonValueKind.Object } settings
             && settings.TryGetProperty("version", out var configured) && configured.ValueKind == JsonValueKind.String
-            ? configured.GetString()! : DefaultVersion;
+            ? configured.GetString()! : context.Project.References.Any(r => r.IsProject && r.Name.Length > 0) ? "1.3" : DefaultVersion;
         // RDCore resolves a reference by the library's own name. The service passes a reader only once there is consent.
         var references = context.Project.References
-            .Select(r => (Name: context.LibraryNames?.NameOf(r) is { Length: > 0 } read ? read : r.Name, Reference: r))
+            .Select(r => (Name: !r.IsProject && context.LibraryNames?.NameOf(r) is { Length: > 0 } read ? read : r.Name, Reference: r))
             .Where(n => n.Name.Length > 0)
-            .Select(n => new RdcoreReference(n.Name, n.Reference.HostPath, n.Reference.Guid, n.Reference.Major,
-                n.Reference.Minor)).ToArray();
+            .Select(n => n.Reference.IsProject
+                ? (RdcoreReference)new RdcoreProjectReference(n.Name)
+                : new RdcoreLibraryReference(n.Name, n.Reference.HostPath, n.Reference.Guid, n.Reference.Major,
+                    n.Reference.Minor)).ToArray();
         var constants = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, value) in (context.Project.CompilationArguments ?? new Dictionary<string, short>())
             .OrderBy(a => a.Key, StringComparer.OrdinalIgnoreCase))
@@ -91,8 +94,17 @@ internal sealed record RdcoreProjectInfo(string Name, RdcoreReference[] Referenc
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SourceProject,
     Dictionary<string, string> PrecompilerConstants);
 
-internal sealed record RdcoreReference(string Name, string? AbsolutePath, Guid? Guid, int? Major, int? Minor,
-    string? TypeLibInfoPath = null, bool IsUnremovable = false);
+[JsonDerivedType(typeof(RdcoreLibraryReference))]
+[JsonDerivedType(typeof(RdcoreProjectReference))]
+internal abstract record RdcoreReference([property: JsonPropertyOrder(-1)] string Name);
+
+internal sealed record RdcoreProjectReference(string Name) : RdcoreReference(Name)
+{
+    public bool IsProject => true;
+}
+
+internal sealed record RdcoreLibraryReference(string Name, string? AbsolutePath, Guid? Guid, int? Major, int? Minor,
+    string? TypeLibInfoPath = null, bool IsUnremovable = false) : RdcoreReference(Name);
 
 internal sealed record RdcoreFile(string RelativeUri);
 

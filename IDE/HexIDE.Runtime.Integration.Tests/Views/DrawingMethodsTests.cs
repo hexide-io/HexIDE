@@ -19,7 +19,7 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 // #988: SP6 native/p-code measurements in docs/vb6-fidelity-oracle/
 // the-drawing-methods-line-pset-circle-cls-and-point.md and
 // the-coordinate-system-scalemode-scale-scalex-and-scaley.md. Point is the oracle's readback path.
-public class DrawingMethodsTests
+public partial class DrawingMethodsTests
 {
     private sealed class NullSink : IDeserializeErrorSink
     {
@@ -335,9 +335,7 @@ public class DrawingMethodsTests
     [InlineData("Debug.Print Point(1)")]
     [InlineData("Debug.Print Picture1.Point(1, 2, 3)")]
     [InlineData("FontTransparent = False")]
-    [InlineData("Circle (10, 10), 5")]
-    [InlineData("Picture1.Circle (10, 10), 5, , , , 0.5")]
-    [InlineData("DrawWidth = 2\nPSet (10, 10)")]
+    [InlineData("DrawWidth = 9\nPSet (10, 10)")]
     [InlineData("DrawWidth = 32767\nLine (10, 10)-(20, 20)")]
     [InlineData("DrawStyle = 1\nLine (10, 10)-(20, 20)")]
     [InlineData("DrawMode = 7\nPSet (10, 10)")]

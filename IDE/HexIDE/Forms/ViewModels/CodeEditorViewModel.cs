@@ -996,10 +996,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             ReassertOwnedText(qualifiers: qualifierWriteWasUndone);
     }
 
+    private static int ConditionalTargetFor(ProjectDefinition project) => project.Target == ProjectTarget.RDCore ? 5 :
+        project.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
+
     public CodeEditorViewModel Initialize(FormDefinition formElement)
     {
         this.formDefinition = formElement;
-        ConditionalTargetIndex = formElement.Owner.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
+        ConditionalTargetIndex = ConditionalTargetFor(formElement.Owner);
         this.identity = DocumentIdentity.For(formElement);
         // Both subscriptions also reconcile the wire name. A document with no file is named
         // untitled:<Project>/<Name>, so BOTH its own rename and its project's change what servers should
@@ -1029,7 +1032,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public CodeEditorViewModel Initialize(ModuleDefinition moduleElement)
     {
         this.moduleDefinition = moduleElement;
-        ConditionalTargetIndex = moduleElement.Owner.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
+        ConditionalTargetIndex = ConditionalTargetFor(moduleElement.Owner);
         // BOTH halves, because a UserControl or PropertyPage HAS both and they are one file.
         //
         // This used to set only the module, while the designer's View Code went through

@@ -97,6 +97,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitine",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bitine",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bitine",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Kuva tingimuskompilatsiooni kui",
     "Str.Tool.Properties.ExportPicture": "Ekspordi pilt...",
     "Str.Tool.Properties.ExportPictureTitle": "Pildi eksportimine",

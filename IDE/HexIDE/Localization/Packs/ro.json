@@ -97,6 +97,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA pe 64 de biți",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC pe 32 de biți",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC pe 64 de biți",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Vizualizează compilarea condiționată ca",
     "Str.Tool.Properties.ExportPicture": "Exportă imaginea...",
     "Str.Tool.Properties.ExportPictureTitle": "Exportă imaginea",

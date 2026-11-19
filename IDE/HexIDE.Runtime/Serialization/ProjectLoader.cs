@@ -306,6 +306,7 @@ public sealed class ProjectLoader
             project.PreserveItemLine(serializedProject.PreservedItemLines[i], serializedProject.PreservedItemLineSlots[i]);
         project.ExtensionTail = serializedProject.ExtensionTail;
         project.VbaBitness = ProjectEncodingRecords.ReadBitness(serializedProject.ExtensionTail);
+        project.Target = ProjectEncodingRecords.ReadTarget(serializedProject.ExtensionTail);
 
         return new Result(project, serializedProject, readByteForByte, projectBytes);
     }

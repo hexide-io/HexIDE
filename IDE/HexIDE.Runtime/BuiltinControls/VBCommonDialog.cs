@@ -72,7 +72,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             return;
         }
         if (!TrySetProperty(name, value))
-            throw new NotImplementedException($"A CommonDialog's {name}, set in the form's file, is not implemented (#1084)");
+            throw new NotImplementedException($"A CommonDialog's {name}, set in the form's file, is not implemented (#4148)");
     }
 
     // The raw property bag is Automation-facing; the interpreter supplies the declared receiver binding (#4513).
@@ -107,7 +107,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             "filterindex" => filterIndexUnknown
                 ? throw new NotImplementedException(
                     "Reading a CommonDialog's FilterIndex after an Open dialog that offered more than one filter is not "
-                    + "implemented: which one the user chose isn't reported to HexIDE (#1084)")
+                    + "implemented: which one the user chose isn't reported to HexIDE (#4148)")
                 : new Vb6Value((int)filterIndex),
             "flags" => new Vb6Value((long)flags),
             "cancelerror" => new Vb6Value(cancelError),
@@ -119,7 +119,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             "fontbold" => new Vb6Value(fontBold),
             "fontitalic" => new Vb6Value(fontItalic),
             "color" => throughObject ? Vb6Value.NewAutomationUnsignedLong(unchecked((uint)color)) : new Vb6Value((long)color),
-            _ when NotModelled.Contains(name) => throw new NotImplementedException($"A CommonDialog's {name} is not implemented (#1084)"),
+            _ when NotModelled.Contains(name) => throw new NotImplementedException($"A CommonDialog's {name} is not implemented (#4148)"),
             _ => (Vb6Value?)null,
         };
         value = found ?? default;
@@ -186,7 +186,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
                 throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
         }
         if (NotModelled.Contains(name))
-            throw new NotImplementedException($"A CommonDialog's {name} is not implemented (#1084)");
+            throw new NotImplementedException($"A CommonDialog's {name} is not implemented (#4148)");
         return false;
     }
 
@@ -259,10 +259,10 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
                 break;
             case "showhelp":
                 if (helpCommand is not (0 or 2 or 3))
-                    throw new NotImplementedException("This CommonDialog ShowHelp command is not measured (#1084)");
+                    throw new NotImplementedException("This CommonDialog ShowHelp command is not measured (#4148)");
                 break;
             default:
-                throw new NotImplementedException($"A CommonDialog's {method} is not implemented (#1084)");
+                throw new NotImplementedException($"A CommonDialog's {method} is not implemented (#4148)");
         }
         return Vb6Value.Nothing;
     }
@@ -294,11 +294,11 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             {
                 var index = answer.FilterIndex ?? (filters.Count == 1 ? 1 : 0);
                 if (index < 1 || index > filters.Count)
-                    throw new NotImplementedException("A CommonDialog's Save extension needs the selected filter, which the host did not report (#1084)");
+                    throw new NotImplementedException("A CommonDialog's Save extension needs the selected filter, which the host did not report (#4148)");
                 var pattern = filters[index - 1].Patterns;
                 if (!pattern.StartsWith("*.", StringComparison.Ordinal) || pattern.Length <= 2
                     || pattern[2..].IndexOfAny(['*', '?', ';', '.']) >= 0)
-                    throw new NotImplementedException("A CommonDialog's Save extension for this filter pattern is not measured (#1084)");
+                    throw new NotImplementedException("A CommonDialog's Save extension for this filter pattern is not measured (#4148)");
                 extension = pattern[2..];
             }
             if (extension.Length > 0)
@@ -329,18 +329,18 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
         var explorer = (flags & Explorer) != 0;
         var split = answer.Path.LastIndexOfAny(['\\', '/']);
         if ((flags & AllowMultiselect) == 0 || split < 0)
-            throw new NotImplementedException("This CommonDialog multi-select result is not measured (#1084)");
+            throw new NotImplementedException("This CommonDialog multi-select result is not measured (#4148)");
         var folder = answer.Path[..(split + 1)];
         var names = new List<string> { TitleOf(answer.Path) };
         foreach (var path in answer.AdditionalPaths!)
         {
             var separator = path.LastIndexOfAny(['\\', '/']);
             if (separator < 0 || path[..(separator + 1)] != folder)
-                throw new NotImplementedException("CommonDialog multi-select across folders is not measured (#1084)");
+                throw new NotImplementedException("CommonDialog multi-select across folders is not measured (#4148)");
             names.Add(TitleOf(path));
         }
         if (!explorer && (folder.Contains(' ') || names.Any(name => name.Contains(' '))))
-            throw new NotImplementedException("CommonDialog old multi-select paths containing spaces are not measured (#1084)");
+            throw new NotImplementedException("CommonDialog old multi-select paths containing spaces are not measured (#4148)");
         return explorer
             ? folder[..^1] + "\0" + string.Join("\0", names)
             : folder + " " + string.Join(" ", names);
@@ -350,7 +350,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     {
         // Only Flags 0 and cdlCCRGBInit have measured dialog behaviour (#2299).
         if (flags is not (0 or 1) || (flags == 1 && (color < 0 || color > 0xFFFFFF)))
-            throw new NotImplementedException("This CommonDialog color flag or system color is not implemented (#2299)");
+            throw new NotImplementedException("This CommonDialog color flag or system color is not implemented (#4148)");
         var chosen = await host.ShowColorDialog(flags == 1 ? color : 0);
         if (chosen is { } rgb)
             color = rgb;
@@ -361,7 +361,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     private async Task ShowPrinter()
     {
         if (flags != 0 || copies is not (1 or 3) || orientation != 1 || fromPage != 0 || toPage != 0 || min != 0 || max != 0)
-            throw new NotImplementedException("This CommonDialog print configuration is not measured (#2299)");
+            throw new NotImplementedException("This CommonDialog print configuration is not measured (#4148)");
         if (!await host.ShowPrintDialog())
         {
             if (cancelError)

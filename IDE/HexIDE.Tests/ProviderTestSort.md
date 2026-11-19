@@ -67,6 +67,7 @@ A test that reaches the provider only at run time, through the application's com
 | `LspClient/BundledServerRespectsTheIdesRegionsTests.cs` | split |
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
 | `LspClient/DocumentWireNameTests.cs` | split |
+| `LspClient/WorkspaceArtifactProjectTests.cs` | split |
 | `ProgramSettingsPathTests.cs` | provider |
 | `ProjectElements/DesignerHalfEncodingTests.cs` | provider |
 | `ProjectElements/DocumentIdentityTests.cs` | provider |
