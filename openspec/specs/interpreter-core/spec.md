@@ -1500,7 +1500,13 @@ It SHALL share the control Font reference and publish later mutations after `Set
 Assignments SHALL also implement the exact successful and error rows measured in
 [#4807](https://github.com/hexide-io/HexIDE/issues/4807), including name, size and charset substitutions
 and the differing Bold/Weight name results. Failed assignments SHALL preserve every member.
-Other values and conversions SHALL refuse as not implemented, citing #4926. TypeName retains
+On a font reading exactly as fresh (MS Sans Serif, Size 8.25, Weight 400, Charset 0 and all flags False),
+assignments SHALL additionally implement the conversions and exact substitutions measured in
+[oracle PR #4943](https://github.com/hexide-io/HexIDE/pull/4943)
+([rows](../../../docs/vb6-fidelity-oracle/a-free-standing-stdfonts-values-of-every-type.md)).
+Null SHALL raise 13 for every member in that state. Standalone Weight SHALL retain measured 350 and 500 readbacks.
+Other values and input types, and other font states beyond the earlier supported rows, SHALL refuse as not implemented,
+citing #4926. TypeName retains
 the shared object’s `Font` spelling.
 
 #### Scenario: Two controls share one Font
@@ -2697,6 +2703,32 @@ raising errors as the statements and calls execute.
 - **WHEN** a fixed String scalar, array element or Type field is passed ByRef to Integer, Long, Single, Double, Currency, Byte, Boolean, Date or Object
 - **THEN** the call reports "ByRef argument type mismatch"
 - **AND** passing a scalar to a String or Variant array parameter reports "Type mismatch: array or user-defined type expected"
+
+### Requirement: Fixed-length String array file records
+
+The interpreter SHALL implement the Binary and Random fixed String array Get/Put rows measured native
+and p-code in [#179](https://github.com/hexide-io/HexIDE/issues/179), recorded in the
+[fixed String oracle](../../../docs/vb6-fidelity-oracle/fixed-length-strings.md#arrays-of-fixed-length-strings-the-width-and-parameters-2026-11-19-179).
+Double-byte array code pages and Random Get into a fixed String array SHALL remain explicitly not
+implemented pending measurements. Types containing array fields SHALL retain the #4925 refusal.
+
+#### Scenario: Put writes fixed-width elements
+- **WHEN** Put writes a fixed String array to a Binary or Random file
+- **THEN** each element is written at its width without a length prefix, including NULs, first index fastest
+- **AND** code page 1252 uses the measured ANSI best-fit conversions
+- **AND** only a Random dynamic array prepends its dimension count and reversed dimension counts and lower bounds
+- **AND** a Random record too short raises 59 without writing
+
+#### Scenario: Binary Get reads into existing bounds
+- **WHEN** Get reads a Binary file into an allocated fixed String array
+- **THEN** it reads only the existing elements at their declared width
+- **AND** bytes past EOF become NULs, replacing the previous contents
+- **AND** EOF is False after reading exactly the file length and True after reading past it
+
+#### Scenario: Random Get retains the target width
+- **WHEN** Get reads a Random record into a dynamic fixed String array
+- **THEN** the descriptor replaces its bounds, whether previously allocated or not
+- **AND** elements use the target's own width and the array remains dynamic
 
 ### Requirement: LSet between plain-data user-defined types
 

@@ -1119,6 +1119,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Veiktas {0} aizstāšanas; izlaisti {1} faili, jo HexIDE vēl nevar tos precīzi saglabāt.",
     "Str.FindReplace.Msg.InvalidRegex": "Nederīgs regulārās izteiksmes šablons.",
     "Str.FindReplace.Msg.NothingToSearch": "Šeit nav nekā, kur meklēt. Meklēšana darbojas koda logos un projekta teksta failos.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} var būt bojāts. Iepriekšējā versija ir saglabāta kā {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE netika atrasts. Instalējiet VB6 noklusējuma vietā vai iestatiet vides mainīgo VB6_EXE.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Būvēšana neizdevās",
     "Str.Vb6Toolchain.ProjectNotSaved": "Pirms kompilēšanas ar VB6 projekts jāsaglabā diskā.",

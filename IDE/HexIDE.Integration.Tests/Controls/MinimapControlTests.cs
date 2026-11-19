@@ -1,3 +1,5 @@
+using Avalonia.Controls;
+using Avalonia.VisualTree;
 using System.Linq;
 using System.IO;
 using System.Collections.Generic;
@@ -13,7 +15,7 @@ using HexIDE.Controls;
 
 namespace HexIDE.Integration.Tests.Controls;
 
-public class MinimapControlTests
+public class MinimapControlTests : WindowTestFixture
 {
     /// <summary>Build a laid-out TextEditor + attached MinimapControl with a document of the
     /// given line count, so the minimap's layout math and scroll behaviour can be exercised.</summary>
@@ -116,12 +118,15 @@ public class MinimapControlTests
     public void ClickToScroll_TargetsLineUnderPointer_AndScrollPathRuns()
     {
         const double height = 400;
-        var (_, mm) = Build(lineCount: 500, editorHeight: height, minimapHeight: height);
+        var (editor, mm) = Build(lineCount: 500, editorHeight: height, minimapHeight: height);
+
+        var window = new Window { Content = editor, Width = 600, Height = height };
+        window.Show();
+        window.UpdateLayout();
 
         // The minimap owns the click → document-line mapping: the top targets the first line,
-        // the bottom the last, strictly increasing in between. (The editor scroll itself is
-        // AvaloniaEdit's ScrollToVerticalOffset; a headless text layout has no real extent, so
-        // the actual pixel scroll can't be asserted here — that's exercised live in the IDE.)
+        // the bottom the last, strictly increasing in between. Pixel scroll distance is not asserted
+        // here; the editor's realised text surface is checked below.
         mm.MinimapLineForY(0).Should().Be(1);
         mm.MinimapLineForY(height).Should().BeGreaterThan(400).And.BeLessThanOrEqualTo(500);
         mm.MinimapLineForY(height * 0.25).Should().BeLessThan(mm.MinimapLineForY(height * 0.75));
@@ -130,6 +135,7 @@ public class MinimapControlTests
         // runs end-to-end for any pointer position without throwing.
         var act = () => mm.ScrollEditorToMinimapY(height * 0.9);
         act.Should().NotThrow();
+        editor.GetVisualDescendants().Should().Contain(editor.TextArea, "the exercised text surface must be in the templated editor tree");
     }
     private static FoldingSection Fold(TextEditor editor, FoldingManager manager, int first, int last)
     {

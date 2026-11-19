@@ -75,6 +75,7 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         public bool WriteOnFailure { get; set; }
         public string? OutputDirectory { get; private set; }
         public Action<string>? DuringBuild { get; set; }
+        public Action? AfterBuild { get; set; }
         internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath, string? outputDirectory)
         {
             Builds++;
@@ -83,6 +84,7 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
             if (ExitCode == 0 || WriteOnFailure)
                 File.WriteAllText(outputDirectory is null ? exePath : Path.Combine(outputDirectory, Path.GetFileName(exePath)),
                     "built by RunVb6Async " + Builds);
+            AfterBuild?.Invoke();
             if (Timeout) return Task.FromResult<Vb6BuildOutcome?>(null);
             return Task.FromResult<Vb6BuildOutcome?>(new(ExitCode, ""));
         }
@@ -412,6 +414,147 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         await windows.Received(1).MessageBox(
             Arg.Is<string>(message => message.StartsWith("Compilation failed: " + ExePath + ": ")),
             "Str.Vb6Toolchain.BuildFailedTitle", MessageBoxButtons.Ok, MessageBoxIcon.Error);
+    }
+
+    private void InPlace(bool dll)
+    {
+        if (dll) project.ProjectType = VBProjectType.OleDll;
+        else File.AppendAllText(project.AbsolutePath!, "AutoIncrementVer=1\r\n");
+        strings.GetString("Str.Vb6Toolchain.PreviousOutputKept").Returns("{0} may be damaged. Its previous version is kept as {1}.");
+    }
+
+    // Recovery is HexIDE policy (#4952), not a claim about interrupted VB6 writes.
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 0)]
+    [InlineData(false, 1)]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    [InlineData(true, 2)]
+    [InlineData(false, 3)]
+    [InlineData(true, 3)]
+    [InlineData(false, 4)]
+    [InlineData(true, 4)]
+    public async Task In_place_build_preserves_previous_output(bool dll, int result)
+    {
+        InPlace(dll);
+        File.WriteAllText(ExePath, "original");
+        var earlier = ExePath + ".earlier.recovery";
+        File.WriteAllText(earlier, "earlier");
+        build.ExitCode = result == 0 ? 0 : 1;
+        build.Timeout = result == 2;
+        build.WriteOnFailure = result is 1 or 2;
+        build.DuringBuild = _ =>
+        {
+            var copies = Directory.GetFiles(directory, "*.recovery").Where(p => p != earlier).ToArray();
+            copies.Should().ContainSingle();
+            File.ReadAllText(copies[0]).Should().Be("original");
+            if (result == 4) File.Delete(ExePath);
+        };
+        (await build.MakeWithVb6Async(project)).Should().Be(result == 0);
+        var kept = Directory.GetFiles(directory, "*.recovery").Where(p => p != earlier).ToArray();
+        var damaged = result is 1 or 2 or 4;
+        if (dll && damaged)
+        {
+            kept.Should().ContainSingle();
+            File.ReadAllText(kept[0]).Should().Be("original");
+            await windows.Received(1).MessageBox(
+                ExePath + " may be damaged. Its previous version is kept as " + kept[0] + ".",
+                "Str.Vb6Toolchain.BuildFailedTitle", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+        }
+        else
+        {
+            kept.Should().BeEmpty();
+            windows.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(IWindowManager.MessageBox))
+                .Should().NotContain(call => ((string)call.GetArguments()[0]!).Contains("may be damaged"));
+        }
+        if (dll && damaged)
+        {
+            var messages = windows.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(IWindowManager.MessageBox))
+                .Select(call => call.GetArguments()).ToArray();
+            messages[^1][0].Should().Be(ExePath + " may be damaged. Its previous version is kept as " + kept[0] + ".");
+            messages[^2][3].Should().Be(MessageBoxIcon.Error);
+        }
+        if (result != 4 || !dll)
+            File.ReadAllText(ExePath).Should().Be(result == 0 || (dll && damaged) ? "built by RunVb6Async 1" : "original");
+        File.ReadAllText(earlier).Should().Be("earlier");
+    }
+
+    [Fact]
+    public async Task In_place_refused_restore_keeps_and_names_copy()
+    {
+        InPlace(false);
+        File.WriteAllText(ExePath, "original");
+        build.ExitCode = 1;
+        build.DuringBuild = _ =>
+        {
+            File.Delete(ExePath);
+            Directory.CreateDirectory(ExePath); // Refuses replacement on Linux and Windows.
+        };
+        (await build.MakeWithVb6Async(project)).Should().BeFalse();
+        var copy = Directory.GetFiles(directory, "*.recovery").Should().ContainSingle().Subject;
+        File.ReadAllText(copy).Should().Be("original");
+        await windows.Received(1).MessageBox(
+            ExePath + " may be damaged. Its previous version is kept as " + copy + ".",
+            "Str.Vb6Toolchain.BuildFailedTitle", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+    }
+
+    [Fact]
+    public async Task In_place_success_with_refused_flush_still_succeeds_and_removes_copy()
+    {
+        InPlace(false);
+        File.WriteAllText(ExePath, "original");
+        build.DuringBuild = _ => Directory.GetFiles(directory, "*.recovery").Should().ContainSingle();
+        build.AfterBuild = () =>
+        {
+            File.Delete(ExePath);
+            Directory.CreateDirectory(ExePath);
+        };
+        (await build.MakeWithVb6Async(project)).Should().BeTrue();
+        Directory.GetFiles(directory, "*.recovery").Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task In_place_first_build_makes_no_recovery_copy(bool dll)
+    {
+        InPlace(dll);
+        build.DuringBuild = _ => Directory.GetFiles(directory, "*.recovery").Should().BeEmpty();
+        (await build.MakeWithVb6Async(project)).Should().BeTrue();
+        File.ReadAllText(ExePath).Should().Be("built by RunVb6Async 1");
+        Directory.GetFiles(directory, "*.recovery").Should().BeEmpty();
+    }
+
+    // A build that throws rather than reporting is settled as a failed one: the copy stays only where it's needed.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task In_place_build_that_throws_settles_the_copy(bool dll, bool wrote)
+    {
+        InPlace(dll);
+        File.WriteAllText(ExePath, "original");
+        build.DuringBuild = _ =>
+        {
+            if (wrote) File.WriteAllText(ExePath, "partial");
+            throw new InvalidOperationException("the compiler could not start");
+        };
+        Func<Task> make = () => build.MakeWithVb6Async(project);
+        await make.Should().ThrowAsync<InvalidOperationException>();
+        var kept = Directory.GetFiles(directory, "*.recovery");
+        if (dll && wrote)
+        {
+            kept.Should().ContainSingle();
+            File.ReadAllText(kept[0]).Should().Be("original");
+            File.ReadAllText(ExePath).Should().Be("partial");
+        }
+        else
+        {
+            kept.Should().BeEmpty();
+            File.ReadAllText(ExePath).Should().Be("original");
+        }
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);

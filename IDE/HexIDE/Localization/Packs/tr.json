@@ -1085,6 +1085,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} değiştirme yapıldı; HexIDE henüz aslına uygun kaydedemediği için {1} dosya dışarıda bırakıldı.",
     "Str.FindReplace.Msg.InvalidRegex": "Geçersiz düzenli ifade deseni.",
     "Str.FindReplace.Msg.NothingToSearch": "Burada aranacak bir şey yok. Bul, kod pencerelerinde ve projeye dahil metin dosyalarında çalışır.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} hasar görmüş olabilir. Önceki sürümü {1} olarak saklanıyor.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE bulunamadı. VB6'yı varsayılan konuma yükleyin veya VB6_EXE ortam değişkenini ayarlayın.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Derleme Başarısız",
     "Str.Vb6Toolchain.ProjectNotSaved": "Proje, VB6 ile derlenmeden önce diske kaydedilmelidir.",

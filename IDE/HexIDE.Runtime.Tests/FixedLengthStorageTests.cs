@@ -55,29 +55,6 @@ public class FixedLengthStorageTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Binary", "Get")]
-    [InlineData("Binary", "Put")]
-    [InlineData("Random", "Get")]
-    [InlineData("Random", "Put")]
-    public async Task Fixed_string_array_file_layout_is_explicitly_refused(string mode, string statement)
-    {
-        var path = Path.Combine(Path.GetTempPath(), "hexide-fixed-array-" + Guid.NewGuid() + ".dat");
-        try
-        {
-            var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
-                $"Dim a() As String * 4\nReDim a(1)\nOpen \"{path}\" For {mode} As #1 Len = 64\n{statement} #1, 1, a");
-            try
-            {
-                var run = () => vb.Execute();
-                (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-                    .Be("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
-            }
-            finally { vb.BuiltIns.Files.CloseAll(); }
-        }
-        finally { File.Delete(path); }
-    }
-
-    [Theory]
     [InlineData("Binary", false)]
     [InlineData("Random", false)]
     [InlineData("Binary", true)]

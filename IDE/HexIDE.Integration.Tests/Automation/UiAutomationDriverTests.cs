@@ -2576,6 +2576,7 @@ public class UiAutomationDriverTests
             UiAutomationDriver.TypeText(editor, "    MsgBox \"hi\"\n").Success.Should().BeTrue();
             UiAutomationDriver.TypeText(editor, "End Sub").Success.Should().BeTrue();
             editor.Document.Text.Should().Be("Sub Main()\r\n    MsgBox \"hi\"\r\nEnd Sub");
+            editor.GetVisualDescendants().Should().Contain(editor.TextArea, "the exercised text surface must be in the templated editor tree");
         }
         finally { window.Close(); }
     }
@@ -2595,6 +2596,7 @@ public class UiAutomationDriverTests
             outcome.Mechanism.Should().Be(UiAutomationDriver.TypedMechanism);
             outcome.Error.Should().Be("TextEditor is read-only, so a person could not type there either; nothing was inserted");
             editor.Document.Text.Should().Be("Sub Main()\nEnd Sub");
+            editor.GetVisualDescendants().Should().Contain(editor.TextArea, "the exercised text surface must be in the templated editor tree");
         }
         finally { window.Close(); }
     }
@@ -2765,6 +2767,7 @@ public class UiAutomationDriverTests
             seen.Should().Be(1, "a handler on TextArea must receive a key pressed at the editor's host");
             outcome.Detail.Should().Contain("TextArea",
                 "the reply has to name the receiver, or a no-op is unattributable");
+            editor.GetVisualDescendants().Should().Contain(editor.TextArea, "the exercised text surface must be in the templated editor tree");
         }
         finally { window.Close(); }
     }
@@ -2900,6 +2903,7 @@ public class UiAutomationDriverTests
             got = null;
             UiAutomationDriver.PressKey(resolved!, "F12", null, path).Success.Should().BeTrue();
             got.Should().BeSameAs(receiver, "pressing at the reported path reaches the same TextArea again");
+            resolved.Should().BeSameAs(receiver, "the reported path must reach the templated TextArea itself");
         }
         finally { window.Close(); }
     }
@@ -3010,6 +3014,7 @@ public class UiAutomationDriverTests
             var outcome = UiAutomationDriver.Hover(window, null, null, "Window", out var landing);
 
             outcome.Success.Should().BeTrue(outcome.Error);
+            first.GetVisualDescendants().Should().Contain(first.TextArea, "the exercised text surface must be in the templated editor tree");
             var path = outcome.Detail!.Split(", at ").Last();
             path.Should().StartWith("Window/", "the reply must carry a path, not only a class name");
             var (resolved, error) = UiAutomationDriver.Resolve(window, path);

@@ -1119,6 +1119,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0}개를 바꿨습니다. HexIDE가 아직 충실하게 저장할 수 없어 파일 {1}개를 제외했습니다.",
     "Str.FindReplace.Msg.InvalidRegex": "잘못된 정규식 패턴입니다.",
     "Str.FindReplace.Msg.NothingToSearch": "여기에는 찾을 내용이 없습니다. 찾기는 코드 창과 프로젝트에 포함된 텍스트 파일에서 동작합니다.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0}이(가) 손상되었을 수 있습니다. 이전 버전은 {1}(으)로 보관됩니다.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE를 찾을 수 없습니다. VB6를 기본 위치에 설치하거나 VB6_EXE 환경 변수를 설정하세요.",
     "Str.Vb6Toolchain.BuildFailedTitle": "빌드 실패",
     "Str.Vb6Toolchain.ProjectNotSaved": "VB6로 컴파일하기 전에 프로젝트를 디스크에 저장해야 합니다.",

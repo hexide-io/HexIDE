@@ -1119,6 +1119,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} csere történt; {1} fájl kimaradt, mert a HexIDE még nem tudja őket hűen menteni.",
     "Str.FindReplace.Msg.InvalidRegex": "Érvénytelen reguláris kifejezés.",
     "Str.FindReplace.Msg.NothingToSearch": "Itt nincs kereshető tartalom. A keresés kódablakokban és a projekthez tartozó szövegfájlokban működik.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "A(z) {0} sérült lehet. Az előző verzió {1} néven van megőrizve.",
     "Str.Vb6Toolchain.Vb6NotFound": "A VB6.EXE nem található. Telepítse a VB6-ot az alapértelmezett helyre, vagy állítsa be a VB6_EXE környezeti változót.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Sikertelen fordítás",
     "Str.Vb6Toolchain.ProjectNotSaved": "A VB6-tal történő fordítás előtt a projektet lemezre kell menteni.",
