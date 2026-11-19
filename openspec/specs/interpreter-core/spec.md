@@ -2611,7 +2611,7 @@ The interpreter SHALL refuse a call to a Sub, Function or Property whose non-Opt
 
 ### Requirement: Form and PictureBox drawing at pen width one
 
-The interpreter SHALL execute Cls, PSet, Line and Point on each form and PictureBox's own surface through its
+The interpreter SHALL execute Cls, PSet, Line, Circle and Point on each form and PictureBox's own surface through its
 coordinate system, with the state, syntax, pixels and refusals measured for
 [#988](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and
 [#990](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
@@ -2638,7 +2638,7 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** it reports VB6's compile error as the statement executes; bare Cls remains an undefined Sub
 
 #### Scenario: Later and unmeasured drawing members refuse explicitly
-- **WHEN** Circle executes, or drawing uses DrawWidth above 1, DrawStyle other than 0, DrawMode other than 13
+- **WHEN** Circle requests an arc/sector or unequal x/y scale-unit sizes, or drawing uses DrawWidth above 1, DrawStyle other than 0, DrawMode other than 13
   or FillStyle other than 0/1
 - **THEN** execution refuses with NotImplementedException naming #988
 - **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
@@ -2656,6 +2656,16 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **AND** a B or BF box includes its far corner; B with FillStyle 0 fills its interior with FillColor
 - **WHEN** Cls runs
 - **THEN** the surface is cleared to BackColor and the current position returns to zero in the default twip scale
+
+#### Scenario: Full circles and ellipses at pen width one
+- **WHEN** a form or PictureBox draws a full Circle with equal-sized x/y scale units
+- **THEN** its outline and solid FillStyle-0 fill match the 12 full-circle Point grids measured in `docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md`
+- **AND** zero radius draws nothing, aspect zero draws one inclusive row, negative aspects use their magnitude, and the radius is the longer half-axis
+- **AND** fractional centres use the drawing statement's whole-twip conversion, CurrentX/Y end at the centre, and Step counts from the previous position
+- **AND** the edge uses the method colour conversion or ForeColor, with FillColor inside
+- **WHEN** a radius is negative or either angle has magnitude above 2π
+- **THEN** error 5 is raised before drawing; the current position after an error is not specified by these measurements
+- **AND** arcs and sectors remain explicitly refused with #988, because no rasteriser tried reproduces all five measured grids (#4771)
 
 #### Scenario: Overflow preserves the current position
 - **WHEN** PSet or Line receives a coordinate that overflows a Long in twips
