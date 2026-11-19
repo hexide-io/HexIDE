@@ -58,6 +58,41 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
         (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain("Constant expression required");
     }
 
+    // SP6 native/p-code measurements: https://github.com/hexide-io/HexIDE/issues/4745
+    [Theory]
+    [InlineData("vbCrLf", "Type mismatch")]
+    [InlineData("VBA.vbCrLf", "Type mismatch")]
+    [InlineData("vbNullString", "Type mismatch")]
+    [InlineData("vbTab", "Type mismatch")]
+    [InlineData("VbCompareMethod.vbRed", "Method or data member not found")]
+    [InlineData("VBA.VbCompareMethod.vbRed", "Method or data member not found")]
+    [InlineData("VBA.ColorConstants.vbRed", "Method or data member not found")]
+    [InlineData("VBRUN.VbCompareMethod.vbBinaryCompare", "Method or data member not found")]
+    [InlineData("VBA.NoSuch.vbRed", "Method or data member not found")]
+    [InlineData("VBA.vbRed.Other", "Method or data member not found")]
+    [InlineData("VBA.vbBinaryCompare.Other", "Invalid qualifier")]
+    public async Task Enum_library_compile_errors(string expression, string expected)
+    {
+        var act = () => Run(Declaration(expression));
+        (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message
+            .ReplaceLineEndings("\n").Should().Be("Compile error:\n\n" + expected);
+    }
+
+    [Theory]
+    [InlineData("VbCompareMethod.vbRed", "Method or data member not found")]
+    [InlineData("VBA.VbCompareMethod.vbRed", "Method or data member not found")]
+    [InlineData("VBA.ColorConstants.vbRed", "Method or data member not found")]
+    [InlineData("VBRUN.VbCompareMethod.vbBinaryCompare", "Method or data member not found")]
+    [InlineData("VBA.NoSuch.vbRed", "Method or data member not found")]
+    [InlineData("VBA.vbRed.Other", "Method or data member not found")]
+    [InlineData("VBA.vbBinaryCompare.Other", "Invalid qualifier")]
+    public async Task Const_library_compile_errors(string expression, string expected)
+    {
+        var act = () => Run($"Const M = {expression}\n");
+        (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message
+            .ReplaceLineEndings("\n").Should().Be("Compile error:\n\n" + expected);
+    }
+
     // VB6 SP6 native/p-code: #4614's latest supervisor comment and
     // docs/vb6-fidelity-oracle/what-an-enum-members-value-and-a-types-bounds-may-name.md.
     [Theory]
@@ -116,18 +151,26 @@ public class EnumInBoxConstantTests : BaseVBTestFixture
         (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain("Constant expression required");
     }
 
-    // These are HexIDE's explicit refusals, not additional VB6 measurements.
     [Theory]
     [InlineData("vbCrLf")]
     [InlineData("VBA.vbCrLf")]
-    [InlineData("VbCompareMethod.vbRed")]
-    [InlineData("VBA.VbCompareMethod.vbRed")]
-    public async Task Unmeasured_library_values_are_refused(string expression)
+    public async Task Const_accepts_String_constant(string expression)
     {
-        var act = () => Run(Declaration(expression));
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#4745").And.Contain("M");
+        await Run($"Const M = {expression}\nDebug.Print M\nDebug.Print TypeName(M)\n");
+        AssertDebugLog([new Vb6Value("\r\n"), new Vb6Value("String")]);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Library_container_member_control(bool inEnum)
+    {
+        await Run((inEnum ? Declaration("VBRUN.ColorConstants.vbRed") : "Const M = VBRUN.ColorConstants.vbRed\n")
+            + "Debug.Print M\nDebug.Print TypeName(M)\n");
+        AssertDebugLog([new Vb6Value(255L), new Vb6Value("Long")]);
+    }
+
+    // These are HexIDE's explicit refusals, not additional VB6 measurements.
     [Theory]
     [InlineData("VBA.vbBinaryCompare", "VBA", "")]
     [InlineData("VBA.vbRed", "VBA", "")]
