@@ -467,3 +467,24 @@ vb6.exe SP6, `/make`, every call built native and as p-code, which logged the sa
 
 - **`As Control` is late-bound for names,** as `As Object` and a Variant are.
 - **A variable declared as the control's or form's own class is early-bound,** and binds the names as the control's own name does. `As Form`, VB's generic form type, counts too.
+
+### A named argument's value is the whole expression after `:=` (2026-11-19, #4851, SP6)
+
+**The probe.** `scripts/vb6-oracle.ps1`, built native and as p-code; the two agreed on every row. `F` is
+`Private Function F(Optional ByVal n As Variant) As Variant: F = n`, so a row's type is the type of the value passed.
+
+| Expression | VB6 |
+|---|---|
+| `F(n:=i + 1)`, `i = 1` | 2, Long |
+| `c.Add "a", "ka"` then `c.Add "b", "kb", Before:=i + 1`, `i = 0`; `c(1) & c(2)` | "ba" |
+| `Mid$(String:="abcd", Start:=i + 1)`, `i = 1` | "bcd" |
+| `F(n:=1 + 2 * 3)` | 7, Integer |
+| `F(n:=i = 1)` | True, Boolean |
+| `F(n:=i Or 2)` | 3, Long |
+| `F(n:=i & "2")` | "12", String |
+| `F(n:=-i + 3)` | 2, Long |
+
+- **`:=` isn't an operator with a level of its own.** What follows it, up to the comma or the closing parenthesis, is the
+  argument's value, whatever operators it holds: `=` and `Or`, the two lowest, included.
+- **Why it was measured:** HexIDE's grammar bound `:=` tighter than `+` and read `F(n:=i + 1)` as `(n:=i) + 1`, refusing
+  it. A literal value, as every earlier row on this page has, can't tell the two groupings apart (#4851).

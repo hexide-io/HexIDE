@@ -47,17 +47,17 @@ public interface IBasicStandardLibrary
 
     /// <summary>A CommonDialog's <c>ShowOpen</c> or <c>ShowSave</c> (#1084): the file chosen, or null for Cancel.</summary>
     Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
-        throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");
+        throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#4148)");
 
     Task<bool> ShowPrintDialog() =>
-        throw new NotImplementedException("This host does not implement the print dialog (#2299)");
+        throw new NotImplementedException("This host does not implement the print dialog (#4148)");
 
     Task<int?> ShowColorDialog(int initial) =>
-        throw new NotImplementedException("This host does not implement the color dialog (#2299)");
+        throw new NotImplementedException("This host does not implement the color dialog (#4148)");
 
     /// <summary>A CommonDialog's <c>ShowFont</c> (#1084): the font chosen, or null for Cancel.</summary>
     Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
-        throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#1084)");
+        throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#4148)");
 }
 
 public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrErrorListener<int>
@@ -166,24 +166,34 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             || result.Type == Vb6Value.ValueType.CSharpProxyObject || result.Type == Vb6Value.ValueType.Nothing)
             throw new NotImplementedException("Nested default members are unmeasured (#174)");
         // A late-bound read gives a Variant; an early-bound read keeps the member's declared type (#174).
-        return value.HeldAsVariant || string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
-            ? result.AsVariant() : result;
+        return IsLateBound(value) ? result.AsVariant() : result;
     }
 
-    // Giving a class instance arguments calls its default member (#4606), without scalar coercion.
+    private static bool IsLateBound(Vb6Value value) =>
+        value.HeldAsVariant || string.Equals(value.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
+
+    // Giving a class instance arguments calls its default member (#4606, #4747).
     internal async Task<Vb6Value> CallDefaultMember(Vb6Value value, List<CallArg> args,
-        ParserRuleContext ctx, Stack<List<Vb6Value>>? frames)
+        ParserRuleContext ctx, Stack<List<Vb6Value>>? frames, ExpressionExecutor indexer)
     {
         if (value.Value is null)
             throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-        if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
+        if (value.Value is not VbObject obj)
             throw new NotImplementedException("Arguments on a class without a default member are unmeasured (#4747)");
-        var proc = member.Kind switch
+        if (obj.ClassDef.PrePass.DefaultMember is not { } member)
+            throw new VBRunTimeException(ctx, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        if (member.Kind == PrePass.DefaultMemberKind.Sub)
         {
-            PrePass.DefaultMemberKind.Property => obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get,
-            PrePass.DefaultMemberKind.Function => obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name),
-            _ => null
-        };
+            if (!IsLateBound(value))
+                throw new VBCompileErrorException("Expected Function or variable");
+            await RunProcedure(obj.ClassDef, obj.ClassDef.PrePass.Procedures[member.Name], args, obj.InstanceEnv, value, frames);
+            return Vb6Value.Variant;
+        }
+        if (member.Kind == PrePass.DefaultMemberKind.Variable)
+            return await IndexDefaultVariable(obj, member, value, args, ctx, indexer, false);
+        var proc = member.Kind == PrePass.DefaultMemberKind.Function
+            ? obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name)
+            : obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get;
         if (proc is null)
             throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4747)");
         return await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames)
@@ -191,16 +201,63 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     internal async Task LetDefaultMember(Vb6Value value, List<CallArg> args, Vb6Value assigned,
-        ParserRuleContext ctx, Stack<List<Vb6Value>>? frames)
+        ParserRuleContext ctx, Stack<List<Vb6Value>>? frames, ExpressionExecutor indexer)
     {
         if (value.Value is null)
             throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-        if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member
-            || member.Kind != PrePass.DefaultMemberKind.Property
-            || obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Let is not { } letter)
+        if (value.Value is not VbObject obj)
             throw new NotImplementedException("Arguments assigned to a class without a default Property Let are unmeasured (#4747)");
-        args.Add(new CallArg(assigned, null));
-        await RunProcedure(obj.ClassDef, letter, args, obj.InstanceEnv, value, frames);
+        if (obj.ClassDef.PrePass.DefaultMember is not { } member)
+            throw new VBRunTimeException(ctx, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        if (member.Kind == PrePass.DefaultMemberKind.Property
+            && obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Let is { } letter)
+        {
+            args.Add(new CallArg(assigned, null));
+            await RunProcedure(obj.ClassDef, letter, args, obj.InstanceEnv, value, frames);
+            return;
+        }
+        if (member.Kind == PrePass.DefaultMemberKind.Variable)
+        {
+            // VB6 indexes a copy: bounds are checked, but the stored array is unchanged (#4747).
+            await IndexDefaultVariable(obj, member, value, args, ctx, indexer, true);
+            return;
+        }
+        // Held in a Variant, a Let through a default Sub or Function is 450, and the member isn't called. Through As
+        // Object it is called, then 451 below. The one place the two late-bound forms part (measured, oracle #4779).
+        if (value.HeldAsVariant && member.Kind is PrePass.DefaultMemberKind.Sub or PrePass.DefaultMemberKind.Function)
+            throw new VBRunTimeException(ctx, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        if (member.Kind == PrePass.DefaultMemberKind.Sub && !IsLateBound(value))
+            throw new VBCompileErrorException("Expected Function or variable");
+        var proc = member.Kind == PrePass.DefaultMemberKind.Property
+            ? obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get
+            : obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name);
+        if (proc is null)
+            throw new NotImplementedException("A default member without a value is unmeasured (#4747)");
+        var result = await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames);
+        if (result is null && member.Kind != PrePass.DefaultMemberKind.Sub)
+            throw new NotImplementedException("A default member without a value is unmeasured (#4747)");
+        if (result is { } returned && (returned.Type == Vb6Value.ValueType.Object
+            || returned.Type == Vb6Value.ValueType.Control || returned.Type == Vb6Value.ValueType.CSharpProxyObject
+            || returned.Type == Vb6Value.ValueType.Nothing))
+            throw new NotImplementedException("Let through an object-returning default member is unmeasured (#4747)");
+        throw new VBRunTimeException(ctx, IsLateBound(value)
+            ? VBStandardError.ObjectNotACollection : VBStandardError.ObjectRequired);
+    }
+
+    private async Task<Vb6Value> IndexDefaultVariable(VbObject obj, PrePass.DefaultMemberInfo member,
+        Vb6Value value, List<CallArg> args, ParserRuleContext ctx, ExpressionExecutor indexer, bool let)
+    {
+        if (IsLateBound(value))
+            throw new VBRunTimeException(ctx, VBStandardError.ObjectNotACollection);
+        NoteMemberAccess(obj, member.Name);
+        var (found, field) = await ReadVariable(obj.InstanceEnv, member.Name);
+        if (!found)
+            throw new NotImplementedException("Default member storage is unavailable (#4747)");
+        if (field.Value is not VBArray && field.HasFixedType)
+            throw new VBCompileErrorException(let
+                ? "Can't assign to read-only property"
+                : "Wrong number of arguments or invalid property assignment");
+        return await indexer.IndexResult(field, [.. args.Select(a => a.Value)], ctx);
     }
 
     /// <summary>
@@ -981,14 +1038,30 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var read in module.PrePass.EnumLibraryNames)
             {
                 NotImplementedException Unsupported() => new(
-                    $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4614)");
+                    $"Enum {read.Enum}, member '{read.Member}': project name '{read.Name}' is not implemented (#4762)");
                 if (read.Qualified)
                 {
-                    var lead = read.Name.Split('.')[0];
-                    if (Modules.All.Any(m => m.Kind == InterpreterModuleKind.Standard
-                            && m.Name.Equals(lead, StringComparison.OrdinalIgnoreCase)
-                            || m.PrePass.Enums.ContainsKey(lead)))
+                    var parts = read.Name.Split('.');
+                    var lead = parts[0];
+                    foreach (var owner in Modules.All)
+                    {
+                        var standard = owner.Kind == InterpreterModuleKind.Standard;
+                        var namedModule = standard && owner.Name.Equals(lead, StringComparison.OrdinalIgnoreCase);
+                        var namedEnum = owner.PrePass.Enums.ContainsKey(lead);
+                        if (!namedModule && !namedEnum) continue;
+                        if (module.Kind != InterpreterModuleKind.Standard) throw Unsupported();
+                        // SP6 native/p-code measurements in #4762 (oracle PR #4818).
+                        if (namedModule && lead.Equals("VBA", StringComparison.OrdinalIgnoreCase)
+                            || namedEnum && lead.Equals("VBRUN", StringComparison.OrdinalIgnoreCase))
+                            throw new VBCompileErrorException("Name conflicts with existing module, project, or object library");
+                        // Only a module named after a library Enum (VbCompareMethod) was measured. One named after another
+                        // library, such as VBRUN, is most likely VBA's name conflict too, but it isn't measured: refuse it.
+                        if (namedModule && !lead.Equals("VBRUN", StringComparison.OrdinalIgnoreCase)
+                            && owner.PrePass.ModuleName(parts[1]) is null
+                            && !owner.PrePass.Enums.ContainsKey(parts[1]) && !owner.PrePass.Types.ContainsKey(parts[1]))
+                            throw new VBCompileErrorException("Method or data member not found");
                         throw Unsupported();
+                    }
                     if (read.Refusal is { } qualifiedRefusal) throw qualifiedRefusal;
                     continue;
                 }
@@ -1004,16 +1077,30 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     {
                         if (own && constant.Declaration.Start.TokenIndex >= module.PrePass.EnumDeclaredAt[read.Enum])
                             throw new VBCompileErrorException("Constant expression required");
+                        if (module.Kind == InterpreterModuleKind.Standard)
+                            module.PrePass.DeferEnum(read.Enum, read.Member);
+                        else
+                            throw Unsupported();
+                        continue;
+                    }
+                    if (own && kind is not null
+                        || !own && other.Kind == InterpreterModuleKind.Standard && other.PrePass.HasOtherModuleName(read.Name))
+                    {
+                        if (module.Kind == InterpreterModuleKind.Standard
+                            && (other.PrePass.Procedures.TryGetValue(read.Name, out var procedure) && !procedure.IsFunction
+                                || !own && other.PrePass.DeclareSubs.Contains(read.Name)))
+                            throw new VBCompileErrorException("Expected Function or variable");
                         throw Unsupported();
                     }
-                    if (own && kind is not null)
-                        throw Unsupported();
-                    if (!own && other.Kind == InterpreterModuleKind.Standard
-                        && other.PrePass.HasOtherModuleName(read.Name))
-                        throw Unsupported();
                     foreach (var (name, members) in other.PrePass.Enums)
-                        if (!other.PrePass.PrivateEnums.Contains(name) && members.ContainsKey(read.Name))
-                            throw Unsupported();
+                        if (members.ContainsKey(read.Name))
+                        {
+                            if (!own && module.Kind == InterpreterModuleKind.Standard
+                                && other.Kind == InterpreterModuleKind.Standard && !other.PrePass.PrivateEnums.Contains(name))
+                                module.PrePass.DeferEnum(read.Enum, read.Member);
+                            else
+                                throw Unsupported();
+                        }
                 }
                 if (read.Refusal is { } refusal) throw refusal;
             }
@@ -1406,6 +1493,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 await executor.Execute(block, moduleDeclarations);
             else if (item is VB6Parser.TypeStmtContext type)
                 await executor.ResolveTypeBounds(type);
+            else if (item is VB6Parser.EnumerationStmtContext enumeration)
+                await executor.ResolveEnumValues(enumeration);
         }
     }
 
