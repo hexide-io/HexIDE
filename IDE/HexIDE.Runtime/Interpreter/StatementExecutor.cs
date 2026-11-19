@@ -5872,7 +5872,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return false;
 
         var module = qualifier.Module!;
-        if (module.PrePass.Procedures.TryGetValue(memberName, out var proc)
+        if ((module.PrePass.Procedures.TryGetValue(memberName, out var proc)
+                || module.PrePass.Declares.TryGetValue(memberName, out proc) && proc.HasMissingDeclareLibrary)
             && (!proc.IsPrivate || ReferenceEquals(module, currentModule)))
         {
             var callArgs = await expressionExecutor.ResolveCallArgs(argsCall);

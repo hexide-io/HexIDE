@@ -55,6 +55,33 @@ SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal 
 - **THEN** the interpreter SHALL refuse with NotImplementedException naming #4895 before moving the position or assigning the result
 - **AND** it SHALL NOT invent the bytes VB6 fills from its previous buffer contents
 
+### Requirement: Missing Declare libraries off Windows
+
+The interpreter SHALL collect Declare names, Lib strings and Sub/Function kinds without probing native libraries. Off Windows, supported missing-library calls SHALL evaluate arguments once, retaining ByRef targets, then raise trappable error 53, `File not found: ` plus the Lib string. Windows and host-library calls SHALL keep their refusal. In the missing-library path, a call through an Alias SHALL raise the same error 53, since the library fails before its entry point is sought (measured), and a named-argument call SHALL refuse as not implemented until a Declare's parameters are collected (#4869).
+
+#### Scenario: A missing DLL Function evaluates its argument
+
+- **WHEN** a Function declared in `Lib "hexide-nosuch.dll"` is called off Windows with a counted argument under On Error Resume Next
+- **THEN** the argument runs once and Err.Number is 53 with Err.Description `File not found: hexide-nosuch.dll`
+- **AND** the result follows the measurements in [#4820](https://github.com/hexide-io/HexIDE/issues/4820)
+
+#### Scenario: A native call remains deferred
+
+- **WHEN** the host is Windows or the Lib string ends in `.dylib` or `.so`, or contains `.so.` (case-insensitive)
+- **THEN** the call retains the existing "Sub or Function not defined" refusal
+- **AND** no library is loaded or probed
+
+#### Scenario: A call through an Alias
+
+- **WHEN** an off-Windows missing-library call goes through an Alias
+- **THEN** Err.Number is 53 with Err.Description `File not found: ` plus the Lib string, as without an Alias
+
+#### Scenario: A named-argument Declare call
+
+- **WHEN** an off-Windows missing-library call passes a named argument
+- **THEN** it is refused as not implemented until a Declare's parameters are collected (#4869)
+- **AND** an uncalled declaration still loads
+
 ### Requirement: For Each walks control-array indices captured at entry
 
 The interpreter SHALL walk a control array in sorted index order, capturing the indices once and resolving each

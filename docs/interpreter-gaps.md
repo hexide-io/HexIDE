@@ -155,10 +155,14 @@ Platform: 5 · Partial: 11 · Other: 1. An entry fixed since the audit is not co
 >   parse, so an inactive branch is never parsed; oracle-pinned).
 > - **→ Deferred:** Load/Unload (since built, for control-array elements and for whole forms, #822/#973) · chained
 >   index groups (`Split(s)(0)`; since fixed, #1476) · AddressOf · **Declare … Lib** (no longer
->   fails the module load — a compatible declaration is skipped, so the module runs;
+>   fails the module load — a compatible declaration is collected, so the module runs;
 >   [#4245](https://github.com/hexide-io/HexIDE/issues/4245) rejects `PtrSafe` for VB6 and requires it for
->   64-bit VBA7 before that skip, using the issue's measured rows; an actual
->   call raises the clean "Sub or Function not defined") · selection/system/financial intrinsics (IIf, Choose and Switch
+>   64-bit VBA7, using the issue's measured rows; [#4820](https://github.com/hexide-io/HexIDE/issues/4820)
+>   makes off-Windows calls raise trappable 53 with the original Lib string after evaluating arguments,
+>   except `.dylib`/`.so` names (including versioned `.so`), which retain the Windows refusal
+>   "Sub or Function not defined"; a call through an Alias raises the same 53 (measured), and a named-argument call is
+>   explicitly not implemented (#4869);
+>   no native library is loaded) · selection/system/financial intrinsics (IIf, Choose and Switch
 >   have since been added, and of the financials only IRR and MIRR remain refused).
 
 >   have since been added, and of the financials only DDB remains unregistered).
@@ -189,7 +193,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
   **String/number comparisons fixed (#211):** [measured typed/Variant rules](vb6-fidelity-oracle/a-string-compared-with-a-number.md)
   now run, including Decimal as a Variant number and Variant Strings against typed Currency, Boolean
   or Date ([#211, 2026-11-18 measurements](https://github.com/hexide-io/HexIDE/issues/211), oracle PR #4687). Default-member reads retain typed/Variant origin for these comparisons (#174; [measurements](vb6-fidelity-oracle/an-object-used-as-a-value.md#a-default-members-value-compared-with-a-string-2026-11-14-174s-review)).
-- **Declare Sub/Function … Lib** — PrePass.cs:161-162 throws so any module with a `Declare` fails to load; VB6 foundational for Win32 API. Undocumented (absent from the boundary map — violates the spec's every-wall-documented rule).
+- **Declare Sub/Function … Lib** — declarations load; off Windows, missing Windows-library calls raise trappable 53 after evaluating arguments ([#4820](https://github.com/hexide-io/HexIDE/issues/4820), measured there). Windows and `.dylib`/`.so` calls retain the refusal; an Alias call raises the same 53 (measured), a named-argument call refuses until a Declare's parameters are collected ([#4869](https://github.com/hexide-io/HexIDE/issues/4869)), and native invocation remains deferred.
 - ~~**Option Compare [Binary|Text] / Option Private Module** — PrePass.cs:46-50 throws for both (module fails to load).~~ Both load. **`Option Compare Text` is done (#1567)** for the comparison operators, `Select Case` and, with a compare of 1, InStr, InStrRev, Replace, Split, Filter and a Collection's keys, all through `VbTextCompare`, whose rows are vb6.exe's measured order. A string function given no compare takes the module's mode too (#1572). Two things remain:
   - **Other locales are a wrong-value risk, not just a gap.** The rows were measured under en-GB and are applied in every locale. Where Windows tailors the sort, such as Swedish å, ä and ö, or Turkish i, HexIDE would give en-GB's answer and nothing would say so (#1573).
   - **A character outside cp1252 is unmeasured.** It sorts after every measured one, by its invariant lower case.
