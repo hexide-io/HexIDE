@@ -292,6 +292,15 @@ made them look permanent in a way they are not.
 
 - **Locale compare platform limit ([#4151](https://github.com/hexide-io/HexIDE/issues/4151))** — StrComp with a compare of 3 or above uses Windows locale validation and collation on Windows and explicitly refuses elsewhere; ICU is not Windows collation. InStr implements only the locale IDs measured in #4151, including their distinct ß and Æ expansion choices, on every platform. Other IDs remain refused. Other expansion characters are unmeasured for these IDs and retain the existing text-search behaviour. InStrRev, Replace, Split and Filter retain their existing locale-ID refusals: they were not measured here. Measurements belong to [the oracle page](vb6-fidelity-oracle/option-compare-text-and-vb6s-text-compare.md), measuring PR #4188; the issue records the tables pending that PR.
 - **`CreateObject` / `GetObject`, library-qualified `New`** (`New Excel.Application`) — needs COM activation.
+- **`ListImage.Draw` into an `hDC` the program's forms and pictures didn't give out**
+  ([#4849](https://github.com/hexide-io/HexIDE/issues/4849)). A Form's and a PictureBox's `hDC` is a value from a table
+  of the run's own, naming that object's drawing surface; there is no Win32 device context behind it. VB6 measured
+  `Draw 12345, 0, 0, 0` with no error and nothing drawn, but HexIDE refuses any value its table never issued, with
+  "ListImage.Draw into an hDC that this program's forms and pictures didn't give out is not implemented". It can't
+  tell such a value from a real HDC, from a `Declare`'d `GetDC` say, which VB6 would draw into, and drawing nothing
+  there would be a silent wrong result. 0, and a value the table issued that a `Cls`, a resize or an `AutoRedraw`
+  change has since replaced, draw nothing and raise nothing, as in VB6: those are known to name no surface. Decided by
+  the supervisor and hexide-mcp, 2026-11-19.
 - **Default members and bang access on a COM receiver** (`rs!Field` on an ADO Recordset) — the default member
   is declared in a type library. The same syntax over a HexIDE-parsed class is a deferral (#174, #173).
 - **COM-visible class instancing** (`VB_Creatable`, `VB_Exposed`, `VB_GlobalNameSpace`) — meaningful only to
