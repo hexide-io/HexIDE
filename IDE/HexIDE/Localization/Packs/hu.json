@@ -628,6 +628,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Kódbeállítások",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Változók deklarálásának megkövetelése",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Tagok automatikus listázása",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Tagok listázása gépelés közben",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatikus gyorsinformáció",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatikus behúzás",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formázás mentéskor",

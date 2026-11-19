@@ -590,6 +590,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Definições de Código",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Exigir Declaração de Variáveis",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Listar Membros Automaticamente",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao escrever",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Informação Rápida Automática",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Indentação Automática",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatar ao Guardar",

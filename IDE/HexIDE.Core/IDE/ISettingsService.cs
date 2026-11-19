@@ -33,6 +33,9 @@ public interface ISettingsService : INotifyPropertyChanged
     /// </summary>
     bool AutoListMembers { get; set; }
 
+    /// <summary>Allow a typed letter to open a completion list.</summary>
+    bool ListMembersAsYouType { get; set; }
+
     /// <summary>
     /// Show hover / Quick Info tooltips automatically.
     /// </summary>

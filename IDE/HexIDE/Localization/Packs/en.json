@@ -626,6 +626,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Code Settings",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Require Variable Declaration",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Auto List Members",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "List members as you type",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Auto Quick Info",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Auto Indent",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Format on Save",

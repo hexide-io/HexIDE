@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao digitar",
     "Str.Menu.MacApp.About": "Sobre o HexIDE",
     "Str.Office.ProjectFiles": "Arquivos de projeto e do Office",
     "Str.Office.AllFiles": "Todos os arquivos",

@@ -66,9 +66,16 @@ SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal 
 - **THEN** the interpreter SHALL refuse with NotImplementedException naming #4927 before moving the position or assigning the result
 - **AND** it SHALL NOT invent the stale bytes VB6 returns from its previous buffer contents
 
-#### Scenario: An Input file changed while open is refused
-- **WHEN** an Input file's size or modification time changed while it is open
-- **THEN** InputB SHALL refuse with NotImplementedException naming #4944 before moving or assigning, until the Input-mode buffer model is implemented
+#### Scenario: A file changes while open
+- **WHEN** an Input file changes through an external handle while open
+- **THEN** InputB, Input, Line Input and Input # SHALL share one 512-byte buffer, filled from the requested byte as needed, retaining held bytes even past a new end (#4944)
+- **AND** Seek SHALL empty it; EOF SHALL fill it when needed and report True only when no byte remains, retaining Ctrl+Z handling
+- **AND** LOF SHALL report the current file length; a failed fill SHALL raise 62 with the position at the buffer's end
+- **AND** EOF at the buffer's end SHALL refill it, as SHALL a Line Input looking for the LF after a CR in its last byte; LOF and a read ending exactly at the buffer's end SHALL NOT
+- **AND** a fill that finds nothing SHALL end the file until a Seek: EOF SHALL stay True and reads SHALL raise 62, even after the file grows
+- **WHEN** a Binary file changes through an external handle
+- **THEN** Input, Line Input and Input # SHALL read current bytes, retaining the read-access check
+- **AND** these behaviours SHALL match the native and p-code rows on oracle PRs #4942 and #4954
 
 ### Requirement: Missing Declare libraries off Windows
 

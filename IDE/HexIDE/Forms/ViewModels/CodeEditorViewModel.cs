@@ -1327,6 +1327,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal void NavigateToSymbol(DocumentSymbol symbol)
     {
+        if (symbol.Kind == SymbolKind.Property && formDefinition is { } form && FindComponent(symbol.Name) is { } control)
+        {
+            editorService.EditForm(form, control);
+            return;
+        }
+        if (symbol.Range.Start == symbol.Range.End) return;
         var position = symbol.SelectionRange.Start;
         if (position.Line < 0 || position.Line >= Document.LineCount) return;
         var line = Document.GetLineByNumber(position.Line + 1);
@@ -1406,12 +1412,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private ComponentInstance? FindComponent(string name)
     {
         if (formDefinition is null) return null;
-        if (name == RootEventPrefix)
+        if (string.Equals(name, RootEventPrefix, StringComparison.OrdinalIgnoreCase))
             return formDefinition.Components[0];
-        foreach (var c in formDefinition.Components)
-            if (c.GetPropertyOrDefault(VBProperties.NameProperty) == name)
-                return c;
-        return null;
+        return formDefinition.Components
+            .Where(c => string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), name, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(PropertyText.ArrayIndexOf)
+            .FirstOrDefault();
     }
 
     private void OnSelectedObjectChanged(string? oldValue, string? newValue)

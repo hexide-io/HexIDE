@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -34,52 +37,79 @@ internal static class DebuggerSignalGuard
     /// </summary>
     internal static readonly TimeSpan Default = TimeSpan.FromSeconds(15);
 
+    /// <summary>How long a signal that missed its guard is waited for again, to tell late from never: as long
+    /// as the guard itself, up to this.</summary>
+    internal static readonly TimeSpan LateCap = TimeSpan.FromSeconds(30);
+
+    /// <param name="state">What the test was doing, read the moment the guard runs out: a recursion's depth,
+    /// the run's status, the debugger's state. Optional.</param>
     internal static async Task<T> Guarded<T>(
         this Task<T> signal,
         TimeSpan? guard = null,
+        Func<string>? state = null,
         [CallerArgumentExpression(nameof(signal))] string? awaited = null,
         [CallerMemberName] string? test = null,
         [CallerLineNumber] int line = 0)
     {
-        var budget = guard ?? Default;
-        try
-        {
-            return await signal.WaitAsync(budget);
-        }
-        catch (TimeoutException)
-        {
-            throw new TimeoutException(Explain(awaited, test, line, budget));
-        }
+        await Wait(signal, guard ?? Default, state, awaited, test, line);
+        return await signal;
     }
 
-    internal static async Task Guarded(
+    /// <inheritdoc cref="Guarded{T}"/>
+    internal static Task Guarded(
         this Task signal,
         TimeSpan? guard = null,
+        Func<string>? state = null,
         [CallerArgumentExpression(nameof(signal))] string? awaited = null,
         [CallerMemberName] string? test = null,
-        [CallerLineNumber] int line = 0)
+        [CallerLineNumber] int line = 0) =>
+        Wait(signal, guard ?? Default, state, awaited, test, line);
+
+    private static async Task Wait(Task signal, TimeSpan budget, Func<string>? state, string? awaited, string? test, int line)
     {
-        var budget = guard ?? Default;
         try
         {
             await signal.WaitAsync(budget);
+            return;
         }
-        catch (TimeoutException)
+        catch (TimeoutException) when (!signal.IsCompleted)
         {
-            throw new TimeoutException(Explain(awaited, test, line, budget));
         }
+        // Read at the moment the guard ran out, before waiting on: the runner's load over the guard's window,
+        // and what the test says it was doing. The window starts 5 s earlier, so a process stopped for the
+        // whole guard still has the sample from before it stopped, and the sampler gap measures the stop.
+        var load = RunnerLoad.Describe(budget + TimeSpan.FromSeconds(5));
+        var doing = state?.Invoke();
+        var late = budget < LateCap ? budget : LateCap;
+        var since = Stopwatch.StartNew();
+        var arrived = await Task.WhenAny(signal, Task.Delay(late, TestContext.Current.CancellationToken)) == signal;
+        var after = arrived
+            ? $"It arrived {since.ElapsedMilliseconds:N0} ms after the guard ran out, so it came late."
+            : $"It had still not arrived {late.TotalSeconds:0.###} s after that, so it may never come.";
+        throw new TimeoutException(Explain(awaited, test, line, budget, after, doing, load));
     }
 
-    private static string Explain(string? awaited, string? test, int line, TimeSpan budget) =>
-        $"The debugger signal `{awaited}` did not arrive within {budget.TotalSeconds:0.#}s "
-      + $"({test}, line {line}).\n\n"
-      + "Two things this distinguishes, which a bare TimeoutException does not:\n"
-      + "  - a signal that never came — the debugger did not break where the test expected, which is a\n"
-      + "    real defect and reproducible on its own;\n"
-      + "  - a signal that came too late — the machine was loaded, which is a flake and will pass on a\n"
-      + "    re-run.\n\n"
-      + "If this is the FIRST time you have seen it: re-run the whole suite a dozen times before "
-      + "concluding anything. A single green run is not evidence about an intermittent failure — that "
-      + "mistake was made twice while fixing #93.\n"
-      + "Record the occurrence on #102 either way; it has been seen once and never since.";
+    private static string Explain(string? awaited, string? test, int line, TimeSpan budget, string after,
+        string? doing, string load)
+    {
+        List<string> lines =
+        [
+            $"The debugger signal `{awaited}` did not arrive within {budget.TotalSeconds:0.###}s ({test}, line {line}). {after}",
+            char.ToUpperInvariant(load[0]) + load[1..] + ".",
+            "",
+            "Which of the two it is decides what it is:",
+            "  - a signal that never came: the debugger did not break where the test expected, or the run",
+            "    stopped. That is a real defect, and the state above says where it was.",
+            "  - a signal that came late: look at the runner's load. A worst dispatch in seconds is a starved",
+            "    thread pool; a sampler gap in seconds is the whole process stopped, as a paused VM or a",
+            "    long GC does.",
+            "",
+            "A single green run is not evidence about an intermittent failure; that mistake was made twice",
+            "while fixing #93. Record this occurrence, with this message, on the test's issue labelled",
+            "`flaky`, or open one.",
+        ];
+        if (doing is not null)
+            lines.Insert(1, $"When the guard ran out: {doing}.");
+        return string.Join(Environment.NewLine, lines);
+    }
 }

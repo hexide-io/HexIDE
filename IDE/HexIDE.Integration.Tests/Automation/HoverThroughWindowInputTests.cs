@@ -636,6 +636,7 @@ public class HoverThroughWindowInputTests
     {
         var (window, editor, vm) = ShowEditor();
         vm.Settings.AutoListMembers.Returns(action == "completion");
+        vm.Settings.ListMembersAsYouType.Returns(true);
         lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<HoverResult?>(new HoverResult(new MarkupContent("markdown", "**Foo**"))));
         lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())

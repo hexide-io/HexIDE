@@ -29,6 +29,23 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void ListMembersAsYouTypeDefaultsAndRoundTrips()
+    {
+        var settings = CreateSut();
+        settings.ListMembersAsYouType.Should().BeTrue();
+        File.WriteAllText(SettingsPath, "{}");
+        CreateSut().ListMembersAsYouType.Should().BeTrue();
+        settings.ListMembersAsYouType = false;
+        settings.Save();
+        using var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+        saved.RootElement.GetProperty("listMembersAsYouType").GetBoolean().Should().BeFalse();
+        CreateSut().ListMembersAsYouType.Should().BeFalse();
+        settings.ListMembersAsYouType = true;
+        settings.Save();
+        CreateSut().ListMembersAsYouType.Should().BeTrue();
+    }
+
+    [Fact]
     public void RevocationUrlDefaultsWhenUnsetButPreservesExplicitEmpty()
     {
         CreateSut().RevocationListUrl.Should().Be("https://hexide.io/revocations.json");
@@ -110,6 +127,7 @@ public class SettingsServiceTests : IDisposable
     [Theory]
     [InlineData(nameof(SettingsService.RequireVariableDeclaration), true)]
     [InlineData(nameof(SettingsService.AutoListMembers), false)]
+    [InlineData(nameof(SettingsService.ListMembersAsYouType), false)]
     [InlineData(nameof(SettingsService.AutoQuickInfo), false)]
     [InlineData(nameof(SettingsService.AutoIndent), false)]
     [InlineData(nameof(SettingsService.TabWidth), 8)]
@@ -329,6 +347,7 @@ public class SettingsServiceTests : IDisposable
 
         sut.RequireVariableDeclaration.Should().Be(SettingsDefaults.RequireVariableDeclaration);
         sut.AutoListMembers.Should().Be(SettingsDefaults.AutoListMembers);
+        sut.ListMembersAsYouType.Should().Be(SettingsDefaults.ListMembersAsYouType);
         sut.AutoQuickInfo.Should().Be(SettingsDefaults.AutoQuickInfo);
         sut.AutoIndent.Should().Be(SettingsDefaults.AutoIndent);
         sut.TabWidth.Should().Be(SettingsDefaults.TabWidth);

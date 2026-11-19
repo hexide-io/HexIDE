@@ -505,6 +505,149 @@ Measured on vb6.exe SP6, native and p-code, which agree on every row. The probe 
 - **`SSTab.Picture` is the current tab's `TabPicture`.** With `Tab = 0`, `Picture` reads `TabPicture(0)`'s object. Setting `Picture` with `Tab = 2` sets `TabPicture(2)`.
 - **Reducing `Tabs` drops the pictures beyond it.** With `TabPicture(2)` set, `Tabs = 2` makes `TabPicture(2)` raise 381. `Tabs = 3` again reads it back empty.
 
+### Saved TabHeight and TabMaxWidth, and reading them in each ScaleMode (2026-11-19, #4953, SP6)
+
+**The probe.**
+- **The software:** VB6 SP6 (6.00.9782), MSVBVM60 6.00.9848 and TABCTL32.OCX 6.01.9782. `Screen.TwipsPerPixelX` and
+  `Y` were 15.
+- **The form:** written by hand, not by VB6's designer, on a 9600 × 7200 twip client. It holds 22 SSTabs of three tabs
+  each, every one 9000 × 6600 twips. Each saves the same number for TabHeight and TabMaxWidth: 1, 2, 3, 13, 26, 27,
+  100, 254, 300, 500, 519, 521, 527, 528, 600, 1000, 2540, 5000 or 10000. Three more save 520 with no TabMaxWidth
+  line, 900, and 1500.
+- **The program:** a Sub Main that loads and shows the form, then reads both properties late-bound and logs each
+  value with its `TypeName`. One early-bound read agreed.
+- **Also built:** the same form saved with `ScaleMode = 3`, and five projects of one SSTab each for the edge values
+  below.
+- **The builds:** `/make` as native code and as p-code, run in a PowerShell Direct session. Every project logged the
+  same lines both ways, and none wrote a load log.
+
+**TabHeight and TabMaxWidth agreed in every row**, so the tables give one value for both. Every read is a Single.
+
+#### In twips: the nearest whole twip
+
+A saved value reads as HIMETRIC × 1440 / 2540, rounded to the nearest whole twip. There's no minimum: saved 1 reads 1.
+
+The table also gives two other candidate rules. 520 alone already ruled both out, and more
+rows do here:
+- **truncating** gives a different read in 9 of the 23 rows, shown in bold;
+- **going through whole pixels**, at 15 twips a pixel, gives a different read in 18.
+
+| Saved | Exact twips | Read | Truncated | Through whole pixels |
+|---|---|---|---|---|
+| 1 | 0.567 | **1** | 0 | 0 |
+| 2 | 1.134 | 1 | 1 | 0 |
+| 3 | 1.701 | **2** | 1 | 0 |
+| 13 | 7.370 | 7 | 7 | 0 |
+| 26 | 14.740 | **15** | 14 | 15 |
+| 27 | 15.307 | 15 | 15 | 15 |
+| 100 | 56.693 | **57** | 56 | 60 |
+| 254 | 144 | 144 | 144 | 150 |
+| 300 | 170.079 | 170 | 170 | 165 |
+| 500 | 283.465 | 283 | 283 | 285 |
+| 519 | 294.236 | 294 | 294 | 300 |
+| 520 | 294.803 | **295** | 294 | 300 |
+| 521 | 295.370 | 295 | 295 | 300 |
+| 527 | 298.772 | **299** | 298 | 300 |
+| 528 | 299.339 | 299 | 299 | 300 |
+| 600 | 340.157 | 340 | 340 | 345 |
+| 900 | 510.236 | 510 | 510 | 510 |
+| 1000 | 566.929 | **567** | 566 | 570 |
+| 1500 | 850.394 | 850 | 850 | 855 |
+| 2540 | 1440 | 1440 | 1440 | 1440 |
+| 5000 | 2834.646 | **2835** | 2834 | 2835 |
+| 10000 | 5669.291 | 5669 | 5669 | 5670 |
+| 100000 | 56692.913 | **56693** | 56692 | 56700 |
+
+The last row is from the edge projects. No saved whole number can sit exactly half-way between two twips, since
+HIMETRIC × 72 / 127 never ends in .5.
+
+#### In pixels: the nearest whole pixel
+
+A form switched to `ScaleMode = 3` at run time, and the form saved in pixels, read the same:
+
+| Saved | 1, 2, 3, 13 | 26, 27 | 100 | 254 | 300 | 500 | 519 to 528 | 600 | 900 | 1000 | 1500 | 2540 | 5000 | 10000 | 100000 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Pixels read | 0 | 1 | 4 | 10 | 11 | 19 | 20 | 23 | 34 | 38 | 57 | 96 | 189 | 378 | 3780 |
+
+That is HIMETRIC × 96 / 2540, rounded. Rounding the twips read to pixels gives the same in every row. At 15 twips a
+pixel the two can't differ, so these rows don't say which one the control does.
+
+#### In every other ScaleMode: exact, and across
+
+**The read isn't rounded in points, characters, inches, millimetres, centimetres or a user scale.** It's the saved
+HIMETRIC converted exactly, as a Single. Saved 1 read:
+- 0.02834646 points, which is 1 × 72 / 2540, where the whole twip would give 0.05;
+- 0.01000001 mm, 0.001000001 cm and 3.937008E-04 inches.
+
+**Both properties convert with the horizontal scale, TabHeight included.** The obvious guess for a height is the
+vertical scale, as Height uses.
+- **In characters** (120 twips across, 240 down): saved 2540 read 12 for TabHeight as well as TabMaxWidth. The
+  vertical scale would give 6.
+- **In a user scale** of `ScaleWidth = 1000` and `ScaleHeight = 100`: that is 9.6 twips across and 72 down. Saved 2540
+  read 150 for both. The vertical scale would give 20.
+
+#### Assigning at run time
+
+These were read back after assigning SSTab19's TabHeight, in twips and in pixels:
+
+| Assigned | Twips read | Pixels read |
+|---|---|---|
+| 300, 301, 307 twips | 300, 301, 307 | 20 |
+| 308 twips | 308 | 21 |
+| 300.4, 300.5 and **300.6** twips | **300** | 20 |
+| 1, 0.4 and 0.6 twips | 1 | 0 |
+| 20 pixels | 300 | 20 |
+| 21 pixels | 315 | 21 |
+| 20.4 pixels | 306 | 20 |
+| 20.5 pixels | 307 | 20 |
+| 20.6 pixels | 309 | 21 |
+| 1 pixel | 15 | 1 |
+| 0.4 pixels | 6 | 0 |
+
+TabMaxWidth gave the same for 301, 307, 308, 300.5 and 0.6 twips, and for 20.4, 20.5 and 20.6 pixels. None of these
+assignments raised an error.
+
+**300.6 twips reads back 300, not 301.** So the control doesn't keep twips. It keeps a whole number of HIMETRIC:
+- 300.6 twips is 530.225 HIMETRIC, kept as 530, which is 300.47 twips;
+- 20.6 pixels is 309 twips, which is 545.042 HIMETRIC, kept as 545, which is 308.98 twips;
+- 0.4 twips is 0.706 HIMETRIC, kept as 1, which is 0.567 twips.
+
+**Rounding to the nearest fits every row.**
+- Truncating would keep 0.4 twips as 0, which reads 0, not 1.
+- Rounding up would keep 300.5 twips as 531, which reads 301.
+
+Assignments were made only in twips and pixels.
+
+#### Edge values in the file
+
+| Saved | Twips read | Pixels read |
+|---|---|---|
+| `TabHeight = 0` | 295 | 20 |
+| `TabHeight = -1` | 295 | 20 |
+| no TabHeight line | 295 | 20 |
+| `TabMaxWidth = -1` | 0 | 0 |
+| no TabMaxWidth line | 0 | 0 |
+| both 100000 | 56693 | 3780 |
+
+**A TabHeight of 0 or less loads as the default, 520.** A negative TabMaxWidth loads as 0. Neither is an error, and
+`/make` logged nothing. Whether VB6 refuses these values or treats them as "no value" isn't separated: both read the
+same.
+
+#### The rule these fit
+
+- **Storage:** the SSTab keeps TabHeight and TabMaxWidth as whole numbers of HIMETRIC.
+- **Loading:** a saved value is kept as written, except a TabHeight of 0 or less and a negative TabMaxWidth. Each of
+  those takes its default.
+- **Reading:** the value is converted to the container's ScaleMode with the horizontal scale, for both properties.
+  Only in twips and pixels is it rounded, to the nearest whole unit.
+- **Assigning:** in twips or pixels, the value is converted to HIMETRIC and rounded to the nearest whole number.
+
+**Not measured:**
+- a display other than 15 twips a pixel;
+- an assignment in any other ScaleMode;
+- an assignment exactly half-way between two HIMETRIC values;
+- a TabHeight that doesn't fit the control.
+
 ### In HexIDE
 
 HexIDE runs the SSTab (#1090). Forms VB6 designed load their pages and the tab rows draw. Clicks, the arrows, Ctrl+Tab

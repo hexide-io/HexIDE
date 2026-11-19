@@ -590,6 +590,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Kod Ayarları",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Değişken Bildirimi Zorunlu",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Üyeleri Otomatik Listele",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Yazarken üyeleri listele",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Otomatik Hızlı Bilgi",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Otomatik Girinti",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Kaydederken Biçimlendir",
