@@ -37,7 +37,7 @@ public class SSTabDrawingTests : WindowTestFixture
     [InlineData(1.5)]
     public void PicturePixelsAreLeftOfCaptionAndOtherTabsAreUnchanged(double scaling)
     {
-        var tab = new VBSSTab(new Canvas()) { TabHeight = 35 };
+        var tab = new VBSSTab(new Canvas()) { TabHeightHimetric = 35d * 2540 / 96 };
         Arrange(tab);
         var window = hostWindow!;
         window.SetRenderScaling(scaling);
@@ -172,7 +172,7 @@ public class SSTabDrawingTests : WindowTestFixture
         captions.Select(c => c.Text).Should().Equal("Tab 0", "Tab 2");
         Header(captions[1]).Bounds.Width.Should().Be(120);
         Header(captions[1]).Bounds.Right.Should().Be(240);
-        tab.TabMaxWidth = 900d / 15;
+        tab.TabMaxWidthHimetric = 1587.5;
         Arrange(tab);
         Captions(tab).Should().OnlyContain(c => Header(c).Bounds.Width == 60);
     }
@@ -200,7 +200,7 @@ public class SSTabDrawingTests : WindowTestFixture
     [AvaloniaFact]
     public void CaptionsWrapWithinTheTabHeight()
     {
-        var tab = new VBSSTab(new Canvas()) { TabMaxWidth = 60, TabHeight = 40 };
+        var tab = new VBSSTab(new Canvas()) { TabMaxWidthHimetric = 1587.5, TabHeightHimetric = 40d * 2540 / 96 };
         tab.Caption(0, "A long caption that wraps");
         Arrange(tab);
         var caption = Captions(tab)[0];
@@ -217,7 +217,7 @@ public class SSTabDrawingTests : WindowTestFixture
         Canvas.SetTop(child, 40);
         var tab = new VBSSTab(host);
         tab.TabEnabled(1, false);
-        tab.TabHeight = 40;
+        tab.TabHeightHimetric = 40d * 2540 / 96;
         Arrange(tab);
         var captions = Captions(tab);
         captions.Should().HaveCount(3);
