@@ -5140,7 +5140,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         // A stdole alias for a scalar (`As OLE_COLOR`) is that scalar.
                         value = aliasScalar is { } scalar ? new Vb6Value(scalar) : Vb6Value.Nothing;
                         // Measured scalar Set constraints (#1563), bare or VB-qualified. A project's form name keeps its
-                        // existing view; As Control records a binding view, not a Set constraint (#4737).
+                        // existing view; As Control records its late-binding view (#4737) and scalar store constraint (#4864).
                         if (!isArray && aliasScalar is null
                             && (qualifier is null || qualifier.Equals("VB", StringComparison.OrdinalIgnoreCase))
                             && (ControlObjectType.IsIntrinsic(typeName) || typeName.Equals("Form", StringComparison.OrdinalIgnoreCase)))

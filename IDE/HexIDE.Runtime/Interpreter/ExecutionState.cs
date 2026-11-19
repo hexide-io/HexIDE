@@ -96,7 +96,8 @@ public class ExecutionState
     public string? DeclaredClassOf(int location) =>
         DeclaredViewOf(location) is { } name && name is not ("Object" or "Control") ? name : null;
 
-    // Object/Control select named-call late binding on a read, but impose no class constraint on a store (#1435, #4737).
+    // Object/Control select named-call late binding on a read (#1435, #4737).
+    // Scalar Control stores separately check the measured non-controls (#4864).
     public string? DeclaredViewOf(int location) =>
         declaredClasses.TryGetValue(location, out var c) ? c : null;
 

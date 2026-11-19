@@ -42,6 +42,12 @@ public class ModuleExecutionContext
                 value = VbNumeric.CoerceOnStore(value, declared, ctx);
             if (state.FixedStringWidthOf(loc) is { } width)
                 value = FixedLengthString.Store(value, width, ctx);
+            // #4864: Control still selects late binding on reads, but these measured non-controls
+            // cannot replace a scalar's reference. Parameters and other object kinds remain unmeasured.
+            if (state.DeclaredViewOf(loc) == "Control" && !env.Parameters.Contains(name)
+                && value.Value is VbObject { ClassDef.HostedControl: false } or VbCollection
+                    or AvaloniaInterop.ControlFont or FormControls)
+                throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             // A class-typed slot enforces its name: the object must BE that class or implement it as an
             // interface. Anything else is Err 13 "Type mismatch" at the Set — measured, both for two unrelated
             // classes and for an interface-typed slot given a non-implementer. Nothing always stores (its Value
