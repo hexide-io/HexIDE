@@ -119,6 +119,7 @@ public class VbFrmFormatDeserializer
                     {
                         componentStack.Peek().Properties[property] = block.Fields;
                         componentStack.Peek().PropertyAssignments.Add(new(property, block.Fields));
+                        componentStack.Peek().PropertyValueTexts.Add(null);
                     }
 
                     _openBlocks.Push(block);
@@ -243,6 +244,7 @@ public class VbFrmFormatDeserializer
         var value = ParseValue(valueText);
         serializedComponent.Properties[propertyName] = value;
         serializedComponent.PropertyAssignments.Add(new(propertyName, value));
+        serializedComponent.PropertyValueTexts.Add(valueText);
     }
 
     private object ParseValue(string valueText)

@@ -41,11 +41,23 @@ shortcuts) is the canonical example: the form still opens perfectly in HexIDE.
 | Input | Load and run | Save |
 |---|---|---|
 | A control's negative Width or Height | Reads 0, with `Line N: Property Width/Height in Control could not be set.` at the control's Begin line; the designer remains editable and F5 runs | Save, Save Project and Save Project Group ask for a new form path. Cancellation writes nothing; noninteractive in-place writes refuse. After Save As, normal saves resume. The original bytes and modification time stay unchanged. |
+| A readable property followed in the same component by an unreadable duplicate matching #4317's refusal shapes | Keeps the readable value and logs the existing invalid-value error; the form remains editable | Requires Save As, writing one line with the model's value and leaving the source bytes and modification time unchanged. |
 
 Measured in VB6 SP6's IDE: [oracle PR #4350](https://github.com/hexide-io/HexIDE/pull/4350),
 recorded in [#4179's revised decision](https://github.com/hexide-io/HexIDE/issues/4179).
 Zero and small sizes and negative positions retain their existing behaviour; size floors are separate.
 This recovery uses `FormDefinition.LoadedWithErrors`, independently of the read-only faithful-save gate.
+
+Duplicate recovery follows [#4096's IDE measurement](https://github.com/hexide-io/HexIDE/issues/4096#issuecomment-6915523429)
+and [#4317's scoped decision](https://github.com/hexide-io/HexIDE/issues/4317), using the refused-text
+measurements in [oracle PR #4987](https://github.com/hexide-io/HexIDE/pull/4987). On non-string properties,
+quoted values and letter-leading text returned unrecognised by the parser qualify; on Single/Double
+properties, ampersand-leading text also qualifies. Extending the measured words to other unrecognised
+words and applying recovery across properties are reasoned generalisations, not further measurements.
+Recognised numeric words (`True`, `False`, `Infinity`, `NaN`), other unreadable shapes and values VB6
+accepts but HexIDE cannot read retain the read-only hold. A bad line before any readable one and
+all-unreadable duplicates remain held too. Later readable lines still win. Client-size pixel snapping
+is unchanged: HexIDE writes the model's 2000 twips where VB6 saved 1995.
 
 ## Designer files declared as code modules
 

@@ -76,10 +76,13 @@ public class NegativeSizeSaveTests : IDisposable
 
     private IWindowManager picker = null!;
 
-    private (ProjectDefinition Project, FormDefinition Form, string Original) Load(string width = "-150", string property = "Width")
+    private (ProjectDefinition Project, FormDefinition Form, string Original) Load(string width = "-150", string property = "Width", bool button = true)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P") { AbsolutePath = Path.Join(dir, "P.vbp") };
-        var source = $"VERSION 5.00\r\nBegin VB.Form Form1\r\nBegin VB.CommandButton Command2\r\n{property} = {width}\r\nEnd\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
+        var properties = $"{property} = {width}\r\n";
+        var source = "VERSION 5.00\r\nBegin VB.Form Form1\r\n" +
+            (button ? "Begin VB.CommandButton Command2\r\n" + properties + "End\r\n" : properties) +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
         var form = new FormDeserializer().Deserialize(project, source, NullSink.Instance)!;
         form.AbsolutePath = Path.Join(dir, "Form1.frm");
         File.WriteAllText(form.AbsolutePath, source);
@@ -131,6 +134,56 @@ public class NegativeSizeSaveTests : IDisposable
         await picker.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
         File.ReadAllText(path).Should().Be(original);
         File.ReadAllText(copy).Should().Contain("Height          =   0");
+    }
+
+    // #4317 / #4096 issuecomment-6915523429: a refused duplicate recovers and protects its source.
+    [Fact]
+    public async Task A_refused_duplicate_saves_through_Save_As_and_preserves_the_original()
+    {
+        var (_, form, _) = Load("2000\r\nClientHeight = abc", "ClientHeight", button: false);
+        var path = form.AbsolutePath!;
+        var bytes = File.ReadAllBytes(path);
+        var time = File.GetLastWriteTimeUtc(path);
+        form.LoadedWithErrors.Should().BeTrue();
+        form.CanSaveFaithfully.Should().BeTrue();
+        var service = MakeService();
+        var copy = Path.Join(dir, "Recovered.frm");
+        picker.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(Task.FromResult<string?>(copy));
+        (await service.SaveForm(form, false)).Should().BeTrue();
+        await picker.Received(1).SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        File.ReadAllBytes(path).Should().Equal(bytes);
+        File.GetLastWriteTimeUtc(path).Should().Be(time);
+        var lines = File.ReadAllText(copy).ReplaceLineEndings("\n").Split('\n')
+            .Where(line => line.TrimStart().StartsWith("ClientHeight ", StringComparison.OrdinalIgnoreCase)).ToArray();
+        lines.Should().ContainSingle();
+        double.Parse(lines[0].Split('=')[1].Trim(), System.Globalization.CultureInfo.InvariantCulture).Should().Be(2000);
+        form.LoadedWithErrors.Should().BeFalse();
+    }
+
+    // #4317: these unreadable shapes retain the existing hold, including Save As.
+    [Theory]
+    [InlineData("ClientHeight", "abc\r\nClientHeight = 2000", false)]
+    [InlineData("ClientHeight", "abc\r\nClientHeight = xyz", false)]
+    [InlineData("BackColor", "&H8000000F&\r\nBackColor = &H02C0C0C0&", true)]
+    [InlineData("TabIndex", "1\r\nTabIndex = &H3", true)]
+    [InlineData("Height", "375\r\nHeight = --5", true)]
+    [InlineData("BackColor", "&H8000000F&\r\nBackColor = True", true)]
+    [InlineData("BackColor", "&H8000000F&\r\nBackColor = False", true)]
+    [InlineData("BackColor", "&H8000000F&\r\nBackColor = Infinity", true)]
+    public async Task Held_duplicates_refuse_Save_and_Save_As(string property, string value, bool button)
+    {
+        var (_, form, _) = Load(value, property, button);
+        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.UnreadableDuplicateProperty);
+        var path = form.AbsolutePath!;
+        var bytes = File.ReadAllBytes(path);
+        var time = File.GetLastWriteTimeUtc(path);
+        var service = MakeService();
+        (await service.SaveForm(form, false)).Should().BeFalse();
+        (await service.SaveForm(form, true)).Should().BeFalse();
+        await picker.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
+        File.ReadAllBytes(path).Should().Equal(bytes);
+        File.GetLastWriteTimeUtc(path).Should().Be(time);
+        Directory.GetFiles(dir).Should().Equal(path);
     }
 
     [Theory]
