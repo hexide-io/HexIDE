@@ -15,7 +15,8 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 /// <summary>
 /// A form's Move (#1569). The program is the probe that ran on vb6.exe SP6, native and p-code alike, less the rows that are
 /// the window system's rather than VB6's, and every expected line is what it logged: docs/vb6-fidelity-oracle/a-forms-move.md.
-/// The form is loaded and not shown, as there: VB6 raises Resize for each change of a hidden form's size (#994).
+/// The original probe loads the form without showing it: VB6 raises Resize for each change of a hidden form's size (#994).
+/// #4793 adds the shown minimized/maximized cases measured on the console, and the never-shown exception.
 /// </summary>
 public sealed class FormMoveTests : IDisposable
 {
@@ -198,6 +199,76 @@ public sealed class FormMoveTests : IDisposable
             "  resize 4800x4500 ws0",
             "  resize 4800x3600 ws0",
             "Form1.Width = 4800: Form1.Height = 3600 -> 1200,1200 4800x3600 resizes 2 err 0");
+    }
+
+    // #4793, measured on the console in VB6 SP6, native and p-code (oracle PR #4798):
+    // docs/vb6-fidelity-oracle/a-forms-move.md. Compare geometry with its pre-Move values, not a desktop's frame sizes.
+    [AvaloniaTheory]
+    [InlineData(2, "600, 900")]
+    [InlineData(2, "600, 900, 4800, 3600")]
+    [InlineData(1, "600, 900")]
+    [InlineData(1, "600, 900, 4800, 3600")]
+    public async Task A_shown_forms_Move_raises_384_without_changing_geometry_or_state(int state, string arguments)
+    {
+        var module = $$"""
+            Attribute VB_Name = "Module1"
+            Sub Main()
+                Dim oldLeft As Single, oldTop As Single, oldWidth As Single, oldHeight As Single
+                Dim oldState As Integer
+                Load Form1
+                Form1.Quiet = True
+                Form1.Show
+                Form1.Move 1200, 1200, 6000, 4500
+                Form1.WindowState = {{state}}
+                oldLeft = Form1.Left: oldTop = Form1.Top
+                oldWidth = Form1.Width: oldHeight = Form1.Height
+                oldState = Form1.WindowState
+                Debug.Print "state " & oldState
+                On Error Resume Next
+                Form1.Move {{arguments}}
+                Debug.Print Err.Number & "|" & Err.Description
+                Debug.Print (Form1.Left = oldLeft) & "|" & (Form1.Top = oldTop) & "|" & (Form1.Width = oldWidth) & "|" & (Form1.Height = oldHeight) & "|" & (Form1.WindowState = oldState)
+                Unload Form1
+            End Sub
+            """;
+        using var cancel = new CancellationTokenSource();
+        var (printed, errors, fault) = await RunAsync(module, cancel.Token);
+        cancel.Cancel();
+
+        fault.Should().BeNull();
+        errors.Should().BeEmpty();
+        printed.Should().Equal(
+            state == 2 ? "state 2" : "state 1",
+            "384|A form can't be moved or sized while minimized or maximized",
+            "True|True|True|True|True");
+    }
+
+    // #4793: a loaded, never-shown form reads WindowState 0 and Move succeeds after WindowState = 2.
+    [AvaloniaFact]
+    public async Task A_never_shown_forms_Move_succeeds_after_setting_WindowState()
+    {
+        var module = """
+            Attribute VB_Name = "Module1"
+            Sub Main()
+                On Error Resume Next
+                Load Form1
+                Form1.Quiet = True
+                Form1.Move 1200, 1200, 6000, 4500
+                Form1.WindowState = 2
+                Debug.Print "state " & Form1.WindowState
+                Form1.Move 600, 900, 4800, 3600
+                Debug.Print "err " & Err.Number
+                Debug.Print Form1.Left & "," & Form1.Top & " " & Form1.Width & "x" & Form1.Height
+                Unload Form1
+            End Sub
+            """;
+        using var cancel = new CancellationTokenSource();
+        var (printed, errors, fault) = await RunAsync(module, cancel.Token);
+        cancel.Cancel();
+
+        fault.Should().BeNull();
+        errors.Should().BeEmpty();
+        printed.Should().Equal("state 0", "err 0", "600,900 4800x3600");
     }
 
     // Each shape built alone, as vb6.exe compiled it (or refused to): one project each in the probe.

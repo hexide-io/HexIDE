@@ -247,10 +247,9 @@ public static class AvaloniaMethodsInteroperability
             throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
         if (args.Any(a => a.IsMissing))
             throw new VBRunTimeException(VBStandardError.NamedArgumentNotFound);
-        // Session 0 ignores a WindowState, so this was not measured: the console is where VB6 can be asked.
-        if (form.WindowState != WindowState.Normal)
-            throw new NotImplementedException("A form's Move while it is minimized or maximized is not implemented: what VB6 "
-                + "does then was not measured (#1569)");
+        // #4793, docs/vb6-fidelity-oracle/a-forms-move.md: 384 only while shown; a never-shown form still moves.
+        if (form.IsVisible && form.WindowState != WindowState.Normal)
+            throw new VBRunTimeException(new VBStandardError(384, "A form can't be moved or sized while minimized or maximized"));
         for (var i = 0; i < args.Count; i++)
         {
             if (AvaloniaInteroperability.ConvertForAssignment(MoveOrder[i], args[i]) is not double twips)
