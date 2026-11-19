@@ -115,15 +115,9 @@ internal static class ControlMembers
 
         foreach (var prop in props)
         {
+            // Visible before the form is shown, #4520's TextBox among them, is VBVisibility's: windowed controls only (#4829).
             if (AvaloniaInteroperability.TryGet(control, prop, out var value))
-            {
-                // #4520 measured Visible during Form_Load, before the containing form is shown.
-                if (ReferenceEquals(prop, VBProperties.VisibleProperty)
-                    && FormControls.TryOf(control, out var owner) && owner.Form?.FormWindow is { } window
-                    && FormRoot.View(window) is { IsShown: false })
-                    return new Vb6Value(false);
                 return value;
-            }
         }
         if (RuntimeScale.TryGet(control, memberIdentifier, out var scaleMember))
             return scaleMember;
