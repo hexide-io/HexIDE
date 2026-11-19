@@ -248,9 +248,26 @@ or Property Let on a write, preserving the returned value without scalar coercio
 - **WHEN** Holder.State is a parameterless Get returning a Bag with default Item(key)
 - **THEN** `h.State("k")` reads Item("k") and `h.State("k") = "w"` runs its Property Let
 
-#### Scenario: Unmeasured parameterized defaults
-- **WHEN** arguments reach a class without a default, a Variable/Sub default, or a write without a default Property Let
-- **THEN** execution refuses untrappably naming #4606
+#### Scenario: Arguments on a missing default
+- **WHEN** arguments reach a class without a default member
+- **THEN** reads and writes raise 438, following the native and p-code measurements in [#4747](https://github.com/hexide-io/HexIDE/issues/4747)
+
+#### Scenario: Arguments on a Sub default
+- **WHEN** arguments reach a default Sub on a read or write
+- **THEN** an early-bound reference gives the compile error "Expected Function or variable"
+- **AND** a late-bound reference runs the Sub on a read, returning Empty; on a write, As Object runs it and raises 451, and a Variant raises 450 without running it
+
+#### Scenario: Arguments on a variable default
+- **WHEN** arguments reach a default variable
+- **THEN** a late-bound reference raises 451; early-bound Variant arrays return the indexed element, and writes check the index without changing the field
+- **AND** early-bound Variant scalar/Empty fields raise 13, array indexes past the bounds raise 9, and typed scalar fields give "Wrong number of arguments or invalid property assignment" on a read or "Can't assign to read-only property" on a write
+- **AND** these results follow the native and p-code measurements in [#4747](https://github.com/hexide-io/HexIDE/issues/4747)
+
+#### Scenario: Assignment without a default Let
+- **WHEN** an indexed assignment reaches a default Get without a Let, or a default Function
+- **THEN** the member runs with the index arguments and a scalar result raises 424 early-bound or 451 late-bound
+- **AND** held in a Variant, a write through a default Function raises 450 without running it
+- **AND** an object result refuses untrappably naming #4747, pending measurement
 
 ### Requirement: Trailing argument and declared array type refusals
 

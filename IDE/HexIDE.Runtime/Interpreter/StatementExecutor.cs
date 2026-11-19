@@ -3060,7 +3060,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         {
                             var result = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
                                 ?? throw new NotImplementedException("A parameterless Get without a value is unmeasured (#4747)");
-                            await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames);
+                            await interpreter.LetDefaultMember(result, await expressionExecutor.ResolveCallArgs(getCall.argsCall(0)), value, context, stmtFrames, expressionExecutor);
                             return default;
                         }
                         if (indexedProperty.Let is not { } indexedLetter
@@ -3333,7 +3333,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 && (receiver.Value is VbObject || receiver.Value is null
                     && interpreter.ProjectClassFor(receiver.DeclaredAs ?? "") is not null))
             {
-                await interpreter.LetDefaultMember(receiver, [.. indexes.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+                await interpreter.LetDefaultMember(receiver, [.. indexes.Select(v => new CallArg(v, null))], value, context, stmtFrames, expressionExecutor);
                 return default;
             }
             var indexesAsInt = await expressionExecutor.ResolveSubscripts(indexes);
@@ -3398,7 +3398,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             holder = await expressionExecutor.IndexResult(holder, subscripts, call);
         if (holder.Value is VbObject)
         {
-            await interpreter.LetDefaultMember(holder, [.. last.Select(v => new CallArg(v, null))], value, context, stmtFrames);
+            await interpreter.LetDefaultMember(holder, [.. last.Select(v => new CallArg(v, null))], value, context, stmtFrames, expressionExecutor);
             return ControlFlow.Nothing;
         }
         if (holder.Value is not VBArray inner)
@@ -5545,7 +5545,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     await interpreter.LetDefaultMember(field,
                         await expressionExecutor.ResolveCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)),
-                        value, ctx, stmtFrames);
+                        value, ctx, stmtFrames, expressionExecutor);
                     return;
                 }
                 if (field.Value is not VBArray array || member.iCS_S_ProcedureOrArrayCall().argsCall().Length != 1)
