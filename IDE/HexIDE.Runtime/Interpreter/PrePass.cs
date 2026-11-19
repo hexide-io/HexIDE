@@ -763,21 +763,22 @@ public class PrePass : VB6BaseVisitor<object?>
                 : parts.Length == 3 && VB6InBoxLibraries.ContainerBelongsTo(parts[0], parts[1])
                     && VB6InBoxLibraries.TryInLibraryContainer(parts[0], parts[1], parts[2], out value);
             if (!found)
-                refusal = parts.Length == 2
-                    ? new VBCompileErrorException("Method or data member not found")
-                    : new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4745)");
+                refusal = new VBCompileErrorException(parts.Length == 3
+                    && VB6InBoxLibraries.TryInLibrary(parts[0], parts[1], out _)
+                        ? "Invalid qualifier"
+                        : "Method or data member not found");
         }
         else if (parts.Length == 2 && VB6InBoxLibraries.IsContainer(parts[0]))
         {
             found = VB6InBoxLibraries.TryInContainer(parts[0], parts[1], out value);
             if (!found)
-                refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4745)");
+                refusal = new VBCompileErrorException("Method or data member not found");
         }
         else
             return false;
         if (!found && refusal is null) return false;
         if (found && !TryAsDouble(value, out result))
-            refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': nonnumeric in-box constant '{text}' is not implemented (#4745)");
+            refusal = new VBCompileErrorException("Type mismatch");
         EnumLibraryNames.Add(new(enumName, foldingMember, text, parts.Length > 1, refusal));
         return true;
     }
