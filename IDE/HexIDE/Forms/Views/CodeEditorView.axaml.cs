@@ -2810,6 +2810,7 @@ public partial class CodeEditorView : UserControl
     private sealed class CodeWindowCompletionRules(CodeEditorView view, CodeEditorViewModel vm) : IEditorCompletionRules
     {
         public bool MayOpenCompletion() => vm.Settings.AutoListMembers && !view.CaretIsInFreeText();
+        public bool LettersOpenCompletion => vm.Settings.ListMembersAsYouType;
         public bool LettersSelect => false;
         public bool RefusesTyping(int offset, int length) => vm.RefusesTyping(offset, length);
         public bool Commits(Key key) => key is Key.Return or Key.Tab or Key.Space;

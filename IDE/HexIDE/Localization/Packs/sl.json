@@ -594,6 +594,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Nastavitve kode",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Zahtevaj deklaracijo spremenljivk",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Samodejno prikaži člane",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Prikaži člane med tipkanjem",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Samodejne hitre informacije",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Samodejni zamik",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Oblikuj ob shranjevanju",

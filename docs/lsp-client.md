@@ -586,7 +586,9 @@ requests, closes popups and ends snippet navigation when detached, including a d
 
 A carried file asks its claiming servers only for advertised capabilities. Completion opens on a
 letter, an advertised completion trigger or the Complete Word command (the platform command key
-plus Space), with Auto List Members enabled. Requests use the caret position. Enter accepts without
+plus Space), with Auto List Members enabled. A letter opens a new list only when List members as you
+type is also on (the default); with it off, letters still refresh a list opened by a trigger or
+Complete Word, including a request still pending. Requests use the caret position. Enter accepts without
 a line break, and Tab also accepts. With nothing selected, Enter closes the list and starts a new
 line, while Tab accepts the first item. Space and other non-word input close the list without accepting.
 Snippets select their first stop whether accepted with Enter or Tab, and Tab advances through them.

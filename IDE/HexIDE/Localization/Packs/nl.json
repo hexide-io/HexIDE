@@ -624,6 +624,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Code-instellingen",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Variabeledeclaratie vereisen",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Leden automatisch weergeven",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Leden weergeven tijdens het typen",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatische snelinfo",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatisch inspringen",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Opmaken bij opslaan",

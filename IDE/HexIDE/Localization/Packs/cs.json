@@ -623,6 +623,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Nastavení kódu",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Vyžadovat deklaraci proměnných",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatický seznam členů",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Zobrazovat členy při psaní",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatické rychlé informace",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatické odsazení",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formátovat při uložení",

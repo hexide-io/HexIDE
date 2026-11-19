@@ -20,6 +20,8 @@
             <StackPanel Orientation="Vertical" Spacing="6">
                 <CheckBox IsChecked="{CompiledBinding RequireVariableDeclaration}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration}" />
                 <CheckBox IsChecked="{CompiledBinding AutoListMembers}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.AutoListMembers}" />
+                <CheckBox x:Name="ListMembersAsYouType" Margin="20,0,0,0" IsChecked="{CompiledBinding ListMembersAsYouType}"
+                          IsEnabled="{CompiledBinding AutoListMembers}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType}" />
                 <CheckBox IsChecked="{CompiledBinding AutoQuickInfo}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo}" />
                 <CheckBox IsChecked="{CompiledBinding AutoIndent}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.AutoIndent}" />
                 <CheckBox IsChecked="{CompiledBinding FormatOnSave}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.FormatOnSave}" />

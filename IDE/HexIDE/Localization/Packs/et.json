@@ -594,6 +594,7 @@
     "Str.Options.EditorGeneral.CodeSettings.Header": "Koodi sätted",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Nõua muutujate deklareerimist",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Liikmete automaatne loetelu",
+    "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Kuva liikmed tippimise ajal",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automaatne kiirteave",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automaatne taane",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Vorminda salvestamisel",

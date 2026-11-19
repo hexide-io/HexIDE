@@ -87,6 +87,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     // ── Editor defaults ─────────────────────────────────────────
     private bool _requireVariableDeclaration = SettingsDefaults.RequireVariableDeclaration;
     private bool _autoListMembers = SettingsDefaults.AutoListMembers;
+    private bool _listMembersAsYouType = SettingsDefaults.ListMembersAsYouType;
     private bool _autoQuickInfo = SettingsDefaults.AutoQuickInfo;
     private bool _autoIndent = SettingsDefaults.AutoIndent;
     private string _editorFontFamily = SettingsDefaults.EditorFontFamily;
@@ -172,6 +173,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
     {
         get => _autoListMembers;
         set => SetProperty(ref _autoListMembers, value);
+    }
+
+    public bool ListMembersAsYouType
+    {
+        get => _listMembersAsYouType;
+        set => SetProperty(ref _listMembersAsYouType, value);
     }
 
     public bool AutoQuickInfo
@@ -413,6 +420,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 LanguageServerSettings = _languageServerSettings,
                 RequireVariableDeclaration = _requireVariableDeclaration,
                 AutoListMembers = _autoListMembers,
+                ListMembersAsYouType = _listMembersAsYouType,
                 AutoQuickInfo = _autoQuickInfo,
                 AutoIndent = _autoIndent,
                 TabWidth = _tabWidth,
@@ -524,6 +532,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _hasSavedKeymap = hasSavedKeymap;
             RequireVariableDeclaration = data.RequireVariableDeclaration;
             AutoListMembers = data.AutoListMembers;
+            ListMembersAsYouType = data.ListMembersAsYouType;
             AutoQuickInfo = data.AutoQuickInfo;
             AutoIndent = data.AutoIndent;
             TabWidth = data.TabWidth;
@@ -582,6 +591,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("autoListMembers")]
         public bool AutoListMembers { get; set; } = SettingsDefaults.AutoListMembers;
+
+        [JsonPropertyName("listMembersAsYouType")]
+        public bool ListMembersAsYouType { get; set; } = SettingsDefaults.ListMembersAsYouType;
 
         [JsonPropertyName("autoQuickInfo")]
         public bool AutoQuickInfo { get; set; } = SettingsDefaults.AutoQuickInfo;
