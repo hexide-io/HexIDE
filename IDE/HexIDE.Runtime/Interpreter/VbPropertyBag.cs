@@ -4,7 +4,7 @@ using System.Text;
 
 namespace HexIDE.Runtime.Interpreter;
 
-// Standalone bags only. The UserControl bag has separate, unmeasured persistence rules (#4680).
+// Standalone bags only. The UserControl bag has separate, unmeasured persistence rules (#4741).
 internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
 {
     private sealed record Entry(string Name, Vb6Value Value);
@@ -32,7 +32,7 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
                 {
                     var comparison = value.TryCompareTo(args[2]);
                     if (comparison is null)
-                        throw new NotImplementedException("PropertyBag default comparison is unmeasured (#4680)");
+                        throw new NotImplementedException("PropertyBag default comparison is unmeasured (#4741)");
                     if (comparison == 0) return Task.FromResult<Vb6Value?>(null);
                 }
                 entries.Add(new Entry(name.ToLowerInvariant(), Copy(value)));
@@ -46,20 +46,20 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
                 if (args.Count == 2) return Task.FromResult<Vb6Value?>(args[1]);
                 throw new VBRunTimeException(new VBStandardError(327, $"Data value named '{key}' not found"));
             default:
-                throw new NotImplementedException($"PropertyBag member {method} is not implemented (#4680)");
+                throw new NotImplementedException($"PropertyBag member {method} is not implemented (#4741)");
         }
     }
 
     private static void Count(List<Vb6Value> args, int min, int max)
     {
         if (args.Count < min || args.Count > max)
-            throw new NotImplementedException("PropertyBag argument-count errors are unmeasured (#4680)");
+            throw new NotImplementedException("PropertyBag argument-count errors are unmeasured (#4741)");
     }
 
     private static string Name(Vb6Value value)
     {
         if (value.Type != Vb6Value.ValueType.String)
-            throw new NotImplementedException("PropertyBag name conversion is unmeasured (#4680)");
+            throw new NotImplementedException("PropertyBag name conversion is unmeasured (#4741)");
         var name = (string)value.Value!;
         if (name.Length == 0) throw Invalid();
         _ = EncodeText(name);
@@ -86,7 +86,7 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
             || value.Type == Vb6Value.ValueType.Decimal || value.Type == Vb6Value.ValueType.Byte)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (value.Value is not VBArray array || array.ElementType != Vb6Value.ValueType.Byte || array.Rank != 1)
-            throw new NotImplementedException("PropertyBag Contents conversion is unmeasured (#4680)");
+            throw new NotImplementedException("PropertyBag Contents conversion is unmeasured (#4741)");
         var bytes = new byte[array.Length()];
         for (var i = 0; i < bytes.Length; i++) bytes[i] = (byte)array.GetValue([array.LowerBound() + i]).Value!;
         var parsed = Decode(bytes);
@@ -165,7 +165,7 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
         if (type == Vb6Value.ValueType.Boolean) return 11;
         if (type == Vb6Value.ValueType.Decimal) return 14;
         if (type == Vb6Value.ValueType.Byte) return 17;
-        throw new NotImplementedException("PropertyBag value type is not implemented (#4680)");
+        throw new NotImplementedException("PropertyBag value type is not implemented (#4741)");
     }
 
     private static void WriteValue(BinaryWriter writer, Vb6Value value)
@@ -260,7 +260,7 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
     }
 
     private static NotImplementedException UnpairedText() =>
-        new("PropertyBag unpaired UTF-16 code units are unmeasured (#4680)");
+        new("PropertyBag unpaired UTF-16 code units are unmeasured (#4741)");
 
     private static Vb6Value ReadValue(BinaryReader reader, ushort type)
     {
@@ -298,5 +298,5 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
     }
 
     private static VBRunTimeException Invalid() => new(VBStandardError.InvalidProcedureCall);
-    private static NotImplementedException Objects() => new("PropertyBag persistable and other objects are not implemented (#4680)");
+    private static NotImplementedException Objects() => new("PropertyBag persistable and other objects are not implemented (#4741)");
 }

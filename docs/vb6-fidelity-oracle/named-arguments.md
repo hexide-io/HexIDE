@@ -434,3 +434,36 @@ vb6.exe SP6, `/make`, every call built native and as p-code, which logged the sa
 - whether a gap before a supplied argument raises 448 on any method but `Move` and `ScaleX`;
 - `Show`, `PopupMenu` and `PaintPicture`;
 - an Automation object's methods.
+
+#### Through a Variant, and two more controls (2026-11-18, second run, #1474)
+
+**The rig:** the same as above.
+
+| Statement | VB6 |
+|---|---|
+| `Combo1.RemoveItem Index:=1`, on `[c0][c1][c2]` | ok; `[c0][c2]` |
+| `Text1.ZOrder Position:=0` | ok |
+| `Dim v As Variant: Set v = List1: v.AddItem Item:="viaVariant"` | **448**, and nothing is added |
+| `v.AddItem "pos"`, positional | ok; `[pos]` |
+| `Set v = Me: v.Move Left:=500` | **448**, and the form doesn't move |
+| `Set v = c` (a Collection)`: v.Add Item:="x", Key:="k"` | ok |
+
+- **A Variant behaves as an Object does:** a late-bound control or form takes no named argument, and a Collection takes its own.
+- **`RemoveItem` on a ComboBox and `ZOrder` on a TextBox take the same names** as on a ListBox.
+
+#### A variable declared As Control, or as the control's own class (2026-11-18, third run, #4737)
+
+**The rig:** the same as above.
+
+| Statement | VB6 |
+|---|---|
+| `Dim c As Control: Set c = List1: c.AddItem Item:="viaControl"` | **448**, and nothing is added |
+| `c.AddItem "posControl"`, positional | ok |
+| `Set c = Text1: c.Move Left:=300, Top:=2600` | **448**, and nothing moves |
+| `Dim lb As ListBox: Set lb = List1: lb.AddItem Item:="viaListBox"` | ok: the name binds |
+| `Dim tb As TextBox: Set tb = Text1: tb.Move Left:=400, Top:=2700` | ok; at 400, 2700 |
+| `Dim f As Form: Set f = Me: f.Move Left:=700, Top:=800` | ok; at 700, 800 |
+| `Dim f1 As Form1: Set f1 = Me: f1.Move Left:=900, Top:=1000` | ok; at 900, 1000 |
+
+- **`As Control` is late-bound for names,** as `As Object` and a Variant are.
+- **A variable declared as the control's or form's own class is early-bound,** and binds the names as the control's own name does. `As Form`, VB's generic form type, counts too.

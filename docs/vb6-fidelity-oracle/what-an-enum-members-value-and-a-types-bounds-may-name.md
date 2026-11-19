@@ -91,6 +91,42 @@ At `86dcc6c50`, in `HexIDE.Runtime.Tests` probes:
 - a module-level Const reads `vbObjectError Or 127`, `VBA.vbBinaryCompare` and `VBRUN.vbRed` as VB6 does, and refuses
   `VBA.vbRed` as unread rather than giving VB6's compile error.
 
+### A member after one that names a Const, read from another module (2026-11-18, #4614)
+
+**The question.** The rows above value a member that names a Const. Does the member after it take its `+ 1`, and can
+another module read the pair bare, qualified, in its own Consts and in an array's bounds?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same.
+- **The project:** `Module1` is listed first and holds Sub Main; `Module2` follows it. So `Module1`'s declarations
+  read `Module2`'s Enum before `Module2`'s own declarations have run.
+
+```vb
+' Module2
+Const K As Long = 5
+Public Enum E
+    M = K + 1
+    N
+End Enum
+
+' Module1
+Const C As Long = M + 1
+Const D As Long = Module2.N + 10
+Dim a(M) As Long
+' Sub Main logs:
+'   M, N, E.M, Module2.M, E.N
+'   C, D, UBound(a), TypeName(M)
+```
+
+| Read | VB6 |
+|---|---|
+| `M`, `N`, `E.M`, `Module2.M`, `E.N` | `6 7 6 6 7` |
+| `C`, `D`, `UBound(a)`, `TypeName(M)` | `7 17 6 Long` |
+
+**Reading.** The member after `M` takes `M + 1`, as after any member. Another module reads both members as constants
+of their value: bare, by Enum, by module, in its own Consts and in a bound. It does so even from declarations that run
+before the owning module's own.
+
 ### A variable declared above its Type (2026-11-18, #4734)
 
 **The probe.**
