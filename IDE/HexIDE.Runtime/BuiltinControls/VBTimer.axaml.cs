@@ -22,6 +22,12 @@ public class VBTimer : TemplatedControl
 
     private IDisposable? timer;
 
+    /// <summary>
+    /// A Timer has started counting towards its next event: enabled, with an Interval, on a form that is showing. Only the
+    /// corpus smoke run listens, to know a startup Timer is armed even when Form_Load set it going (#4774).
+    /// </summary>
+    internal static event Action<VBTimer>? Armed;
+
     static VBTimer()
     {
         IntervalProperty.Changed.AddClassHandler<VBTimer>((timer, e) =>
@@ -55,6 +61,7 @@ public class VBTimer : TemplatedControl
                 this.ExecuteSub(TimerComponentClass.TimerEvent);
                 return true;
             }, TimeSpan.FromMilliseconds(Interval));
+            Armed?.Invoke(this);
         }
     }
 }

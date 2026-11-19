@@ -20,6 +20,7 @@ public class ProjectSmokeHarnessTests : IDisposable
     [Theory]
     [InlineData("ran to completion", "made", false)]
     [InlineData("ran to the time limit", "refused", false)]
+    [InlineData("timer did not fire", "made", false)]
     [InlineData("crashed", "made", true)]
     [InlineData("refused", "crashed", true)]
     public async Task Run_and_make_are_reported_independently_after_save(string run, string make, bool failed)
