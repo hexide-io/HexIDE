@@ -730,6 +730,7 @@ added afterwards.
 - [A name declared twice (2026-10-23, #1622, #1499)](a-name-declared-twice.md#a-name-declared-twice-2026-10-23-1622-1499)
 - [Next closing several loops (2026-10-27, #2393)](next-closing-several-loops.md#next-closing-several-loops-2026-10-27-2393)
 - [LOF, Loc, Seek and the Input function (2026-10-23, #1645)](lof-loc-seek-and-the-input-function.md#lof-loc-seek-and-the-input-function-2026-10-23-1645)
+- [An Input file's buffer at its edge: EOF, Line Input and a file that grows (2026-11-19, #4944, SP6)](an-input-files-buffer-at-its-edge.md#an-input-files-buffer-at-its-edge-eof-line-input-and-a-file-that-grows-2026-11-19-4944-sp6)
 - [A declaration written with a type character (2026-10-27, #2409)](a-declaration-written-with-a-type-character.md#a-declaration-written-with-a-type-character-2026-10-27-2409)
 - [A numeric literal ending in its point (2026-10-23, #1615)](a-numeric-literal-ending-in-its-point.md#a-numeric-literal-ending-in-its-point-2026-10-23-1615)
 - [Random and Binary files, Get, Put and Len (2026-10-24, #1646)](random-and-binary-files-get-put-and-len.md#random-and-binary-files-get-put-and-len-2026-10-24-1646)
