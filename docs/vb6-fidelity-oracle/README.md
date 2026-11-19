@@ -183,6 +183,10 @@ window (`MainWindowHandle` is `0`, `MainWindowTitle` empty) and `AppActivate` re
 found, so SendKeys reaches nothing. Nothing about this is visible from the host: the process starts, stays
 running, and does nothing.
 
+**It displays no form either.** A compiled program run there reads `Visible` False after `Show`. So a row whose
+result depends on a form being displayed measures a hidden form instead. Three sections, two of *Several forms*
+and one of *A form's Resize, Activate and Deactivate*, were overturned that way (#4744). Run such rows on the console.
+
 **What works, in two parts.** First there has to be a console session at all — on a VM nobody logs into,
 there is none (`query user` answers `No User exists for *`). Autologon provides one:
 
@@ -562,6 +566,7 @@ added afterwards.
 - [Several forms: load, show, hide, modal, and when the run ends (2026-10-14, #822)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#several-forms-load-show-hide-modal-and-when-the-run-ends-2026-10-14-822)
 - [A form's name as a type: New, As New, an Object and an interface (2026-11-18, #4598, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#a-forms-name-as-a-type-new-as-new-an-object-and-an-interface-2026-11-18-4598-sp6)
 - [Who owns a modal form, and what F5 brings back (2026-11-18, #4618, SP6, IDE)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#who-owns-a-modal-form-and-what-f5-brings-back-2026-11-18-4618-sp6-ide)
+- [A form displayed, and a form behind a modal one, re-measured on the console (2026-11-18, #4744, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#a-form-displayed-and-a-form-behind-a-modal-one-re-measured-on-the-console-2026-11-18-4744-sp6)
 - [An unhandled run-time error (2026-10-14, #1011)](an-unhandled-run-time-error.md#an-unhandled-run-time-error-2026-10-14-1011)
 - [Operator precedence (2026-10-15, #1074)](operator-precedence.md#operator-precedence-2026-10-15-1074)
 - [The library's `$` forms (2026-10-15, #742, #1071)](the-librarys--forms.md#the-librarys--forms-2026-10-15-742-1071)
@@ -603,6 +608,7 @@ added afterwards.
 - [A UDT field passed ByRef (2026-10-22, #1451)](a-udt-field-passed-byref.md#a-udt-field-passed-byref-2026-10-22-1451)
 - [An array element passed ByRef (2026-10-22, #1455)](an-array-element-passed-byref.md#an-array-element-passed-byref-2026-10-22-1455)
 - [For Each locks its array (#1460)](for-each-locks-its-array.md#for-each-locks-its-array-1460)
+- [GoSub, Return, and On … GoTo and On … GoSub (2026-11-18, #4726)](gosub-return-and-on-goto.md#gosub-return-and-on--goto-and-on--gosub-2026-11-18-4726)
 - [The References dialog's fixed rows (2026-10-22, #1026, design-time)](the-references-dialogs-fixed-rows.md#the-references-dialogs-fixed-rows-2026-10-22-1026-design-time)
 - [A form's StartUpPosition when its file has no line (2026-10-13, #932)](a-forms-startupposition-when-its-file-has-no-line.md#a-forms-startupposition-when-its-file-has-no-line-2026-10-13-932)
 - [A form's Attribute block, and a form without one (2026-10-22, #516, #931)](a-forms-attribute-block-and-a-form-without-one.md#a-forms-attribute-block-and-a-form-without-one-2026-10-22-516-931)
@@ -625,6 +631,7 @@ added afterwards.
 - [An unset Function of an object type returns Nothing (2026-11-18, #4622, SP6)](a-let-into-an-object-variable.md#an-unset-function-of-an-object-type-returns-nothing-2026-11-18-4622-sp6)
 - [A default member, by kind and by target (2026-11-18, #4694)](a-let-into-an-object-variable.md#a-default-member-by-kind-and-by-target-2026-11-18-4694)
 - [The size of a control added from the toolbox (2026-10-23, #1473, design-time, IDE, release build)](the-size-of-a-control-added-from-the-toolbox.md#the-size-of-a-control-added-from-the-toolbox-2026-10-23-1473-design-time-ide-release-build)
+- [What the toolbox's tooltips read (2026-11-18, #2751, SP6, IDE)](the-size-of-a-control-added-from-the-toolbox.md#what-the-toolboxs-tooltips-read-2026-11-18-2751-sp6-ide)
 - [An undeclared variable passed ByRef (2026-10-23, #1505)](an-undeclared-variable-passed-byref.md#an-undeclared-variable-passed-byref-2026-10-23-1505)
 - [Chr, Asc, ChrW and AscW (2026-10-23, #1134)](chr-asc-chrw-and-ascw.md#chr-asc-chrw-and-ascw-2026-10-23-1134)
 - [The name VB6's designer gives a new control (2026-10-23, #540, design-time, IDE, release build)](the-name-vb6s-designer-gives-a-new-control.md#the-name-vb6s-designer-gives-a-new-control-2026-10-23-540-design-time-ide-release-build)
@@ -835,6 +842,7 @@ added afterwards.
 - [The drawing methods: Line, PSet, Circle, Cls and Point (2026-11-18, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#the-drawing-methods-line-pset-circle-cls-and-point-2026-11-18-988-sp6)
 - [Circles, arcs, sectors and thick pens, pixel by pixel (2026-11-18, #988, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#circles-arcs-sectors-and-thick-pens-pixel-by-pixel-2026-11-18-988-sp6)
 - [What an Enum member's value and a Type's array bounds may name (2026-11-18, #4594, #4595, SP6)](what-an-enum-members-value-and-a-types-bounds-may-name.md#what-an-enum-members-value-and-a-types-array-bounds-may-name-2026-11-18-4594-4595-sp6)
+- [A member after one that names a Const, read from another module (2026-11-18, #4614)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-member-after-one-that-names-a-const-read-from-another-module-2026-11-18-4614)
 - [Object array fields in a Type (2026-11-18, #4596, SP6)](object-array-fields-in-a-type.md#object-array-fields-in-a-type-2026-11-18-4596-sp6)
 - [With New, a default instance in its own Class_Initialize, and Set through members (2026-11-18, #4599 to #4607, SP6)](with-new-default-instances-and-set-through-members.md#with-new-a-default-instance-in-its-own-class_initialize-and-set-through-members-2026-11-18-4599-to-4607)
 - [LoadPicture: which files load, and the errors for those that don't (2026-11-18, #4597, SP6)](loadpicture-file-kinds-and-file-errors.md#loadpicture-which-files-load-and-the-errors-for-those-that-dont-2026-11-18-4597-sp6)
@@ -846,3 +854,7 @@ added afterwards.
 - [A form's As New instance is in its slot during Form_Initialize (2026-11-18, #4640, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#a-forms-as-new-instance-is-in-its-slot-during-form_initialize-2026-11-18-4640-sp6)
 - [Named arguments to a control's, a form's and a Collection's methods (2026-11-18, #1474, SP6)](named-arguments.md#named-arguments-to-a-controls-a-forms-and-a-collections-methods-2026-11-18-1474-sp6)
 - [A non-String PathName, access denied, and programs that can't start (2026-11-18, #4406)](shell.md#a-non-string-pathname-access-denied-and-programs-that-cant-start-2026-11-18-4406)
+- [An HRESULT given to Err.Raise or Err.Number (2026-11-18, #4730, SP6)](an-hresult-given-to-err-raise-or-err-number.md#an-hresult-given-to-errraise-or-errnumber-2026-11-18-4730-sp6)
+- [In the IDE too: the line break is in the description itself (2026-11-18, #4676, SP6)](errobject-as-a-declared-type.md#in-the-ide-too-the-line-break-is-in-the-description-itself-2026-11-18-4676-sp6)
+- [A control's and a form's members through CallByName (2026-11-18, #4520)](callbyname.md#a-controls-and-a-forms-members-through-callbyname-2026-11-18-4520)
+- [Where `/make` puts its output: Path32, /outdir, a failed build, and an ActiveX DLL's registration (2026-11-18, #4538, #2503, SP6)](where-make-puts-its-output.md#where-make-puts-its-output-path32-outdir-a-failed-build-and-an-activex-dlls-registration-2026-11-18-4538-2503-sp6)
