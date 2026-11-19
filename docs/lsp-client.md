@@ -2192,6 +2192,9 @@ confinement and ownership check as a replace, while an edited one is left alone 
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
 The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
 `.rdproj` RDCore's language server needs at the workspace root. RDCore entries can also seed it before importing (below).
+In a group, `Reference=*\A` lines naming another loaded project become ordered `IsProject` references by that
+project's name; these select format `1.3` unless settings override it, and references outside the group are omitted
+([#4899](https://github.com/hexide-io/HexIDE/issues/4899)).
 
 Completed artefact writes and removals feed `workspace/didChangeWatchedFiles` registrations directly
 (#456). There is no public add-in contract (#457), no undeclared generation,

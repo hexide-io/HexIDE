@@ -103,6 +103,7 @@ public enum WorkspaceProjectFileKind
 /// <param name="Name">
 /// The name the project file records. For a type library that is its description, which isn't always the identifier
 /// code qualifies its members with; <see cref="IWorkspaceLibraryNames"/> reads that, once there is consent.
+/// For a project reference it is the loaded project's own name.
 /// </param>
 /// <param name="Guid">The registry identifier, where the reference was recorded with one.</param>
 /// <param name="Major">The major version, where one was recorded.</param>
@@ -115,4 +116,8 @@ public sealed record WorkspaceProjectReference(
     int? Major = null,
     int? Minor = null,
     int? Lcid = null,
-    string? HostPath = null);
+    string? HostPath = null)
+{
+    /// <summary>Names a loaded workspace project rather than a type library.</summary>
+    public bool IsProject { get; init; }
+}
