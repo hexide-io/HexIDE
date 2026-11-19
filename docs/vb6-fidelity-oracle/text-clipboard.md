@@ -118,7 +118,11 @@ function before returning the host Clipboard object.
 
 **The rig:**
 - **Build and run:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0 of the oracle guest. Both builds gave identical answers.
-- **Whose clipboard:** session 0's window station's, not the console user's.
+- **Whose clipboard:** session 0's window station's, not the console user's. Re-run on the guest's console
+  (2026-11-18, #4768), the IDE, p-code and native agreeing, on the console user's clipboard, the rows it repeated
+  read the same: an empty clipboard's Type 0 picture; formats 2 and 8 after `SetData p`; the Type 1 picture,
+  2540 × 1482, back as a bitmap or a DIB; the empty picture for a metafile; 461 for `SetData p, vbCFMetafile`; and
+  1, 2 and 8 after `SetText "abc"` and `SetData p`, with `GetText` still `abc`.
 - **The program:** from a startup form, `Picture1.AutoRedraw = True` and a red filled box were drawn into a PictureBox, and `Picture1.Image` gave the source, `p`.
   - `p` is a bitmap (Type 1), Width 2540 and Height 1482 in HiMetric.
   - Each statement was logged with its error under Resume Next.
@@ -153,4 +157,4 @@ function before returning the host Clipboard object.
 - **Not measured:**
   - a metafile or an icon picture from `LoadPicture`;
   - `SetData` of an icon as `vbCFBitmap`;
-  - the console session's own clipboard.
+  - the console session's own clipboard, beyond the rows *Whose clipboard* lists.

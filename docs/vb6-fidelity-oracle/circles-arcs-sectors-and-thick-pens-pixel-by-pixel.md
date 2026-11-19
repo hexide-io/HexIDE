@@ -6,7 +6,9 @@ sector and fill? And what do thick pens draw beyond the shapes measured there?
 
 **The probe:**
 - **The form:** 120 by 120 pixels, `ScaleMode` 3 and `AutoRedraw` True, run in session 0. p-code and native code
-  logged the same grids.
+  logged the same grids. `circle r10` and `circle r20` were re-run on the guest's console (2026-11-18, #4768), the
+  IDE, p-code and native agreeing, and matched the same run's session 0 pixel for pixel, and r10 the grid below.
+  That is what to expect if `Point` reads the persistent bitmap, which session 0 has too (reasoned, not checked).
 - **Each case:** it set `DrawWidth = 1`, `FillStyle = 1` (transparent) and `FillColor = 0`, then ran `Cls`. It drew
   once, in the default ForeColor unless a colour is named. Then it read every pixel of x and y 14 to 66 with `Point`.
 - **The grids:** `#` is any pixel that isn't the background read at (2, 2) after the `Cls`; `R` is red and `G` is

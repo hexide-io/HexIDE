@@ -87,8 +87,13 @@ window's `WS_VISIBLE` off, until `Visible = True`. **So a loaded element does st
 
 The two unindexed buttons hang `/make` on the console too, so it is **not a prompt that session 0 hides**. VB6.EXE was
 still running 15 s into `/make`, with no window title, and a screenshot of the console showed the desktop and nothing
-else. Its `/out` file said "Errors during load. Refer to 'Form1.log' for details", and `Form1.log` held the one
+else, though that capture was stale (below). Its `/out` file said "Errors during load. Refer to 'Form1.log' for
+details", and `Form1.log` held the one
 "Did not find an index property and control Command1 already exists" line. What it waits on is still not known.
+
+The console's capture can be stale: its taskbar clock read 21:13 in a capture taken near 23:00. So a second run
+(2026-11-18) listed VB6.EXE's own top-level windows instead, 15 s and 30 s into `/make`: three, all hidden. **Nothing
+was on screen to answer.**
 
 ### Event procedures for an array element, in VB6's IDE (2026-11-16, #4205)
 

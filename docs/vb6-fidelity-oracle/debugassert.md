@@ -24,8 +24,13 @@ probe's timeout reports it, with nothing logged after the assertion. An error di
 waiting case was also run under On Error Resume Next: there an error is trapped and the next line logs it, as "abc" and
 `1 / 0` show. Null, Empty, 0 and "False" still waited, so they break rather than raise.
 
-**Not measured:** what Continue (F5) does after the break, since session 0 has no one to press it. HexIDE goes on with
-the statement after the assertion, as it does after `Stop`.
+**Continue (F5) after the break** (2026-11-18, #4768, the guest's console, SP6). Session 0 has no one to press F5, so
+this was run on the console: `Debug.Assert False` between two logged lines, under `/runexit`.
+- **At the break:** the IDE's title read "assert - Microsoft Visual Basic [break]", and only the first line was
+  logged.
+- **After F5, sent to the IDE:** the second line was logged and the title read "[design]". **Continue goes on with
+  the statement after the assertion**, which is what HexIDE does, as after `Stop`.
+- **`/runexit` after a break:** the IDE was still open in design mode 25 s after the program ended.
 
 **In a compiled EXE**, native and p-code:
 

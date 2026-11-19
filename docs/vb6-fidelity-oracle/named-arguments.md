@@ -364,6 +364,10 @@ vb6.exe SP6, `/make`, every call built native and as p-code, which logged the sa
 | `x = Me.TextWidth(Str:="abc")` | 270, as `TextWidth("abc")` |
 | `x = Picture1.ScaleX(Width:=1440, FromScale:=vbTwips, ToScale:=vbPixels)`, and the same reordered | 96 |
 
+Re-run on the guest's console (2026-11-18, #4768), the IDE, p-code and native agreeing, beside session 0:
+`Me.Move Left:=600, Top:=700` put the form at 600, 700, the four named `Me.Move` at 900, 800, 5000 × 4000, and
+`Text1.Move 200, Top:=400` at 200, 400, as above.
+
 **An optional parameter left out before a supplied one, on `Move` and `ScaleX`:** **448** "Named argument not found", **at run time**, and nothing moves.
 
 | Statement | VB6 |
@@ -374,6 +378,7 @@ vb6.exe SP6, `/make`, every call built native and as p-code, which logged the sa
 | `Text1.Move Left:=240, Height:=380`, all named | **448** |
 | `Text1.Move 230, , , 370`, **all positional** | **448** |
 | `Me.Move 300, Width:=5200` and `Me.Move 310, Height:=4100` | **448** |
+| `Text1.Move 210, Height:=400` and `Me.Move 300, Width:=5200`, on the console (#4768) | **448**; nothing moved |
 | `Picture1.ScaleX(1440, ToScale:=vbPixels)` | **448** |
 | `Picture1.ScaleX(1440, , vbPixels)`, all positional | **448** |
 | `Picture1.ScaleX(Width:=1440, ToScale:=vbPixels)` | **448** |

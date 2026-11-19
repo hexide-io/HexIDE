@@ -55,7 +55,9 @@ The FileListBox's 360, with Arial 12, is one row of 20 pixels by the same rule, 
   sets it. A design-time control's is on. `Visible` itself read False throughout, design-time controls included,
   because session 0 never shows the form: it reads the window's visibility, parents and all. Re-run on the guest's
   console (2026-11-18, #4768), the IDE, p-code and native agreeing: a design-time button on the shown form read Visible
-  True; an added one read False, with `WS_VISIBLE` off, and True once `Visible = True` had set it.
+  True; an added one read False, with `WS_VISIBLE` off, and True once `Visible = True` had set it. On a form loaded
+  but not shown, and after `Hide`, the design-time button read False with its `WS_VISIBLE` still on: Visible reads
+  the window's visibility, the form's included (#4829).
 - **Empty.** `Caption` and `Text` are `""`, not the control's name, which is what the designer gives a new control.
 - **The form's font, as it stands.** Every class with a `Font` has the form's, Arial 12, even inside `Picture1`, whose
   own font is Courier New. Changing the form's font to Times New Roman 14 before an `Add` gives the new control Times New
