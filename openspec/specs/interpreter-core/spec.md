@@ -52,7 +52,7 @@ SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal 
 
 #### Scenario: Unmeasured file reads
 - **WHEN** a Binary read would run past the end, InputB targets an Append file, or the file's size or modification time changed outside the program
-- **THEN** the interpreter SHALL refuse with NotImplementedException naming #4895 before moving the position or assigning the result
+- **THEN** the interpreter SHALL refuse with NotImplementedException naming #4927 before moving the position or assigning the result
 - **AND** it SHALL NOT invent the bytes VB6 fills from its previous buffer contents
 
 ### Requirement: Missing Declare libraries off Windows

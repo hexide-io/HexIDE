@@ -198,7 +198,7 @@ public class InputBTests : BaseVBTestFixture, IDisposable
         try
         {
             var run = () => vb.Execute();
-            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*past*end*#4895*");
+            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*past*end*#4927*");
             Bytes("s", "7800");
             vb.BuiltIns.Files.SeekPosition(1).Should().Be(start);
             vb.BuiltIns.Files.Loc(1).Should().Be(start - 1);
@@ -219,7 +219,7 @@ public class InputBTests : BaseVBTestFixture, IDisposable
         {
             var run = () => vb.Execute();
 
-            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*Append*#4895*");
+            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*Append*#4927*");
         }
         finally { vb.BuiltIns.Files.CloseAll(); }
     }
@@ -246,7 +246,7 @@ public class InputBTests : BaseVBTestFixture, IDisposable
             File.SetLastWriteTimeUtc(path, writtenAt.AddSeconds(2));
             var run = () => vb.Execute();
 
-            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*changed*#4895*");
+            (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*InputB*changed*#4927*");
             Bytes("s", "7800");
             files.SeekPosition(1).Should().Be(position);
         }

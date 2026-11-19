@@ -121,7 +121,7 @@ internal sealed partial class VbFiles
         public long Counted { get; set; }
         // A Binary file's bytes, for Line Input, Input # and the Input function, until something writes to the file.
         public byte[]? Snapshot { get; set; }
-        // InputB refuses a file changed outside this program (#4895); Put refreshes this version for our own writes.
+        // InputB refuses a file changed outside this program (#4927); Put refreshes this version for our own writes.
         public (long Length, DateTime Written) InputBVersion { get; set; }
     }
 
@@ -516,14 +516,14 @@ internal sealed partial class VbFiles
     {
         var file = Get(number);
         if (file.Mode == VbFileMode.Append)
-            throw new NotImplementedException("InputB on an Append file is unmeasured (#4895).");
+            throw new NotImplementedException("InputB on an Append file is unmeasured (#4927).");
         if (file.Mode is VbFileMode.Input or VbFileMode.Binary && file.InputBVersion != FileVersion(file.Path))
-            throw new NotImplementedException("InputB on a file changed outside the program is unmeasured (#4895).");
+            throw new NotImplementedException("InputB on a file changed outside the program is unmeasured (#4927).");
         if (count < 0)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
         var (bytes, start, _) = TextSource(file);
         if (file.Mode == VbFileMode.Binary && count > 0 && (long)start + count > bytes.Length)
-            throw new NotImplementedException("InputB past the end of a Binary file is not implemented (#4895).");
+            throw new NotImplementedException("InputB past the end of a Binary file is not implemented (#4927).");
         var p = start;
         for (var read = 0; read < count; read++)
         {

@@ -808,6 +808,8 @@ added afterwards.
 - [LSet and RSet into a String (2026-10-28, #2517)](lset-and-rset-into-a-string.md#lset-and-rset-into-a-string-2026-10-28-2517)
 - [LSet between two user-defined types (2026-10-28, #2518)](lset-between-two-user-defined-types.md#lset-between-two-user-defined-types-2026-10-28-2518)
 - [Fixed-length Strings (2026-11-15, #179)](fixed-length-strings.md#fixed-length-strings-2026-11-15-179)
+- [Fixed-length Strings: arrays of them, the width and parameters (2026-11-19, #179)](fixed-length-strings.md#arrays-of-fixed-length-strings-the-width-and-parameters-2026-11-19-179)
+- [What `Len` counts in a user-defined Type (2026-11-19, #179)](what-len-counts-in-a-user-defined-type.md#what-len-counts-in-a-user-defined-type-2026-11-19-179)
 - [LSet between UDTs: Alignment, the other types, and what doesn't compile (2026-11-16, #2518)](lset-between-two-user-defined-types.md#alignment-the-other-types-and-what-doesnt-compile-2026-11-16-2518)
 - [A nested user-defined type is a record of its own (2026-11-16, #2518)](a-nested-user-defined-type-is-a-record-of-its-own.md#a-nested-user-defined-type-is-a-record-of-its-own-2026-11-16-2518)
 - [CallByName (2026-10-28, #2519)](callbyname.md#callbyname-2026-10-28-2519)
