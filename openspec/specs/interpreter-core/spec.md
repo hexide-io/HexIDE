@@ -1485,7 +1485,7 @@ It SHALL share the control Font reference and publish later mutations after `Set
 Assignments SHALL also implement the exact successful and error rows measured in
 [#4807](https://github.com/hexide-io/HexIDE/issues/4807), including name, size and charset substitutions
 and the differing Bold/Weight name results. Failed assignments SHALL preserve every member.
-Other values and conversions SHALL refuse as not implemented, citing #4807. TypeName retains
+Other values and conversions SHALL refuse as not implemented, citing #4926. TypeName retains
 the shared object’s `Font` spelling.
 
 #### Scenario: Two controls share one Font
