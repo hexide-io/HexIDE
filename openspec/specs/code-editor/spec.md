@@ -641,7 +641,10 @@ SHALL be the name followed by a comma, a space and the detail, or just the name 
 - **WHEN** the caret moves inside a symbol's range
 - **THEN** the outline selects the innermost containing symbol without moving the caret
 - **WHEN** the user clicks a node or presses Enter on it
-- **THEN** the editor navigates to the start of that symbol's selection range
+- **THEN** a Property symbol resolving to a form's control SHALL open or activate that form's designer with the control selected, without moving the code caret
+- **AND** control names SHALL match without regard to case; a control array SHALL select the element with the lowest Index
+- **AND** any other symbol with an empty range SHALL do nothing
+- **AND** every other symbol SHALL navigate to the start of its selection range
 
 #### Scenario: Change the active document
 

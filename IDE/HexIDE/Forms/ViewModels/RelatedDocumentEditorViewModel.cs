@@ -115,6 +115,7 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
 
     void IOutlineDocument.NavigateToSymbol(DocumentSymbol symbol)
     {
+        if (symbol.Range.Start == symbol.Range.End) return;
         var position = symbol.SelectionRange.Start;
         if (position.Line < 0 || position.Line >= Document.LineCount) return;
         var line = Document.GetLineByNumber(position.Line + 1);
