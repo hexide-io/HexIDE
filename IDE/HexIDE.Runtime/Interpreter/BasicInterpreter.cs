@@ -126,7 +126,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public EventPump? Events { get; set; }
 
     // Measured uses: docs/vb6-fidelity-oracle/an-object-used-as-a-value.md (#174).
-    internal async Task<Vb6Value> ResolveDefaultMember(Vb6Value value, string? use = null,
+    internal ValueTask<Vb6Value> ResolveDefaultMember(Vb6Value value, string? use = null,
+        Stack<List<Vb6Value>>? callerFrames = null) =>
+        value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is null
+            ? new(value) : ResolveObjectDefaultMember(value, use, callerFrames);
+
+    private async ValueTask<Vb6Value> ResolveObjectDefaultMember(Vb6Value value, string? use,
         Stack<List<Vb6Value>>? callerFrames = null)
     {
         if (value.Value is not VbObject obj || obj.ClassDef.PrePass.DefaultMember is not { } member)
@@ -968,7 +973,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         BuiltIns = new VB6BuiltIns(stdLib)
         {
             VbaBitness = VbaBitness,
-            ResolveDefaultForUse = (value, use) => ResolveDefaultMember(value, use),
+            ResolveDefaultForUse = (value, use) => ResolveDefaultMember(value, use).AsTask(),
             AppTitle = () => App.TitleOrNull,
             ProjectResources = () => Resources,
             ErrObject = () => Err,
