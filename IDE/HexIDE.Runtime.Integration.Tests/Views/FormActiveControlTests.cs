@@ -174,6 +174,23 @@ public class FormActiveControlTests
             Dispatcher.UIThread.RunJobs();
     }
 
+    // VB6 SP6, IDE/p-code/native: https://github.com/hexide-io/HexIDE/issues/4787.
+    [AvaloniaTheory]
+    [InlineData("ActiveControl")]
+    [InlineData("aCtIvEcOnTrOl")]
+    public void Setting_own_ActiveControl_raises_a_catchable_383_and_the_form_is_shown(string member)
+    {
+        var form = Form(TextAndButton).Replace("Debug.Print \"loaded\"", $"""
+            On Error Resume Next
+            Set {member} = Text1
+            Debug.Print Err.Number & " " & Err.Description
+            """);
+        using var run = Start(form);
+        run.Printed.Should().Equal("383 'ActiveControl' property is read-only");
+        run.Errors.Should().BeEmpty();
+        run.Window.IsVisible.Should().BeTrue();
+    }
+
     [AvaloniaFact]
     public void Own_ActiveControl_tracks_the_last_control_focused()
     {

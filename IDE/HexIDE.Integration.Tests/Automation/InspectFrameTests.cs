@@ -17,6 +17,80 @@ public class InspectFrameTests
         new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
     [AvaloniaFact]
+    public void A_window_without_an_owner_reports_null()
+    {
+        var window = new Window();
+        window.Show();
+        try
+        {
+            var frame = Inspect(window).GetProperty("frame");
+            frame.GetProperty("owner").ValueKind.Should().Be(JsonValueKind.Null);
+            frame.TryGetProperty("nativeOwner", out _).Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_window_shown_with_an_owner_reports_its_name_and_title()
+    {
+        var owner = new Window { Title = "Owner caption" };
+        var window = new Window();
+        owner.Show();
+        window.Show(owner);
+        try
+        {
+            var identity = Inspect(window).GetProperty("frame").GetProperty("owner");
+            identity.GetProperty("name").GetString().Should().Be("Owner caption");
+            identity.GetProperty("title").GetString().Should().Be("Owner caption");
+            owner.Title = "Changed caption";
+            Inspect(window).GetProperty("frame").GetProperty("owner")
+                .GetProperty("title").GetString().Should().Be("Changed caption");
+        }
+        finally { window.Close(); owner.Close(); }
+    }
+
+    // An owner HexIDE can't name has no 'name' at all, rather than a value the window parameter would refuse (#4795).
+    [AvaloniaFact]
+    public void An_owner_with_no_title_or_form_has_no_name()
+    {
+        var owner = new Window { Title = "" };
+        var window = new Window();
+        owner.Show();
+        window.Show(owner);
+        try
+        {
+            var identity = Inspect(window).GetProperty("frame").GetProperty("owner");
+            identity.TryGetProperty("name", out _).Should().BeFalse();
+            identity.TryGetProperty("className", out _).Should().BeFalse("className is only for a native owner HexIDE didn't make");
+        }
+        finally { window.Close(); owner.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_running_form_owner_reports_its_form_name_separately_from_its_caption()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, """
+            VERSION 5.00
+            Begin VB.Form Form1
+               Caption = "Owner caption"
+            End
+            Attribute VB_Name = "Form1"
+            """, new NullSink())!;
+        project.AddForm(form);
+        VBLoader.RunForm(form, CancellationToken.None, out var owner);
+        var window = new Window();
+        window.Show(owner);
+        try
+        {
+            var identity = Inspect(window).GetProperty("frame").GetProperty("owner");
+            identity.GetProperty("name").GetString().Should().Be("Form1");
+            identity.GetProperty("title").GetString().Should().Be("Owner caption");
+        }
+        finally { window.Close(); owner.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task A_headless_window_explains_why_native_styles_are_unavailable()
     {
         var window = new Window();

@@ -123,6 +123,7 @@
     "Str.Archive.FolderReadyFormat": "Lähtekaust sünkrooniti salvestatud arhiivist:\n{0}\n\nKausta muutmine peatab sünkroonimise; muudatusi ei impordita. Eelvaadete värskendamiseks laadi projekt uuesti.",
     "Str.Archive.FolderErrorFormat": "Lähtekausta sünkroonimine peatati:\n{0}\n\nArhiivi ei muudetud.",
     "Str.Archive.OpenErrorFormat": "{0} avamine nurjus:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "ükski paigaldatud vorming ei loe vorme '{0}'",
     "Str.ContributedProject.OpenError": "{0} avamine lisandiga {1} ebaõnnestus:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} avab {1}: selle faile lisab ja eemaldab programm, millele see kuulub, mitte HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "Programm, millele {1} kuulub, eemaldas {0} projektist. Kas salvestada kõigepealt teie muudatused?",

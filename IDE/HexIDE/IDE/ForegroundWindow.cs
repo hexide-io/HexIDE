@@ -119,6 +119,27 @@ public static class ForegroundWindow
                           + "as the program runs."));
     }
 
+    /// <summary>
+    /// The value <see cref="Pick(string?, Window, IReadOnlyList{Window}, bool)"/> resolves back to <paramref name="window"/>:
+    /// "ide" for the IDE's own window, else its form's name or its title, with #n when several visible windows answer to
+    /// that, as two instances of one form do (#4795). Null when the window has neither a form's name nor a title.
+    /// </summary>
+    public static string? Address(Window window, Window? mainWindow, IReadOnlyList<Window> windows)
+    {
+        if (window == mainWindow)
+            return "ide";
+        var name = RunningProgram.Current.Form(window)?.Name;
+        if (string.IsNullOrEmpty(name))
+            name = window.Title;
+        if (string.IsNullOrEmpty(name))
+            return null;
+        var shown = windows.Where(w => w != mainWindow && w.IsVisible && AnswersTo(w, name)).ToList();
+        var index = shown.IndexOf(window);
+        return shown.Count > 1 && index >= 0
+            ? $"{name}#{(index + 1).ToString(CultureInfo.InvariantCulture)}"
+            : name;
+    }
+
     private static bool AnswersTo(Window window, string name) =>
         string.Equals(window.Title, name, StringComparison.OrdinalIgnoreCase)
         || string.Equals(RunningProgram.Current.Form(window)?.Name, name, StringComparison.OrdinalIgnoreCase)

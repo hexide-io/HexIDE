@@ -34,6 +34,12 @@ one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On 
   twips, or 133.3 pixels. ScaleHeight reads 133 pixels, which is 1995 twips.
 - **A form's Width and Height are its outer size:** 90 twips more than the client across, and 375 down, for a Fixed
   Single form without a menu.
+  **That is session 0's frame** (#4768). On the guest's console, a Fixed Single form without a visible menu bar
+  measured 90 across and **435** down: a 2940 × 3420 client read 3030 × 3855, in the IDE, p-code and native. So this
+  page's form would read 2610 × 2955 there, which is what HexIDE's `FormOuterSizeTests` expect. The fit's 1995 holds
+  on the console too: `Height = (Height - ScaleHeight) + 2000` left ScaleHeight 1995 on a Fixed Single form there, in
+  p-code and native; the IDE's first fit is the exception that page records.
+  Measured in the menu-bar probe of "Menus at run time", not by re-running this page's program.
 
 **In HexIDE (#1071):**
 - **Move on a control** does this, the check included. Move on a control with an omitted argument (`Move 1, , 3`) or
