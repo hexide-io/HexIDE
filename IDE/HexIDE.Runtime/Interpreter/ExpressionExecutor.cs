@@ -1549,7 +1549,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (value.Value is ImageComboItems)
             return ImageComboItem(value, indices);
         if (value.Value is VbObject)
-            return await interpreter.CallDefaultMember(value, [.. indices.Select(v => new CallArg(v, null))], ctx, stmtFrames);
+            return await interpreter.CallDefaultMember(value, [.. indices.Select(v => new CallArg(v, null))], ctx, stmtFrames, this);
         if (value.Type == Vb6Value.ValueType.Object)
             throw new NotImplementedException(value.Value is null
                 ? $"indexing Nothing, as in {ctx.GetText()}, is not implemented: what VB6 raises is unmeasured (#1476)"
@@ -1659,7 +1659,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (named && !string.Equals(env.ReturnName, name, StringComparison.OrdinalIgnoreCase)
             && (maybeGroup.Value is VbObject || maybeGroup.Value is null
                 && interpreter.ProjectClassFor(maybeGroup.DeclaredAs ?? "") is not null))
-            return await interpreter.CallDefaultMember(maybeGroup, await ResolveCallArgs(argsCtx, beforeLast), procOrArrayCall, stmtFrames);
+            return await interpreter.CallDefaultMember(maybeGroup, await ResolveCallArgs(argsCtx, beforeLast), procOrArrayCall, stmtFrames, this);
         if (named && maybeGroup.Value is ImageListImages or ImageComboItems)
             return ImageCollectionItem(maybeGroup, await EvaluateCallArgs(argsCtx));
         // A form's Controls held in a variable, `o(1)` (#1060).
