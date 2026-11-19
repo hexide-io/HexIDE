@@ -2683,6 +2683,32 @@ raising errors as the statements and calls execute.
 - **THEN** the call reports "ByRef argument type mismatch"
 - **AND** passing a scalar to a String or Variant array parameter reports "Type mismatch: array or user-defined type expected"
 
+### Requirement: Fixed-length String array file records
+
+The interpreter SHALL implement the Binary and Random fixed String array Get/Put rows measured native
+and p-code in [#179](https://github.com/hexide-io/HexIDE/issues/179), recorded in the
+[fixed String oracle](../../../docs/vb6-fidelity-oracle/fixed-length-strings.md#arrays-of-fixed-length-strings-the-width-and-parameters-2026-11-19-179).
+Double-byte array code pages and Random Get into a fixed String array SHALL remain explicitly not
+implemented pending measurements. Types containing array fields SHALL retain the #4925 refusal.
+
+#### Scenario: Put writes fixed-width elements
+- **WHEN** Put writes a fixed String array to a Binary or Random file
+- **THEN** each element is written at its width without a length prefix, including NULs, first index fastest
+- **AND** code page 1252 uses the measured ANSI best-fit conversions
+- **AND** only a Random dynamic array prepends its dimension count and reversed dimension counts and lower bounds
+- **AND** a Random record too short raises 59 without writing
+
+#### Scenario: Binary Get reads into existing bounds
+- **WHEN** Get reads a Binary file into an allocated fixed String array
+- **THEN** it reads only the existing elements at their declared width
+- **AND** bytes past EOF become NULs, replacing the previous contents
+- **AND** EOF is False after reading exactly the file length and True after reading past it
+
+#### Scenario: Random Get retains the target width
+- **WHEN** Get reads a Random record into a dynamic fixed String array
+- **THEN** the descriptor replaces its bounds, whether previously allocated or not
+- **AND** elements use the target's own width and the array remains dynamic
+
 ### Requirement: LSet between plain-data user-defined types
 
 The interpreter SHALL execute `LSet target = source` between named plain-data UDT variables by
