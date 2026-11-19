@@ -249,11 +249,9 @@ public class InputBTests : BaseVBTestFixture, IDisposable
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task An_external_change_is_read_in_Binary_and_refused_in_Input(bool binary, bool alreadyRead)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task An_external_change_is_read_in_Binary(bool alreadyRead)
     {
         var path = Make("414243");
         var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
@@ -261,7 +259,7 @@ public class InputBTests : BaseVBTestFixture, IDisposable
         var files = vb.BuiltIns.Files;
         try
         {
-            files.Open(path, binary ? VbFileMode.Binary : VbFileMode.Input, false, 1);
+            files.Open(path, VbFileMode.Binary, false, 1);
             if (alreadyRead) files.Read(1, 1);
             var position = files.SeekPosition(1);
             var writtenAt = File.GetLastWriteTimeUtc(path);
@@ -270,19 +268,9 @@ public class InputBTests : BaseVBTestFixture, IDisposable
             File.SetLastWriteTimeUtc(path, writtenAt.AddSeconds(2));
             var run = () => vb.Execute();
 
-            if (binary)
-            {
-                await run();
-                Bytes("s", alreadyRead ? "45" : "44");
-                files.SeekPosition(1).Should().Be(position + 1);
-            }
-            else
-            {
-                (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage(
-                    "InputB on an Input file changed while it is open is not implemented (#4944).");
-                Bytes("s", "7800");
-                files.SeekPosition(1).Should().Be(position);
-            }
+            await run();
+            Bytes("s", alreadyRead ? "45" : "44");
+            files.SeekPosition(1).Should().Be(position + 1);
         }
         finally { files.CloseAll(); }
     }
@@ -424,7 +412,7 @@ public class InputBTests : BaseVBTestFixture, IDisposable
         finally { files.CloseAll(); }
     }
 
-    // Preserve SnapshotOf's access check (Random and Binary files oracle, #1646); this already passes on main.
+    // Preserve the Binary text reader's access check (Random and Binary files oracle, #1646); this already passes on main.
     [Fact]
     public async Task Binary_without_read_access_keeps_error_75_and_the_target()
     {
