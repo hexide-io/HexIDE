@@ -48,8 +48,9 @@ internal static class VBVisibility
 
     public static bool Get(Control control)
     {
-        // Windowless controls keep their own value; windowed controls also depend on the form being shown (#4829).
-        // A menu is no window either: it keeps its own value too, which is what decides the menu bar (#1140).
+        // Label, Image, Shape, Line and menus keep their own value; every other control, a windowless UserControl included,
+        // reads False while its form isn't shown (#4829, oracle page visible-before-a-form-is-shown.md). A top-level menu's
+        // own value is what decides the menu bar (#1140).
         if (control is not (VBLine or VBLabel or VBImage or VBShape or VBMenu or VBMenuSeparator) && FormRoot.View(control) is null
             && control.GetLogicalAncestors().OfType<IFormView>().FirstOrDefault() is { IsShown: false })
             return false;
