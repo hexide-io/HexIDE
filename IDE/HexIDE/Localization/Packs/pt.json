@@ -91,6 +91,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bits",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bits",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Ver compilação condicional como",
     "Str.Tool.Properties.ExportPicture": "Exportar imagem...",
     "Str.Tool.Properties.ExportPictureTitle": "Exportar imagem",

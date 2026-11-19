@@ -97,6 +97,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitni",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bitni",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bitni",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Prikaži pogojno prevajanje kot",
     "Str.Tool.Properties.ExportPicture": "Izvozi sliko...",
     "Str.Tool.Properties.ExportPictureTitle": "Izvozi sliko",

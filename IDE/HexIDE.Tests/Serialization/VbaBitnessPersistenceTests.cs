@@ -55,8 +55,113 @@ public class VbaBitnessPersistenceTests : IDisposable
         var bytes = File.ReadAllBytes(path);
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
         read.VbaBitness.Should().Be(VbaBitness.None);
+        read.Target.Should().Be(ProjectTarget.None);
         File.WriteAllText(path, new ProjectSerializer().Serialize(read, path));
         File.ReadAllBytes(path).Should().Equal(bytes);
         original.Should().NotContain("[HexIDE]");
     }
+
+    // The HexIDE metadata contract in #4821, not a claim about a native backend's project format.
+    [Theory]
+    [InlineData("RDCore")]
+    [InlineData("rdcore")]
+    [InlineData(" RDCore ; ")]
+    public async Task RDCore_target_is_read_and_written_beside_bitness(string target)
+    {
+        var path = Path.Join(directory, "Test.vbp");
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test")
+        {
+            VbaBitness = VbaBitness.Bit64,
+            ExtensionTail = "[Other]\r\nKeep=verbatim\r\n[HexIDE]\r\nFuture=kept\r\n",
+        };
+        File.WriteAllText(path, new ProjectSerializer().Serialize(project, path) + $"Targets={target}\r\n");
+        var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        read.Target.Should().Be(ProjectTarget.RDCore);
+        read.VbaBitness.Should().Be(VbaBitness.Bit64);
+        var saved = new ProjectSerializer().Serialize(read, path);
+        saved.ReplaceLineEndings("\n").Should().Contain("VbaBitness=64\nTargets=RDCore\n");
+        saved.ReplaceLineEndings("\n").Should().Contain("[Other]\nKeep=verbatim\n[HexIDE]\nFuture=kept\n");
+        read.Target = ProjectTarget.None;
+        var cleared = new ProjectSerializer().Serialize(read, path);
+        cleared.Should().NotContain("Targets=");
+        cleared.Should().Contain("VbaBitness=64");
+    }
+
+    [Fact]
+    public async Task Setting_RDCore_survives_fresh_open_and_retains_encoding_records()
+    {
+        var path = Path.Join(directory, "Test.vbp");
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Target = ProjectTarget.RDCore };
+        var module = new ModuleDefinition(project, "Main", ModuleKind.StandardModule)
+            { TextEncoding = Vb6TextEncoding.Utf8, AbsolutePath = Path.Join(directory, "Main.bas") };
+        module.UpdateCode("' café");
+        project.AddModule(module);
+        File.WriteAllText(Path.Join(directory, "Main.bas"), "Attribute VB_Name = \"Main\"\r\n' café", new System.Text.UTF8Encoding(false));
+        File.WriteAllText(path, new ProjectSerializer().Serialize(project, path));
+        var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        read.Target.Should().Be(ProjectTarget.RDCore);
+        var saved = new ProjectSerializer().Serialize(read, path);
+        saved.ReplaceLineEndings("\n").Should().Contain("Targets=RDCore\n").And.Contain("Main.bas=utf-8\n");
+        read.Modules.Single().TextEncoding.Should().Be(Vb6TextEncoding.Utf8);
+    }
+
+    [Theory]
+    [InlineData("Targets")]
+    [InlineData("Targets=Future")]
+    public async Task Target_metadata_does_not_consume_a_members_UTF8_record(string memberPath)
+    {
+        var path = Path.Join(directory, "Test.vbp");
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test");
+        var modulePath = Path.Join(directory, memberPath);
+        var module = new ModuleDefinition(project, "Main", ModuleKind.StandardModule)
+            { TextEncoding = Vb6TextEncoding.Utf8, AbsolutePath = modulePath };
+        module.UpdateCode("' café");
+        project.AddModule(module);
+        File.WriteAllText(modulePath, "Attribute VB_Name = \"Main\"\r\n' café", new System.Text.UTF8Encoding(false));
+        var original = new ProjectSerializer().Serialize(project, path);
+        File.WriteAllText(path, original);
+        var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        read.Target.Should().Be(ProjectTarget.None);
+        read.Modules.Single().TextEncoding.Should().Be(Vb6TextEncoding.Utf8);
+        read.Modules.Single().Code.Should().Contain("café");
+        new ProjectSerializer().Serialize(read, path).Should().Be(original);
+        original.ReplaceLineEndings("\n").Split($"{memberPath}=utf-8\n").Should().HaveCount(2);
+    }
+
+    // The key is plural, as Jen chose on 2026-11-18, so that several targets never need a second key (#4821). The
+    // singular spelling is no key of HexIDE's: it reads as no target and is written back as it was.
+    [Fact]
+    public async Task The_singular_Target_key_is_not_read()
+    {
+        var path = Path.Join(directory, "Test.vbp");
+        var original = new ProjectSerializer().Serialize(new ProjectDefinition(VBProjectType.EXE, "Test"), path) +
+            "\r\n[HexIDE]\r\nTarget=RDCore\r\n";
+        File.WriteAllText(path, original);
+        var bytes = File.ReadAllBytes(path);
+        var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        read.Target.Should().Be(ProjectTarget.None);
+        File.WriteAllText(path, new ProjectSerializer().Serialize(read, path));
+        File.ReadAllBytes(path).Should().Equal(bytes);
+    }
+
+    [Theory]
+    [InlineData("Future Backend")]
+    [InlineData("RDCore;Future")]
+    [InlineData("RDCore;RDCore")]
+    [InlineData("utf-8")]
+    [InlineData("Future=utf-8")]
+    [InlineData("")]
+    public async Task Unknown_target_and_non_HexIDE_target_round_trip_verbatim(string target)
+    {
+        var path = Path.Join(directory, "Test.vbp");
+        var original = new ProjectSerializer().Serialize(new ProjectDefinition(VBProjectType.EXE, "Test"), path) +
+            $"\r\n[Other]\r\nTargets=RDCore\r\n[HexIDE]\r\nTargets = {target}  \r\n";
+        File.WriteAllText(path, original);
+        var bytes = File.ReadAllBytes(path);
+        var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
+        read.Target.Should().Be(ProjectTarget.None);
+        File.WriteAllText(path, new ProjectSerializer().Serialize(read, path));
+        File.ReadAllBytes(path).Should().Equal(bytes);
+    }
+
 }

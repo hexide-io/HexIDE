@@ -855,10 +855,15 @@ was SHALL keep the greying until the next evaluation, and an edit that adds or r
 
 ### Requirement: The view-as selector SHALL appear only with conditional compilation, and SHALL belong to its window
 A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
-VB6, VBA 32-bit, VBA 64-bit, twinBASIC 32-bit and twinBASIC 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
-The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
-Changing the selection SHALL NOT send language-server requests or notifications.
-VBA's constants are not measured, since there is no VBA oracle.
+VB6, VBA 32-bit, VBA 64-bit, twinBASIC 32-bit, twinBASIC 64-bit and the external backend target selected
+by `[HexIDE] Targets=RDCore` (#4821). The selection SHALL belong to the window and SHALL NOT be persisted,
+affect execution or LSP diagnostics, or send language-server requests or notifications.
+
+#### Scenario: Defaulting to the project's constants
+- **WHEN** a code window opens
+- **THEN** its default follows the project's constants target, then its VBA7 bitness, otherwise VB6
+- **AND** a project opened through the `.rdproj` type defaults to the external backend target
+- **AND** that target and the VBA previews share the host tables used by interpreter runs, as specified in interpreter-core, including its fallback for unmeasured host/bitness combinations
 
 #### Scenario: Previewing a VBA branch
 - **WHEN** a module contains `#If VBA7 Then` with an `#Else` branch
