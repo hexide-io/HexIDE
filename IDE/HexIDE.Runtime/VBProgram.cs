@@ -425,13 +425,15 @@ public sealed class VBProgram : IFormProgram
     /// form is held as it was before. All measured.
     /// </summary>
     /// <remarks>
-    /// A form already shown modelessly turns modal, with no error: VB6's documented 400 never came (measured). So does a
-    /// form beneath the modal one, over it. Only the modal forms themselves are refused, with 405, "Unable to show modal
-    /// form within this context". Other forms' events go on: Form1's Timer ticks under Form2's modal form, in compiled code
-    /// and in the IDE alike (measured).
+    /// A displayed form raises 400 before any modal state changes, including a modal form showing itself (#4765,
+    /// console measurements). A form shown then hidden can turn modal. A modal form that isn't displayed still raises
+    /// 405; no console path to that error has been measured. Other forms' events go on: Form1's Timer ticks under Form2's
+    /// modal form, in compiled code and in the IDE alike (measured).
     /// </remarks>
     internal async Task ShowModal(IFormView view, VBFormRuntime? owner)
     {
+        if (view.IsShown)
+            throw new VBRunTimeException(VBStandardError.FormAlreadyDisplayedCantShowModally);
         var context = view.Context;
         if (modals.Contains(context))
             throw new VBRunTimeException(VBStandardError.UnableToShowModalFormWithinThisContext);
