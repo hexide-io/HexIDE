@@ -1,0 +1,21 @@
+Top 20 Functions (Exclusive)                                                  Inclusive           Exclusive
+1.  WaitSubsystem+ThreadWaitInfo.Wait(int32,bool,bool,value class LockHold    62.18%              62.16%
+2.  LowLevelThreadBlocker.TimedWait(int32)                                    12.64%              12.64%
+3.  Buffer.BulkMoveWithWriteBarrier(unsigned int8&,unsigned int8&,unsigned    4.67%               4.67%
+4.  GC.GetGCMemoryInfo(value class System.GCKind)                             4.01%               4.01%
+5.  RuntimeTypeHandle.Instantiate(class System.RuntimeType)                   3.01%               3.01%
+6.  ParserRuleContext.GetRuleContexts()                                       2.94%               2.64%
+7.  GC.RunFinalizers()                                                        9.57%               1.31%
+8.  Int32].Trim()                                                             1.57%               1.24%
+9.  RuleContext.GetText()                                                     0.83%               0.64%
+10. ExpressionExecutor+<EvaluateValue>d__27.MoveNext()                        7.11%               0.53%
+11. BasicInterpreter+<ResolveDefaultMember>d__46.MoveNext()                   0.5%                0.45%
+12. BasicInterpreter+<RunProcedure>d__201.MoveNext()                          14.95%              0.38%
+13. BasicInterpreter+<BindParameters>d__219.MoveNext()                        1.89%               0.34%
+14. .ctor(class HexIDE.Runtime.Interpreter.BasicInterpreter,class HexIDE.R    0.31%               0.31%
+15. ExecutionEnvironment.CreateProcedureScope()                               0.29%               0.29%
+16. CallArg].AddWithResize(!0)                                                0.58%               0.28%
+17. __Canon].PushWithResize(!0)                                               0.28%               0.28%
+18. __Canon].AddWithResize(!0)                                                0.29%               0.27%
+19. ExpressionExecutor.VisitVsLiteral(class VsLiteralContext)                 0.9%                0.22%
+20. ExpressionExecutor+<EvaluateScalar>d__28.MoveNext()                       1.42%               0.22%
