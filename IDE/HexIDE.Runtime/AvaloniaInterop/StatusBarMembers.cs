@@ -47,7 +47,7 @@ internal static class StatusBarMembers
             case "showtips": bar.ShowTips = (bool)VB6BuiltIns.CBool(value).Value!; break;
             case "enabled": bar.IsEnabled = (bool)VB6BuiltIns.CBool(value).Value!; break;
             case "mousepointer" or "oledropmode":
-                throw new NotImplementedException($"StatusBar {name} assignment has not been measured (#1087)");
+                throw new NotImplementedException($"StatusBar {name} assignment has not been measured (#4882)");
             case "align":
                 var align = StatusBarPanels.Choice(value, 2);
                 bar.Align = (short)align;
@@ -56,7 +56,7 @@ internal static class StatusBarMembers
                 break;
             case "height":
                 if (bar.Align == 2 && !double.IsFinite(bar.ContainerHeight))
-                    throw new NotImplementedException("StatusBar bottom alignment needs a known container height (#1087)");
+                    throw new NotImplementedException("StatusBar bottom alignment needs a known container height (#4882)");
                 AvaloniaInteroperability.TrySet(bar, VBProperties.HeightProperty, value);
                 if (bar.Align == 2) PlaceAtBottom(bar);
                 break;
@@ -72,7 +72,7 @@ internal static class StatusBarMembers
     {
         var height = bar.Parent is Control parent && parent.Bounds.Height > 0 ? parent.Bounds.Height : bar.ContainerHeight;
         if (!double.IsFinite(height))
-            throw new NotImplementedException("StatusBar bottom alignment needs a known container height (#1087)");
+            throw new NotImplementedException("StatusBar bottom alignment needs a known container height (#4882)");
         Canvas.SetTop(bar, height - bar.Height);
     }
 
@@ -89,6 +89,6 @@ internal static class StatusBarMembers
     {
         if (name.ToLowerInvariant() is "dragicon" or "dragmode" or "negotiate" or "whatsthishelpid"
             || StatusBarComponentClass.Instance.Member(name) is { Implemented: false })
-            throw new NotImplementedException($"StatusBar {name} is not implemented (#1087)");
+            throw new NotImplementedException($"StatusBar {name} is not implemented (#4882)");
     }
 }
