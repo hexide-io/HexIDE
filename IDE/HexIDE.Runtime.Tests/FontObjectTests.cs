@@ -20,6 +20,6 @@ public class FontObjectTests : BaseVBTestFixture
         // Values outside the measured #4807 rows remain refused.
         Func<Task> run = () => Run("Dim f As Object\nSet f = New StdFont\nf." + assignment);
         var error = (await run.Should().ThrowAsync<NotImplementedException>()).Which;
-        error.Message.Should().Contain(reason).And.Contain("#4807");
+        error.Message.Should().Contain(reason).And.Contain("#4926");
     }
 }
