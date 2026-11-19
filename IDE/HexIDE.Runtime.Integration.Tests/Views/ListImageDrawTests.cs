@@ -273,15 +273,15 @@ public class ListImageDrawTests
     }
 
     [AvaloniaTheory]
-    [InlineData("images.ListImages(1).Draw 12345")]
-    [InlineData("images.ListImages(1).Draw Picture1.hDC, 0, 0, 4")]
-    [InlineData("images.ListImages(1).Draw Picture1.hDC, 0.5")]
-    [InlineData("images.ListImages(1).Draw \"12345\"")]
-    [InlineData("Picture1.hDC = 5")]
-    public async Task Unknown_handles_and_unmeasured_members_refuse(string statement)
+    [InlineData("images.ListImages(1).Draw 12345", 4849)]
+    [InlineData("images.ListImages(1).Draw Picture1.hDC, 0, 0, 4", 4915)]
+    [InlineData("images.ListImages(1).Draw Picture1.hDC, 0.5", 4915)]
+    [InlineData("images.ListImages(1).Draw \"12345\"", 4915)]
+    [InlineData("Picture1.hDC = 5", 4915)]
+    public async Task Unknown_handles_and_unmeasured_members_refuse(string statement, int expectedIssue)
     {
         Func<Task> draw = () => Draw(statement);
-        await draw.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4849*");
+        await draw.Should().ThrowAsync<NotImplementedException>().WithMessage($"*#{expectedIssue}*");
     }
 
     [AvaloniaFact]
