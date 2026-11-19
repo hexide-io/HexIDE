@@ -128,6 +128,26 @@ The folder, empty-path and missing-program rows repeat #2522's above and agree w
 - **What they don't:** failures with other Win32 errors weren't produced, such as elevation required (740) or a missing DLL in a program that does start.
 
 **Not measured:**
-- a Byte, Long, Single or Decimal PathName, which these rows suggest go through CStr too;
-- an Object holding an object with a default member, and an Error value;
+- a Byte, Long, Single or Decimal PathName, which these rows suggest go through CStr too (**since measured**: they do; see below);
+- an Object holding an object with a default member, and an Error value (**since measured** for a Collection, 450, and an Error value, 13; see below);
 - a 16-bit program, and one that needs elevation.
+
+#### The other numeric types, an Error value and a live object (2026-11-18, second run, #4406)
+
+**The rig:** the same as above. The program's folder held copies of `attrib.exe` named `7.exe`, `70000.exe`, `8.exe` and `9.exe`.
+
+| Call | Result |
+|---|---|
+| `Shell(CByte(7))` | the ID: `7.exe` |
+| `Shell(CLng(70000))` | the ID: `70000.exe` |
+| `Shell(CSng(8))` | the ID: `8.exe` |
+| `Shell(CDec(9))` | the ID: `9.exe` |
+| `Shell(CLng(71000))`, no such file | 53 |
+| `Shell(CVErr(5))` | **13** |
+| `Shell(c)`, `c` a `New Collection` | **450** "Wrong number of arguments or invalid property assignment" |
+
+- **Every numeric type measured goes through CStr,** and so does Boolean.
+- **An Error value is 13,** as an array is.
+- **A live object is read through its default member:** a Collection's `Item` needs an argument, so 450.
+
+**Not measured:** an object whose default member takes no argument.

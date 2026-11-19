@@ -235,7 +235,7 @@ public class PropertyBagTests : BaseVBTestFixture
             Set p = New PropertyBag: Set o = New Class1
             p.WriteProperty "object", o
             """, ("Class1", "Public x As Integer"));
-        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*PropertyBag*objects*#4680*");
+        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*PropertyBag*objects*#4741*");
     }
 
     private static string InputBytes(byte[] bytes) =>
@@ -253,7 +253,7 @@ public class PropertyBagTests : BaseVBTestFixture
             {InputBytes(bytes)}
             p.Contents = b
             """);
-        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*PropertyBag*objects*#4680*");
+        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*PropertyBag*objects*#4741*");
     }
 
     [Theory]
@@ -325,7 +325,7 @@ public class PropertyBagTests : BaseVBTestFixture
             Set p = New PropertyBag
             {statement}
             """);
-        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4680*");
+        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4741*");
     }
 
     [Theory]
@@ -342,6 +342,6 @@ public class PropertyBagTests : BaseVBTestFixture
             {InputBytes(bytes)}
             {statement}
             """);
-        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4680*");
+        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4741*");
     }
 }

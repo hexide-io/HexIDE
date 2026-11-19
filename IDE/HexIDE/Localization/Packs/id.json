@@ -151,6 +151,7 @@
     "Str.Archive.FolderReadyFormat": "Folder sumber disinkronkan dari arsip tersimpan:\n{0}\n\nPerubahan pada folder menghentikan sinkronisasi; perubahan tidak diimpor. Muat ulang proyek untuk memperbarui pratinjau.",
     "Str.Archive.FolderErrorFormat": "Sinkronisasi folder sumber dihentikan:\n{0}\n\nArsip tidak diubah.",
     "Str.Archive.OpenErrorFormat": "Tidak dapat membuka {0}:\n{1}",
+    "Str.ContributedProject.UnknownFormFormat": "tidak ada format terinstal yang membaca formulir '{0}'",
     "Str.ContributedProject.OpenError": "Tidak dapat membuka {0} dengan {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} dibuka oleh {1}: berkasnya ditambahkan dan dihapus oleh program pemiliknya, bukan oleh HexIDE.",
     "Str.ContributedProject.RemovedWithChanges": "{0} dikeluarkan dari {1} oleh program pemiliknya. Simpan perubahan Anda terlebih dahulu?",

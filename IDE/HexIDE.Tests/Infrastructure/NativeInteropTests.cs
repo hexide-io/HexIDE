@@ -35,6 +35,7 @@ public class NativeInteropTests
     [InlineData("HexIDE.Runtime", "Interpreter/WindowsLanguages.cs", 3)]
     [InlineData("HexIDE", "TypeLibrary/TypeLibReader.cs", 2)]
     [InlineData("HexIDE", "IDE/DownloadMark.cs", 1)]
+    [InlineData("HexIDE", "IDE/WindowRaiser.cs", 7)]
     [InlineData("HexIDE.Runtime", "BuiltinControls/ToolbarCaptionMetrics.cs", 7)]
     [InlineData("HexIDE.Lsp", "Transports/LaunchedServerGuard.cs", 2)]
     [InlineData("HexIDE.LspGuard", "Program.cs", 4)]

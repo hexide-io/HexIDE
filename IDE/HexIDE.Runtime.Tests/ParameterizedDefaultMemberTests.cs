@@ -13,6 +13,9 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
             Item = store(CStr(k))
         End Property
         Public Property Let Item(ByVal k As Variant, ByVal v As Variant)
+            On Error Resume Next
+            store.Remove CStr(k)
+            On Error GoTo 0
             store.Add v, CStr(k)
         End Property
         Public Property Get Self() As Bag
@@ -46,6 +49,40 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
     private Task Probe(string code) => RunClasses(code + "\n", ("Bag", Bag), ("Holder", Holder),
         ("FBag", "Public Function Item(ByVal k As Variant) As Variant\nAttribute Item.VB_UserMemId = 0\nItem = \"f\" & k\nEnd Function\n"),
         ("TBag", "Public Property Get Item(ByVal a As Long, ByVal b As Long) As Long\nAttribute Item.VB_UserMemId = 0\nItem = a * 10 + b\nEnd Property\n"));
+
+    private const string Record = "Private Type TT\n    d As Bag\nEnd Type\nDim t As TT\n";
+
+    // Measured native and p-code in https://github.com/hexide-io/HexIDE/issues/4725.
+    [Theory]
+    [InlineData("t.d(\"k\") = \"v\"\nDebug.Print t.d(\"k\")", "v")]
+    [InlineData("t.d(\"k\") = \"v\"\nDebug.Print TypeName(t.d(\"k\"))", "String")]
+    [InlineData("t.d(\"A1\") = False\nt.d(\"A1\") = True\nDebug.Print CStr(t.d(\"A1\")) & \" \" & TypeName(t.d(\"A1\"))", "True Boolean")]
+    [InlineData("t.d.Item(\"k\") = \"v\"\nDebug.Print t.d(\"k\")", "v")]
+    public async Task Type_field_default_member(string code, string expected)
+    {
+        await Probe(Record + "Set t.d = New Bag\n" + code);
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("t.d(\"k\") = 1")]
+    [InlineData("Dim x As Variant\nx = t.d(\"k\")")]
+    public async Task Type_field_typed_Nothing_raises_91(string statement)
+    {
+        var run = () => Probe(Record + statement);
+        var error = (await run.Should().ThrowAsync<VBRunTimeException>()).Which;
+        error.Error.ErrNo.Should().Be(91);
+    }
+
+    // Unmeasured: Nothing in an As Object Type field, given arguments, stays refused for a Let and a read alike (#4725).
+    [Theory]
+    [InlineData("t.o(\"k\") = 1")]
+    [InlineData("Dim x As Variant\nx = t.o(\"k\")")]
+    public async Task Type_field_As_Object_Nothing_stays_refused(string statement)
+    {
+        var run = () => Probe("Private Type TO\n    o As Object\nEnd Type\nDim t As TO\n" + statement);
+        await run.Should().ThrowAsync<NotImplementedException>();
+    }
 
     [Theory]
     [InlineData("Dim b As New Bag\nb(\"x\") = \"v\"\nDebug.Print b(\"x\") & \" \" & b.Self(\"x\")", "v v")]
@@ -87,15 +124,116 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value("v")]);
     }
 
-    [Theory]
-    [InlineData("Public Sub Other()\nEnd Sub\n", "Debug.Print c(\"q\")")]
-    [InlineData("Public Sub Item(ByVal k As Variant)\nAttribute Item.VB_UserMemId = 0\nEnd Sub\n", "Debug.Print c(\"q\")")]
-    [InlineData("Public Function Item(ByVal k As Variant) As Variant\nAttribute Item.VB_UserMemId = 0\nEnd Function\n", "c(\"q\") = 1")]
-    [InlineData("Public v As Variant\nAttribute v.VB_VarUserMemId = 0\n", "Debug.Print c(\"q\")")]
-    [InlineData("Public Property Get Item(ByVal k As Variant) As Variant\nAttribute Item.VB_UserMemId = 0\nEnd Property\n", "c(\"q\") = 1")]
-    public async Task Unmeasured_members_refuse(string source, string statement)
+    // Measured on vb6.exe SP6, native and p-code: #4747's supervisor comment,
+    // recorded by oracle PR #4779. Unmeasured cells are deliberately absent.
+    private static string DefaultClass(string kind) => kind switch
     {
-        var run = () => RunClasses("Dim c As New C\n" + statement + "\n", ("C", source));
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4606*");
+        "CN" => "Public Function F(ByVal i As Long)\nEnd Function\n",
+        "CS" => "Public Sub Value(ByVal i As Long)\nAttribute Value.VB_UserMemId = 0\nDebug.Print \"Sub \" & i\nEnd Sub\n",
+        "CV" => DefaultField("Variant", "Value = Array(10, 20, 30)"),
+        "CVS" => DefaultField("Variant", "Value = 7"),
+        "CVE" => DefaultField("Variant", ""),
+        "CVT" => DefaultField("Long", "Value = 7"),
+        _ => DefaultProcedure(kind)
+    };
+
+    private static string DefaultField(string type, string initialize) =>
+        $"Public Value As {type}\nAttribute Value.VB_VarUserMemId = 0\nPrivate Sub Class_Initialize()\n{initialize}\nEnd Sub\n";
+
+    private static string DefaultProcedure(string kind)
+    {
+        var procedure = kind.StartsWith("CG", StringComparison.Ordinal) ? "Property Get" : "Function";
+        var end = procedure == "Property Get" ? "Property" : "Function";
+        var trace = kind.EndsWith('2') ? $"Debug.Print \"{(end == "Property" ? "Get" : "Function")} \" & i\n" : "";
+        return $"Public {procedure} Value(ByVal i As Long) As Variant\nAttribute Value.VB_UserMemId = 0\n{trace}Value = i * 10\nEnd {end}\n";
+    }
+
+    private Task DefaultProbe(string kind, string binding, string statement) => RunClasses(
+        $"Dim e As {binding}, x As Variant\nSet e = New {kind}\nOn Error Resume Next\n{statement}\nIf Err.Number <> 0 Then Debug.Print \"err \" & Err.Number\n",
+        (kind, DefaultClass(kind)));
+
+    [Theory]
+    [InlineData("CN", "CN", "x = e(1)", "err 438")]
+    [InlineData("CN", "CN", "e(1) = 5", "err 438")]
+    [InlineData("CN", "Object", "x = e(1)", "err 438")]
+    [InlineData("CN", "Object", "e(1) = 5", "err 438")]
+    [InlineData("CN", "Variant", "x = e(1)", "err 438")]
+    [InlineData("CN", "Variant", "e(1) = 5", "err 438")]
+    [InlineData("CS", "Object", "x = e(1)\nDebug.Print TypeName(x)", "Sub 1|Empty")]
+    [InlineData("CS", "Object", "e(1) = 5", "Sub 1|err 451")]
+    [InlineData("CS", "Variant", "x = e(1)\nDebug.Print TypeName(x)", "Sub 1|Empty")]
+    [InlineData("CS", "Variant", "e(1) = 5", "err 450")]
+    [InlineData("CV", "CV", "x = e(1)\nDebug.Print CStr(x) & \" \" & TypeName(x)", "20 Integer")]
+    [InlineData("CV", "CV", "e(1) = 5\nDebug.Print CStr(e.Value(0)) & \" \" & e.Value(1) & \" \" & e.Value(2)", "10 20 30")]
+    [InlineData("CV", "CV", "x = e(5)", "err 9")]
+    [InlineData("CV", "CV", "e(5) = 1", "err 9")]
+    [InlineData("CV", "Object", "x = e(1)", "err 451")]
+    [InlineData("CV", "Variant", "x = e(1)", "err 451")]
+    [InlineData("CV", "Object", "e(1) = 5", "err 451")]
+    [InlineData("CV", "Variant", "e(1) = 5", "err 451")]
+    [InlineData("CVS", "CVS", "x = e(1)", "err 13")]
+    [InlineData("CVS", "Object", "x = e(1)", "err 451")]
+    [InlineData("CVS", "Variant", "x = e(1)", "err 451")]
+    [InlineData("CVS", "CVS", "e(1) = 5", "err 13")]
+    [InlineData("CVS", "Object", "e(1) = 5", "err 451")]
+    [InlineData("CVS", "Variant", "e(1) = 5", "err 451")]
+    [InlineData("CVE", "CVE", "x = e(1)", "err 13")]
+    [InlineData("CVE", "Object", "x = e(1)", "err 451")]
+    [InlineData("CVE", "Variant", "x = e(1)", "err 451")]
+    [InlineData("CVE", "CVE", "e(1) = 5", "err 13")]
+    [InlineData("CVT", "Object", "x = e(1)", "err 451")]
+    [InlineData("CVT", "Variant", "x = e(1)", "err 451")]
+    [InlineData("CVT", "Object", "e(1) = 5", "err 451")]
+    [InlineData("CVT", "Variant", "e(1) = 5", "err 451")]
+    [InlineData("CG", "CG", "e(1) = 5", "err 424")]
+    [InlineData("CG", "Object", "e(1) = 5", "err 451")]
+    [InlineData("CG", "Variant", "e(1) = 5", "err 451")]
+    [InlineData("CF", "CF", "e(1) = 5", "err 424")]
+    [InlineData("CF", "Object", "e(1) = 5", "err 451")]
+    [InlineData("CF", "Variant", "e(1) = 5", "err 450")]
+    [InlineData("CG2", "CG2", "e(1) = 5", "Get 1|err 424")]
+    [InlineData("CG2", "Object", "e(1) = 5", "Get 1|err 451")]
+    [InlineData("CG2", "Variant", "e(1) = 5", "Get 1|err 451")]
+    [InlineData("CF2", "CF2", "e(1) = 5", "Function 1|err 424")]
+    [InlineData("CF2", "Object", "e(1) = 5", "Function 1|err 451")]
+    [InlineData("CF2", "Variant", "e(1) = 5", "err 450")]
+    public async Task Measured_argument_errors_and_side_effects(string kind, string binding, string statement, string expected)
+    {
+        await DefaultProbe(kind, binding, statement);
+        AssertDebugLog(expected.Split('|').Select(s => new Vb6Value(s)).ToList());
+    }
+
+    [Theory]
+    [InlineData("CS", "x = e(1)", "Expected Function or variable")]
+    [InlineData("CS", "e(1) = 5", "Expected Function or variable")]
+    [InlineData("CVT", "x = e(1)", "Wrong number of arguments or invalid property assignment")]
+    [InlineData("CVT", "e(1) = 5", "Can't assign to read-only property")]
+    public async Task Early_bound_invalid_members_give_compile_errors(string kind, string statement, string message)
+    {
+        var run = () => DefaultProbe(kind, kind, statement);
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.ReplaceLineEndings()
+            .Should().Be($"Compile error:\n\n{message}".ReplaceLineEndings());
+    }
+
+    [Theory]
+    [InlineData("CV", "Object", "x = e.Value(1)", "err 451")]
+    [InlineData("CG2", "CG2", "x = e(2)\nDebug.Print CStr(x) & \" \" & TypeName(x)", "Get 2|20 Long")]
+    public async Task Already_measured_reads_remain_regression_guards(string kind, string binding, string statement, string expected)
+    {
+        await DefaultProbe(kind, binding, statement);
+        AssertDebugLog(expected.Split('|').Select(s => new Vb6Value(s)).ToList());
+    }
+
+    [Fact]
+    public async Task Let_through_an_object_returning_Get_remains_unmeasured()
+    {
+        var run = () => RunClasses("Dim c As New C\nc(1) = 5\n", ("C", """
+            Public Property Get Value(ByVal i As Long) As C
+            Attribute Value.VB_UserMemId = 0
+                Set Value = Me
+            End Property
+
+            """));
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#4747*");
     }
 }

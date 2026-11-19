@@ -16,6 +16,9 @@ public interface IRunningProgram
     /// A null window asks for any running program.</summary>
     IProgramActivity? Activity(object? window);
 
+    /// <summary>Shown, non-minimised form windows of this window's program, least recently activated first.</summary>
+    IReadOnlyList<object> ShownWindows(object window);
+
     /// <summary>Text as the program prints it. Subscribers keep their own position or buffer.</summary>
     event Action<string>? Written;
 }
@@ -45,6 +48,7 @@ public static class RunningProgram
 /// <summary>An absent engine answers without discovering windows, waiting or emitting output.</summary>
 public sealed class EmptyRunningProgram : IRunningProgram
 {
+    public IReadOnlyList<object> ShownWindows(object window) => [];
     public RunningForm? Form(object window) => null;
     public IProgramActivity? Activity(object? window) => null;
     public event Action<string>? Written { add { } remove { } }

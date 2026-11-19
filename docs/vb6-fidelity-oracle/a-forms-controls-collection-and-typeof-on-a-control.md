@@ -114,10 +114,52 @@ to.
 **Not followed:**
 - The p-code order after the row that resisted explanation: HexIDE lists 1, 2, 3, as native code does.
 - `For Each t In Controls` with `t As TextBox`: HexIDE binds every control and raises nothing, where VB6 raises 13 at the
-  Timer. A missing error, filed as #1563.
+  Timer. A missing error, filed as #1563. Followed since #4832 (2026-11-19): the 13 at the Timer, one pass of the body,
+  and `t` left Nothing, as the table above records.
 
 **Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.
 
+
+### `Set` of a control into a variable of another class (2026-11-18, #1563)
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds logged every row identically.
+- **The form:** a Timer, an HScrollBar, a VScrollBar, a CommandButton, a PictureBox, a TextBox, a ComboBox and a ListBox.
+- **The project** also has a class, `Class1`.
+- **Each row:** one `Set` under `On Error Resume Next`, with the error it raised.
+
+**`TypeName`**, of each control by name and through `For Each c In Controls`, gives the class as the .frm names it: `Timer`, `HScrollBar`, `VScrollBar`, `CommandButton`, `PictureBox`, `TextBox`, `ComboBox`, `ListBox`. `TypeName(Me)` is `Form1`.
+
+| Statement | VB6 |
+|---|---|
+| `Set t = Text1`, `t As TextBox` | ok |
+| `Set t = List1`, `t As TextBox` and Nothing | **13**, and `t` is still Nothing |
+| `Set t = List1`, `t` holding Text1 | **13**, and `t` is still Text1 |
+| `Set h = HScroll1`, `h As HScrollBar` | ok |
+| `Set h = VScroll1`, `h As HScrollBar` | **13** |
+| `Set vs = HScroll1`, `vs As VScrollBar` | **13** |
+| `Set lb = Combo1`, `lb As ListBox` | **13** |
+| `Set cb = Text1`, `cb As CommandButton` | **13** |
+| `Set c = Text1`, `Set c = Timer1`, `c As Control` | ok |
+| `Set c = Me`, `c As Control` | **13** |
+| `Set o = Text1`, `o As Object` | ok |
+| `Set f = Me`, `f As Form` | ok |
+| `Set f = Text1`, `f As Form` | **13** |
+| `Set c1 = Text1`, `c1 As Class1` | **13** |
+| `Set t = Me`, `t As TextBox` | **13** |
+| `Set t = New Class1`, `t As TextBox` | **13** |
+| `Set v = Text1`, `v` a Variant | ok |
+| `Set t = v`, `v` a Variant holding Text1 | ok |
+| `Set t = v`, `v` a Variant holding List1 | **13** |
+| `Set t = o`, `o As Object` holding List1 | **13** |
+| `For Each t In Controls`, `t As TextBox`, the Timer first | 13; the body runs once, and `t` is Nothing, as the table above records |
+
+- **A control goes only into a variable of its own class,** `Control`, `Object` or a Variant. Anything else is 13, and the variable keeps what it held.
+- **An HScrollBar and a VScrollBar are different classes.** Neither goes into the other's variable.
+- **The check is made at the `Set`, on the object itself.** It doesn't depend on what the right-hand side was declared as: from a Variant or an `As Object` variable, a wrong control is 13 and the right one is accepted.
+- **A form isn't a `Control`,** and a control isn't a `Form`.
+
+**Not measured:** a control array's element, a UserControl, an OCX control, and `As VB.TextBox`.
 
 ### Bang access on the form (#2066)
 

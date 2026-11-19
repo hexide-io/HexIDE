@@ -1332,6 +1332,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     private bool refreshingProcedureNames;
+    private readonly Dictionary<string, DocumentSymbol> procedureSymbols = new();
 
     private void RefreshProcedureNames()
     {
@@ -1340,17 +1341,22 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         {
             var current = SelectedProcedure;
             ProcedureNames.Clear();
+            procedureSymbols.Clear();
 
             if (SelectedObject == GeneralObject || SelectedObject is null)
             {
                 ProcedureNames.Add(DeclarationsProc);
-                foreach (var s in FlattenedSymbols())
-                    // A form's controls can arrive as Property symbols too (RDCore, #4526); they belong in the Object
-                    // box. Only Property symbols are filtered: a procedure keeps its place even if it shares a name
-                    // FindComponent knows, such as the root's "Form".
-                    if (s.Kind is SymbolKind.Method or SymbolKind.Function ||
+                // A form's controls can arrive as Property symbols too (RDCore, #4526); they belong in the Object
+                // box. A procedure keeps its place even if it shares a component's name, such as "Form".
+                var entries = FlattenedSymbols()
+                    .Where(s => s.Kind is SymbolKind.Method or SymbolKind.Function ||
                         (s.Kind is SymbolKind.Property && FindComponent(s.Name) is null))
-                        ProcedureNames.Add(s.Name);
+                    .Select(s => (Symbol: s, Entry: ProcedureEntry(s)))
+                    .OrderBy(x => x.Entry.Name, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(x => x.Entry.Accessor);
+                foreach (var (symbol, entry) in entries)
+                    if (procedureSymbols.TryAdd(entry.Text, symbol))
+                        ProcedureNames.Add(entry.Text);
             }
             else
             {
@@ -1364,6 +1370,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             SelectedProcedure = (current is not null && ProcedureNames.IndexOf(current) >= 0) ? current : null;
         }
         finally { refreshingProcedureNames = false; }
+    }
+
+    private static (string Name, string Text, int Accessor) ProcedureEntry(DocumentSymbol symbol)
+    {
+        if (symbol.Kind == SymbolKind.Property)
+        {
+            var accessors = new[] { "Get", "Let", "Set" };
+            for (var i = 0; i < accessors.Length; i++)
+                if (string.Equals(symbol.Detail, "Property " + accessors[i], StringComparison.OrdinalIgnoreCase))
+                    return (symbol.Name, $"{symbol.Name} [Property{accessors[i]}]", i);
+            for (var i = 0; i < accessors.Length; i++)
+            {
+                var suffix = $" ({accessors[i]})";
+                if (symbol.Name.EndsWith(suffix, StringComparison.Ordinal))
+                {
+                    var name = symbol.Name[..^suffix.Length];
+                    return (name, $"{name} [Property{accessors[i]}]", i);
+                }
+            }
+        }
+        return (symbol.Name, symbol.Name, 0);
     }
 
     private string? RootEventPrefix => formDefinition?.RootVBTypeName switch
@@ -2653,11 +2680,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         if (SelectedObject == GeneralObject || SelectedObject is null)
         {
-            // Navigate to existing proc by symbol range
-            // Searched over the same flattened view the dropdown was filled from. Looking only at the top
-            // level here would offer a name and then decline to navigate to it.
-            var sym = FlattenedSymbols().FirstOrDefault(s => s.Name == newValue);
-            if (sym is null) return;
+            if (!procedureSymbols.TryGetValue(newValue, out var sym)) return;
             var line = sym.SelectionRange.Start.Line + 1;
             if (line >= 1 && line <= Document.LineCount)
                 this.NavigateToOffset(Document.GetLineByNumber(line).Offset);
