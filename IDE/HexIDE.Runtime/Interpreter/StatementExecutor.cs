@@ -2314,12 +2314,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         foreach (var arg in args) arg.RefuseOddBytes(member);
         VBFlatScrollBar.RefuseEarlyBound(reference, member);
         UserControlMembers.Check(reference, member);
-        return ((Control)reference.Value!).CallAsync(member, args, CallingForm());
+        return ((Control)reference.Value!).CallAsync(member, args, ModalOwner());
     }
 
-    private VbObject? CallingForm() =>
-        interpreter.ExecutionContext.TryInspectVariable(currentEnv, "Me", out var me)
+    private VbObject? ModalOwner()
+    {
+        // The current walk is the innermost dispatch, even inside a modal wait (#4744, measured rows f-k).
+        var root = interpreter.Events?.Current?.EventInstance;
+        if (root is { ClassDef.Kind: InterpreterModuleKind.Form })
+            return root;
+        if (root is null)
+            return interpreter.Forms?.ActiveForm;
+        // Class and UserControl roots are unmeasured: retain the executing procedure's Me, as before #4744.
+        return interpreter.ExecutionContext.TryInspectVariable(currentEnv, "Me", out var me)
             && me.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form ? form : null;
+    }
 
     // Object-default assignment is off the scalar assignment's recursive frame (#2827).
     private bool TryLetIntoObject(Vb6Value oldLet, Vb6Value value, int letSlot, string identifier, ParserRuleContext context)
@@ -3723,13 +3732,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // Dispatch synchronously, in ATTACH order, to {varName}_{eventName} on each bound listener instance.
         // Snapshot first — a handler may attach/detach mid-dispatch. Skip a Terminated listener or a missing
         // handler (an event with no matching handler is a silent no-op).
-        foreach (var sink in source.Sinks.ToList())
+        // A class event at the root stays on the unmeasured ownership path, even with a form as its listener (#4744).
+        var walk = interpreter.Events?.Current;
+        var previousEventInstance = walk?.EventInstance;
+        if (walk is not null && previousEventInstance is null)
+            walk.EventInstance = source;
+        try
         {
-            if (sink.Listener.Value is not VbObject listener || listener.Terminated)
-                continue;
-            if (listener.ClassDef.PrePass.Procedures.TryGetValue(sink.VarName + "_" + eventName, out var handler))
-                await interpreter.RunProcedure(listener.ClassDef, handler, args, listener.InstanceEnv, sink.Listener, stmtFrames,
-                    isEntry: true);
+            foreach (var sink in source.Sinks.ToList())
+            {
+                if (sink.Listener.Value is not VbObject listener || listener.Terminated)
+                    continue;
+                if (listener.ClassDef.PrePass.Procedures.TryGetValue(sink.VarName + "_" + eventName, out var handler))
+                    await interpreter.RunProcedure(listener.ClassDef, handler, args, listener.InstanceEnv, sink.Listener, stmtFrames,
+                        isEntry: true);
+            }
+        }
+        finally
+        {
+            if (walk is not null)
+                walk.EventInstance = previousEventInstance;
         }
         return ControlFlow.Nothing;
     }
@@ -5685,7 +5707,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var callArgs = await expressionExecutor.EvaluateMemberArgs(Vb6Value.NewObject(form), subName, context.argsCall());
             // Loaded first, then called, so a modal Show can wait (#822).
             var window = await interpreter.Loading((Form: form, Name: subName), static s => s.Form.BuiltInMembersFor(s.Name));
-            await window!.CallAsync(subName, callArgs, CallingForm());
+            await window!.CallAsync(subName, callArgs, ModalOwner());
             return ControlFlow.Nothing;
         }
         // A bare procedure statement (Foo a, b): a user Sub/Function (this module, or another module's Public)

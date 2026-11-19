@@ -21,8 +21,8 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A program of several forms (#822, slice 2a): default instances made where a form's name is first used, Load, Show,
-/// Hide, Unload of another form, and the run lasting until no form is loaded. Every expectation here was measured on
-/// vb6.exe, native and p-code agreeing: the oracle's <i>Several forms: load, show, hide, modal, and when the run ends</i>.
+/// Hide, Unload of another form, and the run lasting until no form is loaded. Expectations come from vb6.exe:
+/// the oracle's <i>Several forms: load, show, hide, modal, and when the run ends</i>, or the issue cited at the test.
 /// Run from <see cref="VBLoader.RunForm"/>, where F5 starts on the desktop and where the Standalone runner starts.
 /// </summary>
 public class SeveralFormsTests
@@ -125,8 +125,8 @@ public class SeveralFormsTests
     private static FormDefinition Form(ProjectDefinition project, string name, string code) =>
         new FormDeserializer().Deserialize(project, (Header(name) + code).ReplaceLineEndings("\r\n"), new NullSink())!;
 
-    /// <summary>Run a project of Form1 and Form2, and Form3 if given, from Form1, as F5 does, and let its start run.</summary>
-    private static Run Start(string form1Code, string form2Code = Form2Code, string? form3Code = null, string? moduleCode = null)
+    /// <summary>Run Form1 and Form2, and Form3 if given, from Form1 or Sub Main, and let the start run.</summary>
+    private static Run Start(string form1Code, string form2Code = Form2Code, string? form3Code = null, string? moduleCode = null, bool subMain = false)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form1 = Form(project, "Form1", form1Code);
@@ -162,7 +162,10 @@ public class SeveralFormsTests
         // End ends the run as every host makes it: by cancelling it.
         void OnEnd(BasicInterpreter _) => Dispatcher.UIThread.Post(() => cancel.Cancel());
         BasicInterpreter.EndReached += OnEnd;
-        var task = VBLoader.RunForm(form1, cancel.Token, out _);
+        project.StartsAtSubMain = subMain;
+        var task = subMain
+            ? VBLoader.RunMadeProgram(project, cancel.Token, out _)
+            : VBLoader.RunForm(form1, cancel.Token, out _);
         Pump();
         return new Run
         {
@@ -391,15 +394,76 @@ public class SeveralFormsTests
         modal.IsVisible.Should().BeTrue();
     }
 
+    // Row f, VB6 SP6: https://github.com/hexide-io/HexIDE/issues/4744.
     [AvaloniaFact]
-    public void Modal_from_a_standard_module_keeps_no_owner()
+    public void Modal_from_a_standard_module_is_owned_by_the_Click_event_form()
     {
         using var run = Start("Private Sub Command1_Click()\nOpenModal\nEnd Sub\n",
             moduleCode: "Public Sub OpenModal()\nForm2.Show vbModal\nEnd Sub\n");
         run.Click("Form1");
         Pump();
         run.Errors.Should().BeEmpty();
-        run.Opened["Form2"].Owner.Should().BeNull("the standard-module case is unmeasured and stays unowned (#4618)");
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened["Form1"]);
+    }
+
+    // Rows g-j, VB6 SP6: https://github.com/hexide-io/HexIDE/issues/4744.
+    [AvaloniaTheory]
+    [InlineData("Form1", "Form3", "OpenModal", "")]
+    [InlineData("Form3", "Form1", "OpenModal", "")]
+    [InlineData("Form1", "Form1", "Form3.CallOpen", "Public Sub CallOpen()\nOpenModal\nEnd Sub\n")]
+    [InlineData("Form1", "Form1", "Form3.ShowDirect", "Public Sub ShowDirect()\nWith Form2: .Show vbModal: End With\nEnd Sub\n")]
+    public void Modal_owner_follows_the_Timer_event_through_module_and_other_form_calls(
+        string eventForm, string active, string call, string form3Code)
+    {
+        var handler = $"Private Sub Timer1_Timer()\n{call}\nEnd Sub\n";
+        using var run = Start("Private Sub Command1_Click()\nForm3.Show\nEnd Sub\n"
+            + (eventForm == "Form1" ? handler : ""),
+            form3Code: form3Code + (eventForm == "Form3" ? handler : ""),
+            moduleCode: "Public Sub OpenModal()\nForm2.Show vbModal\nEnd Sub\n");
+        run.Click("Form1");
+        Pump();
+        run.Opened[active].Activate();
+        Pump();
+        run.Opened[eventForm].ExecuteTimer("Timer1_Timer");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened[eventForm]);
+    }
+
+    // Row k, VB6 SP6: https://github.com/hexide-io/HexIDE/issues/4744.
+    [AvaloniaFact]
+    public void Modal_from_Sub_Main_is_owned_by_the_active_form()
+    {
+        using var run = Start("", form3Code: "", moduleCode: """
+            Sub Main()
+                Form1.Show
+                Form3.Show
+                OpenModal
+            End Sub
+            Public Sub OpenModal()
+                Form2.Show vbModal
+            End Sub
+            """, subMain: true);
+
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened["Form3"]);
+    }
+
+    // The innermost dispatch supplies the event form, even while an outer handler waits in Show (#4744).
+    [AvaloniaFact]
+    public void Modal_owner_uses_the_event_inside_the_modal_wait()
+    {
+        using var run = Start("Private Sub Command1_Click()\nForm3.Show vbModal\nEnd Sub\n",
+            form3Code: "Private Sub Command1_Click()\nOpenModal\nEnd Sub\n",
+            moduleCode: "Public Sub OpenModal()\nForm2.Show vbModal\nEnd Sub\n");
+        run.Click("Form1");
+        Pump();
+        run.Click("Form3");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Opened["Form2"].Owner.Should().BeSameAs(run.Opened["Form3"]);
     }
 
     // Avalonia hides a window's owned windows with it. Unloading a form hides its window, so the hide must clear ownership
@@ -1292,6 +1356,7 @@ public class SeveralFormsTests
             """);
 
         run.Printed.Should().Equal("f1 load", "f2 initialize", "f2 load");
+        run.Opened["Form2"].Owner.Should().BeNull("row l in #4744: the startup form is not displayed yet");
         run.Opened.Should().NotContainKey("Form1", "the startup form is shown once its Load has returned (measured)");
 
         run.Click("Form2");

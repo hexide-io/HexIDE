@@ -1905,6 +1905,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         bool completed = false;
         bool holdsMe = false;
         bool hasReturnSlot = false;
+        var walk = Events?.Current;
+        var previousEventInstance = walk?.EventInstance;
+        if (walk is not null && previousEventInstance is null && isEntry && me?.Value is VbObject eventInstance)
+            walk.EventInstance = eventInstance;
         try
         {
             if (me is { } m)
@@ -2051,6 +2055,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             }
             finally
             {
+                if (walk is not null)
+                    walk.EventInstance = previousEventInstance;
                 foreach (var slot in callee.AllocatedSlots)
                     ExecutionContext.State.Free(slot);
             }
