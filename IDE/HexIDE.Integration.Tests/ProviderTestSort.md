@@ -126,6 +126,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ObjectBrowserViewIntegrationTests.cs` | split |
 | `Views/OnTypeFormattingTests.cs` | split |
 | `Views/OpeningCaretTests.cs` | split |
+| `Views/OutlineViewTests.cs` | split |
 | `Views/PictureBoxAutoSizeTests.cs` | split |
 | `Views/PictureLoadTests.cs` | split |
 | `Views/PositionRowsTests.cs` | split |
