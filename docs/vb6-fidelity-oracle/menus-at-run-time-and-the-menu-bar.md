@@ -138,7 +138,7 @@ is ("Control arrays" above), so this is where menus and controls part. Not measu
 its menu when the array has gaps, and whether it copies a Shortcut.
 
 **In HexIDE:**
-- **The bar** is above the client area, 19 pixels high, and ScaleHeight is the area below it, on a form with a visible
+- **The bar** is above the client area, 20 pixels high as on the console (#1140), and ScaleHeight is the area below it, on a form with a visible
   top-level menu; a form whose top-level menus are all hidden has no bar (#1127). The bar is one line high however many
   menus it holds, where VB6's wraps onto a second line on a form too narrow for them, measured since in *Changing the bar twice
   before it lands, and a bar that wraps*, below.
@@ -149,13 +149,12 @@ its menu when the array has gaps, and whether it copies a Shortcut.
   toggles its tick, which is the program's to set, by pointer, Enter or automation alike (#1158, measured below). `TypeName` gives Menu, and Object for the array.
 - **Not yet:** a menu's default member, Enabled, so `mnuNew = False` and a bare `mnuNew` read; giving a separator a
   caption, which makes it an item, refused as not implemented; and setting WindowList, refused the same way.
-- **The bar appearing or going away from code is refused** as not implemented (#1140): hiding the last visible
-  top-level menu, or showing one on a form whose top-level menus are all hidden, as a form that only pops its menus up
-  has them. The bar's height comes off the client area, and what the window or ScaleHeight does once the form is shown
-  is unmeasured; the one case measured, before it is shown, changed nothing. Wanted: ScaleHeight and Height after each
-  direction on a shown form, and on a maximized form and an MDI child. Measured since, all but the MDI child: the
-  console re-run above (#1140). A change that leaves a top-level menu visible
-  works, and so does every change to a sub-item.
+- **The bar appearing or going away from code** comes or goes at the next message, as *When the change lands*
+  above measured: Height stays, ScaleHeight moves by 300 twips, and one Resize is raised (#1140). That covers hiding
+  the last visible top-level menu, and showing one on a form whose top-level menus are all hidden, as a form that only
+  pops its menus up has them. Three cases are refused as not implemented (#4946): an MDI child's bar, a bar HexIDE
+  lays out as wider than the form, and a change reversed before it lands. A change that leaves a top-level menu
+  visible works, and so does every change to a sub-item.
 - **The text of 340** names the element in vb6.exe, "Control array element '5' doesn't exist", and doesn't here.
   The "Control arrays" rows above give it without the index, which looks abbreviated rather than measured; not
   rechecked.
@@ -223,10 +222,16 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
   wider on the console: File, Edit, View, Project, Format, Debug and Run are 28, 30, 35, 45, 44, 44 and 32 pixels in
   session 0, and 32, 34, 39, 51, 52, 49 and 35 on the console. Alpha to Foxtrot are 39, 40, 44, 37, 37 and 44 in
   session 0, and 45, 44, 51, 41, 40 and 52 on the console.
-- **An item moves to the next row when the row would leave fewer than 7 pixels of the client width spare.** Rows
-  that left 7, 10, 11, 12, 14, 15, 16, 22, 24, 32 and 34 px spare stayed as they were. Rows that would have left 6, 5,
-  4, 3, 2 or 0 px wrapped. That is on Fixed Single forms only, whose items start 3 px in from the window's edge. No rule beyond
-  that is offered.
+- **An item moves to the next row when its row would leave too little of the client width spare, and how little
+  differs by a pixel between the two sessions.** A third probe narrowed Form4 one pixel at a time, from a 101-px
+  client to 90, in both sessions, native and p-code agreeing:
+  - **Session 0:** File, Edit and View, 93 px together, stayed on one row at a 99-px client, 6 px spare, and wrapped
+    at 98, with 5. Format and Debug, 88 px, stayed at 94 and wrapped at 93.
+  - **Console:** View and Project, 90 px, stayed at 97, 7 px spare, and wrapped at 96, with 6.
+  - **Every row measured fits that.** In session 0, rows wrapped with 5, 4, 2 or 0 px spare and stayed with 6, 7, 9
+    or more. On the console they wrapped with 6, 5, 4, 3 or 0 and stayed with 7, 10 or more.
+  - That is on Fixed Single forms only, whose items start 3 px in from the window's edge. No rule is offered for why
+    the two sessions differ.
 - **A Width change re-wraps the bar at once.** Form3 in session 0 unwrapped when its client went from 246 to 256 px:
   ScaleHeight went from 3420 to 3690 and Height stayed 4350. In the first probe, `Width = Width + 3000` unwrapped it
   the same way, and its Resize came inside the `Width` statement, before the next line read anything. Form4 narrowing
@@ -239,7 +244,7 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
   that. Not explored further.
 
 **Not measured:** an MDI child's menu bar, so a change to it isn't either; a bar on a form of another BorderStyle; and
-which of the client width or the window's width the 7 pixels are measured against.
+which of the client width or the window's width the spare pixels are measured against.
 
 **In HexIDE (#4946),** from main at 7383762e3:
 - **A change reversed before it lands** is refused as not implemented, from `MenuMembers.cs:121-122`, read from the
