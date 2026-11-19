@@ -6,6 +6,7 @@ using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Rendering;
 using HexIDE.Controls;
@@ -124,6 +125,8 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         // detach test asserts the transformer list is empty afterwards, which is equally true of one that
         // was never added. A diagnostic should look the same in a carried file as in VB6 source.
         TextViewOf(view).LineTransformers.OfType<LspDiagnosticsColorizer>().Should().ContainSingle();
+        view.GetVisualDescendants().Should().Contain(TextViewOf(view),
+            "the diagnostic text view must belong to the templated editor tree");
     }
 
     [AvaloniaFact]
@@ -246,6 +249,8 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
             .Should().ContainSingle().Which.Markers.Should().ContainSingle(
                 "the renderer being attached is not enough — it has to be HOLDING the diagnostics, and no "
               + "further publication is coming for a document that has not changed");
+        reattached.GetVisualDescendants().Should().Contain(TextViewOf(reattached),
+            "the diagnostic text view must belong to the templated editor tree");
     }
 
     [AvaloniaFact]
@@ -257,6 +262,8 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         var view = Show(vm);
         var textView = TextViewOf(view);
         textView.BackgroundRenderers.OfType<LspTextMarkerService>().Should().ContainSingle();
+        view.GetVisualDescendants().Should().Contain(TextViewOf(view),
+            "the diagnostic text view must belong to the templated editor tree");
 
         _windows[^1].Close();
         Dispatcher.UIThread.RunJobs();
@@ -276,5 +283,7 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         vm.Markers.Should().BeEmpty();
         vm.LoadError.Should().BeNull();
         view.FindControl<TextEditor>("TextEditor")!.Document.Text.Should().Be("just some notes");
+        view.GetVisualDescendants().Should().Contain(TextViewOf(view),
+            "the diagnostic text view must belong to the templated editor tree");
     }
 }

@@ -1,0 +1,298 @@
+Closes #690.
+
+Audited and checked on 2026-11-19 under WSL Ubuntu, using .NET 11.
+Audit base: upstream/main da7307e4f. Historical membership comes from
+`git show a63c581e7~1:IDE/HexIDE.Integration.Tests/<file>`, matching method names.
+151 historical declarations: 132 A and 19 B. Later tests are excluded from the audit.
+MenuPopupTests.Expand_opens_a_menu_that_has_no_expand_collapse_provider is now
+Expand_opens_a_menu (8e24bfd7d); classified under the current name. None is gone.
+
+A means a resolver/emitter/model check, or no editor/Dock reached. B means behaviour
+through an editor tree. Assertion references below are current source line numbers,
+relative to IDE/HexIDE.Integration.Tests/. No product behaviour changes.
+
+Narrowed A (no TextEditor, TextArea or Dock-library type, including helpers):
+Automation/UiAutomationDriverTests.cs: 57 — Dump_FindsControls_WithExpectedProviders, Dump_CollapsesStructuralWrappers_IntoShortPaths, Dump_UniqueTypeWithoutName_EmitsBareSegment, Dump_NameCollidesWithSiblingAutomationId_PathsStillRoundTripDistinctly, Dump_StructuralWrapperWithAutomationId_IsKeptAndAddressable, Dump_EmittedPath_RoundTripsThroughResolve, Resolve_AutomationIdShortcut_FindsDescendant, Resolve_RejectsPathNotRootedAtWindow, Resolve_MissingChild_ReturnsError, Inspect_ReportsProvidersValueAndDataContext, DescribeProviders_TreeViewItem_AdvertisesSelectionItem, Interact_Select_OnATreeNode_SetsTheOwningTreesSelectedItem, Interact_DoubleClick_RaisesDoubleTappedThatBubblesToTheContainer, Interact_DoubleClick_SelectsFirstAsARealDoubleClickDoes, ReflectDataContextMembers_ListsCommandsAndProperties, ReflectDataContextMembers_NullDataContext_ReturnsEmpty, Interact_Invoke_FiresButton, Interact_Toggle_FlipsCheckBox, Interact_SetValue_SetsTextBoxText, Interact_Select_ByValue_SelectsListBoxItem, Interact_Select_AmbiguousValue_ErrorsInsteadOfSilentlyPickingFirst, Interact_ExpandCollapse_TogglesComboBoxDropDown, Interact_UnsupportedAction_ReturnsCleanError, Interact_ResolveThenInteract_EndToEnd, Interact_InvokeCommand_ExecutesVmCommand_ViaReflection, Interact_InvokeCommand_CanExecuteFalse_Errors, Interact_InvokeCommand_NotACommand_Errors, Interact_SetProperty_CoercesAndSetsVmProperty, Interact_SetProperty_ReadOnlyOrBadFormat_Errors, Interact_NoImplicitFallback_InvokeOnProviderlessControlDoesNotReflect, TypeText_IntoTextBox_InsertsAtCaret, TypeText_IntoAReadOnlyOrDisabledTextBox_IsRefused, TypeText_ReportsItsMechanismAsADocumentEdit_NotAsKeyboardInput, TypeText_FindsNestedTextSurface, TypeText_NoTextSurface_Errors, PressKey_RaisesRealKeyEvents, PressKey_UnknownKeyOrModifier_Errors, PressKey_OnAContainerWithNothingFocusable_FailsRatherThanReportingSuccess, PressKey_OnAFocusableControlItself_ReachesItAndSaysNothingExtra, Hover_RaisesEnteredAndMoved_CarryingAPosition, Hover_DefaultsToTheCentreOfAnOrdinaryControl, Hover_HonoursAnExplicitPoint, Hover_OnADetachedControl_FailsRatherThanRaisingIntoNothing, Hover_DeclaredTip_IsNotBorrowedFromAnUnrelatedDescendant, Hover_DeclaredTip_IsTheOneUnderThePoint_EvenWhenTheTargetIsItsContainer, A_collapsed_control_is_reported_as_hidden, A_showing_control_says_nothing_at_all, A_visible_control_inside_a_collapsed_parent_is_hidden_too, Inspect_reports_hidden_for_a_single_control_too, Scalar_properties_report_their_value, A_TextDocument_reports_its_text, Null_means_not_read_and_empty_means_empty, A_throwing_getter_does_not_fail_the_inspection, A_command_is_still_listed_without_a_value, A_long_value_is_truncated_and_says_so, A_grid_row_advertises_that_it_can_be_selected, Interact_Select_SelectsAGridRowThroughTheOwningGrid
+Views/ObjectBrowserViewIntegrationTests.cs: 1 — View_IsUserControl
+Views/RuntimeMenuTests.cs: 14 — TheMenuBar_HoldsTheTopLevelMenus, SubItems_NestUnderTheirParent, ASingleHyphenCaption_BecomesASeparator, ASeparator_HasAVisibleLineToDraw, Menus_AreNotPlacedOnTheFormCanvas, AFormWithNoMenus_HasNoMenuBar, AnAmpersandInACaption_MarksAnAccessKeyRatherThanPrinting, ClickingAMenuItem_RunsItsEventProcedure, ClickingASubItem_DoesNotAlsoRunItsParents, ASubItemDispatches_EvenThoughItLivesInAPopup, AShortcut_IsShownOnTheItem, PressingAShortcutWhileTypingInATextBox_RunsTheEventProcedure, VB6ShortcutSyntax_IsUnderstood, SomethingThatIsNotAShortcut_IsDeclinedRatherThanGuessedAt
+Views/CarriedFileDiagnosticsIntegrationTests.cs: 0 — (none)
+Automation/LogicallyParentedPopupTests.cs: 9 — An_open_flyouts_items_are_in_the_tree, An_open_context_menus_items_are_in_the_tree, A_closed_flyout_contributes_nothing, An_items_path_round_trips_back_to_the_live_control, Interact_invoke_on_the_button_opens_its_flyout, Expand_opens_a_context_menu_which_nothing_else_can, Expand_opens_a_flyout_and_collapse_shuts_it, A_control_owning_a_popup_advertises_expandCollapse, A_ContextFlyout_is_found_too_and_it_is_how_this_codebase_writes_them
+Automation/MenuPopupTests.cs: 9 — A_closed_menu_reports_no_children, Expand_opens_a_menu, An_open_menu_exposes_its_items_in_the_tree, An_item_inside_an_open_menu_addresses_and_round_trips, An_item_inside_an_open_menu_can_be_invoked, Collapse_closes_an_open_menu, A_leaf_item_still_reports_expand_as_unsupported, A_separator_is_visible_in_its_place_in_the_menu, A_menu_advertises_the_actions_it_accepts
+Automation/AccessKeyNameTests.cs: 8 — Captioned_controls_are_named_as_displayed, A_name_the_view_sets_itself_is_kept, Content_that_is_not_a_caption_keeps_the_peers_own_name, An_icon_button_is_named_by_its_tooltip, An_icon_button_with_no_tooltip_is_not_given_its_icons_type_name_in_a_dump, The_name_follows_the_caption_when_it_changes, Invoking_a_button_that_closes_its_window_reports_it_by_its_name, The_displayed_caption_addresses_the_control
+Automation/InspectMembersTests.cs: 5 — An_inherited_DataContext_names_its_owner_instead_of_listing_its_members, A_reflection_action_on_the_inheriting_control_still_reaches_the_owners_object, An_editors_document_reads_as_a_line_count_and_a_pointer_to_get_file_content, A_document_that_is_not_an_editors_still_reads_as_its_text, A_cut_value_states_its_full_length
+Views/CurrentStatementBarTests.cs: 0 — (none)
+Controls/MinimapControlTests.cs: 0 — (none)
+Views/CodeEditorMarkerReattachTests.cs: 0 — (none)
+Views/ReadOnlyBannerIntegrationTests.cs: 0 — (none)
+Views/AddinToolWindowReHostTests.cs: 0 — (none)
+Views/ContainerRuntimeHarness.cs: 0 — (none)
+
+Dock means the Dock library, not Avalonia.Controls.DockPanel. RuntimeMenuTests.Run
+and ContainerRuntimeHarness.Spawn host runtime menus/canvas in that Avalonia panel;
+they reach neither an AvaloniaEdit surface nor a Dock-library control/model.
+ContainerRuntimeHarness has no test declarations. The popup/name helpers similarly
+host ordinary buttons, menus, trees and text boxes, without editors or docks.
+
+Remaining tests (one row each):
+
+| File | Test | Class | Existing assertion it rests on | Added assertion / untemplated failure |
+| --- | --- | --- | --- | --- |
+| Automation/UiAutomationDriverTests.cs | TypeText_IntoCodeEditor_InsertsMultiLineIntoDocument | B | L2578: `editor.Document.Text.Should().Be("Sub Main()\r\n    MsgBox \"hi\"\r\nEnd Sub");` | L2579: `editor.GetVisualDescendants().Should().Contain(editor.TextArea, "the exercised text surface must be in the templated editor tree");`; untemplated: `Expected editor.GetVisualDescendants() {empty} to contain AvaloniaEdit.Editing.TextArea … because the exercised text surface must be in the templated editor tree.` (UiAutomationDriverTests.cs:2579) |
+| Automation/UiAutomationDriverTests.cs | TypeText_IntoAReadOnlyCodeEditor_IsRefusedAndChangesNothing | B | L2598: `editor.Document.Text.Should().Be("Sub Main()\nEnd Sub");` | L2599: `editor.GetVisualDescendants().Should().Contain(editor.TextArea, "the exercised text surface must be in the templated editor tree");`; untemplated: `Expected editor.GetVisualDescendants() {empty} to contain AvaloniaEdit.Editing.TextArea … because the exercised text surface must be in the templated editor tree.` (UiAutomationDriverTests.cs:2599) |
+| Automation/UiAutomationDriverTests.cs | PressKey_ResolvesToTheDeepestInputSurface_SoAHandlerBelowTheEditorStillFires | B | L2767: `seen.Should().Be(1, "a handler on TextArea must receive a key pressed at the editor's host");` | L2770: `editor.GetVisualDescendants().Should().Contain(editor.TextArea, "the exercised text surface must be in the templated editor tree");`; untemplated: `Expected editor.GetVisualDescendants() {empty} to contain AvaloniaEdit.Editing.TextArea … because the exercised text surface must be in the templated editor tree.` (UiAutomationDriverTests.cs:2770) |
+| Automation/UiAutomationDriverTests.cs | PressKey_OnAContainer_NamesWhichOfTwoEditorsReceivedTheKey_AsAPathThatResolvesBack | B | L2899: `resolvedArea.Should().BeSameAs(got, "the path names the editor whose TextArea received the key, not the other one");` | L2906: `resolved.Should().BeSameAs(receiver, "the reported path must reach the templated TextArea itself");`; untemplated: `Expected resolved to refer to AvaloniaEdit.Editing.TextArea … because the reported path must reach the templated TextArea itself, but found AvaloniaEdit.TextEditor` (UiAutomationDriverTests.cs:2906) |
+| Automation/UiAutomationDriverTests.cs | Hover_OnAContainer_GivesThePathOfTheEditorThePointerWentTo | B | L3022: `resolved.Should().BeSameAs(landing!.Value.Receiver).And.BeSameAs(first);` | L3017: `first.GetVisualDescendants().Should().Contain(first.TextArea, "the exercised text surface must be in the templated editor tree");`; untemplated: `Expected first.GetVisualDescendants() {empty} to contain AvaloniaEdit.Editing.TextArea … because the exercised text surface must be in the templated editor tree.` (UiAutomationDriverTests.cs:3017) |
+| Views/ObjectBrowserViewIntegrationTests.cs | View_WithEmptyState_RendersWithoutErrors | A | L197: `view.IsMeasureValid.Should().BeTrue();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | View_WithProjectData_RendersWithoutErrors | A | L207: `view.IsMeasureValid.Should().BeTrue();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | Title_IsObjectBrowser | A | L241: `CreateEmptySut().Title.Should().Be("Object Browser");` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | CanClose_IsTrue_DocTabHasCloseButton | A | L250: `CreateEmptySut().CanClose.Should().BeTrue();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | CanFloat_IsFalse_PreventsMdiChromeLoss | A | L258: `CreateEmptySut().CanFloat.Should().BeFalse();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | CloseCommand_IsNotNull | A | L264: `CreateEmptySut().CloseCommand.Should().NotBeNull();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | BackCommand_Initially_CannotExecute | A | L270: `CreateEmptySut().BackCommand.CanExecute(null).Should().BeFalse();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | ForwardCommand_Initially_CannotExecute | A | L276: `CreateEmptySut().ForwardCommand.CanExecute(null).Should().BeFalse();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | BackCommand_AfterSelectingTwoClasses_CanExecute | A | L285: `vm.BackCommand.CanExecute(null).Should().BeTrue();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | ForwardCommand_AfterBackNavigation_CanExecute | A | L295: `vm.ForwardCommand.CanExecute(null).Should().BeTrue();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | BackCommand_Execute_RestoresPreviousClass | A | L306: `vm.SelectedClass.Should().Be(first);` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | CloseCommand_Execute_WhenNoOwner_DoesNotThrow | A | L314: `act.Should().NotThrow();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | WithProjectLoaded_FilteredClasses_ContainsProjectForms | A | L323: `vm.FilteredClasses.Should().ContainSingle(c => c.Name == "Form1" && c.Kind == OBClassKind.Form);` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | WithProjectLoaded_Libraries_ContainsProjectByName | A | L330: `vm.Libraries.Should().ContainSingle(lib => lib.Name == "MyApp");` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | WithNoProject_FilteredClasses_IsEmpty | A | L336: `CreateEmptySut().FilteredClasses.Should().BeEmpty();` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | WithVbLibrary_Libraries_ContainsVbEntry | A | L359: `CreateSutWithVbLibrary().Libraries.Should().ContainSingle(lib => lib.Name == "VB");` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | WithVbLibrary_FilteredClasses_ContainsFormClass | A | L366: `vm.FilteredClasses.Should().Contain(c => c.Name == "Form" && c.Kind == OBClassKind.ClassModule);` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | WithVbLibrary_FormClass_HasPropertyMembers | A | L374: `form.Members.Should().Contain(m => m.Kind == OBMemberKind.Property);` | — |
+| Views/ObjectBrowserViewIntegrationTests.cs | WithVbLibrary_FormClass_HasEventMembers | A | L382: `form.Members.Should().Contain(m => m.Kind == OBMemberKind.Event);` | — |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | ADiagnosticFromAServerIsDrawnInACarriedFile | B | L121: `.Should().ContainSingle("the renderer must be attached, or the diagnostic is computed and never drawn") .Which.Markers.Should().ContainSingle();` | L128: `view.GetVisualDescendants().Should().Contain(TextViewOf(view), "the diagnostic text view must belong to the templated editor tree");`; untemplated: `Expected view.GetVisualDescendants() Avalonia.Controls.Presenters.ContentPresenter … because the diagnostic text view must belong to the templated editor tree.` (CarriedFileDiagnosticsIntegrationTests.cs:128) |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | ADiagnosticForAnotherDocumentIsNotDrawnHere | A | L142: `vm.Markers.Should().BeEmpty();` | — |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | ResolvingTheProblemsClearsTheSquiggles | A | L154: `vm.Markers.Should().BeEmpty("an empty set is how a server says the problems are resolved");` | — |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | ADiagnosticEchoedUnderADifferentlySpelledUriIsStillDrawn | A | L172: `vm.Markers.Should().ContainSingle().Which.Message.Should().Be("spelling");` | — |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | SavingACarriedFileAnnouncesItToItsServers | A | L191: `await _lspClient.Received(1).SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());` | — |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | TheAnnouncementFollowsTheBytesRatherThanPrecedingThem | A | L214: `onDiskWhenAnnounced.Should().Be("# edited");` | — |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | ADocumentNeverOfferedToTheLanguageLayerAnnouncesNothingWhenSaved | A | L229: `await _lspClient.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());` | — |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | AViewAttachingAfterTheDiagnosticsArrivedStillDrawsThem | B | L249: `.Should().ContainSingle().Which.Markers.Should().ContainSingle( "the renderer being attached is not enough — it has to be HOLDING the diagnostics, and no " + "further publication is coming for a document that has not changed");` | L252: `reattached.GetVisualDescendants().Should().Contain(TextViewOf(reattached), "the diagnostic text view must belong to the templated editor tree");`; untemplated: `Expected reattached.GetVisualDescendants() Avalonia.Controls.Presenters.ContentPresenter … because the diagnostic text view must belong to the templated editor tree.` (CarriedFileDiagnosticsIntegrationTests.cs:252) |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | DetachingRemovesTheRenderersRatherThanLeavingThemStacked | B | L271: `textView.BackgroundRenderers.OfType<LspTextMarkerService>().Should().BeEmpty();` | L265: `view.GetVisualDescendants().Should().Contain(TextViewOf(view), "the diagnostic text view must belong to the templated editor tree");`; untemplated: `Expected view.GetVisualDescendants() Avalonia.Controls.Presenters.ContentPresenter … because the diagnostic text view must belong to the templated editor tree.` (CarriedFileDiagnosticsIntegrationTests.cs:265) |
+| Views/CarriedFileDiagnosticsIntegrationTests.cs | ACarriedFileNoServerClaimsRendersNormally | B | L285: `view.FindControl<TextEditor>("TextEditor")!.Document.Text.Should().Be("just some notes");` | L286: `view.GetVisualDescendants().Should().Contain(TextViewOf(view), "the diagnostic text view must belong to the templated editor tree");`; untemplated: `Expected view.GetVisualDescendants() Avalonia.Controls.Presenters.ContentPresenter … because the diagnostic text view must belong to the templated editor tree.` (CarriedFileDiagnosticsIntegrationTests.cs:286) |
+| Automation/InspectMembersTests.cs | Members_the_Dock_base_types_declare_are_left_out_and_counted | A | L80: `members.Should().NotContain(m => m.Name == "Proportion" &#124;&#124; m.Name == "CanFloat" &#124;&#124; m.Name == "Id");` | — |
+| Views/CurrentStatementBarTests.cs | PausingInAModuleWhoseFileIsNamedDifferentlyShowsTheBar | B | L202: `BarOf(view).Line.Should().Be(4, "the module answers to Utilities;` | L204: `view.GetVisualDescendants().Should().Contain( view.FindControl<TextEditor>("TextEditor")!.TextArea.TextView, "the current-statement renderer must belong to the templated editor tree");`; untemplated: `Expected view.GetVisualDescendants() … because the current-statement renderer must belong to the templated editor tree.` (CurrentStatementBarTests.cs:204) |
+| Views/CurrentStatementBarTests.cs | PausingInOneProjectDoesNotLightTheOtherProjectsEditor | B | L238: `BarOf(runningView).Line.Should().Be(1);` | L241: `runningView.GetVisualDescendants().Should().Contain( runningView.FindControl<TextEditor>("TextEditor")!.TextArea.TextView, "the current-statement renderer must belong to the templated editor tree");`; untemplated: `Expected runningView.GetVisualDescendants() … because the current-statement renderer must belong to the templated editor tree.` (CurrentStatementBarTests.cs:241) |
+| Views/CurrentStatementBarTests.cs | ARenamedModuleStillShowsTheBar | B | L260: `BarOf(view).Line.Should().Be(1, "the name is read off the definition when the pause arrives, not captured when the view attached");` | L262: `view.GetVisualDescendants().Should().Contain( view.FindControl<TextEditor>("TextEditor")!.TextArea.TextView, "the current-statement renderer must belong to the templated editor tree");`; untemplated: `Expected view.GetVisualDescendants() … because the current-statement renderer must belong to the templated editor tree.` (CurrentStatementBarTests.cs:262) |
+| Views/CurrentStatementBarTests.cs | APauseInAnotherModuleClearsTheBar | B | L281: `BarOf(view).Line.Should().BeNull();` | L282: `view.GetVisualDescendants().Should().Contain( view.FindControl<TextEditor>("TextEditor")!.TextArea.TextView, "the current-statement renderer must belong to the templated editor tree");`; untemplated: `Expected view.GetVisualDescendants() … because the current-statement renderer must belong to the templated editor tree.` (CurrentStatementBarTests.cs:282) |
+| Controls/MinimapControlTests.cs | LineMapping_NonSampled_RoundTripsExactly | A | L89: `mm.MinimapLineForY(y).Should().Be(line);` | — |
+| Controls/MinimapControlTests.cs | LineMapping_LargeFile_SamplesAndStaysBounded | A | L102: `mm.MinimapRowCount.Should().BeLessThanOrEqualTo((int)(height / 1.5) + 1);` | — |
+| Controls/MinimapControlTests.cs | ClickToScroll_TargetsLineUnderPointer_AndScrollPathRuns | B | L137: `act.Should().NotThrow();` | L138: `editor.GetVisualDescendants().Should().Contain(editor.TextArea, "the exercised text surface must be in the templated editor tree");`; untemplated: `Expected editor.GetVisualDescendants() {empty} to contain AvaloniaEdit.Editing.TextArea … because the exercised text surface must be in the templated editor tree.` (MinimapControlTests.cs:138) |
+| Views/CodeEditorMarkerReattachTests.cs | AViewBuiltAfterTheDiagnosticsArrivedStillDrawsThem | B | L172: `.Should().ContainSingle().Which.Markers.Should().ContainSingle();` | L182: `reattached.GetVisualDescendants().Should().Contain(TextViewOf(reattached), "the diagnostic text view must belong to the templated editor tree");`; untemplated: `Expected reattached.GetVisualDescendants() … because the diagnostic text view must belong to the templated editor tree.` (CodeEditorMarkerReattachTests.cs:182) |
+| Views/CodeEditorMarkerReattachTests.cs | AViewAttachingBeforeAnythingIsPublishedDrawsNothing | B | L196: `vm.Markers.Should().BeEmpty();` | L199: `view.GetVisualDescendants().Should().Contain(TextViewOf(view), "the diagnostic text view must belong to the templated editor tree");`; untemplated: `Expected view.GetVisualDescendants() … because the diagnostic text view must belong to the templated editor tree.` (CodeEditorMarkerReattachTests.cs:199) |
+| Views/CodeEditorMarkerReattachTests.cs | ResolvedProblemsDoNotComeBackOnAReattach | B | L220: `.Should().ContainSingle().Which.Markers.Should().BeEmpty();` | L221: `reattached.GetVisualDescendants().Should().Contain(TextViewOf(reattached), "the diagnostic text view must belong to the templated editor tree");`; untemplated: `Expected reattached.GetVisualDescendants() … because the diagnostic text view must belong to the templated editor tree.` (CodeEditorMarkerReattachTests.cs:221) |
+| Views/ReadOnlyBannerIntegrationTests.cs | CodeEditor_ForAnUnfaithfulForm_IsReadOnlyAndShowsTheBanner | B | L104: `area.ReadOnlySectionProvider.CanInsert(vm.Document.TextLength) .Should().BeFalse("typing must be blocked, not merely discouraged");` | L113: `view.GetVisualDescendants().Should().Contain(area, "the read-only provider must be installed on the templated text surface");`; untemplated: `Expected view.GetVisualDescendants() … because the read-only provider must be installed on the templated text surface.` (ReadOnlyBannerIntegrationTests.cs:113) |
+| Views/ReadOnlyBannerIntegrationTests.cs | CodeEditor_ForAnOrdinaryForm_StaysEditableWithNoBanner | B | L175: `area.ReadOnlySectionProvider.CanInsert(vm.Document.Text.IndexOf("End Sub", StringComparison.Ordinal)) .Should().BeTrue("a faithful form's code takes typing");` | L178: `view.GetVisualDescendants().Should().Contain(area, "the read-only provider must be installed on the templated text surface");`; untemplated: `Expected view.GetVisualDescendants() … because the read-only provider must be installed on the templated text surface.` (ReadOnlyBannerIntegrationTests.cs:178) |
+| Views/AddinToolWindowReHostTests.cs | AddinToolWindowContent_HostedByTwoViews_DoesNotCrash | A | L37: `content.GetVisualParent().Should().NotBeNull();` | — |
+
+Why the remaining A rows stay unchanged:
+
+ObjectBrowserViewIntegrationTests: the view render checks measure/arrange the browser
+UserControl directly; all other rows assert properties, commands, history or class/member
+collections on a Dock Document model. None hosts a DocumentControl, tab strip or DockControl.
+CanClose/CanFloat assert model policy, not realised tab chrome. Inventing a dock host here
+would change their subject rather than strengthen the existing assertion.
+
+InspectMembersTests: DescribeDataContext(new DockedVm()) reflects a Dock-derived model;
+it checks omitted base members, not docking or a template.
+
+CarriedFileDiagnosticsIntegrationTests: URI filtering and cleared markers assert VM state;
+save tests assert server calls and file-write ordering. Their Show helper instantiates an
+editor, but the claim rests on the model or protocol, not the rendered text surface.
+
+MinimapControlTests: the two LineMapping tests check line/row arithmetic against a
+TextDocument, with an editor only to supply the document. The click-to-scroll test also
+calls the editor scroll path and is B; it still does not claim real pointer dispatch.
+
+AddinToolWindowReHostTests: the test constructs two AddinToolWindowViews directly over
+a Tool-derived VM in a StackPanel. Its claim is cached-content reparenting, observed via
+GetVisualParent(), not a Dock move through DeferredContentControl. No Dock template is
+instantiated, so no theme-dependent assertion is available without replacing the scenario.
+Classified A under the no-such-assertion rule; it is not coverage of Dock drag/rehosting.
+
+Teeth verification (WSL Ubuntu, .NET 11):
+
+Both DockSimpleTheme and the AvaloniaEdit StyleInclude were temporarily removed from
+TestApp.cs, preserving the 1085 probe writes. The final untemplated run had 224 passed,
+19 failed, 0 skipped, 0 xunit errors (243 total). Each failure's source location was
+checked against the span of that test's new assertion: all 19 matched, with no earlier
+assertion failing. All existing assertion lines remain in the six edited test files.
+TestApp.cs was restored byte-for-byte; its diff from upstream/main is empty.
+
+One exploratory WSL run hit the hover test's old receiver-identity assertion before a
+new check placed at the end. That old assertion also failed in isolation, but passed
+in a subsequent class run without the added check. This differs from the brief's
+Windows measurement and is not reliable teeth. The final new check follows the
+successful Hover call and precedes the old identity checks, which remain unchanged;
+the final untemplated failure is at the new check (L3017).
+
+Commands (from the repository root):
+
+export PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '^/mnt/' | paste -sd:)"
+export UseSharedCompilation=false
+export MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0
+export XDG_RUNTIME_DIR="$(mktemp -d)"
+
+dotnet test IDE/HexIDE.Integration.Tests/ -- \
+  --filter-class '*.UiAutomationDriverTests' \
+  --filter-class '*.CarriedFileDiagnosticsIntegrationTests' \
+  --filter-class '*.CurrentStatementBarTests' \
+  --filter-class '*.CodeEditorMarkerReattachTests' \
+  --filter-class '*.ReadOnlyBannerIntegrationTests' \
+  --filter-class '*.MinimapControlTests' \
+  --report-xunit --report-xunit-filename 690-untemplated.xml
+
+Run the same class selection with the themes restored and filename 690-templated.xml.
+HarnessMatchesTheAppTests is deliberately not in the untemplated selection.
+The full restored run uses --hangdump --hangdump-timeout 20m and an xunit report.
+Reports are checked with bash scripts/check-xunit-report.sh TestResults/<name>.xml.
+
+| Class | Untemplated pass / fail / skip | Templated pass / fail / skip |
+| --- | --- | --- |
+| CarriedFileDiagnosticsIntegrationTests | 6 / 4 / 0 | 10 / 0 / 0 |
+| CodeEditorMarkerReattachTests | 7 / 3 / 0 | 10 / 0 / 0 |
+| CurrentStatementBarTests | 2 / 4 / 0 | 6 / 0 / 0 |
+| MinimapControlTests | 7 / 1 / 0 | 8 / 0 / 0 |
+| ReadOnlyBannerIntegrationTests | 3 / 2 / 0 | 5 / 0 / 0 |
+| UiAutomationDriverTests | 199 / 5 / 0 | 204 / 0 / 0 |
+
+The paired runs both executed 243 cases with zero skips and zero xunit errors.
+All 19 B tests pass with the themes restored and fail at their new assertions without
+them. The other 224 cases pass in both shapes. The final restored class run used
+--no-build against the assembly built for the full integration run.
+
+Full integration: 4,464 passed, 0 failed, 0 skipped, 0 xunit errors; the headless run
+completed in 12m 51s with --hangdump --hangdump-timeout 20m.
+Infrastructure: 1,137 passed, 0 failed, 7 skipped (1,144 total), 0 xunit errors.
+Debug desktop build: succeeded with 0 warnings and 0 errors (5.53s). The expected
+keyless-clone note says first-party add-ins were not packed.
+Full HexIDE.Tests: 10,491 total; 10,413 passed, 0 failed, 78 skipped, 0 xunit errors.
+The full run completed naturally in 31m 32s; --hangdump --hangdump-timeout 45m and
+--long-running 120 were enabled. No suite was stopped early.
+Tree hygiene passed with 9 pre-existing, non-blocking warnings; no warning names a
+changed file. The optional identity scan was skipped because HEXIDE_IDENTITY_PATTERN
+is not set, so no identity-scan coverage is claimed.
+
+Other required commands (same environment as the teeth runs):
+
+dotnet test IDE/HexIDE.Integration.Tests/ -- --hangdump --hangdump-timeout 20m --report-xunit --report-xunit-filename 690-integration-full.xml
+dotnet test IDE/HexIDE.Tests/ -- --filter-namespace 'HexIDE.Tests.Infrastructure' --report-xunit --report-xunit-filename 690-infrastructure.xml
+dotnet build IDE/HexIDE.Desktop/HexIDE.Desktop.csproj -c Debug
+dotnet test IDE/HexIDE.Tests/ -- --hangdump --hangdump-timeout 45m --long-running 120 --report-xunit --report-xunit-filename 690-unit-full.xml
+bash scripts/check-tree-hygiene.sh
+
+All five final xunit reports (two paired teeth reports, full integration,
+infrastructure and full unit run) were checked with scripts/check-xunit-report.sh; each records zero errors.
+The CI test-count floors are unchanged. All 19 new checks ran on Linux; none skipped.
+New messages are test failure diagnostics for developers, not IDE chrome or VB6
+program-facing strings, so no localization keys are involved.
+
+
+Infrastructure skips (not coverage):
+- HexIDE.Tests.Infrastructure.ProjectWriteSafetyTests.A_copy_that_cannot_be_removed_is_kept_and_named: Windows-only: this pins behaviour the product deliberately varies by host filesystem.
+- HexIDE.Tests.Infrastructure.WindowStateUnconfirmedTests.On_Windows_the_probe_does_not_guess: Windows-only: this pins behaviour the product deliberately varies by host filesystem.
+- HexIDE.Tests.Infrastructure.UnobservedTaskProbeTests.Foreign_adapter_teardown_leaves_no_unobserved_fault: Set HEXIDE_UNOBSERVED_PROBE and provide netcoredbg to run adapter teardown diagnostics.
+- HexIDE.Tests.Infrastructure.UnobservedTaskProbeTests.Teardown_leaves_no_unobserved_fault(testClass: \"RenameWireShapeTests\"): Set HEXIDE_UNOBSERVED_PROBE to run teardown diagnostics.
+- HexIDE.Tests.Infrastructure.UnobservedTaskProbeTests.Teardown_leaves_no_unobserved_fault(testClass: \"CancellationWireShapeTests\"): Set HEXIDE_UNOBSERVED_PROBE to run teardown diagnostics.
+- HexIDE.Tests.Infrastructure.UnobservedTaskProbeTests.Teardown_leaves_no_unobserved_fault(testClass: \"ShutdownWireShapeTests\"): Set HEXIDE_UNOBSERVED_PROBE to run teardown diagnostics.
+- HexIDE.Tests.Infrastructure.PlatformWindowProbeTests.Avalonia_still_creates_the_window_the_session_end_hook_answers_on: Avalonia's Win32 platform runs only on Windows
+
+Full HexIDE.Tests skips (not coverage; case counts shown where a method has several rows):
+
+A link to a share is a Windows path.
+- HexIDE.Tests.LspClient.TypeLibraryNamesTests.ALocalLinkToAShareIsNotALocalPath
+
+A made program is started on Windows only: elsewhere it needs a desktop session.
+- HexIDE.Tests.Projects.MadeProgramTests.A_made_program_starts_and_runs_its_Sub_Main
+
+Avalonia's Win32 platform runs only on Windows
+- HexIDE.Tests.Infrastructure.PlatformWindowProbeTests.Avalonia_still_creates_the_window_the_session_end_hook_answers_on
+
+Job objects exist only on Windows.
+- HexIDE.Tests.Processes.ChildProcessJobTests.A_closed_job_refuses_a_process
+- HexIDE.Tests.Processes.ChildProcessJobTests.A_process_left_out_of_the_job_outlives_it
+- HexIDE.Tests.Processes.ChildProcessJobTests.Closing_the_job_ends_the_process_put_in_it
+
+Needs a Windows x64 test host, whose launcher stands in for a stock executable.
+- HexIDE.Tests.Repack.WindowsRepackerTests.A_brand_with_no_copyright_keeps_stocks_rather_than_claiming_none
+- HexIDE.Tests.Repack.WindowsRepackerTests.A_default_profile_folder_travels_with_the_brand
+- HexIDE.Tests.Repack.WindowsRepackerTests.A_repacked_executable_says_it_is_the_brand_when_Windows_reads_it
+- HexIDE.Tests.Repack.WindowsRepackerTests.A_signed_stock_executable_comes_out_unsigned_and_the_run_says_so
+- HexIDE.Tests.Repack.WindowsRepackerTests.Every_file_but_the_executable_is_exactly_as_published
+- HexIDE.Tests.Repack.WindowsRepackerTests.Included_files_reach_the_installable_payload_and_report
+- HexIDE.Tests.Repack.WindowsRepackerTests.Included_folder_below_a_link_is_allowed
+- HexIDE.Tests.Repack.WindowsRepackerTests.Included_links_are_refused_at_the_root_or_inside
+- HexIDE.Tests.Repack.WindowsRepackerTests.Included_missing_folder_is_refused
+- HexIDE.Tests.Repack.WindowsRepackerTests.Included_output_ancestor_is_refused_before_staging
+- HexIDE.Tests.Repack.WindowsRepackerTests.Included_protected_files_are_refused_without_output (12 cases)
+- HexIDE.Tests.Repack.WindowsRepackerTests.The_brands_files_land_where_the_IDE_will_look_for_them
+- HexIDE.Tests.Repack.WindowsRepackerTests.The_icon_is_the_brands_with_nothing_left_of_stocks
+- HexIDE.Tests.Repack.WindowsRepackerTests.The_installer_inputs_are_written_beside_the_build_and_not_inside_it
+
+No VB6 Template tree here: VB6_TEMPLATES is not set, and VB6 is not installed at 'C:\\Program Files (x86)\\Microsoft Visual Studio\\VB98\\Template'.
+- HexIDE.Tests.Projects.ClassModuleSaveFidelityTests.A_reload_from_disk_also_preserves_the_header
+- HexIDE.Tests.Projects.ClassModuleSaveFidelityTests.Editing_the_body_leaves_the_header_untouched
+- HexIDE.Tests.Projects.ClassModuleSaveFidelityTests.Saving_a_project_leaves_an_untouched_class_byte_identical
+- HexIDE.Tests.Projects.CompanionBinaryPreservationTests.AFormWhoseBlobsAreAllModelled_DoesNotRaiseTheLossFlag
+- HexIDE.Tests.Projects.CompanionBinaryPreservationTests.A_form_that_reproduces_its_companion_is_never_denied_the_write
+- HexIDE.Tests.Projects.CompanionBinaryPreservationTests.A_form_whose_records_HexIDE_does_not_model_saves_both_halves_as_VB6_wrote_them
+- HexIDE.Tests.Projects.CompanionBinaryPreservationTests.A_second_save_still_leaves_the_companion_intact
+- HexIDE.Tests.Projects.CompanionBinaryPreservationTests.Dropping_a_blob_bearing_control_keeps_both_halves_in_step
+- HexIDE.Tests.Projects.CompanionBinaryPreservationTests.Saving_never_shrinks_or_deletes_a_companion_it_cannot_reproduce
+- HexIDE.Tests.Projects.CompanionBinaryPreservationTests.The_form_records_that_it_lost_binary_fidelity
+
+Registry type libraries require Windows.
+- HexIDE.Tests.LspClient.TypeLibraryServicePathTests.GuidOnlyReferenceLoadsWindowsOleAutomationLibrary
+
+Set HEXIDE_UNOBSERVED_PROBE and provide netcoredbg to run adapter teardown diagnostics.
+- HexIDE.Tests.Infrastructure.UnobservedTaskProbeTests.Foreign_adapter_teardown_leaves_no_unobserved_fault
+
+Set HEXIDE_UNOBSERVED_PROBE to run teardown diagnostics.
+- HexIDE.Tests.Infrastructure.UnobservedTaskProbeTests.Teardown_leaves_no_unobserved_fault (3 cases)
+
+Set HEXIDE_WIRE_STRESS_SECONDS to run the wire stress test (#3520)
+- HexIDE.Tests.LspClient.WireStressTests.ConcurrentConnectionsKeepEveryFrameValid
+
+Type libraries are read only on Windows.
+- HexIDE.Tests.LspClient.WorkspaceArtifactProjectTests.ALocalTypeLibraryIsNamedFromItsFile
+- HexIDE.Tests.LspClient.WorkspaceArtifactProjectTests.TheTypeLibraryNamesOleAutomationStdole
+
+Windows-only: this pins behaviour the product deliberately varies by host filesystem.
+- HexIDE.Tests.Addins.PackageVerificationTests.Locked_signature_file_yields_Untrusted_not_an_exception
+- HexIDE.Tests.IDE.CodeTrustTests.Windows_reads_the_Zone_Identifier_stream_beside_a_file
+- HexIDE.Tests.IDE.EditorServiceNavigationTests.AFileUriWhoseDriveLetterTheServerNormalisedStillResolves
+- HexIDE.Tests.IDE.Vb6ToolchainReplacementTests.Absolute_Path32_Make_and_Run_use_that_folder
+- HexIDE.Tests.Infrastructure.ProjectWriteSafetyTests.A_copy_that_cannot_be_removed_is_kept_and_named
+- HexIDE.Tests.Infrastructure.WindowStateUnconfirmedTests.On_Windows_the_probe_does_not_guess
+- HexIDE.Tests.LspClient.LspDocumentSessionTests.AWindowsDriveLetterInTheOtherCaseStillMatches
+- HexIDE.Tests.Profiles.ProfileContainmentTests.JunctionEscapeIsRefused
+- HexIDE.Tests.Profiles.ProfileContainmentTests.JunctionSwappedInAfterPreflightIsRefusedDuringRead
+- HexIDE.Tests.Profiles.ProfileReaderSafetyTests.WindowsPipeHandleIsRefused
+- HexIDE.Tests.Projects.ContributedProjectTests.A_contributed_project_already_open_is_refused_when_opened_again_with_different_drive_and_folder_case
+- HexIDE.Tests.Projects.DuplicateProjectOpenTests.Opening_the_same_project_with_different_drive_and_folder_case_is_refused
+- HexIDE.Tests.Repack.LinuxRepackerTests.A_linux_build_is_refused_on_windows
+- HexIDE.Tests.Repack.MacRepackerTests.A_mac_build_is_refused_on_windows
+- HexIDE.Tests.Repack.WindowsRepackerTests.A_branded_process_declares_that_identity_to_Windows
+- HexIDE.Tests.Repack.WindowsRepackerTests.A_run_that_fails_partway_leaves_nothing_behind
+- HexIDE.Tests.Server.ProcessWindowsToolTests.A_minimized_program_is_read_as_minimized_and_visible
+- HexIDE.Tests.Server.ProcessWindowsToolTests.A_program_started_hidden_is_read_as_hidden_and_the_note_says_vbHide_did_it
+- HexIDE.Tests.Server.ProcessWindowsToolTests.A_running_process_with_no_window_is_said_to_have_none_yet
+- HexIDE.Tests.Server.ProcessWindowsToolTests.A_window_of_a_process_the_started_one_started_is_read_through_it
+- HexIDE.Tests.Sidecar.UserSidecarSaveTests.TheProjectsOwnSidecarSpelledInAnotherCaseIsStillItsOwn
+- HexIDE.Tests.Tools.ProjectTreeBuilderTests.AMemberWithNoRelativeForm_CaptionsItsAbsoluteLocation
+- HexIDE.Tests.Tools.ProjectTreeBuilderTests.CrossDriveMember_RendersAtRoot
+- HexIDE.Tests.Tools.ProjectTreeBuilderTests.ForwardSlashPath_NormalizesAndNests
+- HexIDE.Tests.UserDataPathTests.OnWindowsItIsUnderAppData
+
+macOS-only: asks macOS's own tools about the result.
+- HexIDE.Tests.IDE.CodeTrustTests.MacOS_reads_the_quarantine_attribute
+- HexIDE.Tests.Repack.MacRepackerTests.A_mac_build_is_repacked_as_one
+- HexIDE.Tests.Repack.MacRepackerTests.A_sealed_bundle_is_resealed_after_branding
+- HexIDE.Tests.Repack.MacRepackerTests.macOS_accepts_the_property_list_signature_and_icon
+
+Unmeasured / left unimplemented: no VB6 behaviour involved. No language gap or API changes. No required work remains.
+MISSING_LANGUAGE counts unchanged. No UI product change needing a live check.
+Generated bin/ and obj/ directories were removed after validation, per CLAUDE.md.
+Changes are left uncommitted for the supervisor.
+Possible drift: none.

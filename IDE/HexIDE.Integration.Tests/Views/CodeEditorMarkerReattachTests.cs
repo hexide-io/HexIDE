@@ -6,6 +6,7 @@ using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Rendering;
 using HexIDE.Bookmarks;
@@ -178,6 +179,8 @@ public class CodeEditorMarkerReattachTests : IDisposable
             .Which.Markers.Should().ContainSingle(
                 "the renderer being attached is not enough — it has to be HOLDING the diagnostics, and "
               + "nothing is going to publish again for a document that has not changed");
+        reattached.GetVisualDescendants().Should().Contain(TextViewOf(reattached),
+            "the diagnostic text view must belong to the templated editor tree");
     }
 
     [AvaloniaFact]
@@ -193,6 +196,8 @@ public class CodeEditorMarkerReattachTests : IDisposable
         vm.Markers.Should().BeEmpty();
         TextViewOf(view).BackgroundRenderers.OfType<LspTextMarkerService>()
             .Should().ContainSingle().Which.Markers.Should().BeEmpty();
+        view.GetVisualDescendants().Should().Contain(TextViewOf(view),
+            "the diagnostic text view must belong to the templated editor tree");
     }
 
     [AvaloniaFact]
@@ -213,5 +218,7 @@ public class CodeEditorMarkerReattachTests : IDisposable
 
         TextViewOf(reattached).BackgroundRenderers.OfType<LspTextMarkerService>()
             .Should().ContainSingle().Which.Markers.Should().BeEmpty();
+        reattached.GetVisualDescendants().Should().Contain(TextViewOf(reattached),
+            "the diagnostic text view must belong to the templated editor tree");
     }
 }

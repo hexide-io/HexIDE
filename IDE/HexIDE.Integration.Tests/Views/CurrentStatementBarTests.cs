@@ -6,6 +6,7 @@ using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
@@ -200,6 +201,9 @@ public class CurrentStatementBarTests : IDisposable
 
         BarOf(view).Line.Should().Be(4,
             "the module answers to Utilities; util.bas is only where it happens to be stored");
+        view.GetVisualDescendants().Should().Contain(
+            view.FindControl<TextEditor>("TextEditor")!.TextArea.TextView,
+            "the current-statement renderer must belong to the templated editor tree");
     }
 
     /// <summary>
@@ -234,6 +238,9 @@ public class CurrentStatementBarTests : IDisposable
         BarOf(runningView).Line.Should().Be(1);
         BarOf(idleView).Line.Should().BeNull(
             "that Module1 is in a project that is not running, and nothing in it is executing");
+        runningView.GetVisualDescendants().Should().Contain(
+            runningView.FindControl<TextEditor>("TextEditor")!.TextArea.TextView,
+            "the current-statement renderer must belong to the templated editor tree");
     }
 
     [AvaloniaFact]
@@ -252,6 +259,9 @@ public class CurrentStatementBarTests : IDisposable
 
         BarOf(view).Line.Should().Be(1,
             "the name is read off the definition when the pause arrives, not captured when the view attached");
+        view.GetVisualDescendants().Should().Contain(
+            view.FindControl<TextEditor>("TextEditor")!.TextArea.TextView,
+            "the current-statement renderer must belong to the templated editor tree");
     }
 
     [AvaloniaFact]
@@ -269,5 +279,8 @@ public class CurrentStatementBarTests : IDisposable
         Pause("SomethingElse", 2);
 
         BarOf(view).Line.Should().BeNull();
+        view.GetVisualDescendants().Should().Contain(
+            view.FindControl<TextEditor>("TextEditor")!.TextArea.TextView,
+            "the current-statement renderer must belong to the templated editor tree");
     }
 }
