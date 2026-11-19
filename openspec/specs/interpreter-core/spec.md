@@ -52,6 +52,47 @@ A running form's default instance SHALL accept icon pictures or Nothing through 
 - **THEN** the interpreter SHALL refuse it as not implemented
 
 
+### Requirement: Predefined conditional constants follow the project target and host
+
+Interpreter runs and default code-window greying SHALL select predefined constants by the project's
+`[HexIDE] Targets=RDCore`, then its VBA7 bitness and host, following
+[#4821](https://github.com/hexide-io/HexIDE/issues/4821). The key SHALL choose constants only, not a run
+engine. Module `#Const` definitions SHALL shadow project `CondComp` arguments, which SHALL shadow
+predefined constants.
+
+#### Scenario: Recorded host tables
+- **WHEN** the target and host are one of the following rows
+- **THEN** the constants are the numeric 0 or 1 values shown, with undefined names omitted
+- **AND** the external backend table mirrors SDK `PredefinedConditionalConstants.cs` (`Of`) at version 0.1.8-alpha, omitting `DEBUG`, on HexIDE's 64-bit hosts
+
+| Target | Host | Win16 | Win32 | Win64 | Mac | Linux | Linux64 | VBA6 | VBA7 |
+|---|---|---|---|---|---|---|---|---|---|
+| `Targets=RDCore` | Windows | 0 | 1 | 1 | 0 | 0 | 0 | 1 | 1 |
+| `Targets=RDCore` | macOS | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 1 |
+| `Targets=RDCore` | Linux | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
+| VBA7 64-bit | macOS | 0 | 0 | 1 | 1 | undefined | undefined | 1 | 1 |
+
+#### Scenario: Default targets and unmeasured hosts
+- **WHEN** a 64-bit VBA7 project has no target key on macOS
+- **THEN** it uses the measured Excel for Mac 16.115 row above
+- **AND** unmeasured 32-bit VBA7 on macOS and VBA7 on Linux retain their Windows tables
+- **AND** VB6 retains its existing table on every host
+
+#### Scenario: A project opened by its external backend type
+- **WHEN** a project is opened through the `.rdproj` project type
+- **THEN** the code window defaults to the external backend constants target
+- **AND** the project's run offers are unchanged
+
+#### Scenario: A portable pause avoids a Windows Declare
+- **WHEN** a project selects `Targets=RDCore` on macOS or Linux and tests `#If Win32 Or Win64 Then`
+- **THEN** execution and default editor greying select its `#Else` Timer loop
+- **AND** the same project with `VbaBitness=64` and no target key selects its Windows Declare branch on macOS
+
+#### Scenario: Program definitions override the selected target
+- **WHEN** a project argument defines `Mac=0` for the external backend target on macOS
+- **THEN** `#If Mac` is false
+- **AND** a module's `#Const Mac=1` overrides that argument
+
 ### Requirement: Measured 32-bit VBA7 integer support
 
 The runtime SHALL start projects targeting `VbaBitness.Bit32` with the Excel x86 behaviour recorded in
@@ -63,7 +104,7 @@ power operator and Declare SHALL accept either presence or absence of PtrSafe (m
 for an As Long result and with it for As Long and As LongPtr; As LongPtr without it is reasoned).
 
 #### Scenario: 32-bit constants
-- **WHEN** a project targets 32-bit VBA7
+- **WHEN** a project targets 32-bit VBA7 and has no predefined constants target
 - **THEN** VBA6, VBA7 and Win32 are numeric 1, and Win64, Win16 and Mac are numeric 0
 
 #### Scenario: 32-bit pointer integer

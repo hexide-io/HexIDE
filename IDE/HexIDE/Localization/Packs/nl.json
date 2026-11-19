@@ -125,6 +125,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bits",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bits",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bits",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Voorwaardelijke compilatie weergeven als",
     "Str.Tool.Properties.ExportPicture": "Afbeelding exporteren...",
     "Str.Tool.Properties.ExportPictureTitle": "Afbeelding exporteren",

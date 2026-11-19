@@ -91,6 +91,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bittinen",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32-bittinen",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bittinen",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Näytä ehdollinen käännös kohteelle",
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
     "Str.Tool.Properties.ExportPictureTitle": "Vie kuva",

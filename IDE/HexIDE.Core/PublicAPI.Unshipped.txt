@@ -3,3 +3,8 @@ HexIDE.Addins.ServerChatToolResult.ReasonArguments.get -> object![]?
 HexIDE.Addins.ServerChatToolResult.ReasonArguments.init -> void
 HexIDE.Addins.ServerChatToolResult.ReasonKey.get -> string?
 HexIDE.Addins.ServerChatToolResult.ReasonKey.init -> void
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Target.get -> HexIDE.Runtime.ProjectElements.ProjectTarget
+HexIDE.Runtime.ProjectElements.ProjectDefinition.Target.set -> void
+HexIDE.Runtime.ProjectElements.ProjectTarget
+HexIDE.Runtime.ProjectElements.ProjectTarget.None = 0 -> HexIDE.Runtime.ProjectElements.ProjectTarget
+HexIDE.Runtime.ProjectElements.ProjectTarget.RDCore = 1 -> HexIDE.Runtime.ProjectElements.ProjectTarget

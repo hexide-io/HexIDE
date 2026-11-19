@@ -130,6 +130,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA de 64 bits",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC de 32 bits",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC de 64 bits",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Visualitza la compilació condicional com a",
     "Str.Tool.Properties.ExportPicture": "Exporta la imatge...",
     "Str.Tool.Properties.ExportPictureTitle": "Exporta la imatge",

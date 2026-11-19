@@ -131,6 +131,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bitų",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bitų",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bitų",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Sąlyginį kompiliavimą rodyti kaip",
     "Str.Tool.Properties.ExportPicture": "Eksportuoti paveikslėlį...",
     "Str.Tool.Properties.ExportPictureTitle": "Eksportuoti paveikslėlį",

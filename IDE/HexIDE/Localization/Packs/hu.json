@@ -131,6 +131,7 @@
     "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bites",
     "Str.CodeEditor.ViewAs.TwinBasic32": "twinBASIC 32 bites",
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bites",
+    "Str.CodeEditor.ViewAs.Rdcore": "RDCore",
     "Str.CodeEditor.ViewAs.Tooltip": "Feltételes fordítás megjelenítése mint",
     "Str.Tool.Properties.ExportPicture": "Kép exportálása...",
     "Str.Tool.Properties.ExportPictureTitle": "Kép exportálása",
