@@ -896,3 +896,4 @@ added afterwards.
 - [`Set` of a control into a variable of another class (2026-11-18, #1563)](a-forms-controls-collection-and-typeof-on-a-control.md#set-of-a-control-into-a-variable-of-another-class-2026-11-18-1563)
 - [A free-standing StdFont's assignments (2026-11-18)](a-controls-font-object.md#a-free-standing-stdfonts-assignments-2026-11-18)
 - [Complete Word, a bare word, and the selected item (2026-11-19, #3613, design-time, IDE, SP6)](complete-word-a-bare-word-and-the-selected-item.md#complete-word-a-bare-word-and-the-selected-item-2026-11-19-3613-design-time-ide-sp6)
+- [PSet at DrawWidth 9, 11 and 12 (2026-11-19, #4841, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#pset-at-drawwidth-9-11-and-12-2026-11-19-4841-sp6)
