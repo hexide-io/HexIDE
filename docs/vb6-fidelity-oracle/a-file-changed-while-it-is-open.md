@@ -5,8 +5,10 @@ open reads differently by mode. **A Binary file is read straight from the disk:*
 it. **An Input file is read through a 512-byte buffer:** a read sees a change only past what the buffer already holds.
 
 **The probe.**
-- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. Four programs; each
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. Five programs; each
   logged every line identically in the two builds.
+- **Run twice:** the Append rows and the reads past the end of the cut Binary file. The second run logged `s` and the
+  positions after every row.
 - **The files:** written with `Print #f, s;`. Byte *i* of each, counting from 0, is `"A"` plus *i* `Mod 26`: 10,000
   bytes, or 3,000 where a row changes the size.
 - **The change:** made through a second Win32 handle in the same process, which VB6's own file table doesn't know about.
@@ -141,10 +143,13 @@ of the 16 marks: `InputB(9990, #1)` reads all 16. And with the writer still open
 it, whether or not the writer had closed.
 
 **Measured, but no rule I would defend:** a read past the end of the file cut to 100 is no error, as on the
-[InputB page](the-byte-string-functions.md#inputb-by-file-mode-2026-11-19-4895-sp6). The bytes past the end are stale:
-- `InputB(10, #1)` at 101 gave 31 00 32 00 36 00 00 00 00 00.
-- `InputB(2000, #1)` then gave 2,000 upper-case letters, none where the file had held them.
-- Neither moved the file: `Loc` stayed 100 and `Seek` 101, and `EOF` turned True.
+[InputB page](the-byte-string-functions.md#inputb-by-file-mode-2026-11-19-4895-sp6). The bytes past the end are stale,
+and they weren't the same twice:
+- **`InputB(10, #1)` at 101:** 31 00 32 00 36 00 00 00 00 00 in the first run, and 30 00 33 00 32 00 00 00 00 00 in the
+  second.
+- **Then `InputB(2000, #1)`:** 2,000 upper-case letters. In the second run, which checked each against the file's old
+  letter at its position from 101, none matched.
+- **Neither read moved the file:** `Loc` stayed 100 and `Seek` 101, and `EOF` turned True.
 
 **Not measured:**
 - a second program, rather than a second handle in this one;
