@@ -536,7 +536,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (values[0].Value is VbUdt wideRecord)
                 wideRecord.RefuseUnmeasuredLongLongLayout();
-            if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values[0].Value is VbUdt { HasFixedStringFields: true } record)
+            if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values[0].Value is VbUdt record)
                 result.LenVariableSize = record.FixedRecordLength();
             // Len sizes a declared scalar, but a Variant still sizes its text (#780, measured). So does LenB, and a number that is
             // not a variable is the same compile error for it (#1510, measured).
