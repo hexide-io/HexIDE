@@ -1085,6 +1085,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} ordezkapen egin dira; {1} fitxategi baztertu dira, HexIDEk oraindik ezin dituelako zehaztasunez gorde.",
     "Str.FindReplace.Msg.InvalidRegex": "Adierazpen erregularraren eredu baliogabea.",
     "Str.FindReplace.Msg.NothingToSearch": "Hemen ez dago Bilatu aukerak bilatzeko ezer. Kode-leihoetan eta proiektuak daramatzan testu-fitxategietan egiten du lan.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "Baliteke {0} hondatuta egotea. Aurreko bertsioa {1} gisa gordetzen da.",
     "Str.Vb6Toolchain.Vb6NotFound": "Ez da VB6.EXE aurkitu. Instalatu VB6 kokaleku lehenetsian edo ezarri VB6_EXE ingurune-aldagaia.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Eraikitzeak huts egin du",
     "Str.Vb6Toolchain.ProjectNotSaved": "Proiektua diskoan gorde behar da VB6rekin konpilatu aurretik.",

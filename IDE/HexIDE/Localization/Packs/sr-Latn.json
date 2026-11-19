@@ -1085,6 +1085,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Izvršeno {0} zamena; izostavljeno {1} datoteka jer ih HexIDE još ne može verno sačuvati.",
     "Str.FindReplace.Msg.InvalidRegex": "Nevažeći obrazac regularnog izraza.",
     "Str.FindReplace.Msg.NothingToSearch": "Ovde nema sadržaja za pretragu. Pronalaženje radi u prozorima koda i tekstualnim datotekama projekta.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} je možda oštećen. Prethodna verzija je sačuvana kao {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nije pronađen. Instalirajte VB6 na podrazumevanu lokaciju ili podesite promenljivu okruženja VB6_EXE.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Izrada nije uspela",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekat mora biti sačuvan na disku pre prevođenja pomoću VB6.",

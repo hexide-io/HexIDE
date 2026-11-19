@@ -1085,6 +1085,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "S-au efectuat {0} înlocuiri; {1} fișiere au fost omise deoarece HexIDE nu le poate salva încă fidel.",
     "Str.FindReplace.Msg.InvalidRegex": "Model de expresie regulată nevalid.",
     "Str.FindReplace.Msg.NothingToSearch": "Nu există nimic aici în care să se poată căuta. Căutarea funcționează în ferestrele de cod și în fișierele text incluse în proiect.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} poate fi deteriorat. Versiunea anterioară este păstrată ca {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nu a fost găsit. Instalează VB6 în locația implicită sau setează variabila de mediu VB6_EXE.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Compilare eșuată",
     "Str.Vb6Toolchain.ProjectNotSaved": "Proiectul trebuie salvat pe disc înainte de a putea fi compilat cu VB6.",

@@ -1118,6 +1118,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Направени замени: {0}; пропуснати файлове: {1}, защото HexIDE все още не може да ги запази точно.",
     "Str.FindReplace.Msg.InvalidRegex": "Невалиден шаблон на регулярен израз.",
     "Str.FindReplace.Msg.NothingToSearch": "Тук няма нищо за търсене. Търсенето работи в прозорци с код и в текстови файлове, включени в проекта.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} може да е повреден. Предишната му версия е запазена като {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE не е намерен. Инсталирайте VB6 на местоположението по подразбиране или задайте променливата на средата VB6_EXE.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Неуспешна компилация",
     "Str.Vb6Toolchain.ProjectNotSaved": "Проектът трябва да бъде записан на диска, преди да може да се компилира с VB6.",

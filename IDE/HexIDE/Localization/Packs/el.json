@@ -1085,6 +1085,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Έγιναν {0} αντικαταστάσεις· παραλείφθηκαν {1} αρχεία επειδή το HexIDE δεν μπορεί ακόμη να τα αποθηκεύσει πιστά.",
     "Str.FindReplace.Msg.InvalidRegex": "Μη έγκυρο μοτίβο κανονικής έκφρασης.",
     "Str.FindReplace.Msg.NothingToSearch": "Δεν υπάρχει τίποτα εδώ για αναζήτηση. Η Εύρεση λειτουργεί σε παράθυρα κώδικα και σε αρχεία κειμένου που περιέχει το έργο.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "Το {0} ενδέχεται να έχει καταστραφεί. Η προηγούμενη έκδοσή του διατηρείται ως {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "Το VB6.EXE δεν βρέθηκε. Εγκαταστήστε το VB6 στην προεπιλεγμένη τοποθεσία ή ορίστε τη μεταβλητή περιβάλλοντος VB6_EXE.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Αποτυχία δημιουργίας",
     "Str.Vb6Toolchain.ProjectNotSaved": "Το έργο πρέπει να αποθηκευτεί στον δίσκο πριν μεταγλωττιστεί με το VB6.",

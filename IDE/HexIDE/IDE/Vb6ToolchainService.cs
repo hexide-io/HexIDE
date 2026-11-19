@@ -112,7 +112,8 @@ public class Vb6ToolchainService : IVb6ToolchainService
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         await Task.Delay(150);
 
-        var outcome = await BuildAndPublishAsync(project, exePath);
+        string? recovery = null;
+        var outcome = await BuildAndPublishAsync(project, exePath, path => recovery = path);
 
         // The previous build's errors expire here, whatever this one did — including a timeout, which used
         // to return before this point and so was the one path that left them on screen indefinitely.
@@ -132,6 +133,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
             await windowManager.MessageBox(
                 _localization.GetString("Str.Vb6Toolchain.CompilationTimedOut"),
                 _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Error);
+            await ReportRecoveryAsync();
             return false;
         }
 
@@ -154,24 +156,34 @@ public class Vb6ToolchainService : IVb6ToolchainService
             }
         }
 
+        await ReportRecoveryAsync();
         return outcome.ExitCode == 0;
+
+        async Task ReportRecoveryAsync()
+        {
+            if (recovery is not null)
+                await windowManager.MessageBox(
+                    string.Format(_localization.GetString("Str.Vb6Toolchain.PreviousOutputKept"), exePath, recovery),
+                    _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+        }
     }
 
-    private async Task<Vb6BuildOutcome?> BuildAndPublishAsync(ProjectDefinition project, string destination)
+    private async Task<Vb6BuildOutcome?> BuildAndPublishAsync(ProjectDefinition project, string destination,
+        Action<string> keepRecovery)
     {
         string? staging = null;
         try
         {
             var folder = Path.GetDirectoryName(destination)!;
             if (project.ProjectType != VBProjectType.EXE || !Directory.Exists(folder))
-                return await RunVb6Async(project.AbsolutePath!, null);
+                return await BuildInPlaceAsync(project, destination, keepRecovery);
 
             var original = File.ReadAllBytes(project.AbsolutePath!);
             // /outdir writes AutoIncrementVer projects back and ActiveX outputs register in place
             // (oracle PR #4756, issue #4757). Those must keep building at their final location.
             if (Regex.IsMatch(System.Text.Encoding.Latin1.GetString(original),
                     @"^[\t ]*AutoIncrementVer[\t ]*=[\t ]*1[\t ]*\r?$", RegexOptions.Multiline | RegexOptions.IgnoreCase))
-                return await RunVb6Async(project.AbsolutePath!, null);
+                return await BuildInPlaceAsync(project, destination, keepRecovery);
 
             staging = Path.Combine(folder, ".hexide-vb6make-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(staging);
@@ -216,6 +228,93 @@ public class Vb6ToolchainService : IVb6ToolchainService
                     Log.Warning(ex, "Could not remove VB6 staging folder {Path}", staging);
                 }
             }
+        }
+    }
+
+    private async Task<Vb6BuildOutcome?> BuildInPlaceAsync(ProjectDefinition project, string destination,
+        Action<string> keepRecovery)
+    {
+        string? recovery = null;
+        if (Directory.Exists(Path.GetDirectoryName(destination)) && File.Exists(destination))
+        {
+            recovery = destination + "." + Guid.NewGuid().ToString("N") + ".recovery";
+            var created = false;
+            try
+            {
+                using var input = File.OpenRead(destination);
+                using var copy = new FileStream(recovery, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                created = true;
+                input.CopyTo(copy);
+                copy.Flush(flushToDisk: true);
+            }
+            catch
+            {
+                if (created) TryDeleteRecovery(recovery);
+                throw;
+            }
+        }
+
+        Vb6BuildOutcome? outcome;
+        try
+        {
+            outcome = await RunVb6Async(project.AbsolutePath!, null);
+        }
+        catch
+        {
+            // A build that never reported is settled as a failed one: the copy goes only where it's no longer needed.
+            if (recovery is not null) SettleAfterFailure(recovery);
+            throw;
+        }
+        if (outcome?.ExitCode == 0)
+        {
+            try
+            {
+                using var output = new FileStream(destination, FileMode.Open, FileAccess.Write, FileShare.None);
+                output.Flush(flushToDisk: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Warning(ex, "Could not flush VB6 output {Path}", destination);
+            }
+            if (recovery is not null) TryDeleteRecovery(recovery);
+            return outcome;
+        }
+
+        if (recovery is not null) SettleAfterFailure(recovery);
+        return outcome;
+
+        void SettleAfterFailure(string copy)
+        {
+            try
+            {
+                var unchanged = File.Exists(destination) &&
+                    File.ReadAllBytes(destination).AsSpan().SequenceEqual(File.ReadAllBytes(copy));
+                if (!unchanged)
+                {
+                    // Registration timing is unmeasured (#4952); only a Standard EXE is safe to restore.
+                    if (project.ProjectType != VBProjectType.EXE)
+                    {
+                        keepRecovery(copy);
+                        return;
+                    }
+                    AtomicFileWriter.Copy(copy, destination);
+                }
+                TryDeleteRecovery(copy);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Warning(ex, "Could not restore VB6 output {Path}; previous output kept at {Recovery}", destination, copy);
+                keepRecovery(copy);
+            }
+        }
+    }
+
+    private static void TryDeleteRecovery(string path)
+    {
+        try { File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning(ex, "Could not remove VB6 recovery copy {Path}", path);
         }
     }
 

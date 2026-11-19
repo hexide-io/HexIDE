@@ -1085,6 +1085,7 @@
     "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Tehti {0} asendust; {1} faili jäeti välja, sest HexIDE ei saa neid veel täpselt salvestada.",
     "Str.FindReplace.Msg.InvalidRegex": "Vigane regulaaravaldise muster.",
     "Str.FindReplace.Msg.NothingToSearch": "Siin pole midagi otsida. Otsing töötab koodiakendes ja projekti kaasatud tekstifailides.",
+    "Str.Vb6Toolchain.PreviousOutputKept": "{0} võib olla kahjustatud. Selle eelmine versioon on säilitatud kui {1}.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE-d ei leitud. Paigalda VB6 vaikeasukohta või määra keskkonnamuutuja VB6_EXE.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Ehitamine nurjus",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekt peab enne VB6-ga kompileerimist olema kettale salvestatud.",
