@@ -1,6 +1,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
@@ -192,6 +193,7 @@ public class VBComboBox : ComboBox
         base.OnApplyTemplate(e);
         editBox = e.NameScope.Find<TextBox>("PART_EditableTextBox");
         listBorder = e.NameScope.Find<Border>("PART_List");
+        UpdateEditDecorations();
         if (editBox is not { } box)
             return;
         box.MinHeight = 0;
@@ -199,6 +201,12 @@ public class VBComboBox : ComboBox
         box.VerticalContentAlignment = VerticalAlignment.Center;
         ScrollViewer.SetVerticalScrollBarVisibility(box, ScrollBarVisibility.Disabled);
         ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Hidden);
+    }
+
+    internal void UpdateEditDecorations()
+    {
+        if (editBox is { } box)
+            Inline.SetTextDecorations(box, FontDecorationDrawing.For(AttachedProperties.GetFont(this)));
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
