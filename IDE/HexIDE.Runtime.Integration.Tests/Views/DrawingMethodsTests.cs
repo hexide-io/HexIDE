@@ -335,7 +335,7 @@ public partial class DrawingMethodsTests
     [InlineData("Debug.Print Point(1)")]
     [InlineData("Debug.Print Picture1.Point(1, 2, 3)")]
     [InlineData("FontTransparent = False")]
-    [InlineData("DrawWidth = 9\nPSet (10, 10)")]
+    [InlineData("DrawWidth = 13\nPSet (10, 10)")]
     [InlineData("DrawWidth = 32767\nLine (10, 10)-(20, 20)")]
     [InlineData("DrawStyle = 1\nLine (10, 10)-(20, 20)")]
     [InlineData("DrawMode = 7\nPSet (10, 10)")]

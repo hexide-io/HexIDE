@@ -429,11 +429,11 @@ public class VBLoader
     }
 
     /// <summary>
-    /// The height of a running form's menu bar, in pixels: VB6's, 285 twips at 96 dpi (measured, #1127). It is fixed
+    /// The height of a running form's menu bar, in pixels: VB6's themed desktop, 300 twips at 96 dpi (measured, #1140). It is fixed
     /// rather than measured from the theme's Menu because Form_Load reads ScaleHeight before the form is shown, so
     /// before any layout, and because a form's client area must not change with the IDE's theme.
     /// </summary>
-    public const double MenuBarHeight = 19;
+    public const double MenuBarHeight = 20;
 
     /// <summary>
     /// Whether the form runs with a menu bar: it has a top-level menu that is visible. In VB6 the bar is outside the
@@ -892,6 +892,8 @@ public class VBLoader
         {
             if (!property.Name.Equals(name, StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
                 continue;
+            if (property.EditedValue is { } edited && int.TryParse(edited, out var editedNumber))
+                return editedNumber;
             var line = property.Lines[0];
             var value = line[(line.IndexOf('=') + 1)..].TrimStart();
             var digits = value.Length - value.TrimStart("0123456789".ToCharArray()).Length;

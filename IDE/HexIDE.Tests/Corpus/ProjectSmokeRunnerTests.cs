@@ -26,28 +26,45 @@ namespace HexIDE.Tests.Corpus;
 internal sealed partial record SmokeStage(string Status, string? Detail = null)
 {
     public bool Failed => Status == "crashed";
-    public static SmokeStage FromException(Exception exception, IReadOnlySet<string>? declared = null) =>
+    public static SmokeStage FromException(Exception exception, IReadOnlySet<string>? declared = null,
+        IReadOnlySet<string>? libraries = null) =>
         exception is NotImplementedException
         // Two evidence projects under corpus/member-attributes keep a Public Const in a class, which vb6.exe's
         // IDE saves and its compiler refuses (#3335, #3350). Refusing them is the right answer, not a crash.
         || exception is VBCompileErrorException && exception.Message.Contains(PrePass.PublicMemberOfObjectModule)
-        // HexIDE calls no native code: PrePass.VisitDeclareStmt registers no Declare'd procedure, so a call to one
-        // is "Sub or Function not defined" by design, a refusal and not a crash. NeonAurora's Form_Load opens a
-        // MIDI device that way, which the longer startup watch of #4774 reaches. Off Windows, #4820 raises 53.
+        // HexIDE calls no native code. On Windows a call to a Declare'd procedure is "Sub or Function not defined" by
+        // design, a refusal and not a crash. NeonAurora's Form_Load makes one, which the longer startup watch of
+        // #4774 reaches.
         || exception is VBSubOrFunctionNotDefinedException && declared is not null
             && NotDefinedName().Match(exception.Message) is { Success: true } name && declared.Contains(name.Groups[1].Value)
+        // Off Windows the same call raises 53, "File not found: " plus its Lib string, as VBA on a Mac does (#4820).
+        // Untrapped, it ends the program there too. Only a library the project itself declares counts: a 53 from
+        // Open, or one naming any other file, is still a crash.
+        || exception is VBRunTimeException { Error.ErrNo: 53 } missing && libraries is not null
+            && missing.Error.Description.StartsWith(MissingLibrary, StringComparison.Ordinal)
+            && libraries.Contains(missing.Error.Description[MissingLibrary.Length..])
         ? new("refused", exception.Message) : new("crashed", exception.ToString());
+
+    private const string MissingLibrary = "File not found: ";
 
     /// <summary>The procedures a project's code Declares from a DLL, by name, whatever their case (#4774).</summary>
     public static IReadOnlySet<string> DeclaredProcedures(IEnumerable<string> code) => code
         .SelectMany(text => DeclareStatement().Matches(text).Select(match => match.Groups[1].Value))
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The Lib strings a project's code Declares, as written (#4820). One on a continuation line below its
+    /// Declare is missed, so its 53 reads as a crash rather than passing unnoticed.</summary>
+    public static IReadOnlySet<string> DeclaredLibraries(IEnumerable<string> code) => code
+        .SelectMany(text => DeclareStatement().Matches(text).Where(match => match.Groups[2].Success)
+            .Select(match => match.Groups[2].Value.Replace("\"\"", "\"")))
+        .ToHashSet(StringComparer.Ordinal);
+
     [System.Text.RegularExpressions.GeneratedRegex(@"Sub or Function not defined \(([^()]+)\)")]
     private static partial System.Text.RegularExpressions.Regex NotDefinedName();
 
     [System.Text.RegularExpressions.GeneratedRegex(
-        @"^[ \t]*(?:(?:Public|Private)[ \t]+)?Declare[ \t]+(?:PtrSafe[ \t]+)?(?:Sub|Function)[ \t]+([A-Za-z][A-Za-z0-9_]*)",
+        @"^[ \t]*(?:(?:Public|Private)[ \t]+)?Declare[ \t]+(?:PtrSafe[ \t]+)?(?:Sub|Function)[ \t]+([A-Za-z][A-Za-z0-9_]*)"
+        + @"(?:[$%&!#@^]?[ \t]+Lib[ \t]+""((?:[^""]|"""")*)"")?",
         System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Multiline)]
     private static partial System.Text.RegularExpressions.Regex DeclareStatement();
 }
@@ -223,6 +240,28 @@ public class ProjectSmokeRunnerTests
             "with no declared names, as before");
     }
 
+    // Off Windows the same call raises 53 naming its Lib string, as VBA on a Mac does (#4820), and NeonAurora's
+    // Form_Load doesn't trap its gdi32 call. Only a library the project declares counts.
+    [Theory]
+    [InlineData(53, "File not found: winmm.dll", "refused")]
+    [InlineData(53, "File not found: gdi32", "refused")]
+    [InlineData(53, "File not found: other.dll", "crashed")]
+    [InlineData(53, "File not found: kernel32", "crashed")]
+    [InlineData(53, "File not found", "crashed")]
+    [InlineData(5, "File not found: gdi32", "crashed")]
+    public void A_missing_Declared_library_is_a_refusal(int number, string description, string expected)
+    {
+        var libraries = SmokeStage.DeclaredLibraries([
+            "Private Declare Function midiOutOpen Lib \"winmm.dll\" (lphMidiOut As Long) As Long\r\n",
+            "Public Declare Function CreateCompatibleDC LIB \"gdi32\" (ByVal hdc As Long) As Long\r\n"
+            + "Private Declare Function Wrapped Lib _\r\n    \"kernel32\" () As Long\r\n' Declare Sub InAComment Lib \"x\" ()\r\n"
+        ]);
+        libraries.Should().BeEquivalentTo(["winmm.dll", "gdi32"], "a Lib on a continuation line is missed");
+        var error = new VBRunTimeException(new VBStandardError(number, description));
+        SmokeStage.FromException(error, libraries: libraries).Status.Should().Be(expected, description);
+        SmokeStage.FromException(error).Status.Should().Be("crashed", "with no declared libraries");
+    }
+
     [Fact]
     public void Slow_host_does_not_spend_the_workers_preparation_budget()
     {
@@ -360,7 +399,8 @@ public class ProjectSmokeRunnerTests
         var recorder = new SmokeStageRecorder(output);
         void Record(SmokeStage stage) => recorder.Record(stage);
         IReadOnlySet<string> declared = new HashSet<string>();
-        void Fault(VBWindowContext _, Exception exception) => Record(SmokeStage.FromException(exception, declared));
+        IReadOnlySet<string> libraries = new HashSet<string>();
+        void Fault(VBWindowContext _, Exception exception) => Record(SmokeStage.FromException(exception, declared, libraries));
         void RuntimeFault(VBWindowContext context, VBRunTimeException exception) => Fault(context, exception);
         void CompileFault(VBWindowContext context, VBCompileErrorException exception) => Fault(context, exception);
         VBWindowContext.Faulted += Fault;
@@ -401,8 +441,9 @@ public class ProjectSmokeRunnerTests
         try
         {
             var project = (await new ProjectLoader().LoadAsync(path, new Sink())).Project;
-            declared = SmokeStage.DeclaredProcedures(project.Modules.Select(module => module.Code)
-                .Concat(project.Forms.Select(form => form.Code)));
+            var code = project.Modules.Select(module => module.Code).Concat(project.Forms.Select(form => form.Code)).ToList();
+            declared = SmokeStage.DeclaredProcedures(code);
+            libraries = SmokeStage.DeclaredLibraries(code);
             if (!project.StartsAtSubMain && project.StartupForm is null
                 && project.StartupFormName is null or "(None)")
                 throw new NotImplementedException("Project has no startup path to run.");
@@ -415,7 +456,7 @@ public class ProjectSmokeRunnerTests
         }
         catch (Exception exception)
         {
-            Record(SmokeStage.FromException(exception, declared));
+            Record(SmokeStage.FromException(exception, declared, libraries));
         }
         finally
         {

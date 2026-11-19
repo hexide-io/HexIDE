@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace HexIDE.Runtime.Interpreter;
@@ -35,6 +36,12 @@ public sealed record ProcedureInfo(
     // Object` one is read late all the same, as ReturnsVariant says.
     bool ReturnsObject = false)
 {
+    internal string? DeclareLibrary { get; init; }
+    internal bool HasMissingDeclareLibrary => DeclareLibrary is { } library && !OperatingSystem.IsWindows()
+        && !library.EndsWith(".dylib", StringComparison.OrdinalIgnoreCase)
+        && !library.EndsWith(".so", StringComparison.OrdinalIgnoreCase)
+        && !library.Contains(".so.", StringComparison.OrdinalIgnoreCase);
+
     public Antlr4.Runtime.ParserRuleContext? Declaration { get; init; }
 
     /// <summary>

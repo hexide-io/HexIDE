@@ -1418,7 +1418,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     CaptureError(ex);
                     if (!first)
+                    {
+                        // A later object-store mismatch ends with Nothing under Resume Next (#4878, measured).
+                        if (objectVariable && ex.Error.ErrNo == VBStandardError.TypeMismatch.ErrNo)
+                        {
+                            interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var held);
+                            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, Vb6Value.Nothing);
+                            await interpreter.ReleaseRef(held);
+                        }
                         return ControlFlow.Nothing;
+                    }
                 }
                 first = false;
 
@@ -5872,7 +5881,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return false;
 
         var module = qualifier.Module!;
-        if (module.PrePass.Procedures.TryGetValue(memberName, out var proc)
+        if ((module.PrePass.Procedures.TryGetValue(memberName, out var proc)
+                || module.PrePass.Declares.TryGetValue(memberName, out proc) && proc.HasMissingDeclareLibrary)
             && (!proc.IsPrivate || ReferenceEquals(module, currentModule)))
         {
             var callArgs = await expressionExecutor.ResolveCallArgs(argsCall);

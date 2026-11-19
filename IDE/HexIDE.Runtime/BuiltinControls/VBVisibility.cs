@@ -1,5 +1,7 @@
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -44,8 +46,17 @@ internal static class VBVisibility
         control.IsHitTestVisible = visible;
     }
 
-    public static bool Get(Control control) =>
-        control is IVBContainerControl
+    public static bool Get(Control control)
+    {
+        // Label, Image, Shape, Line and menus keep their own value; every other control, a windowless UserControl included,
+        // reads False while its form isn't shown (#4829, oracle page visible-before-a-form-is-shown.md). A top-level menu's
+        // own value is what decides the menu bar (#1140).
+        if (control is not (VBLine or VBLabel or VBImage or VBShape or VBMenu or VBMenuSeparator) && FormRoot.View(control) is null
+            && control.GetLogicalAncestors().OfType<IFormView>().FirstOrDefault() is { IsShown: false })
+            return false;
+
+        return control is IVBContainerControl
             ? control.IsVisible && control.Opacity > 0
             : control.IsVisible;
+    }
 }

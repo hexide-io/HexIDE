@@ -54,7 +54,8 @@ public sealed class MonthViewComponentClass : InBoxComponentClass
         if (begin.Length < 3 || !begin[1].Equals(Instance.VBTypeName, StringComparison.OrdinalIgnoreCase)) return null;
         var definition = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
             "VERSION 5.00\r\nBegin VB.Form Form1\r\n" + block + "\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n",
-            new NullSink(), extraComponents: new Dictionary<string, ComponentBaseClass> { [begin[1]] = Instance });
+            new NullSink(), frxBlobs: null, extraComponents: new Dictionary<string, ComponentBaseClass> { [begin[1]] = Instance },
+            normalizeTabIndexes: false);
         return definition?.Components.FirstOrDefault(c => c.BaseClass is MonthViewComponentClass);
     }
 

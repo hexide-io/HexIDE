@@ -55,6 +55,33 @@ SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal 
 - **THEN** the interpreter SHALL refuse with NotImplementedException naming #4895 before moving the position or assigning the result
 - **AND** it SHALL NOT invent the bytes VB6 fills from its previous buffer contents
 
+### Requirement: Missing Declare libraries off Windows
+
+The interpreter SHALL collect Declare names, Lib strings and Sub/Function kinds without probing native libraries. Off Windows, supported missing-library calls SHALL evaluate arguments once, retaining ByRef targets, then raise trappable error 53, `File not found: ` plus the Lib string. Windows and host-library calls SHALL keep their refusal. In the missing-library path, a call through an Alias SHALL raise the same error 53, since the library fails before its entry point is sought (measured), and a named-argument call SHALL refuse as not implemented until a Declare's parameters are collected (#4869).
+
+#### Scenario: A missing DLL Function evaluates its argument
+
+- **WHEN** a Function declared in `Lib "hexide-nosuch.dll"` is called off Windows with a counted argument under On Error Resume Next
+- **THEN** the argument runs once and Err.Number is 53 with Err.Description `File not found: hexide-nosuch.dll`
+- **AND** the result follows the measurements in [#4820](https://github.com/hexide-io/HexIDE/issues/4820)
+
+#### Scenario: A native call remains deferred
+
+- **WHEN** the host is Windows or the Lib string ends in `.dylib` or `.so`, or contains `.so.` (case-insensitive)
+- **THEN** the call retains the existing "Sub or Function not defined" refusal
+- **AND** no library is loaded or probed
+
+#### Scenario: A call through an Alias
+
+- **WHEN** an off-Windows missing-library call goes through an Alias
+- **THEN** Err.Number is 53 with Err.Description `File not found: ` plus the Lib string, as without an Alias
+
+#### Scenario: A named-argument Declare call
+
+- **WHEN** an off-Windows missing-library call passes a named argument
+- **THEN** it is refused as not implemented until a Declare's parameters are collected (#4869)
+- **AND** an uncalled declaration still loads
+
 ### Requirement: For Each walks control-array indices captured at entry
 
 The interpreter SHALL walk a control array in sorted index order, capturing the indices once and resolving each
@@ -1650,6 +1677,18 @@ Measured in [a form's own ActiveControl](../../../docs/vb6-fidelity-oracle/a-for
 - **WHEN** a form's Visible property is set to False or True
 - **THEN** it SHALL follow Hide or Show respectively, including the active form's control focus and activation transition
 
+#### Scenario: A control on a loaded or hidden form
+- **WHEN** a program reads a windowed control's Visible on a form that is not shown
+- **THEN** it SHALL read False, using the form view's IsShown on desktop and hosted forms
+- **WHEN** the form is shown
+- **THEN** the control SHALL read its own visibility value
+- **AND** a Label, Image, Shape, Line or menu SHALL keep reading its own value through Load, Show and Hide
+- **AND** a UserControl, windowless or not, SHALL read as a windowed control does
+- **AND** the setter and the hidden-container behavior SHALL remain unchanged
+
+Measured button, Line, ProgressBar and loaded button-array rows: [#4829](https://github.com/hexide-io/HexIDE/issues/4829). Label, Image, Shape, menu and UserControl rows: `docs/vb6-fidelity-oracle/visible-before-a-form-is-shown.md`.
+Hidden Frame/PictureBox ancestry and immediate reads after setting Visible on a hidden form remain unmeasured.
+
 #### Scenario: The active form unloads with another form shown
 - **WHEN** the active form unloads while a previously active form remains shown
 - **THEN** that remaining form SHALL receive Activate and its remembered control SHALL receive GotFocus
@@ -2782,10 +2821,10 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **AND** a single supplied angle remains refused with #988 because the other angle's default is unmeasured
 
 #### Scenario: Measured finite thick-pen footprints
-- **WHEN** PSet draws with width 2–8 or 10, or a full transparent Circle draws with width 2/3, physical radius 10 pixels, aspect 1 and a whole-pixel centre
-- **THEN** the pixels SHALL match the corresponding grids on the [drawing oracle](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and [circle/thick-pen oracle](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), as scoped by [#4813](https://github.com/hexide-io/HexIDE/issues/4813)
+- **WHEN** PSet draws with width 2–12, or a full transparent Circle draws with width 2/3, physical radius 10 pixels, aspect 1 and a whole-pixel centre
+- **THEN** the pixels SHALL match the corresponding grids on the [drawing oracle](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and [circle/thick-pen oracle](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), as scoped by [#4813](https://github.com/hexide-io/HexIDE/issues/4813) and [#4841](https://github.com/hexide-io/HexIDE/issues/4841)
 - **AND** PSet ends at its whole-twip point and Circle ends at its centre
-- **WHEN** PSet uses width 9 or above 10, or a thick Circle requests any other shape, width or solid fill
+- **WHEN** PSet uses width above 12, or a thick Circle requests any other shape, width or solid fill
 - **THEN** execution SHALL refuse with NotImplementedException naming #988 before drawing or moving CurrentX/Y
 - **AND** thick Line, B and BF SHALL remain refused together (#4841): neither tried capsule nor stamped-disc model reproduces all measured line grids; width-one drawing is unchanged
 
