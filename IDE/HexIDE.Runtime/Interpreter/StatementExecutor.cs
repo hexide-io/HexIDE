@@ -45,6 +45,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // In an On Error GoTo handler, where a further fault propagates rather than being trapped again. A field, not a local
     // of the body's loop, because a halt asks every caller's activation whether it would trap (#1011).
     private bool inHandler;
+    // Resume consumes the procedure's fault, including from a handler's nested GoSub pass (#4880).
+    private int faultPc = -1;
     // The source line this activation is at, for Erl (#2528): the statement running, or the condition, Case or Next being
     // run on a line of its own. Erl is the line number at or above it in this body, from erlNumbers, kept by source line.
     private int erlLine;
@@ -3666,15 +3668,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private async Task<ControlFlow> OnBranch(VB6Parser.ValueStmtContext[] values, ParserRuleContext context, bool gosub)
     {
         var selector = await expressionExecutor.EvaluateValueFast(values[0]);
-        int n;
-        try
-        {
-            n = Convert.ToInt32(VB6BuiltIns.NarrowNum(selector, Vb6Value.ValueType.Integer).Value);
-        }
-        catch (VBRunTimeException ex) when (ex.Error.ErrNo == 6)
-        {
-            throw new NotImplementedException("On GoTo/GoSub selector outside Integer range is unmeasured (#4880)");
-        }
+        int n = Convert.ToInt32(VB6BuiltIns.NarrowNum(selector, Vb6Value.ValueType.Integer).Value);
         if (n is < 0 or > 255)
             throw new VBRunTimeException(context, VBStandardError.InvalidProcedureCall);
         if (n == 0 || n >= values.Length)
@@ -3929,6 +3923,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitResumeStmt(VB6Parser.ResumeStmtContext context)
     {
+        if (faultPc < 0)
+            throw new VBRunTimeException(context, VBStandardError.ResumeWithoutError);
         // Resume / Resume Next / Resume <label> — a control signal the pc-driver turns into a pc reposition.
         if (context.NEXT() != null)
             throw new ResumeSignal(ResumeKind.Next, null, context);
@@ -6111,6 +6107,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         erlNumbers = syntax.LineNumbers;
         closingTargets = syntax.ClosingTargets;
         inHandler = false;
+        faultPc = -1;
         await RunPass(0, nested: false, moduleDeclarations);
     }
 
@@ -6119,7 +6116,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var stmts = _bodyStmts!;
         var labels = bodyLabels!;
         int pc = start;
-        int faultPc = -1;       // index of the statement that faulted (for Resume); -1 = no active error
         var retry = false;      // the statement a halt retries, whose break has just been resumed (#1011)
 
         while (pc < stmts.Length)
@@ -6185,10 +6181,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             catch (ResumeSignal r)
             {
-                if (nested && faultPc < 0)
-                    throw Raised(new NotImplementedException("Resume of a handler error from a GoSub routine is unmeasured (#4880)"));
-                if (faultPc < 0)
-                    throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;
                 ClearError();   // every Resume clears it (measured, #877)
                 pc = r.Kind switch
@@ -6208,8 +6200,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             catch (VBRunTimeException ex) when (ResumesNext)
             {
+                // An error On Error Resume Next went past leaves nothing to Resume: a later Resume is 20, in the main
+                // flow and after a routine's Return alike (measured, #4880).
                 CaptureError(ex);
-                faultPc = pc;
                 pc++;
             }
             catch (VBRunTimeException ex) when (HaltsHere(ex))

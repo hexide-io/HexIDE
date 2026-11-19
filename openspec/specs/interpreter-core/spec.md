@@ -133,12 +133,12 @@ The interpreter SHALL execute GoSub, Return, On selector GoTo and On selector Go
 - **WHEN** On selector GoTo or GoSub executes
 - **THEN** the selector is evaluated once and narrowed as CInt, including half-to-even rounding and Null's error 94
 - **AND** a selector below 0 or above 255 raises error 5; 0 or a selector past the label list falls through
-- **AND** conversion overflow beyond Integer range is refused as unmeasured, naming #4880
+- **AND** conversion overflow beyond Integer range raises trappable error 6, before the 0 to 255 check (#4880, oracle PR #4986)
 
 #### Scenario: Error handling and stack exhaustion
 - **WHEN** an error occurs in a nested pass
-- **THEN** the procedure's handler and that pass's fault position govern Resume, without resetting the handler on pass entry
-- **AND** a Resume in a nested pass with no fault of its own is refused as unmeasured, naming #4880
+- **THEN** the procedure's handler and shared fault position govern Resume, without resetting the handler on pass entry
+- **AND** a Resume in a nested pass reached from the active handler resumes the handler's error: Err is cleared, the handler traps again, and the pending GoSubs stay pending, so code a later Return comes back to runs outside the handler (#4880, oracle PR #4986)
 - **WHEN** pending GoSubs reach HexIDE's 2,000-level cap or the execution stack guard fails
 - **THEN** ordinary trappable error 28 allows the procedure's own handler to run, including Exit Sub and Resume Next
 
