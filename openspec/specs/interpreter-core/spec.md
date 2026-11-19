@@ -57,7 +57,7 @@ SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal 
 
 ### Requirement: Missing Declare libraries off Windows
 
-The interpreter SHALL collect Declare names, Lib strings and Sub/Function kinds without probing native libraries. Off Windows, supported missing-library calls SHALL evaluate arguments once, retaining ByRef targets, then raise trappable error 53, `File not found: ` plus the Lib string. Windows and host-library calls SHALL keep their refusal. In the missing-library path, a call through an Alias SHALL raise the same error 53, since the library fails before its entry point is sought (measured), and a named-argument call SHALL refuse as not implemented until a Declare's parameters are collected (#4869).
+The interpreter SHALL collect Declare names, parameter lists, Lib strings and Sub/Function kinds without probing native libraries. Off Windows, supported missing-library calls SHALL evaluate arguments once, retaining ByRef targets, then raise trappable error 53, `File not found: ` plus the Lib string. Windows and host-library calls SHALL keep their refusal. In the missing-library path, a call through an Alias SHALL raise the same error 53, since the library fails before its entry point is sought (measured). A named argument SHALL be placed by the Declare's parameter name and evaluated once before error 53.
 
 #### Scenario: A missing DLL Function evaluates its argument
 
@@ -79,7 +79,7 @@ The interpreter SHALL collect Declare names, Lib strings and Sub/Function kinds 
 #### Scenario: A named-argument Declare call
 
 - **WHEN** an off-Windows missing-library call passes a named argument
-- **THEN** it is refused as not implemented until a Declare's parameters are collected (#4869)
+- **THEN** the argument is placed by name and runs once before error 53 with Err.Description `File not found: ` plus the Lib string, as measured in [#4869](https://github.com/hexide-io/HexIDE/issues/4869)
 - **AND** an uncalled declaration still loads
 
 ### Requirement: For Each walks control-array indices captured at entry

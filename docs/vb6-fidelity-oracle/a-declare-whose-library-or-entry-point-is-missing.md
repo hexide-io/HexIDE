@@ -42,6 +42,7 @@ The counter was set to 0 before the call.
 
 **Not measured:** whether a positional argument is evaluated before the error, and an Alias by ordinal (`Alias "#1"`).
 
-**In HexIDE (#4820):** HexIDE skips every `Declare` (`PrePass.VisitDeclareStmt`), so a call raises "Sub or Function not
-defined", and no `On Error` traps it. #4820 makes such a call off Windows raise 53, as VBA on a Mac does. Its PR, #4871,
-raises the same 53 through an `Alias`, and still refuses a named argument to a Declare (#4869).
+**In HexIDE (#4820, #4869):** HexIDE used to skip every `Declare` (`PrePass.VisitDeclareStmt`), so a call raised "Sub or
+Function not defined", and no `On Error` trapped it. #4820 makes such a call off Windows raise 53, as VBA on a Mac does,
+and its PR, #4871, raises the same 53 through an `Alias`. #4869 places a named argument by the Declare's parameter name
+and evaluates it once before the 53, as the row above measured. On Windows, HexIDE still refuses the call.
