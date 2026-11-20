@@ -469,7 +469,18 @@ or Property Let on a write, preserving the returned value without scalar coercio
 - **WHEN** an indexed assignment reaches a default Get without a Let, or a default Function
 - **THEN** the member runs with the index arguments and a scalar result raises 424 early-bound or 451 late-bound
 - **AND** held in a Variant, a write through a default Function raises 450 without running it
-- **AND** an object result refuses untrappably naming #4906, pending measurement
+- **AND** an object result receives the value through its own default Property Let, as measured in [#4906](https://github.com/hexide-io/HexIDE/issues/4906)
+
+#### Scenario: A default Property without an accessor
+- **WHEN** a Let reaches a default Property with no Get and no Let, or a read reaches one with no Get
+- **THEN** an early-bound reference gives the compile error "Invalid use of property"
+- **AND** a late-bound reference raises 450 without running anything
+
+#### Scenario: A Let of Nothing
+- **WHEN** a Let's value is Nothing
+- **THEN** it raises 91, following [#5083](https://github.com/hexide-io/HexIDE/issues/5083)
+- **AND** a project class's indexed default-member result leaves a Variant target Empty on failure,
+  whereas a variable holding Nothing preserves its target
 
 ### Requirement: Trailing argument and declared array type refusals
 

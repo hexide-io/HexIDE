@@ -2631,7 +2631,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && UdtFieldName(lastSelection).Equals("SelectedItem", StringComparison.OrdinalIgnoreCase)
             && (value.Value is Components.InBox.TabStripTab || IsImageComboSelectedItem(context)))
             return value;
-        // #1485/#878: only the measured direct temporary / App forms clear a Variant on a failed
+        // #1485/#878/#4906: only the measured temporary / App forms clear a Variant on a failed
         // default-value read. Keep the original exception, including its number and message.
         try
         {
@@ -2644,9 +2644,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
             value = ObjectAsValue.Scalar(value, context);
             if (value.Type == Vb6Value.ValueType.Object)
-                throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+                throw new VBRunTimeException(context, value.Value is null
+                    ? VBStandardError.ObjectVariableOrWithBlockVariableNotSet
+                    : VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         }
-        catch (VBRunTimeException e) when (e.Error.ErrNo is 438 or 450 // the measured errors; 91 is not measured
+        catch (VBRunTimeException e) when (e.Error.ErrNo is 91 or 438 or 450 // measured in #1485 and #4906/#5083
                                           && IsMeasuredTemporaryOrApp(context.valueStmt(), value))
         {
             await EmptyMeasuredLetTarget(context);
@@ -2677,8 +2679,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (call.iCS_S_VariableOrProcedureCall() is { } bare && bare.dictionaryCallStmt() is null
                 && bare.GetText().Equals("App", StringComparison.OrdinalIgnoreCase) && value.Value is VbApp)
                 return true;
-            // Exclude member/property reads, Collection items, Me and With reads even if their result
-            // happens to be held in the frame. A direct call must have no variable slot of its own.
+            // A project class's indexed default result is also a temporary, including Nothing (#4906).
+            if (call.iCS_S_ProcedureOrArrayCall() is { } indexed
+                && indexed.dictionaryCallStmt() is null
+                && indexed.ambiguousIdentifier()?.GetText() is { } receiver
+                && !receiver.Equals("Me", StringComparison.OrdinalIgnoreCase)
+                && interpreter.ExecutionContext.TryGetVariable(currentEnv, receiver, out var source)
+                && source.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Class } sourceObject
+                && sourceObject.ClassDef.PrePass.DefaultMember is not null)
+                return true;
+            // Exclude member/property reads, Collection items, array elements, Me and With reads even if their
+            // result happens to be held in the frame. Other direct calls must have no variable slot of their own.
             var name = call.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText()
                 ?? call.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText();
             if (name is null || name.Equals("Me", StringComparison.OrdinalIgnoreCase)
