@@ -244,8 +244,12 @@ than a statement. That is why each was fixed ahead of far more commonly used con
 Parse failures use VB6's measured message first and keep the previous diagnostic, including its position,
 on the next line prefixed `Parser: ` ([#4415](https://github.com/hexide-io/HexIDE/issues/4415),
 vb6.exe SP6 native/p-code measurements). Unmeasured failures say `Syntax error`. Block pairing is
-syntax-only; mixed malformed-statement/block-error precedence is unmeasured. A module-level
-`x = 1` and a bare `Exit` still run here, where vb6.exe gives a compile error ([#5064](https://github.com/hexide-io/HexIDE/issues/5064)).
+syntax-only; mixed malformed-statement/block-error precedence is unmeasured. A bare `Exit` inside a
+procedure raises the measured `Syntax error` before anything runs, even if the procedure is never called
+([#5064](https://github.com/hexide-io/HexIDE/issues/5064),
+[oracle](vb6-fidelity-oracle/what-make-says-for-a-syntax-error-or-an-unbalanced-block.md)).
+Module-level `x = 1` remains the documented `TOP-LEVEL-STATEMENTS-ARE-AN-EXTENSION` extension,
+not a gap; bare `Exit` at module level is unmeasured and unchanged.
 This changes diagnostics, not the coverage counts.
 
 **`Function` declared with a type character used to be here** ([#740](https://github.com/hexide-io/HexIDE/issues/740)). `Function GetName$()` did not parse, so its module never loaded: the interpreter's `functionStmt` had no `typeHint?` after the name, though the LSP server's had one. All six characters were measured on vb6.exe, native and p-code, and the rule ported across. Both rows are Partial again, as they were before the character was measured, since the body may assign the return through it too ([#739](https://github.com/hexide-io/HexIDE/issues/739)).
