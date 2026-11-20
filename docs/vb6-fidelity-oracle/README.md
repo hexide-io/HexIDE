@@ -909,6 +909,7 @@ added afterwards.
 - [Object array fields in a Type (2026-11-18, #4596, SP6)](object-array-fields-in-a-type.md#object-array-fields-in-a-type-2026-11-18-4596-sp6)
 - [With New, a default instance in its own Class_Initialize, and Set through members (2026-11-18, #4599 to #4607, SP6)](with-new-default-instances-and-set-through-members.md#with-new-a-default-instance-in-its-own-class_initialize-and-set-through-members-2026-11-18-4599-to-4607)
 - [When the default member can't take the arguments (2026-11-18, #4747)](with-new-default-instances-and-set-through-members.md#when-the-default-member-cant-take-the-arguments-2026-11-18-4747)
+- [A Let through a default member that returns an object, and a Let of Nothing (2026-11-20, #4906, SP6)](a-let-through-an-object-returning-default-member.md#a-let-through-a-default-member-that-returns-an-object-and-a-let-of-nothing-2026-11-20-4906-sp6)
 - [LoadPicture: which files load, and the errors for those that don't (2026-11-18, #4597, SP6)](loadpicture-file-kinds-and-file-errors.md#loadpicture-which-files-load-and-the-errors-for-those-that-dont-2026-11-18-4597-sp6)
 - [An auto-made object is in its slot while its Class_Initialize runs (2026-11-18, #4605, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6)
 - [A PropertyBag at run time (2026-11-18, #4680, SP6)](a-propertybag-at-run-time.md#a-propertybag-at-run-time-2026-11-18-4680-sp6)
