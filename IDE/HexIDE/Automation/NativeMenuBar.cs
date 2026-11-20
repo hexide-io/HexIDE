@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using HexIDE.IDE;
@@ -19,7 +20,7 @@ internal sealed class NativeMenuBar
     /// <summary>The window whose menus follow the app menu, or null; an action waits for its program.</summary>
     internal Window? BarWindow { get; }
     private readonly Entry root;
-    private sealed record Entry(string Name, NativeMenuItemBase? Item, NativeMenu? Menu, bool Top, List<Entry> Children);
+    private sealed record Entry(string Name, string? AutomationId, NativeMenuItemBase? Item, NativeMenu? Menu, bool Top, List<Entry> Children);
 
     internal NativeMenuBar()
     {
@@ -28,10 +29,10 @@ internal sealed class NativeMenuBar
         var active = windows.Where(w => w.IsVisible && w.IsActive).ToArray();
         var window = active.Length == 1 ? active[0] : lifetime?.MainWindow is { } main ? ForegroundWindow.Pick(main, windows) : null;
         BarWindow = window;
-        root = new Entry("", null, null, false, []);
+        root = new Entry("", null, null, null, false, []);
         var app = Application.Current is { } application ? NativeMenu.GetMenu(application) : null;
         if (app is not null)
-            root.Children.Add(new Entry(AppTitle, null, app, true, Read(app, false)));
+            root.Children.Add(new Entry(AppTitle, null, null, app, true, Read(app, false)));
         if (window is not null && NativeMenu.GetMenu(window) is { } menu)
             root.Children.AddRange(Read(menu, true));
         Note = $"Bar window: '{window?.Title ?? "none"}', picked by {(active.Length == 1 ? "the single visible active window" : "auto (fallback when zero or several visible windows are active)")}. ";
@@ -42,9 +43,12 @@ internal sealed class NativeMenuBar
     }
 
     private static List<Entry> Read(NativeMenu menu, bool top) => menu.Items.Select(item =>
-        new Entry(item is NativeMenuItem i ? MenuPath.StripAccessKey(i.Header ?? "") : "", item,
+        new Entry(item is NativeMenuItem i ? MenuPath.StripAccessKey(i.Header ?? "") : "", IdOf(item), item,
             (item as NativeMenuItem)?.Menu, top,
             item is NativeMenuItem { Menu: { } sub } ? Read(sub, false) : [])).ToList();
+    // A running form's mirror sets each item's AutomationId to its menu's code name (FormNativeMenu); other items set none.
+    private static string? IdOf(NativeMenuItemBase item) =>
+        item.GetValue(AutomationProperties.AutomationIdProperty)?.Trim() is { Length: > 0 } id ? id : null;
     private static string Type(Entry e) => e.Item is NativeMenuItemSeparator ? "Separator" : "MenuItem";
     private static bool Hidden(Entry e) => e.Item is NativeMenuItem { IsVisible: false } || e.Top && e.Menu is null;
     private static bool Enabled(Entry e) => e.Item is not NativeMenuItem i || i.IsEnabled;
@@ -61,6 +65,58 @@ internal sealed class NativeMenuBar
         (e.Name.Length == 0 || siblings.Count(s => Type(s) == Type(e) && string.Equals(s.Name, e.Name, StringComparison.OrdinalIgnoreCase)) > 1
             ? "#" + siblings.Where(s => Type(s) == Type(e)).ToList().IndexOf(e) : e.Name) + "]";
 
+    private static List<Entry>? FindId(Entry parent, string id)
+    {
+        foreach (var child in parent.Children)
+        {
+            if (string.Equals(child.AutomationId, id, StringComparison.OrdinalIgnoreCase)) return [child];
+            if (FindId(child, id) is { } descendants) return [child, .. descendants];
+        }
+        return null;
+    }
+
+    internal string? PathOf(string id)
+    {
+        if (FindId(root, id) is not { } chain) return null;
+        var path = "MenuBar";
+        var parent = root;
+        foreach (var entry in chain)
+        {
+            path += "/" + Segment(entry, parent.Children);
+            parent = entry;
+        }
+        return path;
+    }
+
+    internal static string? WindowPathHint(Window window, string windowName, string error)
+    {
+        if (NativeMenu.GetMenu(window) is not { } menu) return null;
+        var end = error.IndexOf("' under '", StringComparison.Ordinal);
+        if (!error.StartsWith("no child matching '", StringComparison.Ordinal) || end < 0) return null;
+        var segment = error["no child matching '".Length..end];
+        string? id = null;
+        if (segment.StartsWith('#'))
+        {
+            var source = new Entry("", null, null, menu, false, Read(menu, true));
+            id = FindId(source, segment[1..])?.Last().AutomationId;
+            if (id is null) return null;
+        }
+        else
+        {
+            var bracket = segment.IndexOf('[');
+            var type = bracket < 0 ? segment : segment[..bracket];
+            if (!string.Equals(type, "Menu", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(type, "MenuItem", StringComparison.OrdinalIgnoreCase)) return null;
+        }
+        var bar = new NativeMenuBar();
+        var hint = $"{windowName}'s menus are in the system menu bar, not the window";
+        if (bar.BarWindow != window)
+            return hint + $". window: \"menubar\" reaches the bar window's menus, and the bar window is now '{bar.BarWindow?.Title ?? "none"}', not {windowName}";
+        return id is not null && bar.PathOf(id) is { } path
+            ? hint + $": use window: \"menubar\", as {path} or MenuBar/#{id}"
+            : hint + ": use window: \"menubar\"; dump_visual_tree(window: \"menubar\") lists them";
+    }
+
     private (Entry? Entry, List<Entry> Ancestors, string? Error) Resolve(string path)
     {
         var parts = path.Split('/');
@@ -69,6 +125,15 @@ internal sealed class NativeMenuBar
         var ancestors = new List<Entry>();
         foreach (var part in parts.Skip(1))
         {
+            if (part.StartsWith('#') && FindId(current, part[1..]) is { } chain)
+            {
+                foreach (var entry in chain)
+                {
+                    ancestors.Add(current);
+                    current = entry;
+                }
+                continue;
+            }
             var next = current.Children.FirstOrDefault(e => string.Equals(Segment(e, current.Children), part, StringComparison.OrdinalIgnoreCase));
             var bracket = part.IndexOf("[#", StringComparison.Ordinal);
             if (bracket > 0 && part.EndsWith(']') && int.TryParse(part[(bracket + 2)..^1], out var index) && index >= 0)
@@ -89,7 +154,7 @@ internal sealed class NativeMenuBar
     {
         var children = depth == 0 ? [] : e.Children.Where(c => !interactiveOnly || c.Item is not NativeMenuItemSeparator)
             .Select(c => Node(c, path + "/" + Segment(c, e.Children), depth - 1, interactiveOnly)).ToArray();
-        return new UiNode(path, e == root ? "MenuBar" : Type(e), e.Name, null,
+        return new UiNode(path, e == root ? "MenuBar" : Type(e), e.Name, e.AutomationId,
             e == root ? "NativeMenu" : e.Item is NativeMenuItemSeparator ? "NativeMenuItemSeparator" : "NativeMenuItem",
             null, e == root ? [] : Providers(e), Enabled(e), false, Hidden(e) ? true : null, children,
             Truncated: depth == 0 && e.Children.Count > 0 ? true : null);
@@ -99,7 +164,7 @@ internal sealed class NativeMenuBar
         var (e, _, error) = Resolve(path);
         if (e is null) return (null, error);
         var n = Node(e, path, 0, false);
-        return (new UiNodeDetail(path, n.ControlType, n.Name, null, n.ClassName, null, n.Providers,
+        return (new UiNodeDetail(path, n.ControlType, n.Name, n.AutomationId, n.ClassName, null, n.Providers,
             n.IsEnabled, false, false, false, n.IsHidden, null, [], null,
             e.Item is NativeMenuItem { ToggleType: not MenuItemToggleType.None } i ? i.IsChecked : null, [],
             BoundingRectNote: "The native menu bar is outside the window's control tree. " + Note), null);

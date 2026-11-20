@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Platform;
 using Avalonia.Headless.XUnit;
@@ -193,6 +194,34 @@ public class FormNativeMenuTests
             foreach (var item in new[] { rig.Top, alpha, sub, (NativeMenuItem)sub.Menu.Items[0] })
                 item.Gesture.Should().BeNull();
             rig.Bar.Items.Should().HaveCount(2);
+        });
+    }
+
+    private static string? IdOf(NativeMenuItemBase item) => item.GetValue(AutomationProperties.AutomationIdProperty);
+
+    // Automation reads a form menu's code name from its native item (#5102), so the mirror copies it there.
+    [AvaloniaFact]
+    public void Native_items_carry_their_menus_code_names()
+    {
+        Run(rig =>
+        {
+            var sub = (NativeMenuItem)rig.Top.Menu!.Items[2];
+            IdOf(rig.Top).Should().Be("mnuTop");
+            IdOf(rig.Top.Menu.Items[0]).Should().Be("mnuArray(0)");
+            IdOf(rig.Top.Menu.Items[1]).Should().Be("mnuSep", "a separator carries its name too");
+            IdOf(sub).Should().Be("mnuSub");
+            IdOf(sub.Menu!.Items[0]).Should().Be("mnuLeaf");
+            IdOf(rig.Native.Items[1]).Should().Be("mnuSolo");
+        });
+    }
+
+    [AvaloniaFact]
+    public void A_loaded_array_element_carries_its_index_in_its_code_name()
+    {
+        Run(rig =>
+        {
+            rig.Step(() => rig.Call("AddItem"));
+            IdOf(rig.Top.Menu!.Items[1]).Should().Be("mnuArray(1)");
         });
     }
 

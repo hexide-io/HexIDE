@@ -44,7 +44,7 @@ public class ComboBoxComponentClass : ComponentBaseClass
     [
         .. Properties.Select(p => new InBox.InBoxMember(p.Name.Trim('(', ')'), InBox.MemberKind.Property, InBox.MemberOrigin.VB6, true, true)),
         .. Events.Select(e => new InBox.InBoxMember(e.Name, InBox.MemberKind.Event, InBox.MemberOrigin.VB6, false, true)),
-        .. new[] { "ListIndex", "ListCount" }
+        .. new[] { "ListIndex", "ListCount", "NewIndex" }
             .Select(n => new InBox.InBoxMember(n, InBox.MemberKind.Property, InBox.MemberOrigin.VB6, false, true)),
         .. new[] { "FontName", "FontSize", "FontBold", "FontItalic", "FontUnderline", "FontStrikethru", "Index" }
             .Select(n => new InBox.InBoxMember(n, InBox.MemberKind.Property, InBox.MemberOrigin.VB6, false, true)),
@@ -63,17 +63,10 @@ public class ComboBoxComponentClass : ComponentBaseClass
     protected override Control InstantiateInternal(ComponentInstance instance)
     {
         var style = instance.GetPropertyOrDefault(ComboStyleProperty);
-        return new VBComboBox(style)
+        var control = new VBComboBox(style)
         {
             // A Dropdown List ignores a saved Text (measured): its Text is its selected item, and none is selected.
             Text = style == VBComboStyle.DropdownList ? "" : instance.GetPropertyOrDefault(TextProperty),
-            // No ItemsSource. List is the companion record verbatim, and turning it into items needs a
-            // non-empty example to decode against — every List record in VB6's Template tree is an empty
-            // two-byte count. Binding it directly would compile and be wrong: byte[] IS an IEnumerable, so
-            // a populated list would render as a column of raw byte values.
-            //
-            // This renders empty, exactly as it did before: nothing ever populated the old strings model
-            // from a file either.
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
@@ -81,6 +74,8 @@ public class ComboBoxComponentClass : ComponentBaseClass
             FlowDirection = instance.GetPropertyOrDefault(RightToLeftProperty) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
             Sorted = VBLoader.RawDouble(instance, "Sorted") is { } sorted && sorted != 0
         };
+        AvaloniaInterop.ListItemState.Load(control, instance);
+        return control;
     }
 
     /// <summary>

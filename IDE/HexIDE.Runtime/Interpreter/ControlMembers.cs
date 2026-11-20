@@ -49,6 +49,8 @@ internal static class ControlMembers
         // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
         if (variable.Value is Control listControl && ListMembers.IsList(listControl) && hasArgs)
         {
+            if (memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
+                return ListMembers.ReadItemData(listControl, await Arguments());
             if (memberIdentifier.Equals("List", StringComparison.OrdinalIgnoreCase))
                 return ListMembers.ReadItem(listControl, await Arguments());
             if (listControl is VBListBox listBox && memberIdentifier.Equals("Selected", StringComparison.OrdinalIgnoreCase))
@@ -162,6 +164,11 @@ internal static class ControlMembers
         VBProps.RefuseIfRemoved(control);
         if (ListMembers.IsList(control) && args is not null)
         {
+            if (memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
+            {
+                ListMembers.WriteItemData(control, args, value);
+                return true;
+            }
             if (memberIdentifier.Equals("List", StringComparison.OrdinalIgnoreCase))
             {
                 ListMembers.WriteItem(control, args, value);

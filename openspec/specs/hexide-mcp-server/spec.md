@@ -2401,10 +2401,22 @@ scenarios below. `invoke_menu_item` SHALL also reach the application menu by its
 
 - **WHEN** a caller dumps or inspects the menubar scope
 - **THEN** paths start at `MenuBar` and use `MenuItem[header]` with access-key markers removed, or `MenuItem[#n]` for duplicate names, indexed from zero among that type
+- **AND** a node's automationId is its native item's `AutomationProperties.AutomationId`: a running form's menus carry their code names there, and items that set none, such as the application menu's, have a null id
+- **AND** a bare `#id` segment finds the first matching id ignoring case, depth-first below the current node, while `MenuItem[#n]` remains an index
+- **AND** id paths retain the full ancestor-opening chain, and a dump rooted at one builds its children's paths from that root
 - **AND** root, maxDepth, interactiveOnly and match work as on windows
 - **AND** nodes report their own enabled state, and hidden state for invisible items and top-level items without submenus
 - **AND** inspection reports checked state for checkable items
 - **AND** separators have class NativeMenuItemSeparator, type Separator and no providers, and are omitted under interactiveOnly
+
+#### Scenario: A Window path names a menu in the system menu bar
+
+- **WHEN** a Window path fails with a no-child-matching reply on a window holding a NativeMenu, and its failing segment is either a menu code name as `#id` or type Menu or MenuItem (ignoring case)
+- **THEN** the tools append a hint to the existing failure, preserving any auto-window note
+- **AND** if that window is the bar window and the id has a caption path, the hint reads `{name}'s menus are in the system menu bar, not the window: use window: "menubar", as {captionPath} or MenuBar/#{id}`, spelling the id as the menu does
+- **AND** for a Menu or MenuItem segment, or an id whose caption path cannot be placed, on the bar window the hint reads `{name}'s menus are in the system menu bar, not the window: use window: "menubar"; dump_visual_tree(window: "menubar") lists them`
+- **AND** if another window is the bar window, the hint reads `{name}'s menus are in the system menu bar, not the window. window: "menubar" reaches the bar window's menus, and the bar window is now '{barTitle}', not {name}`, with `none` when no window is selected
+- **AND** the driver-level failure stays unchanged, as do all other tool failures, including an unknown id or a window without a NativeMenu
 
 #### Scenario: Invoke a running form's native menu
 

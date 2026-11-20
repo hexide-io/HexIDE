@@ -92,9 +92,8 @@ public static class VBProperties
     /// <summary>
     /// A ListBox or ComboBox's per-item Long values, held as the companion record cites them.
     ///
-    /// A blob rather than a modelled list because the record framing is a two-byte count and no VB6-shipped
-    /// file has a non-empty one to learn the rest from. Kept verbatim so it survives a save; understanding
-    /// what is inside can wait for an example to check against.
+    /// Kept verbatim for saving. The runtime decodes the counted, length-prefixed decimal strings
+    /// measured in #5106 / #5114 (oracle PR #5115).
     /// </summary>
     public static readonly PropertyClass<byte[]?> ItemDataProperty = new PropertyClass<byte[]?>("ItemData",
         "Per-item numeric values stored alongside a list control's items.", PropertyCategory.Misc);
@@ -143,9 +142,8 @@ public static class VBProperties
     /// items are ALWAYS a companion reference — VB6 never writes them inline — so the blob is what the
     /// property actually is, and modelling it as strings was an aspiration rather than a description.
     ///
-    /// Held verbatim so it survives a save. Decoding it into items needs a non-empty example to check
-    /// against, and no VB6-shipped file has one — every List and ItemData record in the Template tree is a
-    /// two-byte count of zero. See <see cref="ItemDataProperty"/>, which is the same situation.
+    /// Held verbatim for saving; the runtime decodes its counted, length-prefixed ANSI strings
+    /// (#5106 / #5114, oracle PR #5115). See <see cref="ItemDataProperty"/> for the parallel data record.
     /// </summary>
     public static PropertyClass<byte[]?> ListProperty = new PropertyClass<byte[]?>("List", "The set of items shown in the control's list.", PropertyCategory.List);
 
