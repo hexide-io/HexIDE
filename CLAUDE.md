@@ -652,7 +652,7 @@ Package versions are pinned centrally in the root `Directory.Packages.props` (Av
 - **Server** (`LspServer/HexIDE.VbLspServer`): out-of-process console app built on **EmmyLua.LanguageServer.Framework** (MIT); handlers wired in `LspServerHost.cs` (stdio, `TimingScheduler`: a `SingleThreadScheduler` for all but completion, `AddRequestHandler`/`AddNotificationHandler`). Parses with the **proleap / grammars-v4** VB6 grammar (`VisualBasic6Lexer.g4` + `VisualBasic6Parser.g4`) via a two-stage SLL→LL strategy + a wall-clock parse backstop (`VbDiagnosticsProvider`). Diagnostics = collecting ANTLR error listener, messages via `VbErrorMessages.Prettify()`. The `Option Explicit` undeclared-variable check (`VbScopeAnalyzer`) is compiled out; see the language-analysis boundary below. Run standalone with `dotnet run --project HexIDE.VbLspServer/`.
 - **Client** (`HexIDE.Lsp`): `VBLspClient` uses `StreamJsonRpc` + `SystemTextJsonFormatter`. Auto-started by `App.axaml.cs`, stopped on `ShutdownRequested`. Desktop-only.
 - **Diagnostics flow**: server → `publishDiagnostics` → `VBLspClient.DiagnosticsPublished` → `LspDocumentSession.OnDiagnosticsPublished` (posted to the UI thread) → AvaloniaEdit offsets → `LspTextMarkerService.SetMarkers()` → wavy underlines.
-- **AOT**: `StreamJsonRpc` IL warnings suppressed in Desktop. `LspJsonContext` (source-gen `JsonSerializerContext`) covers all LSP types.
+- **Serialization**: `LspJsonContext` (source-gen `JsonSerializerContext`) covers all LSP types, and a type it lacks throws even under JIT, because the client's serializer has no fallback (step 4 of *Adding a new LSP method*). Desktop isn't an AOT target (`IsAotCompatible` is false, since add-ins load through `Assembly.Load`), so the trim-analysis warnings `IL2026`, `IL3053` and `IL2104` stay warnings there (`WarningsNotAsErrors`).
 - **Desktop.csproj** uses `Exists()` condition on the LspServer reference — the IDE builds fine without it (LSP diagnostics disabled).
 - **To see what crossed the wire, use the protocol inspector** (`Tools → Protocol Inspector`, or
   `list_lsp_messages` / `get_lsp_message` from automation). Envelopes are recorded for every connection
@@ -674,7 +674,7 @@ Package versions are pinned centrally in the root `Directory.Packages.props` (Av
 
 ### IDE internals
 
-- **DI**: `Pure.DI` (source-generated, zero reflection — required for `PublishAot=true`). All singletons registered in `DISetup.cs`. Roots include `MainViewViewModel` and `ILspClient` (41 in all).
+- **DI**: `Pure.DI` (source-generated, with no reflection: the object graph is built at compile time). All singletons registered in `DISetup.cs`. Roots include `MainViewViewModel` and `ILspClient` (41 in all).
 - **Services** in `IDE/HexIDE/IDE/`: `ProjectManager`, `EditorService`, `WindowManager`, `EventBus`, `FindReplaceService`, `SettingsService`.
 - **Visual designer**: `VisualDesigner/` — works with `ComponentInstance` objects (not live controls).
 - **MVVM**: `ViewLocator` resolves View from ViewModel through an **explicit registration table** in its
@@ -933,7 +933,7 @@ When a new `HexIDE.*` namespace becomes widely used in a project, add it to that
 
 ### LSP JSON serialization
 
-- Always use `SystemTextJsonFormatter` + `LspJsonContext`. **Never use `new {}` anonymous types** in `NotifyAsync`/`InvokeAsync` — use `EmptyParams.Instance` instead. AOT has no metadata for anonymous types.
+- Always use `SystemTextJsonFormatter` + `LspJsonContext`. **Never use `new {}` anonymous types** in `NotifyAsync`/`InvokeAsync` — use `EmptyParams.Instance` instead. `LspJsonContext` can't describe an anonymous type, and the serializer has no fallback, so one throws even under JIT (step 4 below).
 - All `TextDocument` and marker access must be on the UI thread (`Dispatcher.UIThread.Post`).
 
 ### Adding a new LSP method (5-step recipe)
