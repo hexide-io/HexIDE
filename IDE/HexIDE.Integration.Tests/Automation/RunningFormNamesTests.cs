@@ -217,9 +217,15 @@ public class RunningFormNamesTests
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
-    public void A_menu_carries_its_name_and_is_named_as_its_caption_reads()
+    // On macOS a form's menus go in the system menu bar (#5065), so both rows run on every platform: the in-window bar,
+    // and the system one, where the window holds no menu for a path to reach.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_menu_carries_its_name_and_is_named_as_its_caption_reads(bool systemMenuBar)
     {
+        var previous = FormNativeMenu.UseSystemMenuBar;
+        FormNativeMenu.UseSystemMenuBar = systemMenuBar;
         var window = Run();
         try
         {
@@ -227,7 +233,17 @@ public class RunningFormNamesTests
 
             Avalonia.Automation.AutomationProperties.GetAutomationId(game).Should().Be("mnuGame");
             NameOf(game).Should().Be("Game");
-            UiAutomationDriver.Resolve(window, "Window/#mnuGame").control.Should().BeSameAs(game);
+            var (control, error) = UiAutomationDriver.Resolve(window, "Window/#mnuGame");
+            if (!systemMenuBar)
+                control.Should().BeSameAs(game);
+            else
+            {
+                // The menu is in the window's NativeMenu, which window "menubar" reaches by caption, as
+                // MenuBar/MenuItem[Game] (#5066). The reply doesn't yet say so: #5102.
+                control.Should().BeNull();
+                error.Should().Be("no child matching '#mnuGame' under 'Window'");
+                NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Select(i => i.Header).Should().Equal("Game");
+            }
 
             // An element Load adds to a menu control array is told apart by its index, and named as the caption it copied.
             // It is in a closed submenu, which no path reaches until the menu is open.
@@ -235,7 +251,11 @@ public class RunningFormNamesTests
             Avalonia.Automation.AutomationProperties.GetAutomationId(level).Should().Be("mnuLevel(1)");
             NameOf(level).Should().Be("Beginner");
         }
-        finally { window.Close(); }
+        finally
+        {
+            window.Close();
+            FormNativeMenu.UseSystemMenuBar = previous;
+        }
     }
 
     [AvaloniaTheory]
