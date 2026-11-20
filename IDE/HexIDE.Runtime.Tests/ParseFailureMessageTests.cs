@@ -56,6 +56,44 @@ public class ParseFailureMessageTests : BaseVBTestFixture
         await Check(code, "Syntax error", before.Count(c => c == '\n') + 3);
     }
 
+    // #5064; measured in docs/vb6-fidelity-oracle/what-make-says-for-a-syntax-error-or-an-unbalanced-block.md.
+    [Theory]
+    [InlineData("Exit", true)]
+    [InlineData("Exit", false)]
+    [InlineData("exit", true)]
+    [InlineData("Exit ' note", true)]
+    [InlineData("Debug.Print 2: Exit: Debug.Print 3", true)]
+    public async Task Bare_exit_is_refused_before_anything_runs(string statement, bool called)
+    {
+        var run = () => Run("Private Sub Foo()\n" + statement + "\nEnd Sub\nDebug.Print 1\n"
+            + (called ? "Foo\n" : ""));
+        var error = (await run.Should().ThrowAsync<VBCompileErrorException>()).Which;
+        error.Message.Should().StartWith("Compile error:\n\nSyntax error");
+        error.Line.Should().Be(2);
+        debug.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Exit_names_are_unchanged()
+    {
+        await Run("Sub Exit_()\nDebug.Print 2\nEnd Sub\n"
+            + "Dim ExitCode As Long\nExitCode = 1\nDebug.Print ExitCode\nExit_\n");
+        AssertDebugLog([new Vb6Value(1L), 2]);
+    }
+
+    [Theory]
+    [InlineData("Sub Foo()\nExit Sub\nDebug.Print 9\nEnd Sub\nFoo\n")]
+    [InlineData("Function Foo() As Long\nFoo = 1\nExit Function\nFoo = 9\nEnd Function\nDebug.Print Foo()\n")]
+    [InlineData("Property Get Foo() As Long\nFoo = 1\nExit Property\nFoo = 9\nEnd Property\nDebug.Print Foo\n")]
+    [InlineData("Sub Foo()\nDo\nExit Do\nDebug.Print 9\nLoop\nEnd Sub\nFoo\n")]
+    [InlineData("Sub Foo()\nFor i = 1 To 3\nExit For\nDebug.Print 9\nNext\nEnd Sub\nFoo\n")]
+    public async Task Qualified_exit_statements_are_unchanged(string code)
+    {
+        await Run(code + "Debug.Print 2\n");
+        debug.Should().NotContain(v => v.Equals((Vb6Value)9));
+        debug.Last().Should().Be((Vb6Value)2);
+    }
+
     private async Task Check(string code, string message, int line)
     {
         var run = () => Run(code);

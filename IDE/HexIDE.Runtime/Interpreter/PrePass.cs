@@ -164,15 +164,20 @@ public class PrePass : VB6BaseVisitor<object?>
         // A bare Cls: is a label, including VB6's duplicate-declaration check (#988).
         var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (procedure.Body is { } body)
-            CheckLabels(body);
+            CheckBody(body);
         return procedure;
 
-        void CheckLabels(Antlr4.Runtime.Tree.IParseTree tree)
+        void CheckBody(Antlr4.Runtime.Tree.IParseTree tree)
         {
             var pending = new Stack<Antlr4.Runtime.Tree.IParseTree>();
             pending.Push(tree);
             while (pending.TryPop(out var node))
             {
+                // Bare Exit parses as an implicit procedure call; VB6 refuses it at compile time (#5064).
+                if (node is VB6Parser.BlockStmtContext statement
+                    && statement.implicitCallStmt_InBlock()?.iCS_B_ProcedureCall() is { } call
+                    && call.GetText().Trim().Equals("Exit", StringComparison.OrdinalIgnoreCase))
+                    throw new VBCompileErrorException("Syntax error") { Line = call.Start.Line };
                 if (node is VB6Parser.LineLabelContext label && !labels.Add(label.labelName().GetText()))
                     throw new VBCompileErrorException("Duplicate declaration in current scope");
                 for (var i = 0; i < node.ChildCount; i++)
