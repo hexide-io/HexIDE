@@ -128,6 +128,8 @@ public class StdioProcessLspTransportTests
         while (!child.HasExited && elapsed.Elapsed < bound)
             await Task.Delay(10, token);
         elapsed.Stop();
+        // Observe the test's own read loop, which ends with the transport, after the timing above (#4833).
+        try { await rpc.Completion; } catch { /* its end is expected; only leaving it unobserved is the fault */ }
         TestContext.Current.TestOutputHelper!.WriteLine(
             $"{(pipe ? "pipe" : "stdio")} {mode}: exit to disposed {disposed.TotalMilliseconds:F0} ms; child ended by {elapsed.Elapsed.TotalMilliseconds:F0} ms");
         child.HasExited.Should().BeTrue("teardown must end descendants within the same bound");

@@ -1168,6 +1168,9 @@ sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-doc
 `stdio`, `pipe` (named pipe, connecting or listening), `websocket` (connecting by default, or listening with `websocketRole: "listen"`) and `tcp` (connect or listen via `tcpRole`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other transports are covered against test peers.
 
+Cancelling a WebSocket listener observes the pending HTTP accept even if it faults after the
+cancellable wait ends (#4833). Closing the endpoint does not leave that task for the finalizer.
+
 TCP uses `tcp://host:port` endpoints and Content-Length framing in both directions (#386).
 Listen uses `localhost` (IPv4 loopback) unless an explicit IP address is named. A non-loopback
 bind exposes the unauthenticated connection to that network. Optional launches share the pipe

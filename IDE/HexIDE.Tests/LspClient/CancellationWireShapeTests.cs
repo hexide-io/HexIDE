@@ -150,8 +150,8 @@ public class CancellationWireShapeTests
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         var logger = Substitute.For<ILogger<VBLspClient>>();
-        await using var client = new VBLspClient(transport, logger, "vb6");
         await using var peer = serverSide;
+        await using var client = new VBLspClient(transport, logger, "vb6");
         var starting = client.StartAsync(ct);
         using var initialize = JsonDocument.Parse((await ReadFrameAsync(peer, ct))!);
         await WriteFrameAsync(peer, "{\"jsonrpc\":\"2.0\",\"id\":"
@@ -191,6 +191,7 @@ public class CancellationWireShapeTests
         await Task.WhenAll(folding, other, hover, completion).WaitAsync(ct);
         logger.ReceivedCalls().Count(call => call.GetMethodInfo().Name == "Log"
             && call.GetArguments()[0] is LogLevel.Warning).Should().Be(0, "superseded analysis is ordinary cancellation");
+        await client.DisposeAsync();
         peer.Dispose();
     }
 
