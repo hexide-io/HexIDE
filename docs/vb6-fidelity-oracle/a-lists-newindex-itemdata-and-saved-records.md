@@ -22,6 +22,8 @@
 | `Clear` | -1, and the next `AddItem "y"` gives 0 |
 | `List(0) = "z"`, `List(1) = "q"` | unchanged |
 | `List(ListCount) = "w"` | no error. `w` is appended at the end, even in a `Sorted` list, and `NewIndex` is its position |
+| `List(-1) = "w"` | the same: appended at the end, and `NewIndex` is its position. Every item's `ItemData` also becomes 0: see below |
+| `List(-2) = "v"`, `List(ListCount + 1) = "u"` | 7 and 381, and `NewIndex` keeps its value |
 
 The sequence `AddItem` `m`, `b`, `z`, then `c` at 0, `d` at 2 and `e` at `ListCount` read 0, 1, 2, 0, 2, 5 in an unsorted list and 0, 0, 2, 0, 2, 5 in a sorted one.
 
@@ -66,6 +68,15 @@ Early-bound, `TypeName(Form1.List1.NewIndex)` is also `Integer`.
 
 So a new item starts at 0, an insert or a removal moves the values with their items, and `List(i) = x` keeps item i's value. After `ItemData(0) = 9`, `Clear` and `AddItem "b"`, the new item reads 0.
 
+**The two appends differ.** A second probe gave `a`, `b`, `c` the values 10, 11, 12, on five of the lists (the plain, `Sorted` and `Sorted` checkbox ListBoxes, and both `Style = 2` ComboBoxes):
+
+| Then | VB6, on all five |
+|---|---|
+| `List(ListCount) = "w"` | `a=10 b=11 c=12 w=0`, `NewIndex` 3 |
+| `List(-1) = "w"` | **`a=0 b=0 c=0 w=0`**, `NewIndex` 3 |
+| `List(1) = "q"` | `a=10 q=11 c=12` |
+| then `AddItem "n"` | unsorted: `n` last, with `ItemData` 0. Sorted: `a=10 n=0 q=11 c=12`, the binary search of #5059's page run on a list that `List(1) = "q"` left out of order |
+
 ### The List and ItemData records in a .frx
 
 A list's items saved at design time, and their `ItemData`, are two records in the form's `.frx`. The `.frm` cites them as `ItemData = "Form1.frx":0000` and `List = "Form1.frx":000E`. Each probe below was a form whose one ListBox cited records written by hand. Each read `ListCount`, every `List(i)` by character code, and `ItemData(i)`.
@@ -98,6 +109,10 @@ An `ItemData` entry's text is the value in decimal, and it reads as a Long. An e
 
 - **The ItemData record isn't four-byte numbers.** The obvious guess, a count and then a Long per item, fails to load with the second field in place, and loads as all zeros without it. The values are decimal text, framed as the List record's items are.
 - **Neither record is "a 2-byte count" alone once it has an entry.** HexIDE's `FrxDeserializer` describes them that way, from empty records only. A record with entries has the second 2-byte field before them.
+
+### What resisted explanation
+
+- **`List(-1) = x` zeroes every item's `ItemData`,** where `List(ListCount) = x` appends the same item and keeps them. Both were measured on five lists, native and p-code. No rule here explains it.
 
 ### Not measured
 
