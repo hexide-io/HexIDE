@@ -177,8 +177,8 @@ following [#1563's VB6 SP6 measurements](https://github.com/hexide-io/HexIDE/iss
 
 These scalar Control stores follow [#4864's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4864)
 (oracle PR #4866), including stores in standard modules. Other objects, UserControls, OCX controls,
-control arrays/elements, parameters, Type fields and arrays declared As Control retain their existing
-behaviour pending measurement. `As Form1` remains outside this slice.
+control arrays/elements and parameters retain their existing behaviour pending measurement. Type
+fields follow #3924’s measured checks, and array fields follow #4925’s measured checks. `As Form1` remains outside this slice.
 
 ### Requirement: Let into an object target checks its declared view during execution
 
@@ -203,6 +203,40 @@ The interpreter SHALL refuse Let into a variable declared As Collection, or as a
 - **THEN** Let raises 424
 - **AND** a Variant getter returning an object remains unmeasured and refused as not implemented (#4675)
 
+### Requirement: Type fields hold measured object types and accept indexed Set targets
+
+Type fields declared as Object, Collection, project classes, StdFont, TextBox, Control, Form or StdPicture SHALL start as Nothing and hold references. Set SHALL check the declared object type before replacing the slot; record copies SHALL share references in independent slots. These outcomes follow [#3924's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/3924).
+
+#### Scenario: An object field type remains unmeasured
+- **WHEN** a scalar field declares another recognised object type, including ADODB.Connection
+- **THEN** the interpreter SHALL refuse it as not implemented pending measurement
+
+#### Scenario: A Set target remains unmeasured
+- **WHEN** Set reaches another scalar field, a fixed-length String field, a non-Integer scalar-array element or a typed scalar array held in a Variant field
+- **THEN** the interpreter SHALL keep the explicit not-implemented refusal naming #3924
+- **AND** successive index groups, indexed object defaults and As New scalar-field Set retain that refusal
+
+#### Scenario: A held built-in object receives Let
+- **WHEN** a Let assigns to a held TextBox or StdFont field
+- **THEN** it writes Text or Name respectively without replacing the object
+- **AND** Let into either field while Nothing raises 91
+
+#### Scenario: Set through an indexed record or array field
+- **WHEN** Set targets an object field through a fixed, nested or dynamic Type-array element
+- **THEN** it updates the owned record and leaves other records untouched
+- **AND** ReDim Preserve retains surviving references
+- **WHEN** Set targets an element of an object or Variant array field, or of an array held in a Variant field
+- **THEN** it stores the reference, applying an object array's declared-type check
+- **AND** an out-of-range subscript raises 9, and indexing an Empty Variant field raises 13
+- **AND** a plain Variant field accepts an object or Nothing through Set
+
+#### Scenario: A target cannot hold an object reference
+- **WHEN** Set targets an Integer, variable-length String or nested-Type field, or an Integer-array field element
+- **THEN** the interpreter raises the compile-error exception with "Object required"
+- **WHEN** a field declares an unknown type
+- **THEN** it raises the compile-error exception with "User-defined type not defined"
+- **AND** Put refuses a record containing a StdFont field as an object-containing record
+
 ### Requirement: A running form accepts Icon assignments
 
 A running form's default instance SHALL accept icon pictures or Nothing through Set or Let on Icon, bare or through Me or the form's name, without reading the picture's default Handle, following [#4603's SP6 measurements](https://github.com/hexide-io/HexIDE/issues/4603). Native handles and New instances remain outside this slice.
@@ -221,8 +255,9 @@ A running form's default instance SHALL accept icon pictures or Nothing through 
 - **AND** a subsequent LoadPicture() leaves that window state unchanged
 
 #### Scenario: Reads before assignment
-- **WHEN** a program reads Icon before assigning it
-- **THEN** the interpreter SHALL refuse it as not implemented
+- **WHEN** a program reads a default or saved icon before assigning Icon
+- **THEN** the interpreter SHALL return its original icon picture with Type 3, as measured for the default icon in [#3924](https://github.com/hexide-io/HexIDE/issues/3924); a saved icon reads the same way, reasoned rather than measured
+- **AND** reading a saved (None) before assignment remains unmeasured and refused as not implemented
 
 
 ### Requirement: Predefined conditional constants follow the project target and host
@@ -2558,6 +2593,46 @@ Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in
 #### Scenario: A declaration outside the measured Public object-member scope
 - **WHEN** a declaration is Private, Dim, or in a standard module
 - **THEN** this refusal does not apply and its existing implementation or refusal is retained
+
+### Requirement: Saved ListBox checks and columns
+
+A ListBox SHALL read saved Style and Columns at runtime (part of #4209, measured in
+[the oracle](../../../docs/vb6-fidelity-oracle/a-listboxs-page-up-checkboxes-and-columns.md)).
+For Style 1 without MultiSelect, Selected(i) SHALL read check state, and Space SHALL toggle
+that state with Click then ItemCheck(Item As Integer). Selected(i) = True on an unchecked item SHALL check,
+select and scroll the item into view, raising ItemCheck then Click without Scroll. Unmeasured
+Selected False writes on unchecked items SHALL refuse as not implemented. SelCount SHALL count checked
+items. Repeated Selected(i) = True SHALL do nothing without events. Selected(i) = False on a checked
+item SHALL uncheck it, leave ListIndex and Text in place, and raise ItemCheck then Click without Scroll.
+ListIndex assignments SHALL raise Click when the position changes without changing checks.
+AddItem and RemoveItem SHALL keep ListIndex as a position, with checks moving with their items.
+Adding to an empty checkbox list SHALL set ListIndex to 0; appending to a nonempty list with ListIndex -1
+SHALL retain -1. Removing the item at ListIndex SHALL move the position to the previous item, or 0
+while items remain, or -1 when empty. Clear SHALL empty the list and checks and set ListIndex to -1.
+The measured saved Sorted insertions SHALL keep the position and move checks with their items.
+AddItem, RemoveItem and Clear SHALL raise no events. These rules are measured in
+[#4209's round 2 comment](https://github.com/hexide-io/HexIDE/issues/4209), SP6 native and p-code, 2026-11-20.
+Checkbox fonts beyond the measured default SHALL retain their existing row heights.
+Columns above zero SHALL arrange items down each column then across. TopIndex SHALL snap
+to a column start and clamp to the last page. Measured navigation SHALL raise Click then
+Scroll when the top changes; code selection SHALL scroll without Scroll.
+Unmeasured mouse checkbox toggling, Style 1 with MultiSelect, runtime Style/Columns
+assignments, horizontal-bar dragging and designer drawing retain their existing behaviour.
+
+#### Scenario: Unchecking preserves the current position
+- **WHEN** items 1 and 3 are checked, ListIndex is 3, and code sets Selected(1) = False
+- **THEN** SelCount is 1, ListIndex stays 3 and Text is the text of item 3
+- **AND** ItemCheck(1) precedes Click with ListIndex 3, without Scroll
+
+#### Scenario: Inserting before a checked item
+- **WHEN** a checkbox list contains i0, i1, checked i2 and checked i3, with ListIndex 2, and code adds z at 0
+- **THEN** ListIndex stays 2, Text is i1, and items 3 and 4 are checked
+- **AND** no event is raised
+
+#### Scenario: Two columns of nine rows
+- **WHEN** a 60-item Columns 2 list showing nine rows per column receives TopIndex = 25 then TopIndex = 59
+- **THEN** the resulting top items are 18 and 45, each with one Scroll
+- **AND** ListIndex = 50 from TopIndex 0 scrolls to TopIndex 36 with Click only
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
 

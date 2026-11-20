@@ -173,18 +173,18 @@ public class SetMemberLeadTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task An_indexed_Type_receiver_is_explicitly_refused()
+    public async Task An_indexed_Type_receiver_takes_Set()
     {
-        // A HexIDE refusal required by #4600, not a measured VB6 error.
-        var run = () => RunClasses("""
+        // vb6.exe SP6 native/p-code, #3924, 2026-11-20, B.
+        await RunClasses("""
             Private Type T
                 Obj As Object
             End Type
             Dim ua(1 To 2) As T
             Set ua(1).Obj = New Collection
+            Debug.Print TypeName(ua(1).Obj), ua(2).Obj Is Nothing
 
             """, ("Box", Box));
-        (await run.Should().ThrowAsync<NotImplementedException>())
-            .WithMessage("Set through this Type field is not implemented (#3924)");
+        AssertDebugLog(["Collection", true]);
     }
 }

@@ -109,6 +109,69 @@ A checkbox list scrolls exactly as a plain one does, with 9 rows to a page here.
 - **In a multi-column list, `TopIndex` moves by whole columns,** and a horizontal scroll raises Scroll as a vertical one does.
 - **The same rule holds:** Scroll comes once for each change of the top item through the keys or `TopIndex`, and never for a `ListIndex`, `Selected` or `Text` assignment.
 
+### A checkbox list's SelCount, Selected and ListIndex through AddItem and RemoveItem (2026-11-20, #4209's review)
+
+**The probe.** vb6.exe SP6, `/make`, native code and p-code logging the same lines in every row. Each probe put a
+`Style = 1` ListBox named List1 on a form, with handlers logging `ItemCheck` and Click, and the Click handler logging
+`ListIndex`. Two probes added a plain ListBox, or a `Sorted` `Style = 1` one, beside it. The statements ran from a
+module's functions, not from keys.
+
+**What was guessed, and overturned:** our first build of checkboxes treated `SelCount` as a count of the selection,
+kept `ListIndex` at -1 after `AddItem` as a plain list does, and moved it with its item on an insert or a removal. All
+three were wrong.
+
+**1. `SelCount` counts checked items, and `Selected(i)` reads item i's check.**
+- Items it0 to it3, with none checked: `SelCount` 0.
+- `Selected(1) = True`, then `Selected(3) = True`: `SelCount` 1, then 2.
+- `Selected(1) = False`: `SelCount` 1.
+
+**2. `Selected(i)` assignments:**
+
+| On | Statement | State after | Events |
+|---|---|---|---|
+| item 1 unchecked, `ListIndex` 0 | `Selected(1) = True` | 1 checked, `ListIndex` 1 | ItemCheck 1, then Click (`ListIndex` 1). |
+| item 3 checked, `ListIndex` 3 | `Selected(3) = True` again | unchanged | **none**, no error |
+| item 1 checked, `ListIndex` 3 | `Selected(1) = False` | 1 unchecked, **`ListIndex` stays 3**, `Text` it3 | ItemCheck 1, then Click (`ListIndex` 3) |
+
+`Selected(i) = False` on an unchecked item wasn't measured.
+
+**3. `ListIndex` assignment:**
+- `ListIndex = 0` raises Click (0) only. The checks don't change: item 3 stays checked.
+- `ListIndex = -1` raises Click (-1).
+
+**4. `ListIndex` is a position, not an item: inserts and removals elsewhere leave it where it is, and checks move with their items.** No `AddItem`, `RemoveItem` or `Clear` raised any event. In the list column, `*` marks a checked item.
+
+| Before | Statement | After | `ListIndex` after |
+|---|---|---|---|
+| empty, `ListIndex` -1 | `AddItem "a"` | a | **0**, `Text` a, `Selected(0)` False, `SelCount` 0 |
+| a, `ListIndex` 0 | `AddItem "b", 0` | b, a | **0**, `Text` b |
+| i0 to i3, `ListIndex` -1 set by code | `AddItem "n"` | i0 to i3, n | **-1** |
+| i0, i1, i2\*, i3\*, `ListIndex` 2 | `AddItem "z", 0` | z, i0, i1, i2\*, i3\* | **2**, `Text` i1 |
+| that | `AddItem "y", 4` | z, i0, i1, i2\*, y, i3\* | 2 |
+| that | `AddItem "x", 3` | z, i0, i1, x, i2\*, y, i3\* | 2 |
+| that | `RemoveItem 0` | i0, i1, x, i2\*, y, i3\* | 2, `Text` x |
+| 4 items, item 3 checked, `ListIndex` 1 | `RemoveItem 0` | i1, i2, i3\* | 1, `SelCount` 1 |
+| 4 items, item 2 checked, `ListIndex` 0 | `RemoveItem 2` | i0, i1, i3 | 0, `SelCount` 0 |
+| two items checked | `Clear` | empty | -1, `SelCount` 0 |
+| empty after `Clear` | `AddItem "c"` | c | 0 |
+
+**Sorted**, `Sorted = True` and `Style = 1`:
+- `AddItem "b"` into the empty list gives `ListIndex` 0.
+- `AddItem "a"` sorts to 0, giving a, b, with `ListIndex` still 0, `Text` a.
+- `Selected(1) = True` checks b, then `AddItem "0"` sorts to 0. That gives 0, a, b\*, with `ListIndex` still 1, `Text` a.
+
+**5. Removing the item at `ListIndex` moves it to the previous item.** At 0, it stays 0 while items remain, and becomes -1 when the list empties. No events.
+
+| Before | Statement | `ListIndex` after |
+|---|---|---|
+| i0, i1, x, i2\*, y, i3\*, `ListIndex` 2 | `RemoveItem 2` | **1** |
+| 3 items, `ListIndex` 2 | `RemoveItem 2` | 1 |
+| 4 items, `ListIndex` 1 | `RemoveItem 1` | **0** |
+| 3 items, `ListIndex` 0 | `RemoveItem 0` | **0** |
+| 1 item, `ListIndex` 0 | `RemoveItem 0` | **-1** |
+
+**A plain ListBox differs,** measured in the same probe: its `ListIndex` stays -1 after `AddItem`.
+
 ### Not measured
 
 - **A held arrow.** `keybd_event` sends one key-down and Windows doesn't auto-repeat it, so holding Down for 1.5 s gave one KeyDown. Measuring the repeat needs a real keyboard, or repeated key-downs with the repeat flag set.

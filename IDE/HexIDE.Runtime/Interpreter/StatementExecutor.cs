@@ -4477,8 +4477,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             else if (membersCall.iCS_S_ProcedureOrArrayCall() is { } indexedReceiver)
             {
                 target = (Vb6Value)(await expressionExecutor.EvaluateProcedureOrArrayCall(indexedReceiver))!;
-                if (target.Value is VbUdt)
-                    throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
             }
             else
                 target = WithTargetOrError(context);
@@ -4610,10 +4608,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var name = UdtFieldName(member);
                 if (MemberHasArgs(member))
                 {
-                    if (!udtBag.TryInspect(name, out var field) || field.Value is not VBArray { ElementType: var elementType } array
-                        || elementType != Vb6Value.ValueType.Object
+                    if (!udtBag.TryInspect(name, out var field)
                         || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
                         throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
+                    if (field.Value is not VBArray array)
+                    {
+                        if (udtBag.IsVariantField(name) && field.Type == Vb6Value.ValueType.EmptyVariant)
+                            throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+                        throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
+                    }
+                    if (array.ElementType != Vb6Value.ValueType.Object && array.ElementType != Vb6Value.ValueType.EmptyVariant)
+                    {
+                        if (array.ElementType == Vb6Value.ValueType.Integer && !udtBag.IsVariantField(name))
+                            throw new VBCompileErrorException("Object required");
+                        throw new NotImplementedException("Set through this Type field is not implemented (#3924)");
+                    }
                     var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
                     try
                     {
@@ -4637,7 +4646,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return default;
                 }
                 if (!udtBag.IsObjectField(name) && !udtBag.IsVariantField(name))
+                {
+                    var declared = udtBag.DeclaredTypeOf(name);
+                    if (declared == Vb6Value.ValueType.Integer
+                        || declared == Vb6Value.ValueType.String && udtBag.FixedStringWidthOf(name) is null
+                        || udtBag.TryInspect(name, out var nonObject) && nonObject.Value is VbUdt)
+                        throw new VBCompileErrorException("Object required");
                     throw new NotImplementedException("Set on this Type field is not implemented (#3924)");
+                }
                 if (!udtBag.TryInspect(name, out var old))
                     throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, name);
                 interpreter.AddRef(value);
@@ -5750,7 +5766,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     value = ArrayStore(field.Type, value, ctx, fixedStringWidth: array.FixedStringWidth);
                 }
                 if (bag.IsObjectField(fieldName))
+                {
+                    // #3924: Let writes the held TextBox/StdFont default, preserving the reference.
+                    if (field.Value is VBTextBox textBox)
+                    {
+                        AvaloniaInteroperability.TrySet(textBox, VBProperties.TextProperty, value);
+                        return;
+                    }
+                    if (field.Value is ControlFont font)
+                    {
+                        font.TrySetProperty("Name", value);
+                        return;
+                    }
                     RefuseLetIntoObject(field, fieldName, ctx);
+                }
                 bag.TrySet(fieldName, field.Value is VBArray
                     ? interpreter.CopyDeclaredArrayForStore(value) : interpreter.CopyForStore(value), ctx);
                 await interpreter.ReleaseRef(field);

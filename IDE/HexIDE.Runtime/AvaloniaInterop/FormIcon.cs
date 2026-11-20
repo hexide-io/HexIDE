@@ -35,6 +35,11 @@ internal enum FormIconKind
 /// </remarks>
 internal readonly partial record struct FormIcon(FormIconKind Kind, byte[]? Image)
 {
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Window, Lazy<Interpreter.PanelPicture>> Pictures = new();
+
+    internal static Interpreter.PanelPicture? PictureOf(Window window) =>
+        Pictures.TryGetValue(window, out var picture) ? picture.Value : null;
+
     private const uint WmGetIcon = 0x007F, WmSetIcon = 0x0080;
     private static readonly IntPtr IconSmall = 0;
 
@@ -62,6 +67,20 @@ internal readonly partial record struct FormIcon(FormIconKind Kind, byte[]? Imag
     /// <summary>Give <paramref name="window"/> this icon.</summary>
     public void Apply(Window window)
     {
+        // Keep the original icon bytes: WindowIcon.Save can encode a bitmap and lose the icon's Type (#3924).
+        Pictures.Remove(window);
+        if (Kind is FormIconKind.Default or FormIconKind.Own)
+        {
+            var image = Image;
+            Pictures.Add(window, new Lazy<Interpreter.PanelPicture>(() =>
+            {
+                if (image is not null) return Interpreter.PanelPicture.FromFile(image);
+                using var source = Avalonia.Platform.AssetLoader.Open(new Uri("avares://HexIDE.Runtime/form.ico"));
+                using var bytes = new MemoryStream();
+                source.CopyTo(bytes);
+                return Interpreter.PanelPicture.FromFile(bytes.ToArray());
+            }));
+        }
         Win32Properties.RemoveWndProcHookCallback(window, NoIcon);
         Win32Properties.RemoveWndProcHookCallback(window, BigIconOnly);
         switch (Kind)
