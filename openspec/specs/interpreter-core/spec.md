@@ -3093,13 +3093,15 @@ top-level menu visibility changes SHALL NOT alter its frame or raise Form_Resize
 Native menu items SHALL reflect shown captions, Enabled, Visible and Checked; separators SHALL be
 omitted while hidden and restored in order when shown. Array Load and Unload SHALL update the mirror
 in order. Top-level items without children SHALL have empty native submenus. Native Click SHALL
-raise the existing menu Click with its array Index, and a submenu's NeedsUpdate SHALL raise its
-holding menu's Click. Native items SHALL have no Gesture; the existing window shortcut chain SHALL
-remain responsible for shortcut dispatch. Measured platform rules: [#5011 K1–K14](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7031789606);
+raise the existing menu Click with its array Index, and a submenu's Opening SHALL raise its
+holding menu's Click; NeedsUpdate alone, which AppKit also raises when it searches the menus for a key equivalent,
+SHALL raise no Click. Native items SHALL have no Gesture; the existing window shortcut chain SHALL
+remain responsible for shortcut dispatch. Measured platform rules: [#5011 K1–K14](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7031789606)
+and [K15–K18](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7034162303);
 implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 
 #### Scenario: A menu enables an item before its native submenu opens
 - **GIVEN** a desktop form using the system menu bar with a disabled submenu item
-- **WHEN** the holding native submenu requests NeedsUpdate and its menu Click enables the item
+- **WHEN** the holding native submenu raises Opening and its menu Click enables the item
 - **THEN** that same native item is enabled before the submenu opens
 - **AND** no in-window menu strip appears

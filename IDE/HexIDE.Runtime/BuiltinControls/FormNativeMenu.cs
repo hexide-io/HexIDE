@@ -108,7 +108,11 @@ internal static class FormNativeMenu
                 {
                     children = new Mirror(menu, false, click);
                     item.Menu = children.Menu;
-                    children.Menu.NeedsUpdate += NeedsUpdate;
+                    // Opening, not NeedsUpdate: AppKit also raises NeedsUpdate on every menu the first time it searches
+                    // them for a key equivalent, which raised each top-level menu's Click on a run's first Cmd key. It
+                    // raises Opening only as a menu opens, and what a Click changes there still shows in that open
+                    // (#5065 review, Kronos).
+                    children.Menu.Opening += Opening;
                 }
                 item.Click += Click;
                 Update();
@@ -139,14 +143,14 @@ internal static class FormNativeMenu
             Update(); // Native clicks must not toggle the program's Checked value.
             click(source);
         }
-        private void NeedsUpdate(object? sender, EventArgs args) => click(source);
+        private void Opening(object? sender, EventArgs args) => click(source);
         public void Dispose()
         {
             source.PropertyChanged -= Changed;
             if (Item is NativeMenuItem item) item.Click -= Click;
             if (children is not null)
             {
-                children.Menu.NeedsUpdate -= NeedsUpdate;
+                children.Menu.Opening -= Opening;
                 children.Dispose();
             }
         }

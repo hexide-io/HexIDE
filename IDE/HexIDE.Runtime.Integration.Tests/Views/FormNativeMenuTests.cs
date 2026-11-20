@@ -153,19 +153,26 @@ public class FormNativeMenuTests
         }
     }
 
-    private static MethodInfo NeedsUpdateBridge()
+    // Avalonia 12.1's menu bridge is PrivateApi; unlike the item's bridge it cannot be called in C# (#5065).
+    private static MethodInfo MenuBridge(string raise)
     {
-        // Avalonia 12.1's menu bridge is PrivateApi; unlike the item's bridge it cannot be called in C# (#5065).
-        const string reason = "Avalonia changed INativeMenuExporterEventsImplBridge; see how Avalonia.Native raises NeedsUpdate now";
+        var reason = $"Avalonia changed INativeMenuExporterEventsImplBridge; see how Avalonia.Native raises {raise} now";
         var bridge = typeof(NativeMenu).Assembly.GetType("Avalonia.Controls.INativeMenuExporterEventsImplBridge");
         bridge.Should().NotBeNull(reason);
-        var method = bridge.GetMethod("RaiseNeedsUpdate");
+        var method = bridge.GetMethod(raise);
         method.Should().NotBeNull(reason);
         return method;
     }
 
+    private static MethodInfo OpeningBridge() => MenuBridge("RaiseOpening");
+    private static MethodInfo NeedsUpdateBridge() => MenuBridge("RaiseNeedsUpdate");
+
     [Fact]
-    public void Avalonia_NeedsUpdate_bridge_is_available() => NeedsUpdateBridge().Should().NotBeNull();
+    public void Avalonia_menu_bridges_are_available()
+    {
+        OpeningBridge().Should().NotBeNull();
+        NeedsUpdateBridge().Should().NotBeNull();
+    }
 
     [AvaloniaFact]
     public void Mirror_preserves_tree_captions_state_and_empty_top_level_submenu()
@@ -226,15 +233,32 @@ public class FormNativeMenuTests
     }
 
     [AvaloniaFact]
-    public void NeedsUpdate_dispatches_holding_menu_before_showing_its_updated_children()
+    public void Opening_dispatches_holding_menu_before_showing_its_updated_children()
     {
         Run(rig =>
         {
             var sub = (NativeMenuItem)rig.Top.Menu!.Items[2];
-            rig.Step(() => NeedsUpdateBridge().Invoke(rig.Top.Menu, null)).Should().Equal("Top");
+            rig.Step(() => OpeningBridge().Invoke(rig.Top.Menu, null)).Should().Equal("Top");
             ((NativeMenuItem)sub.Menu!.Items[0]).IsEnabled.Should().BeTrue();
-            rig.Step(() => NeedsUpdateBridge().Invoke(sub.Menu, null)).Should().Equal("Sub");
-            rig.Step(() => NeedsUpdateBridge().Invoke(((NativeMenuItem)rig.Native.Items[1]).Menu, null)).Should().Equal("Solo");
+            rig.Step(() => OpeningBridge().Invoke(sub.Menu, null)).Should().Equal("Sub");
+            rig.Step(() => OpeningBridge().Invoke(((NativeMenuItem)rig.Native.Items[1]).Menu, null)).Should().Equal("Solo");
+        });
+    }
+
+    // AppKit raises NeedsUpdate on every menu the first time it searches them for a key equivalent, with no menu open
+    // (#5065 review, Kronos). That must raise no Click: vb6.exe raises a menu's Click only as it opens (#1344).
+    [AvaloniaFact]
+    public void NeedsUpdate_alone_raises_no_Click()
+    {
+        Run(rig =>
+        {
+            var sub = (NativeMenuItem)rig.Top.Menu!.Items[2];
+            rig.Step(() =>
+            {
+                NeedsUpdateBridge().Invoke(rig.Top.Menu, null);
+                NeedsUpdateBridge().Invoke(sub.Menu, null);
+                NeedsUpdateBridge().Invoke(((NativeMenuItem)rig.Native.Items[1]).Menu, null);
+            }).Should().BeEmpty();
         });
     }
 
