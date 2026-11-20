@@ -149,7 +149,8 @@ public class MenuBarToolTests
     {
         using var h = new Harness();
         var result = await h.Tools.InteractAsync(OpenPath, "invoke", window: "menubar");
-        result.Detail.Should().Contain("Now: enabled True").And.NotContain("checked");
+        result.Detail.Should().StartWith($"invoke: '{OpenPath}'. Now: enabled True. Bar window: 'Form1'")
+            .And.NotContain("checked").And.NotContain(". .");
     }
     [AvaloniaFact]
     public async Task Checked_item_reports_toggle_state()

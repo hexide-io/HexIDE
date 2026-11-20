@@ -135,7 +135,8 @@ internal sealed class NativeMenuBar
             if (action == "expand") Open(e.Menu!);
             else ((INativeMenuItemExporterEventsImplBridge)e.Item!).RaiseClicked();
         }
-        return new(true, "native-menu", $"{action}: '{path}'. " + Note, null);
+        // No closing period: a program's wait notes are appended to it as to a window's interact detail.
+        return new(true, "native-menu", $"{action}: '{path}'", null);
     }
 
     /// <summary>The item's state as it reads now, for a reply sent once the program has handled the action.</summary>

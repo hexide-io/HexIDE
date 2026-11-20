@@ -3605,11 +3605,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (NativeMenuBar.IsScope(window))
         {
             UiAutomationDriver.ProgramWatch? menuWatch = null;
+            var barNote = "";
             var native = await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (ScriptedFileDialogs.NativePickerNote is { } picker)
                     return new InteractOutcome(false, "native-menu", null, picker);
                 var bar = new NativeMenuBar();
+                barNote = bar.Note;
                 // A running form's menu Click runs in its program, after the action returns: wait for it, as a
                 // window's interact does, so the state read back is the program's (#5066's Kronos check).
                 menuWatch = UiAutomationDriver.WatchProgram(bar.BarWindow, () => ctx.DebugController.CurrentStop);
@@ -3619,7 +3621,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return native;
             native = await WaitForProgramAsync(menuWatch, native, ct);
             var state = await Dispatcher.UIThread.InvokeAsync(() => new NativeMenuBar().StateOf(target));
-            return native with { Detail = native.Detail + " " + state };
+            var said = native.Detail ?? "";
+            return native with { Detail = said + (said.EndsWith('.') ? " " : ". ") + state + " " + barNote.TrimEnd() };
         }
         using var documentSave = UiSaveFeedback.BeginDocumentSave();
         if (ScriptedFileDialogs.NativePickerNote is { } blocking)
@@ -4337,8 +4340,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var appMenu = NativeMenu.GetMenu(Avalonia.Application.Current!);
             if (appMenu is not null && string.Equals(path.Split('/')[0], NativeMenuBar.AppTitle, StringComparison.OrdinalIgnoreCase))
             {
-                var native = new NativeMenuBar().InvokeApp(path);
-                return new MutateResult(native.Success, native.Error, native.Detail);
+                var bar = new NativeMenuBar();
+                var native = bar.InvokeApp(path);
+                return new MutateResult(native.Success, native.Error,
+                    native.Success ? native.Detail + ". " + bar.Note.TrimEnd() : native.Detail);
             }
             var menu = window.FindDescendantOfType<Menu>();
             if (menu is null)
