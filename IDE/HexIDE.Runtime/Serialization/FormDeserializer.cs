@@ -455,19 +455,19 @@ public class FormDeserializer
                     errorSink.LogError("Str.ProjectLoad.PropertyNotSet", "Line {0}: Property {1} in {2} could not be set.",
                         serializedComponent.BeginLine, propertyName, serializedComponent.Name);
                 }
+                var rawText = assignmentIndex < serializedComponent.PropertyValueTexts.Count
+                    ? serializedComponent.PropertyValueTexts[assignmentIndex] : null;
                 var readSuccessfully = true;
                 void InvalidValue()
                 {
                     readSuccessfully = false;
                     errorSink.LogError("Str.ProjectLoad.InvalidValue", "Property {0} in {1} had an invalid value.", serializedProperty.Key, serializedComponent.Name);
-                    // #4317 / oracle PR #4987: recover only refused text after a readable line. Recognised
-                    // numeric words (True, Infinity, etc.) must not be mistaken for unrecognised words.
-                    var rawText = assignmentIndex < serializedComponent.PropertyValueTexts.Count
-                        ? serializedComponent.PropertyValueTexts[assignmentIndex] : null;
+                    // #4317 / oracle PR #4987: recover only refused text after a readable line. VB6's
+                    // duplicate recovery for non-finite numeric words is unmeasured (#4988).
                     if (readableNames.Contains(serializedProperty.Key) && !string.IsNullOrEmpty(rawText)
                         && propertyClass.PropertyType != typeof(string)
                         && (rawText[0] == '"'
-                            || char.IsLetter(rawText[0]) && val is string
+                            || char.IsLetter(rawText[0]) && val is string text && !IsNonFiniteNumber(text)
                             || rawText[0] == '&' && (propertyClass.PropertyType == typeof(float)
                                 || propertyClass.PropertyType == typeof(double))))
                     {
@@ -503,8 +503,6 @@ public class FormDeserializer
                 }
                 if (propertyClass.PropertyType == typeof(string))
                 {
-                    var rawText = assignmentIndex < serializedComponent.PropertyValueTexts.Count
-                        ? serializedComponent.PropertyValueTexts[assignmentIndex] : null;
                     if (val is not string || propertyClass == VBProperties.CaptionProperty
                         && (string.IsNullOrEmpty(rawText) || rawText[0] != '"'))
                     {
@@ -528,22 +526,13 @@ public class FormDeserializer
                 }
                 else if (propertyClass.PropertyType == typeof(int))
                 {
-                    if (val is int i)
-                        instance.SetUntypedProperty(propertyClass, i);
-                    else if (val is double d)
-                    {
-                        if (double.IsFinite(d) && d != Math.Truncate(d))
-                        {
-                            InvalidValue();
-                            continue;
-                        }
-                        instance.SetUntypedProperty(propertyClass, (int)d);
-                    }
-                    else
+                    // #4988: Integer properties refuse decimal points. Exponents are unmeasured and refused here too.
+                    if (val is not int i)
                     {
                         InvalidValue();
                         continue;
                     }
+                    instance.SetUntypedProperty(propertyClass, i);
                 }
                 else if (propertyClass.PropertyType == typeof(float))
                 {
@@ -575,28 +564,28 @@ public class FormDeserializer
                 }
                 else if (propertyClass.PropertyType.IsEnum)
                 {
-                    if (val is int i)
+                    if (val is int i || val is string && TryReadShortRadixLiteral(rawText, allowOctal: true, out i))
                         instance.SetUntypedProperty(propertyClass, Enum.ToObject(propertyClass.PropertyType, i));
-                    else if (val is double d)
-                    {
-                        if (double.IsFinite(d) && d != Math.Truncate(d))
-                        {
-                            InvalidValue();
-                            continue;
-                        }
-                        instance.SetUntypedProperty(propertyClass, Enum.ToObject(propertyClass.PropertyType, (int)d));
-                    }
                     else
-                        InvalidValue();
-                }
-                else if (propertyClass.PropertyType == typeof(VBColor))
-                {
-                    if (val is not VBColor color)
                     {
                         InvalidValue();
                         continue;
                     }
-                    instance.SetUntypedProperty(propertyClass, color);
+                }
+                else if (propertyClass.PropertyType == typeof(VBColor))
+                {
+                    if (val is VBColor color)
+                        instance.SetUntypedProperty(propertyClass, color);
+                    else if (val is string && TryReadShortRadixLiteral(rawText, allowOctal: false, out var hex))
+                        instance.SetUntypedProperty(propertyClass, VBColor.FromOle(hex));
+                    else if (val is int i && i is >= 0 and <= 0xFFFFFF && rawText is { Length: >= 1 and <= 8 }
+                             && rawText.AsSpan().IndexOfAnyExceptInRange('0', '9') == -1)
+                        instance.SetUntypedProperty(propertyClass, VBColor.FromOle(i));
+                    else
+                    {
+                        InvalidValue();
+                        continue;
+                    }
                 }
                 else if (propertyClass.PropertyType == typeof(byte[]))
                 {
@@ -957,6 +946,40 @@ public class FormDeserializer
                 return spelling;
         }
         return componentClass.PropertiesByName.TryGetValue(name, out var property) ? property.Name : name;
+    }
+
+    private static bool IsNonFiniteNumber(string text)
+    {
+        var number = text.AsSpan();
+        if (number.EndsWith("&"))
+            number = number[..^1];
+        return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            && !double.IsFinite(value);
+    }
+
+    private static bool TryReadShortRadixLiteral(string? text, bool allowOctal, out int value)
+    {
+        value = 0;
+        var literal = text.AsSpan();
+        var isHex = literal.StartsWith("&H", StringComparison.OrdinalIgnoreCase);
+        if (!isHex && !(allowOctal && literal.StartsWith("&O", StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        var digits = literal[2..];
+        if (digits.EndsWith("&"))
+            digits = digits[..^1];
+        if (digits.IsEmpty || digits.Length > (isHex ? 4 : 6))
+            return false;
+
+        foreach (var digit in digits)
+        {
+            if (isHex ? !char.IsAsciiHexDigit(digit) : digit is < '0' or > '7')
+                return false;
+            value = value * (isHex ? 16 : 8) +
+                (char.IsAsciiDigit(digit) ? digit - '0' : char.ToUpperInvariant(digit) - 'A' + 10);
+        }
+        // #4988: the sign above this range depends on the VB6 property type and is unmeasured here.
+        return value <= short.MaxValue;
     }
 
     /// <summary>
