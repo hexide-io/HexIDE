@@ -166,3 +166,43 @@ FFFF00001100040064B10EE4180000006200790074006500070000000E000300
 - a name outside ASCII;
 - a long name (the 40-character row didn't finish);
 - a `Picture`, or any other persistable object.
+
+### When a StdFont takes its realized values (2026-11-20, #4741)
+
+vb6.exe SP6, `/make`, native code and p-code logging the same bytes in all 14 rows. **The probe:** each row made a
+`New StdFont`, did what the row names to it, wrote it with `pb.WriteProperty "F", f` to a new bag, dumped
+`pb.Contents`, copied the bytes into a second bag, and read `Set g = p2.ReadProperty("F")` back. This settles the
+section above's "no rule I would defend": **the rule is read versus not read.** Writing realizes nothing.
+
+**What a font writes depends on whether any of its properties has been read.** A `New StdFont` holds what it was asked for. **Reading any one property (Name, Bold, Size or Charset each measured alone) makes every field take its realized value**, and from then on the font writes those. **Writing doesn't do that:** a font written twice untouched writes the same bytes twice. Its stream, by what was done to it before the write:
+
+| Before `WriteProperty` | The stream (version, charset, flags, weight, size, name) |
+|---|---|
+| nothing | `01 0100 00 0000 80380100 00`: charset 1, weight 0, size 8.0, no name |
+| read Name, Bold, Size or Charset (each alone), or read Name after an untouched write | `01 0000 00 9001 44420100 0D` "MS Sans Serif" |
+| set Name = "Arial" only | `01 0100 00 0000 80380100 05` "Arial" |
+| set Size = 10 only | `01 0100 00 0000 A0860100 00`: 10.0, not 9.75 |
+| set Bold = True only, or Weight = 700 only | `01 0100 00 BC02 80380100 00` |
+| set Italic = True only | `01 0100 02 0000 80380100 00` |
+| set Charset = 2 only | `01 0200 00 0000 80380100 00` |
+| set Name = "Arial", then read Size | `01 0000 00 9001 44420100 05` "Arial" |
+
+On the 11-18 page, every row set some properties and then read all of them, so each wrote realized values: Arial with Size 10 writes 9.75 (`DC7C0100`), Bold writes weight 700, and Charset 2 writes "Wingdings".
+
+**Reading it back.**
+- `Set g = p2.ReadProperty("F")`, from a bag whose `Contents` were copied, gives a new Font, so `g Is f` is False. Its properties read as realized from what was stored.
+
+| Stored | `g`'s Name / Size / Weight / Charset / Bold |
+|---|---|
+| untouched; any property read; or Italic only | MS Sans Serif / 8.25 / 400 / 0 / False |
+| Name "Arial" only | Arial / 8.25 / 400 / 0 / False |
+| Size 10 only | MS Sans Serif / 9.75 / 400 / 0 / False |
+| Bold only, or Weight 700 only | **Arial** / 8.25 / 700 / 0 / True |
+| Charset 2 only | **Wingdings** / 8.25 / 400 / 2 / False |
+| each 11-18 row | the written font's Name, Size, Bold, Italic, Underline, Strikethrough, Weight and Charset |
+
+- `v = p2.ReadProperty("F")` without `Set` gives a String, the font's Name: its default member.
+
+**What resisted explanation:** realization comes from the system's font mapping. An empty name with weight 700 realizes
+as **Arial**, while an empty name alone or with Italic realizes as MS Sans Serif. No rule is offered for which name a
+request maps to beyond these rows.
