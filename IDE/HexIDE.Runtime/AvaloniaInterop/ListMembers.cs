@@ -19,7 +19,7 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>ListCount is an Integer, and assigning it is the compile error "Can't assign to read-only property".</item>
 /// <item>An index converts as an Integer argument does: "1" is 1, 1.6 is 2, past 32767 is 6 and "q" is 13.</item>
 /// <item>List(i) reads "" for any index outside the list. Written, it replaces item i; i = ListCount or -1 appends; past
-/// ListCount is 381, and below -1 is "Out of memory", -2147024882.</item>
+/// ListCount is 381, and below -1 is "Out of memory", -2147024882. The late-bound write at -2 is 7 (#5117).</item>
 /// <item>AddItem takes an index from 0 to ListCount and RemoveItem from 0 to ListCount - 1, and both are 5 outside. Sorted
 /// does not override AddItem's index.</item>
 /// <item>The selection follows its item through all of these, and is emptied when its item is removed. None raises
@@ -92,7 +92,7 @@ internal static class ListMembers
 
     public static bool IsList(Control control) => control is ListBox or ComboBox;
 
-    public static bool TryGet(Control control, string member, out Vb6Value value)
+    public static bool TryGet(Control control, string member, out Vb6Value value, bool lateBound = false)
     {
         value = default;
         if (control is not SelectingItemsControl list || !IsList(control))
@@ -141,13 +141,15 @@ internal static class ListMembers
             value = new Vb6Value(list.ItemCount);
             return true;
         }
+        if (lateBound && member.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
+            throw new VBRunTimeException(VBStandardError.NeedPropertyArrayIndex);
         // List with no index, `x = List1.List`: VB6's compile error, measured as `List1.List()`.
         if (member.Equals("List", StringComparison.OrdinalIgnoreCase) || member.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
             throw new VBCompileErrorException("Argument not optional");
         return false;
     }
 
-    public static bool TrySet(Control control, string member, Vb6Value value)
+    public static bool TrySet(Control control, string member, Vb6Value value, bool lateBound)
     {
         if (!IsList(control))
             return false;
@@ -172,6 +174,8 @@ internal static class ListMembers
                 combo.SetTextFromCode(Text(value));
             return true;
         }
+        if (lateBound && member.Equals("NewIndex", StringComparison.OrdinalIgnoreCase))
+            throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
         if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase) || member.Equals("NewIndex", StringComparison.OrdinalIgnoreCase))
             throw new VBCompileErrorException(AssignToReadOnly);
         if (member.Equals("List", StringComparison.OrdinalIgnoreCase) || member.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
@@ -188,7 +192,7 @@ internal static class ListMembers
     }
 
     /// <summary><c>List(i) = text</c>: replaces item i, or appends at ListCount and -1.</summary>
-    public static void WriteItem(Control control, IReadOnlyList<Vb6Value> indexes, Vb6Value value)
+    public static void WriteItem(Control control, IReadOnlyList<Vb6Value> indexes, Vb6Value value, bool lateBound)
     {
         var list = (SelectingItemsControl)control;
         var index = Index(indexes, "List");
@@ -196,7 +200,7 @@ internal static class ListMembers
         if (index > list.ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyArrayIndex);
         if (index < -1)
-            throw new VBRunTimeException(OutOfMemoryHResult);
+            throw new VBRunTimeException(lateBound && index == -2 ? VBStandardError.OutOfMemory : OutOfMemoryHResult);
         if (index == -1 || index == list.ItemCount)
         {
             var state = ListItemState.For(list);
@@ -225,10 +229,12 @@ internal static class ListMembers
         return new Vb6Value(ListItemState.For(list).Data[ItemIndex(list, indexes, "ItemData")]);
     }
 
-    public static void WriteItemData(Control control, IReadOnlyList<Vb6Value> indexes, Vb6Value value)
+    public static void WriteItemData(Control control, IReadOnlyList<Vb6Value> indexes, Vb6Value value, bool lateBound)
     {
         var list = (SelectingItemsControl)control;
         var index = ItemIndex(list, indexes, "ItemData");
+        if (lateBound && value.IsNull)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         var converted = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, null);
         ListItemState.For(list).Data[index] = Convert.ToInt64(converted.Value);
     }

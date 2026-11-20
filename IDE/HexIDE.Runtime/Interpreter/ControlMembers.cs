@@ -11,6 +11,12 @@ namespace HexIDE.Runtime.Interpreter;
 // Shared by parse-tree access and CallByName (#4520).
 internal static class ControlMembers
 {
+    // VB.Control declarations also reach dispatch with the bare Control view.
+    private static bool IsLateBoundListReference(Vb6Value variable) =>
+        variable.ReadFromControlSlot && (variable.HeldAsVariant
+            || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(variable.DeclaredAs, "Control", StringComparison.OrdinalIgnoreCase));
+
     internal static async Task<Vb6Value> Read(Vb6Value variable, string memberIdentifier, IReadOnlyList<Vb6Value>? args,
         string? propertySpelling = null, Func<Task<List<Vb6Value>>>? evaluateArgs = null,
         Func<Task<List<Vb6Value>>>? evaluateMemberArgs = null)
@@ -144,7 +150,7 @@ internal static class ControlMembers
         if (TextBoxMembers.TryGet(control, memberIdentifier, out var textBoxMember))
             return textBoxMember;
         // A list's ListCount (#821), and a ListBox's SelCount and Text (#1395).
-        if (ListMembers.TryGet(control, memberIdentifier, out var listMember))
+        if (ListMembers.TryGet(control, memberIdentifier, out var listMember, IsLateBoundListReference(variable)))
             return listMember;
         if (ContainerMembers.TryGet(control, memberIdentifier, out var containerMember))
             return containerMember;
@@ -166,12 +172,12 @@ internal static class ControlMembers
         {
             if (memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
             {
-                ListMembers.WriteItemData(control, args, value);
+                ListMembers.WriteItemData(control, args, value, IsLateBoundListReference(variable));
                 return true;
             }
             if (memberIdentifier.Equals("List", StringComparison.OrdinalIgnoreCase))
             {
-                ListMembers.WriteItem(control, args, value);
+                ListMembers.WriteItem(control, args, value, IsLateBoundListReference(variable));
                 return true;
             }
             if (control is VBListBox list && memberIdentifier.Equals("Selected", StringComparison.OrdinalIgnoreCase))
@@ -226,7 +232,7 @@ internal static class ControlMembers
         if (TextBoxMembers.TrySet(control, memberIdentifier, value))
             return true;
         // A list's ListCount, which is read-only (#821), and a ListBox's Text (#1395).
-        if (ListMembers.TrySet(control, memberIdentifier, value))
+        if (ListMembers.TrySet(control, memberIdentifier, value, IsLateBoundListReference(variable)))
             return true;
         // Any control's Name and Index, which are read-only at run time (#1431).
         if (IdentityMembers.TrySet(control, memberIdentifier))

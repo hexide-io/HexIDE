@@ -2703,7 +2703,7 @@ ListBoxes and ComboBoxes SHALL expose Integer NewIndex following the
 [corrected direct-call measurements in #5106](https://github.com/hexide-io/HexIDE/issues/5106)
 (SP6 native/p-code, oracle PR #5115). It SHALL start at -1, name the inserted item after AddItem
 or a List append, remain unchanged on rejected mutations and text replacement, and reset to -1
-on RemoveItem/Clear. Assignment SHALL raise "Can't assign to read-only property".
+on RemoveItem/Clear. Direct or typed assignment SHALL raise "Can't assign to read-only property".
 
 #### Scenario: Explicit insertion takes precedence
 - **WHEN** AddItem "c", 0 inserts into a sorted or unsorted list
@@ -2715,13 +2715,33 @@ on RemoveItem/Clear. Assignment SHALL raise "Can't assign to read-only property"
 ListBoxes and ComboBoxes SHALL expose indexed Long ItemData, initially 0, following #5106.
 Indices SHALL convert as Integer and values as Long. Data SHALL follow items through insertion
 and removal and survive text replacement, including sorted and checkbox lists. An invalid
-item index SHALL raise 381; omitting it SHALL raise "Argument not optional".
+item index SHALL raise 381. A direct or typed read without an index SHALL raise "Argument not optional".
 
 #### Scenario: The two append forms differ
 - **WHEN** a list with ItemData 10, 11 and 12 receives List(ListCount) = "w"
 - **THEN** its data is 10, 11, 12, 0 and NewIndex is 3
 - **WHEN** List(-1) = "w" follows
 - **THEN** all five ItemData values are 0 and NewIndex is 4
+
+### Requirement: Late-bound list member errors
+
+A ListBox or ComboBox reached through an Object, Control or Variant variable SHALL report the
+measured runtime errors in [#5117](https://github.com/hexide-io/HexIDE/issues/5117)
+(SP6 native/p-code, oracle PRs #5118 and #5125).
+
+#### Scenario: List and item data errors preserve the stored items
+- **WHEN** code assigns a string to List(-2)
+- **THEN** it raises error 7, "Out of memory", and ListCount retains its value
+- **AND** a direct or typed write raises -2147024882 with the same description
+- **WHEN** code assigns Null to ItemData(0) on a populated list
+- **THEN** it raises error 13 and ItemData(0) retains its value
+- **AND** a direct or typed write raises error 94
+
+#### Scenario: Read-only or missing-index access
+- **WHEN** code assigns to NewIndex
+- **THEN** it raises error 383 and NewIndex retains its value
+- **WHEN** code reads ItemData without an index
+- **THEN** it raises error 385
 
 ### Requirement: Saved list records populate the running control
 
@@ -2742,7 +2762,7 @@ records or disagreeing counts SHALL refuse before population with NotImplemented
 #### Scenario: The measured loading scope
 - **WHEN** saved items are loaded
 - **THEN** Properties-window list/data editing, record writing and CallByName remain outside this change
-- **AND** late-bound differences are tracked by #5117 and non-ASCII saved-text fidelity remains unmeasured
+- **AND** non-ASCII saved-text fidelity remains unmeasured
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
 
