@@ -47,6 +47,21 @@ public class LspDocumentSessionTests : IDisposable
         return session;
     }
 
+    [AvaloniaFact]
+    public async Task ProjectOwnerSurvivesOpenAndRename()
+    {
+        using var session = new LspDocumentSession(_client, _document, Uri, isProjectMember: true,
+            postToUiThread: work => work(), ownerAddinId: "publisher.addin");
+        session.Start();
+        await _client.Received(1).OpenDocumentAsync(Uri, _document.Text, true,
+            Arg.Any<CancellationToken>(), "publisher.addin");
+
+        const string renamed = "untitled:Project1/Renamed.bas";
+        await session.RenameAsync(renamed, TestContext.Current.CancellationToken);
+        await _client.Received(1).OpenDocumentAsync(renamed, _document.Text, true,
+            Arg.Any<CancellationToken>(), "publisher.addin");
+    }
+
     private static PublishDiagnosticsParams OneDiagnostic(
         string uri, int line, int startCharacter, int endCharacter,
         string message = "boom", DiagnosticSeverity? severity = null)

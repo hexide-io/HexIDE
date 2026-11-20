@@ -1116,7 +1116,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // PropertyPages, and every one of them is a member. That is what gates a `.cls` away from a LaTeX
         // server claiming the same extension (#279); the carried-file editor states the opposite.
         session = new LspDocumentSession(
-            lspClient, Document, DocumentWireName.For(Identity), isProjectMember: true);
+            lspClient, Document, DocumentWireName.For(Identity), isProjectMember: true,
+            ownerAddinId: Identity.Project.ContributedBy);
 
         // Forwarded into this class's own event rather than re-exposed as a pass-through. The view
         // subscribes once when it attaches and never replays, so a subscription that landed on the session

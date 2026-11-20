@@ -1089,6 +1089,17 @@ than `vb6` therefore started, initialized and was never sent a document
 ([#277](https://github.com/hexide-io/HexIDE/issues/277)). The scheme branch, `SchemeLanguageOf`, and the
 identifier as a claim are gone.
 
+### Projects opened by an add-in's project type
+
+The opener carries `ProjectDefinition.ContributedBy`, the owning add-in's manifest id, into the document
+session. If that add-in registered any servers claiming the document's extension, those servers alone
+claim the project member (#5055). The bundled server, configuration entries and other add-ins' servers
+neither start for nor receive that document. Requests, changes, saves and closes use the same claim.
+
+If the owner is null, or none of its servers claims the extension, ordinary extension and membership
+routing applies. HexIDE's own projects (including `.vbp` groups) and carried files keep that routing.
+The registration's `AddinId` identifies the owner; `Origin` remains the display title.
+
 ### The one place the identifier still counts: a project's class modules
 
 The `.cls` collision ([#279](https://github.com/hexide-io/HexIDE/issues/279)) is the worked example: a `.cls`
