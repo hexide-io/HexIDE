@@ -56,7 +56,10 @@ public class FormComponentClass : ComponentBaseClass
     /// Whether the form has a menu bar, which sits inside the window here and outside the client area in VB6, so the
     /// window is that much taller than the form's ClientHeight (#1127).
     /// </param>
-    public VBFormRuntime InstantiateWindow(ComponentInstance instance, bool menuBar = false)
+    public VBFormRuntime InstantiateWindow(ComponentInstance instance, bool menuBar = false) =>
+        InstantiateWindow(instance, menuBar, menuBar);
+
+    internal VBFormRuntime InstantiateWindow(ComponentInstance instance, bool menuBar, bool menus)
     {
         var form = new VBFormRuntime()
         {
@@ -78,7 +81,7 @@ public class FormComponentClass : ComponentBaseClass
         VBProps.SetName(form, instance.GetPropertyOrDefault(NameProperty));
         // The frame its Width and Height include at run time (#1072).
         // And the window that frame is drawn as: its border, caption bar and buttons (#1575).
-        var chrome = AvaloniaInterop.FormChrome.Read(instance, menuBar);
+        var chrome = AvaloniaInterop.FormChrome.Read(instance, menus);
         AvaloniaInterop.FormFrame.Set(form, chrome, menuBar);
         AvaloniaInterop.FormPosition.FromClient(form, instance.GetPropertyOrDefault(LeftProperty),
             instance.GetPropertyOrDefault(TopProperty), chrome, menuBar);

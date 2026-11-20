@@ -3239,8 +3239,10 @@ SHALL install descriptor bounds before reading its elements, including when a sh
 On macOS, a running desktop form with an Avalonia Window SHALL mirror its existing VB menu tree into
 that window's NativeMenu, keeping the hidden in-window tree for program reads, arrays and shortcuts.
 The form SHALL select this mode once at load time. Other hosts and platforms SHALL retain their
-in-window menus. The window SHALL omit the menu strip's height, frame and position contribution;
-top-level menu visibility changes SHALL NOT alter its frame or raise Form_Resize in this mode.
+in-window menus. The window SHALL omit the menu strip's height and the bar's 300 twips from its frame
+and position. A BorderStyle 0 form with a visible top-level menu SHALL still get Fixed Single's frame
+and caption bar, as it does with the in-window bar ([#5103](https://github.com/hexide-io/HexIDE/issues/5103)).
+Top-level menu visibility changes SHALL NOT alter its frame or raise Form_Resize in this mode.
 Native menu items SHALL reflect shown captions, Enabled, Visible and Checked; separators SHALL be
 omitted while hidden and restored in order when shown. Array Load and Unload SHALL update the mirror
 in order. Top-level items without children SHALL have empty native submenus. Native Click SHALL
@@ -3256,3 +3258,9 @@ implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 - **WHEN** the holding native submenu raises Opening and its menu Click enables the item
 - **THEN** that same native item is enabled before the submenu opens
 - **AND** no in-window menu strip appears
+
+#### Scenario: A borderless menu form keeps its frame with the system menu bar
+- **GIVEN** a BorderStyle 0 desktop form with a 2520 by 2520 twip client and a visible top-level menu, using the system menu bar
+- **WHEN** it loads
+- **THEN** Width, Height, ScaleWidth and ScaleHeight read 2610, 2955, 2520 and 2520
+- **AND** its window has a caption bar
