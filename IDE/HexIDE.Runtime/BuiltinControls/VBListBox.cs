@@ -64,7 +64,7 @@ public class VBListBox : ListBox
     internal int SavedStyle { get => savedStyle; init { savedStyle = value; ConfigureLayout(); } }
     internal int Columns { get => columns; init { columns = value; ConfigureLayout(); } }
     internal bool HasChecks => !designer && savedStyle == 1 && !IsMultiSelect;
-    internal bool SortedChecks { get; init; }
+    internal bool Sorted { get; init; }
     private bool HasColumns => !designer && columns > 0;
 
     internal void UsePlainDesignerLayout()

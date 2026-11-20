@@ -118,6 +118,7 @@ internal static class MenuMembers
     // The statement changes the item; the posted message changes the client area (#1140, measured at DoEvents).
     internal static void ChangeBar(Menu bar, int rows)
     {
+        if (FormNativeMenu.IsNative(bar)) return;
         var root = bar.FindLogicalAncestorOfType<IModuleExecutionRoot>();
         var window = bar.FindLogicalAncestorOfType<Window>();
         var change = barChanges.GetOrCreateValue(bar);

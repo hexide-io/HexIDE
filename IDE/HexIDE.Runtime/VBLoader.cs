@@ -75,7 +75,13 @@ public class VBLoader
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
         var menus = new List<(ComponentInstance Component, Control Control, ItemsControl Parent)>();
-        BuildMenuBar(element, menu, shortcuts, menus);
+        var nativeMenus = form?.FormWindow is Window menuWindow && FormNativeMenu.ForWindow(menuWindow);
+        BuildMenuBar(element, menu, shortcuts, menus, nativeMenus);
+        if (nativeMenus)
+            FormNativeMenu.Attach((Window)form!.FormWindow!, menu, item =>
+            {
+                if (VBProps.GetName(item) is { } name) RaiseMenuClick(item, name, menu);
+            });
 
         // A VB6 control array is 2+ controls sharing a Name, or a single control carrying an explicit `Index` (a
         // 1-element array). Detect the array Names first so each element joins a group rather than overwriting the
@@ -422,7 +428,7 @@ public class VBLoader
     /// child of the form's canvas while the bar itself stayed empty.
     /// </summary>
     private static void BuildMenuBar(FormDefinition element, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts,
-        List<(ComponentInstance Component, Control Control, ItemsControl Parent)> built)
+        List<(ComponentInstance Component, Control Control, ItemsControl Parent)> built, bool nativeMenus)
     {
         foreach (var component in TopLevelMenus(element))
             if (BuildMenuItem(component, menu, shortcuts, menu, built) is { } item)
@@ -431,7 +437,7 @@ public class VBLoader
         // An empty bar still occupies a strip at the top of the form and pushes the canvas down, so a form
         // with no menus would be laid out differently from the same form in VB6. So does a bar whose menus are all
         // hidden, as a form's are when it keeps them only for PopupMenu, and VB6 shows no bar then (measured, #1127).
-        menu.IsVisible = HasMenuBar(element);
+        menu.IsVisible = HasInWindowMenuBar(element, nativeMenus);
         // The first row; VBMenuBar counts further rows before Form_Load (#4978), keeping the .frm's ClientHeight below it.
         menu.Height = MenuBarHeight;
     }
@@ -449,6 +455,18 @@ public class VBLoader
     /// </summary>
     public static bool HasMenuBar(FormDefinition element) =>
         TopLevelMenus(element).Any(menu => menu.GetPropertyOrDefault(VBProperties.VisibleProperty));
+
+    private static bool HasInWindowMenuBar(FormDefinition element, bool nativeMenus) =>
+        HasMenuBar(element) && !nativeMenus;
+
+    private static VBFormRuntime DesktopWindow(FormDefinition definition)
+    {
+        var nativeMenus = FormNativeMenu.UseSystemMenuBar;
+        var component = FormComponentOf(definition);
+        var window = ((FormComponentClass)component.BaseClass).InstantiateWindow(component, HasInWindowMenuBar(definition, nativeMenus));
+        FormNativeMenu.Register(window, nativeMenus);
+        return window;
+    }
 
     // The menus on the bar itself. A menu some other menu claims as a sub-item belongs in that menu, not on the bar:
     // the same filter the writer applies, and for the same reason.
@@ -1082,8 +1100,7 @@ public class VBLoader
     public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
         Debugging.IDebugGate? debugController, bool win64OnlySetOnWindows, OSPlatform? host = null)
     {
-        var form = FormComponentOf(element);
-        var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form, HasMenuBar(element));
+        var shown = window = DesktopWindow(element);
         // Another form of the program gets a window of its own the same way (#822).
         PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenWindow, win64OnlySetOnWindows, host);
 
@@ -1138,8 +1155,7 @@ public class VBLoader
     /// <summary>A desktop window for one of a program's forms (#822).</summary>
     public static IFormView OpenWindow(FormDefinition definition)
     {
-        var component = FormComponentOf(definition);
-        return ((FormComponentClass)component.BaseClass).InstantiateWindow(component, HasMenuBar(definition));
+        return DesktopWindow(definition);
     }
 
     /// <summary>

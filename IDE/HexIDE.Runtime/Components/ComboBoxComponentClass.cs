@@ -78,7 +78,8 @@ public class ComboBoxComponentClass : ComponentBaseClass
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
             Cursor = instance.GetPropertyOrDefault(MousePointerProperty).ToCursor(),
-            FlowDirection = instance.GetPropertyOrDefault(RightToLeftProperty) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight
+            FlowDirection = instance.GetPropertyOrDefault(RightToLeftProperty) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
+            Sorted = VBLoader.RawDouble(instance, "Sorted") is { } sorted && sorted != 0
         };
     }
 
