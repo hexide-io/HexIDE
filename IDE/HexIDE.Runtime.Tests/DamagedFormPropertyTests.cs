@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -11,18 +12,19 @@ public class DamagedFormPropertyTests
 {
     private sealed class Sink : IDeserializeErrorSink
     {
-        public void LogError(string error) { }
+        public List<string> Errors { get; } = new();
+        public void LogError(string error) => Errors.Add(error);
     }
 
-    private static FormDefinition Load(string properties, bool button = false) => LoadSource(
+    private static FormDefinition Load(string properties, bool button = false, Sink? sink = null) => LoadSource(
         "VERSION 5.00\r\nBegin VB.Form Form1\r\n" +
         (button ? "   Begin VB.CommandButton Command1\r\n" + properties + "   End\r\n" : properties) +
-        "End\r\nAttribute VB_Name = \"Form1\"\r\n");
+        "End\r\nAttribute VB_Name = \"Form1\"\r\n", sink);
 
-    private static FormDefinition LoadSource(string source) => new FormDeserializer().Deserialize(
-        new ProjectDefinition(VBProjectType.EXE, "P"), source, new Sink())!;
+    private static FormDefinition LoadSource(string source, Sink? sink = null) => new FormDeserializer().Deserialize(
+        new ProjectDefinition(VBProjectType.EXE, "P"), source, sink ?? new Sink())!;
 
-    private static void Stable(FormDefinition form, string name, string winningValue)
+    private static void Stable(FormDefinition form, string name, string winningValue, int expectedLines = 1)
     {
         form.CanSaveFaithfully.Should().BeTrue();
         var first = new FormSerializer().Serialize(form, "Form1.frm").frmText;
@@ -30,8 +32,9 @@ public class DamagedFormPropertyTests
         second.Should().Be(first);
         var lines = first.ReplaceLineEndings("\n").Split('\n')
             .Where(line => line.TrimStart().StartsWith(name + " ", StringComparison.OrdinalIgnoreCase)).ToArray();
-        lines.Should().ContainSingle();
+        lines.Should().HaveCount(expectedLines);
         var value = lines[0].Split('=')[1].Trim();
+        if (!value.StartsWith("\"")) value = value.Split('\'')[0].TrimEnd();
         if (double.TryParse(winningValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
             double.Parse(value, CultureInfo.InvariantCulture).Should().Be(number);
         else
@@ -48,6 +51,16 @@ public class DamagedFormPropertyTests
         Stable(form, "ClientHeight", "4000");
     }
 
+    // #4988 / oracle PR #4987: a decimal colour after a readable line is accepted.
+    [Fact]
+    public void ReadableDuplicate_BackColor_LastWins()
+    {
+        var form = Load("BackColor = &H8000000F&\r\nBackColor = 255\r\n", true);
+        form.Components[1].GetPropertyOrDefault(VBProperties.BackColorProperty).Should().Be(VBColor.FromOle(255));
+        form.UnfaithfulSaveCauses.Should().NotHaveFlag(UnfaithfulSaveCause.UnreadableDuplicateProperty);
+        Stable(form, "BackColor", "&H000000FF&");
+    }
+
     [Theory]
     [InlineData("Caption")]
     [InlineData("caption")]
@@ -58,16 +71,86 @@ public class DamagedFormPropertyTests
         Stable(form, "Caption", "\"Second\"");
     }
 
-    [Fact]
-    public void UnreadableDuplicate_KeepsReadableValueAndRefusesSave()
+    // #4317's latest brief: IDE recovery measured in #4096; refused texts measured in oracle PR #4987.
+    [Theory]
+    [InlineData("ClientHeight = 2000\r\nClientHeight = abc\r\n", 2000)]
+    [InlineData("clientheight = 2000\r\nClientHeight = abc\r\nClientHeight = 3000\r\n", 3000)]
+    public void UnreadableDuplicate_KeepsReadableValueAndRequiresSaveAs(string properties, int expected)
     {
-        const string good = "ClientHeight = 2000\r\n";
-        const string bad = "ClientHeight = abc\r\n";
-        var form = Load(good + bad);
-        form.Components[0].GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(2000d / 15);
+        var sink = new Sink();
+        var form = Load(properties, sink: sink);
+        sink.Errors.Should().Contain("Property ClientHeight in Form1 had an invalid value.");
+        form.Components[0].GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(expected / 15d);
+        form.LoadedWithErrors.Should().BeTrue();
+        form.UnfaithfulSaveCauses.Should().NotHaveFlag(UnfaithfulSaveCause.UnreadableDuplicateProperty);
+        Stable(form, "ClientHeight", expected.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [Theory]
+    [InlineData("CommandButton", "Height", "375", "abc")]
+    [InlineData("CommandButton", "Height", "375", "\"500\"")]
+    [InlineData("CommandButton", "Height", "375", "&H10")]
+    [InlineData("CommandButton", "Height", "375", "&H10&")]
+    [InlineData("CommandButton", "Height", "375", "&O17")]
+    [InlineData("CommandButton", "Height", "375", "&H8000000F&")]
+    [InlineData("CommandButton", "TabIndex", "1", "abc")]
+    [InlineData("CommandButton", "TabIndex", "1", "\"3\"")]
+    [InlineData("Label", "Alignment", "0", "abc")]
+    [InlineData("CommandButton", "BackColor", "&H8000000F&", "abc")]
+    [InlineData("CommandButton", "BackColor", "&H8000000F&", "\"255\"")]
+    public void RefusedDuplicate_OnControl_KeepsReadableValueAndRequiresSaveAs(
+        string type, string name, string readable, string refused)
+    {
+        // Keep TabIndex 1 in range so tab-order normalisation does not change the value under test (#4843).
+        var sibling = name == "TabIndex" ? "Begin VB.CommandButton Command2\r\nTabIndex = 0\r\nEnd\r\n" : "";
+        var form = LoadSource($"VERSION 5.00\r\nBegin VB.Form Form1\r\nBegin VB.{type} Command1\r\n" +
+            $"{name} = {readable}\r\n{name.ToLowerInvariant()} = {refused}\r\nEnd\r\n" + sibling +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n");
+        var control = form.Components[1];
+        if (name == "Height") control.GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(375d / 15);
+        else if (name == "TabIndex") control.GetPropertyOrDefault(VBProperties.TabIndexProperty).Should().Be(1);
+        else if (name == "Alignment") control.GetPropertyOrDefault(VBProperties.AlignmentProperty).Should().Be((VBTextAlignment)0);
+        else control.GetPropertyOrDefault(VBProperties.BackColorProperty).Should().Be(VBColor.FromSystemColor(VbSystemColor.Btnface));
+        form.LoadedWithErrors.Should().BeTrue();
+        form.UnfaithfulSaveCauses.Should().NotHaveFlag(UnfaithfulSaveCause.UnreadableDuplicateProperty);
+        Stable(form, name, readable, name == "TabIndex" ? 2 : 1);
+    }
+
+    // These preserve today's hold; VB6 recovery is unmeasured or the text is accepted by VB6 (#4317).
+    [Theory]
+    [InlineData("ClientHeight = abc\r\nClientHeight = 2000\r\n")]
+    [InlineData("ClientHeight = abc\r\nClientHeight = xyz\r\n")]
+    public void UnreadableDuplicate_WithoutEarlierReadableValue_RefusesSave(string properties)
+    {
+        Held(Load(properties));
+    }
+
+    [Theory]
+    [InlineData("BackColor", "&H8000000F&", "&H02C0C0C0&")]
+    [InlineData("TabIndex", "1", "&H3")]
+    [InlineData("Height", "375", "--5")]
+    [InlineData("Height", "375", "1.5.2")]
+    [InlineData("TabIndex", "1", "5abc")]
+    [InlineData("TabIndex", "1", "1D2")]
+    [InlineData("BackColor", "&H8000000F&", "True")]
+    [InlineData("BackColor", "&H8000000F&", "False")]
+    [InlineData("BackColor", "&H8000000F&", "Infinity")]
+    [InlineData("BackColor", "&H8000000F&", "NaN")]
+    public void OtherUnreadableDuplicates_RefuseSave(string name, string readable, string unreadable)
+    {
+        Held(Load($"{name} = {readable}\r\n{name} = {unreadable}\r\n", true));
+    }
+
+    [Fact]
+    public void Recovery_DoesNotClearAnEarlierUnreadableHold()
+    {
+        Held(Load("ClientHeight = --5\r\nClientHeight = 2000\r\nClientHeight = abc\r\n"));
+    }
+
+    private static void Held(FormDefinition form)
+    {
         form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.UnreadableDuplicateProperty);
         form.CanSaveFaithfully.Should().BeFalse();
-        form.UnfaithfulSaveReason.Should().Contain("ClientHeight");
     }
 
     [Fact]

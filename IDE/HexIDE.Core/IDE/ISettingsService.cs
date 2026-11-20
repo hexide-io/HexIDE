@@ -33,6 +33,10 @@ public interface ISettingsService : INotifyPropertyChanged
     /// </summary>
     bool AutoListMembers { get; set; }
 
+    /// <summary>Allow a typed letter to open a completion list.</summary>
+    bool ListMembersAsYouType { get; set; }
+    bool LinkedEditing { get; set; }
+
     /// <summary>
     /// Show hover / Quick Info tooltips automatically.
     /// </summary>
@@ -147,7 +151,9 @@ public interface ISettingsService : INotifyPropertyChanged
 
     /// <summary>Show the code-editor minimap (default: visible).</summary>
     bool IsMinimapVisible { get; set; }
+    bool RDCoreWin64OnlySetOnWindows { get; set; }
     bool ShowInlayHints { get; set; }
+    bool ShowInlineValues { get; set; }
     bool ShowCodeLenses { get; set; }
     bool ColorBracketsByDepth { get; set; }
 

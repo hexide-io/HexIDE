@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
@@ -120,7 +121,13 @@ public class FormDeserializer
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
-        IReadOnlyDictionary<string, ComponentBaseClass>? extraComponents = null)
+        IReadOnlyDictionary<string, ComponentBaseClass>? extraComponents = null) =>
+        Deserialize(owner, source, errorSink, frxBlobs, extraComponents, normalizeTabIndexes: true);
+
+    // An isolated carried block's runtime reader must retain its enclosing form's index (#4843).
+    internal FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
+        IReadOnlyDictionary<int, byte[]>? frxBlobs,
+        IReadOnlyDictionary<string, ComponentBaseClass>? extraComponents, bool normalizeTabIndexes)
     {
         VBSerializedComponent rootComponent;
         string code;
@@ -186,6 +193,7 @@ public class FormDeserializer
         // walks containers in turn rather than walking the file. This counter is what restores the file's
         // own order for the flat view.
         var preservedSubtreesSeen = 0;
+        var tabIndexes = new List<(int Saved, Action<int>? Write)>();
 
         // depth: the form itself is 1, its direct children 2, and so on — the same counting the
         // unfaithful-save gate uses. parent is null only for the form.
@@ -225,6 +233,18 @@ public class FormDeserializer
                 // FormComponentClass — so parent is never null here.
                 parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines),
                     subtreeRecords.Count > 0 ? subtreeRecords : null);
+                // Each TabIndex line in the block takes its number by the load's rule, as any control's does, and only
+                // that number is rewritten (#4884). VB6 saves an OCX's control with its new number too (the SSTab page).
+                var carriedParent = parent;
+                var blockIndex = carriedParent.PreservedChildSubtrees.Count - 1;
+                var carriedIndices = PreservedControlText.TabIndexes(carriedParent.PreservedChildSubtrees[blockIndex].Text).ToArray();
+                for (var i = 0; i < carriedIndices.Length; i++)
+                {
+                    var numberIndex = i;
+                    tabIndexes.Add((carriedIndices[i], value => carriedParent.SetPreservedChildText(blockIndex,
+                        PreservedControlText.WithTabIndex(carriedParent.PreservedChildSubtrees[blockIndex].Text, numberIndex, value))));
+                }
+
                 // A control HexIDE runs is kept the same way and saves byte for byte, so there is nothing to warn of: the
                 // warning used to tell the user, as the project opened, that a control which works did not (#1084, #2327).
                 if (!RunsWhenCarried(serializedComponent.Type, serializedComponent.SubComponents.Count != 0,
@@ -322,6 +342,7 @@ public class FormDeserializer
 
             // Known properties whose value could not be read, kept as raw lines below.
             var unparsedKnownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var readableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             var assignments = serializedComponent.PropertyAssignments.Count > 0
                 ? serializedComponent.PropertyAssignments
@@ -329,8 +350,9 @@ public class FormDeserializer
             var duplicatedNames = assignments.GroupBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
                 .Where(group => group.Count() > 1).Select(group => group.Key)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var serializedProperty in assignments)
+            for (var assignmentIndex = 0; assignmentIndex < assignments.Count; assignmentIndex++)
             {
+                var serializedProperty = assignments[assignmentIndex];
                 // One spelling, before anything compares it. VB6 reads a property name in any case: measured,
                 // `caption`, `TEXT` and `backcolor` on controls, and on a form's own root `clientwidth`,
                 // `scalewidth` and a Font block's `name` and `size`, all load. The special cases below compare
@@ -433,9 +455,25 @@ public class FormDeserializer
                     errorSink.LogError("Str.ProjectLoad.PropertyNotSet", "Line {0}: Property {1} in {2} could not be set.",
                         serializedComponent.BeginLine, propertyName, serializedComponent.Name);
                 }
+                var rawText = assignmentIndex < serializedComponent.PropertyValueTexts.Count
+                    ? serializedComponent.PropertyValueTexts[assignmentIndex] : null;
+                var readSuccessfully = true;
                 void InvalidValue()
                 {
+                    readSuccessfully = false;
                     errorSink.LogError("Str.ProjectLoad.InvalidValue", "Property {0} in {1} had an invalid value.", serializedProperty.Key, serializedComponent.Name);
+                    // #4317 / oracle PR #4987: recover only refused text after a readable line. VB6's
+                    // duplicate recovery for non-finite numeric words is unmeasured (#4988).
+                    if (readableNames.Contains(serializedProperty.Key) && !string.IsNullOrEmpty(rawText)
+                        && propertyClass.PropertyType != typeof(string)
+                        && (rawText[0] == '"'
+                            || char.IsLetter(rawText[0]) && val is string text && !IsNonFiniteNumber(text)
+                            || rawText[0] == '&' && (propertyClass.PropertyType == typeof(float)
+                                || propertyClass.PropertyType == typeof(double))))
+                    {
+                        form.LoadedWithErrors = true;
+                        return;
+                    }
                     // Kept as written, so a save puts it back rather than losing it: a palette colour
                     // (&H02C0C0C0&) is a value VB6 accepts that HexIDE cannot hold yet (#786).
                     unparsedKnownNames.Add(serializedProperty.Key);
@@ -455,14 +493,18 @@ public class FormDeserializer
                     if (comment >= 0)
                         numberText = numberText[..comment].TrimEnd();
                     if (lines.Length == 1 && int.TryParse(numberText, out var number))
+                    {
                         instance.SetUntypedProperty(propertyClass, number);
+                        readableNames.Add(serializedProperty.Key);
+                    }
                     else
                         InvalidValue();
                     continue;
                 }
                 if (propertyClass.PropertyType == typeof(string))
                 {
-                    if (val is not string)
+                    if (val is not string || propertyClass == VBProperties.CaptionProperty
+                        && (string.IsNullOrEmpty(rawText) || rawText[0] != '"'))
                     {
                         InvalidValue();
                         continue;
@@ -484,15 +526,13 @@ public class FormDeserializer
                 }
                 else if (propertyClass.PropertyType == typeof(int))
                 {
-                    if (val is int i)
-                        instance.SetUntypedProperty(propertyClass, i);
-                    else if (val is double d)
-                        instance.SetUntypedProperty(propertyClass, (int)d);
-                    else
+                    // #4988: Integer properties refuse decimal points. Exponents are unmeasured and refused here too.
+                    if (val is not int i)
                     {
                         InvalidValue();
                         continue;
                     }
+                    instance.SetUntypedProperty(propertyClass, i);
                 }
                 else if (propertyClass.PropertyType == typeof(float))
                 {
@@ -524,21 +564,28 @@ public class FormDeserializer
                 }
                 else if (propertyClass.PropertyType.IsEnum)
                 {
-                    if (val is int i)
+                    if (val is int i || val is string && TryReadShortRadixLiteral(rawText, allowOctal: true, out i))
                         instance.SetUntypedProperty(propertyClass, Enum.ToObject(propertyClass.PropertyType, i));
-                    else if (val is double d)
-                        instance.SetUntypedProperty(propertyClass, Enum.ToObject(propertyClass.PropertyType, (int)d));
                     else
-                        InvalidValue();
-                }
-                else if (propertyClass.PropertyType == typeof(VBColor))
-                {
-                    if (val is not VBColor color)
                     {
                         InvalidValue();
                         continue;
                     }
-                    instance.SetUntypedProperty(propertyClass, color);
+                }
+                else if (propertyClass.PropertyType == typeof(VBColor))
+                {
+                    if (val is VBColor color)
+                        instance.SetUntypedProperty(propertyClass, color);
+                    else if (val is string && TryReadShortRadixLiteral(rawText, allowOctal: false, out var hex))
+                        instance.SetUntypedProperty(propertyClass, VBColor.FromOle(hex));
+                    else if (val is int i && i is >= 0 and <= 0xFFFFFF && rawText is { Length: >= 1 and <= 8 }
+                             && rawText.AsSpan().IndexOfAnyExceptInRange('0', '9') == -1)
+                        instance.SetUntypedProperty(propertyClass, VBColor.FromOle(i));
+                    else
+                    {
+                        InvalidValue();
+                        continue;
+                    }
                 }
                 else if (propertyClass.PropertyType == typeof(byte[]))
                 {
@@ -617,6 +664,8 @@ public class FormDeserializer
                         weight: MetricOr(fontWeight, VBFont.NormalWeight));
                     instance.SetUntypedProperty(propertyClass, font);
                 }
+                if (readSuccessfully)
+                    readableNames.Add(serializedProperty.Key);
             }
 
             // The offset between the root's two rectangles, once both have been read. Recorded only when
@@ -738,6 +787,44 @@ public class FormDeserializer
                 components[0].TryGetProperty(VBProperties.FontProperty, out var formFont))
                 instance.SetProperty(VBProperties.FontProperty, formFont);
 
+            // Only saved lines participate: an absent TabIndex retains its class default (#4843).
+            if (parent is not null
+                && (componentClass is not UserControlComponentClass userClass
+                    || !userClass.Setting("InvisibleAtRuntime")
+                    && (userClass.Setting("CanGetFocus", true) || userClass.Setting("ForwardFocus")))
+                && serializedComponent.Properties.Any(p =>
+                    p.Key.Equals("TabIndex", StringComparison.OrdinalIgnoreCase) && p.Value is int))
+            {
+                if (componentClass.Properties.Contains(VBProperties.TabIndexProperty))
+                    tabIndexes.Add((instance.GetPropertyOrDefault(VBProperties.TabIndexProperty),
+                        value =>
+                        {
+                            instance.SetProperty(VBProperties.TabIndexProperty, value);
+                            serializedComponent.Properties[serializedComponent.Properties.Keys.First(k =>
+                                k.Equals("TabIndex", StringComparison.OrdinalIgnoreCase))] = value;
+                        }));
+                // An intrinsic class models TabIndex wherever VB6 gives it one, so a raw line on VB.Shape, Image, Line,
+                // Timer or Menu belongs to a class with none (#1974). It stays carried and takes no number. What VB6
+                // itself does with such a line at load isn't measured.
+                else if (!componentClass.VBTypeName.StartsWith("VB.", StringComparison.OrdinalIgnoreCase))
+                {
+                    var rawIndex = instance.UnknownRawProperties.FindIndex(p =>
+                        p.Name.Equals("TabIndex", StringComparison.OrdinalIgnoreCase));
+                    if (rawIndex >= 0 && VBLoader.RawNumber(instance, "TabIndex") is { } savedIndex)
+                    {
+                        instance.SetProperty(VBProperties.TabIndexProperty, savedIndex);
+                        tabIndexes.Add((savedIndex, value =>
+                        {
+                            instance.SetProperty(VBProperties.TabIndexProperty, value);
+                            instance.UnknownRawProperties[rawIndex] = instance.UnknownRawProperties[rawIndex] with
+                            { EditedValue = value.ToString(CultureInfo.InvariantCulture) };
+                            serializedComponent.Properties[serializedComponent.Properties.Keys.First(k =>
+                                k.Equals("TabIndex", StringComparison.OrdinalIgnoreCase))] = value;
+                        }));
+                    }
+                }
+            }
+
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
                 LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);
 
@@ -748,6 +835,13 @@ public class FormDeserializer
         }
 
         LoadRecur(rootComponent, null, 1, 0);
+        if (normalizeTabIndexes)
+        {
+            var normalized = SavedTabIndexes.Normalize(tabIndexes.Select(entry => entry.Saved).ToArray());
+            for (var i = 0; i < tabIndexes.Count; i++)
+                if (tabIndexes[i].Saved != normalized[i])
+                    tabIndexes[i].Write?.Invoke(normalized[i]);
+        }
         form.RecordUnreproducibleNestingDepth(maxUnreproducibleDepth);
 
         // The refusal gate, decided here rather than from the parser's raw Begin depth, because only the walk
@@ -852,6 +946,40 @@ public class FormDeserializer
                 return spelling;
         }
         return componentClass.PropertiesByName.TryGetValue(name, out var property) ? property.Name : name;
+    }
+
+    private static bool IsNonFiniteNumber(string text)
+    {
+        var number = text.AsSpan();
+        if (number.EndsWith("&"))
+            number = number[..^1];
+        return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            && !double.IsFinite(value);
+    }
+
+    private static bool TryReadShortRadixLiteral(string? text, bool allowOctal, out int value)
+    {
+        value = 0;
+        var literal = text.AsSpan();
+        var isHex = literal.StartsWith("&H", StringComparison.OrdinalIgnoreCase);
+        if (!isHex && !(allowOctal && literal.StartsWith("&O", StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        var digits = literal[2..];
+        if (digits.EndsWith("&"))
+            digits = digits[..^1];
+        if (digits.IsEmpty || digits.Length > (isHex ? 4 : 6))
+            return false;
+
+        foreach (var digit in digits)
+        {
+            if (isHex ? !char.IsAsciiHexDigit(digit) : digit is < '0' or > '7')
+                return false;
+            value = value * (isHex ? 16 : 8) +
+                (char.IsAsciiDigit(digit) ? digit - '0' : char.ToUpperInvariant(digit) - 'A' + 10);
+        }
+        // #4988: the sign above this range depends on the VB6 property type and is unmeasured here.
+        return value <= short.MaxValue;
     }
 
     /// <summary>

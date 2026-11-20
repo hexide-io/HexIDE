@@ -4,6 +4,12 @@ using HexIDE.Addins;
 
 namespace HexIDE.AIChat;
 
+/// <summary>The service’s unchanged JSON reply and optional localization metadata for the transcript.</summary>
+public sealed record IdeToolReply(string Json, string? ReasonKey = null, object[]? ReasonArguments = null)
+{
+    public static implicit operator IdeToolReply(string json) => new(json);
+}
+
 /// <summary>Executes IDE tool calls requested by the AI and returns a JSON result string.</summary>
 public sealed class IdeToolExecutor(IHexIdeHost host)
 {
@@ -95,7 +101,9 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
         Encoder = HexIDE.Serialization.ReadableJsonEncoder.Instance,
     };
 
-    public async Task<string> ExecuteAsync(ToolCall call)
+    public async Task<string> ExecuteAsync(ToolCall call) => (await ExecuteReplyAsync(call)).Json;
+
+    public async Task<IdeToolReply> ExecuteReplyAsync(ToolCall call)
     {
         try
         {
@@ -182,17 +190,17 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
     /// Content that is missing or blank is refused here: the IDE would take it as code alone, keep the header, and
     /// empty the file's code, and a truncated call is likelier than a model that means that.
     /// </remarks>
-    private async Task<string> ApplyEditAsync(JsonObject? args)
+    private async Task<IdeToolReply> ApplyEditAsync(JsonObject? args)
     {
         var fileName = Text(args, "file_name") ?? "";
         var content  = Text(args, "content");
         if (string.IsNullOrWhiteSpace(content))
-            return Reply(new
+            return new IdeToolReply(Reply(new
             {
                 success = false,
                 error = "No content was sent, so nothing was changed. Send the whole file with its header unchanged, "
                         + "or the code alone.",
-            });
+            }), "Str.AIChat.EditContentMissing");
 
         var result = await host.Editor.TrySetContent(fileName, content, Text(args, "project"));
         return result.Succeeded
@@ -210,15 +218,17 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
             : Reply(new { success = false, error = result.Reason });
     }
 
-    private string RunProject() =>
+    private IdeToolReply RunProject() =>
         host.RunProject()
             ? Reply(new { success = true })
-            : Reply(new { success = false, error = "Cannot start project (none loaded or already running)" });
+            : new IdeToolReply(Reply(new { success = false, error = "Cannot start project (none loaded or already running)" }),
+                "Str.AIChat.ProjectCannotStart");
 
-    private string StopProject() =>
+    private IdeToolReply StopProject() =>
         host.StopProject()
             ? Reply(new { success = true })
-            : Reply(new { success = false, error = "No project is currently running" });
+            : new IdeToolReply(Reply(new { success = false, error = "No project is currently running" }),
+                "Str.AIChat.ProjectNotRunning");
 
     // ── helpers ──────────────────────────────────────────────────────────────
 

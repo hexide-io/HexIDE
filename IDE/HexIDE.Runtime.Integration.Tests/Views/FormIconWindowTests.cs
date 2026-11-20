@@ -176,11 +176,12 @@ public class FormIconWindowTests
     [AvaloniaTheory]
     [InlineData("Me.Icon")]
     [InlineData("Form2.Icon")]
-    public void Runtime_read_before_assignment_keeps_the_existing_refusal(string target)
+    public void Runtime_read_before_assignment_returns_an_icon_picture(string target)
     {
-        var run = RunIcon($"Dim p As Picture\nSet p = {target}");
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("Icon is not implemented");
+        // vb6.exe SP6 native/p-code, #3924, 2026-11-20: Set from the form's Icon gives Picture.Type 3.
+        var run = RunIcon($"Dim p As Picture\nSet p = {target}\nDebug.Print p.Type");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Select(value => value.Trim()).Should().Equal("3");
     }
 
     private sealed record IconRun(List<string> Printed, List<Exception> Errors, List<WindowIcon?> Icons);

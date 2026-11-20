@@ -112,7 +112,7 @@ public class SyntaxErrorAtStartTests
         if (statement == "x += 2")
             message.Should().Be("Compile error:\n\n+= isn't part of VB6, VBA or VBScript, so this interpreter doesn't run it.");
         else
-            message.Should().Be($"Compile error:\n\nno viable alternative at input 'x = =' in {(kind == "frm" ? "Form1" : "Broken")}, line {line}:8\nOffending symbol: =");
+            message.Should().Be($"Compile error:\n\nSyntax error\nParser: no viable alternative at input 'x = =' in {(kind == "frm" ? "Form1" : "Broken")}, line {line}:8\nOffending symbol: =");
         seen.Should().Be(new ErrorLocation(kind == "frm" ? "Form1" : "Broken", line));
         h.Runner.FailureLocation.Should().BeNull("only available while reporting");
     }
@@ -137,26 +137,35 @@ public class SyntaxErrorAtStartTests
         // failed start, which nothing would close. It now parses first, as VBLoader.RunForm does.
         var project = FormProject(loadBody);
         var h = Runner(project);
+        // The show may come after RunProject returns: any statement the debugger gates can yield to the dispatcher once
+        // its time slice is due, and since #4449 a startup Form_Load's declaration and End Sub are gated too. Whether
+        // 15 ms had passed decided this case, so it passed on one machine and failed on another. Yield at every gate,
+        // then drain, so the case is the same everywhere: the worst case, under which the form must still be shown once.
+        h.Controller.TimeSliceMs = -1;
         var wasSingleView = HexIDE.Static.SingleView;
         HexIDE.Static.SingleView = true;
         try
         {
             h.Runner.RunProject(project);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            if (shown)
+            {
+                h.Windows.ReceivedWithAnyArgs(1).ShowManagedWindow(default!);
+                h.Reported.Should().BeEmpty();
+            }
+            else
+            {
+                AssertAStartThatNeverRan(h).Should().StartWith("Compile error:");
+                h.Windows.DidNotReceiveWithAnyArgs().ShowManagedWindow(default!);
+            }
         }
         finally
         {
+            if (h.Runner.IsRunning)
+                h.Runner.EndProject();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             HexIDE.Static.SingleView = wasSingleView;
-        }
-
-        if (shown)
-        {
-            h.Windows.ReceivedWithAnyArgs(1).ShowManagedWindow(default!);
-            h.Reported.Should().BeEmpty();
-        }
-        else
-        {
-            AssertAStartThatNeverRan(h).Should().StartWith("Compile error:");
-            h.Windows.DidNotReceiveWithAnyArgs().ShowManagedWindow(default!);
         }
     }
 

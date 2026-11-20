@@ -92,9 +92,132 @@ whole-element store, `arr(1) = u`, puts the value into the array without copying
 `UdtArrayTests` exercises the measured allocation, copy, resize, reset, ByRef and For Each results.
 Array fields use [the measured array-variable store rule](a-let-into-an-array-variable.md), including
 String-to-Byte() conversion. Fixed-length strings, nonliteral or inverted Type-field bounds, and array
-fields declared As New retain their refusal. This change does not alter the pre-existing acceptance of
-ByVal UDT parameters or UDT-to-Variant assignments; those compile-time restrictions remain divergences.
+fields declared As New retain their refusal. [#4673](https://github.com/hexide-io/HexIDE/issues/4673) now refuses
+ByVal UDT parameters when a call binds them; vb6.exe refuses the build, so a procedure never called is not caught. UDT-to-Variant assignments
+remain a divergence from the measured compile-time restriction.
 
 Get/Put of UDT arrays and of Types containing array fields remain explicitly refused: their record-file
 layout is not established by these copy probes. Four Linux-runnable guard cases in `UdtArrayTests` keep
 that serialization boundary from disappearing as runtime allocation is enabled.
+
+### Get and Put of Type arrays and array fields, As New and object array fields, and arguments on a field (2026-11-19, #4925)
+
+vb6.exe SP6, `/make`, every row built as native code and as p-code, which logged the same lines in every row. **The
+setup:** a Sub Main with a form holding two TextBoxes, every row under `On Error Resume Next`, logging the error number
+and description, the file's bytes read back, and the values a `Get` left. Each file row wrote at position 1 of a fresh
+file. The compile-time rows were each a project of their own. This settles what the section above left open: the
+record-file layout of arrays of a Type and of Types holding arrays.
+
+- **The probe's Types**, all `Private` in one module:
+  - `T1` is `i As Integer`, `s As String * 2`.
+  - `T2` is `i As Integer`, `s As String`.
+  - `T3` is `v As Variant`.
+  - `U1` is `i As Integer`, `a(1) As Integer`, and `U2` is `i As Integer`, `a() As Integer`.
+  - `U3` is `a(1) As String`, `U4` is `a(1) As Variant`, `U5` is `a(1) As T1`, and `U6` is `a(1 To 2, 0 To 1) As Byte`.
+  - `U7` is `a() As String`, and `U8` is `a(1) As Long`, `s As String`.
+- **The values:** in `T1` and `T2` arrays, element 0 is `i = 1`, `s = "ab"`, and element 1 is `i = 2`, `s = "cd"` (`T1`) or `""` (`T2`).
+- **Bytes** are hex, and each row writes at position 1.
+
+**Case 1: `Put` of an array of a Type.** The elements are written in order (the first index fastest), each packed as a lone Type is written now:
+
+| Array, file | Bytes |
+|---|---|
+| `T1` `(1)`, static or dynamic, Binary | `01 00 61 62 02 00 63 64` |
+| `T1` `(1)` static, Random `Len = 32` or `Len = 8` | the same 8 bytes |
+| `T1` `(1)` **dynamic**, Random `Len = 32` | `01 00`, `02 00 00 00`, `00 00 00 00`, then the same 8 bytes: the descriptor every dynamic array gets in a Random file |
+| `T1` static, Random `Len = 4`; `T1` dynamic, `Len = 8`; `T1` dynamic `(0 To 1, 1 To 2)`, `Len = 32` | **59**, and nothing written |
+| `T1` `(0 To 1, 1 To 2)` static, Binary, `i` 1, 2, 3, 4 at `(0,1)`, `(1,1)`, `(0,2)`, `(1,2)`, `s` unset | `01 00 00 00 02 00 00 00 03 00 00 00 04 00 00 00` |
+| `T2` `(1)` static, Binary or Random 32 | `01 00 02 00 61 62 02 00 00 00`: the String with its 2-byte length |
+| `T2` `(1)` dynamic, Random 32 | the descriptor, then those 10 bytes |
+| `T3` `(1)`, `v` `CInt(5)` then `"x"`, Binary or Random 32 | `02 00 05 00 08 00 01 00 78`: each Variant as a Variant is written now |
+| `T1` dynamic, never allocated | Binary: nothing written. Random 32: `00 00` |
+
+**Case 1, `Get` of an array of a Type**, each reading back what the row above wrote:
+- **Binary, into a static `(1)`:** both elements as written.
+- **Binary, into a dynamic array allocated `(2)`:** it keeps `(0 To 2)`. Elements 0 and 1 come back, and element 2 reads past the end as zeros (`0`, two NULs). `EOF` is True.
+- **Binary, into a dynamic array never allocated:** no error. It reads nothing and stays unallocated (`LBound` is 9), with `EOF` False.
+- **Binary, 3 bytes `01 00 61`, into a static `(1)` holding 9 and "zz":** element 0 reads `1`, "a" then NUL, and element 1 `0` and two NULs. Reading past the end gives zeros, not the old values.
+- **Random 32, static into static:** both elements.
+- **`T2`, `T3`:** round-trip, the Variant field keeping `Integer` 5 and `String` "x".
+
+**Case 3: a Random `Get` into a dynamic array of a Type** takes its bounds from the descriptor, as a dynamic array of anything else does:
+- **Never allocated, or allocated `(4)`:** written from a dynamic `(1)`, it becomes `(0 To 1)`, holding both elements.
+- **A `T2` array** behaves the same.
+- **Two dimensions:** a 2-D dynamic `T1` array can't be written at `Len = 32` (59), so there's no row for reading one.
+- **A static target:** given the dynamic record, a static `(1)` reads the descriptor bytes as data. Element 0 reads `i` 1 and `s` = `{2}{0}`; element 1 reads `0` and two NULs.
+- **A record written from a static array has no descriptor.** Read into a never-allocated dynamic array, it reads the data as one: dimensions `01 00`, count `61 62 02 00`, lower bound `63 64` then the end. The array is left allocated as `(25699 To 181955)`, and **then 59** is raised, since the elements can't fit.
+
+**Case 2: a Type holding an array field.** The field is written in place, its elements in order (the first index fastest), each as a field of its type is now. **A dynamic array field is preceded by its descriptor, in Binary as well as Random files.**
+
+| Type, Binary and Random `Len = 32` alike | Bytes |
+|---|---|
+| `U1`, `i = 1`, `a` 2, 3 | `01 00 02 00 03 00` |
+| `U2`, `i = 1`, `a` `ReDim (1)` 2, 3 | `01 00`, then `01 00` `02 00 00 00` `00 00 00 00`, then `02 00 03 00` |
+| `U2`, `i = 1`, `a` never allocated | `01 00 00 00`: the descriptor is a dimension count of 0 |
+| `U3`, `a` "ab", "" | `02 00 61 62 00 00` |
+| `U4`, `a` `CInt(5)`, "x" | `02 00 05 00 08 00 01 00 78` |
+| `U5`, `a(0)` 1 "ab", `a(1)` 2 "cd" | `01 00 61 62 02 00 63 64` |
+| `U6`, `a(1,0)` 1, `a(2,0)` 2, `a(1,1)` 3, `a(2,1)` 4 | `01 02 03 04` |
+| `U7`, `a` `ReDim (1)` "ab", "c" | `01 00 02 00 00 00 00 00 00 00`, then `02 00 61 62 01 00 63` |
+| `U7`, `a` never allocated | `00 00` |
+| `U8`, `a` 1, 2, `s` "z" | `01 00 00 00 02 00 00 00 01 00 7A` |
+| An array `(1)` of `U1`: `a(0).i` 1, `a(0).a(1)` 2, `a(1).i` 3, `a(1).a(0)` 4, Binary | `01 00 00 00 02 00 03 00 04 00 00 00` |
+| An array `(1)` of `U2`: `a(0).i` 1 with `a` `ReDim (0)` 2, `a(1).i` 3 with `a` never allocated, Binary | `01 00 01 00 01 00 00 00 00 00 00 00 02 00`, `03 00 00 00` |
+| `U1` at Random `Len = 4`; `U2` at `Len = 8` | **59** |
+
+#179's measured row, `Type` `i As Integer`, `a(1) As String * 3`, with `i = 1`, `a(0) = "ab"`, is `01 00 61 62 20 00 00 00` in Binary.
+
+**Case 2, `Get`:** every Type above round-trips in Binary and Random 32. For a dynamic field, **the descriptor sets the bounds.**
+- `U2`'s `a`, never allocated or allocated `(3)` holding 7s, reads back `(0 To 1)` holding 2, 3.
+- A record with `00 00` there leaves `a` unallocated, even if it was `ReDim (2)` before the `Get`.
+- `U7` reads back `(0 To 1)` "ab", "c".
+
+Binary, 3 bytes `01 00 02` into `U1` holding 9s, gives `1`, `2`, `0`: zeros past the end.
+
+**Case 4: an inverted bound on a Type's array field** is VB6's compile error **"Range has no values"**. That holds for a literal bound (`a(5 To 1) As Integer`) and for one resolved from Consts (`a(L To H)`, with `L = 5` and `H = 1`), the same as for a plain `Dim x(5 To 1)`. `a(3 To 3)` is fine.
+
+**Case 5: an array field `As New` compiles and runs as `As New` does.** The rows are for `a(1) As New Collection` and `a() As New Collection`. A scalar `c As New Collection` field was checked for two of them: it isn't Nothing, and a copy after use shares it.
+- `u.a(0) Is Nothing` is False. `u.a(0).Add 7` works and gives `Count` 1, and `TypeName` is `Collection`. `u.a(1).Count` is 0.
+- After `Set u.a(0) = Nothing`, `u.a(0) Is Nothing` is still False, and `Count` is 0: a new instance.
+- **Copying the record shares instances already created.** `w = u` after `u.a(0).Add 7` gives `w.a(0) Is u.a(0)` True, and an `Add` on `w`'s shows in `u`'s.
+- **An instance not yet created isn't shared.** `w = u` before any use gives `w.a(0) Is u.a(0)` False. A later `u.a(0).Add 1` leaves `w.a(0).Count` 0.
+- **Dynamic:**
+  - `ReDim u.a(1)` makes elements that aren't Nothing.
+  - `ReDim Preserve u.a(2)` keeps element 1's contents, with element 2 new.
+  - `Erase u.a` leaves it unallocated, so `LBound` is 9.
+
+**Case 6: array fields of other object types.** `a(1) As StdFont`, `a() As StdFont`, `a(1) As TextBox` and `a(1) As Control` all compile in a `Private Type`:
+- Each element starts as Nothing. `LBound` and `UBound` read `(0 To 1)`, or for a dynamic field never allocated, 9. **An oddity of the probe, recorded:** passed to a `Variant` parameter, that unallocated object array field reads `(0 To -1)` there, with no error, while an unallocated `Integer` array field passed the same way raises 9.
+- **What `Set` takes:**
+  - an element of the declared type, so `Set u.a(0) = Form1.Text1` and then `u.a(0).Text = "x"` sets the TextBox's Text;
+  - `New StdFont`, and then `u.a(0).Size = 12` reads back 12, with `TypeName` `Font`;
+  - for `As Control`, any control, so `TypeName` gives `TextBox`.
+- **What `Set` refuses: a mismatched type is 13.** A `Collection` into `As StdFont`, `New StdFont` or `Form1` into `As TextBox`, and `Form1` or `New StdFont` into `As Control`.
+- **Copying the record shares the objects:** `w = u` gives `w.a(0) Is u.a(0)` True.
+- **Dynamic:** `ReDim` makes elements of Nothing, and after `Erase` the field reads as unallocated.
+- **A field of an undeclared type** (`a(1) As Foo`) is the compile error **"User-defined type not defined"**.
+- **`Put` of a Type with an object array field** is the compile error **"Can't Get or Put an object reference variable or a variable of user-defined type containing an object reference"**.
+- `ADODB` types weren't probed: the probe had no reference to ADO.
+
+**Case 7: a Let or read with arguments on a Type field:**
+
+| Statement | vb6.exe |
+|---|---|
+| `u.i(1) = 5`, `i As Integer`; `u.s(1) = "x"`, `s As String` | compile error **"Expected array"** |
+| `u.v(1) = 9`, `v As Variant` holding `Array(1, 2, 3)` | sets the element: `u.v(1)` reads 9 |
+| `u.v(1) = 9`, and `x = u.v(1)`, `v` holding Empty | **13** |
+| `u.v(1) = 9`, `v` holding "abc" | **13** |
+| `u.v(1) = 9`, `v` holding a `Collection` holding 5 | **438**; the item stays 5 |
+| `u.o(1) = 9`, and `x = u.o(1)`, `o As Object` holding Nothing | **91** |
+| `u.o(1) = 9`, `o` holding a `Collection`, or a `StdFont` | **451** |
+| `u.o(1) = 9`, `o` holding `Form1.Text1` | **344**, "Must specify index for object array"; Text unchanged |
+| `u.a(0)(1) = 9`, `a(1) As Variant` with `u.a(0) = Array(1, 2)`; and `u.v(0)(1) = 9` with `v = Array(Array(1, 2), 3)` | **runs:** the inner element becomes 9. Reading `u.a(0)(1)` gives 2 before |
+
+**What was overturned, ours:** writing the probe, we expected an array field `As New` might not compile, as an inverted
+bound doesn't, so it went in the compile-time set. It compiles, and every element is auto-created like any `As New` variable. And `u.o(1) = 9` on a field
+holding a TextBox wasn't expected to say anything about arrays: it's 344, "Must specify index for object array".
+
+### In HexIDE (#4925)
+
+On `upstream/main` `5a2b04635`, all seven cases refused, citing #4925, except that a Type with an object field already
+gave the "Can't Get or Put an object reference…" compile error. The work is briefed on #4925.

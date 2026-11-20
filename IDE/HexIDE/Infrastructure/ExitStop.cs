@@ -19,6 +19,12 @@ internal sealed class ExitStop(
     private bool _stopping;
     private bool _stopped;
 
+    /// <summary>
+    /// The language servers were stopped another way, as at the end of a Windows session (#4646), so a request now goes
+    /// straight through.
+    /// </summary>
+    internal void MarkStopped() => _stopped = true;
+
     internal void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
         if (_stopped || e.Cancel) return;

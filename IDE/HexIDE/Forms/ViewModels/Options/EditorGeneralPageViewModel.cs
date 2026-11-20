@@ -18,11 +18,14 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
 
     [ObservableProperty] private bool _requireVariableDeclaration;
     [ObservableProperty] private bool _autoListMembers;
+    [ObservableProperty] private bool _listMembersAsYouType;
+    [ObservableProperty] private bool _linkedEditing;
     [ObservableProperty] private bool _autoQuickInfo;
     [ObservableProperty] private bool _autoIndent;
     [ObservableProperty] private bool _formatOnSave;
     [ObservableProperty] private bool _isMinimapVisible;
     [ObservableProperty] private bool _showInlayHints;
+    [ObservableProperty] private bool _showInlineValues;
     [ObservableProperty] private bool _showCodeLenses;
     [ObservableProperty] private bool _showIndentGuides;
     [ObservableProperty] private bool _colorBracketsByDepth;
@@ -33,11 +36,14 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
     {
         RequireVariableDeclaration = _settings.RequireVariableDeclaration;
         AutoListMembers = _settings.AutoListMembers;
+        ListMembersAsYouType = _settings.ListMembersAsYouType;
+        LinkedEditing = _settings.LinkedEditing;
         AutoQuickInfo = _settings.AutoQuickInfo;
         AutoIndent = _settings.AutoIndent;
         FormatOnSave = _settings.FormatOnSave;
         IsMinimapVisible = _settings.IsMinimapVisible;
         ShowInlayHints = _settings.ShowInlayHints;
+        ShowInlineValues = _settings.ShowInlineValues;
         ShowCodeLenses = _settings.ShowCodeLenses;
         ShowIndentGuides = _settings.ShowIndentGuides;
         ColorBracketsByDepth = _settings.ColorBracketsByDepth;
@@ -49,11 +55,14 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
     {
         _settings.RequireVariableDeclaration = RequireVariableDeclaration;
         _settings.AutoListMembers = AutoListMembers;
+        _settings.ListMembersAsYouType = ListMembersAsYouType;
+        _settings.LinkedEditing = LinkedEditing;
         _settings.AutoQuickInfo = AutoQuickInfo;
         _settings.AutoIndent = AutoIndent;
         _settings.FormatOnSave = FormatOnSave;
         _settings.IsMinimapVisible = IsMinimapVisible;
         _settings.ShowInlayHints = ShowInlayHints;
+        _settings.ShowInlineValues = ShowInlineValues;
         _settings.ShowCodeLenses = ShowCodeLenses;
         _settings.ShowIndentGuides = ShowIndentGuides;
         _settings.ColorBracketsByDepth = ColorBracketsByDepth;
@@ -65,11 +74,14 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
     {
         RequireVariableDeclaration = SettingsDefaults.RequireVariableDeclaration;
         AutoListMembers = SettingsDefaults.AutoListMembers;
+        ListMembersAsYouType = SettingsDefaults.ListMembersAsYouType;
+        LinkedEditing = SettingsDefaults.LinkedEditing;
         AutoQuickInfo = SettingsDefaults.AutoQuickInfo;
         AutoIndent = SettingsDefaults.AutoIndent;
         FormatOnSave = SettingsDefaults.FormatOnSave;
         IsMinimapVisible = SettingsDefaults.IsMinimapVisible;
         ShowInlayHints = SettingsDefaults.ShowInlayHints;
+        ShowInlineValues = SettingsDefaults.ShowInlineValues;
         ShowCodeLenses = SettingsDefaults.ShowCodeLenses;
         ShowIndentGuides = SettingsDefaults.ShowIndentGuides;
         ColorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;

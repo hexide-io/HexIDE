@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
-using System.Text;
 using HexIDE.Runtime.ProjectElements;
 using Serilog;
 
@@ -28,26 +27,20 @@ public class ProjectDeserializer
     public SerializedProject Deserialize(string source, IDeserializeErrorSink errorSink)
     {
         SerializedProject project = new();
-        var extensionTailBuilder = new StringBuilder();
-        bool inExtensionSection = false;
+        var sourceOffset = 0;
         int knownKeyCount = 0;
 
         foreach (var rawLine in source.Split('\n'))
         {
-            // Once we hit an INI-style section header, everything to EOF is a verbatim extension tail
-            if (inExtensionSection)
-            {
-                extensionTailBuilder.AppendLine(rawLine.TrimEnd('\r'));
-                continue;
-            }
-
+            var lineStart = sourceOffset;
+            sourceOffset += rawLine.Length + 1;
             var trimmed = rawLine.Trim();
 
+            // Keep the original section text, including its line endings and unknown values' trailing spaces (#4821).
             if (trimmed.StartsWith('['))
             {
-                inExtensionSection = true;
-                extensionTailBuilder.AppendLine(rawLine.TrimEnd('\r'));
-                continue;
+                project.ExtensionTail = source[lineStart..];
+                break;
             }
 
             if (string.IsNullOrWhiteSpace(trimmed))
@@ -232,9 +225,6 @@ public class ProjectDeserializer
 
         if (project.Description is null)
             MakeRoomForDescription(project.UnknownPreSectionLines, knownKeyCount);
-
-        if (extensionTailBuilder.Length > 0)
-            project.ExtensionTail = extensionTailBuilder.ToString().TrimEnd();
 
         return project;
     }

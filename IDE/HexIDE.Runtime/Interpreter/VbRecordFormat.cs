@@ -239,10 +239,8 @@ internal static class VbRecordFormat
     private static void WriteElements(Writer w, VBArray array)
     {
         var element = array.ElementType;
-        if (array.FixedStringWidth is not null)
-            throw new NotImplementedException("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
-        if (element == Vb6Value.ValueType.UserDefinedType)
-            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
+        if (array.FixedStringWidth is not null && !VbFiles.Ansi().IsSingleByte)
+            throw new NotImplementedException("Fixed-length String array records with a double-byte code page are not implemented (#179)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
@@ -253,7 +251,7 @@ internal static class VbRecordFormat
             else if (element is null || element == Vb6Value.ValueType.EmptyVariant)
                 WriteVariant(w, value);
             else
-                WriteTyped(w, value, element, prefixed: true);
+                WriteTyped(w, value, element, prefixed: array.FixedStringWidth is null);
         }
     }
 
@@ -263,9 +261,14 @@ internal static class VbRecordFormat
         udt.RefuseUnmeasuredLongLongLayout();
         foreach (var (name, value) in udt.EnumerateFields())
         {
-            if (value.Value is VBArray)
-                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
-            if (value.Value is VbUdt nested)
+            // #4925: dynamic fields carry their descriptor even in Binary files.
+            if (value.Value is VBArray array)
+            {
+                if (udt.IsVariantField(name))
+                    throw new NotImplementedException("Get/Put with an array held in a Variant Type field is unmeasured (#4925)");
+                WriteArray(w, array, descriptor: array.IsDynamic);
+            }
+            else if (value.Value is VbUdt nested)
                 WriteUdt(w, nested);
             else if (udt.IsVariantField(name))
                 WriteVariant(w, value);
@@ -473,10 +476,8 @@ internal static class VbRecordFormat
     public static void ReadElementsInto(IRecordSource source, VBArray array)
     {
         var element = array.ElementType;
-        if (array.FixedStringWidth is not null)
-            throw new NotImplementedException("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
-        if (element == Vb6Value.ValueType.UserDefinedType)
-            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
+        if (array.FixedStringWidth is not null && !VbFiles.Ansi().IsSingleByte)
+            throw new NotImplementedException("Fixed-length String array records with a double-byte code page are not implemented (#179)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
@@ -489,7 +490,8 @@ internal static class VbRecordFormat
                 else if (element is null || element == Vb6Value.ValueType.EmptyVariant)
                     array.SetValue(index, ReadVariant(source));
                 else
-                    array.SetValue(index, ReadTyped(source, element, prefixed: true));
+                    array.SetValue(index, ReadTyped(source, element, prefixed: array.FixedStringWidth is null,
+                        unprefixedLength: array.FixedStringWidth ?? 0));
             }
             catch (RecordGetFailure failure)
             {
@@ -510,11 +512,23 @@ internal static class VbRecordFormat
         udt.RefuseUnmeasuredLongLongLayout();
         foreach (var (name, current) in udt.EnumerateFields().ToList())
         {
-            if (current.Value is VBArray)
-                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
             try
             {
-                if (current.Value is VbUdt nested)
+                if (current.Value is VBArray array)
+                {
+                    if (udt.IsVariantField(name))
+                        throw new NotImplementedException("Get/Put with an array held in a Variant Type field is unmeasured (#4925)");
+                    if (array.IsDynamic)
+                    {
+                        if (array.IsLocked)
+                            throw new NotImplementedException("Get into a locked dynamic Type array field is unmeasured (#4925)");
+                        var bounds = ReadDescriptor(source);
+                        array = array.NewWithBounds(bounds.Count == 0 ? null : bounds);
+                        udt.TrySet(name, current.WithArray(array));
+                    }
+                    ReadElementsInto(source, array);
+                }
+                else if (current.Value is VbUdt nested)
                     ReadUdtInto(source, nested);
                 else if (udt.IsVariantField(name))
                     udt.TrySet(name, ReadVariant(source));

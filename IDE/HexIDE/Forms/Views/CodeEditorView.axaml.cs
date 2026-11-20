@@ -83,6 +83,7 @@ public partial class CodeEditorView : UserControl
             ? view._languageFeatures?.OpenPopups ?? []
             : Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<RelatedDocumentEditorView>(editor)?.OpenLanguagePopups ?? [];
     private DocumentHighlightRenderer? _highlightRenderer;
+    private LinkedEditingController? _linkedEditing;
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
@@ -95,6 +96,7 @@ public partial class CodeEditorView : UserControl
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
     private InlayHintRenderer? _inlayHintRenderer;
+    private InlineValueSession? _inlineValues;
     private System.ComponentModel.PropertyChangedEventHandler? _inlaySettingsChanged;
     private int _inlayRevision;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
@@ -498,8 +500,14 @@ public partial class CodeEditorView : UserControl
 
             _inlayHintRenderer = new InlayHintRenderer(TextEditor);
             TextEditor.TextArea.TextView.ElementGenerators.Add(_inlayHintRenderer);
+            _inlineValues = vm.CreateInlineValueSession(hints => _inlayHintRenderer?.SetInlineValues(hints));
+            TextEditor.TextArea.TextView.VisualLinesChanged += OnInlineValueViewportChanged;
+            TextEditor.TextArea.TextView.ScrollOffsetChanged += OnInlineValueViewportChanged;
+            OnInlineValueViewportChanged(this, EventArgs.Empty);
             _inlaySettingsChanged = (_, e) =>
             {
+                if (e.PropertyName == nameof(vm.Settings.RDCoreWin64OnlySetOnWindows))
+                    ScheduleConditionalCompilation(null, EventArgs.Empty);
                 if (e.PropertyName != nameof(vm.Settings.ShowInlayHints)) return;
                 ScheduleFolding(vm);
             };
@@ -550,6 +558,8 @@ public partial class CodeEditorView : UserControl
             _highlightRenderer = new DocumentHighlightRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _highlightRenderer);
             TextEditor.TextArea.Caret.PositionChanged += OnCaretMovedForHighlight;
+            _linkedEditing = new LinkedEditingController(TextEditor, vm.Settings, () => IsActivePane && vm.CanLinkedEdit,
+                vm.RequestLinkedEditingRangesAsync, (offset, length) => vm.IsReadOnly || vm.IsReadOnlyRegion(offset, length));
 
             // Code folding. The header's fold and each member's attribute run's are the window's own and are in
             // place before anything is drawn; a server's folds join them when the server answers, if one ever does.
@@ -820,6 +830,10 @@ public partial class CodeEditorView : UserControl
             vm.StatusBar.Column = null;
         }
 
+        TextEditor.TextArea.TextView.VisualLinesChanged -= OnInlineValueViewportChanged;
+        TextEditor.TextArea.TextView.ScrollOffsetChanged -= OnInlineValueViewportChanged;
+        _inlineValues?.Dispose();
+        _inlineValues = null;
         ++_inlayRevision;
         if (_inlayHintRenderer is not null)
         {
@@ -932,6 +946,8 @@ public partial class CodeEditorView : UserControl
         _languageFeatures?.Dispose();
         _languageFeatures = null;
 
+        _linkedEditing?.Dispose();
+        _linkedEditing = null;
         if (_highlightRenderer is not null)
         {
             TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_highlightRenderer);
@@ -1478,6 +1494,18 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[folding] {ErrorMessage}", ex.Message);
         }
+    }
+
+    private void OnInlineValueViewportChanged(object? sender, EventArgs args)
+    {
+        var view = TextEditor.TextArea.TextView;
+        if (_inlineValues is null || !view.VisualLinesValid || view.VisualLines.Count == 0) return;
+        var visible = view.VisualLines.Where(line => line.VisualTop + line.Height >= view.ScrollOffset.Y
+            && line.VisualTop <= view.ScrollOffset.Y + view.Bounds.Height).ToArray();
+        if (visible.Length == 0) return;
+        var first = visible[0].FirstDocumentLine;
+        var last = visible[^1].LastDocumentLine;
+        _inlineValues.SetVisibleRange(new(new(first.LineNumber - 1, 0), new(last.LineNumber - 1, last.Length)));
     }
 
     private async Task RequestInlayHintsAsync(CodeEditorViewModel vm, CancellationToken token)
@@ -2810,6 +2838,8 @@ public partial class CodeEditorView : UserControl
     private sealed class CodeWindowCompletionRules(CodeEditorView view, CodeEditorViewModel vm) : IEditorCompletionRules
     {
         public bool MayOpenCompletion() => vm.Settings.AutoListMembers && !view.CaretIsInFreeText();
+        public bool LettersOpenCompletion => vm.Settings.ListMembersAsYouType;
+        public bool LettersSelect => false;
         public bool RefusesTyping(int offset, int length) => vm.RefusesTyping(offset, length);
         public bool Commits(Key key) => key is Key.Return or Key.Tab or Key.Space;
         public bool HandlesReturn => false;
@@ -2994,8 +3024,9 @@ public partial class CodeEditorView : UserControl
             }
 
             var loc = locations[0];
-            var targetLine = loc.Range.Start.Line + 1; // AvaloniaEdit is 1-based
-            var targetCol  = loc.Range.Start.Character;
+            var target = CodeEditorClientActions.EditorLocation(loc.Range.Start);
+            var targetLine = target.Line;
+            var targetCol = target.Column - 1;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {

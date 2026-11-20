@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Linq;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
@@ -99,7 +100,13 @@ public sealed class VBProgram : IFormProgram
     /// </param>
     public VBProgram(FormDefinition startup, VBWindowContext startupContext, Debugging.IDebugGate? debugController,
         Func<FormDefinition, IFormView>? openForm)
-        : this(startup.Owner, startup, startupContext, debugController, openForm)
+        : this(startup, startupContext, debugController, openForm, false)
+    {
+    }
+
+    public VBProgram(FormDefinition startup, VBWindowContext startupContext, Debugging.IDebugGate? debugController,
+        Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host = null)
+        : this(startup.Owner, startup, startupContext, debugController, openForm, win64OnlySetOnWindows, host)
     {
     }
 
@@ -112,12 +119,18 @@ public sealed class VBProgram : IFormProgram
     /// <param name="openForm">How the host makes a window for a form, or null in a host that shows none.</param>
     public VBProgram(ProjectDefinition project, VBWindowContext rootContext, Debugging.IDebugGate? debugController,
         Func<FormDefinition, IFormView>? openForm)
-        : this(project, startup: null, rootContext, debugController, openForm)
+        : this(project, rootContext, debugController, openForm, false)
+    {
+    }
+
+    public VBProgram(ProjectDefinition project, VBWindowContext rootContext, Debugging.IDebugGate? debugController,
+        Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host = null)
+        : this(project, startup: null, rootContext, debugController, openForm, win64OnlySetOnWindows, host)
     {
     }
 
     private VBProgram(ProjectDefinition? project, FormDefinition? startup, VBWindowContext rootContext,
-        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm)
+        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host)
     {
         this.openForm = openForm;
         if (project is not null)
@@ -153,7 +166,7 @@ public sealed class VBProgram : IFormProgram
 
         ExecutionContext = rootContext.ExecutionContext;
         // The project's Conditional Compilation Arguments, or vb6.exe's refusal of them before anything runs (#1112).
-        var compilation = project is null ? null : CompilationConstants.ForProject(project);
+        var compilation = project is null ? null : CompilationConstants.ForProject(project, host, win64OnlySetOnWindows);
         interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
             primaryCode, primaryName, additional, classModules.Concat(project?.Modules
                 .Where(m => m.Kind == ModuleKind.UserControl && m.FormPart is not null)
@@ -199,7 +212,7 @@ public sealed class VBProgram : IFormProgram
                 finally
                 {
                     if (interpreter.DebugController?.Session == session)
-                        interpreter.DebugController?.NotifyDispatchIdle(carryStep: false);
+                        interpreter.DebugController?.NotifyMainDispatchIdle();
                 }
                 return true;
             });
@@ -283,10 +296,11 @@ public sealed class VBProgram : IFormProgram
     }
 
     /// <inheritdoc/>
-    public async Task<VbObject> MakeInstance(ModuleInfo form)
+    public async Task<VbObject> MakeInstance(ModuleInfo form, Action<VbObject>? publish = null)
     {
         var context = Open(form, existing: null, defaultInstance: false);
         var instance = context.FormInstance!;
+        publish?.Invoke(instance);
         // Initialize can call its own members. Hold the unfinished instance until New hands it to its statement.
         instance.RefCount++;
         try
@@ -363,34 +377,37 @@ public sealed class VBProgram : IFormProgram
 
     /// <summary>
     /// Hide a form. While a modal form is displayed, hiding any form other than the innermost raises 402, "Must close or
-    /// hide topmost modal form first", after hiding it (measured, #4032). Visible = False hides a modeless form without
-    /// that error (measured, #3936).
+    /// hide topmost modal form first", without hiding or moving activation (console measurements, #4766). Visible = False
+    /// hides a modeless form without that error (measured, #3936).
     /// </summary>
     /// <remarks>
-    /// A modal form beneath the innermost one is hidden and given 402 by Visible = False too, and its modal loop goes on
-    /// waiting while it is hidden: its Show vbModal returns only once it unloads (measured, native and p-code).
+    /// A modal form beneath the innermost one stays shown with 402 from Visible = False too. Its modal loop keeps
+    /// waiting after the innermost form hides (measured in the IDE, native and p-code, #4766).
     /// </remarks>
     internal void Hide(IFormView view, bool reportModalError = true)
     {
         var underModal = modals.Count > 0 && !ReferenceEquals(modals[^1], view.Context);
         var modalBeneath = underModal && modals.Contains(view.Context);
         var modalError = underModal && (reportModalError || modalBeneath);
-        if (modalBeneath)
-            hiddenBeneath.Add(view.Context);
-        else
-            hiddenBeneath.Remove(view.Context);
+        if (modalError)
+            throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
         var next = ReferenceEquals(active, view.Context) ? NextShown(view.Context) : null;
         view.HideForm();
         ActivateNext(next);
-        if (modalError)
-            throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
     }
 
-    /// <summary>
-    /// Modal forms hidden while another modal form was over them, whose modal loops go on waiting while they are hidden
-    /// (measured). Hiding one again once it is the innermost ends its loop, as Hide of the innermost always does.
-    /// </summary>
-    private readonly HashSet<VBWindowContext> hiddenBeneath = [];
+    /// <summary>Shown, non-minimised windows, least recently activated first, for Continue to restack (#4667).</summary>
+    public IReadOnlyList<object> ShownWindows()
+    {
+        var windows = new List<object>();
+        foreach (var context in activationOrder)
+            if (context.FormInstance is { FormLoaded: true }
+                && context.Window is { } window
+                && FormRoot.View(window) is { IsShown: true } view
+                && view.Extent.State != Avalonia.Controls.WindowState.Minimized)
+                windows.Add(window);
+        return windows;
+    }
 
     private VBWindowContext? NextShown(VBWindowContext leaving) =>
         activationOrder.LastOrDefault(context => !ReferenceEquals(context, leaving)
@@ -412,13 +429,15 @@ public sealed class VBProgram : IFormProgram
     /// form is held as it was before. All measured.
     /// </summary>
     /// <remarks>
-    /// A form already shown modelessly turns modal, with no error: VB6's documented 400 never came (measured). So does a
-    /// form beneath the modal one, over it. Only the modal forms themselves are refused, with 405, "Unable to show modal
-    /// form within this context". Other forms' events go on: Form1's Timer ticks under Form2's modal form, in compiled code
-    /// and in the IDE alike (measured).
+    /// A displayed form raises 400 before any modal state changes, including a modal form showing itself (#4765,
+    /// console measurements). A form shown then hidden can turn modal. A modal form that isn't displayed still raises
+    /// 405; no console path to that error has been measured. Other forms' events go on: Form1's Timer ticks under Form2's
+    /// modal form, in compiled code and in the IDE alike (measured).
     /// </remarks>
-    internal async Task ShowModal(IFormView view)
+    internal async Task ShowModal(IFormView view, VBFormRuntime? owner)
     {
+        if (view.IsShown)
+            throw new VBRunTimeException(VBStandardError.FormAlreadyDisplayedCantShowModally);
         var context = view.Context;
         if (modals.Contains(context))
             throw new VBRunTimeException(VBStandardError.UnableToShowModalFormWithinThisContext);
@@ -435,20 +454,36 @@ public sealed class VBProgram : IFormProgram
             }
         modals.Add(context);
         var over = interpreter.BuiltIns.WatchRunEnd?.Invoke();
+        var window = view as VBFormRuntime;
+        var showInTaskbar = window?.ShowInTaskbar ?? false;
+        var caller = interpreter.ActivationStack.LastOrDefault();
+        var debug = caller is not null ? interpreter.DebugController : null;
         try
         {
-            view.ShowForm();
+            if (window is not null)
+                window.ShowModalForm(owner);
+            else
+                view.ShowForm();
             var form = context.FormInstance!;
-            // Hidden as the innermost form, it is done; hidden while another modal form was over it, it waits on.
-            await Events.WhileModal(() => form.FormLoaded && (view.IsShown || hiddenBeneath.Contains(context))
-                && over?.Invoke() != true);
+            await Events.WhileModal(() => form.FormLoaded && view.IsShown
+                && over?.Invoke() != true, debug,
+                caller is not null && debug is not null ? () => caller.PauseAtModalWait(debug) : null);
         }
         finally
         {
+            if (window is not null)
+            {
+                window.ClearModalOwner();
+                window.ShowInTaskbar = showInTaskbar;
+            }
             modals.Remove(context);
-            hiddenBeneath.Remove(context);
             foreach (var (otherView, before) in held)
                 otherView.HeldBy = before;
+            // Ownership can raise the owner above the previously active form. Return native focus to the form the
+            // program already selected on hide/unload, after freeing it; its Activate event has already been queued.
+            if (window is not null && active is { FormInstance.FormLoaded: true } next && !ReferenceEquals(next, context)
+                && next.Window is VBFormRuntime { IsShown: true, HeldBy: null } nextView)
+                nextView.ActivateForm();
         }
         // The run ended under the modal form, by End, Stop or a fault: the statement after the Show never runs (measured
         // for End).

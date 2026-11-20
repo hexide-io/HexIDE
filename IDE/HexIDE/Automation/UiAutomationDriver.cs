@@ -264,6 +264,9 @@ public static class UiAutomationDriver
             var window = root is null ? source as Window : TopLevel.GetTopLevel(root);
             if (source is not null && window is not null)
             {
+                if (!ReferenceEquals(source, window) && !NativeWayland.Placed(source))
+                    return (null, "The compositor has not placed this popup yet, so its position is unknown; "
+                                  + "boundingRect is unavailable. Inspect it again.");
                 // A peer measures from the surface, which under client-side decorations starts above the window's own
                 // first row (#3575).
                 var rect = peer.GetBoundingRectangle();
@@ -344,9 +347,20 @@ public static class UiAutomationDriver
 
     private static WindowFrameState ReadFrame(Window window)
     {
-        var (style, exStyle, note) = NativeWindowFrame.Read(window);
+        var (style, exStyle, note, nativeOwner) = NativeWindowFrame.Read(window);
         return new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(), window.CanMinimize,
-            window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(), note, style, exStyle);
+            window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(), note, style, exStyle)
+        {
+            Owner = window.Owner is Window owner ? DescribeOwner(owner) : null,
+            NativeOwner = nativeOwner
+        };
+    }
+
+    internal static WindowOwnerState DescribeOwner(Window window)
+    {
+        var lifetime = Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        return new WindowOwnerState(HexIDE.IDE.ForegroundWindow.Address(window, lifetime?.MainWindow, lifetime?.Windows ?? []),
+            window.Title);
     }
 
     /// <summary>
@@ -4639,9 +4653,26 @@ public static class UiAutomationDriver
     {
         if (ToolTipInstanceProperty is null || !ToolTip.GetIsOpen(owner)
             || owner.GetValue(ToolTipInstanceProperty) is not ToolTip { IsEffectivelyVisible: true } tip
-            || TopLevel.GetTopLevel(tip) is null)
+            || TopLevel.GetTopLevel(tip) is not { } popup || !NativeWayland.Placed(popup))
             return null;
         return Safe<Rect?>(() => new Rect(window.PointToClient(tip.PointToScreen(default)), tip.Bounds.Size), null);
+    }
+
+    internal static async Task<bool> WaitForTipPlacementAsync(Control owner, CancellationToken ct)
+    {
+        if (ToolTipInstanceProperty is null || owner.GetValue(ToolTipInstanceProperty) is not ToolTip tip
+            || TopLevel.GetTopLevel(tip) is not PopupRoot popup || NativeWayland.Placed(popup))
+            return true;
+        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnPositionChanged(object? sender, PixelPointEventArgs args) => changed.TrySetResult();
+        popup.PositionChanged += OnPositionChanged;
+        try
+        {
+            await changed.Task.WaitAsync(TimeSpan.FromMilliseconds(500), ct);
+        }
+        catch (TimeoutException) { }
+        finally { popup.PositionChanged -= OnPositionChanged; }
+        return NativeWayland.Placed(popup);
     }
 
     /// <inheritdoc cref="Hover(Control, double?, double?)"/>
@@ -6367,7 +6398,26 @@ public record WindowFrameState(bool CanResize, string WindowDecorations, bool Ca
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     uint? NativeStyle = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    uint? NativeExStyle = null);
+    uint? NativeExStyle = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+    public WindowOwnerState? Owner { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    // Null omits an unavailable native owner; a JSON null reports an HWND with no owner.
+    public System.Text.Json.JsonElement? NativeOwner { get; init; }
+}
+
+/// <summary>
+/// An owning window and its current title. <c>Name</c> is the 'window' selector that reaches it, absent when none does;
+/// a window HexIDE didn't make has no name and gives its native <c>ClassName</c> instead (#4795).
+/// </summary>
+public record WindowOwnerState(
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? Name,
+    string? Title,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? ClassName = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);

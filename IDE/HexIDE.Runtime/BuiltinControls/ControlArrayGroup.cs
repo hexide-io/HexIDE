@@ -102,6 +102,8 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         // cloned with it. Pinned as a test rather than asserted as correct — what VB6 does when you Load a
         // new element of a Frame array is an open oracle question (see the change's open list).
         var control = ((ComponentBaseClass)tmpl.BaseClass).Instantiate(tmpl);
+        // Its form file's RDCore members, as the template had them when it was placed (#4967).
+        AvaloniaInterop.RDCoreMembers.ApplyFormFile(control, tmpl, VBProps.GetRDCoreAdditions(parent));
         if (control is VBCommonDialog dialog && elements[templateIndex] is VBCommonDialog sourceDialog)
             dialog.host = sourceDialog.host;
         control.IsVisible = false;
@@ -152,6 +154,11 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         VBProps.SetRunTimeId(item);
         var below = elements.Keys.Where(k => k < index).Select(k => elements[k]).LastOrDefault();
         var position = below is not null ? menu.Items.IndexOf(below) + 1 : menu.Items.IndexOf(elements[elements.Keys.First()]);
+        if (menu is VBMenuBar bar)
+        {
+            AvaloniaInterop.MenuMembers.ChangeRows(bar, added: item, position: position);
+            bar.PrepareItem(item);
+        }
         menu.Items.Insert(position, item);
         elements[index] = item;
         owners.AddOrUpdate(item, this);
@@ -167,14 +174,16 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
             throw new VBRunTimeException(VBStandardError.ControlArrayElementIsMissing(index));       // 340
         if (designTimeIndices.Contains(index))
             throw new VBRunTimeException(VBStandardError.CantUnloadControlsCreatedAtDesignTime);      // 362
+        if (menuHosts.TryGetValue(index, out var rowHost) && rowHost is VBMenuBar rowBar)
+            AvaloniaInterop.MenuMembers.ChangeRows(rowBar, control, visible: false);
+        // A bar that isn't a VBMenuBar counts no rows: it goes when its last visible menu is unloaded (#1140).
+        else if (rowHost is Menu plainBar && control.IsVisible
+            && !plainBar.Items.OfType<Control>().Any(other => !ReferenceEquals(other, control) && other.IsVisible))
+            AvaloniaInterop.MenuMembers.ChangeBar(plainBar, 0);
         if (hosts.TryGetValue(index, out var host))
             host.Children.Remove(control);
         if (menuHosts.TryGetValue(index, out var menu))
         {
-            // Unloading the last visible top-level menu would take the bar away, which is refused as hiding it is.
-            if (menu is Menu bar)
-                AvaloniaInterop.MenuMembers.RefuseBarChange(bar, bar.IsVisible && control.IsVisible
-                    && !bar.Items.OfType<Control>().Any(other => !ReferenceEquals(other, control) && other.IsVisible));
             menu.Items.Remove(control);
         }
         elements.Remove(index);

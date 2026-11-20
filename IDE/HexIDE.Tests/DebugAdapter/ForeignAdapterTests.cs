@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using HexIDE.Conversations;
 using HexIDE.Dap;
+using HexIDE.Tests.LspClient;
 
 namespace HexIDE.Tests.DebugAdapter;
 
@@ -42,7 +44,42 @@ public class ForeignAdapterTests
     public Task Debugpy_runs_a_complete_session() => Run("debugpy");
 
     [ForeignAdapterFact("netcoredbg")]
-    public Task Netcoredbg_runs_a_complete_session() => Run("netcoredbg");
+    public Task Netcoredbg_runs_a_complete_session() => RunWithStartupWaitRetry(
+        () => Run("netcoredbg"), message => ReportRetry(message, Environment.GetEnvironmentVariable(ForeignServerReport.ReportVariable)));
+
+    // A retry that then passes leaves the run green, and a green run's test results are discarded. So each one also
+    // goes into the foreign-server report, which CI prints on every run, as a warning annotation (#4509).
+    internal static void ReportRetry(string message, string? reportPath)
+    {
+        TestContext.Current.TestOutputHelper?.WriteLine(message);
+        if (reportPath is { Length: > 0 })
+            File.AppendAllText(reportPath,
+                $"::warning title=netcoredbg startup wait (#4509)::Netcoredbg_runs_a_complete_session: {message}{Environment.NewLine}");
+    }
+
+    internal static async Task RunWithStartupWaitRetry(Func<Task> run, Action<string> output)
+    {
+        try { await run(); }
+        catch (IOException first) when (first.Data["NetcoredbgStartupWait"] is true)
+        {
+            output("netcoredbg's 5 s startup wait ran out (#4509); the session runs once more");
+            try { await run(); }
+            catch (Exception second)
+            {
+                throw new IOException($"First attempt: {first.Message}\nSecond attempt: {second.Message}",
+                    new AggregateException(first, second));
+            }
+        }
+    }
+
+    // A log that couldn't be read, or holds nothing, can't show the absence of an IfFailRet line, so it never matches.
+    internal static bool IsNetcoredbgStartupWait(Exception error, IEnumerable<ConversationEnvelope> conversation, string? nativeLog) =>
+        nativeLog is { Length: > 0 } &&
+        error is DapRequestException { Response.Command: "configurationDone" } &&
+        error.Message.Contains("0x80004005", StringComparison.Ordinal) &&
+        !conversation.Any(entry => entry.Direction == ConversationDirection.Received &&
+            entry.Kind == ConversationEntryKind.Notification && entry.Method == "process") &&
+        !Regex.IsMatch(nativeLog, @" : 0x[0-9a-fA-F]{8}");
 
     [ForeignAdapterFact("netcoredbg")]
     public async Task Netcoredbg_launch_failure_includes_the_native_call_log()
@@ -111,34 +148,45 @@ public class ForeignAdapterTests
                     terminatedEvent.TrySetException(exception);
                 }
             }, token);
-            var breakpoints = await session.LaunchAsync(adapter, launch, [new(source, [breakpointLine])], token);
-            breakpoints.Should().ContainSingle();
-            breakpoints[0].Body!.Value.GetProperty("breakpoints").GetArrayLength().Should().Be(1);
-            var stopped = await stoppedEvent.Task.WaitAsync(token);
-            stopped.Event!.Body!.Value.GetProperty("reason").GetString().Should().Be("breakpoint");
-            var stop = stopped.Snapshot.Stop!;
-            var threads = (await session.ThreadsAsync(stop, token)).Body!.Value.GetProperty("threads");
-            threads.EnumerateArray().Should().Contain(t => t.GetProperty("id").GetInt32() == stop.ThreadId);
-            var stack = (await session.StackTraceAsync(stop, stop.ThreadId!.Value, token)).Body!.Value.GetProperty("stackFrames");
-            stack.GetArrayLength().Should().BeGreaterThan(0);
-            var frame = stack[0];
-            frame.GetProperty("line").GetInt32().Should().Be(breakpointLine);
-            Path.GetFullPath(frame.GetProperty("source").GetProperty("path").GetString()!).Should().Be(source);
-            var scopes = (await session.ScopesAsync(stop, frame.GetProperty("id").GetInt32(), token)).Body!.Value.GetProperty("scopes");
-            var locals = scopes.EnumerateArray().First(s => s.GetProperty("name").GetString()!.Contains("Locals", StringComparison.OrdinalIgnoreCase));
-            var variables = (await session.VariablesAsync(stop, locals.GetProperty("variablesReference").GetInt32(), token)).Body!.Value.GetProperty("variables");
-            variables.EnumerateArray().Should().Contain(v => v.GetProperty("name").GetString() == "answer" && v.GetProperty("value").GetString() == "41");
-            await session.ResumeAsync(stop, "continue", stop.ThreadId.Value, token);
-            await terminatedEvent.Task.WaitAsync(token);
-            await session.DisconnectAsync(token);
-            var result = await session.ProcessCompletion!.WaitAsync(token);
-            result.ExitCode.Should().Be(0, result.StandardErrorTail);
-            result.ForcedTermination.Should().BeFalse(result.StandardErrorTail);
-            result.CleanupFailure.Should().BeNull();
-            await observer.WaitAsync(token);
-            session.Snapshot.State.Should().Be(DapSessionState.Ended);
-            await log.DrainAsync();
-            AssertConversation(log, adapter, source, breakpointLine);
+            try
+            {
+                var breakpoints = await session.LaunchAsync(adapter, launch, [new(source, [breakpointLine])], token);
+                breakpoints.Should().ContainSingle();
+                breakpoints[0].Body!.Value.GetProperty("breakpoints").GetArrayLength().Should().Be(1);
+                var stopped = await stoppedEvent.Task.WaitAsync(token);
+                stopped.Event!.Body!.Value.GetProperty("reason").GetString().Should().Be("breakpoint");
+                var stop = stopped.Snapshot.Stop!;
+                var threads = (await session.ThreadsAsync(stop, token)).Body!.Value.GetProperty("threads");
+                threads.EnumerateArray().Should().Contain(t => t.GetProperty("id").GetInt32() == stop.ThreadId);
+                var stack = (await session.StackTraceAsync(stop, stop.ThreadId!.Value, token)).Body!.Value.GetProperty("stackFrames");
+                stack.GetArrayLength().Should().BeGreaterThan(0);
+                var frame = stack[0];
+                frame.GetProperty("line").GetInt32().Should().Be(breakpointLine);
+                Path.GetFullPath(frame.GetProperty("source").GetProperty("path").GetString()!).Should().Be(source);
+                var scopes = (await session.ScopesAsync(stop, frame.GetProperty("id").GetInt32(), token)).Body!.Value.GetProperty("scopes");
+                var locals = scopes.EnumerateArray().First(s => s.GetProperty("name").GetString()!.Contains("Locals", StringComparison.OrdinalIgnoreCase));
+                var variables = (await session.VariablesAsync(stop, locals.GetProperty("variablesReference").GetInt32(), token)).Body!.Value.GetProperty("variables");
+                variables.EnumerateArray().Should().Contain(v => v.GetProperty("name").GetString() == "answer" && v.GetProperty("value").GetString() == "41");
+                await session.ResumeAsync(stop, "continue", stop.ThreadId.Value, token);
+                await terminatedEvent.Task.WaitAsync(token);
+                await session.DisconnectAsync(token);
+                var result = await session.ProcessCompletion!.WaitAsync(token);
+                result.ExitCode.Should().Be(0, result.StandardErrorTail);
+                result.ForcedTermination.Should().BeFalse(result.StandardErrorTail);
+                result.CleanupFailure.Should().BeNull();
+                await observer.WaitAsync(token);
+                session.Snapshot.State.Should().Be(DapSessionState.Ended);
+                await log.DrainAsync();
+                AssertConversation(log, adapter, source, breakpointLine);
+            }
+            finally
+            {
+                await session.DisposeAsync();
+                await observer;
+                // Launch can fail before either event is awaited.
+                _ = stoppedEvent.Task.Exception;
+                _ = terminatedEvent.Task.Exception;
+            }
         }
         catch (Exception error)
         {
@@ -151,19 +199,24 @@ public class ForeignAdapterTests
                     TestContext.Current.TestOutputHelper?.WriteLine(System.Text.Encoding.UTF8.GetString(reply.Head));
             }
             var diagnostics = "";
+            var startupWait = false;
             if (nativeLog is not null)
             {
                 string contents;
-                try { contents = File.Exists(nativeLog) ? await File.ReadAllTextAsync(nativeLog, Token) : "(missing)"; }
+                string? readLog = null;
+                try { contents = File.Exists(nativeLog) ? readLog = await File.ReadAllTextAsync(nativeLog, Token) : "(missing)"; }
                 catch (Exception readError) when (readError is IOException or UnauthorizedAccessException)
                 { contents = $"(unreadable: {readError.Message})"; }
                 if (contents.Length == 0) contents = "(empty)";
+                startupWait = IsNetcoredbgStartupWait(error, log.Snapshot(adapter), readLog);
                 TestContext.Current.TestOutputHelper?.WriteLine($"netcoredbg log:\n{contents}");
                 diagnostics = $"\nnetcoredbg log:\n{string.Join("\n", contents.ReplaceLineEndings("\n").Split('\n').TakeLast(40))}";
             }
             var stderr = adapterEnded is { IsCompletedSuccessfully: true } ended
                 ? $"exit code {ended.Result.ExitCode}: {ended.Result.StandardErrorTail}" : "(unavailable)";
-            throw new IOException($"{adapter}: {error.Message}{diagnostics}\nAdapter stderr tail: {stderr}", error);
+            var failure = new IOException($"{adapter}: {error.Message}{diagnostics}\nAdapter stderr tail: {stderr}", error);
+            if (startupWait) failure.Data["NetcoredbgStartupWait"] = true;
+            throw failure;
         }
         finally { DeleteWhenReleased(directory); }
     }

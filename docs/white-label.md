@@ -115,11 +115,29 @@ with `defaults.json` in the same folder:
 | `languageOverrides` | No | An object from a language id, such as `fr`, to a file of strings in the format of the language packs in `IDE/HexIDE/Localization/Packs`. It changes the wording of a language the IDE ships, and can't add one. |
 
 Every file a profile names is a path inside its folder. A `settingsDefaults` file may set:
-- the numbers `tabWidth`, `gridWidth` and `gridHeight`;
-- the names `activeTheme`, `activeKeymap` and `activeLanguage`;
-- `true` or `false` for `requireVariableDeclaration`, `autoListMembers`, `autoQuickInfo`, `autoIndent`,
+
+- the integers `tabWidth`, `gridWidth` and `gridHeight`;
+- the names `activeTheme`, `activeKeymap` and `activeLanguage`, and the non-blank string `editorFontFamily`;
+- the number `editorFontSize` (6–72) and the integer `stickyScrollDepth` (1–10), matching Options;
+- `true` or `false` for `requireVariableDeclaration`, `autoListMembers`, `listMembersAsYouType`, `linkedEditing` (off by default), `showInlineValues`, `autoQuickInfo`, `autoIndent`,
   `formatOnSave`, `showGrid`, `alignToGrid`, `promptForProjectOnStartup`, `isStandardToolbarVisible`,
-  `isEditToolbarVisible`, `isDebugToolbarVisible`, `isFormEditorToolbarVisible` and `isMinimapVisible`.
+  `isEditToolbarVisible`, `isDebugToolbarVisible`, `isFormEditorToolbarVisible`, `isMinimapVisible`,
+  `showInlayHints`, `showCodeLenses`, `colorBracketsByDepth`, `showIndentGuides`, `isStickyScrollEnabled` and
+  `rdcoreWin64OnlySetOnWindows` (RDCore constants only, default false);
+- `languageServerSettings`, an object keyed by server id whose values are JSON objects.
+
+The following settings are never settable by a profile:
+
+- `loadUnsignedAddins`: security; profiles must not weaken add-in signature checks.
+- `revocationListUrl`: security; profiles must not redirect or disable revocation updates.
+- `reloadFilesChangedOutsideIde`: replacing open documents with disk changes stays the user's choice (#2504).
+- `editorColorOverrides`: per-theme user edits; profiles supply colours through their theme payload.
+- `serverChatTools`: the user's consent for each server's AI Chat tools, never a profile's decision.
+- `window`: the user's window position, size and state, not a portable starting setting.
+
+The loader keeps these exclusions and their reasons next to its allowlist. A reflection test checks every
+settable `ISettingsService` property using its persisted JSON name; a new setting must join the allowlist
+or have an explicit exclusion reason. Excluded and unknown settings are refused with `DisallowedSetting`.
 
 A profile sets where each user starts, and anything a user has chosen and saved wins over it. A member or setting
 not listed here, or a file the profile can't read, stops the IDE from starting with exit code 2, and the refusal

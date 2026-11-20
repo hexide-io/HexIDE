@@ -74,3 +74,80 @@ The folder, empty-path and missing-program rows repeat #2522's above and agree w
 - a non-String PathName, such as a number (`VB6BuiltIns.Shell.cs` refuses it, citing #2522);
 - a program that exists but can't start, such as a 16-bit or wrong-architecture one;
 - access denied.
+
+### A non-String PathName, access denied, and programs that can't start (2026-11-18, #4406)
+
+**The rig:**
+- **Build and run:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0 of the oracle guest. Native code and p-code gave identical output in every row.
+- **Each call:** `id = Shell(v, vbHide)` under `On Error Resume Next`, logging the error or the result's type.
+- **The files** were put in the program's own folder before it ran:
+  - copies of `attrib.exe` named `123.exe`, `True.exe` and `5.exe`;
+  - a copy named `deny.exe`, whose ACL denies read and execute to Everyone;
+  - `bad.exe`, five bytes of text;
+  - `mz.exe`, `MZ` followed by 510 zero bytes;
+  - `doc.txt` (`.txt` is associated with Notepad there) and `x.doc` (nothing is associated with `.doc` there), both text;
+  - `noext`, text with no extension;
+  - `bin.dat`, the bytes 0 to 255;
+  - `run.bat`, which is `@exit 0`.
+- **Paths:** each file was named by its full path, except the conversion rows.
+
+**A non-String PathName goes through CStr first:**
+
+| Call | Result |
+|---|---|
+| `Shell(123)`, an Integer | **the ID**: it ran `123.exe` from the program's folder. **Without that file: 53** |
+| `Shell(CCur(5))` | **the ID**: `5.exe` |
+| `Shell(True)` | **the ID**: `True.exe`, so True became `"True"` |
+| `Shell(1.5)` | 53: there's no file of that name |
+| `Shell(#1/1/2000#)` | 53 |
+| `Shell(Empty)` | **5**, as `Shell("")` |
+| `Shell(Null)` | 94 |
+| `Shell(Array(1))` | **13** |
+| `Shell(o)`, `o` an Object holding Nothing | **91** |
+
+- **The 53 rows** came from a first run, in which the program's folder held no file of those names.
+- **The `123.exe` row is the discriminating one:** a number that's converted and searched for finds the file, and one that's refused can't.
+
+**Launch failures:**
+
+| PathName (full path) | VB6 | `CreateProcess`'s Win32 error for the same file |
+|---|---|---|
+| a missing `nosuch.exe` | 53 | 2 |
+| `deny.exe`, execute denied | **5** | 5 |
+| `bad.exe`, text named `.exe` | **5** | 216 |
+| `mz.exe`, an MZ header and zeros | **5** | 216 |
+| `doc.txt`, an associated document | 5 | 193 |
+| `x.doc`, with no association | 5 | 193 |
+| `noext`, no extension | **5** | 193 |
+| `bin.dat`, binary | **5** | 193 |
+| the program's own folder | 5 | |
+| `run.bat` | **the ID**: a batch file runs | none: it started |
+
+- **How the Win32 column was read:** in the same guest, from .NET's `Process.Start` with `UseShellExecute = false`, which calls `CreateProcess`. That was a 64-bit caller, where VB6's runtime is 32-bit.
+- **What the rows support:** 53 for "not found", and **5 for every other failure measured**. An access denial, a bad image and a document all raise 5, with or without an association, text or binary.
+- **What they don't:** failures with other Win32 errors weren't produced, such as elevation required (740) or a missing DLL in a program that does start.
+
+**Not measured:**
+- a Byte, Long, Single or Decimal PathName, which these rows suggest go through CStr too (**since measured**: they do; see below);
+- an Object holding an object with a default member, and an Error value (**since measured** for a Collection, 450, and an Error value, 13; see below);
+- a 16-bit program, and one that needs elevation.
+
+#### The other numeric types, an Error value and a live object (2026-11-18, second run, #4406)
+
+**The rig:** the same as above. The program's folder held copies of `attrib.exe` named `7.exe`, `70000.exe`, `8.exe` and `9.exe`.
+
+| Call | Result |
+|---|---|
+| `Shell(CByte(7))` | the ID: `7.exe` |
+| `Shell(CLng(70000))` | the ID: `70000.exe` |
+| `Shell(CSng(8))` | the ID: `8.exe` |
+| `Shell(CDec(9))` | the ID: `9.exe` |
+| `Shell(CLng(71000))`, no such file | 53 |
+| `Shell(CVErr(5))` | **13** |
+| `Shell(c)`, `c` a `New Collection` | **450** "Wrong number of arguments or invalid property assignment" |
+
+- **Every numeric type measured goes through CStr,** and so does Boolean.
+- **An Error value is 13,** as an array is.
+- **A live object is read through its default member:** a Collection's `Item` needs an argument, so 450.
+
+**Not measured:** an object whose default member takes no argument.

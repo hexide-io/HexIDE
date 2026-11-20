@@ -11,6 +11,13 @@ Top, Width and Height, the count and `Err`, under `On Error Resume Next`. A seco
 gave the same values. Six shapes that might not compile were each built alone. **Native and p-code agreed on every
 row.**
 
+**Re-run on the console (2026-11-18, #4768).** Session 0 displays no form, so the probe was rebuilt and run on the
+guest's console in the IDE (`/runexit`), p-code and native, with the form hidden and shown, logging its session id.
+Every row of the first table gave the same, `FormMoveTests`' expected lines exactly, except two. One is the smallest
+size, below. The other is the size the form is loaded again at: the `.frm`'s client size plus the frame, which is
+larger on the console. The rebuilt probe's form, 4000 x 3000 inside, came back 4245 x 3585 on the console and
+4125 x 3405 in session 0. The re-run also measured Move on a minimized or maximized form, at the end of this section.
+
 | Case | Left, Top, Width x Height | Resize |
 |---|---|---|
 | `Move 600` | 600, 1200, 6000 x 4500 | none |
@@ -23,7 +30,7 @@ row.**
 | `Move 600.5, 900.5, 4800.5, 3600.5`; `Move 607.5, 907.5` | 600, 900, 4800 x 3600; 608, 908 | one; none |
 | `Move -600, -900` | -600, -900 | none |
 | `Move 600, 900, -10, 3600`; `Move 600, 900, 4800, -10` | unchanged | none; **Err 5** |
-| `Move 600, 900, 0, 0`; `Move 600, 900, 100, 100` | 600, 900, **1680 x 405** | one |
+| `Move 600, 900, 0, 0`; `Move 600, 900, 100, 100` | 600, 900, **1680 x 405** in session 0; **2040 x 585** on the console (#4768) | one |
 | `ScaleMode = 3`, then `Move 100` | **100**, 1200 | none |
 | `ScaleMode = 3`, then `Move 100, 100, 400, 300`; `ScaleMode = 7`, then `Move 1, 1, 5, 4` | 100, 100; 1, 1; both 1680 x 405 | one |
 | `Move "600", "900"` | 600, 900 | none |
@@ -54,9 +61,15 @@ What these show:
 - **Values are whole twips, not pixels.** 1201 and 4001 read back as given, and a half twip goes to even, as an
   assignment to a control's Left does.
 - **The window system has a smallest size.** Asked for less, the sizable form became 1680 x 405, 112 x 27 pixels in
-  session 0. That is Windows' minimum tracking size for the window, not VB6's rule.
-- **Not measured: Move on a minimized or maximized form.** Session 0 ignored `WindowState = 2` and `1`: the form kept
-  WindowState 0 and its size, and Move went ahead. It needs the interactive console.
+  session 0. That is Windows' minimum tracking size for the window, not VB6's rule. On the console it is 2040 x 585,
+  136 x 39 pixels, which `GetSystemMetrics` reads there for `SM_CXMINTRACK` and `SM_CYMINTRACK` (#4768).
+- **Move on a minimized or maximized form raises 384, "A form can't be moved or sized while minimized or maximized",
+  and moves nothing** (2026-11-18, #4768: the console, a shown form, in the IDE, p-code and native). Maximized, the form
+  stayed at -120, -120, 15600 x 11160 with WindowState 2; minimized, at -480000, -480000, 2400 x 420 with WindowState 1.
+  Both `Move 600, 900` and `Move 600, 900, 4800, 3600` gave this.
+- **On a loaded form that was never shown, `WindowState = 2` or `1` doesn't take.** It reads 0 afterwards and raises no
+  Resize, and Move goes ahead with no error. That was session 0's reading, recorded here first as "not measured", and
+  the console gives the same: it belongs to a form not yet displayed, not to session 0.
 
 ### In HexIDE (#1569)
 
@@ -67,7 +80,7 @@ What these show:
   screen's own pixels across, and CenterScreen centres it in the units `Screen.Width` reports.
 - **Not modelled:** the window system's smallest size. HexIDE's form takes the size asked for, as an assignment to Width
   does.
-- **Refused:** Move on a minimized or maximized form, which wasn't measured. Named arguments to Move are refused
+- **Refused:** Move on a minimized or maximized form, which wasn't measured. It is now: 384, and #4793 is to raise it. Named arguments to Move are refused
   with every method's, #1474.
 - **`FormMoveTests`** runs the probe less the rows that are the window system's or need a run-time ScaleMode, which
   HexIDE can't set yet (#990). Every expected line is vb6.exe's.

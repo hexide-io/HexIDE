@@ -51,6 +51,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         {
             "Str.Dialog.ProjectGroup.OtherKindRefused" => "{0} refuses {1}",
             "Str.ContributedProject.SavedInPlace" => "{0} is saved where it was opened, because {1} writes its project file only there.",
+            "Str.ContributedProject.UnknownFormFormat" => "no installed format reads '{0}' forms",
             "Str.ContributedProject.RenderRefused" => "{0} wasn't written by {1}.",
             "Str.ContributedProject.MemberOverProjectFile" => "{0} would go over {1}.",
             "Str.ContributedProject.MembershipReadOnly" => "{0} is {1}'s to change.",
@@ -127,6 +128,59 @@ public sealed class ContributedProjectFileTests : IDisposable
 
     private Task ToldOf(string text) => _windows.Received().MessageBox(Arg.Is<string>(said => said.Contains(text)),
         Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+
+    [AvaloniaFact]
+    public async Task A_member_left_out_at_open_cannot_be_lost_by_saving_the_project_file()
+    {
+        File.AppendAllText(ProjectFile, "Missing.bas\r\n");
+        var before = File.ReadAllBytes(ProjectFile);
+        _writer.Carries |= ProjectFileParts.References | ProjectFileParts.Properties;
+        using var type = Contribute();
+        var project = await Opened();
+        await ToldOf("Missing.bas");
+        project.Modules.Single().UpdateCode("Sub Main()\r\n'edited\r\nEnd Sub\r\n");
+        project.SetReferences([new VbReference("probe", "1.0", 0, null, "Probe")]);
+
+        await _service.SaveProject(project, saveAs: false);
+
+        File.ReadAllBytes(ProjectFile).Should().Equal(before);
+        File.ReadAllText(CodeFile).Should().Contain("'edited");
+        project.Offers.WritesProjectFile.Should().BeFalse();
+        project.Offers.ChangesMembership.Should().BeFalse();
+        project.Offers.SetsReferences.Should().BeFalse();
+        project.Offers.SetsProperties.Should().BeFalse();
+        _writer.Renders.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_with_an_unknown_format_cannot_be_lost_by_saving_the_project_file()
+    {
+        File.AppendAllText(ProjectFile, "Unknown.frm\r\n");
+        File.WriteAllText(Path.Join(_dir, "Unknown.frm"), "unread");
+        var before = File.ReadAllBytes(ProjectFile);
+        _writer.Carries |= ProjectFileParts.References | ProjectFileParts.Properties;
+        var definition = new AddinProjectType("Probe")
+        {
+            FileNames = ["*.sproj"], ProjectFile = _writer, FormFormat = "absent",
+            OpenAsync = (_, _, _) => Task.FromResult(new AddinProjectContent("Ledger")
+            {
+                Members = [new(CodeFile, AddinMemberKind.StandardModule),
+                    new(Path.Join(_dir, "Unknown.frm"), AddinMemberKind.Form)],
+            }),
+        };
+        using var type = _types.Register(definition, Provider);
+        var project = await Opened();
+        await ToldOf("Unknown.frm");
+        project.Modules.Single().UpdateCode("Sub Main()\r\n'edited\r\nEnd Sub\r\n");
+        project.SetReferences([new VbReference("probe", "1.0", 0, null, "Probe")]);
+        await _service.SaveProject(project, saveAs: false);
+        File.ReadAllBytes(ProjectFile).Should().Equal(before);
+        File.ReadAllText(CodeFile).Should().Contain("'edited");
+        project.Offers.WritesProjectFile.Should().BeFalse();
+        project.Offers.ChangesMembership.Should().BeFalse();
+        project.Offers.SetsReferences.Should().BeFalse();
+        project.Offers.SetsProperties.Should().BeFalse();
+    }
 
     // ── What a type offers ─────────────────────────────────────────────────────────────────────
 

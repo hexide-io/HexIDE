@@ -71,8 +71,10 @@ public partial class StatementExecutor
                     break;
                 case RecordOperandKind.Array:
                     var array = current.Value as VBArray ?? new VBArray();
-                    if (array.FixedStringWidth is not null)
-                        throw new NotImplementedException("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
+                    if (array.FixedStringWidth is not null && !VbFiles.Ansi().IsSingleByte)
+                        throw new NotImplementedException("Fixed-length String array records with a double-byte code page are not implemented (#179)");
+                    if (random && !array.IsDynamic && array.FixedStringWidth is not null)
+                        throw new NotImplementedException("Get from a Random file into a fixed array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
                     if (!(random && array.IsDynamic))
                     {
                         // A Binary file's array, or a fixed one, is read into as it stands: one with no bounds yet reads
@@ -86,17 +88,27 @@ public partial class StatementExecutor
                     // the file has moved on (measured).
                     var bounds = VbRecordFormat.ReadDescriptor(read);
                     var element = array.ElementType ?? Vb6Value.ValueType.EmptyVariant;
-                    if (element == Vb6Value.ValueType.UserDefinedType)
-                        throw new NotImplementedException("Get of a Random file's record into a dynamic array of a user-defined Type is not implemented (#1646, #178)");
                     VBArray replaced;
-                    if (bounds.Count == 0)
+                    if (element == Vb6Value.ValueType.UserDefinedType)
                     {
-                        replaced = new VBArray(element, [(0, 0)]) { DeclaredClass = array.DeclaredClass };
+                        // #4925: bounds are installed before a short record raises 59.
+                        if (array.IsLocked)
+                            throw new NotImplementedException("Get into a locked dynamic Type array is unmeasured (#4925)");
+                        replaced = array.NewWithBounds(bounds.Count == 0 ? null : bounds);
+                        StoreRecordValue(arg, current.WithArray(replaced));
+                        VbRecordFormat.ReadElementsInto(read, replaced);
+                    }
+                    else if (bounds.Count == 0)
+                    {
+                        replaced = array.FixedStringWidth is { } width ? FixedLengthString.Array(width, null)
+                            : new VBArray(element, [(0, 0)]) { DeclaredClass = array.DeclaredClass };
                         replaced.Free();
                     }
                     else
                     {
-                        replaced = new VBArray(element, bounds) { DeclaredClass = array.DeclaredClass };
+                        replaced = array.FixedStringWidth is { } width ? FixedLengthString.Array(width, bounds)
+                            : new VBArray(element, bounds) { DeclaredClass = array.DeclaredClass };
+                        replaced.IsDynamic = true;
                         VbRecordFormat.ReadElementsInto(read, replaced);
                     }
                     files.EndGet(read);

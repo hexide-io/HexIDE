@@ -314,7 +314,14 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("callHierarchy")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? CallHierarchy = null,
     [property: JsonPropertyName("rangeFormatting")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null)
+{
+    [JsonPropertyName("linkedEditingRange")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LinkedEditingRangeClientCapabilities? LinkedEditingRange { get; init; }
+    [JsonPropertyName("inlineValue"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public InlineValueClientCapabilities? InlineValue { get; init; }
+}
 
 public record NavigationClientCapabilities([property: JsonPropertyName("linkSupport")] bool LinkSupport = true);
 
@@ -390,7 +397,11 @@ public record WorkspaceClientCapabilities(
     [property: JsonPropertyName("semanticTokens")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceSemanticTokensClientCapabilities? SemanticTokens = null,
     [property: JsonPropertyName("didChangeWatchedFiles")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DidChangeWatchedFilesClientCapabilities? DidChangeWatchedFiles = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DidChangeWatchedFilesClientCapabilities? DidChangeWatchedFiles = null)
+{
+    [JsonPropertyName("inlineValue"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public WorkspaceInlineValueClientCapabilities? InlineValue { get; init; }
+}
 
 public record DidChangeWatchedFilesClientCapabilities(
     [property: JsonPropertyName("dynamicRegistration")] bool DynamicRegistration = true,
@@ -1508,3 +1519,62 @@ public record WorkspaceDiagnosticParams(
     [property: JsonPropertyName("identifier")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Identifier,
     [property: JsonPropertyName("previousResultIds")] PreviousResultId[] PreviousResultIds);
+
+public record LinkedEditingRanges(
+    [property: JsonPropertyName("ranges")] Range[] Ranges,
+    [property: JsonPropertyName("wordPattern")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? WordPattern = null);
+
+/// <summary>Declared without dynamic registration, which this client offers only for watched files (#5015).</summary>
+public record LinkedEditingRangeClientCapabilities();
+
+public record InlineValueClientCapabilities(
+    [property: JsonPropertyName("dynamicRegistration")] bool DynamicRegistration = false);
+
+public record WorkspaceInlineValueClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
+
+public record InlineValueContext(
+    [property: JsonPropertyName("frameId")] int FrameId,
+    [property: JsonPropertyName("stoppedLocation")] Range StoppedLocation);
+
+public record InlineValueParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("context")] InlineValueContext Context);
+
+[JsonConverter(typeof(InlineValueConverter))]
+public abstract record InlineValue([property: JsonPropertyName("range")] Range Range);
+
+public record InlineValueText(Range Range, [property: JsonPropertyName("text")] string Text) : InlineValue(Range);
+
+public record InlineValueVariableLookup(Range Range,
+    [property: JsonPropertyName("caseSensitiveLookup")] bool CaseSensitiveLookup,
+    [property: JsonPropertyName("variableName"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? VariableName = null)
+    : InlineValue(Range);
+
+public record InlineValueEvaluatableExpression(Range Range,
+    [property: JsonPropertyName("expression"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Expression = null)
+    : InlineValue(Range);
+
+public sealed class InlineValueConverter : JsonConverter<InlineValue>
+{
+    public override InlineValue? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        var value = document.RootElement;
+        if (value.TryGetProperty("text", out _)) return value.Deserialize<InlineValueText>(options);
+        if (value.TryGetProperty("caseSensitiveLookup", out _)) return value.Deserialize<InlineValueVariableLookup>(options);
+        return value.Deserialize<InlineValueEvaluatableExpression>(options);
+    }
+
+    public override void Write(Utf8JsonWriter writer, InlineValue value, JsonSerializerOptions options)
+    {
+        switch (value)
+        {
+            case InlineValueText text: JsonSerializer.Serialize(writer, text, options); break;
+            case InlineValueVariableLookup lookup: JsonSerializer.Serialize(writer, lookup, options); break;
+            case InlineValueEvaluatableExpression expression: JsonSerializer.Serialize(writer, expression, options); break;
+        }
+    }
+}

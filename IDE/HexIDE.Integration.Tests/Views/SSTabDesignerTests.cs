@@ -254,8 +254,8 @@ public class SSTabDesignerTests : WindowTestFixture
         tab.Rows.Should().Be(3);
         tab.VbStyle.Should().Be(1);
         tab.TabOrientation.Should().Be(2);
-        tab.TabHeight.Should().Be(295d / 15);
-        tab.TabMaxWidth.Should().Be(850d / 15);
+        tab.TabHeight.Should().Be(520d * 96 / 2540);
+        tab.TabMaxWidth.Should().Be(1500d * 96 / 2540);
         tab.WordWrap.Should().BeFalse();
         tab.ShowFocusRect.Should().BeFalse();
     }

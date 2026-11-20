@@ -812,6 +812,27 @@ or clearing the target SHALL replace or remove its previous key while retaining 
 unknown keys. A `VbaBitness` value other than 32 or 64 SHALL read as no target and SHALL be written back
 verbatim. This is HexIDE metadata, not a claim about VBA's native project format.
 
+The section SHALL also store `Targets=RDCore` when the project selects that predefined conditional
+constants table ([#4821](https://github.com/hexide-io/HexIDE/issues/4821)). This key SHALL select the
+predefined `#If` constants and RDCore's run-time additions to VB6
+([#4967](https://github.com/hexide-io/HexIDE/issues/4967), interpreter-core), and SHALL NOT select the engine that
+runs the project. An absent key SHALL retain the normal
+VB6 or VBA7 selection. A known target SHALL survive a fresh open, and clearing it SHALL remove only that
+key. The key SHALL be `Targets`, plural, and its value a list separated by `;`, so that naming several targets
+needs no second key. A value naming exactly one known target SHALL select it; a list of more than one, an unknown
+value, and the singular key `Target` SHALL read as no target and SHALL be preserved verbatim on save. Existing VB6
+content outside the owned metadata SHALL retain its bytes, and encoding records SHALL remain intact.
+
+The section SHALL NOT store a `Win64OnlySetOnWindows` setting
+([#5036](https://github.com/hexide-io/HexIDE/issues/5036)). An existing line SHALL be ignored and
+preserved verbatim as an unknown key, including its position, comments and surrounding order.
+Constants SHALL follow the IDE-wide setting instead.
+
+#### Scenario: A predefined constants target survives a fresh open
+- **WHEN** a project with `Targets=RDCore` is saved and freshly opened
+- **THEN** its run and default code-window greying use that target's table for the host
+- **AND** the interpreter remains the run engine when it was selected before
+
 #### Scenario: A VBA7 target survives a fresh open
 - **GIVEN** a project whose VBA7 target is 64-bit
 - **WHEN** it is saved and freshly opened
@@ -1227,8 +1248,19 @@ file without a question. An unchanged disk file SHALL save without a conflict qu
 
 The reader SHALL apply repeated modelled designer properties in file order, comparing names without
 regard to case. Readable duplicates SHALL save as a single line holding the winning value. If a
-repeated property has an unreadable value, the reader SHALL keep the readable value and mark the form
-unfaithful to save with a cause naming the property.
+repeated property has an unreadable value, the reader SHALL keep the readable value. If a readable
+line precedes the failed line in the same component, names compared without regard to case, the reader
+SHALL recover with `LoadedWithErrors` when the raw value is quoted on a non-string property, starts
+with a letter and was returned unrecognised as text by the parser on a non-string property, or starts
+with `&` on a Single/Double property. For this recovery it SHALL retain the invalid-value diagnostic,
+omit the recovered property's raw lines, and require Save As while keeping the form editable. Other
+unreadable duplicates SHALL mark the form unfaithful to save with a cause naming the property;
+recovery SHALL NOT clear an earlier hold. Non-finite numeric words such as `NaN` and `Infinity` SHALL
+retain the unreadable-duplicate hold because VB6 recovery for those duplicates is unmeasured
+([#4988](https://github.com/hexide-io/HexIDE/issues/4988)). The recovery rule follows
+[#4317](https://github.com/hexide-io/HexIDE/issues/4317) and [the refused-text measurements in oracle PR #4987](https://github.com/hexide-io/HexIDE/pull/4987).
+Applying the measured shapes across properties and extending the measured words are reasoned
+generalisations. Client-size pixel snapping remains unchanged.
 
 A twip measurement whose value converted to Single is at least 2^31 (except `Height` on a form's control),
 or a negative `Height` on anything but a control of a form, SHALL be
@@ -1237,7 +1269,7 @@ property and value. Save SHALL refuse these forms before writing the original. T
 [the #4096 measurements](https://github.com/hexide-io/HexIDE/issues/4096#issuecomment-6915523429);
 the upper bound shares the reader's geometry path, while the negative rule applies only to `Height`.
 VB6 keeps the form editable and opens Save As after load errors. HexIDE protects the original through
-its existing read-only gate; a load-error recovery Save As flow remains outside this requirement.
+its existing read-only gate except for the recovered duplicates described above.
 A negative `Width` or `Height`, or a `Height` whose Single value is at least 2^31, on a form's control
 follows the next requirement instead (#4179, #4422).
 
@@ -1252,8 +1284,8 @@ follows the next requirement instead (#4179, #4422).
 
 - **GIVEN** `ClientHeight = 2000` followed by `ClientHeight = abc`
 - **WHEN** the form is loaded
-- **THEN** its height holds 2000 twips and the form is unfaithful to save
-- **AND** Save refuses without changing the original bytes
+- **THEN** its height holds 2000 twips and the form is editable with load errors
+- **AND** Save asks for a new path, writes one `ClientHeight = 2000` line there and leaves the original bytes unchanged
 
 #### Scenario: A measurement cannot be set
 

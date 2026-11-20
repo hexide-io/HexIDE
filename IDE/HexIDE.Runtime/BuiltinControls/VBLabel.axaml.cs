@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Rendering;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using Classic.Avalonia.Theme;
@@ -12,7 +13,7 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
-public class VBLabel : TemplatedControl
+public class VBLabel : TemplatedControl, ICustomHitTest
 {
     public static readonly StyledProperty<string?> TextProperty =
         AvaloniaProperty.Register<VBLabel, string?>(nameof(Text));
@@ -167,6 +168,11 @@ public class VBLabel : TemplatedControl
             _ => throw new ArgumentOutOfRangeException()
         };
     }
+
+    // The whole rectangle takes the pointer, transparent or not, border or not, as vb6.exe measured (#4966). A transparent
+    // Label draws nothing, so without this only its border and caption took the pointer, and the control beneath took
+    // the rest.
+    public bool HitTest(Point point) => new Rect(Bounds.Size).Contains(point);
 
     public override void Render(DrawingContext context)
     {

@@ -69,7 +69,7 @@ public class ComboBoxSerializationTests
     [Fact]
     public void Style_is_read_as_its_value_and_written_back_as_VB6_wrote_it()
     {
-        var (form, saved) = RoundTrip(Combo3 + Combo2 + Combo1);
+        var (form, saved) = RoundTrip(Combo3 + Combo2 + Combo1 + Text1);
 
         Named(form, "Combo3").GetPropertyOrDefault(VBProperties.ComboStyleProperty).Should().Be(VBComboStyle.DropdownList);
         Named(form, "Combo2").GetPropertyOrDefault(VBProperties.ComboStyleProperty).Should().Be(VBComboStyle.SimpleCombo);
@@ -84,7 +84,7 @@ public class ComboBoxSerializationTests
     public void A_Style_set_in_the_model_is_written_with_its_name_and_the_default_is_dropped()
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form = new FormDeserializer().Deserialize(project, Head + Combo1 + Tail, new NullSink())!;
+        var form = new FormDeserializer().Deserialize(project, Head + Combo1 + Text1 + Tail, new NullSink())!;
 
         Named(form, "Combo1").SetProperty(VBProperties.ComboStyleProperty, VBComboStyle.SimpleCombo);
         var (simple, _) = new FormSerializer().Serialize(form, "Form1.frm");
@@ -101,7 +101,7 @@ public class ComboBoxSerializationTests
     {
         var withText = Combo3.Replace("      TabIndex        =   3\r\n", "      TabIndex        =   3\r\n      Text            =   \"x\"\r\n");
 
-        var (_, saved) = RoundTrip(withText);
+        var (_, saved) = RoundTrip(withText + Combo2 + Combo1 + Text1);
 
         saved.Should().Contain(Combo3);
     }
@@ -111,7 +111,7 @@ public class ComboBoxSerializationTests
     {
         var accented = Combo1.Replace("\"Combo1\"", "\"Café £5\"");
 
-        var (form, saved) = RoundTrip(accented);
+        var (form, saved) = RoundTrip(accented + Text1);
 
         saved.Should().Contain(accented);
         Named(form, "Combo1").GetPropertyOrDefault(VBProperties.TextProperty).Should().Be("Café £5");

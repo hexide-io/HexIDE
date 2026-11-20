@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using HexIDE.Runtime.BuiltinTypes;
@@ -27,10 +28,24 @@ public class AttachedProperties
 
     public static readonly AttachedProperty<VBFont?> FontProperty = AvaloniaProperty.RegisterAttached<VBProps, TemplatedControl, VBFont?>("Font", null);
     public static VBFont? GetFont(AvaloniaObject element) => element.GetValue(FontProperty);
-    public static void SetFont(AvaloniaObject element, VBFont? value) => element.SetValue(FontProperty, value);
+    public static void SetFont(AvaloniaObject element, VBFont? value)
+    {
+        var changed = GetFont(element) != value;
+        if (element is Control control && value is { } font
+            && AvaloniaInterop.ControlFont.DescriptorChanged(control, font))
+            return;
+        element.SetValue(FontProperty, value);
+        if (element is Control owner)
+        {
+            if (changed && owner is VBLabel label)
+                LabelAutoSize.Resize(label);
+            AvaloniaInterop.FormAmbients.Changed(owner, "Font");
+        }
+    }
 
     static AttachedProperties()
     {
+        FontDecorationDrawing.AttachToTextPresenters();
         BackColorProperty.Changed.AddClassHandler<TemplatedControl>((control, e) =>
         {
             if (e.NewValue is VBColor color)
@@ -47,9 +62,13 @@ public class AttachedProperties
         });
         FontProperty.Changed.AddClassHandler<TemplatedControl>((control, e) =>
         {
+            if (control is VBLabel or VBCommandButton or VBCheckBox or VBOptionButton or VBFrame or VBTextBox or VBListBox)
+                Inline.SetTextDecorations(control, FontDecorationDrawing.For(e.GetNewValue<VBFont?>()));
+            else if (control is VBComboBox combo)
+                combo.UpdateEditDecorations();
+
             if (e.NewValue is VBFont font)
             {
-                AvaloniaInterop.ControlFont.DescriptorChanged(control, font);
                 control.FontFamily = font.ToFontFamily();
                 control.FontWeight = font.ToFontWeight();
                 control.FontSize = font.ToFontSize();

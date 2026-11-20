@@ -103,10 +103,15 @@ public class ActivationSlotTests : BaseVBTestFixture
         dbg.SetBreakpoints("Module1", [2, 5, 7]);
         var stop = NextStop(dbg);
         var run = vb.Execute();
+        // What a stop that does not come reports (#4433): which stop it was, and whether the run and the debugger
+        // were still where the test left them.
+        string State(string where) => $"{where}; the run is {run.Status}"
+            + (run.Exception?.GetBaseException() is { } e ? $", {e.GetType().Name}: {e.Message}" : "")
+            + $"; the debugger is {dbg.State}" + (dbg.CurrentStop is { } at ? $", at {at.Module} line {at.Line} ({at.Reason})" : "");
         int first = 0;
         for (int depth = 0; depth <= 1000; depth++)
         {
-            (await stop.Guarded()).Line.Should().Be(5);
+            (await stop.Guarded(state: () => State($"descending, depth {depth}"))).Line.Should().Be(5);
             int count = context.State.memory.Count;
             if (depth == 0) first = count;
             count.Should().Be(first + 3 * depth);
@@ -115,12 +120,12 @@ public class ActivationSlotTests : BaseVBTestFixture
         }
         for (int depth = 1000; depth >= 0; depth--)
         {
-            (await stop.Guarded()).Line.Should().Be(7);
+            (await stop.Guarded(state: () => State($"unwinding, depth {depth}"))).Line.Should().Be(7);
             context.State.memory.Count.Should().Be(first + 3 * depth);
             stop = NextStop(dbg);
             dbg.Continue();
         }
-        (await stop.Guarded()).Line.Should().Be(2);
+        (await stop.Guarded(state: () => State("back at the top"))).Line.Should().Be(2);
         context.State.memory.Count.Should().Be(first - 3);
         dbg.Continue();
         await run.Guarded();

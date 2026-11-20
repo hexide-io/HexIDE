@@ -50,6 +50,58 @@ found".
 
 #4594 also records `VBA.VbCompareMethod.vbDatabaseCompare` in an Enum member as 2, measured separately.
 
+#### A nonnumeric constant, or a member a container lacks (2026-11-18, #4745)
+
+VB6 SP6, `/make`, native code and p-code, which agreed on every row. Each row is `Enum E` / `M = …` in a project of
+its own, because a compile error stops the build. Sub Main logs `CStr(M) & "|" & TypeName(M)`.
+
+| Member's value | VB6 | The same as a module-level `Const M = …` |
+|---|---|---|
+| `vbCrLf` | "Type mismatch" | a String, CR LF |
+| `VBA.vbCrLf` | "Type mismatch" | a String, CR LF |
+| `vbNullString` | "Type mismatch" | not measured |
+| `vbTab` | "Type mismatch" | not measured |
+| `VbCompareMethod.vbRed` | "Method or data member not found" | "Method or data member not found" |
+| `VBA.VbCompareMethod.vbRed` | "Method or data member not found" | "Method or data member not found" |
+| `VBA.ColorConstants.vbRed`, a container of another library | "Method or data member not found" | "Method or data member not found" |
+| `VBRUN.VbCompareMethod.vbBinaryCompare`, the same | "Method or data member not found" | "Method or data member not found" |
+| `VBRUN.ColorConstants.vbRed` (control) | 255, a Long | 255, a Long |
+| `VBA.NoSuch.vbRed`, no such name | "Method or data member not found" | "Method or data member not found" |
+| `VBA.vbRed.Other`, another library's constant | "Method or data member not found" | "Method or data member not found" |
+| `VBA.vbBinaryCompare.Other`, the library's own constant | **"Invalid qualifier"** | **"Invalid qualifier"** |
+
+**What it shows:** an Enum member must be numeric, so a String constant that a Const takes is "Type mismatch" in an
+Enum. In `Library.Middle.Member`, the middle must be a container of that library holding the member. When the middle
+is a constant of that library, the error is "Invalid qualifier"; anything else that doesn't resolve is "Method or data
+member not found": a container of another library, a container without the member, another library's constant, or no
+such name. An Enum and a Const agree on every row.
+
+### An Enum member naming a library constant the project also declares (2026-11-18, #4762)
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds gave identical results in all seven projects.
+- **One project per row,** since a row may be a compile error.
+- **`Module1`** holds `Enum E` with `M = …`, above every procedure. Its `Sub Main` logs `M` and `TypeName(M)`.
+- **The logger** is in a module of its own.
+- **The row's other declaration** sits where the row says.
+
+| `M = …` | The project also has | VB6 |
+|---|---|---|
+| `VBA.vbBinaryCompare` | a module named `VBA` | the project won't load: "Name conflicts with existing module, project, or object library", with no file or line |
+| `VBRUN.vbRed` | `Public Enum VBRUN` in `Module2` | "Name conflicts with existing module, project, or object library", `Module2` line 1 |
+| `VbCompareMethod.vbDatabaseCompare` | a module named `VbCompareMethod` | "Method or data member not found", `Module1` line 2: the qualifier names the module |
+| `vbRed` | `Sub vbRed()` in `Module1` | "Expected Function or variable" |
+| `vbRed` | `Public Sub vbRed()` in `Module2` | "Expected Function or variable" |
+| `vbRed` | `Public Declare Sub vbRed Lib "x" ()` in `Module2` | "Expected Function or variable" |
+| `vbRed` | `Public Enum O` with `vbRed = 3` in `Module2` | **builds: `M` is 3, a Long** |
+
+- **A project can't name a module or an Enum `VBA` or `VBRUN`:** those are library names. So an Enum member qualified by one always means the library.
+- **A module may be named after a library Enum,** such as `VbCompareMethod`. A qualifier of that name then means the module, not the library's Enum.
+- **The project's name hides the library's constant.** A Sub or a Declare of that name is "Expected Function or variable", in the Enum's own module or another. Another module's Enum member of that name gives that member's value.
+- **The obvious guess was that a name the project declares as a Sub would be passed over,** so the library's 255 would be used. It isn't: the project's Sub is found and refused.
+
+**Not measured:** `Sub vbRed` declared `Private` in another module; another Enum's member `vbRed` in the Enum's own module.
+
 ### A Type's array bounds
 
 | Field, in `Type T` in `Module1` | `LBound`, `UBound` |
@@ -90,3 +142,93 @@ At `86dcc6c50`, in `HexIDE.Runtime.Tests` probes:
 - every Type row is refused: "Nonliteral array bounds for field 'a' inside Type 'T' are not implemented (#178)" (#4595);
 - a module-level Const reads `vbObjectError Or 127`, `VBA.vbBinaryCompare` and `VBRUN.vbRed` as VB6 does, and refuses
   `VBA.vbRed` as unread rather than giving VB6's compile error.
+
+### A member after one that names a Const, read from another module (2026-11-18, #4614)
+
+**The question.** The rows above value a member that names a Const. Does the member after it take its `+ 1`, and can
+another module read the pair bare, qualified, in its own Consts and in an array's bounds?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged the same.
+- **The project:** `Module1` is listed first and holds Sub Main; `Module2` follows it. So `Module1`'s declarations
+  read `Module2`'s Enum before `Module2`'s own declarations have run.
+
+```vb
+' Module2
+Const K As Long = 5
+Public Enum E
+    M = K + 1
+    N
+End Enum
+
+' Module1
+Const C As Long = M + 1
+Const D As Long = Module2.N + 10
+Dim a(M) As Long
+' Sub Main logs:
+'   M, N, E.M, Module2.M, E.N
+'   C, D, UBound(a), TypeName(M)
+```
+
+| Read | VB6 |
+|---|---|
+| `M`, `N`, `E.M`, `Module2.M`, `E.N` | `6 7 6 6 7` |
+| `C`, `D`, `UBound(a)`, `TypeName(M)` | `7 17 6 Long` |
+
+**Reading.** The member after `M` takes `M + 1`, as after any member. Another module reads both members as constants
+of their value: bare, by Enum, by module, in its own Consts and in a bound. It does so even from declarations that run
+before the owning module's own.
+
+### A variable declared above its Type (2026-11-18, #4734)
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds logged every row identically.
+- **The project:** one project per row, since a compile error stops the build.
+- **The declarations:** the rows' lines, in the order given, in `Module2` or `Class1`, before any procedure.
+- **The read:** a procedure then logs `LBound(x.a)` and `UBound(x.a)`, sets `x.a(N) = 7` and reads it back. In a class, `Sub Main` makes a `New Class1` and calls it.
+
+| Declarations, in order | Module | Class |
+|---|---|---|
+| `Private Const N As Byte = 3`, `Private x As T`, `Private Type T` with `a(1 To N) As Long` | builds; bounds 1 To 3, and `x.a(3)` reads back 7 | the same |
+| `Private x As T`, `Private Const N As Byte = 3`, then the Type | builds; bounds 1 To 3, and `x.a(3)` reads back 7 | the same |
+| `Private x As T`, the Type, then `Private Const N As Byte = 3` | "Constant expression required", line 3 as the build log numbers it | the same |
+
+- **A variable may be declared above its Type,** and gets the Type's bounds.
+- **What decides it is where the Const sits relative to the Type, not to the variable.** A Const above the Type works even when it's below the variable. A Const below the Type is the compile error recorded above, whether or not a variable comes first.
+- **The obvious guess was that the variable's position mattered:** that the bounds are fixed where the variable is declared, so a Const between the variable and its Type would be a forward reference. It isn't.
+
+**Not measured:** a variable of the Type in another module, declared above the Type's module in the project; and a Public Type. Both are measured in the next section.
+
+### A Public Type, and a variable in another module (2026-11-20, #4907)
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds gave
+  the same result for every row: the same log, or the same compile error.
+- **The project:** one project per row, since a compile error stops the build. `Module1` holds `Sub Main` and the
+  logger, and comes first in the .vbp. The other modules follow in the order named.
+- **The Type:** always `Public Type T` with one field, `a(1 To N) As Long`.
+- **The read:** `Sub Main` logs `LBound(x.a)` and `UBound(x.a)`, sets `x.a(3) = 7` and reads it back. In X4,
+  `Sub Main` makes a `New Class1` and calls a method of it that does the same with the class's own `x`.
+- **The files:** each module is `Option Explicit`, a blank line, then the declarations in the order given.
+
+| Row | Declarations, in order | Result |
+|---|---|---|
+| P1 | `Module2`: `Private Const N As Byte = 3`, `Public x As T`, the Type | builds; bounds 1 To 3, and `x.a(3)` reads back 7 |
+| P2 | `Module2`: `Public x As T`, `Private Const N As Byte = 3`, the Type | builds; bounds 1 To 3, and `x.a(3)` reads back 7 |
+| P3 | `Module2`: `Public x As T`, the Type, `Private Const N As Byte = 3` | "Constant expression required", `Module2.bas` line 4 |
+| X1 | `Module2`: `Public x As T`. `Module3`: `Private Const N As Byte = 3`, the Type | builds; bounds 1 To 3, and `x.a(3)` reads back 7 |
+| X3 | `Module2`: `Public Const N As Byte = 3`, `Public x As T`. `Module3`: the Type | "Circular dependencies between modules", `Module3.bas` line 3 |
+| X4 | `Module3`: `Private Const N As Byte = 3`, the Type. `Class1`: `Private x As T` | builds; bounds 1 To 3, and `x.a(3)` reads back 7 |
+
+- **A Public Type follows the Private one's rule** (P1 to P3): a variable may come above the Type, and what matters
+  is whether the Const comes above the Type.
+- **A variable in another module gets the Type's bounds,** however the modules are listed (X1). A class's variable
+  does too (X4).
+- **Bounds naming a Const in the variable's own module are a compile error** when that module also declares the
+  variable (X3): "Circular dependencies between modules". The variable's module needs the Type's bounds, and they need
+  that module's Const.
+- **The line numbers** are the `Public Type T` line in both errors, counting `Option Explicit` as line 1. The build
+  log appears not to count the `Attribute VB_Name` line. That is read from these two rows only.
+
+**Not measured:** X3 with the Const in a third module; a Type whose bounds name a Public Const of a module listed
+after it.

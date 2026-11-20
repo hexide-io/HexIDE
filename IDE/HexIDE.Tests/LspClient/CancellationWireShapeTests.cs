@@ -70,11 +70,10 @@ public class CancellationWireShapeTests
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         var logger = Substitute.For<ILogger<VBLspClient>>();
+        await using var serverStream = serverSide;
         await using var client = new VBLspClient(transport, logger,
             "vb6", capture: log, connectionId: "probe");
         client.RequestTimeout = deadline ? TimeSpan.FromMilliseconds(500) : TimeSpan.FromSeconds(30);
-        // Close the peer before disposing the client even when an assertion or deadline fails.
-        await using var serverStream = serverSide;
 
         // Read real frames rather than binding params through a JSON-RPC handler, which could hide their shape.
         var starting = client.StartAsync(ct);
@@ -131,8 +130,8 @@ public class CancellationWireShapeTests
             && e.CorrelationId == secondFrame.RootElement.GetProperty("id").GetRawText())
             .Which.Outcome.Should().Be(ConversationOutcome.Answered);
         client.IsRunning.Should().BeTrue();
-        // End the connection to release StreamJsonRpc's abandoned pending entries.
-        serverSide.Dispose();
+        // End the client before closing the pipe under its read loop and pending requests.
+        await client.DisposeAsync();
         await pending.WaitAsync(ct);
     }
 
@@ -151,8 +150,8 @@ public class CancellationWireShapeTests
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new LspMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
         var logger = Substitute.For<ILogger<VBLspClient>>();
-        await using var client = new VBLspClient(transport, logger, "vb6");
         await using var peer = serverSide;
+        await using var client = new VBLspClient(transport, logger, "vb6");
         var starting = client.StartAsync(ct);
         using var initialize = JsonDocument.Parse((await ReadFrameAsync(peer, ct))!);
         await WriteFrameAsync(peer, "{\"jsonrpc\":\"2.0\",\"id\":"
@@ -192,6 +191,7 @@ public class CancellationWireShapeTests
         await Task.WhenAll(folding, other, hover, completion).WaitAsync(ct);
         logger.ReceivedCalls().Count(call => call.GetMethodInfo().Name == "Log"
             && call.GetArguments()[0] is LogLevel.Warning).Should().Be(0, "superseded analysis is ordinary cancellation");
+        await client.DisposeAsync();
         peer.Dispose();
     }
 

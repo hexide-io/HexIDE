@@ -33,6 +33,7 @@ public class OptionsViewModelTests
         // Default snapshot returned by the mock settings service.
         _settings.RequireVariableDeclaration.Returns(false);
         _settings.AutoListMembers.Returns(true);
+        _settings.ListMembersAsYouType.Returns(true);
         _settings.AutoQuickInfo.Returns(true);
         _settings.AutoIndent.Returns(true);
         _settings.TabWidth.Returns(4);
@@ -75,6 +76,57 @@ public class OptionsViewModelTests
 
     private static AddinOptionsPageViewModel Addin(OptionsViewModel sut, string title)
         => Flatten(sut.RootNodes).Select(n => n.Page).OfType<AddinOptionsPageViewModel>().First(p => p.Title == title);
+
+    [AvaloniaFact]
+    public void LinkedEditingLoadsAppliesAndResets()
+    {
+        _settings.LinkedEditing.Returns(true);
+        var page = new EditorGeneralPageViewModel(_settings);
+        page.LinkedEditing.Should().BeTrue();
+        page.LinkedEditing = false;
+        _settings.LinkedEditing.Should().BeTrue();
+        page.SaveToSettings();
+        _settings.Received().LinkedEditing = false;
+        _settings.LinkedEditing.Returns(false);
+        page.LoadFromSettings();
+        page.LinkedEditing.Should().BeFalse();
+        page.LinkedEditing = true;
+        page.RestoreDefaults();
+        page.LinkedEditing.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void ListMembersAsYouTypeLoadsAppliesAndResets()
+    {
+        var sut = CreateSut();
+        var page = Page<EditorGeneralPageViewModel>(sut);
+        page.ListMembersAsYouType.Should().BeTrue();
+        _settings.ListMembersAsYouType.Returns(false);
+        page.LoadFromSettings();
+        page.ListMembersAsYouType.Should().BeFalse();
+        page.ListMembersAsYouType = true;
+        _settings.ListMembersAsYouType.Should().BeFalse("edits are staged until OK");
+        sut.OkCommand.Execute(null);
+        _settings.Received().ListMembersAsYouType = true;
+        page.ListMembersAsYouType = false;
+        sut.ResetAllCommand.Execute(null);
+        page.ListMembersAsYouType.Should().Be(SettingsDefaults.ListMembersAsYouType);
+    }
+
+    [AvaloniaFact]
+    public void ListMembersAsYouTypeCheckboxFollowsAutoListMembers()
+    {
+        var page = new EditorGeneralPageViewModel(_settings);
+        var view = new HexIDE.Forms.Views.Options.EditorGeneralPageView { DataContext = page };
+        var checkbox = Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(view)
+            .OfType<Avalonia.Controls.CheckBox>().SingleOrDefault(c => c.Name == "ListMembersAsYouType");
+        checkbox.Should().NotBeNull();
+        checkbox!.IsEnabled.Should().BeTrue();
+        page.AutoListMembers = false;
+        checkbox.IsEnabled.Should().BeFalse();
+        page.AutoListMembers = true;
+        checkbox.IsEnabled.Should().BeTrue();
+    }
 
     [AvaloniaFact]
     [Trait("Issue", "4307")]

@@ -10,37 +10,40 @@ public partial class VB6BuiltIns
     {
         d["DDB"] = (_, a, _) =>
         {
-            if (a.Count is not (4 or 5)) throw new NotImplementedException("DDB argument count is not measured (#2524)");
-            var cost = FinancialNumber.FromDouble(AsDouble(a[0]));
-            var salvage = FinancialNumber.FromDouble(AsDouble(a[1]));
-            var life = AsDouble(a[2]);
-            var period = AsDouble(a[3]);
-            var factor = a.Count == 5 ? AsDouble(a[4]) : 2;
-            if (life == 0 || period < 1 || period > life) throw InvalidCall();
+            FinancialArguments(a, 4, 5);
+            var cost = FinancialNumber.FromDouble(FinancialArgument(a[0]));
+            var salvage = FinancialNumber.FromDouble(FinancialArgument(a[1]));
+            var life = FinancialArgument(a[2]);
+            var period = FinancialArgument(a[3]);
+            var factor = Supplied(a, 4) ? FinancialArgument(a[4]) : 2;
+            if (life == 0 || period < 1 || period > life || factor == 0 || !double.IsFinite((cost - salvage).ToDouble())) throw InvalidCall();
             var rate = FinancialNumber.FromDouble(factor) / FinancialNumber.FromDouble(life);
             // #2524's approved closest model spills only the base to Double.
             var basis = FinancialNumber.FromDouble((1 - rate).ToDouble());
+            // These DDB power rows remain unmeasured; #4883 measures payment powers, not DDB's.
+            if (basis.ToDouble() <= 0 || Math.Abs(period - 1) > 10000)
+                throw new NotImplementedException("This DDB power domain is unmeasured (#4883)");
             var book = cost * basis.Pow(period - 1);
             var amount = book * rate;
             return Finite(Math.Min(amount.ToDouble(), (book - salvage).ToDouble()));
         };
         d["SLN"] = (_, a, _) =>
         {
-            if (a.Count != 3) throw new NotImplementedException("SLN argument count is not measured (#2524)");
-            var cost = DepreciationNumber.From(AsDouble(a[0]));
-            var salvage = DepreciationNumber.From(AsDouble(a[1]));
-            var life = AsDouble(a[2]);
+            FinancialArguments(a, 3, 3);
+            var cost = DepreciationNumber.From(FinancialArgument(a[0]));
+            var salvage = DepreciationNumber.From(FinancialArgument(a[1]));
+            var life = FinancialArgument(a[2]);
             if (life == 0) throw InvalidCall();
             return Finite(((cost - salvage) / DepreciationNumber.From(life)).ToDouble());
         };
         d["SYD"] = (_, a, _) =>
         {
-            if (a.Count != 4) throw new NotImplementedException("SYD argument count is not measured (#2524)");
-            var cost = DepreciationNumber.From(AsDouble(a[0]));
-            var salvage = DepreciationNumber.From(AsDouble(a[1]));
-            var life = AsDouble(a[2]);
-            var period = AsDouble(a[3]);
-            if (period < 1 || period > life) throw InvalidCall();
+            FinancialArguments(a, 4, 4);
+            var cost = DepreciationNumber.From(FinancialArgument(a[0]));
+            var salvage = DepreciationNumber.From(FinancialArgument(a[1]));
+            var life = FinancialArgument(a[2]);
+            var period = FinancialArgument(a[3]);
+            if (period < 1 || period > life || !double.IsFinite((cost - salvage).ToDouble())) throw InvalidCall();
             var n = DepreciationNumber.From(life);
             var remaining = n - DepreciationNumber.From(period) + DepreciationNumber.From(1);
             return Finite(((cost - salvage) * remaining * DepreciationNumber.From(2)
@@ -64,8 +67,9 @@ public partial class VB6BuiltIns
 
         public static DepreciationNumber From(double value)
         {
+            // Non-finite inputs require API construction in VB6; deliberately left refused (#4883).
             if (!double.IsFinite(value))
-                throw new NotImplementedException("Non-finite depreciation arguments are not measured (#2524)");
+                throw new NotImplementedException("Non-finite depreciation arguments are not measured (#4883)");
             var bits = BitConverter.DoubleToUInt64Bits(value);
             var biased = (int)((bits >> 52) & 0x7FF);
             BigInteger mantissa = bits & 0xF_FFFF_FFFF_FFFF;

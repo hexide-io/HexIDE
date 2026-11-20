@@ -1,4 +1,8 @@
+using System.Diagnostics;
 using HexIDE.Infrastructure;
+using HexIDE.Tests.Sidecar;
+using Serilog;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace HexIDE.Tests.Infrastructure;
@@ -39,12 +43,137 @@ public sealed class LoggingSetupTests : IDisposable
     private readonly string _dir = Path.Combine(
         Path.GetTempPath(), "HexIDE.LoggingSetupTests", Guid.NewGuid().ToString("N"));
 
-    public LoggingSetupTests() => Directory.CreateDirectory(_dir);
+    private readonly TraceListener[] originalListeners = Trace.Listeners.Cast<TraceListener>().ToArray();
+
+    public LoggingSetupTests()
+    {
+        Directory.CreateDirectory(_dir);
+        foreach (var listener in originalListeners)
+            if (listener.GetType().DeclaringType == typeof(LoggingSetup)) Trace.Listeners.Remove(listener);
+    }
 
     public void Dispose()
     {
+        foreach (var listener in Trace.Listeners.Cast<TraceListener>().Except(originalListeners).ToArray())
+        {
+            Trace.Listeners.Remove(listener);
+            listener.Dispose();
+        }
+        foreach (var listener in originalListeners)
+            if (!Trace.Listeners.Contains(listener)) Trace.Listeners.Add(listener);
         try { Directory.Delete(_dir, recursive: true); }
         catch { /* a temp directory left behind is not a test failure */ }
+    }
+
+    // System.Diagnostics.Trace must reach the current logger (#5071).
+    [Theory]
+    [InlineData(TraceEventType.Error)]
+    [InlineData(TraceEventType.Warning)]
+    public void TraceFailuresReachWarningWithTheWritersAssembly(TraceEventType type)
+    {
+        using var log = new CapturedLog();
+        LoggingSetup.ForwardTrace();
+
+        if (type == TraceEventType.Error) Trace.TraceError("x {0}", 42);
+        else Trace.TraceWarning("y");
+
+        var entry = log.Events.Should().ContainSingle().Which;
+        entry.Level.Should().Be(LogEventLevel.Warning);
+        entry.RenderMessage().Should().Be($"[{typeof(LoggingSetupTests).Assembly.GetName().Name}] "
+            + (type == TraceEventType.Error ? "x 42" : "y"));
+        entry.Properties["TraceSource"].Should().Be(new ScalarValue(typeof(LoggingSetupTests).Assembly.GetName().Name));
+    }
+
+    [Theory]
+    [InlineData(TraceEventType.Critical, LogEventLevel.Warning)]
+    [InlineData(TraceEventType.Information, LogEventLevel.Debug)]
+    [InlineData(TraceEventType.Verbose, LogEventLevel.Debug)]
+    [InlineData(TraceEventType.Start, LogEventLevel.Debug)]
+    [InlineData(TraceEventType.Stop, LogEventLevel.Debug)]
+    [InlineData(TraceEventType.Suspend, LogEventLevel.Debug)]
+    [InlineData(TraceEventType.Resume, LogEventLevel.Debug)]
+    [InlineData(TraceEventType.Transfer, LogEventLevel.Debug)]
+    public void TraceEventTypesUseTheRequestedLevel(TraceEventType type, LogEventLevel expected)
+    {
+        using var log = new CapturedLog();
+        LoggingSetup.ForwardTrace();
+        var listener = Trace.Listeners.Cast<TraceListener>().Except(originalListeners).Should().ContainSingle().Which;
+        listener.TraceEvent(new TraceEventCache(), "ignored", type, 0, "event");
+
+        var entry = log.Events.Should().ContainSingle().Which;
+        entry.Level.Should().Be(expected);
+        entry.Properties.ContainsKey("TraceSource").Should().Be(expected == LogEventLevel.Warning);
+        if (expected == LogEventLevel.Warning)
+            entry.Properties["TraceSource"].Should().Be(new ScalarValue(typeof(LoggingSetupTests).Assembly.GetName().Name));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TraceTextReachesDebugAsOneLine(bool partial)
+    {
+        using var log = new CapturedLog();
+        LoggingSetup.ForwardTrace();
+
+        if (partial)
+        {
+            Trace.Write("one ");
+            Trace.Write("two ");
+            log.Events.Should().BeEmpty();
+        }
+        Trace.WriteLine("z");
+
+        var entry = log.Events.Should().ContainSingle().Which;
+        entry.Level.Should().Be(LogEventLevel.Debug);
+        entry.RenderMessage().Should().Be(partial ? "one two z" : "z");
+        entry.Properties.Should().NotContainKey("TraceSource");
+    }
+
+    [Fact]
+    public void ForwardTraceInstallsOnlyOneListenerAndKeepsExistingListeners()
+    {
+        LoggingSetup.ForwardTrace();
+        LoggingSetup.ForwardTrace();
+
+        Trace.Listeners.Cast<TraceListener>().Except(originalListeners).Should().ContainSingle();
+        Trace.Listeners.Cast<TraceListener>().Should().Contain(
+            originalListeners.Where(listener => listener.GetType().DeclaringType != typeof(LoggingSetup)));
+    }
+
+    [Fact]
+    public void TraceReadsTheLoggerAtWriteTime()
+    {
+        LoggingSetup.ForwardTrace();
+        using var log = new CapturedLog();
+        Trace.WriteLine("current logger");
+        log.Messages.Should().ContainSingle().Which.Should().Be("current logger");
+    }
+
+    private sealed class ThrowingSink : ILogEventSink
+    {
+        public int Attempts { get; private set; }
+        public void Emit(LogEvent logEvent)
+        {
+            Attempts++;
+            throw new InvalidOperationException("sink failed");
+        }
+    }
+
+    [Fact]
+    public void TraceDoesNotThrowWhenTheSinkThrows()
+    {
+        LoggingSetup.ForwardTrace();
+        var previous = Log.Logger;
+        var sink = new ThrowingSink();
+        using var logger = new LoggerConfiguration().MinimumLevel.Verbose().AuditTo.Sink(sink).CreateLogger();
+        Log.Logger = logger;
+        try
+        {
+            FluentActions.Invoking(() => Trace.TraceError("failure")).Should().NotThrow();
+            FluentActions.Invoking(() => Trace.WriteLine("text")).Should().NotThrow();
+            sink.Attempts.Should().Be(2);
+        }
+        finally { Log.Logger = previous; }
     }
 
     // ---------------------------------------------------------------- an exception nothing caught (#643)
@@ -108,6 +237,19 @@ public sealed class LoggingSetupTests : IDisposable
             LoggingSetup.RecordUnobserved(new AggregateException(Thrown("TASK_SENTINEL"))));
 
         text.Should().Contain("[ERR] A task faulted and nothing observed its exception").And.Contain("TASK_SENTINEL");
+    }
+
+    [Fact]
+    public void A_captured_log_keeps_another_tests_unobserved_task_out_of_its_messages()
+    {
+        // What the finalizer thread does when a GC collects a faulted task some other test leaked (#4809).
+        using var log = new HexIDE.Tests.Sidecar.CapturedLog();
+        LoggingSetup.RecordUnobserved(new AggregateException(Thrown("LEAKED_ELSEWHERE")));
+        Serilog.Log.Warning("OWN_MESSAGE");
+
+        log.Messages.Should().ContainSingle().Which.Should().Be("OWN_MESSAGE");
+        log.Unobserved.Should().ContainSingle().Which.Should().Contain(LoggingSetup.UnobservedTaskMessage)
+            .And.Contain("LEAKED_ELSEWHERE");
     }
 
     [Fact]

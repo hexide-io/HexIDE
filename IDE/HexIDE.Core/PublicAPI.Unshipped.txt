@@ -3,3 +3,23 @@ HexIDE.Addins.ServerChatToolResult.ReasonArguments.get -> object![]?
 HexIDE.Addins.ServerChatToolResult.ReasonArguments.init -> void
 HexIDE.Addins.ServerChatToolResult.ReasonKey.get -> string?
 HexIDE.Addins.ServerChatToolResult.ReasonKey.init -> void
+HexIDE.Addins.AddinProjectComponent
+HexIDE.Addins.AddinProjectComponent.AddinProjectComponent() -> void
+HexIDE.Addins.AddinProjectComponent.FileName.get -> string!
+HexIDE.Addins.AddinProjectComponent.FileName.init -> void
+HexIDE.Addins.AddinProjectComponent.Guid.get -> System.Guid
+HexIDE.Addins.AddinProjectComponent.Guid.init -> void
+HexIDE.Addins.AddinProjectComponent.Major.get -> int
+HexIDE.Addins.AddinProjectComponent.Major.init -> void
+HexIDE.Addins.AddinProjectComponent.Minor.get -> int
+HexIDE.Addins.AddinProjectComponent.Minor.init -> void
+HexIDE.Addins.AddinProjectContent.Components.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Addins.AddinProjectComponent!>!
+HexIDE.Addins.AddinProjectContent.Components.init -> void
+HexIDE.Addins.AddinProjectType.FormFormat.get -> string?
+HexIDE.Addins.AddinProjectType.FormFormat.init -> void
+HexIDE.Lsp.WorkspaceProjectReference.IsProject.get -> bool
+HexIDE.Lsp.WorkspaceProjectReference.IsProject.init -> void
+HexIDE.Runtime.Components.ComponentInstance.SetPreservedChildText(int index, string! text) -> void
+HexIDE.Addins.IAddinCodeEditorActions.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+HexIDE.Addins.IAddinServerConnection.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+HexIDE.Addins.IHexIdeHost.ReportFailure(string! message, System.Exception? exception = null) -> void

@@ -62,8 +62,8 @@ public class MeasuredIntrinsicNamesTests : BaseVBTestFixture, IDisposable
             text = "ab"
             Dim obj As Object
             Set obj = Nothing
-            Dim values As Variant
-            ReDim values(2) As Double
+            ' #4883: a Variant holding Double() raises 13; this fixture checks names with Double().
+            Dim values(2) As Double
             values(0) = -100
             values(1) = 60
             values(2) = 60

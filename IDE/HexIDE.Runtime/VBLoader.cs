@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using HexIDE.Runtime.Utils;
 using System.Collections.Generic;
 using System.Linq;
@@ -56,6 +57,11 @@ public class VBLoader
         {
             ClipToBounds = true
         };
+        AvaloniaInterop.DrawingHandles.Register(canvas, executionContext.State.DrawingHandles);
+        // Every control on the form inherits whether the run takes RDCore's additions (#4967).
+        var rdcoreAdditions = program?.Interpreter.RDCoreAdditions ?? false;
+        if (rdcoreAdditions)
+            VBProps.SetRDCoreAdditions(canvas, true);
         // The form's ScaleMode is the unit its controls' positions are read and written in (#933). The .frm holds them
         // in twips whatever it is.
         VBProps.SetScaleMode(canvas, (VBScaleMode)(element.Scale?.Mode ?? (int)VBScaleMode.Twip));
@@ -65,11 +71,17 @@ public class VBLoader
         AttachedEvents.AttachFormMouse(canvas);
         if (form is not null)
             AvaloniaInterop.ContainerMembers.Register(canvas, Vb6Value.NewObject(form));
-        var menu = new Menu();
+        Menu menu = form?.FormWindow is Control ? new VBMenuBar() : new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
         var menus = new List<(ComponentInstance Component, Control Control, ItemsControl Parent)>();
-        BuildMenuBar(element, menu, shortcuts, menus);
+        var nativeMenus = form?.FormWindow is Window menuWindow && FormNativeMenu.ForWindow(menuWindow);
+        BuildMenuBar(element, menu, shortcuts, menus, nativeMenus);
+        if (nativeMenus)
+            FormNativeMenu.Attach((Window)form!.FormWindow!, menu, item =>
+            {
+                if (VBProps.GetName(item) is { } name) RaiseMenuClick(item, name, menu);
+            });
 
         // A VB6 control array is 2+ controls sharing a Name, or a single control carrying an explicit `Index` (a
         // 1-element array). Detect the array Names first so each element joins a group rather than overwriting the
@@ -98,7 +110,7 @@ public class VBLoader
         void OnPlaced(ComponentInstance component, Control control, Canvas host)
         {
             if (control is VBCommonDialog dialog)
-                dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#1084)");
+                dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#4148)");
             placed[component] = control;
             if (control is IVBContainerControl { ChildHost: { } childHost })
                 AvaloniaInterop.ContainerMembers.Register(childHost, new Vb6Value(control));
@@ -114,9 +126,10 @@ public class VBLoader
             }
             if (control is VBUserControl userControl && program is not null)
                 userControl.Attach(program, component.BaseClass.ClassName,
-                    (component.Container is null || ReferenceEquals(component.Container, FormComponentOf(element))) && element.RootVBTypeName == "VB.Form" ? form : null,
+                    element.RootVBTypeName == "VB.Form" ? form : null,
                     component.GetPropertyOrDefault(VBProperties.NameProperty) ?? "",
                     RawDouble(FormComponentOf(element), "RightToLeft") is { } rtl && rtl != 0);
+            AvaloniaInterop.RDCoreMembers.ApplyFormFile(control, component, rdcoreAdditions);
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
                 return;
 
@@ -334,7 +347,11 @@ public class VBLoader
         foreach (var group in arrayGroups.Values)
             group.FormControls = controls;
         if (form is not null)
+        {
             form.Controls = controls;
+            if (form.FormWindow is { } formWindow)
+                AvaloniaInterop.FormAmbients.Register(formWindow, controls);
+        }
 
         var root = new DockPanel()
         {
@@ -366,6 +383,9 @@ public class VBLoader
             }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
         }
 
+        if (form?.FormWindow is Control menuHost)
+            VBMenuBar.Initialize(menuHost, menu);
+
         AvaloniaInterop.UserControlKeys.Attach(root, controls);
         AvaloniaInterop.UserControlFocus.Attach(root);
         root.SizeChanged += (_, _) =>
@@ -374,7 +394,10 @@ public class VBLoader
                 AvaloniaInterop.UserControlMembers.Align(control);
         };
         if (form?.FormWindow is Window window)
+        {
             AvaloniaInterop.RuntimeScale.Initialize(window, canvas, element);
+            AvaloniaInterop.RuntimeDrawing.Initialize(window, canvas, FormComponentOf(element), executionContext.State.DrawingHandles);
+        }
         return root;
     }
 
@@ -405,7 +428,7 @@ public class VBLoader
     /// child of the form's canvas while the bar itself stayed empty.
     /// </summary>
     private static void BuildMenuBar(FormDefinition element, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts,
-        List<(ComponentInstance Component, Control Control, ItemsControl Parent)> built)
+        List<(ComponentInstance Component, Control Control, ItemsControl Parent)> built, bool nativeMenus)
     {
         foreach (var component in TopLevelMenus(element))
             if (BuildMenuItem(component, menu, shortcuts, menu, built) is { } item)
@@ -414,26 +437,37 @@ public class VBLoader
         // An empty bar still occupies a strip at the top of the form and pushes the canvas down, so a form
         // with no menus would be laid out differently from the same form in VB6. So does a bar whose menus are all
         // hidden, as a form's are when it keeps them only for PopupMenu, and VB6 shows no bar then (measured, #1127).
-        menu.IsVisible = HasMenuBar(element);
-        // VB6's bar, so that the client area below it is the .frm's ClientHeight in a window HasMenuBar made taller by
-        // this much, before anything has been laid out (#1127).
+        menu.IsVisible = HasInWindowMenuBar(element, nativeMenus);
+        // The first row; VBMenuBar counts further rows before Form_Load (#4978), keeping the .frm's ClientHeight below it.
         menu.Height = MenuBarHeight;
     }
 
     /// <summary>
-    /// The height of a running form's menu bar, in pixels: VB6's, 285 twips at 96 dpi (measured, #1127). It is fixed
-    /// rather than measured from the theme's Menu because Form_Load reads ScaleHeight before the form is shown, so
-    /// before any layout, and because a form's client area must not change with the IDE's theme.
+    /// One row of a running form's menu bar, in pixels: 300 twips at 96 dpi (#1140). VBMenuBar adds the measured
+    /// 19 pixels for each further row before Form_Load, and re-wraps when the client width changes (#4978).
     /// </summary>
-    public const double MenuBarHeight = 19;
+    public const double MenuBarHeight = 20;
 
     /// <summary>
     /// Whether the form runs with a menu bar: it has a top-level menu that is visible. In VB6 the bar is outside the
-    /// client area, so the window is the form's ClientHeight plus <see cref="MenuBarHeight"/> tall, and a form whose
+    /// client area, so the window adds the bar's counted height to the form's ClientHeight (#4978). A form whose
     /// top-level menus are all hidden has no bar and is no taller (measured, #1127).
     /// </summary>
     public static bool HasMenuBar(FormDefinition element) =>
         TopLevelMenus(element).Any(menu => menu.GetPropertyOrDefault(VBProperties.VisibleProperty));
+
+    private static bool HasInWindowMenuBar(FormDefinition element, bool nativeMenus) =>
+        HasMenuBar(element) && !nativeMenus;
+
+    private static VBFormRuntime DesktopWindow(FormDefinition definition)
+    {
+        var nativeMenus = FormNativeMenu.UseSystemMenuBar;
+        var component = FormComponentOf(definition);
+        var window = ((FormComponentClass)component.BaseClass).InstantiateWindow(component,
+            HasInWindowMenuBar(definition, nativeMenus), HasMenuBar(definition));
+        FormNativeMenu.Register(window, nativeMenus);
+        return window;
+    }
 
     // The menus on the bar itself. A menu some other menu claims as a sub-item belongs in that menu, not on the bar:
     // the same filter the writer applies, and for the same reason.
@@ -788,6 +822,8 @@ public class VBLoader
     {
         var componentClass = (ComponentBaseClass)component.BaseClass;
         var control = componentClass.Instantiate(component);
+        if (control is VBImageList images)
+            images.DrawingHandles = AvaloniaInterop.DrawingHandles.For(formCanvas);
         var target = componentClass.IsVisual ? host : formCanvas;
 
         Canvas.SetLeft(control, component.GetPropertyOrDefault(VBProperties.LeftProperty));
@@ -823,7 +859,10 @@ public class VBLoader
         if (componentClass.TryGetChildHost(control, out var ownHost) && DeclaredScaleMode(component) is { } scaleMode)
             VBProps.SetScaleMode(ownHost, scaleMode);
         if (control is VBPictureBox picture)
+        {
             AvaloniaInterop.RuntimeScale.Initialize(picture, component);
+            AvaloniaInterop.RuntimeDrawing.Initialize(picture, picture.ChildHost!, component, AvaloniaInterop.DrawingHandles.For(formCanvas));
+        }
         // Where a 3-D bordered TextBox's or ListBox's client area starts, which is where its mouse X and Y count from: 2
         // pixels in, and at the edge when it is flat or has no border (measured with GetClientRect, #974).
         if (componentClass is TextBoxComponentClass or ListBoxComponentClass)
@@ -879,6 +918,8 @@ public class VBLoader
         {
             if (!property.Name.Equals(name, StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
                 continue;
+            if (property.EditedValue is { } edited && int.TryParse(edited, out var editedNumber))
+                return editedNumber;
             var line = property.Lines[0];
             var value = line[(line.IndexOf('=') + 1)..].TrimStart();
             var digits = value.Length - value.TrimStart("0123456789".ToCharArray()).Length;
@@ -1055,12 +1096,14 @@ public class VBLoader
     }
 
     public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
-        Debugging.IDebugGate? debugController = null)
+        Debugging.IDebugGate? debugController = null) => RunForm(element, token, out window, debugController, false);
+
+    public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
+        Debugging.IDebugGate? debugController, bool win64OnlySetOnWindows, OSPlatform? host = null)
     {
-        var form = FormComponentOf(element);
-        var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form, HasMenuBar(element));
+        var shown = window = DesktopWindow(element);
         // Another form of the program gets a window of its own the same way (#822).
-        PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenWindow);
+        PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenWindow, win64OnlySetOnWindows, host);
 
         // The run lasts until the program ends, not until this window closes: the startup form can unload and leave
         // another form running (measured, #822).
@@ -1113,8 +1156,7 @@ public class VBLoader
     /// <summary>A desktop window for one of a program's forms (#822).</summary>
     public static IFormView OpenWindow(FormDefinition definition)
     {
-        var component = FormComponentOf(definition);
-        return ((FormComponentClass)component.BaseClass).InstantiateWindow(component, HasMenuBar(definition));
+        return DesktopWindow(definition);
     }
 
     /// <summary>
@@ -1157,9 +1199,13 @@ public class VBLoader
     /// a use of another form is then refused, naming #822.
     /// </param>
     public static VBProgram PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
-        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm = null)
+        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm = null) =>
+        PrepareForm(element, context, setContent, debugController, openForm, false);
+
+    public static VBProgram PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
+        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host = null)
     {
-        var program = new VBProgram(element, context, debugController, openForm);
+        var program = new VBProgram(element, context, debugController, openForm, win64OnlySetOnWindows, host);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary,
             context.FormInstance, program, context));
         context.HoldControlsUntilLoad();

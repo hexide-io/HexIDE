@@ -115,7 +115,10 @@ Orientation, Scrolling or Refresh: each is 438 late-bound. Its type library has 
 
 **Visible: what resisted explanation.** `pb.Visible` read False after `Load Form1`, and still False after
 `Form1.Show`. The probe ran in session 0, where Show may not make a window visible at all. So the row records what the
-session reported, not a rule about the control. It wasn't repeated on the console.
+session reported, not a rule about the control.
+Re-run on the guest's console (2026-11-18, #4768), the IDE, p-code and native agreeing: False after `Load`, while
+the form isn't shown, and **True after `Show`**. A ProgressBar's Visible follows its window's visibility, the form's
+included, as a CommandButton's does (#4829).
 
 **The save.** VB6 writes an in-box control's block in three runs:
 

@@ -183,6 +183,10 @@ window (`MainWindowHandle` is `0`, `MainWindowTitle` empty) and `AppActivate` re
 found, so SendKeys reaches nothing. Nothing about this is visible from the host: the process starts, stays
 running, and does nothing.
 
+**It displays no form either.** A compiled program run there reads `Visible` False after `Show`. So a row whose
+result depends on a form being displayed measures a hidden form instead. Three sections, two of *Several forms*
+and one of *A form's Resize, Activate and Deactivate*, were overturned that way (#4744). Run such rows on the console.
+
 **What works, in two parts.** First there has to be a console session at all — on a VM nobody logs into,
 there is none (`query user` answers `No User exists for *`). Autologon provides one:
 
@@ -417,6 +421,25 @@ Phase-4.2 refcount oracle):
    the `C:\Program Files (x86)\…` path in the same command — the path-guard blocks it; let `/make` overwrite and
    `For Output` truncate instead.
 
+**A form or display probe runs on the console session, and logs its session id.** A program started through
+PowerShell Direct, or by `scripts/vb6-oracle.ps1`'s default route, runs in session 0, which displays no form: `Visible`
+reads False after `Show`, and nothing takes focus or comes to the front. That is fine for an expression. It is wrong for
+any row that reads a form's, a control's or the screen's state, and three such rows were wrong for that reason
+(#4768). Run those through the console agent instead, and write the session id into the probe's log, so a reader can
+see where each row was measured. The console is session 1 on the oracle guest:
+
+```vb
+Private Declare Function GetCurrentProcessId Lib "kernel32" () As Long
+Private Declare Function ProcessIdToSessionId Lib "kernel32" (ByVal dwProcessId As Long, pSessionId As Long) As Long
+
+Public Function SessionId() As Long
+    Dim s As Long
+    If ProcessIdToSessionId(GetCurrentProcessId(), s) <> 0 Then SessionId = s Else SessionId = -1
+End Function
+```
+
+Measured 2026-11-18: the same build logged 1 run through the console agent and 0 run through PowerShell Direct.
+
 ---
 
 ## Extending the oracle (future phases)
@@ -465,12 +488,15 @@ added afterwards.
 - [Relational comparison + `ChDir`/`ChDrive` (2026-08-03 gap-audit fixes)](relational-comparison--chdirchdrive.md#relational-comparison--chdirchdrive-2026-08-03-gap-audit-fixes)
 - [Control arrays (2026-08-10)](control-arrays.md#control-arrays-2026-08-10)
 - [Event procedures for an array element, in VB6's IDE (2026-11-16, #4205)](control-arrays.md#event-procedures-for-an-array-element-in-vb6s-ide-2026-11-16-4205)
+- [For Each over a control array (2026-11-18, #4716)](control-arrays.md#for-each-over-a-control-array-2026-11-18-4716)
 - [Option buttons — `Value` is a Boolean, and the group can be empty (2026-08-22, #95)](option-buttons--value-is-a-boolean-and-the-group-can-be-empty.md#option-buttons--value-is-a-boolean-and-the-group-can-be-empty-2026-08-22-95)
 - [Two controls of one name (2026-10-12, #854)](two-controls-of-one-name.md#two-controls-of-one-name-2026-10-12-854)
 - [A form-based game's runtime surface (2026-10-12)](a-form-based-games-runtime-surface.md#a-form-based-games-runtime-surface-2026-10-12)
 - [A form as an object: its names, its lifecycle and its predeclared instance (2026-10-14, #822)](a-form-as-an-object-its-names-its-lifecycle-and-its-predeclared-instance.md#a-form-as-an-object-its-names-its-lifecycle-and-its-predeclared-instance-2026-10-14-822)
 - [Assigning to a control property (2026-10-12, #768)](assigning-to-a-control-property.md#assigning-to-a-control-property-2026-10-12-768)
 - [A list's members: ListCount, List(i), AddItem's index and RemoveItem (2026-10-22, #821)](a-lists-members-listcount-list.md#a-lists-members-listcount-listi-additems-index-and-removeitem-2026-10-22-821)
+- [The order a Sorted ListBox or ComboBox keeps (2026-11-20, #5059, SP6)](the-order-a-sorted-listbox-or-combobox-keeps.md#the-order-a-sorted-listbox-or-combobox-keeps-2026-11-20-5059-sp6)
+- [A list's NewIndex and ItemData, and the List and ItemData records a form saves (2026-11-20, #5106, #5114, SP6)](a-lists-newindex-itemdata-and-saved-records.md#a-lists-newindex-and-itemdata-and-the-list-and-itemdata-records-a-form-saves-2026-11-20-5106-5114-sp6)
 - [A ComboBox's Text, at each Style, from code (2026-10-22, #926)](a-comboboxs-text-at-each-style-from-code.md#a-comboboxs-text-at-each-style-from-code-2026-10-22-926)
 - [A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)](a-comboboxs-click-change-and-dropdown-with-real-input.md#a-comboboxs-click-change-and-dropdown-with-real-input-2026-10-22-1429)
 - [A Simple Combo's list, drawn and clicked (2026-10-23, #1603)](a-simple-combos-list-drawn-and-clicked.md#a-simple-combos-list-drawn-and-clicked-2026-10-23-1603)
@@ -488,6 +514,7 @@ added afterwards.
 - [Chained writes: through a module qualifier, with Set, and through a member that returns a UDT (2026-11-14, #173)](chained-writes-qualified-set-and-udt-returning-members.md#chained-writes-through-a-module-qualifier-with-set-and-through-a-member-that-returns-a-udt-2026-11-14-173)
 - [A qualified write through an object, and through another module's UDT property (2026-11-14, #3941)](chained-writes-qualified-set-and-udt-returning-members.md#a-qualified-write-through-an-object-and-through-another-modules-udt-property-2026-11-14-3941)
 - [A Type field that holds an object (2026-11-14, #3924)](a-type-field-that-holds-an-object.md#a-type-field-that-holds-an-object-2026-11-14-3924)
+- [Fields of other object types, and Set through an indexed Type, an array field or a Variant field (2026-11-20, #3924)](a-type-field-that-holds-an-object.md#fields-of-other-object-types-and-set-through-an-indexed-type-an-array-field-or-a-variant-field-2026-11-20-3924)
 - [Implements, and interface-typed variables (2026-09-02, #186)](implements-and-interface-typed-variables.md#implements-and-interface-typed-variables-2026-09-02-186)
 - [Static locals (2026-09-02)](static-locals.md#static-locals-2026-09-02)
 - [Omitted optional arguments, and string operands to numeric intrinsics (2026-09-02)](omitted-optional-arguments-and-string-operands-to-numeric-intrinsics.md#omitted-optional-arguments-and-string-operands-to-numeric-intrinsics-2026-09-02)
@@ -518,6 +545,7 @@ added afterwards.
 - [A Double or a Single converted to Decimal (2026-11-15, #4012)](a-double-or-a-single-converted-to-decimal.md#a-double-or-a-single-converted-to-decimal-2026-11-15-4012)
 - [A control where a value is wanted is its default member (2026-10-12, #790)](a-control-where-a-value-is-wanted-is-its-default-member.md#a-control-where-a-value-is-wanted-is-its-default-member-2026-10-12-790)
 - [A Label's colours, read back and painted (2026-10-12, #795)](a-labels-colours-read-back-and-painted.md#a-labels-colours-read-back-and-painted-2026-10-12-795)
+- [A Label's colours: re-measured on SP6, with a game's order (2026-11-19, #4965)](a-labels-colours-read-back-and-painted.md#re-measured-on-sp6-with-a-games-order-2026-11-19-4965)
 - [Seven system colours (2026-10-22, #908)](seven-system-colours.md#seven-system-colours-2026-10-22-908)
 - [The fonts a form names (2026-10-17, #1132, #1133)](the-fonts-a-form-names.md#the-fonts-a-form-names-2026-10-17-1132-1133)
 - [A Label's border (2026-10-17, #1077)](a-labels-border.md#a-labels-border-2026-10-17-1077)
@@ -546,13 +574,17 @@ added afterwards.
 - [Another module's Public names, bare (2026-10-14, #880)](another-modules-public-names-bare.md#another-modules-public-names-bare-2026-10-14-880)
 - [A control's position at run time (2026-10-14, #933)](a-controls-position-at-run-time.md#a-controls-position-at-run-time-2026-10-14-933)
 - [Mouse events (2026-10-14, #974)](mouse-events.md#mouse-events-2026-10-14-974)
+- [Mouse events: a transparent Label takes the pointer across its whole rectangle (2026-11-19, #4966, SP6)](mouse-events.md#a-transparent-label-takes-the-pointer-across-its-whole-rectangle-2026-11-19-4966-sp6)
 - [A click with real input: where Click and DblClick fall (2026-10-22, #1364)](a-click-with-real-input-where-click-and-dblclick-fall.md#a-click-with-real-input-where-click-and-dblclick-fall-2026-10-22-1364)
+- [A right and a middle click on a control (2026-11-20, #4965, SP6)](a-click-with-real-input-where-click-and-dblclick-fall.md#a-right-and-a-middle-click-on-a-control-2026-11-20-4965-sp6)
 - [A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)](a-listboxs-click-a-left-press-on-an-item-or-code-or-a-key-that-moves-the-selection.md#a-listboxs-click-a-left-press-on-an-item-or-code-or-a-key-that-moves-the-selection-2026-10-22-1374)
 - [A ListBox's Selected, SelCount and Text, with MultiSelect and without (2026-10-22, #1395)](a-listboxs-selected-selcount-and-text-with-multiselect-and-without.md#a-listboxs-selected-selcount-and-text-with-multiselect-and-without-2026-10-22-1395)
 - [A ListBox's Scroll event: what raises it, and what doesn't (2026-11-06, #3275)](a-listboxs-scroll-event.md#a-listboxs-scroll-event-what-raises-it-and-what-doesnt-2026-11-06-3275)
 - [A MultiSelect list's TopIndex, and TopIndex before the form is shown (2026-11-15, #3986)](a-listboxs-scroll-event.md#a-multiselect-lists-topindex-and-topindex-before-the-form-is-shown-2026-11-15-3986)
 - [A ListBox's Page Up, Selected and Text, checkboxes and columns (2026-11-16, #3986)](a-listboxs-page-up-checkboxes-and-columns.md#a-listboxs-page-up-selected-and-text-checkboxes-and-columns-2026-11-16-3986)
+- [A checkbox list's SelCount, Selected and ListIndex through AddItem and RemoveItem (2026-11-20, #4209's review)](a-listboxs-page-up-checkboxes-and-columns.md#a-checkbox-lists-selcount-selected-and-listindex-through-additem-and-removeitem-2026-11-20-4209s-review)
 - [Selected on a MultiSelect ListBox scrolls the item into view (2026-11-16, #4229, SP6 native and p-code)](selected-on-a-multiselect-listbox-scrolls-the-item-into-view.md#selected-on-a-multiselect-listbox-scrolls-the-item-into-view-2026-11-16-4229-sp6-native-and-p-code)
+- [A list member's error called directly or through As Object (2026-11-20, #5117, SP6)](a-lists-members-listcount-list.md#called-directly-or-through-as-object-2026-11-20-5117-sp6)
 - [One handler at a time (2026-10-14, #766)](one-handler-at-a-time.md#one-handler-at-a-time-2026-10-14-766)
 - [Unload Me (2026-10-14, #973)](unload-me.md#unload-me-2026-10-14-973)
 - [Overflow edges (2026-10-14, #234)](overflow-edges.md#overflow-edges-2026-10-14-234)
@@ -560,7 +592,9 @@ added afterwards.
 - [A String in arithmetic (2026-10-14, #1047, #770)](a-string-in-arithmetic.md#a-string-in-arithmetic-2026-10-14-1047-770)
 - [Several forms: load, show, hide, modal, and when the run ends (2026-10-14, #822)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#several-forms-load-show-hide-modal-and-when-the-run-ends-2026-10-14-822)
 - [A form's name as a type: New, As New, an Object and an interface (2026-11-18, #4598, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#a-forms-name-as-a-type-new-as-new-an-object-and-an-interface-2026-11-18-4598-sp6)
+- [As New on a form: Is Nothing, Unload, Set Nothing, and a module's As New (2026-11-18, #4640, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#as-new-on-a-form-is-nothing-unload-set-nothing-and-a-modules-as-new-2026-11-18-4640-sp6)
 - [Who owns a modal form, and what F5 brings back (2026-11-18, #4618, SP6, IDE)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#who-owns-a-modal-form-and-what-f5-brings-back-2026-11-18-4618-sp6-ide)
+- [A form displayed, and a form behind a modal one, re-measured on the console (2026-11-18, #4744, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#a-form-displayed-and-a-form-behind-a-modal-one-re-measured-on-the-console-2026-11-18-4744-sp6)
 - [An unhandled run-time error (2026-10-14, #1011)](an-unhandled-run-time-error.md#an-unhandled-run-time-error-2026-10-14-1011)
 - [Operator precedence (2026-10-15, #1074)](operator-precedence.md#operator-precedence-2026-10-15-1074)
 - [The library's `$` forms (2026-10-15, #742, #1071)](the-librarys--forms.md#the-librarys--forms-2026-10-15-742-1071)
@@ -568,7 +602,9 @@ added afterwards.
 - [A negative or zero control size (2026-11-16, #589)](a-negative-or-zero-control-size.md#a-negative-or-zero-control-size-2026-11-16-589)
 - [The same `.frm` in VB6's IDE (2026-11-16, #4179)](a-negative-or-zero-control-size.md#the-same-frm-in-vb6s-ide-2026-11-16-4179)
 - [A control's minimum size (2026-11-16, #4071)](a-controls-minimum-size.md#a-controls-minimum-size-2026-11-16-4071)
+- [Visible before a form is shown, by kind of control (2026-11-19, #4829)](visible-before-a-form-is-shown.md#visible-before-a-form-is-shown-by-kind-of-control-2026-11-19-4829)
 - [Menus at run time, and the menu bar (2026-10-17, #1126, #1127)](menus-at-run-time-and-the-menu-bar.md#menus-at-run-time-and-the-menu-bar-2026-10-17-1126-1127)
+- [Changing the bar twice before it lands, and a bar that wraps (2026-11-19, #4946)](menus-at-run-time-and-the-menu-bar.md#changing-the-bar-twice-before-it-lands-and-a-bar-that-wraps-2026-11-19-4946)
 - [When a menu's Click is raised (2026-10-22, #1344)](when-a-menus-click-is-raised.md#when-a-menus-click-is-raised-2026-10-22-1344)
 - [Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)](choosing-a-menu-item-leaves-checked-to-the-program.md#choosing-a-menu-item-leaves-checked-to-the-program-2026-10-18-1158-measured-by-1159)
 - [What VB6 writes for a menu in a .frm (2026-11-16, #4141, IDE)](what-vb6-writes-for-a-menu-in-a-frm.md#what-vb6-writes-for-a-menu-in-a-frm-2026-11-16-4141-ide)
@@ -578,6 +614,7 @@ added afterwards.
 - [The CommonDialog control (2026-10-17, #1084)](the-commondialog-control.md#the-commondialog-control-2026-10-17-1084)
 - [A font's size, and the default font (2026-10-22, #910)](a-fonts-size-and-the-default-font.md#a-fonts-size-and-the-default-font-2026-10-22-910)
 - [A font's FontSize, FontBold and the rest (2026-10-22, #1343, #915)](a-fonts-fontsize-fontbold-and-the-rest.md#a-fonts-fontsize-fontbold-and-the-rest-2026-10-22-1343-915)
+- [Underline and Strikethrough are drawn, on every control that draws text (2026-11-19, #4971, SP6)](a-fonts-fontsize-fontbold-and-the-rest.md#underline-and-strikethrough-are-drawn-on-every-control-that-draws-text-2026-11-19-4971-sp6)
 - [Command, and Left$ in a form's code (2026-10-17, #742)](command-and-left-in-a-forms-code.md#command-and-left-in-a-forms-code-2026-10-17-742)
 - [A TextBox's selection (2026-10-17, #1150)](a-textboxs-selection.md#a-textboxs-selection-2026-10-17-1150)
 - [A form's WindowState (2026-10-17, #1152)](a-forms-windowstate.md#a-forms-windowstate-2026-10-17-1152)
@@ -589,6 +626,8 @@ added afterwards.
 - [A form whose two names disagree (2026-10-22, #473)](a-form-whose-two-names-disagree.md#a-form-whose-two-names-disagree-2026-10-22-473)
 - [A quote inside a .frm string (2026-10-22, #218)](a-quote-inside-a-frm-string.md#a-quote-inside-a-frm-string-2026-10-22-218)
 - [A property named twice, and a measurement VB6 can't set, in a .frm (2026-11-16, #4096, design-time, IDE, SP6)](a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm.md#a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm-2026-11-16-4096-design-time-ide-sp6)
+- [Which values a .frm line can hold, by the property's type (2026-11-19, #4317, `/make`, SP6)](a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm.md#which-values-a-frm-line-can-hold-by-the-propertys-type-2026-11-19-4317-make-sp6)
+- [What an accepted text reads as, and more texts by type (2026-11-20, #4988, `/make`, SP6)](a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm.md#what-an-accepted-text-reads-as-and-more-texts-by-type-2026-11-20-4988-make-sp6)
 - [ToolTipText: which controls have it (2026-10-23, #1403)](tooltiptext-which-controls-have-it.md#tooltiptext-which-controls-have-it-2026-10-23-1403)
 - [What Save Project As does to the paths in a project file (2026-10-22, #1406)](what-save-project-as-does-to-the-paths-in-a-project-file.md#what-save-project-as-does-to-the-paths-in-a-project-file-2026-10-22-1406)
 - [Where and how VB6 writes a project's description (2026-10-22, #42)](where-and-how-vb6-writes-a-projects-description.md#where-and-how-vb6-writes-a-projects-description-2026-10-22-42)
@@ -602,6 +641,8 @@ added afterwards.
 - [A UDT field passed ByRef (2026-10-22, #1451)](a-udt-field-passed-byref.md#a-udt-field-passed-byref-2026-10-22-1451)
 - [An array element passed ByRef (2026-10-22, #1455)](an-array-element-passed-byref.md#an-array-element-passed-byref-2026-10-22-1455)
 - [For Each locks its array (#1460)](for-each-locks-its-array.md#for-each-locks-its-array-1460)
+- [GoSub, Return, and On … GoTo and On … GoSub (2026-11-18, #4726)](gosub-return-and-on-goto.md#gosub-return-and-on--goto-and-on--gosub-2026-11-18-4726)
+- [A selector beyond Integer, and Resume from a routine a handler called (2026-11-19, #4880)](gosub-return-and-on-goto.md#a-selector-beyond-integer-and-resume-from-a-routine-a-handler-called-2026-11-19-4880)
 - [The References dialog's fixed rows (2026-10-22, #1026, design-time)](the-references-dialogs-fixed-rows.md#the-references-dialogs-fixed-rows-2026-10-22-1026-design-time)
 - [A form's StartUpPosition when its file has no line (2026-10-13, #932)](a-forms-startupposition-when-its-file-has-no-line.md#a-forms-startupposition-when-its-file-has-no-line-2026-10-13-932)
 - [A form's Attribute block, and a form without one (2026-10-22, #516, #931)](a-forms-attribute-block-and-a-form-without-one.md#a-forms-attribute-block-and-a-form-without-one-2026-10-22-516-931)
@@ -622,7 +663,11 @@ added afterwards.
 - [Static (2026-10-23, #1491)](static.md#static-2026-10-23-1491)
 - [A Let into an object variable (2026-10-23, #1493)](a-let-into-an-object-variable.md#a-let-into-an-object-variable-2026-10-23-1493)
 - [An unset Function of an object type returns Nothing (2026-11-18, #4622, SP6)](a-let-into-an-object-variable.md#an-unset-function-of-an-object-type-returns-nothing-2026-11-18-4622-sp6)
+- [A default member, by kind and by target (2026-11-18, #4694)](a-let-into-an-object-variable.md#a-default-member-by-kind-and-by-target-2026-11-18-4694)
+- [A variable declared As Control (2026-11-19, #4864, SP6)](a-variable-declared-as-control.md#a-variable-declared-as-control-2026-11-19-4864-sp6)
+- [Beyond a local, New StdFont, and For Each (2026-11-19, #4864, #4878)](a-variable-declared-as-control.md#beyond-a-local-new-stdfont-and-for-each-2026-11-19-4864-4878)
 - [The size of a control added from the toolbox (2026-10-23, #1473, design-time, IDE, release build)](the-size-of-a-control-added-from-the-toolbox.md#the-size-of-a-control-added-from-the-toolbox-2026-10-23-1473-design-time-ide-release-build)
+- [What the toolbox's tooltips read (2026-11-18, #2751, SP6, IDE)](the-size-of-a-control-added-from-the-toolbox.md#what-the-toolboxs-tooltips-read-2026-11-18-2751-sp6-ide)
 - [An undeclared variable passed ByRef (2026-10-23, #1505)](an-undeclared-variable-passed-byref.md#an-undeclared-variable-passed-byref-2026-10-23-1505)
 - [Chr, Asc, ChrW and AscW (2026-10-23, #1134)](chr-asc-chrw-and-ascw.md#chr-asc-chrw-and-ascw-2026-10-23-1134)
 - [The name VB6's designer gives a new control (2026-10-23, #540, design-time, IDE, release build)](the-name-vb6s-designer-gives-a-new-control.md#the-name-vb6s-designer-gives-a-new-control-2026-10-23-540-design-time-ide-release-build)
@@ -634,11 +679,13 @@ added afterwards.
 - [What the Properties window's object box lists, and in what order (2026-11-18, #1520, design-time, IDE, SP6)](what-the-properties-windows-object-box-lists.md#what-the-properties-windows-object-box-lists-and-in-what-order-2026-11-18-1520-design-time-ide-sp6)
 - [A UserControl's and a PropertyPage's own events (2026-10-24, #1632, design-time, IDE, release build and SP6)](a-usercontrols-and-a-propertypages-own-events.md#a-usercontrols-and-a-propertypages-own-events-2026-10-24-1632-design-time-ide-release-build-and-sp6)
 - [The procedure a designer double-click writes for each control (2026-11-17, #4411, design-time, IDE, SP6)](the-procedure-a-designer-double-click-writes-for-each-control.md#the-procedure-a-designer-double-click-writes-for-each-control-2026-11-17-4411-design-time-ide-sp6)
+- [The Procedure box's entries for a property's accessors (2026-11-18, #4783, design-time, IDE, SP6)](the-procedure-boxs-entries-for-a-propertys-accessors.md#the-procedure-boxs-entries-for-a-propertys-accessors-2026-11-18-4783-design-time-ide-sp6)
 - [Loading an element of a UserControl array (2026-11-16, #4337, SP6)](loading-an-element-of-a-usercontrol-array.md#loading-an-element-of-a-usercontrol-array-2026-11-16-4337-sp6)
 - [Write # and Input # (2026-10-23, #1521)](write--and-input.md#write--and-input--2026-10-23-1521)
 - [Make Project Group (2026-10-23, #746, design-time, IDE, release build)](make-project-group.md#make-project-group-2026-10-23-746-design-time-ide-release-build)
 - [A project group's file, as VB6 writes it (2026-11-14, #579, design-time, IDE, SP6)](a-project-groups-file-as-vb6-writes-it.md#a-project-groups-file-as-vb6-writes-it-2026-11-14-579-design-time-ide-sp6)
 - [A project group naming a file that isn't a .vbp (2026-11-16, #4051, design-time, IDE, SP6)](a-project-group-naming-a-file-that-isnt-a-vbp.md#a-project-group-naming-a-file-that-isnt-a-vbp-2026-11-16-4051-design-time-ide-sp6)
+- [A project's reference to another project of its group (2026-11-19, #4899, design-time and run, IDE, SP6)](a-projects-reference-to-another-project-of-its-group.md#a-projects-reference-to-another-project-of-its-group-2026-11-19-4899-design-time-and-run-ide-sp6)
 - [How a running form stacks its controls (2026-10-23, #1497, IDE, release build)](how-a-running-form-stacks-its-controls.md#how-a-running-form-stacks-its-controls-2026-10-23-1497-ide-release-build)
 - [Too few arguments to an intrinsic (2026-10-23, #1512)](too-few-arguments-to-an-intrinsic.md#too-few-arguments-to-an-intrinsic-2026-10-23-1512)
 - [Print # and the ANSI best fit (2026-10-23, #1511)](print--and-the-ansi-best-fit.md#print--and-the-ansi-best-fit-2026-10-23-1511)
@@ -650,6 +697,9 @@ added afterwards.
 - [Tab and the arrow keys among option buttons (2026-10-23, #1583)](tab-and-the-arrow-keys-among-option-buttons.md#tab-and-the-arrow-keys-among-option-buttons-2026-10-23-1583)
 - [Where the arrow keys go from a button (2026-10-23, #1625)](where-the-arrow-keys-go-from-a-button.md#where-the-arrow-keys-go-from-a-button-2026-10-23-1625)
 - [Conditional compilation (2026-10-23, #1112)](conditional-compilation.md#conditional-compilation-2026-10-23-1112)
+- [A built-in redefined, and a module's `#Const` against a project argument (2026-11-18, #4821, SP6)](conditional-compilation.md#a-built-in-redefined-and-a-modules-const-against-a-project-argument-2026-11-18-4821-sp6)
+- [Off Windows: what `#If` reads in Excel for Mac (2026-11-18, #4821)](conditional-compilation.md#off-windows-what-if-reads-in-excel-for-mac-2026-11-18-4821), measured in Excel for Mac, not vb6.exe
+- [A Declare whose library or entry point is missing (2026-11-18, #4820, SP6)](a-declare-whose-library-or-entry-point-is-missing.md#a-declare-whose-library-or-entry-point-is-missing-2026-11-18-4820-sp6)
 - [LongLong and LongPtr in 64-bit VBA7 (2026-11-14, #1548)](longlong-and-longptr-in-64-bit-vba7.md#longlong-and-longptr-in-64-bit-vba7-2026-11-14-1548), measured in Excel's VBA7, not vb6.exe
 - [LongLong and LongPtr in 32-bit VBA7 (2026-11-17, #1548)](longlong-and-longptr-in-32-bit-vba7.md#longlong-and-longptr-in-32-bit-vba7-2026-11-17-1548)
 - [VBA7's 64-bit syntax in vb6.exe, in active code (2026-11-16, #1548, SP6)](vba7s-64-bit-syntax-in-vb6exe.md#vba7s-64-bit-syntax-in-vb6exe-in-active-code-2026-11-16-1548-sp6)
@@ -657,6 +707,7 @@ added afterwards.
 - [A form's window styles: BorderStyle, ControlBox, MinButton and MaxButton (2026-10-23, #1575)](a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md#a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton-2026-10-23-1575)
 - [A form's window icon: no Icon line, (None), and an icon of its own (2026-10-24, #1594, SP6)](a-forms-window-icon-no-icon-line.md#a-forms-window-icon-no-icon-line-none-and-an-icon-of-its-own-2026-10-24-1594-sp6)
 - [An Icon set at run time, and which image LoadPicture takes from an icon file (2026-11-18, #4603, SP6)](a-forms-window-icon-no-icon-line.md#an-icon-set-at-run-time-2026-11-18-4603-sp6)
+- [An icon file with no 32-by-32 image, and images without their mask (2026-11-18, #4748, SP6)](a-forms-window-icon-no-icon-line.md#an-icon-file-with-no-32-by-32-image-and-images-without-their-mask-2026-11-18-4748-sp6)
 - [A form's Resize, Activate and Deactivate (2026-10-23, #994)](a-forms-resize-activate-and-deactivate.md#a-forms-resize-activate-and-deactivate-2026-10-23-994)
 - [The active form hidden by `Visible`, and the last visible form hidden and shown (2026-11-14, #3936)](a-forms-resize-activate-and-deactivate.md#the-active-form-hidden-by-visible-and-the-last-visible-form-hidden-and-shown-2026-11-14-3936)
 - [`Visible` while another form is modal, against `Show` and `Hide` (2026-11-16, #3936)](a-forms-resize-activate-and-deactivate.md#visible-while-another-form-is-modal-against-show-and-hide-2026-11-16-3936)
@@ -679,8 +730,12 @@ added afterwards.
 - [A compare argument, and when it is checked (2026-10-27, #881)](a-compare-argument-and-when-it-is-checked.md#a-compare-argument-and-when-it-is-checked-2026-10-27-881)
 - [A standard module's Property procedures (2026-10-27, #977)](a-standard-modules-property-procedures.md#a-standard-modules-property-procedures-2026-10-27-977)
 - [A control's Font object (2026-10-27, #934)](a-controls-font-object.md#a-controls-font-object-2026-10-27-934)
+- [A free-standing StdFont: Bold, Weight 400 and 700, and one assignment after another (2026-11-19, #4807)](a-free-standing-stdfonts-bold-and-weight.md)
+- [A free-standing StdFont: values of every type, and the font a Size, Charset or Name reads (2026-11-19, #4926, SP6)](a-free-standing-stdfonts-values-of-every-type.md)
 - [AutoSize on a Label and a PictureBox (2026-10-27, #922)](autosize-on-a-label-and-a-picturebox.md#autosize-on-a-label-and-a-picturebox-2026-10-27-922)
+- [What an AutoSize Label measures its caption by, and which edge stays (2026-11-19, #922, SP6)](autosize-on-a-label-and-a-picturebox.md#what-an-autosize-label-measures-its-caption-by-and-which-edge-stays-2026-11-19-922-sp6)
 - [An icon picture's size, and the image it draws (2026-11-14, #2626)](an-icon-pictures-size-and-the-image-it-draws.md#an-icon-pictures-size-and-the-image-it-draws-2026-11-14-2626)
+- [An Image's size when its Picture is set at run time (2026-11-20, #5010, SP6)](an-images-size-when-its-picture-is-set.md#an-images-size-when-its-picture-is-set-at-run-time-2026-11-20-5010-sp6)
 - [The Screen object (2026-10-28, #2431)](the-screen-object.md#the-screen-object-2026-10-28-2431)
 - [The control a shown form focuses (2026-10-28, #2436)](the-control-a-shown-form-focuses.md#the-control-a-shown-form-focuses-2026-10-28-2436)
 - [A form's own ActiveControl (2026-10-28, #2437)](a-forms-own-activecontrol.md#a-forms-own-activecontrol-2026-10-28-2437)
@@ -691,6 +746,7 @@ added afterwards.
 - [A name declared twice (2026-10-23, #1622, #1499)](a-name-declared-twice.md#a-name-declared-twice-2026-10-23-1622-1499)
 - [Next closing several loops (2026-10-27, #2393)](next-closing-several-loops.md#next-closing-several-loops-2026-10-27-2393)
 - [LOF, Loc, Seek and the Input function (2026-10-23, #1645)](lof-loc-seek-and-the-input-function.md#lof-loc-seek-and-the-input-function-2026-10-23-1645)
+- [An Input file's buffer at its edge: EOF, Line Input and a file that grows (2026-11-19, #4944, SP6)](an-input-files-buffer-at-its-edge.md#an-input-files-buffer-at-its-edge-eof-line-input-and-a-file-that-grows-2026-11-19-4944-sp6)
 - [A declaration written with a type character (2026-10-27, #2409)](a-declaration-written-with-a-type-character.md#a-declaration-written-with-a-type-character-2026-10-27-2409)
 - [A numeric literal ending in its point (2026-10-23, #1615)](a-numeric-literal-ending-in-its-point.md#a-numeric-literal-ending-in-its-point-2026-10-23-1615)
 - [Random and Binary files, Get, Put and Len (2026-10-24, #1646)](random-and-binary-files-get-put-and-len.md#random-and-binary-files-get-put-and-len-2026-10-24-1646)
@@ -702,6 +758,8 @@ added afterwards.
 - [The Components dialog and an in-box library's lines (2026-10-26, #1103, design-time)](the-components-dialog-and-an-in-box-librarys-lines.md#the-components-dialog-and-an-in-box-librarys-lines-2026-10-26-1103-design-time)
 - [Data-bound TextBox startup value (#859, #856)](data-bound-textbox-startup-value.md#data-bound-textbox-startup-value-859-856)
 - [The byte-string functions (2026-10-25, #1510)](the-byte-string-functions.md#the-byte-string-functions-2026-10-25-1510)
+- [InputB, by file mode (2026-11-19, #4895, SP6)](the-byte-string-functions.md#inputb-by-file-mode-2026-11-19-4895-sp6)
+- [InputB on an Append file, and a file changed while it is open (2026-11-19, #4927, SP6)](a-file-changed-while-it-is-open.md#inputb-on-an-append-file-and-a-file-changed-while-it-is-open-2026-11-19-4927-sp6)
 - [A form's Move (2026-10-26, #1569)](a-forms-move.md#a-forms-move-2026-10-26-1569)
 - [A date's fraction of a second (2026-10-26, #783)](a-dates-fraction-of-a-second.md#a-dates-fraction-of-a-second-2026-10-26-783)
 - [Rnd and Randomize (2026-10-26, #2117)](rnd-and-randomize.md#rnd-and-randomize-2026-10-26-2117)
@@ -711,11 +769,13 @@ added afterwards.
 - [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
 - [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
+- [What `/make` says for a syntax error or an unbalanced block (2026-11-20, #4415, SP6)](what-make-says-for-a-syntax-error-or-an-unbalanced-block.md#what-make-says-for-a-syntax-error-or-an-unbalanced-block-2026-11-20-4415-sp6)
 
 - [A UserControl's containers, drawing and events](usercontrol-containers-drawing-and-events.md) (#1631, part C).
 - [A UserControl instance's saved properties](usercontrol-files.md) (#1631, group 2A file-save subset).
 - [A UDT copied whole, and arrays of a UDT (#178)](a-udt-copied-whole-and-arrays-of-a-udt.md)
 - [A UDT copied whole, and arrays of a UDT (2026-10-26, #178)](a-udt-copied-whole-and-arrays-of-a-udt.md#a-udt-copied-whole-and-arrays-of-a-udt-2026-10-26-178)
+- [Get and Put of Type arrays and array fields, As New and object array fields, and arguments on a field (2026-11-19, #4925)](a-udt-copied-whole-and-arrays-of-a-udt.md#get-and-put-of-type-arrays-and-array-fields-as-new-and-object-array-fields-and-arguments-on-a-field-2026-11-19-4925)
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
 - [Break on an idle program, and a step off the end of an event handler (2026-11-16, #4261, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#break-on-an-idle-program-and-a-step-off-the-end-of-an-event-handler-2026-11-16-4261-ide)
 - [Which window comes to the front: Continue, a step, and a modal form (2026-11-17, #4262, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide)
@@ -727,6 +787,7 @@ added afterwards.
 - [A UserControl's own properties in the designer and the files (2026-10-26, #1631, design-time, IDE)](a-usercontrols-own-properties-in-the-designer-and-the-files.md#a-usercontrols-own-properties-in-the-designer-and-the-files-2026-10-26-1631-design-time-ide)
 - [In-box controls: the ImageList (2026-10-26, #1083)](in-box-controls-the-imagelist.md#in-box-controls-the-imagelist-2026-10-26-1083)
 - [In-box controls: the StatusBar (2026-10-26, #1087)](in-box-controls-the-statusbar.md#in-box-controls-the-statusbar-2026-10-26-1087)
+- [StatusBar: Panels: argument counts, keys by case, conversions, Tag, Picture, a removed panel and lengths (2026-11-19, #4882)](in-box-controls-the-statusbar.md#panels-argument-counts-keys-by-case-conversions-tag-picture-a-removed-panel-and-lengths-2026-11-19-4882)
 - [In-box controls: the Toolbar (2026-10-26, #1088)](in-box-controls-the-toolbar.md#in-box-controls-the-toolbar-2026-10-26-1088)
 - [Toolbar: A button's Image from other types, keys by case, and the Hot and Disabled lists (2026-11-16, #4147)](in-box-controls-the-toolbar.md#a-buttons-image-from-other-types-keys-by-case-and-the-hot-and-disabled-lists-2026-11-16-4147)
 - [In-box controls: the ListView (2026-10-26, #1085)](in-box-controls-the-listview.md#in-box-controls-the-listview-2026-10-26-1085)
@@ -734,6 +795,7 @@ added afterwards.
 - [In-box controls: the CommonDialog (2026-10-27, #1084)](in-box-controls-the-commondialog.md#in-box-controls-the-commondialog-2026-10-27-1084)
 - [In-box controls: the SSTab (2026-10-27, #1090)](in-box-controls-the-sstab.md#in-box-controls-the-sstab-2026-10-27-1090)
 - [The SSTab: TabPicture at run time (2026-11-16, #3426, SP6)](in-box-controls-the-sstab.md#tabpicture-at-run-time-2026-11-16-3426-sp6)
+- [The SSTab: saved TabHeight and TabMaxWidth, and reading them in each ScaleMode (2026-11-19, #4953, SP6)](in-box-controls-the-sstab.md#saved-tabheight-and-tabmaxwidth-and-reading-them-in-each-scalemode-2026-11-19-4953-sp6)
 - [A control assigned to an SSTab's TabPicture (2026-11-16, #3426, SP6 native and p-code)](a-control-assigned-to-an-sstabs-tabpicture.md#a-control-assigned-to-an-sstabs-tabpicture-2026-11-16-3426-sp6-native-and-p-code)
 - [A control's Enabled inside a disabled container (2026-10-27)](a-controls-enabled-inside-a-disabled-container.md#a-controls-enabled-inside-a-disabled-container-2026-10-27)
 - [In-box controls: the MSFlexGrid (2026-10-27, #1099)](in-box-controls-the-msflexgrid.md#in-box-controls-the-msflexgrid-2026-10-27-1099)
@@ -768,6 +830,10 @@ added afterwards.
 - [LSet and RSet into a String (2026-10-28, #2517)](lset-and-rset-into-a-string.md#lset-and-rset-into-a-string-2026-10-28-2517)
 - [LSet between two user-defined types (2026-10-28, #2518)](lset-between-two-user-defined-types.md#lset-between-two-user-defined-types-2026-10-28-2518)
 - [Fixed-length Strings (2026-11-15, #179)](fixed-length-strings.md#fixed-length-strings-2026-11-15-179)
+- [Fixed-length Strings: arrays of them, the width and parameters (2026-11-19, #179)](fixed-length-strings.md#arrays-of-fixed-length-strings-the-width-and-parameters-2026-11-19-179)
+- [Fixed-length Strings: arrays of them, more targets and parameters (2026-11-19, #179)](fixed-length-strings.md#arrays-of-fixed-length-strings-more-targets-and-parameters-2026-11-19-179)
+- [What `Len` counts in a user-defined Type (2026-11-19, #179)](what-len-counts-in-a-user-defined-type.md#what-len-counts-in-a-user-defined-type-2026-11-19-179)
+- [More `Len` fields, and `VBA.Len` of a Type (2026-11-19, #4924)](what-len-counts-in-a-user-defined-type.md#more-len-fields-and-vbalen-of-a-type-2026-11-19-4924)
 - [LSet between UDTs: Alignment, the other types, and what doesn't compile (2026-11-16, #2518)](lset-between-two-user-defined-types.md#alignment-the-other-types-and-what-doesnt-compile-2026-11-16-2518)
 - [A nested user-defined type is a record of its own (2026-11-16, #2518)](a-nested-user-defined-type-is-a-record-of-its-own.md#a-nested-user-defined-type-is-a-record-of-its-own-2026-11-16-2518)
 - [CallByName (2026-10-28, #2519)](callbyname.md#callbyname-2026-10-28-2519)
@@ -779,6 +845,7 @@ added afterwards.
 - [Pmt, FV, PV, NPer, IPmt, PPmt and Rate (2026-10-28, #2523)](pmt-fv-pv-nper-ipmt-ppmt-and-rate.md#pmt-fv-pv-nper-ipmt-ppmt-and-rate-2026-10-28-2523)
 - [DDB, SLN and SYD (2026-10-28, #2524)](ddb-sln-and-syd.md#ddb-sln-and-syd-2026-10-28-2524)
 - [NPV, IRR and MIRR (2026-10-28, #2525)](npv-irr-and-mirr.md#npv-irr-and-mirr-2026-10-28-2525)
+- [The financial functions: arguments, domains and overflow (2026-11-19, #4883)](financial-functions-arguments-domains-and-overflow.md#the-financial-functions-arguments-domains-and-overflow-2026-11-19-4883)
 - [Partition (2026-10-28, #2526)](partition.md#partition-2026-10-28-2526)
 - [Err.HelpFile, Err.HelpContext and Err.LastDllError (2026-10-28, #2527)](err-helpfile-err-helpcontext-and-err-lastdllerror.md#errhelpfile-errhelpcontext-and-errlastdllerror-2026-10-28-2527)
 - [Erl: the line number an error reports (2026-10-28, #2528)](erl-the-line-number-an-error-reports.md#erl-the-line-number-an-error-reports-2026-10-28-2528)
@@ -810,7 +877,9 @@ added afterwards.
 - [Long lines, line continuations and long expressions (2026-11-06, #3202)](long-lines-line-continuations-and-long-expressions.md#long-lines-line-continuations-and-long-expressions-2026-11-06-3202)
 - [Nested `If` blocks (2026-11-06, #3210)](long-lines-line-continuations-and-long-expressions.md#nested-if-blocks-2026-11-06-3210)
 - [`For Each` collections that vb6.exe refuses to compile (2026-11-06, #3213)](resume-next-into-a-block.md#for-each-collections-that-vb6exe-refuses-to-compile-2026-11-06-3213)
+- [A Public Type in a UserControl, and in an ActiveX project's modules (2026-11-20, #5042)](a-public-type-in-a-usercontrol-or-an-activex-project.md#a-public-type-in-a-usercontrol-and-in-an-activex-projects-modules-2026-11-20-5042)
 - [A Public array in a class or a form, under /make and in the IDE (2026-11-08, #3335)](a-public-array-in-an-object-module.md#a-public-array-in-a-class-or-a-form-under-make-and-in-the-ide-2026-11-08-3335)
+- [A Public Type in a class or a form (2026-11-20, #4907)](a-public-array-in-an-object-module.md#a-public-type-in-a-class-or-a-form-2026-11-20-4907)
 - [`Print #` items with nothing between them, and a sign after `Spc` or `Tab` (2026-11-06, #3248)](sequential-files.md#print--items-with-nothing-between-them-and-a-sign-after-spc-or-tab-2026-11-06-3248)
 - [A module's name line below the top of its file (2026-11-12, #3757)](a-modules-name-line-below-the-top-of-its-file.md#a-modules-name-line-below-the-top-of-its-file-2026-11-12-3757)
 - [An undeclared name before a dot (2026-11-12, #3778)](an-undeclared-name-before-a-dot.md#an-undeclared-name-before-a-dot-2026-11-12-3778)
@@ -823,15 +892,49 @@ added afterwards.
 - [The Object Browser's library list: its order (2026-11-16, #4113, design-time, IDE, SP6)](the-object-browsers-library-list.md#the-object-browsers-library-list-its-order-2026-11-16-4113-design-time-ide-sp6)
 - [Default and Cancel buttons (2026-11-17, #4371)](default-and-cancel-buttons.md#default-and-cancel-buttons-2026-11-17-4371)
 - [The default border's pixels (2026-11-18, #4391)](default-and-cancel-buttons.md#the-default-borders-pixels-2026-11-18-4391)
+- [A CommandButton's caption: where it sits, where it's clipped, and how it draws disabled (2026-11-20, #4551, #4586, SP6)](a-commandbuttons-caption-where-it-sits-and-how-it-draws-disabled.md#a-commandbuttons-caption-where-it-sits-where-its-clipped-and-how-it-draws-disabled-2026-11-20-4551-4586-sp6)
 - [What the IDE asks before replacing or dropping a file (2026-11-17, #2504, design-time, IDE, SP6)](what-the-ide-asks-before-replacing-or-dropping-a-file.md#what-the-ide-asks-before-replacing-or-dropping-a-file-2026-11-17-2504)
 - [App.Path and App.EXEName under F5, and in the made exe (2026-11-17, #4504, SP6)](app-path-and-exename-under-f5-and-in-the-made-exe.md#apppath-and-appexename-under-f5-and-in-the-made-exe-2026-11-17-4504)
 - [The CommonDialog: Color, HelpContext and Action conversions, control arrays and containers (2026-11-17, #4148, SP6)](in-box-controls-the-commondialog.md#color-helpcontext-and-action-conversions-control-arrays-and-containers-2026-11-17-4148)
 - [The coordinate system: ScaleMode, Scale, ScaleX and ScaleY (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#the-coordinate-system-scalemode-scale-scalex-and-scaley-2026-11-18-990-sp6)
 - [Centimetres and millimetres, to the last bit (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#centimetres-and-millimetres-to-the-last-bit-2026-11-18-990-sp6)
 - [A control's size in a flipped scale, and Scale inside With (2026-11-18, #990, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#a-controls-size-in-a-flipped-scale-and-scale-inside-with-2026-11-18-990-sp6)
+- [A UserControl's scale, late-bound Scale, and scales saved without extents (2026-11-18, #4693, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#a-usercontrols-scale-late-bound-scale-and-scales-saved-without-extents-2026-11-18-4693-sp6)
+- [More of a UserControl's scale, exact centimetre readbacks, and late-bound and argument-count edges (2026-11-18, #4693, SP6)](the-coordinate-system-scalemode-scale-scalex-and-scaley.md#more-of-a-usercontrols-scale-exact-centimetre-readbacks-and-late-bound-and-argument-count-edges-2026-11-18-4693-sp6)
 - [The drawing methods: Line, PSet, Circle, Cls and Point (2026-11-18, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#the-drawing-methods-line-pset-circle-cls-and-point-2026-11-18-988-sp6)
+- [Circles, arcs, sectors and thick pens, pixel by pixel (2026-11-18, #988, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#circles-arcs-sectors-and-thick-pens-pixel-by-pixel-2026-11-18-988-sp6)
+- [A nonnumeric constant, or a member a container lacks, in an Enum (2026-11-18, #4745)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-nonnumeric-constant-or-a-member-a-container-lacks-2026-11-18-4745)
+- [More arcs and sectors, and their fills, pixel by pixel (2026-11-19, #4771, SP6)](more-arcs-and-sectors-and-their-fills-pixel-by-pixel.md#more-arcs-and-sectors-and-their-fills-pixel-by-pixel-2026-11-19-4771-sp6)
 - [What an Enum member's value and a Type's array bounds may name (2026-11-18, #4594, #4595, SP6)](what-an-enum-members-value-and-a-types-bounds-may-name.md#what-an-enum-members-value-and-a-types-array-bounds-may-name-2026-11-18-4594-4595-sp6)
+- [A member after one that names a Const, read from another module (2026-11-18, #4614)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-member-after-one-that-names-a-const-read-from-another-module-2026-11-18-4614)
+- [An Enum member naming a library constant the project also declares (2026-11-18, #4762)](what-an-enum-members-value-and-a-types-bounds-may-name.md#an-enum-member-naming-a-library-constant-the-project-also-declares-2026-11-18-4762)
 - [Object array fields in a Type (2026-11-18, #4596, SP6)](object-array-fields-in-a-type.md#object-array-fields-in-a-type-2026-11-18-4596-sp6)
 - [With New, a default instance in its own Class_Initialize, and Set through members (2026-11-18, #4599 to #4607, SP6)](with-new-default-instances-and-set-through-members.md#with-new-a-default-instance-in-its-own-class_initialize-and-set-through-members-2026-11-18-4599-to-4607)
+- [When the default member can't take the arguments (2026-11-18, #4747)](with-new-default-instances-and-set-through-members.md#when-the-default-member-cant-take-the-arguments-2026-11-18-4747)
+- [A Let through a default member that returns an object, and a Let of Nothing (2026-11-20, #4906, SP6)](a-let-through-an-object-returning-default-member.md#a-let-through-a-default-member-that-returns-an-object-and-a-let-of-nothing-2026-11-20-4906-sp6)
 - [LoadPicture: which files load, and the errors for those that don't (2026-11-18, #4597, SP6)](loadpicture-file-kinds-and-file-errors.md#loadpicture-which-files-load-and-the-errors-for-those-that-dont-2026-11-18-4597-sp6)
 - [An auto-made object is in its slot while its Class_Initialize runs (2026-11-18, #4605, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6)
+- [A PropertyBag at run time (2026-11-18, #4680, SP6)](a-propertybag-at-run-time.md#a-propertybag-at-run-time-2026-11-18-4680-sp6)
+- [The `Date` and `Time` statements (2026-11-18, #4681, SP6)](the-date-and-time-statements.md#the-date-and-time-statements-2026-11-18-4681-sp6)
+- [`_NewEnum`, and a class that makes itself enumerable (2026-11-18, #4679, SP6)](collection.md#_newenum-and-a-class-that-makes-itself-enumerable-2026-11-18-4679-sp6)
+- [Pictures on the Clipboard: `GetData` and `SetData` (2026-11-18, #4682, SP6)](text-clipboard.md#pictures-getdata-and-setdata-2026-11-18-4682-sp6)
+- [A form's As New instance is in its slot during Form_Initialize (2026-11-18, #4640, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#a-forms-as-new-instance-is-in-its-slot-during-form_initialize-2026-11-18-4640-sp6)
+- [Named arguments to a control's, a form's and a Collection's methods (2026-11-18, #1474, SP6)](named-arguments.md#named-arguments-to-a-controls-a-forms-and-a-collections-methods-2026-11-18-1474-sp6)
+- [A named argument's value is the whole expression after `:=` (2026-11-19, #4851, SP6)](named-arguments.md#a-named-arguments-value-is-the-whole-expression-after--2026-11-19-4851-sp6)
+- [A non-String PathName, access denied, and programs that can't start (2026-11-18, #4406)](shell.md#a-non-string-pathname-access-denied-and-programs-that-cant-start-2026-11-18-4406)
+- [A variable declared above its Type, whose bounds name a Const (2026-11-18, #4734)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-variable-declared-above-its-type-2026-11-18-4734)
+- [An HRESULT given to Err.Raise or Err.Number (2026-11-18, #4730, SP6)](an-hresult-given-to-err-raise-or-err-number.md#an-hresult-given-to-errraise-or-errnumber-2026-11-18-4730-sp6)
+- [In the IDE too: the line break is in the description itself (2026-11-18, #4676, SP6)](errobject-as-a-declared-type.md#in-the-ide-too-the-line-break-is-in-the-description-itself-2026-11-18-4676-sp6)
+- [A control's and a form's members through CallByName (2026-11-18, #4520)](callbyname.md#a-controls-and-a-forms-members-through-callbyname-2026-11-18-4520)
+- [Where `/make` puts its output: Path32, /outdir, a failed build, and an ActiveX DLL's registration (2026-11-18, #4538, #2503, SP6)](where-make-puts-its-output.md#where-make-puts-its-output-path32-outdir-a-failed-build-and-an-activex-dlls-registration-2026-11-18-4538-2503-sp6)
+- [The `Date` and `Time` statements: the other value types, an object, and the date range (2026-11-18, #4733)](the-date-and-time-statements.md#the-other-value-types-an-object-and-the-date-range-2026-11-18-4733)
+- [A StdFont in a PropertyBag (2026-11-18, #4741)](a-propertybag-at-run-time.md#a-stdfont-in-a-bag-2026-11-18-4741)
+- [When a StdFont takes its realized values (2026-11-20, #4741)](a-propertybag-at-run-time.md#when-a-stdfont-takes-its-realized-values-2026-11-20-4741)
+- [Errors, defaults, argument counts, names, `Contents` and unpaired UTF-16 in a PropertyBag (2026-11-20, #4741)](a-propertybag-at-run-time.md#errors-defaults-argument-counts-names-contents-and-unpaired-utf-16-2026-11-20-4741)
+- [`Set` of a control into a variable of another class (2026-11-18, #1563)](a-forms-controls-collection-and-typeof-on-a-control.md#set-of-a-control-into-a-variable-of-another-class-2026-11-18-1563)
+- [A free-standing StdFont's assignments (2026-11-18)](a-controls-font-object.md#a-free-standing-stdfonts-assignments-2026-11-18)
+- [Complete Word, a bare word, and the selected item (2026-11-19, #3613, design-time, IDE, SP6)](complete-word-a-bare-word-and-the-selected-item.md#complete-word-a-bare-word-and-the-selected-item-2026-11-19-3613-design-time-ide-sp6)
+- [PSet at DrawWidth 9, 11 and 12 (2026-11-19, #4841, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#pset-at-drawwidth-9-11-and-12-2026-11-19-4841-sp6)
+- [What a form's saved TabIndexes become when it loads (2026-11-19, #4843, SP6, run time)](the-tabindex-a-new-or-pasted-control-takes.md#what-a-forms-saved-tabindexes-become-when-it-loads-2026-11-19-4843-sp6-run-time)
+- [A Public Type, and a variable in another module (2026-11-20, #4907)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-public-type-and-a-variable-in-another-module-2026-11-20-4907)
+- [Format presence and RTF text (2026-11-20, #4955, SP6)](text-clipboard.md#format-presence-and-rtf-text-2026-11-20-4955-sp6)

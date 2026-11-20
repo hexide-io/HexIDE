@@ -95,6 +95,7 @@ public sealed class VBLspClient : ILspClient
 
     public event EventHandler? CodeLensRefreshRequested;
     public event EventHandler? InlayHintRefreshRequested;
+    public event EventHandler? InlineValueRefreshRequested;
     public event EventHandler? SemanticTokensRefreshRequested;
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
@@ -490,6 +491,11 @@ public sealed class VBLspClient : ILspClient
         };
         rpc.Disconnected += _rpcDisconnected;
         _rpc = rpc;
+        // Disconnected reports the loss; observe Completion even when StopAsync never awaits it (#4875).
+        _ = rpc.Completion.ContinueWith(t =>
+            _logger.LogDebug(t.Exception, "VB LSP connection completed with an error"),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
         rpc.StartListening();
 
         await InitializeAsync(cancellationToken, attempt);
@@ -765,7 +771,11 @@ public sealed class VBLspClient : ILspClient
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
                          "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
                         ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
-                         "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
+                         "async", "modification", "documentation", "defaultLibrary"], ["relative"]))
+                {
+                    LinkedEditingRange = new LinkedEditingRangeClientCapabilities(),
+                    InlineValue = new InlineValueClientCapabilities(),
+                },
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     ApplyEdit: true,
@@ -777,7 +787,7 @@ public sealed class VBLspClient : ILspClient
                     CodeLens: new WorkspaceCodeLensClientCapabilities(),
                     InlayHint: new WorkspaceInlayHintClientCapabilities(),
                     SemanticTokens: new WorkspaceSemanticTokensClientCapabilities(),
-                    FileOperations: new FileOperationsClientCapabilities()),
+                    FileOperations: new FileOperationsClientCapabilities()) { InlineValue = new WorkspaceInlineValueClientCapabilities() },
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities(),
                     ShowMessage: new ShowMessageClientCapabilities(new MessageActionItemClientCapabilities()))));
@@ -1016,7 +1026,8 @@ public sealed class VBLspClient : ILspClient
     /// directly (the tests, and the single-server path) must accept the same call.
     /// </summary>
     public Task OpenDocumentAsync(
-        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default) =>
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
+        string? ownerAddinId = null) =>
         OpenDocumentAsync(uri, text, cancellationToken);
 
     public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)
@@ -2109,6 +2120,22 @@ public sealed class VBLspClient : ILspClient
         return new Location(uri.GetString()!, plain);
     }
 
+    public async Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("linkedEditingRangeProvider")) return null;
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            return await InvokeRequestAsync<LinkedEditingRanges?>(_rpc,
+                "textDocument/linkedEditingRange", p, cancellationToken, documentUri: uri);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/linkedEditingRange", ex, cancellationToken);
+            return null;
+        }
+    }
+
     public async Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("documentHighlightProvider")) return null;
@@ -2290,6 +2317,21 @@ public sealed class VBLspClient : ILspClient
         catch (Exception ex)
         {
             WarnRequestFailedOnce("textDocument/formatting", ex, cancellationToken);
+            return [];
+        }
+    }
+
+    public async Task<InlineValue[]> RequestInlineValuesAsync(string uri, HexIDE.Lsp.Messages.Range range, InlineValueContext context, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("inlineValueProvider")) return [];
+        try
+        {
+            return await InvokeRequestAsync<InlineValue[]?>(_rpc, "textDocument/inlineValue",
+                new InlineValueParams(new TextDocumentIdentifier(uri), range, context), cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/inlineValue", ex, cancellationToken);
             return [];
         }
     }
@@ -3085,6 +3127,10 @@ public sealed class VBLspClient : ILspClient
             }
         }
 
+        [JsonRpcMethod("workspace/inlineValue/refresh")]
+        public void OnInlineValueRefresh() =>
+            _client.InlineValueRefreshRequested?.Invoke(_client, EventArgs.Empty);
+
         [JsonRpcMethod("workspace/inlayHint/refresh")]
         public void OnInlayHintRefresh() =>
             _client.InlayHintRefreshRequested?.Invoke(_client, EventArgs.Empty);
@@ -3237,6 +3283,7 @@ public sealed class VBLspClient : ILspClient
         "documentOnTypeFormattingProvider",
         "documentRangeFormattingProvider",
         "documentHighlightProvider",
+        "linkedEditingRangeProvider",
         "documentSymbolProvider",
         // Read by the command-routing reader rather than a gate: a command is routed to the server that
         // named it, so the question is never "does any server offer this" but "which one declared it".
@@ -3246,6 +3293,7 @@ public sealed class VBLspClient : ILspClient
         "semanticTokensProvider",
         "hoverProvider",
         "inlayHintProvider",
+        "inlineValueProvider",
         "referencesProvider",
         "callHierarchyProvider",
         "typeHierarchyProvider",

@@ -123,7 +123,7 @@ or companion bytes. This is the presentation contract decided in [#158](https://
 - **THEN** its value is the localized binary marker, never the citation or binary bytes
 
 ### Requirement: PictureBox designer bitmap assignment honors AutoSize
-When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); Label AutoSize remains pending; runtime bitmap sizing is specified in [container-controls](../container-controls/spec.md).
+When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); Label AutoSize remains pending at design time; runtime Label sizing is specified in [label-autosize](../label-autosize/spec.md); runtime bitmap sizing is specified in [container-controls](../container-controls/spec.md).
 
 #### Scenario: A 40 by 30 bitmap is assigned
 - **WHEN** the designer assigns a 40 by 30 pixel bitmap to an AutoSize PictureBox
@@ -447,6 +447,26 @@ size (`add_control`) SHALL keep its own container hold and SHALL NOT add that pi
 - **WHEN** a tool drag spans 45 by 17 pixels with snapping disabled
 - **THEN** the preview and the placed rectangle both measure 46 by 18 pixels
 
+### Requirement: Saved TabIndexes normalize when a form loads
+The form reader SHALL normalize saved TabIndexes in depth-first file order across the whole form,
+including container children, as measured in [#4843](https://github.com/hexide-io/HexIDE/issues/4843)
+(oracle PR #4873). For N saved indices, the first occurrence of each value within 0..N−1 SHALL retain
+its value; duplicates and out-of-range values SHALL take the smallest free numbers in file order.
+The designer, runtime and save SHALL use those same values, including a modelled control's raw
+TabIndex property. Carried controls SHALL count in N and SHALL take their number by the same rule.
+A missing TabIndex
+line SHALL retain the class default pending measurement of mixed omitted and explicit values.
+
+#### Scenario: A duplicate precedes a valid zero
+- **GIVEN** three controls saved in file order with TabIndexes 1, 1 and 0
+- **WHEN** the form loads
+- **THEN** the designer, runtime and next save use 1, 2 and 0
+
+#### Scenario: A carried control would change
+- **GIVEN** those same saved indices with the second control carried as text
+- **WHEN** the form loads
+- **THEN** the designer, runtime and next save use 1, 2 and 0, the carried control's included
+
 ### Requirement: The designer SHALL offer a read-only tab-order overlay
 The designer SHALL offer a toggle, initially off, that draws each modelled control's existing `TabIndex` over its
 canvas position. Controls without that property SHALL have no badge. A badge SHALL be crossed out with a diagonal slash when the control
@@ -605,6 +625,22 @@ or saving. Automation replies SHALL name the resulting element or plain control.
   IDE prompts remain unmeasured
 - **AND** existing event signatures and new handler stubs remain unchanged, tracked by
   [#4205](https://github.com/hexide-io/HexIDE/issues/4205); renaming to join an array remains #1397
+
+### Requirement: Assign TabIndex when adding or pasting a control
+
+For a control that models `TabIndex`, the designer SHALL assign the next index after the highest on the
+form when adding or pasting it, starting at 0 for a form with no indexed controls. A paste assigns a
+container's index before its children's. A Timer takes no index and uses none up, as measured in
+[#925](../../../docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md) on a densely numbered form.
+VB6 renumbers a form's indexes to 0..N−1 when it loads it, which HexIDE does not yet do
+([#4843](https://github.com/hexide-io/HexIDE/issues/4843)), so on a form saved with gaps the two can differ.
+
+#### Scenario: A ListView holds an index as property text
+
+- **GIVEN** a form with a TextBox whose `TabIndex` is 0 and, after it, a ListView whose saved `TabIndex` is 1
+- **WHEN** a CommandButton is added or the TextBox is copied and pasted
+- **THEN** the designer assigns the new control `TabIndex` 2, counting the ListView's preserved property
+  ([#4825](https://github.com/hexide-io/HexIDE/issues/4825))
 
 ### Requirement: Designer keyboard selection follows measured tab order
 

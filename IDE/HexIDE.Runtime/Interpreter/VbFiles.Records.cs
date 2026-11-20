@@ -71,30 +71,6 @@ internal sealed partial class VbFiles
         _ => FileAccess.ReadWrite,
     };
 
-    // A Binary file's bytes, for the reads that scan text, kept until something writes to the file.
-    private byte[] SnapshotOf(OpenFile file)
-    {
-        if ((file.Access & VbAccess.Read) == 0)
-            throw new VBRunTimeException(VBStandardError.PathFileAccessError);
-        if (file.Snapshot is { } kept)
-            return kept;
-        var stream = file.Stream!;
-        var position = stream.Position;
-        var bytes = new byte[stream.Length];
-        stream.Position = 0;
-        stream.ReadExactly(bytes);
-        stream.Position = position;
-        file.Snapshot = bytes;
-        return bytes;
-    }
-
-    private void Wrote(string path)
-    {
-        foreach (var other in open.Values)
-            if (SamePath(other.Path, path))
-                other.Snapshot = null;
-    }
-
     // A Binary or Random file for Get or Put: 54 for any other mode, and 75 for a handle that may not read or write
     // (measured). Then where the statement starts: at <paramref name="at"/>, a byte or a record from 1, 63 below 1 (measured),
     // or where the file is. Where it is has two answers after a read that ran past the end, and they are kept apart as VB6
@@ -148,7 +124,6 @@ internal sealed partial class VbFiles
         }
         else
             stream.Position = before;
-        Wrote(file.Path);
     }
 
     /// <summary>

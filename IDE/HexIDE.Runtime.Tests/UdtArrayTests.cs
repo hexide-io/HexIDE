@@ -7,47 +7,6 @@ public class UdtArrayTests : BaseVBTestFixture
 {
     private const string Types = "Type Inner\ns As String\nEnd Type\nType T\ns As String\nfx(1 To 3) As Long\ndy() As Long\nn As Long\nchild As Inner\nEnd Type\n";
 
-    // Keep the record-file boundary: enabling runtime elements must not silently enable an unmeasured byte layout.
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Record_serialization_of_UDT_arrays_remains_refused(bool read)
-    {
-        var array = new VBArray(Vb6Value.ValueType.UserDefinedType, [(0, 0)]);
-        array.SetValue([0], Vb6Value.NewUdt(new VbUdt("T", new() { ["n"] = new Vb6Value(1L) },
-            new Dictionary<string, Vb6Value.ValueType> { ["n"] = Vb6Value.ValueType.Long }, new HashSet<string>())));
-        var writer = new VbRecordFormat.Writer();
-        Action act = () =>
-        {
-            if (read) VbRecordFormat.ReadElementsInto(new UnreadSource(), array);
-            else VbRecordFormat.WriteArray(writer, array, descriptor: false);
-        };
-        act.Should().Throw<NotImplementedException>().WithMessage("*array of a user-defined Type*#178*");
-        writer.ToArray().Should().BeEmpty();
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Record_serialization_of_array_fields_remains_refused(bool read)
-    {
-        var array = new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.Long, true), [(0, 0)]);
-        var bag = new VbUdt("T", new() { ["a"] = array });
-        var writer = new VbRecordFormat.Writer();
-        Action act = () =>
-        {
-            if (read) VbRecordFormat.ReadUdtInto(new UnreadSource(), bag);
-            else VbRecordFormat.WriteUdt(writer, bag);
-        };
-        act.Should().Throw<NotImplementedException>().WithMessage("*array field*#178*");
-        writer.ToArray().Should().BeEmpty();
-    }
-
-    private sealed class UnreadSource : IRecordSource
-    {
-        public byte[] Take(int count) => throw new InvalidOperationException("An unsupported layout must not read bytes");
-    }
-
     [Fact]
     public async Task ForEach_over_records_is_a_compile_refusal()
     {

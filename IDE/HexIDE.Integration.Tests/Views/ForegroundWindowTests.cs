@@ -269,6 +269,57 @@ public class ForegroundWindowTests : IDisposable
         ForegroundWindow.Pick("Form1", main, [main, first, second]).Window.Should().BeSameAs(first, "only one is showing");
     }
 
+    [AvaloniaTheory]
+    [InlineData("Form1#1", 0)]
+    [InlineData("form1#2", 1)]
+    public void An_index_reaches_each_visible_instance_in_opening_order(string address, int index)
+    {
+        var main = Shown("HexIDE");
+        var first = Form("Form1", "Form1");
+        var hidden = Form("Form1", "hidden");
+        hidden.Hide();
+        var second = Form("Form1", "second");
+
+        ForegroundWindow.Pick(address, main, [main, first, hidden, second]).Window
+            .Should().BeSameAs(new[] { first, second }[index]);
+    }
+
+    [AvaloniaFact]
+    public void An_index_past_the_visible_count_is_refused_with_that_count()
+    {
+        var main = Shown("HexIDE");
+        var first = Form("Form1", "Form1");
+        var second = Form("Form1", "second");
+
+        var (window, error) = ForegroundWindow.Pick("Form1#3", main, [main, first, second]);
+
+        window.Should().BeNull();
+        error.Should().Contain("2 open windows answer to 'Form1'").And.Contain("Form1#3");
+    }
+
+    [AvaloniaFact]
+    public void An_ambiguous_name_lists_the_addresses_that_reach_each_window()
+    {
+        var main = Shown("HexIDE");
+        var first = Form("Form1", "Form1");
+        var second = Form("Form1", "second");
+
+        ForegroundWindow.Pick("Form1", main, [main, first, second]).Error.Should()
+            .Contain("Form1#1 (\"Form1\")").And.Contain("Form1#2 (\"second\")")
+            .And.Contain("each address reaches that window");
+    }
+
+    [AvaloniaFact]
+    public void An_exact_title_containing_an_index_keeps_its_window()
+    {
+        var main = Shown("HexIDE");
+        var first = Form("Form1", "Form1");
+        var second = Form("Form1", "second");
+        var literal = Shown("Form1#2");
+
+        ForegroundWindow.Pick("Form1#2", main, [main, first, second, literal]).Window.Should().BeSameAs(literal);
+    }
+
     [AvaloniaFact]
     public void A_modeless_ide_window_such_as_find_is_preferred_over_the_main_window()
     {
@@ -393,5 +444,25 @@ public class ForegroundWindowTests : IDisposable
         error.Should().Contain("'Find' reached the window on top, \"Find\", which sits over another window of that name");
         ForegroundWindow.Resolve("Window/Button[Find Next]", "Find", find, main, "Find").Error
             .Should().NotContain("window on top", "the dialog is on top of nothing of its name");
+    }
+
+    // inspect_element's owner names a window by the value Pick takes back to it (#4795): a lone window by its name, one of
+    // two that answer to a name with its place among them, and the IDE as "ide".
+    [AvaloniaFact]
+    public void A_windows_address_is_the_value_Pick_resolves_back_to_it()
+    {
+        var main = Shown("HexIDE");
+        var lone = Shown("Lone");
+        var first = Shown("Same");
+        var second = Shown("Same");
+        IReadOnlyList<Window> all = [main, lone, first, second];
+
+        ForegroundWindow.Address(main, main, all).Should().Be("ide");
+        ForegroundWindow.Address(lone, main, all).Should().Be("Lone");
+        ForegroundWindow.Address(first, main, all).Should().Be("Same#1");
+        ForegroundWindow.Address(second, main, all).Should().Be("Same#2");
+        foreach (var window in new[] { lone, first, second })
+            ForegroundWindow.Pick(ForegroundWindow.Address(window, main, all), main, all).Window.Should().BeSameAs(window);
+        ForegroundWindow.Address(Track(new Window { Title = "" }), main, all).Should().BeNull("a window with no title and no form has no name");
     }
 }

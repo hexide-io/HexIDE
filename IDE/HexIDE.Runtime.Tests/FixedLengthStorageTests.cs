@@ -10,7 +10,7 @@ public class FixedLengthStorageTests : BaseVBTestFixture
     public async Task Type_fields_initialize_coerce_and_copy_independently()
     {
         await Run("Type T\ni As Integer\ns As String * 4\nEnd Type\nDim u As T, v As T\nDebug.Print u.s\nu.s = \"ab\"\nv = u\nv.s = \"rstuvw\"\nDebug.Print u.s\nDebug.Print v.s\nDebug.Print Len(u)");
-        AssertDebugLog([new Vb6Value(new string('\0', 4)), new Vb6Value("ab  "), new Vb6Value("rstu"), new Vb6Value(6L)]);
+        AssertDebugLog([new Vb6Value(new string('\0', 4)), new Vb6Value("ab  "), new Vb6Value("rstu"), new Vb6Value(6)]);
     }
 
     [Theory]
@@ -47,40 +47,11 @@ public class FixedLengthStorageTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Dim b() As String * 4\nReDim b(1) As String", "ReDim As on a fixed-length String array is not implemented (#179): its width rules are unmeasured")]
-    [InlineData("Dim b() As String * 4\nDim a(1) As String\nb = a", "Assigning a whole fixed-length String array is not implemented (#179): its assignment rules are unmeasured")]
-    [InlineData("Dim a(1) As String * 4\nDim v\nv = a", "Copying a whole fixed-length String array is not implemented (#179): its assignment rules are unmeasured")]
-    [InlineData("Dim fx As String * 5\nTake fx\nSub Take(n As Long)\nEnd Sub", "ByRef fixed-length String to this parameter type is not implemented (#179)")]
-    [InlineData("Dim fx As String * 5\nTake fx\nSub Take(n As Object)\nEnd Sub", "ByRef fixed-length String to this parameter type is not implemented (#179)")]
     [InlineData("Dim fx As String * 5\nTake fx\nSub Take(n As Collection)\nEnd Sub", "ByRef fixed-length String to this parameter type is not implemented (#179)")]
-    [InlineData("Type T\ns As String * 4\nv As String\nEnd Type\nDim u As T\nDebug.Print Len(u)", "Len of a Type with variable-sized fields is not implemented (#179)")]
     public async Task Unmeasured_storage_edges_are_explicitly_refused(string program, string expected)
     {
         var run = () => Run(program);
         (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Be(expected);
-    }
-
-    [Theory]
-    [InlineData("Binary", "Get")]
-    [InlineData("Binary", "Put")]
-    [InlineData("Random", "Get")]
-    [InlineData("Random", "Put")]
-    public async Task Fixed_string_array_file_layout_is_explicitly_refused(string mode, string statement)
-    {
-        var path = Path.Combine(Path.GetTempPath(), "hexide-fixed-array-" + Guid.NewGuid() + ".dat");
-        try
-        {
-            var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
-                $"Dim a() As String * 4\nReDim a(1)\nOpen \"{path}\" For {mode} As #1 Len = 64\n{statement} #1, 1, a");
-            try
-            {
-                var run = () => vb.Execute();
-                (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-                    .Be("Get/Put of an array of fixed-length Strings is not implemented (#179): its record layout is unmeasured");
-            }
-            finally { vb.BuiltIns.Files.CloseAll(); }
-        }
-        finally { File.Delete(path); }
     }
 
     [Theory]

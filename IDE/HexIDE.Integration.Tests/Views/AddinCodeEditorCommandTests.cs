@@ -1,5 +1,6 @@
 using System.IO.Pipes;
 using System.Text.Json;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Addins;
@@ -7,6 +8,7 @@ using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Forms.Views;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -32,6 +34,7 @@ public class AddinCodeEditorCommandTests
     [InlineData(false, "rdcore.showReferences", true)]
     [InlineData(true, "rdcore.showReferences", true)]
     [InlineData(true, "editor.action.rename", false)]
+    [InlineData(false, "rdcore.goToLocation", true)]
     public async Task CommandsUseTheirOfferingConnectionsClaimBeforeCore(bool claimed, string command, bool lens)
     {
         await using var fixture = new Fixture();
@@ -48,11 +51,13 @@ public class AddinCodeEditorCommandTests
             var actions = await fixture.ActionsAsync();
             await fixture.Editor.ApplyCodeActionAsync(actions.Single(), Token);
         }
+        if (command == "rdcore.goToLocation")
+            fixture.Editors.DidNotReceive().OpenCodeForUri(Arg.Any<string>());
         var owned = claimed && command.StartsWith("rdcore.", StringComparison.Ordinal);
         calls.Should().Be(owned ? 1 : 0);
         if (command.EndsWith("rename", StringComparison.Ordinal))
             await fixture.Messages.Received(owned ? 0 : 1).InputBox(Arg.Any<string>(), Arg.Any<string>(), "Greet");
-        fixture.Results.Rows.Where(row => row.Location is not null).Should().HaveCount(lens && !owned ? 1 : 0);
+        fixture.Results.Rows.Where(row => row.Location is not null).Should().HaveCount(lens && !owned && command == "rdcore.showReferences" ? 1 : 0);
         fixture.Peer.Executions.Should().Be(0);
     }
 
@@ -152,12 +157,111 @@ public class AddinCodeEditorCommandTests
         fixture.Messages.ReceivedCalls().Should().NotContain(c => c.GetMethodInfo().Name == "MessageBox");
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClaimedLensSelectsTheExactRange(bool anotherDocument)
+    {
+        await using var fixture = new Fixture();
+        using var target = new CodeEditorViewModel(fixture.Messages, fixture.Editors, Substitute.For<IProjectService>(),
+            new EventBus(), fixture.Router, fixture.Editor.Settings, Substitute.For<IStatusBarService>(),
+            new BookmarkService(), new BreakpointService(), Substitute.For<IDebugController>(), new RunScope(),
+            new LocalizationService());
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "Other"), "Other", ModuleKind.StandardModule);
+        module.AbsolutePath = Path.Combine(Path.GetTempPath(), "HexIDE-addin-command", "Other.bas");
+        module.UpdateCode("Public Sub OtherName()\r\nEnd Sub\r\n");
+        target.Initialize(module);
+        var editor = anotherDocument ? target : fixture.Editor;
+        var uri = editor.GetDocumentUriPublic();
+        var text = anotherDocument ? "OtherName" : "Greet";
+        var offset = editor.Document.Text.IndexOf(text, StringComparison.Ordinal);
+        var point = editor.Document.GetLocation(offset);
+        var range = new HexIDE.Lsp.Messages.Range(new(point.Line - 1, point.Column - 1),
+            new(point.Line - 1, point.Column - 1 + text.Length));
+        if (!anotherDocument) fixture.Show(editor);
+        fixture.Editors.OpenCodeForUri(uri).Returns(_ =>
+        {
+            Dispatcher.UIThread.VerifyAccess();
+            if (anotherDocument) fixture.Show(editor);
+            return editor;
+        });
+        bool? navigated = null;
+        await fixture.StartAsync(true, async (_, token) =>
+        {
+            Dispatcher.UIThread.CheckAccess().Should().BeFalse();
+            navigated = await fixture.Connection!.GoToLocationAsync(uri, range, token);
+        });
+        fixture.Peer.Command = fixture.Command("rdcore.host");
+        var lenses = await fixture.Router.RequestCodeLensesAsync(fixture.Uri, Token);
+        await fixture.Editor.RunCodeLensAsync(lenses.Single().Command!);
+        navigated.Should().BeTrue();
+        fixture.Editors.Received(1).OpenCodeForUri(uri);
+        editor.SelectionStart.Should().Be(offset);
+        editor.SelectionLength.Should().Be(text.Length);
+        editor.Document.GetText(editor.SelectionStart, editor.SelectionLength).Should().Be(text);
+        fixture.View!.FindControl<AvaloniaEdit.TextEditor>("TextEditor")!.SelectedText.Should().Be(text);
+        fixture.Peer.Executions.Should().Be(0);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("end")]
+    [InlineData("start")]
+    [InlineData("column")]
+    [InlineData("reversed")]
+    [InlineData("missing")]
+    public async Task ClaimedNavigationRefusesInvalidLocations(string check)
+    {
+        await using var fixture = new Fixture();
+        var range = check switch
+        {
+            "start" => new HexIDE.Lsp.Messages.Range(new(-1, 0), fixture.Range.End),
+            "column" => new(fixture.Range.Start, new(fixture.Range.End.Line, int.MaxValue)),
+            "reversed" => new(fixture.Range.End, fixture.Range.Start),
+            _ => new(fixture.Range.Start, new(int.MaxValue, 0)),
+        };
+        var caret = fixture.Editor.CaretOffset;
+        bool? navigated = null;
+        await fixture.StartAsync(true, async (_, token) =>
+            navigated = await fixture.Connection!.GoToLocationAsync(check == "missing" ? "file:///missing.bas" : fixture.Uri,
+                range, token));
+        fixture.Peer.Command = fixture.Command("rdcore.host");
+        var lenses = await fixture.Router.RequestCodeLensesAsync(fixture.Uri, Token);
+        await fixture.Editor.RunCodeLensAsync(lenses.Single().Command!);
+        navigated.Should().BeFalse();
+        fixture.Editor.SelectionLength.Should().Be(0);
+        fixture.Editor.CaretOffset.Should().Be(caret);
+    }
+
+    [AvaloniaFact]
+    public async Task NavigationOutsideAHandlerThrowsBeforeAndAfterCompletion()
+    {
+        await using var fixture = new Fixture();
+        await fixture.StartAsync(true, (_, _) => Task.CompletedTask);
+        async Task Refused() => await FluentActions.Awaiting(() =>
+            fixture.Connection!.GoToLocationAsync(fixture.Uri, fixture.Range, Token))
+            .Should().ThrowAsync<InvalidOperationException>();
+        await Refused();
+        fixture.Peer.Command = fixture.Command("rdcore.host");
+        var lenses = await fixture.Router.RequestCodeLensesAsync(fixture.Uri, Token);
+        await fixture.Editor.RunCodeLensAsync(lenses.Single().Command!);
+        await Refused();
+        fixture.Editors.DidNotReceive().OpenCodeForUri(Arg.Any<string>());
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly ILoggerFactory logs = LoggerFactory.Create(_ => { });
         private readonly NamedPipeServerStream pipe;
         private readonly Task accepting;
         private JsonRpc? rpc;
+        private Window? window;
+        public CodeEditorView? View { get; private set; }
+        public void Show(CodeEditorViewModel editor)
+        {
+            View = new CodeEditorView { DataContext = editor };
+            window = new Window { Content = View, Width = 800, Height = 600 };
+            window.Show();
+        }
         public Peer Peer { get; } = new();
         public IEditorService Editors { get; } = Substitute.For<IEditorService>();
         public IWindowManager Messages { get; } = Substitute.For<IWindowManager>();
@@ -249,6 +353,7 @@ public class AddinCodeEditorCommandTests
 
         public async ValueTask DisposeAsync()
         {
+            window?.Close();
             if (Connection is not null) await Connection.DisposeAsync();
             await Router.DisposeAsync();
             Editor.Dispose();

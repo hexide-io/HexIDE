@@ -9,6 +9,8 @@ public class ExecutionState
 {
     public Dictionary<int, Vb6Value> memory = new();
 
+    internal AvaloniaInterop.DrawingHandles DrawingHandles { get; } = new();
+
     /// <summary>The slots of a standard module's procedures' <c>Static</c> locals, for the run (#1491).</summary>
     internal StaticLocals ModuleStatics { get; } = new();
 
@@ -92,9 +94,10 @@ public class ExecutionState
 
     /// <summary>The declared class/interface name of a slot, or null when the slot isn't class-typed.</summary>
     public string? DeclaredClassOf(int location) =>
-        DeclaredViewOf(location) is { } name && name != "Object" ? name : null;
+        DeclaredViewOf(location) is { } name && name is not ("Object" or "Control") ? name : null;
 
-    // Object selects late binding on a read, but imposes no class constraint on a store (#1435).
+    // Object/Control select named-call late binding on a read (#1435, #4737).
+    // Scalar Control stores separately check the measured non-controls (#4864).
     public string? DeclaredViewOf(int location) =>
         declaredClasses.TryGetValue(location, out var c) ? c : null;
 

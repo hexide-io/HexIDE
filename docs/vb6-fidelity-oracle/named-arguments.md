@@ -335,3 +335,161 @@ vb6.exe SP6, `/make`, every call built native and as p-code, which logged the sa
 
 - **`DDB` takes `Cost`, `Salvage`, `Life`, `Period` and `[Factor]`,** in any order, after positional arguments, and without regard to case, as `SLN` and `SYD` do. Each named call gave its positional twin's value.
 - **Not measured:** a positional call with too few or too many arguments.
+
+### Named arguments to a control's, a form's and a Collection's methods (2026-11-18, #1474, SP6)
+
+**The rig:**
+- **Build and run:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0 of the oracle guest. Native code and p-code gave identical output in every row.
+- **The program:** a startup form with a ListBox `List1`, a ComboBox `Combo1`, a TextBox `Text1` and a PictureBox `Picture1`. Its `Form_Load` ran each statement under `On Error Resume Next` and logged the error or `ok`.
+- **The evaluation-order tracer:** `F(tag, v)` is a module function that logs `eval tag` and returns `v`.
+- **Compile errors:** a statement expected not to compile ran in a project of its own, so its error doesn't stop the others. The message is the one in `/make`'s error log.
+
+**Early-bound, on the control's or the form's own name:**
+
+| Statement | VB6 |
+|---|---|
+| `List1.AddItem Item:="a"` | ok; the list is `[a]` |
+| `List1.AddItem Item:="b", Index:=0` | ok; `[b][a]` |
+| `List1.AddItem Index:=F("index", 1), Item:=F("item", "c")` | ok; `[b][c][a]`. **Evaluated `item`, then `index`**: parameter order, not the order written |
+| `List1.AddItem "d", Index:=0` | ok; `[d][b][c][a]` |
+| `List1.RemoveItem Index:=0` | ok |
+| `Combo1.AddItem Item:="x", Index:=0` | ok |
+| `Me.Move Left:=F("left", 600), Top:=F("top", 700)` | ok; evaluated `left`, `top`; the form is at 600, 700 |
+| `Me.Move Height:=…, Width:=…, Top:=…, Left:=…`, each through `F` | ok; **evaluated `left`, `top`, `width`, `height`**; the form is at 900, 800, 5000 × 4000 |
+| `Text1.Move Left:=120, Top:=2900, Width:=1000, Height:=300` | ok |
+| `Text1.Move 200, Top:=400` | ok; at 200, 400 |
+| `Me.Move 300, Top:=500` | ok |
+| `Text1.Move 220, 2600, 1100, Height:=360` | ok |
+| `List1.ZOrder Position:=1` | ok |
+| `x = Me.TextWidth(Str:="abc")` | 270, as `TextWidth("abc")` |
+| `x = Picture1.ScaleX(Width:=1440, FromScale:=vbTwips, ToScale:=vbPixels)`, and the same reordered | 96 |
+
+Re-run on the guest's console (2026-11-18, #4768), the IDE, p-code and native agreeing, beside session 0:
+`Me.Move Left:=600, Top:=700` put the form at 600, 700, the four named `Me.Move` at 900, 800, 5000 × 4000, and
+`Text1.Move 200, Top:=400` at 200, 400, as above.
+
+**An optional parameter left out before a supplied one, on `Move` and `ScaleX`:** **448** "Named argument not found", **at run time**, and nothing moves.
+
+| Statement | VB6 |
+|---|---|
+| `Text1.Move 200, Height:=400` | **448** |
+| `Text1.Move 200, Width:=1500` | **448** |
+| `Text1.Move 210, 2500, Height:=350` | **448** |
+| `Text1.Move Left:=240, Height:=380`, all named | **448** |
+| `Text1.Move 230, , , 370`, **all positional** | **448** |
+| `Me.Move 300, Width:=5200` and `Me.Move 310, Height:=4100` | **448** |
+| `Text1.Move 210, Height:=400` and `Me.Move 300, Width:=5200`, on the console (#4768) | **448**; nothing moved |
+| `Picture1.ScaleX(1440, ToScale:=vbPixels)` | **448** |
+| `Picture1.ScaleX(1440, , vbPixels)`, all positional | **448** |
+| `Picture1.ScaleX(Width:=1440, ToScale:=vbPixels)` | **448** |
+
+- **What the rows support:**
+  - On these two methods, VB6 accepts only a prefix of the parameters. Leaving out the trailing ones is fine.
+  - A gap before a supplied argument raises 448, whether the gap is a missing name or an empty positional slot.
+- **What they don't:** the rule isn't measured on any other method, and it can't be VB6's rule for every method. `PopupMenu mnu, , x, y`, with its Flags left out, is a common idiom. Don't extend it past `Move` and `ScaleX` without measuring.
+
+**Late-bound, through `Dim o As Object`:**
+
+| Statement | VB6 |
+|---|---|
+| `Set o = List1: o.AddItem Item:="late"` | **448** "Named argument not found", and nothing is added |
+| `o.AddItem Index:=0, Item:="late0"`, `o.AddItem Itemx:="bad"`, `o.AddItem Index:=0` | **448** each |
+| `o.AddItem Item:="a", Item:="b"`, a repeated name | compiles; **448** at run time |
+| `o.AddItem "p", Index:=0` | **448** |
+| `Set o = Text1: o.Move Left:=300, Top:=2600` | **448** |
+| `Set o = Me: o.Move Left:=1000, Top:=1100` | **448** |
+| `Set o = c` (a Collection)`: o.Add Item:="lv", Key:="lk"` | ok |
+| `o.Add Itemx:=1`, on the Collection | **448** |
+| `x = o.Item(Index:="lk")`, on the Collection | ok |
+
+- **A late-bound control or form takes no named argument at all,** not even a correct one. A late-bound Collection takes its own names.
+
+**Collection, early-bound** (`Dim c As New Collection`):
+
+| Statement | VB6 |
+|---|---|
+| `c.Add Item:="v1", Key:="k1"` | ok |
+| `c.Add Key:="k0", Item:="v0", Before:=1` | ok; `c(1)` is v0 |
+| `c.Add F("item", "v2"), After:=F("after", 1)` | ok; evaluated `item`, `after`; `c(2)` is v2 |
+| `x = c.Item(Index:=2)` | v2 |
+| `c.Remove Index:="k0"` | ok |
+
+**Compile errors,** each in a project of its own:
+
+| Statement | `/make` |
+|---|---|
+| `List1.AddItem Itemx:="x"` | "Named argument not found" |
+| `List1.AddItem Item:="a", Item:="b"` | "Named argument already specified" |
+| `Me.Move Top:=100`, the required Left left out | "Argument not optional" |
+| `c.Add Itemx:=1`, on a Collection declared `As New Collection` | "Named argument not found" |
+| `List1.AddItem Index:=0, "x"`, positional after named | "Syntax error" |
+| `x = Me.TextWidth(Text:="abc")` | "Named argument not found": its parameter is `Str` |
+
+**The parameter names these rows confirm:**
+- `AddItem(Item, Index)`;
+- `RemoveItem(Index)`;
+- `Move(Left, Top, Width, Height)`;
+- `ZOrder(Position)`;
+- `TextWidth(Str)`;
+- `ScaleX(Width, FromScale, ToScale)`;
+- the Collection's `Add(Item, Key, Before, After)`, `Item(Index)` and `Remove(Index)`.
+
+**Not measured:**
+- the other built-in methods' names;
+- whether a gap before a supplied argument raises 448 on any method but `Move` and `ScaleX`;
+- `Show`, `PopupMenu` and `PaintPicture`;
+- an Automation object's methods.
+
+#### Through a Variant, and two more controls (2026-11-18, second run, #1474)
+
+**The rig:** the same as above.
+
+| Statement | VB6 |
+|---|---|
+| `Combo1.RemoveItem Index:=1`, on `[c0][c1][c2]` | ok; `[c0][c2]` |
+| `Text1.ZOrder Position:=0` | ok |
+| `Dim v As Variant: Set v = List1: v.AddItem Item:="viaVariant"` | **448**, and nothing is added |
+| `v.AddItem "pos"`, positional | ok; `[pos]` |
+| `Set v = Me: v.Move Left:=500` | **448**, and the form doesn't move |
+| `Set v = c` (a Collection)`: v.Add Item:="x", Key:="k"` | ok |
+
+- **A Variant behaves as an Object does:** a late-bound control or form takes no named argument, and a Collection takes its own.
+- **`RemoveItem` on a ComboBox and `ZOrder` on a TextBox take the same names** as on a ListBox.
+
+#### A variable declared As Control, or as the control's own class (2026-11-18, third run, #4737)
+
+**The rig:** the same as above.
+
+| Statement | VB6 |
+|---|---|
+| `Dim c As Control: Set c = List1: c.AddItem Item:="viaControl"` | **448**, and nothing is added |
+| `c.AddItem "posControl"`, positional | ok |
+| `Set c = Text1: c.Move Left:=300, Top:=2600` | **448**, and nothing moves |
+| `Dim lb As ListBox: Set lb = List1: lb.AddItem Item:="viaListBox"` | ok: the name binds |
+| `Dim tb As TextBox: Set tb = Text1: tb.Move Left:=400, Top:=2700` | ok; at 400, 2700 |
+| `Dim f As Form: Set f = Me: f.Move Left:=700, Top:=800` | ok; at 700, 800 |
+| `Dim f1 As Form1: Set f1 = Me: f1.Move Left:=900, Top:=1000` | ok; at 900, 1000 |
+
+- **`As Control` is late-bound for names,** as `As Object` and a Variant are.
+- **A variable declared as the control's or form's own class is early-bound,** and binds the names as the control's own name does. `As Form`, VB's generic form type, counts too.
+
+### A named argument's value is the whole expression after `:=` (2026-11-19, #4851, SP6)
+
+**The probe.** `scripts/vb6-oracle.ps1`, built native and as p-code; the two agreed on every row. `F` is
+`Private Function F(Optional ByVal n As Variant) As Variant: F = n`, so a row's type is the type of the value passed.
+
+| Expression | VB6 |
+|---|---|
+| `F(n:=i + 1)`, `i = 1` | 2, Long |
+| `c.Add "a", "ka"` then `c.Add "b", "kb", Before:=i + 1`, `i = 0`; `c(1) & c(2)` | "ba" |
+| `Mid$(String:="abcd", Start:=i + 1)`, `i = 1` | "bcd" |
+| `F(n:=1 + 2 * 3)` | 7, Integer |
+| `F(n:=i = 1)` | True, Boolean |
+| `F(n:=i Or 2)` | 3, Long |
+| `F(n:=i & "2")` | "12", String |
+| `F(n:=-i + 3)` | 2, Long |
+
+- **`:=` isn't an operator with a level of its own.** What follows it, up to the comma or the closing parenthesis, is the
+  argument's value, whatever operators it holds: `=` and `Or`, the two lowest, included.
+- **Why it was measured:** HexIDE's grammar bound `:=` tighter than `+` and read `F(n:=i + 1)` as `(n:=i) + 1`, refusing
+  it. A literal value, as every earlier row on this page has, can't tell the two groupings apart (#4851).

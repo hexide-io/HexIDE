@@ -36,6 +36,9 @@ designer block is HexIDE's (Caption, ClientHeight 7200, ClientWidth 9600, ScaleH
 
 `X.Visible` read False after `Show` in every row, the control included, so it is a fact about session 0, which has no
 desktop, and says nothing about the block.
+Re-run on the guest's console (2026-11-18, #4768), the IDE, p-code and native agreeing, with P1's and P5's shapes each
+as a second form of one `Sub Main` project rather than a project of its own: `Show` and `DoEvents` raised nothing,
+`Caption`, `Name` and `Forms.Count` read as here, and **Visible read True**.
 
 - **A missing `VB_PredeclaredId` still gives a form its default instance** (P1). A form's default for it is True.
 - **The Begin line names the form.** Without a block it is the only name (P3, P3b). Where `VB_Name` disagrees, vb6.exe

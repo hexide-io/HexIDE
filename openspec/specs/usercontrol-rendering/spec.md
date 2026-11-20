@@ -236,3 +236,37 @@ Measured: [#4337](https://github.com/hexide-io/HexIDE/issues/4337), native and p
 #### Scenario: Unloading the form with loaded elements
 - **WHEN** a program executes Unload Me
 - **THEN** Form_Unload runs before each element's Hide and Terminate, in index order
+
+### Requirement: Form ambient changes reach placed UserControls
+
+The runtime SHALL raise UserControl_AmbientChanged synchronously on each UserControl, in file order, when
+its form's colour changes or font is assigned. Unchanged colours SHALL be silent; unchanged font assignments SHALL notify.
+PictureBox- and Frame-hosted controls SHALL read the form's ambients. Notifications SHALL run during Form_Load
+without Paint. Other, unmeasured containers SHALL retain their explicit refusal.
+
+#### Scenario: Colour assignments
+
+- **WHEN** a form changes BackColor or ForeColor
+- **THEN** each UserControl receives the corresponding property name before the next statement, reading the new value
+- **AND** assigning the current colour raises nothing
+
+#### Scenario: Font assignments
+
+- **WHEN** the form's FontName, FontSize or FontItalic is assigned, even its current value, or Font.Bold is set True,
+  or Set Font assigns a shared font, or that font is subsequently mutated
+- **THEN** each UserControl receives "Font" before the next statement
+- **AND** Caption, PictureBox and Frame colour/font changes raise no ambient event
+
+#### Scenario: PictureBox containment
+
+- **GIVEN** UC2 inside Picture1 precedes UC11 in the form file
+- **WHEN** the form changes an ambient during Form_Load or later
+- **THEN** UC2 receives the event before UC11 and both read the form's new values, regardless of Picture1's values
+
+#### Scenario: Frame containment
+
+- **GIVEN** a UserControl inside a Frame
+- **WHEN** the form changes an ambient, or the control reads one
+- **THEN** the control is notified with the others and reads the form's values, regardless of the Frame's
+
+Measured native and p-code in [#4448](https://github.com/hexide-io/HexIDE/issues/4448) (oracle PR #4630).

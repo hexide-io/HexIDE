@@ -105,7 +105,8 @@ public class VBPictureBox : TemplatedControl, IVBContainerControl
 
     private void OnPictureDataChanged()
     {
-        Bitmap? bmp = FrxImageHelper.TryDecodeToAvaloniaBitmap(PictureData);
+        // A PNG comes only from RDCore's LoadPicture, in a run that takes its additions (#4967).
+        Bitmap? bmp = FrxImageHelper.TryDecodeToAvaloniaBitmap(PictureData, png: VBProps.GetRDCoreAdditions(this));
         SetValue(PictureProperty, bmp);
     }
 }

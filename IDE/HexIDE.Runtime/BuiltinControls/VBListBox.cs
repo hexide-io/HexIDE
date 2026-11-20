@@ -4,6 +4,10 @@ using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
+using Avalonia.Layout;
+using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -52,6 +56,126 @@ public class VBListBox : ListBox
     private int? pointerTop;
     private bool scrollIntoViewOnLayout;
     private bool rowsNeedPadding;
+    private readonly HashSet<int> checks = [];
+    private int savedStyle;
+    private int columns;
+    private bool designer;
+
+    internal int SavedStyle { get => savedStyle; init { savedStyle = value; ConfigureLayout(); } }
+    internal int Columns { get => columns; init { columns = value; ConfigureLayout(); } }
+    internal bool HasChecks => !designer && savedStyle == 1 && !IsMultiSelect;
+    internal bool Sorted { get; init; }
+    private bool HasColumns => !designer && columns > 0;
+
+    internal void UsePlainDesignerLayout()
+    {
+        designer = true;
+        ClearValue(ItemsPanelProperty);
+        ClearValue(ItemTemplateProperty);
+        ClearValue(ScrollViewer.HorizontalScrollBarVisibilityProperty);
+        ClearValue(ScrollViewer.VerticalScrollBarVisibilityProperty);
+    }
+
+    private void ConfigureLayout()
+    {
+        if (HasChecks)
+            ItemTemplate = new FuncDataTemplate<string>((text, _) =>
+            {
+                var row = new StackPanel { Orientation = Orientation.Horizontal, IsHitTestVisible = false };
+                row.Children.Add(new CheckGlyph(this));
+                row.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
+                return row;
+            });
+        if (HasColumns)
+        {
+            ItemsPanel = new FuncTemplate<Panel?>(() => new ColumnsPanel(this));
+            ScrollViewer.SetHorizontalScrollBarVisibility(this, ScrollBarVisibility.Auto);
+            ScrollViewer.SetVerticalScrollBarVisibility(this, ScrollBarVisibility.Disabled);
+        }
+    }
+
+    private sealed class CheckGlyph(VBListBox list) : Control
+    {
+        protected override Size MeasureOverride(Size availableSize) => new(16, 16);
+        public override void Render(DrawingContext context)
+        {
+            var pen = new Pen(list.Foreground, 1);
+            context.DrawRectangle(list.Background, pen, new Rect(1, 2, 11, 11));
+            var index = list.IndexFromContainer(this.FindAncestorOfType<ListBoxItem>()!);
+            if (list.checks.Contains(index))
+            {
+                context.DrawLine(pen, new Point(3, 7), new Point(6, 10));
+                context.DrawLine(pen, new Point(6, 10), new Point(10, 4));
+            }
+        }
+    }
+
+    // Column width and checkbox pixels are drawing choices, not oracle measurements (#4209).
+    private sealed class ColumnsPanel(VBListBox list) : Panel
+    {
+        internal int Rows { get; private set; } = 1;
+        internal double ColumnWidth { get; private set; } = 1;
+        private double rowHeight = 1;
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            foreach (var child in Children) child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            rowHeight = Children.Count > 0 ? Children[0].DesiredSize.Height : 1;
+            var height = rowHeight;
+            Rows = Math.Max(1, (int)Math.Floor(availableSize.Height / height));
+            ColumnWidth = Math.Max(1, (list.Bounds.Width - list.BorderThickness.Left - list.BorderThickness.Right
+                - list.Padding.Left - list.Padding.Right) / list.columns);
+            foreach (var child in Children) child.Measure(new Size(ColumnWidth, height));
+            return new Size(Math.Ceiling((double)Children.Count / Rows) * ColumnWidth, Rows * height);
+        }
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            var height = rowHeight;
+            for (var i = 0; i < Children.Count; i++)
+                Children[i].Arrange(new Rect(i / Rows * ColumnWidth, i % Rows * height, ColumnWidth, height));
+            return finalSize;
+        }
+    }
+
+    private ColumnsPanel? ColumnLayout => ItemsPanelRoot as ColumnsPanel;
+    private int LastColumnTop => Math.Max(0, (int)Math.Ceiling((double)ItemCount / ColumnLayout!.Rows) - columns) * ColumnLayout.Rows;
+
+    private void BringSelectionIntoView(int index)
+    {
+        if (!HasColumns)
+        {
+            if (!HasChecks)
+                ScrollIntoView(index);
+            else
+            {
+                var height = RowHeight();
+                var rows = Math.Max(1, (int)Math.Floor(Scroll!.Viewport.Height / height));
+                var checkTop = TopIndex;
+                if (index < checkTop) checkTop = index;
+                else if (index >= checkTop + rows) checkTop = index - rows + 1;
+                Scroll.Offset = new Vector(Scroll.Offset.X, checkTop * height);
+            }
+            return;
+        }
+        EnsureTopIndexLayout();
+        var panel = ColumnLayout!;
+        var top = TopIndex;
+        var column = index / panel.Rows * panel.Rows;
+        if (column < top) top = column;
+        else if (column >= top + columns * panel.Rows) top = column - (columns - 1) * panel.Rows;
+        Scroll!.Offset = new Vector(Math.Min(top, LastColumnTop) / panel.Rows * panel.ColumnWidth, 0);
+    }
+
+    private void RaiseItemCheck(int index)
+    {
+        foreach (var visual in this.GetVisualDescendants())
+            if (visual is CheckGlyph glyph) glyph.InvalidateVisual();
+        foreach (var handler in ControlEvents.Handlers(this, this.FindLogicalAncestorOfType<IModuleExecutionRoot>(), ListBoxComponentClass.ItemCheckEvent.Name))
+        {
+            Vb6Value[] args = handler.Own && VBProps.GetIndex(this) is { } arrayIndex
+                ? [new Vb6Value(arrayIndex), new Vb6Value(index)] : [new Vb6Value(index)];
+            handler.Root.ExecuteSub(handler.Name, args);
+        }
+    }
 
     static VBListBox()
     {
@@ -80,7 +204,8 @@ public class VBListBox : ListBox
                 e.Handled = true;
                 list.ExecuteSub(ComponentBaseClass.ClickEvent);
             }
-            else if (!list.IsMultiSelect && e.Key is Key.Down or Key.Up or Key.PageDown or Key.PageUp or Key.Home or Key.End)
+            else if (!list.IsMultiSelect && (e.Key is Key.Down or Key.Up or Key.PageDown or Key.PageUp or Key.Home or Key.End
+                || list.HasColumns && e.Key == Key.Right || list.HasChecks && e.Key == Key.Space))
             {
                 // An item keeps the focus after a click. Take navigation before its ScrollViewer takes paging.
                 list.OnKeyDown(e);
@@ -121,7 +246,7 @@ public class VBListBox : ListBox
             // ListIndex rather than the index chosen: an item added above it since then moves it down.
             if (ListIndex >= 0)
             {
-                ScrollIntoView(ListIndex);
+                BringSelectionIntoView(ListIndex);
                 UpdateLayout();
             }
         };
@@ -133,6 +258,8 @@ public class VBListBox : ListBox
                 focusIndex = anchorIndex = 0;
             else if (focusIndex >= ItemCount)
                 focusIndex = Math.Max(0, ItemCount - 1);
+            if (ItemCount == 0)
+                checks.Clear();
         };
     }
 
@@ -142,7 +269,7 @@ public class VBListBox : ListBox
         if (container is ListBoxItem listItem && ListBoxRowHeights.Find(AttachedProperties.GetFont(this)) is { } height)
         {
             listItem.UseLayoutRounding = false;
-            listItem.Height = height;
+            listItem.Height = MeasuredRowHeight(height);
             rowsNeedPadding = true;
         }
         else
@@ -162,6 +289,10 @@ public class VBListBox : ListBox
             ApplyRowHeight(container);
     }
 
+    // Only the default-font checkbox box has measured page capacity (#4209); other fonts keep their old rows.
+    private double MeasuredRowHeight(double height) =>
+        HasChecks && AttachedProperties.GetFont(this) == VBFont.Default ? 16 : height;
+
     private void ApplyRowHeight(Control container)
     {
         if (container is not ListBoxItem item)
@@ -169,7 +300,7 @@ public class VBListBox : ListBox
         if (ListBoxRowHeights.Find(AttachedProperties.GetFont(this)) is { } height)
         {
             item.UseLayoutRounding = false;
-            item.Height = height;
+            item.Height = MeasuredRowHeight(height);
             item.ClearValue(PaddingProperty);
             var padding = item.Padding;
             item.Padding = new Thickness(padding.Left, 0, padding.Right, 0);
@@ -191,7 +322,9 @@ public class VBListBox : ListBox
             var height = RowHeight();
             if (height <= 0 || Scroll is not { } scroll)
                 throw new NotImplementedException("ListBox.TopIndex cannot determine row layout (#3986)");
-            return (int)Math.Floor(scroll.Offset.Y / height + 0.000001);
+            return HasColumns && ColumnLayout is { } panel
+                ? (int)Math.Round(scroll.Offset.X / panel.ColumnWidth) * panel.Rows
+                : (int)Math.Floor(scroll.Offset.Y / height + 0.000001);
         }
     }
 
@@ -251,8 +384,13 @@ public class VBListBox : ListBox
         if (height <= 0 || Scroll is not { } scroll)
             throw new NotImplementedException("ListBox.TopIndex cannot determine row layout (#3986)");
         var before = TopIndex;
-        var lastPage = Math.Max(0, ItemCount - (int)Math.Floor(scroll.Viewport.Height / height));
-        scroll.Offset = new Vector(scroll.Offset.X, Math.Min(index, lastPage) * height);
+        if (HasColumns && ColumnLayout is { } panel)
+            scroll.Offset = new Vector(Math.Min(index / panel.Rows * panel.Rows, LastColumnTop) / panel.Rows * panel.ColumnWidth, 0);
+        else
+        {
+            var lastPage = Math.Max(0, ItemCount - (int)Math.Floor(scroll.Viewport.Height / height));
+            scroll.Offset = new Vector(scroll.Offset.X, Math.Min(index, lastPage) * height);
+        }
         UpdateLayout();
         if (TopIndex != before)
             this.ExecuteSub(ListBoxComponentClass.ScrollEvent);
@@ -277,10 +415,39 @@ public class VBListBox : ListBox
     internal int ListIndex => IsMultiSelect ? focusIndex : SelectedIndex;
 
     /// <summary>Whether item <paramref name="index"/> is selected; the caller checks the range.</summary>
-    internal bool IsItemSelected(int index) => IsMultiSelect ? Selection.IsSelected(index) : index == SelectedIndex;
+    internal bool IsItemSelected(int index) => HasChecks ? checks.Contains(index) : IsMultiSelect ? Selection.IsSelected(index) : index == SelectedIndex;
 
     /// <summary>SelCount: how many items are selected.</summary>
-    internal int SelectedCount => IsMultiSelect ? Selection.SelectedIndexes.Count : SelectedIndex >= 0 ? 1 : 0;
+    internal int SelectedCount => HasChecks ? checks.Count : IsMultiSelect ? Selection.SelectedIndexes.Count : SelectedIndex >= 0 ? 1 : 0;
+
+    // Checkbox ListIndex names a position, while checks follow items (#4209, round 2).
+    internal void InsertCheckboxItem(int index, string text)
+    {
+        var position = ItemCount == 0 ? 0 : ListIndex;
+        MoveChecks(index, 1);
+        Items.Insert(index, text);
+        SelectedIndex = position;
+    }
+
+    internal void RemoveCheckboxItem(int index)
+    {
+        var position = ListIndex;
+        checks.Remove(index);
+        MoveChecks(index + 1, -1);
+        Items.RemoveAt(index);
+        if (position == index)
+            position = Math.Max(0, position - 1);
+        SelectedIndex = Math.Min(position, ItemCount - 1);
+    }
+
+    private void MoveChecks(int start, int offset)
+    {
+        var moved = new HashSet<int>();
+        foreach (var index in checks)
+            moved.Add(index >= start ? index + offset : index);
+        checks.Clear();
+        checks.UnionWith(moved);
+    }
 
     /// <summary>Text as VB6 reads it: the text of the item at ListIndex, or "".</summary>
     internal string ListIndexText => ListIndex >= 0 && ListIndex < ItemCount ? Items[ListIndex] as string ?? "" : "";
@@ -402,10 +569,32 @@ public class VBListBox : ListBox
         // A multi-select list's keys are taken on the way down; Avalonia's own would select as Avalonia does.
         if (IsMultiSelect || e.Handled)
             return;
+        if (HasChecks && e.Key == Key.Space && ItemCount > 0)
+        {
+            var index = Math.Max(0, SelectedIndex);
+            if (!checks.Add(index)) checks.Remove(index);
+            this.ExecuteSub(ComponentBaseClass.ClickEvent);
+            RaiseItemCheck(index);
+            e.Handled = true;
+            return;
+        }
         var before = SelectedIndex;
-        var scrollKey = e.Key is Key.Down or Key.Up or Key.PageDown or Key.PageUp or Key.Home or Key.End;
+        var scrollKey = e.Key is Key.Down or Key.Up or Key.PageDown or Key.PageUp or Key.Home or Key.End
+            || HasColumns && e.Key == Key.Right;
         var top = scrollKey && RowHeight() > 0 ? TopIndex : (int?)null;
-        if (e.Key is Key.PageDown or Key.PageUp && top is not null && ItemCount > 0)
+        if (HasColumns && scrollKey && ItemCount > 0)
+        {
+            var rows = ColumnLayout!.Rows;
+            var delta = e.Key switch
+            {
+                Key.Down => 1, Key.Up => -1, Key.Right => rows,
+                Key.PageDown => rows * columns - 1, Key.PageUp => 1 - rows * columns,
+                Key.Home => -ItemCount, Key.End => ItemCount, _ => 0
+            };
+            SelectedIndex = Math.Clamp(SelectedIndex + delta, 0, ItemCount - 1);
+            e.Handled = true;
+        }
+        else if (e.Key is Key.PageDown or Key.PageUp && top is not null && ItemCount > 0)
         {
             var page = Math.Max(1, (int)Math.Floor(Scroll!.Viewport.Height / RowHeight()) - 1);
             // Both keys move the selection a page, the rows shown less one, from wherever it is; the view then scrolls
@@ -419,9 +608,9 @@ public class VBListBox : ListBox
             base.OnKeyDown(e);
         if (top is not null && SelectedIndex != before)
         {
-            ScrollIntoView(SelectedIndex);
+            BringSelectionIntoView(SelectedIndex);
             UpdateLayout();
-            if (e.Key is Key.PageDown or Key.PageUp)
+            if (HasColumns || e.Key is Key.PageDown or Key.PageUp)
                 ContainerFromIndex(SelectedIndex)?.Focus(NavigationMethod.Unspecified);
         }
         var scrolled = top is not null && TopIndex != top;
@@ -547,7 +736,7 @@ public class VBListBox : ListBox
             scrollIntoViewOnLayout = true;
             return;
         }
-        ScrollIntoView(index);
+        BringSelectionIntoView(index);
         UpdateLayout();
     }
 
@@ -558,6 +747,20 @@ public class VBListBox : ListBox
     /// </summary>
     internal void SetSelectedFromCode(int index, bool selected)
     {
+        if (HasChecks)
+        {
+            if (selected)
+            {
+                if (!checks.Add(index))
+                    return;
+                SelectFromCode(index);
+            }
+            else if (!checks.Remove(index))
+                throw new NotImplementedException("ListBox checkbox Selected False on an unchecked item is not measured (#4209)");
+            RaiseItemCheck(index);
+            this.ExecuteSub(ComponentBaseClass.ClickEvent);
+            return;
+        }
         if (!IsMultiSelect)
         {
             if (selected)

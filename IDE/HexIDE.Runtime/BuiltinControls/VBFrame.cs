@@ -1,6 +1,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 
 namespace HexIDE.Runtime.BuiltinControls;
@@ -33,7 +34,11 @@ public class VBFrame : HeaderedContentControl, IVBContainerControl
         {
             SetValue(ChildHostProperty, value);
             if (value is not null)
+            {
+                // The frame font decorates its caption, outside the contained controls' canvas.
+                Inline.SetTextDecorations(value, null);
                 VBEnabled.SetOwner(value, this);
+            }
         }
     }
 

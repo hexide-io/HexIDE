@@ -1,5 +1,8 @@
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using HexIDE.Runtime.AvaloniaInterop;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -19,6 +22,14 @@ namespace HexIDE.Runtime.BuiltinControls;
 /// </summary>
 internal static class VBVisibility
 {
+    // A PictureBox's RDCore Opacity is independent of Visible (#4982); other containers still show at alpha 1.
+    private static readonly AttachedProperty<bool> HiddenProperty =
+        AvaloniaProperty.RegisterAttached<VBProps, Control, bool>("Hidden");
+
+    internal static void RefreshOpacity(Control control) =>
+        control.Opacity = control.GetValue(HiddenProperty) ? 0
+            : control is VBPictureBox ? RDCoreMembers.PictureBoxOpacity(control) : 1;
+
     public static void Set(Control control, bool visible)
     {
         // A form's window: itself on the desktop, the host's window holding its root in single view (#4068).
@@ -40,12 +51,22 @@ internal static class VBVisibility
         }
 
         control.IsVisible = true;
-        control.Opacity = visible ? 1 : 0;
+        control.SetValue(HiddenProperty, !visible);
+        RefreshOpacity(control);
         control.IsHitTestVisible = visible;
     }
 
-    public static bool Get(Control control) =>
-        control is IVBContainerControl
-            ? control.IsVisible && control.Opacity > 0
+    public static bool Get(Control control)
+    {
+        // Label, Image, Shape, Line and menus keep their own value; every other control, a windowless UserControl included,
+        // reads False while its form isn't shown (#4829, oracle page visible-before-a-form-is-shown.md). A top-level menu's
+        // own value is what decides the menu bar (#1140).
+        if (control is not (VBLine or VBLabel or VBImage or VBShape or VBMenu or VBMenuSeparator) && FormRoot.View(control) is null
+            && control.GetLogicalAncestors().OfType<IFormView>().FirstOrDefault() is { IsShown: false })
+            return false;
+
+        return control is IVBContainerControl
+            ? control.IsVisible && !control.GetValue(HiddenProperty)
             : control.IsVisible;
+    }
 }

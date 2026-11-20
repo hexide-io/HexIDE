@@ -141,7 +141,7 @@ public class CodeEditorViewModelTests : IDisposable
 
         editor.SelectedObject.Should().Be("(General)");
         editor.ObjectNames.Should().Contain("Shape1");
-        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Form_Load", "Form", "Value", "ZeroWidth");
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Form", "Form_Load", "Value", "ZeroWidth");
     }
 
     [AvaloniaTheory]
@@ -165,7 +165,96 @@ public class CodeEditorViewModelTests : IDisposable
         await editor.RefreshSymbolsAsync();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Value (Get)", "Value (Let)", "Value (Set)");
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Bump", "Value [PropertyGet]", "Value [PropertyLet]", "Value [PropertySet]");
+    }
+
+    [AvaloniaFact]
+    public async Task GeneralProceduresDistinguishRdcoreAccessorsAndKeepSelection()
+    {
+        var editor = CreateSut().Initialize(TestHelpers.CreateModule());
+        editor.Document.Text = "Get\nLet\nSet\n";
+        _lspClient.IsRunning.Returns(true);
+        var symbols = new[] { "Get", "Let", "Set" }.Select((accessor, line) =>
+        {
+            var range = new HexIDE.Lsp.Messages.Range(new Position(line, 0), new Position(line + 1, 0));
+            return new DocumentSymbol("Value", SymbolKind.Property, range, range, Detail: "Property " + accessor);
+        }).ToArray();
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(symbols);
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Value [PropertyGet]", "Value [PropertyLet]", "Value [PropertySet]");
+        editor.SelectedProcedure = "Value [PropertyLet]";
+        editor.CaretOffset.Should().Be(editor.Document.GetLineByNumber(2).Offset);
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.SelectedProcedure.Should().Be("Value [PropertyLet]");
+        editor.SelectedProcedure = null;
+        editor.SelectedProcedure = "Value [PropertySet]";
+        editor.CaretOffset.Should().Be(editor.Document.GetLineByNumber(3).Offset);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(SymbolKind.Property, "Value", "pRoPeRtY lEt", "Value [PropertyLet]")]
+    [InlineData(SymbolKind.Property, "Value (Set)", "Property Get", "Value (Set) [PropertyGet]")]
+    [InlineData(SymbolKind.Property, "Value (Let)", "Other", "Value [PropertyLet]")]
+    [InlineData(SymbolKind.Property, "Value", "Other", "Value")]
+    [InlineData(SymbolKind.Method, "Value (Get)", "Property Get", "Value (Get)")]
+    public async Task GeneralProcedureTextUsesOnlyPropertyAccessorMetadata(
+        SymbolKind kind, string name, string detail, string expected)
+    {
+        var editor = CreateSut().Initialize(TestHelpers.CreateModule());
+        var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol(name, kind, range, range, Detail: detail)]);
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.ProcedureNames.Should().Equal("(Declarations)", expected);
+    }
+
+    [AvaloniaFact]
+    public async Task DuplicateProcedureTextNavigatesToFirstSymbol()
+    {
+        var editor = CreateSut().Initialize(TestHelpers.CreateModule());
+        editor.Document.Text = "First\nSecond\nThird\n";
+        var first = new HexIDE.Lsp.Messages.Range(new Position(1, 0), new Position(2, 0));
+        var second = new HexIDE.Lsp.Messages.Range(new Position(2, 0), new Position(3, 0));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol("Value", SymbolKind.Property, first, first, Detail: "Property Let"),
+             new DocumentSymbol("Value (Let)", SymbolKind.Property, second, second)]);
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Value [PropertyLet]");
+        editor.SelectedProcedure = "Value [PropertyLet]";
+        editor.CaretOffset.Should().Be(editor.Document.GetLineByNumber(2).Offset);
+    }
+
+    [AvaloniaFact]
+    public async Task GeneralProceduresMatchMeasuredVb6Order()
+    {
+        // Measured list and declaration order: docs/vb6-fidelity-oracle/the-procedure-boxs-entries-for-a-propertys-accessors.md
+        var editor = CreateSut().Initialize(TestHelpers.CreateModule(kind: ModuleKind.ClassModule));
+        var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new("Zed", SymbolKind.Method, range, range),
+             new("Value", SymbolKind.Property, range, range, Detail: "Property Get"),
+             new("Value", SymbolKind.Property, range, range, Detail: "Property Let"),
+             new("Value", SymbolKind.Property, range, range, Detail: "Property Set"),
+             new("Alpha", SymbolKind.Function, range, range),
+             new("Beta", SymbolKind.Property, range, range, Detail: "Property Get"),
+             new("Gamma", SymbolKind.Property, range, range, Detail: "Property Set"),
+             new("Gamma", SymbolKind.Property, range, range, Detail: "Property Let"),
+             new("Gamma", SymbolKind.Property, range, range, Detail: "Property Get")]);
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.ProcedureNames.Should().Equal("(Declarations)", "Alpha", "Beta [PropertyGet]",
+            "Gamma [PropertyGet]", "Gamma [PropertyLet]", "Gamma [PropertySet]",
+            "Value [PropertyGet]", "Value [PropertyLet]", "Value [PropertySet]", "Zed");
     }
 
     [AvaloniaFact]
@@ -239,6 +328,84 @@ public class CodeEditorViewModelTests : IDisposable
         var form = TestHelpers.CreateForm(name: "Form1");
         form.Owner.VbaBitness = bitness;
         CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(expected);
+    }
+
+    // #4821: the constants target takes precedence over the bitness default, for forms and modules.
+    [AvaloniaTheory]
+    [InlineData(VbaBitness.None)]
+    [InlineData(VbaBitness.Bit32)]
+    [InlineData(VbaBitness.Bit64)]
+    public void RDCore_project_defaults_to_RDCore_preview(VbaBitness bitness)
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.Target = ProjectTarget.RDCore;
+        module.Owner.VbaBitness = bitness;
+        var moduleVm = CreateSut().Initialize(module);
+        moduleVm.ConditionalTargetIndex.Should().Be(5);
+        moduleVm.Dispose();
+        var form = TestHelpers.CreateForm(name: "Form1");
+        form.Owner.Target = ProjectTarget.RDCore;
+        form.Owner.VbaBitness = bitness;
+        CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(5);
+    }
+
+    // #4890: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.11-alpha.
+    [AvaloniaTheory]
+    [InlineData("WINDOWS", false, "0,1,1,0,0,1,1,1")]
+    [InlineData("WINDOWS", true, "0,1,1,0,0,1,1,1")]
+    [InlineData("OSX", false, "0,0,1,1,0,1,1,1")]
+    [InlineData("OSX", true, "0,0,0,1,0,1,1,1")]
+    [InlineData("LINUX", false, "0,0,0,0,1,1,1,1")]
+    [InlineData("LINUX", true, "0,0,0,0,1,1,1,1")]
+    public void Editor_greying_uses_the_recorded_host_table(string host, bool windowsOnly, string row)
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.Target = ProjectTarget.RDCore;
+        _settingsService.RDCoreWin64OnlySetOnWindows.Returns(windowsOnly);
+        var vm = CreateSut().Initialize(module);
+        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None,
+            System.Runtime.InteropServices.OSPlatform.Create(host), vm.ConditionalWin64OnlySetOnWindows);
+        var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7" };
+        var values = row.Split(',');
+        var condition = string.Join(" And ", names.Select((name, i) => $"({name} = {values[i]})"));
+        var source = $"#If {condition} Then\nactive\n#Else\ninactive\n#End If\n";
+        new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode().InactiveLines(source,
+            new HexIDE.Language.ConditionalConstants(HexIDE.Language.ConditionalConstants.NoArguments) { BuiltIns = builtIns })
+            .Should().Equal(new HexIDE.Language.LineRange(4, 4));
+        builtIns.Keys.Should().BeEquivalentTo(names);
+        vm.Dispose();
+    }
+
+    // Excel for Mac 16.115, #4821: the RDCore option leaves VBA previews unchanged.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Mac_VBA_preview_retains_its_table(bool windowsOnly)
+    {
+        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit64,
+            System.Runtime.InteropServices.OSPlatform.OSX, windowsOnly);
+        builtIns.Keys.Should().BeEquivalentTo("Win16", "Win32", "Win64", "Mac", "VBA6", "VBA7");
+        builtIns["Win32"].Should().Be(0);
+        builtIns["Win64"].Should().Be(1);
+        builtIns["Mac"].Should().Be(1);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Mac_editor_pause_preview_follows_the_installation_setting(bool windowsOnly)
+    {
+        var form = TestHelpers.CreateForm();
+        form.Owner.Target = ProjectTarget.RDCore;
+        _settingsService.RDCoreWin64OnlySetOnWindows.Returns(windowsOnly);
+        var vm = CreateSut().Initialize(form);
+        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None,
+            System.Runtime.InteropServices.OSPlatform.OSX, vm.ConditionalWin64OnlySetOnWindows);
+        new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode().InactiveLines(
+            "#If Win32 Or Win64 Then\nSleep 1\n#Else\nTimer\n#End If",
+            new HexIDE.Language.ConditionalConstants(HexIDE.Language.ConditionalConstants.NoArguments) { BuiltIns = builtIns })
+            .Should().Equal(new HexIDE.Language.LineRange(windowsOnly ? 2 : 4, windowsOnly ? 2 : 4));
+        vm.Dispose();
     }
 
     [AvaloniaFact]
@@ -325,6 +492,164 @@ public class CodeEditorViewModelTests : IDisposable
         vm.DescribeExternalBreakpoint(9).Should().Be("j = 4");
         if (answer is null) _breakpointService.DidNotReceive().SetCondition(vm.Identity, 9, Arg.Any<string?>());
         else _breakpointService.Received().SetCondition(vm.Identity, 9, answer);
+    }
+
+    [AvaloniaFact]
+    public async Task InlineValuesResolveAllKindsAtLineEndsAndIgnoreMissingLocals()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        vm.Document.Text = "    x = 1\n    title";
+        _settingsService.ShowInlineValues.Returns(true);
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        _debugController.CurrentStop.Returns(new HexIDE.Runtime.Debugging.StoppedInfo(
+            HexIDE.Runtime.Debugging.StopReason.Step, "Module1", 1));
+        var xValue = "7";
+        _debugController.GetLocals().Returns(_ => new HexIDE.Runtime.Debugging.DebugScope("Module1.Main",
+            [new("X", xValue, "Integer"), new("title", "\"hello\"", "String")]));
+        _debugController.EvaluateAsync("x = 1").Returns(_ =>
+        {
+            xValue = "1";
+            return Task.FromResult<string?>(null);
+        });
+        var x = new HexIDE.Lsp.Messages.Range(new(0, 4), new(0, 5));
+        var title = new HexIDE.Lsp.Messages.Range(new(1, 4), new(1, 9));
+        _lspClient.RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>()).Returns([
+                new InlineValueText(x, "given"), new InlineValueVariableLookup(x, false),
+                new InlineValueVariableLookup(x, true), new InlineValueVariableLookup(x, false, "absent"),
+                new InlineValueVariableLookup(title, true), new InlineValueEvaluatableExpression(x, "x = 1"),
+                new InlineValueEvaluatableExpression(x), new InlineValueEvaluatableExpression(x, "bad")]);
+        _debugController.EvaluateWatchAsync("x = 1").Returns(new HexIDE.Runtime.Debugging.DebugEvalResult(
+            true, "False", "Boolean", false, new("x = 1", "False", "Boolean")));
+        _debugController.EvaluateWatchAsync("x").Returns(new HexIDE.Runtime.Debugging.DebugEvalResult(
+            true, "7", "Integer", true, new("x", "7", "Integer")));
+        _debugController.EvaluateWatchAsync("bad").Returns(new HexIDE.Runtime.Debugging.DebugEvalResult(
+            false, "error", "", false, new("bad", "error", "")));
+        var visible = new HexIDE.Lsp.Messages.Range(new(0, 0), new(1, 9));
+        var hints = await vm.RequestInlineValuesAsync(visible, TestContext.Current.CancellationToken);
+        hints.Select(h => h.Text).Should().Equal(["given, x = 7, x = 1 = False", "title = \"hello\""],
+            "the lookup and the evaluated x read the same, so the line shows it once");
+        hints.Select(h => h.Position).Should().Equal(new Position(0, 9), new Position(1, 9));
+        await _lspClient.Received(1).RequestInlineValuesAsync(vm.GetDocumentUriPublic(), visible,
+            new InlineValueContext(0, new(new(0, 0), new(0, 9))), Arg.Any<CancellationToken>());
+        await _debugController.DidNotReceive().EvaluateAsync(Arg.Any<string>());
+        _debugController.GetLocals()!.Locals[0].Value.Should().Be("7", "a server expression must not assign to x");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, "Module1", HexIDE.Runtime.Debugging.DebugState.Paused)]
+    [InlineData(true, "Other", HexIDE.Runtime.Debugging.DebugState.Paused)]
+    [InlineData(true, "Module1", HexIDE.Runtime.Debugging.DebugState.Running)]
+    public async Task InlineValuesRequireTheSettingAndAPauseInThisModule(bool enabled, string module,
+        HexIDE.Runtime.Debugging.DebugState state)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        _settingsService.ShowInlineValues.Returns(enabled);
+        _debugController.State.Returns(state);
+        _debugController.CurrentStop.Returns(new HexIDE.Runtime.Debugging.StoppedInfo(
+            HexIDE.Runtime.Debugging.StopReason.Step, module, 1));
+        (await vm.RequestInlineValuesAsync(new(new(0, 0), new(0, 1)), TestContext.Current.CancellationToken))
+            .Should().BeEmpty();
+        await _lspClient.DidNotReceive().RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task InlineValueSessionRequestsOnStopsRefreshesAndScrollingAndClearsOnContinue()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        vm.Document.Text = "x\ny";
+        _settingsService.ShowInlineValues.Returns(true);
+        var stop = new HexIDE.Runtime.Debugging.StoppedInfo(HexIDE.Runtime.Debugging.StopReason.Step, "Module1", 1);
+        var first = new HexIDE.Lsp.Messages.Range(new(0, 0), new(0, 1));
+        var second = new HexIDE.Lsp.Messages.Range(new(1, 0), new(1, 1));
+        _lspClient.RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>()).Returns([new InlineValueText(first, "value")]);
+        _lspClient.HandlesRefresh(Arg.Any<string>(), _lspClient).Returns(true);
+        InlayHint[] shown = [];
+        using var session = vm.CreateInlineValueSession(hints => shown = hints);
+        session.SetVisibleRange(first);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        await _lspClient.DidNotReceive().RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>());
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        _debugController.CurrentStop.Returns(stop);
+        _debugController.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
+        await PumpInlineValuesUntil(() => shown.Length == 1);
+        var calls = _lspClient.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "RequestInlineValuesAsync");
+        _lspClient.InlineValueRefreshRequested += Raise.Event<EventHandler>(_lspClient, EventArgs.Empty);
+        await PumpInlineValuesUntil(() => _lspClient.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "RequestInlineValuesAsync") > calls);
+        session.SetVisibleRange(second);
+        await PumpInlineValuesUntil(() => _lspClient.ReceivedCalls().Any(c => c.GetMethodInfo().Name == "RequestInlineValuesAsync"
+            && Equals(c.GetArguments()[1], second)));
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Running);
+        _debugController.CurrentStop.Returns((HexIDE.Runtime.Debugging.StoppedInfo?)null);
+        _debugController.Continued += Raise.Event<Action>();
+        await PumpInlineValuesUntil(() => shown.Length == 0);
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        _debugController.CurrentStop.Returns(stop);
+        _debugController.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
+        await PumpInlineValuesUntil(() => shown.Length == 1);
+        _settingsService.ShowInlineValues.Returns(false);
+        _settingsService.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(_settingsService,
+            new PropertyChangedEventArgs(nameof(ISettingsService.ShowInlineValues)));
+        await PumpInlineValuesUntil(() => shown.Length == 0);
+        _lspClient.ClearReceivedCalls();
+        session.SetVisibleRange(first);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        await _lspClient.DidNotReceive().RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InlineValuesDiscardRepliesAfterContinueOrANewerStop(bool newerStop)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        vm.Document.Text = "x\ny";
+        _settingsService.ShowInlineValues.Returns(true);
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        var stop = new HexIDE.Runtime.Debugging.StoppedInfo(HexIDE.Runtime.Debugging.StopReason.Step, "Module1", 1);
+        _debugController.CurrentStop.Returns(stop);
+        var pending = new TaskCompletionSource<InlineValue[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var visible = new HexIDE.Lsp.Messages.Range(new(0, 0), new(1, 1));
+        var requests = 0;
+        _lspClient.RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>()).Returns(_ =>
+                ++requests == 1 ? pending.Task : Task.FromResult<InlineValue[]>([new InlineValueText(visible, "new")]));
+        InlayHint[] shown = [];
+        using var session = vm.CreateInlineValueSession(hints => shown = hints);
+        session.SetVisibleRange(visible);
+        await PumpInlineValuesUntil(() => requests == 1);
+        if (newerStop)
+        {
+            stop = stop with { Line = 2 };
+            _debugController.CurrentStop.Returns(stop);
+            _debugController.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
+            await PumpInlineValuesUntil(() => shown.Length > 0);
+        }
+        else
+        {
+            _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Stopped);
+            _debugController.CurrentStop.Returns((HexIDE.Runtime.Debugging.StoppedInfo?)null);
+            _debugController.Continued += Raise.Event<Action>();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        }
+        pending.SetResult([new InlineValueText(visible, "old")]);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        shown.Select(h => h.Text).Should().Equal(newerStop ? new[] { "new" } : Array.Empty<string>());
+    }
+
+    private static async Task PumpInlineValuesUntil(Func<bool> done)
+    {
+        for (var attempt = 0; attempt < 1000 && !done(); attempt++)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+        done().Should().BeTrue();
     }
 
     [AvaloniaFact]

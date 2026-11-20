@@ -146,6 +146,7 @@ public sealed class LanguageServerContributions(
                 ? token => WithinAsync(gate, server.BeforeLaunchTimeout, origin, id, token)
                 : null,
             Origin = origin,
+            AddinId = originId,
             // The user's object, then the profile's default, then what the add-in's own entry carries (#4255).
             Settings = settings.GetLanguageServerSettings(id) ?? made.Settings,
             CreateClient = claimed.Count == 0 && commands.Count == 0 && afterStart is null ? made.CreateClient : () =>
@@ -400,6 +401,13 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
     {
         using var lifetime = ActionLifetime(cancellationToken);
         return await _codeEditorActions!.StartRenameAsync(uri, position, lifetime.Token);
+    }
+
+    public async Task<bool> GoToLocationAsync(string uri, HexIDE.Lsp.Messages.Range range,
+        CancellationToken cancellationToken = default)
+    {
+        using var lifetime = ActionLifetime(cancellationToken);
+        return await _codeEditorActions!.GoToLocationAsync(uri, range, lifetime.Token);
     }
 
     public async Task ShowReferencesAsync(IReadOnlyList<HexIDE.Lsp.Messages.Location> locations,

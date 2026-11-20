@@ -32,6 +32,9 @@ public class FormInstanceTests
       + "   Caption         =   \"Form1\"\r\n"
       + "   ClientHeight    =   3000\r\n"
       + "   ClientWidth     =   4000\r\n"
+      + "   Begin VB.Timer Timer1\r\n"
+      + "      Left = 3000\r\n"
+      + "   End\r\n"
       + "   Begin VB.TextBox Text1 \r\n"
       + "      Height          =   495\r\n"
       + "      Left            =   120\r\n"
@@ -92,6 +95,321 @@ public class FormInstanceTests
 
     private static Run RunFormLoad(string body, params (string Name, ModuleKind Kind, string Code)[] modules) =>
         RunForm($"Private Sub Form_Load()\n{body}\nEnd Sub\n", modules);
+
+    // VB6 SP6 native/p-code measurements: https://github.com/hexide-io/HexIDE/issues/4864
+    [AvaloniaTheory]
+    [InlineData("Control", "", "Set c = Text1", 0, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = Me", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = New Class1", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = New Collection", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = Text1.Font", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = Controls", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1", "Set c = Form2", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1: Set o = Me", "Set c = o", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1: Set v = Me", "Set c = v", 13, "c Is Text1")]
+    [InlineData("Control", "Set c = Text1: Set v = New Class1", "Set c = v", 13, "c Is Text1")]
+    [InlineData("Control", "Set o = Timer1", "Set c = o", 0, "TypeName(c) = \"Timer\"")]
+    [InlineData("Control", "Set c = Text1", "Set c = Nothing", 0, "c Is Nothing")]
+    [InlineData("Control", "", "Set c = Me", 13, "c Is Nothing")]
+    [InlineData("VB.Control", "", "Set c = Text1", 0, "c Is Text1")]
+    [InlineData("VB.Control", "Set o = Timer1", "Set c = o", 0, "TypeName(c) = \"Timer\"")]
+    [InlineData("VB.Control", "Set c = Text1", "Set c = Me", 13, "c Is Text1")]
+    [InlineData("VB.Control", "Set c = Text1", "Set c = New Class1", 13, "c Is Text1")]
+    [InlineData("VB.Control", "Set c = Text1", "Set c = New Collection", 13, "c Is Text1")]
+    [InlineData("VB.Control", "Set c = Text1: Set o = Me", "Set c = o", 13, "c Is Text1")]
+    public void Control_scalar_store_checks_the_actual_object(string declaration, string setup, string statement,
+        int error, string retained)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project,
+            (FormHeader.Replace("Form1", "Form2") + "Private Sub Form_Load()\nDebug.Print \"unexpected load\"\nEnd Sub")
+            .ReplaceLineEndings("\r\n"), new NullSink())!);
+        var run = RunFormIn(project, $"""
+            Private Sub Form_Load()
+                Dim c As {declaration}, o As Object, v As Variant
+                {setup}
+                On Error Resume Next
+                Err.Clear
+                {statement}
+                Debug.Print CStr(Err.Number)
+                Debug.Print {retained}
+            End Sub
+            """, ("Class1", ModuleKind.ClassModule, ""));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(error.ToString(System.Globalization.CultureInfo.InvariantCulture), "True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("", "Set c = Form1", 13, "c Is Nothing")]
+    [InlineData("", "Set c = Form1.Text1", 0, "c Is Form1.Text1")]
+    [InlineData("Set c = Form1.Text1", "Set c = Form1", 13, "c Is Form1.Text1")]
+    public void Control_scalar_store_in_a_standard_module(string setup, string statement, int error, string retained)
+    {
+        var run = RunFormLoad("Probe", ("Module1", ModuleKind.StandardModule, $"""
+            Public Sub Probe()
+                Dim c As Control
+                {setup}
+                On Error Resume Next
+                Err.Clear
+                {statement}
+                Debug.Print CStr(Err.Number)
+                Debug.Print {retained}
+            End Sub
+            """));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(error.ToString(System.Globalization.CultureInfo.InvariantCulture), "True");
+    }
+
+    // vb6.exe SP6 native/p-code: hexide-io/HexIDE#4925, cases 6–7.
+    [AvaloniaTheory]
+    [InlineData("TextBox")]
+    [InlineData("Control")]
+    public void Type_array_field_accepts_a_control_and_record_copy_shares_it(string type)
+    {
+        var run = RunFormLoad("Probe", ("Module1", ModuleKind.StandardModule, $"""
+            Private Type T
+                a(1) As {type}
+            End Type
+            Public Sub Probe()
+                Dim u As T, w As T
+                Set u.a(0) = Form1.Text1
+                u.a(0).Text = "x"
+                Debug.Print Form1.Text1.Text
+                Debug.Print TypeName(u.a(0))
+                w = u
+                Debug.Print w.a(0) Is u.a(0)
+            End Sub
+            """));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("x", "TextBox", "True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("TextBox")]
+    [InlineData("Control")]
+    public void Type_array_field_rejects_a_form(string type)
+    {
+        var run = RunFormLoad("Probe", ("Module1", ModuleKind.StandardModule, $"""
+            Private Type T
+                a(1) As {type}
+            End Type
+            Public Sub Probe()
+                Dim u As T
+                On Error Resume Next
+                Set u.a(0) = Form1
+                Debug.Print CStr(Err.Number)
+            End Sub
+            """));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("13");
+    }
+
+    [AvaloniaFact]
+    public void Indexed_Let_on_an_Object_field_holding_a_TextBox_raises_344()
+    {
+        var run = RunFormLoad("Probe", ("Module1", ModuleKind.StandardModule, """
+            Private Type T
+                o As Object
+            End Type
+            Public Sub Probe()
+                Dim u As T
+                Set u.o = Form1.Text1
+                On Error Resume Next
+                u.o(1) = 9
+                Debug.Print CStr(Err.Number)
+                Debug.Print Err.Description
+                Debug.Print Form1.Text1.Text
+            End Sub
+            """));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("344", "Must specify index for object array", "t1");
+    }
+
+    // A form's module-level variable, a standard module's Public variable and a class's Public field declared As Control
+    // check the same way. VB6 SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/4864 (oracle PR #4866).
+    [AvaloniaTheory]
+    [InlineData("mc")]
+    [InlineData("gc")]
+    [InlineData("k.c")]
+    public void Control_store_beyond_a_local_checks_the_actual_object(string target)
+    {
+        var run = RunForm($"""
+            Private mc As Control
+
+            Private Sub Form_Load()
+                Dim k As Class1
+                Set k = New Class1
+                Set {target} = Text1
+                On Error Resume Next
+                Err.Clear
+                Set {target} = Me
+                Debug.Print CStr(Err.Number)
+                Debug.Print {target} Is Text1
+            End Sub
+            """, ("Class1", ModuleKind.ClassModule, "Public c As Control\n"),
+            ("Module2", ModuleKind.StandardModule, "Public gc As Control\n"));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("13", "True");
+    }
+
+    // VB6 SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/4878 (oracle PR #4866).
+    // A first-element 13 enters the body and continues; a later 13 ends with the variable Nothing.
+    [AvaloniaTheory]
+    [InlineData("col.Add Text1: col.Add Me: col.Add Timer1", "col", "body 0 TextBox|13 Nothing")]
+    [InlineData("col.Add Me: col.Add Text1", "col", "body 13 Nothing|body 0 TextBox|0 Nothing")]
+    [InlineData("", "Forms", "body 13 Nothing|0 Nothing")]
+    public void For_Each_into_a_Control_variable_checks_each_element(string fill, string source, string expected)
+    {
+        var run = RunFormLoad($"""
+            Dim c As Control, col As New Collection
+            {fill}
+            On Error Resume Next
+            Err.Clear
+            For Each c In {source}
+                Debug.Print "body " & Err.Number & " " & TypeName(c)
+                Err.Clear
+            Next
+            Debug.Print CStr(Err.Number) & " " & TypeName(c)
+            """);
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected.Split('|'));
+    }
+
+    // All three elements and the post-loop read were measured in #4878, native and p-code.
+    [AvaloniaFact]
+    public void Later_element_type_mismatch_clears_the_object_loop_variable()
+    {
+        var run = RunFormLoad("""
+            Dim t As Class1, col As New Collection
+            col.Add New Class1: col.Add New Class2: col.Add New Class1
+            On Error Resume Next
+            For Each t In col
+                Debug.Print "body " & Err.Number & " " & TypeName(t)
+                Err.Clear
+            Next
+            Debug.Print CStr(Err.Number) & " " & TypeName(t)
+            """, ("Class1", ModuleKind.ClassModule, ""), ("Class2", ModuleKind.ClassModule, ""));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("body 0 Class1", "13 Nothing");
+    }
+
+    // Every row, in order: https://github.com/hexide-io/HexIDE/issues/4640 (VB6 SP6, native and p-code).
+    [AvaloniaFact]
+    public void As_New_forms_keep_identity_across_Unload_and_recreate_after_Nothing_in_local_and_module_slots()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project,
+            (FormHeader.Replace("Form1", "Form2") + """
+            Private number As Integer
+            Private Sub Form_Initialize()
+                nextId = nextId + 1
+                number = nextId
+                Debug.Print "initialize " & number
+            End Sub
+            Private Sub Form_Load()
+                Debug.Print "load " & number
+            End Sub
+            Private Sub Form_Unload(Cancel As Integer)
+                Debug.Print "unload " & number
+            End Sub
+            Private Sub Form_Terminate()
+                Debug.Print "terminate " & number
+            End Sub
+            Public Function Id() As Integer
+                Id = number
+            End Function
+            """).ReplaceLineEndings("\r\n"), new NullSink())!);
+        var run = RunFormIn(project, """
+            Private Sub Form_Load()
+                Probe
+                Debug.Print "returned " & Forms.Count
+                Unload gg
+                Set gg = Nothing
+                Debug.Print "released " & Forms.Count
+            End Sub
+            Private Sub Probe()
+                Dim g As New Form2
+                Debug.Print "declared " & Forms.Count
+                Debug.Print g Is Nothing
+                Debug.Print "nothing " & Forms.Count
+                Debug.Print TypeName(g)
+                Debug.Print "type " & Forms.Count
+                Debug.Print "id " & g.Id
+                Debug.Print "member " & Forms.Count
+                g.Caption = "g"
+                Debug.Print "caption " & Forms.Count
+                Unload g
+                Debug.Print g Is Nothing
+                Debug.Print "unloaded " & Forms.Count
+                Debug.Print "id " & g.Id
+                Debug.Print "member " & Forms.Count
+                g.Caption = "g again"
+                Debug.Print "reloaded " & Forms.Count
+                Unload g
+                Set g = Nothing
+                Debug.Print "cleared " & Forms.Count
+                Debug.Print g Is Nothing
+                Debug.Print "recreated " & Forms.Count
+                Debug.Print "id " & g.Id
+                Debug.Print "member " & Forms.Count
+                Debug.Print "global " & gg.Id
+                Debug.Print "global member " & Forms.Count
+                gg.Show
+                Debug.Print "shown " & Forms.Count
+                Debug.Print gg Is Form2
+                Debug.Print "default " & Forms.Count
+            End Sub
+            """, ("Module1", ModuleKind.StandardModule, "Public nextId As Integer\nPublic gg As New Form2"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(
+            "declared 1", "initialize 1", "False", "nothing 1", "Form2", "type 1", "id 1", "member 1",
+            "load 1", "caption 2", "unload 1", "False", "unloaded 1", "id 1", "member 1",
+            "load 1", "reloaded 2", "unload 1", "terminate 1", "cleared 1",
+            "initialize 2", "False", "recreated 1", "id 2", "member 1",
+            "initialize 3", "global 3", "global member 1", "load 3", "shown 2",
+            "initialize 4", "False", "default 2", "terminate 2", "returned 2",
+            "unload 3", "terminate 3", "released 1");
+    }
+
+    // Measured on VB6 SP6, native and p-code agreeing (#4640's PR): a module's `Public g As New Form2` holds the new
+    // instance while its Form_Initialize runs, so `g Is Me` there is True and no second instance is made. The same holds
+    // after `Set g = Nothing`, for the next instance. A class's slot does the same (#4605).
+    [AvaloniaFact]
+    public void An_As_New_form_is_in_its_variable_while_its_Form_Initialize_runs()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project,
+            (FormHeader.Replace("Form1", "Form2") + """
+            Private number As Integer
+            Private Sub Form_Initialize()
+                nextId = nextId + 1
+                number = nextId
+                If nextId > 3 Then Exit Sub
+                Debug.Print "initialize " & number & " " & (g Is Me) & " " & nextId
+            End Sub
+            Private Sub Form_Terminate()
+                Debug.Print "terminate " & number
+            End Sub
+            Public Function Id() As Integer
+                Id = number
+            End Function
+            """).ReplaceLineEndings("\r\n"), new NullSink())!);
+        var run = RunFormIn(project, """
+            Private Sub Form_Load()
+                Debug.Print "id " & g.Id
+                Debug.Print "made " & nextId
+                Set g = Nothing
+                Debug.Print TypeName(g)
+                Debug.Print "made " & nextId
+            End Sub
+            """, ("Module1", ModuleKind.StandardModule, "Public nextId As Integer\nPublic g As New Form2"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(
+            "initialize 1 True 1", "id 1", "made 1", "terminate 1",
+            "initialize 2 True 2", "Form2", "made 2");
+    }
 
     // Measured VB6 SP6, native and p-code: #4598, oracle PR #4613.
     private static ProjectDefinition NewFormProject(string declarations = "", string members = "")
@@ -468,8 +786,8 @@ public class FormInstanceTests
     [AvaloniaFact]
     public void A_fault_in_Form_Load_ends_the_start_before_the_window_is_shown()
     {
-        // GoSub is not implemented, so the statement faults, and a fault ends the run.
-        var run = RunForm("Private Sub Form_Load()\n    Debug.Print \"load\"\n    GoSub There\nThere:\n    Debug.Print \"load end\"\nEnd Sub\n");
+        // AppActivate is not implemented, so the statement faults, and a fault ends the run.
+        var run = RunForm("Private Sub Form_Load()\n    Debug.Print \"load\"\n    AppActivate \"Notepad\"\n    Debug.Print \"load end\"\nEnd Sub\n");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>();
         run.Printed.Should().Equal("load");
@@ -693,18 +1011,26 @@ public class FormInstanceTests
     }
 
     [AvaloniaTheory]
-    [InlineData("    CurrentX = 0", "Setting Form1's CurrentX")]
-    [InlineData("    Cls", "Cls method")]
     [InlineData("    Debug.Print TextWidth(\"abc\")", "TextWidth method")]
     public void A_member_VB6s_Form_has_and_HexIDE_lacks_is_refused_as_not_implemented(string statement, string named)
     {
-        // VB6 has each (measured where it matters: Cls runs, TextWidth is a Single). Quietly making a variable of CurrentX, or
-        // saying "Sub or Function not defined" for Cls, would hide that HexIDE lacks it. Controls was here until #1060.
+        // Controls runs since #1060, and CurrentX/Cls since #988. Text output remains #989.
         var run = RunFormLoad(statement + "\n    Debug.Print \"ran\"");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
             .Which.Message.Should().Contain(named);
         run.Printed.Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("    CurrentX = 0")]
+    [InlineData("    CurrentX = 100\n    CurrentY = 200\n    Cls")]
+    public void CurrentX_and_Cls_are_the_forms_drawing_members(string statement)
+    {
+        // #988: docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md.
+        var run = RunFormLoad(statement + "\n    Debug.Print CStr(CurrentX) & \" \" & TypeName(CurrentX)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("0 Single");
     }
 
     [AvaloniaTheory]
@@ -797,13 +1123,10 @@ public class FormInstanceTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Step_Into_from_design_mode_breaks_on_the_first_statement_of_the_start(bool hasInitialize)
+    public void Step_Into_from_design_mode_uses_the_measured_start_positions(bool hasInitialize)
     {
-        // Start-and-step breaks on the first executable line, not its declaration. The start is one dispatch now: a step armed
-        // before it reaches Initialize's first statement, or Load's when there is no Initialize, and a step off the end
-        // of Initialize goes on into Load. Each piece was a dispatch of its own, and the first one's end disarmed the
-        // step, so the run went straight through (#656, #1010 review).
-        // End-line breakpoint support must not consume that startup step at Initialize's End Sub (#2172 review).
+        // Measured: https://github.com/hexide-io/HexIDE/issues/4449 — Initialize declaration, statement, End, Load declaration.
+        // The no-Initialize Load declaration was measured in oracle PR #4683 (issue #4449, round 2).
         var code = "Private Score As Integer\nDim Grid(1 To 3) As Integer\n"
             + (hasInitialize ? "Private Sub Form_Initialize()\n    Score = 1\nEnd Sub\n" : "")
             + "Private Sub Form_Load()\n    Score = Score + 1\n    Debug.Print Score\nEnd Sub\n";
@@ -826,14 +1149,17 @@ public class FormInstanceTests
             Dispatcher.UIThread.RunJobs();
             if (hasInitialize)
             {
-                stops.Should().Equal([LineOf("    Score = 1")], "Initialize's first statement, after the two declarations and its Sub line");
-                dbg.StepInto();
-                Dispatcher.UIThread.RunJobs();
-                stops.Should().Equal([LineOf("    Score = 1"), LineOf("    Score = Score + 1")],
-                    "off the end of Initialize, into Load's first statement");
+                stops.Should().Equal([LineOf("Private Sub Form_Initialize()")]);
+                foreach (var expected in new[] { LineOf("    Score = 1"), LineOf("    Score = 1") + 1,
+                             LineOf("Private Sub Form_Load()"), LineOf("    Score = Score + 1") })
+                {
+                    dbg.StepOver();
+                    Dispatcher.UIThread.RunJobs();
+                    stops[^1].Should().Be(expected);
+                }
             }
             else
-                stops.Should().Equal([LineOf("    Score = Score + 1")], "Load's first statement: the declarations are never a stop");
+                stops.Should().Equal([LineOf("Private Sub Form_Load()")]);
         }
         finally
         {
@@ -842,6 +1168,65 @@ public class FormInstanceTests
             window.Close();
         }
         run.IsCompleted.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Step_Over_off_startup_Load_runs_Resize_then_stops_at_Activate(bool hasInitialize)
+    {
+        // VB6 SP6, #4449 round 2 / oracle PR #4683: programs E and F. Resize runs between Load and
+        // Activate without a step stop. Exercise the real startup show and its dispatched events.
+        var code = (hasInitialize ? "Private Sub Form_Initialize()\n    Debug.Print \"initialize\"\nEnd Sub\n" : "")
+            + "Private Sub Form_Load()\n    Debug.Print \"load\"\nEnd Sub\n"
+            + "Private Sub Form_Resize()\n    Debug.Print \"resize\"\nEnd Sub\n"
+            + "Private Sub Form_Activate()\n    Debug.Print \"activate\"\nEnd Sub\n";
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, (FormHeader + code).ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form);
+        var whole = FormCodeText.WholeFile(form).ReplaceLineEndings("\n").Split('\n');
+        int LineOf(string statement) => System.Array.IndexOf(whole, statement) + 1;
+        var dbg = new HexIDE.Runtime.Debugging.DebugController { TimeSliceMs = null };
+        var printed = new List<string>();
+        var stops = new List<int>();
+        dbg.Stopped += info => stops.Add(info.Line);
+        dbg.Reset();
+        dbg.StepInto();
+        VBDebugConsole.Output += printed.Add;
+        using var cancellation = new CancellationTokenSource();
+        var run = VBLoader.RunForm(form, cancellation.Token, out var window, dbg);
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            printed.Should().BeEmpty("the startup declaration stops before its statement runs");
+            var expected = new List<int>();
+            if (hasInitialize)
+                expected.AddRange([LineOf("Private Sub Form_Initialize()"), LineOf("    Debug.Print \"initialize\""),
+                    LineOf("    Debug.Print \"initialize\"") + 1]);
+            expected.AddRange([LineOf("Private Sub Form_Load()"), LineOf("    Debug.Print \"load\""),
+                LineOf("    Debug.Print \"load\"") + 1, LineOf("Private Sub Form_Activate()"),
+                LineOf("    Debug.Print \"activate\""), LineOf("    Debug.Print \"activate\"") + 1]);
+            for (var i = 0; i < expected.Count; i++)
+            {
+                stops.Should().Equal(expected.GetRange(0, i + 1));
+                if (expected[i] == LineOf("Private Sub Form_Activate()"))
+                    printed.Should().Equal(hasInitialize ? ["initialize", "load", "resize"] : ["load", "resize"]);
+                dbg.StepOver();
+                Dispatcher.UIThread.RunJobs();
+            }
+            dbg.State.Should().Be(HexIDE.Runtime.Debugging.DebugState.Running);
+            stops.Should().Equal(expected);
+            printed.Should().Equal(hasInitialize ? ["initialize", "load", "resize", "activate"] : ["load", "resize", "activate"]);
+        }
+        finally
+        {
+            dbg.Stop();
+            cancellation.Cancel();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+            VBDebugConsole.Output -= printed.Add;
+        }
+        await run.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     [AvaloniaFact]

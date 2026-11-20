@@ -80,6 +80,13 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </remarks>
     public static event Action<VBWindowContext, Exception>? Faulted;
 
+    /// <summary>
+    /// A Timer event's handler has finished, its outcome reported, an error included. Raised at the dispatch boundary, not
+    /// when the Timer raised the event, which can queue the handler or return part way through it. Only the corpus smoke
+    /// run listens, to wait for a startup Timer's first event (#4774).
+    /// </summary>
+    internal static event Action<VBWindowContext>? TimerEventFinished;
+
     public VBWindowContext(IBasicStandardLibrary standardLibrary)
     {
         this.standardLibrary = standardLibrary;
@@ -335,6 +342,7 @@ public class VBWindowContext : IModuleExecutionRoot
 
     // Whether the window has been shown since the form loaded, and its extent when Resize was last raised (#994).
     private bool shownSinceLoad;
+    private bool startupShowPending;
     private (Avalonia.Size Size, Avalonia.Controls.WindowState State) resizedAt;
 
     /// <summary>
@@ -350,7 +358,9 @@ public class VBWindowContext : IModuleExecutionRoot
         ShowControls();
         shownSinceLoad = true;
         resizedAt = view.Extent;
-        ExecuteSub("Form_Resize");
+        var startupShow = startupShowPending;
+        startupShowPending = false;
+        Raise("Form_Resize", () => null, startupShowResize: startupShow);
     }
 
     /// <summary>
@@ -454,7 +464,11 @@ public class VBWindowContext : IModuleExecutionRoot
         await StopControls();
         form.FormUnloaded = true;
         HoldControls(form);
-        if (Window is not null)
+        // A form's own hide clears ownership first: Avalonia hides a window's owned windows with it, and an unloaded owner
+        // must not take the modal form it owns off the screen (#4618 review).
+        if (Window is VBFormRuntime runtime)
+            runtime.HideForm();
+        else if (Window is not null)
             Window.IsVisible = false;
         terminatePending = true;
         if (Program is { } program)
@@ -564,6 +578,8 @@ public class VBWindowContext : IModuleExecutionRoot
         return await Events.Run("Form_Load", async () =>
         {
             var session = interpreter.DebugController?.Session;
+            var wasStartupDispatch = interpreter.InStartupDispatch;
+            interpreter.InStartupDispatch = true;
             interpreter.DebugController?.NotifyDispatchStarted();
             try
             {
@@ -585,10 +601,13 @@ public class VBWindowContext : IModuleExecutionRoot
                         return false;
                 }
                 // A form that unloaded itself in Load, as `Unload Me` there does, is not shown (measured, #1046 review).
-                return !RunIsOver() && !form.FormUnloaded;
+                var show = !RunIsOver() && !form.FormUnloaded;
+                startupShowPending = show && !shownSinceLoad;
+                return show;
             }
             finally
             {
+                interpreter.InStartupDispatch = wasStartupDispatch;
                 if (interpreter.DebugController?.Session == session)
                     interpreter.DebugController?.NotifyDispatchIdle();
             }
@@ -747,7 +766,7 @@ public class VBWindowContext : IModuleExecutionRoot
     public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         var argList = args is null ? null : new List<Vb6Value>(args);
-        // Each element of a Timer array is a timer of its own, so its ticks are kept apart by Index.
+        // Each form instance and each Timer array element has its own ticks (#4785).
         var key = argList is { Count: > 0 } ? $"{name}({argList[0].Value})" : name;
         Raise(name, () => argList, EventCoalescing.Timer, key);
     }
@@ -776,7 +795,7 @@ public class VBWindowContext : IModuleExecutionRoot
 
     private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
         EventCoalescing coalescing = EventCoalescing.None, string? key = null, Func<bool>? when = null,
-        int? byRefIndex = null, Action<Vb6Value>? completed = null)
+        int? byRefIndex = null, Action<Vb6Value>? completed = null, bool startupShowResize = false)
     {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
         // run is abandoned half way. It used to reach here anyway and log a NullReferenceException after the
@@ -798,6 +817,8 @@ public class VBWindowContext : IModuleExecutionRoot
             // Asked at its turn, not when it was raised (#1344).
             if (when is not null && !when())
                 return;
+            if (startupShowResize)
+                interpreter.DebugController?.NotifyStartupShowResize();
             await Dispatch(async () =>
             {
                 if (!started)
@@ -820,6 +841,8 @@ public class VBWindowContext : IModuleExecutionRoot
                     finally { state.Free(slot); }
                 }
             });
+            if (coalescing == EventCoalescing.Timer)
+                TimerEventFinished?.Invoke(this);
         }
 
         // Typed in the Immediate window while paused, `Text1.Text = "x"` raises Text1_Change, which is refused there (see
@@ -830,7 +853,7 @@ public class VBWindowContext : IModuleExecutionRoot
             return;
         }
         // One handler at a time: at once if nothing runs or the running handler's own code raised it, else in turn (#766).
-        Events.Raise(key ?? name, Work, coalescing);
+        Events.Raise(key ?? name, Work, coalescing, coalescing == EventCoalescing.Timer ? form : null);
     }
 
     internal Task DispatchInput(Func<Task> work) => Dispatch(work);

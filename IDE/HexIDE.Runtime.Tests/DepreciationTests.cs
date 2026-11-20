@@ -51,18 +51,18 @@ public class DepreciationTests : BaseVBTestFixture
         await Run($"On Error Resume Next\nx = {expression}\nDebug.Print Err.Number\n");
         AssertDebugLog([new Vb6Value(5L)]);
     }
-    // This is HexIDE's refusal contract, not a claim about VB6's unmeasured argument diagnostics.
+    // Argument diagnostics measured in #4883 (SP6 native and p-code).
     [Theory]
-    [InlineData("DDB(2400, 300, 10)")]
-    [InlineData("DDB(2400, 300, 10, 1, 2, 3)")]
-    [InlineData("SLN(30000, 7500)")]
-    [InlineData("SLN(30000, 7500, 10, 1)")]
-    [InlineData("SYD(30000, 7500, 10)")]
-    [InlineData("SYD(30000, 7500, 10, 1, 2)")]
-    public async Task Unmeasured_argument_count_is_explicitly_refused(string expression)
+    [InlineData("DDB(2400, 300, 10)", 449)]
+    [InlineData("DDB(2400, 300, 10, 1, 2, 3)", 450)]
+    [InlineData("SLN(30000, 7500)", 449)]
+    [InlineData("SLN(30000, 7500, 10, 1)", 450)]
+    [InlineData("SYD(30000, 7500, 10)", 449)]
+    [InlineData("SYD(30000, 7500, 10, 1, 2)", 450)]
+    public async Task Measured_argument_count_reports_VB6_error(string expression, int error)
     {
-        Func<Task> run = () => Run($"Debug.Print {expression}\n");
-        await run.Should().ThrowAsync<NotImplementedException>();
+        await Run($"On Error Resume Next\nx = {expression}\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value((long)error)]);
     }
 
     // HexIDE refuses FinancialNumber.Pow's unmeasured domains, without guessing a VB6 value.

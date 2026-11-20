@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -882,18 +883,41 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     }
 
     /// <summary>
-    /// The TabIndex a control added or pasted takes: the next after the highest on the form, counting only the classes
-    /// that have one, as VB6's designer gives it (measured, #925). So the first is 0, a Timer neither takes one nor uses
-    /// one up, and a Label's or a Frame's counts. A paste takes a new one for each control, its container's first. A
-    /// control HexIDE does not model counts too, read from the text it is carried as.
+    /// The TabIndex a control added or pasted takes: the next after the highest on the form, as VB6's designer gives it
+    /// on a densely numbered form (measured, #925). A form's gaps are closed when it loads, as VB6 closes them (#4843).
+    /// The first is 0, a Timer neither takes one nor uses one up, and a Label's or a Frame's counts. A paste
+    /// takes a new one for each control, its container's first. A control or TabIndex property carried as text counts too.
     /// </summary>
     private int NextTabIndex() =>
         AllComponents.Where(c => HasTabIndex(c.Instance.BaseClass))
             .Select(c => c.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty))
+            .Concat(AllComponents.Where(c => !HasTabIndex(c.Instance.BaseClass))
+                .SelectMany(c => RawTabIndexes(c.Instance)))
             .Concat(AllComponents.SelectMany(c => c.Instance.PreservedChildSubtrees).SelectMany(b => PreservedControlText.TabIndexes(b.Text)))
             .DefaultIfEmpty(-1).Max() + 1;
 
     private static bool HasTabIndex(IComponentClass type) => type.Properties.Contains(VBProperties.TabIndexProperty);
+
+    private static IEnumerable<int> RawTabIndexes(ComponentInstance instance)
+    {
+        foreach (var raw in instance.UnknownRawProperties)
+        {
+            if (!raw.Name.Equals(VBProperties.TabIndexProperty.Name, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var value = raw.EditedValue;
+            if (value is null && raw.Lines is [var line] && line.IndexOf('=') is var equals && equals >= 0)
+                value = line[(equals + 1)..];
+            if (value is null)
+                continue;
+
+            var comment = value.IndexOf('\'');
+            if (comment >= 0)
+                value = value[..comment];
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tabIndex))
+                yield return tabIndex;
+        }
+    }
 
     /// <param name="pressedAt">
     /// Where a drawn control's drag began, in canvas space. It goes into the innermost container under that point, and its

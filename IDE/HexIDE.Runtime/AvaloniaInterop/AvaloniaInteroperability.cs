@@ -28,7 +28,7 @@ public static class AvaloniaInteroperability
     {
         var held = controlPictures.GetOrCreateValue(control);
         if (held.Value.Picture is null || !ReferenceEquals(held.Value.Bytes, bytes))
-            held.Value = (bytes, SSTabMembers.ControlPicture(bytes));
+            held.Value = (bytes, SSTabMembers.ControlPicture(bytes, png: VBProps.GetRDCoreAdditions(control)));
         return held.Value.Picture!;
     }
 
@@ -117,7 +117,9 @@ public static class AvaloniaInteroperability
         Register<Control, double>(VBProperties.LeftProperty, w => Canvas.GetLeft(w).OrZero(), Canvas.SetLeft);
         Register<Control, double>(VBProperties.TopProperty, w => Canvas.GetTop(w).OrZero(), Canvas.SetTop);
         Register<Control, double>(VBProperties.WidthProperty, Layoutable.WidthProperty);
+        Register<VBLabel, bool>(VBProperties.AutoSizeProperty, LabelAutoSize.Get, LabelAutoSize.Set);
         Register<VBPictureBox, bool>(VBProperties.AutoSizeProperty, box => box.AutoSize, (box, value) => box.AutoSize = value);
+        Register<VBImage, bool>(VBProperties.StretchProperty, image => image.Stretch, (image, value) => image.SetRuntimeStretch(value));
         Register<Control, VBCursorType>(VBProperties.MousePointerProperty, AttachedProperties.GetMousePointer, (control, value) =>
         {
             control.Cursor = value.ToCursor();
@@ -170,6 +172,8 @@ public static class AvaloniaInteroperability
         Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.BackColorProperty, AttachedProperties.BackColorProperty, x => x, x=> x ?? default);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.ForeColorProperty, AttachedProperties.ForeColorProperty, x => x, x=> x ?? default);
+        Register<VBLabel, VBFont>(VBProperties.FontProperty, label => AttachedProperties.GetFont(label) ?? VBFont.Default,
+            (label, font) => AttachedProperties.SetFont(label, font));
         Register<TemplatedControl, VBFont, VBFont?>(VBProperties.FontProperty, AttachedProperties.FontProperty, x => x, x=> x ?? default);
         Register<Window, string>(VBProperties.CaptionProperty, (window) => window.Title ?? "", (window, value) => window.Title = value);
 
@@ -177,6 +181,7 @@ public static class AvaloniaInteroperability
         // A Label's BackStyle can be set by a program, as VB6 measured (#795): opaque, then a BackColor paints. Bound,
         // because without it the assignment was a trappable 461 that On Error Resume Next swallowed, and the
         // transparent-Label rule then dropped the BackColor that followed, a wrong value with no error.
+        Register<VBLabel, VBBorder>(VBProperties.BorderStyleProperty, VBLabel.BorderStyleProperty);
         Register<VBLabel, BackStyles>(VBProperties.BackStyleProperty, VBLabel.BackStyleProperty);
         Register<VBLabel, VBTextAlignment>(VBProperties.AlignmentProperty, VBLabel.AlignmentProperty);
         Register<VBLabel, VBAppearance>(VBProperties.AppearanceProperty, VBLabel.AppearanceProperty);
@@ -198,7 +203,7 @@ public static class AvaloniaInteroperability
             button.ExecuteSub(ComponentBaseClass.ClickEvent);
         });
 
-        Register<VBLabel, string, string?>(VBProperties.CaptionProperty, VBLabel.TextProperty, x => x, x => x ?? "");
+        Register<VBLabel, string>(VBProperties.CaptionProperty, label => label.Text ?? "", LabelAutoSize.Caption);
         Register<VBCheckBox, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBOptionButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBCommandButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
@@ -301,9 +306,10 @@ public static class AvaloniaInteroperability
             && !pictureBox.AutoSize && ReferenceEquals(property, VBProperties.AutoSizeProperty)
             && ConvertForAssignment(property, value) is true)
             throw UnmeasuredAssignment(property, value);
-        if (control is VBImage image && ReferenceEquals(property, VBProperties.PictureProperty) && value.Value is PanelPicture imagePicture)
+        if (control is VBImage image && ReferenceEquals(property, VBProperties.PictureProperty)
+            && (value.Value is PanelPicture || value == Vb6Value.Nothing))
         {
-            image.Picture = imagePicture.FileBytes;
+            image.SetRuntimePicture(value.Value as PanelPicture);
             return true;
         }
         if (control is VBPictureBox box && ReferenceEquals(property, VBProperties.PictureProperty))
@@ -365,6 +371,10 @@ public static class AvaloniaInteroperability
                 // first, so one VB6 refuses is still refused.
                 if (control is VBLabel { BackStyle: BackStyles.Transparent } && ReferenceEquals(property, VBProperties.BackColorProperty))
                     return true;
+                // #4448: colours notify only on a changed value, after the new ambient is readable.
+                var ambient = ReferenceEquals(property, VBProperties.BackColorProperty) ? "BackColor"
+                    : ReferenceEquals(property, VBProperties.ForeColorProperty) ? "ForeColor" : null;
+                var ambientChanged = ambient is not null && !Equals(prop.GetUntyped(control), converted);
                 // A VB size assignment raises Resize inside the setter; native window notifications settle together (#2389).
                 using (control is VBFormRuntime runtime && (ReferenceEquals(property, VBProperties.WidthProperty)
                     || ReferenceEquals(property, VBProperties.HeightProperty)) ? runtime.ResizeOnce() : null)
@@ -372,6 +382,8 @@ public static class AvaloniaInteroperability
                     prop.SetUntyped(control, converted);
                     ControlPositions.EnforceOtherDimension(control, property);
                 }
+                if (ambientChanged)
+                    FormAmbients.Changed(control, ambient!);
                 // VB6 resets BackColor with a Label's Appearance (measured, #796).
                 if (control is VBLabel label && ReferenceEquals(property, VBProperties.AppearanceProperty))
                     label.BackColor = VBColor.FromSystemColor(label.Appearance == VBAppearance._3D
@@ -505,7 +517,7 @@ public static class AvaloniaInteroperability
     /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given; HexIDE has no colour that
     /// can hold one, so they are refused as not implemented rather than stored as the RGB of their low bytes (#786).
     /// </summary>
-    private static long OleColor(Vb6Value value)
+    internal static long OleColor(Vb6Value value)
     {
         var ole = System.Convert.ToInt64(Coerce(value, Vb6Value.ValueType.Long));
         var bits = (uint)ole;

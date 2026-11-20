@@ -34,6 +34,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Automation/ProgramWindowTests.cs` | split |
 | `Automation/RunningCodeEditTests.cs` | split |
 | `Automation/RunningFormNamesTests.cs` | split |
+| `Automation/ToolboxAutomationNameTests.cs` | split |
 | `Automation/TypeKeysTests.cs` | split |
 | `Automation/UiAutomationDriverTests.cs` | split |
 | `Automation/UiSaveAnswerTimingTests.cs` | split |
@@ -109,6 +110,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/HeaderFoldTests.cs` | split |
 | `Views/ImplementationNavigationTests.cs` | split |
 | `Views/InBoxToolboxTests.cs` | split |
+| `Views/LabelAutoSizeDesignerTests.cs` | split |
 | `Views/LineControlTests.cs` | split |
 | `Views/LineNumbersFromTheTopOfTheFileTests.cs` | split |
 | `Views/LoadedFormMenuTests.cs` | split |
@@ -125,6 +127,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ObjectBrowserViewIntegrationTests.cs` | split |
 | `Views/OnTypeFormattingTests.cs` | split |
 | `Views/OpeningCaretTests.cs` | split |
+| `Views/OutlineViewTests.cs` | split |
 | `Views/PictureBoxAutoSizeTests.cs` | split |
 | `Views/PictureLoadTests.cs` | split |
 | `Views/PositionRowsTests.cs` | split |

@@ -99,7 +99,7 @@ without stacking them when the view is reattached. The code window SHALL share t
 retaining its own completion position, commit keys and editing rules.
 
 #### Scenario: Completion in a carried file
-- **WHEN** Auto List Members is enabled and the developer types a letter, types an advertised completion trigger, or invokes Complete Word
+- **WHEN** Auto List Members is enabled and the developer types a letter with List members as you type on, types an advertised completion trigger, or invokes Complete Word
 - **THEN** an advertising server's completion items appear
 - **AND** Enter accepts an item without a line break, Tab also accepts, and Space closes the list without accepting
 - **AND** with nothing selected, Enter closes the list and starts a new line, while Tab accepts the first item
@@ -190,6 +190,19 @@ The client SHALL advertise dynamic registration only for `workspace/didChangeWat
 #### Scenario: A registration ends
 - **WHEN** its id is unregistered or its connection drops
 - **THEN** it produces no further file events
+
+
+### Requirement: Server-provided linked editing ranges
+
+The client SHALL declare `textDocument.linkedEditingRange` without dynamic registration, and SHALL ask
+only a server whose `initialize` result offers `linkedEditingRangeProvider`. Requests SHALL carry the
+document URI and caret position; replies SHALL expose `ranges` and optional `wordPattern`, or null. The
+editor's opt-in and mirroring rules belong to code-editor.
+
+#### Scenario: A server offers linked editing at initialize
+- **WHEN** a server's `initialize` result includes `linkedEditingRangeProvider`
+- **THEN** the client can request linked ranges at the caret's position
+- **AND** a server that doesn't offer it is never asked
 
 
 ### Requirement: Failed initialize handshakes are visible
@@ -1040,6 +1053,33 @@ still goes away.
 - **WHEN** the user cancels the save-on-exit prompt
 - **THEN** the file watcher and language servers remain running
 
+### Requirement: The desktop IDE SHALL let Windows end the session, and stop its servers when it does
+On Windows, the IDE SHALL answer `WM_QUERYENDSESSION` itself, ahead of the desktop shutdown request, so that the
+exit-stop cancel is not a veto (#4646). It SHALL allow the query at once when nothing is unsaved or the end is
+forced (`ENDSESSION_CRITICAL`), and SHALL NOT start stopping or exiting on the query alone. With unsaved work it
+SHALL refuse the query with a block reason naming the project, then show the save-on-exit prompt; the prompt SHALL
+NOT be held open inside the query. On `WM_ENDSESSION` with the session ending, it SHALL stop the language client
+and the external debugger before returning, waiting at most 4.5 seconds in a nested dispatcher frame, then exit
+through the desktop shutdown without a second stop or prompt, keeping any unsaved work's recovery backup. On
+`WM_ENDSESSION` with the session continuing, it SHALL clear the block reason and do nothing else. If the hook can't
+be installed, the IDE SHALL log it and allow the query when nothing is unsaved. The stop covers the servers still
+running when `WM_ENDSESSION` arrives: Windows ends a launched console-subsystem server through its own console at a
+real sign-out, and may do so before the stop sends anything (#4666).
+
+#### Scenario: Sign-out with nothing unsaved
+- **WHEN** Windows asks whether the session may end and nothing is unsaved
+- **THEN** the IDE allows it at once, and its servers keep running
+- **AND WHEN** `WM_ENDSESSION` then says the session is ending
+- **THEN** each server still running receives `shutdown` and `exit` before the message returns, within 4.5 seconds
+
+#### Scenario: Sign-out with unsaved work
+- **WHEN** Windows asks whether the session may end and a project has unsaved work
+- **THEN** the IDE refuses with a reason naming the project, and shows the save prompt after replying
+
+#### Scenario: Another app keeps the session
+- **WHEN** the IDE allowed the query and `WM_ENDSESSION` says the session continues
+- **THEN** the IDE keeps running with its servers, and any block reason is cleared
+
 #### Scenario: First save races the project-change debounce
 - **WHEN** the first save moves the workspace root while the old server is awaiting shutdown
 - **THEN** the old server receives only `exit` after `shutdown`
@@ -1389,6 +1429,38 @@ in the way the next requirement describes.
 #### Scenario: An entry that names the language but claims none of its extensions
 - **WHEN** an entry declares the identifier `vb6` and claims no VB6 extension
 - **THEN** it is not offered the IDE's forms and modules
+
+### Requirement: An add-in's servers SHALL exclusively claim its project type's documents
+For a member opened by an add-in's project type, when that add-in has servers claiming its extension,
+those servers alone SHALL claim it. Other servers SHALL neither start for nor receive it. Requests,
+changes, saves and closes SHALL use the same claim. With no owner or no matching owner server, ordinary
+routing SHALL apply; carried files SHALL retain ordinary routing. Registrations SHALL retain the
+manifest id separately from the display origin.
+
+#### Scenario: A contributed project member
+- **WHEN** add-in X owns the project and its server claims `.bas`, also claimed by bundled and configured servers
+- **THEN** only X's server starts and receives the open, hover, changes, save and close
+
+#### Scenario: A HexIDE project
+- **WHEN** the project has no contributing add-in, including a `.vbp` in a project group
+- **THEN** ordinary extension and membership routing applies to all claimants
+
+#### Scenario: A gap in the owner's claims
+- **WHEN** X's server claims `.bas` but its project's document is `.frm`
+- **THEN** ordinary routing applies to that document
+
+#### Scenario: Another add-in's server
+- **WHEN** Y owns the project and only X has registered a server for its extension
+- **THEN** ordinary routing applies to that document
+
+#### Scenario: A carried file
+- **WHEN** a document is opened as a carried file
+- **THEN** ordinary routing applies regardless of an owner id
+
+#### Scenario: Registration origins
+- **WHEN** a server is registered by an add-in
+- **THEN** its registration retains that add-in's manifest id
+- **AND** configuration entries and the bundled server have no add-in id
 
 ### Requirement: Windows path escapes SHALL be diagnosed without lenient parsing
 The configuration loader SHALL reject invalid JSON string escapes and retain the parse error's field and
@@ -2260,6 +2332,13 @@ anyway, so it is recorded rather than defended.
 - **AND** it lists no other files, since RDCore parses every listed file as code
 - **AND** it emits nothing for a project with no code files
 
+#### Scenario: RDCore group project references
+- **WHEN** a preserved `Reference=*\A` line resolves relative to its `.vbp` to another loaded project's path
+- **THEN** the snapshot SHALL carry that project's current name at the line's position among library references
+- **AND** the rdcore provider SHALL write only `Name` and `IsProject: true` for it, using format `1.3` unless a configured version overrides it
+- **AND** an unmatched project reference SHALL be omitted, while library-only descriptors retain format `1.0` and their existing reference JSON
+- **AND** a rename or group membership change SHALL refresh the projection without changing the `.vbp` or the interpreter's reference list (#4899)
+
 #### Scenario: Capability boundaries
 - **WHEN** a server declares no artefact
 - **THEN** no artefact is generated for it
@@ -2366,10 +2445,19 @@ The editor SHALL request completion at the start of the identifier around the ca
 Complete Word, so a server filtering by the preceding word can return the full list for that context (#3340).
 
 The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
-`filterText ?? label`, keeping the full list visible. Ignoring case, the editor SHALL initially select an item the whole word matches
+`filterText ?? label`, keeping the full list visible. Ignoring case, the editor SHALL prefer an item the whole word matches
 ahead of an earlier item the word only starts (#3613), otherwise the first prefix match, preferring a preselected item within each,
-and leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
-Object Browser glyphs for corresponding kinds, using none without a counterpart.
+and finding no match for an empty or unmatched word. When a typed letter opens the VB6 code window list, the editor
+SHALL keep the match available to Tab without selecting it, including when the caret moves. A list opened by
+a trigger character or Complete Word SHALL select the match if present. VB6 SP6 opens no list for a bare word.
+HexIDE keeps its suggestions and preserves ordinary Space and Enter typing in that case ([#3613](https://github.com/hexide-io/HexIDE/issues/3613)).
+With List members as you type off, a typed letter SHALL open no new list, as in VB6
+([measured](../../../docs/vb6-fidelity-oracle/complete-word-a-bare-word-and-the-selected-item.md)).
+The setting SHALL default to on for every built-in profile and be configurable through `settingsDefaults`
+as `listMembersAsYouType`. Letters SHALL still refresh a list opened by a trigger character or Complete Word,
+including a request still pending; Auto List Members SHALL continue to gate all completion.
+It SHALL show string or MarkupContent documentation with detail as plain text and reuse Object Browser
+glyphs for corresponding kinds, using none without a counterpart.
 If no item matches the opening word, the editor SHALL retain the server's list for explicit acceptance with Tab.
 
 #### Scenario: Server ranking and selection
@@ -2377,8 +2465,20 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 - **THEN** B appears before A and neither item is selected
 
 #### Scenario: A whole-word match is selected ahead of an earlier prefix match
-- **WHEN** the list holds `Xor` and `x` in that order and the user types `x`
+- **WHEN** Complete Word opens a list holding `Xor` and `x` in that order for the word `x`
 - **THEN** `x` is selected, and Space leaves `x`
+
+#### Scenario: Typing a letter opens completion in the VB6 code window
+- **WHEN** List members as you type is on and the user types `tot` and the letter-opened list offers `total`
+- **THEN** the list has no selection
+- **AND** Space and Enter type through, while Tab accepts `total`
+- **AND** the first Down or Up selects `total`
+
+#### Scenario: Letters do not open a list when List members as you type is off
+- **WHEN** List members as you type is off and the user types `tot`
+- **THEN** no list opens and no completion request is sent
+- **AND** with Auto List Members enabled, `.` and Complete Word still open a list
+- **AND** typing a letter refreshes that list, including while its request is still pending
 
 #### Scenario: Filter text differs from label
 - **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`
@@ -2397,8 +2497,9 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 In ordinary code the editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts
 a selected ordinary completion and then commits a new line; Tab accepts without a break; Space accepts and
 then types a space; Escape closes without accepting. With no selection, Enter and Space SHALL close
-the list and only type their character, while Tab SHALL accept the first outlined item, replacing the
-whole word including text after the caret. The first Down SHALL highlight that first item.
+the list and only type their character, while Tab SHALL accept the unselected match if present or the first item,
+replacing the whole word including text after the caret. The first Down or Up SHALL highlight the unselected match
+if present, otherwise the first item.
 Complete Word SHALL immediately insert a unique prefix match without opening a list.
 A snippet choice picker's Enter SHALL accept without a line break and keep snippet navigation active.
 
@@ -3307,8 +3408,8 @@ and cancel its predecessor on the connection.
 - **AND** a connection without that capability retains its existing close-clearing behaviour
 ### Requirement: Claimed commands can request shared code-window actions
 
-The host SHALL expose StartRenameAsync and ShowReferencesAsync only within a running claimed handler
-on that connection, marshalled to the UI thread through core's shared actions. Outside that window both
+The host SHALL expose StartRenameAsync, ShowReferencesAsync and GoToLocationAsync only within a running claimed handler
+on that connection, marshalled to the UI thread through core's shared actions. Outside that window all three
 SHALL throw InvalidOperationException and show nothing. An offering connection's claim SHALL precede
 core's rdcore.rename and rdcore.showReferences cases; editor.action.rename and
 editor.action.showReferences SHALL remain core's.
@@ -3331,6 +3432,15 @@ editor.action.showReferences SHALL remain core's.
 - **WHEN** a running claimed handler calls ShowReferencesAsync
 - **THEN** the supplied locations populate Find References
 
+#### Scenario: A claimed lens navigates to a range
+- **WHEN** a running claimed handler calls GoToLocationAsync with an available document and valid zero-based LSP range
+- **THEN** the host SHALL open or activate that document's code window and select the range from start to end
+- **AND** it SHALL return true
+
+#### Scenario: A navigation target is unavailable
+- **WHEN** a running claimed handler calls GoToLocationAsync with an unavailable document, an endpoint outside the text, or a reversed range
+- **THEN** the host SHALL return false without changing the selection
+
 #### Scenario: A host call outlives its authorization
-- **WHEN** the add-in calls either action without a running claimed handler on its connection
+- **WHEN** the add-in calls any action without a running claimed handler on its connection
 - **THEN** InvalidOperationException is thrown and no UI is shown

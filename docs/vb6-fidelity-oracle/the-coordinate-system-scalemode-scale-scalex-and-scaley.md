@@ -199,6 +199,9 @@ CurrentX and CurrentY read the same every time.
   rounded to a Single, prints 28 of these 29 rows as VB6 printed them. That includes the ScaleMode table and the
   120-twip note in `ControlPositions`.
 - **The exception** is `ScaleX(1, vbInches, vbCentimeters)`: 2.540002 against VB6's 2.540003.
+  - **Two more, measured later:** a Line's end 283 twips into a centimetre PictureBox, and a 2355-twip
+    ScaleWidth, where the factor gives one Single step below VB6's exact value. See
+    [the section on them](#more-of-a-usercontrols-scale-exact-centimetre-readbacks-and-late-bound-and-argument-count-edges-2026-11-18-4693-sp6).
 - **At the last bit of a Single, no model tried reproduces all 18 exact values.** Three were tried, and each got 13:
   - one Single factor a unit, applied as twips per unit;
   - the same applied as units per twip;
@@ -243,3 +246,144 @@ row continues from the one before.
 
 So `Scale` with its two points takes its object by name, or none, and not from `With`. Through `With`, even the bare
 `.Scale` that builds by name is refused. Other spellings through `With` weren't tried.
+
+### A UserControl's scale, late-bound Scale, and scales saved without extents (2026-11-18, #4693, SP6)
+
+**The probe.** A Standard EXE held:
+- **UserControl1:** 2400 by 1800 twips, holding Label1 at 150, 300, 600 by 255 twips, placed on Form1. Its Public
+  `Probe` ran from Form1's Form_Load.
+- **Picture1:** saved with ScaleMode 0, ScaleWidth 100 and ScaleHeight 100, holding Line1 from (10, 10) to (90, 90) in
+  those units.
+- **Picture2:** saved in centimetres, holding Line2 from (0.5, 0.5) to (2, 1.5).
+- **Form2:** saved with `ScaleMode = 0` and no ScaleWidth, ScaleHeight, ScaleLeft or ScaleTop lines.
+
+Every step ran under `On Error Resume Next` and logged any error. The run was in session 0, and p-code and native code
+logged the same lines.
+
+**Inside the UserControl:**
+
+| Step | Logged |
+|---|---|
+| read the state | ScaleMode 1, an Integer; ScaleWidth 2400, a Single; ScaleHeight 1800; ScaleLeft and ScaleTop 0 |
+| Label1 | 150, 300, 600, 255 |
+| `ScaleX(1, vbInches, vbTwips)` | 1440, a Single |
+| `ScaleX(1440)` | 816.378 |
+| `ScaleY(15, vbPixels, vbTwips)` | 225 |
+| `ScaleMode = 3` | ScaleWidth 160, ScaleHeight 120; Label1 10, 20, 40, 17 |
+| `Label1.Left = 20` | reads 20; `ScaleX(1440)` now 54.4252 |
+| `Scale (0, 0)-(100, 50)` | ScaleMode 0, ScaleWidth 100, ScaleHeight 50, ScaleLeft 0; Label1 12.5, 8.333333, 25, 7.083333 |
+| `Scale (10, 50)-(110, 0)` | ScaleTop 50, ScaleHeight -50; Label1.Left 22.5, Top 41.66667, Height 7.083333 |
+| bare `Scale` | ScaleMode 1, ScaleWidth 2400, ScaleLeft 0; Label1.Left 300 |
+| `ScaleMode = 7` | ScaleWidth 4.233337; Label1.Left 0.5291672 |
+
+**A UserControl's coordinate system follows this page's rules for a form and PictureBox.** Every row above fits
+them:
+- the same defaults and types;
+- `ScaleX`'s HiMetric default (1440 HiMetric is 1440 × 1440 / 2540 = 816.378 twips);
+- whole-twips positions;
+- a flipped scale with sizes as magnitudes;
+- a bare `Scale` back to twips.
+
+**On Form1 and its controls:**
+
+| Step | Logged |
+|---|---|
+| Picture1's state | ScaleMode 0, ScaleWidth 100, ScaleHeight 100 |
+| Line1's X1, Y1, X2, Y2 | 10.02123, 10.02849, 90.02123, 89.97151 |
+| then `Picture1.ScaleMode = 1` | 236, 176, 2120, 1579 |
+| Picture2's state | ScaleMode 7, ScaleWidth 4.153963 |
+| Line2's X1, Y1, X2, Y2 | 0.4991811, 0.4991811, 2.000252, 1.499307 |
+| then `Picture2.ScaleMode = 1` | 283, 283, 1134, 850 |
+| `Load Form2`, then read its state | ScaleMode 0, ScaleWidth 2400, ScaleHeight 1800, ScaleLeft 0, ScaleTop 0 |
+| `Form2.ScaleX(1, vbInches, vbUser)` | 1440 |
+| `o.Scale (0, 0)-(100, 100)`, with o As Object set to Form1 | runs: ScaleMode 0, ScaleWidth 100, ScaleHeight 100 |
+| then a bare `o.Scale` | runs: ScaleMode 1, ScaleWidth 6000 |
+| `o.ScaleX(1, vbInches, vbTwips)` | 1440 |
+| `o.Scale (0, 0)-(10, 10)`, o set to Picture1 | runs: ScaleMode 0, ScaleWidth 10 |
+| `o.Scale (0, 0)-(10, 10)`, o set to UserControl11, its extender | 438, Object doesn't support this property or method |
+
+**At compile time**, each in a project of its own:
+
+| `x = …` in Form_Load | `/make` |
+|---|---|
+| `ScaleX(1, 1, 1, 1)` | Wrong number of arguments or invalid property assignment |
+| `ScaleX()` | Argument not optional |
+
+- **A Line control's ends are kept in whole twips** when its container is scaled.
+  - **In centimetres:** each end is the nearest twip. 0.5 cm is 283.46 twips and loaded as 283; 2 cm loaded as 1134;
+    1.5 cm as 850.
+  - **In Picture1's User scale:** the logged ends put one unit at 23.55 twips across, since 2120 - 236 = 1884 = 80 ×
+    23.55, and about 17.55 down. So each end falls on a half twip. 235.5 went to 236, 2119.5 to 2120 and 175.5 to 176, but 1579.5 went to 1579. That fits neither
+    rounding half up nor half to even, so no rule is defended here. A Single product landing below the half would
+    explain it, but that wasn't checked.
+- **A form saved with ScaleMode 0 and no extents has a User scale of one twip a unit**, reading the client area's
+  size in twips.
+- **Late-bound `Scale` and `ScaleX` work** on a form and a PictureBox. A UserControl's extender has no `Scale`, so 438.
+
+**Not measured:** a PictureBox's scale after it is resized; a UserControl's scale seen from its container; and drawing
+methods on a UserControl.
+
+### More of a UserControl's scale, exact centimetre readbacks, and late-bound and argument-count edges (2026-11-18, #4693, SP6)
+
+**The probe.** The project of the section above, changed in four ways:
+- **UserControl1** was saved in pixels: its `.ctl` said `ScaleMode = 3`, `ScaleWidth = 160` and `ScaleHeight = 120`,
+  and Label1's lines said `Left = 10`, `Top = 20`, `Width = 40` and `Height = 17`. The file was written by hand, not by
+  the IDE.
+- **Picture3**, 1215 by 615 twips with the default 3-D border, was saved with `ScaleMode = 0` and no ScaleWidth,
+  ScaleHeight, ScaleLeft or ScaleTop lines.
+- **Text1**, a TextBox, was added to Form1.
+- **Line2's ends** were also logged as `CStr(CDbl(x))`, which prints the Single's exact value.
+
+Every step ran under `On Error Resume Next` and logged any error. The run was in session 0, and p-code and native code
+logged the same lines.
+
+**Inside the UserControl saved in pixels:**
+
+| Step | Logged |
+|---|---|
+| read the state | ScaleMode 3, an Integer; ScaleWidth 160, ScaleHeight 120, ScaleLeft and ScaleTop 0 |
+| Label1 | 0.6666667, 1.333333, 2.666667, 1.133333 |
+| `ScaleX(1440)`; `ScaleX(1, vbInches, vbTwips)` | 54.4252; 1440 |
+| `ScaleMode = 1`, then read | ScaleWidth 2400, ScaleHeight 1800; Label1 10, 20, 40, 17 |
+
+**On Form1:**
+
+| Step | Logged |
+|---|---|
+| Picture3's state | ScaleMode 0, ScaleWidth 1155, ScaleHeight 555, ScaleLeft 0, ScaleTop 0 |
+| Line2's X1, Y1, X2, Y2, printed | 0.4991811, 0.4991811, 2.000252, 1.499307 |
+| the same, exactly | 0.499181061983109, 0.499181061983109, 2.00025200843811, 1.49930703639984 |
+| Picture2's ScaleWidth and ScaleHeight, exactly | 4.1539626121521 (printed 4.153963), 3.09562802314758 |
+| `o.ScaleY(1, vbInches, vbTwips)`, o As Object set to Form1 | 1440 |
+| `o.ScaleX(1, vbInches, vbTwips)`, o set to Picture1 | 1440 |
+| `o.Scale (0, 0)-(10, 10)`, o set to Text1 | 438, Object doesn't support this property or method |
+| `o.ScaleX(1, vbInches, vbTwips)`, o set to Text1 | 438 |
+| `o.ScaleY(1, vbInches, vbTwips)`, o set to Text1, as a value and as a statement | 438, each |
+| `o.ScaleX` and `o.ScaleY`, o set to UserControl11, its extender, as values, and `o.ScaleX` as a statement | 438, each |
+
+**At compile time**, each in a project of its own:
+
+| `x = …` in Form_Load | `/make` |
+|---|---|
+| `ScaleY(1, 1, 1, 1)` | Wrong number of arguments or invalid property assignment |
+| `ScaleY()` | Argument not optional |
+| `ScaleX(1, 1, 1, 1, 1)` | Wrong number of arguments or invalid property assignment |
+
+- **The saved child positions were taken as twips,** although the `.ctl` said its scale was pixels: Label1's `Left = 10`
+  read back as 0.6666667 pixels, and as 10 once the scale was twips. What the IDE itself writes for a UserControl saved
+  in pixels wasn't checked, so this says how VB6 reads such a file, not that the IDE writes one.
+- **A PictureBox saved with ScaleMode 0 and no extents has one twip a unit,** as a form does: 1155 by 555 is its client
+  area, inside a 30-twip border on each side.
+- **Late-bound `ScaleY`, and `ScaleX` on a PictureBox, work.** A TextBox and a UserControl's extender have no `Scale`,
+  `ScaleX` or `ScaleY`, so each is 438, as a value or as a statement. The last two rows of the table above came from a
+  second run of the same project the same day, also p-code and native.
+
+**Against the centimetre factor.** Picture2's client area is 2355 by 1755 twips, and Line2's ends load as 283, 283, 1134
+and 850 twips. Dividing each by 566.928588867188, the factor in "Centimetres and millimetres, to the last bit" above, and
+rounding to a Single, gives VB6's exact value for 1134, 850 and 1755. It gives one Single step below VB6's for 283 and for
+2355. Multiplying by VB6's own Single for one twip in centimetres, 1.76389061380178E-03, gives 2355 as well, but still
+not 283. **No model tried reproduces all five,** and 283 is one step below VB6's in every one. So these join that
+section's known misses, and no rule is defended for them.
+
+**Not measured:** what the IDE writes when a UserControl is saved in pixels; `ScaleY` with five arguments, and either
+with more than five.

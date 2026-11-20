@@ -25,6 +25,11 @@ public static class FrxImageHelper
         Unknown,
         Jpeg,
         Gif,
+        /// <summary>
+        /// VB6 refuses PNG (481, measured), and so does every decoder here unless its caller asks for it: only RDCore's
+        /// <c>LoadPicture</c> reads one (#4967).
+        /// </summary>
+        Png,
     }
 
     public static FrxBlobKind DetectKind(byte[] blob)
@@ -41,6 +46,8 @@ public static class FrxImageHelper
             return FrxBlobKind.Jpeg;
         if (blob.AsSpan().StartsWith("GIF87a"u8) || blob.AsSpan().StartsWith("GIF89a"u8))
             return FrxBlobKind.Gif;
+        if (blob.AsSpan().StartsWith(new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }))
+            return FrxBlobKind.Png;
         return FrxBlobKind.Unknown;
     }
 
@@ -59,14 +66,19 @@ public static class FrxImageHelper
     /// Attempts to decode a blob as an Avalonia Bitmap.
     /// Returns null for unknown/OLE blobs or on decoding failure.
     /// </summary>
-    public static Bitmap? TryDecodeToAvaloniaBitmap(byte[]? blob)
+    /// <param name="png">
+    /// Decode a PNG too. Only a picture in a run that takes RDCore's additions asks (#4967): the designer's own Load
+    /// Picture refuses PNG, as VB6's does.
+    /// </param>
+    public static Bitmap? TryDecodeToAvaloniaBitmap(byte[]? blob, bool png = false)
     {
         if (blob == null || blob.Length == 0)
             return null;
 
         var payload = PicturePayload(blob) ?? blob;
         var kind = DetectKind(payload);
-        if (kind is not (FrxBlobKind.Bitmap or FrxBlobKind.Icon or FrxBlobKind.Jpeg or FrxBlobKind.Gif))
+        if (kind is not (FrxBlobKind.Bitmap or FrxBlobKind.Icon or FrxBlobKind.Jpeg or FrxBlobKind.Gif)
+            && !(png && kind == FrxBlobKind.Png))
             return null;
 
         try

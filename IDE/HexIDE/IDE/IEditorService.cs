@@ -8,6 +8,7 @@ public interface IEditorService
     void RestoreOpenDocuments(ProjectDefinition project);
 
     void EditForm(FormDefinition? form);
+    void EditForm(FormDefinition? form, HexIDE.Runtime.Components.ComponentInstance component);
     void EditCode(FormDefinition? form);
     void EditCode(ModuleDefinition? module);
 

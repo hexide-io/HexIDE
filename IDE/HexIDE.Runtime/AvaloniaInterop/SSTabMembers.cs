@@ -52,8 +52,8 @@ internal static class SSTabMembers
             case "caption": value = new Vb6Value(tab.Caption(tab.Tab)); break;
             case "style": value = new Vb6Value((long)tab.VbStyle); break;
             case "taborientation": value = new Vb6Value((long)tab.TabOrientation); break;
-            case "tabheight": CheckDimensionScale(tab); value = ControlPositions.Read(tab, VBProperties.HeightProperty, tab.TabHeight); break;
-            case "tabmaxwidth": CheckDimensionScale(tab); value = ControlPositions.Read(tab, VBProperties.WidthProperty, tab.TabMaxWidth); break;
+            case "tabheight": value = ReadDimension(tab, tab.TabHeightHimetric); break;
+            case "tabmaxwidth": value = ReadDimension(tab, tab.TabMaxWidthHimetric); break;
             case "wordwrap": value = new Vb6Value(tab.WordWrap); break;
             case "showfocusrect": value = new Vb6Value(tab.ShowFocusRect); break;
             default: return false;
@@ -77,8 +77,8 @@ internal static class SSTabMembers
             case "caption": tab.Caption(tab.Tab, Text(value)); break;
             case "style": tab.VbStyle = Choice(value, 0, 1); break;
             case "taborientation": tab.TabOrientation = Choice(value, 0, 3); break;
-            case "tabheight": tab.TabHeight = Dimension(tab, value, true); break;
-            case "tabmaxwidth": tab.TabMaxWidth = Dimension(tab, value, false); break;
+            case "tabheight": tab.TabHeightHimetric = Dimension(tab, value, true); break;
+            case "tabmaxwidth": tab.TabMaxWidthHimetric = Dimension(tab, value, false); break;
             case "enabled": tab.IsEnabled = Boolean(value); break;
             case "wordwrap": tab.WordWrap = Boolean(value); break;
             case "showfocusrect": tab.ShowFocusRect = Boolean(value); break;
@@ -99,12 +99,13 @@ internal static class SSTabMembers
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
-    internal static PanelPicture ControlPicture(byte[]? bytes)
+    /// <param name="png">Whether a PNG reads back, which is for a control in a run that takes RDCore's additions (#4967).</param>
+    internal static PanelPicture ControlPicture(byte[]? bytes, bool png = false)
     {
         if (bytes is not { Length: > 0 }) return new PanelPicture([]);
         var offset = Serialization.FrxDeserializer.PayloadOffset(bytes);
         offset += VBImage.StdPictureHeaderLength(bytes, offset);
-        return PanelPicture.FromFile(bytes[offset..]);
+        return PanelPicture.FromFile(bytes[offset..], png: png);
     }
 
     private static int Index(VBSSTab tab, string name, IReadOnlyList<Vb6Value> args)
@@ -138,20 +139,42 @@ internal static class SSTabMembers
         return n >= min && n <= max ? n : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
+    private static VBScaleMode DimensionScale(VBSSTab tab) =>
+        tab.Parent is Control host ? VBProps.GetScaleMode(host) : VBScaleMode.Twip;
+
+    private static Vb6Value ReadDimension(VBSSTab tab, double himetric)
+    {
+        var mode = DimensionScale(tab);
+        // #4953: whole HIMETRIC storage, rounded reads only in twips and pixels.
+        if (mode == VBScaleMode.Twip)
+            return new Vb6Value((float)Math.Round(himetric * 1440 / 2540));
+        if (mode == VBScaleMode.Pixel)
+            return new Vb6Value((float)Math.Round(himetric * 96 / 2540));
+        if (mode is not (VBScaleMode.Point or VBScaleMode.Character or VBScaleMode.Inch)
+            || himetric != Math.Truncate(himetric))
+            throw new NotImplementedException("SSTab dimension reads in this scale or at half HIMETRIC are not implemented (#4970)");
+        var host = tab.Parent as Control;
+        var unit = host is not null && RuntimeScale.Of(host) is { } scale
+            ? scale.TwipsPerUnit(false) : RuntimeScale.Unit(mode, false);
+        return new Vb6Value((float)(himetric * (float)(1440d / 2540) / unit));
+    }
+
     private static double Dimension(VBSSTab tab, Vb6Value value, bool height)
     {
-        CheckDimensionScale(tab);
         var n = Number(value);
         if (height ? n <= 0 : n < 0)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
-        return ControlPositions.ToPixels(tab, height ? VBProperties.HeightProperty : VBProperties.WidthProperty, n);
-    }
-
-    private static void CheckDimensionScale(VBSSTab tab)
-    {
-        // The pixel sample reads 33 for 500 twips, unlike generic control geometry's fractional pixels.
-        if (tab.Parent is Control host && VBProps.GetScaleMode(host) != VBScaleMode.Twip)
-            throw new NotImplementedException("SSTab non-twip dimension rounding is not implemented");
+        var mode = DimensionScale(tab);
+        if (mode is not (VBScaleMode.Twip or VBScaleMode.Pixel))
+            throw new NotImplementedException("SSTab dimension assignments in this scale are not implemented (#4970)");
+        var himetric = n * (mode == VBScaleMode.Pixel ? 15 : 1) * 2540 / 1440;
+        // Exact-half storage rounding is unmeasured; retain the half for twip/pixel reads.
+        if (himetric - Math.Truncate(himetric) == 0.5)
+            return himetric;
+        var rounded = Math.Round(himetric);
+        if (n > 0 && rounded == 0)
+            throw new NotImplementedException("SSTab positive dimensions rounding to zero HIMETRIC are not implemented (#4970)");
+        return rounded;
     }
 
     private static bool Boolean(Vb6Value value) => value.Value is bool b ? b

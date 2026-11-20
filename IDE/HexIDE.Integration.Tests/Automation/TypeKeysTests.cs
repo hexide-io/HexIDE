@@ -67,6 +67,7 @@ public class TypeKeysTests : IDisposable
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
         settings.AutoListMembers.Returns(true);
+        settings.ListMembersAsYouType.Returns(true);
 
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());

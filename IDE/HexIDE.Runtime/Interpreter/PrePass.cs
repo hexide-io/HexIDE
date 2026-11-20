@@ -8,12 +8,15 @@ public class PrePass : VB6BaseVisitor<object?>
     public enum DefaultMemberKind { Function, Property, Variable, Sub }
     public sealed record DefaultMemberInfo(string Name, DefaultMemberKind Kind);
     public DefaultMemberInfo? DefaultMember { get; private set; }
+    internal DefaultMemberInfo? EnumerationMember { get; private set; }
 
     private readonly ExecutionEnvironment rootEnv;
     private readonly ExecutionState state;
     private readonly bool allowIndexedLet;
     private readonly bool allowIndexedSet;
     public Dictionary<string, ProcedureInfo> Procedures = new(StringComparer.OrdinalIgnoreCase);
+    internal Dictionary<string, ProcedureInfo> Declares { get; } = new(StringComparer.OrdinalIgnoreCase);
+    internal HashSet<string> DeclareSubs { get; } = new(StringComparer.OrdinalIgnoreCase);
     // `Property Get/Let/Set` accessors, keyed by property name (each name owns up to three accessors).
     public Dictionary<string, PropertyInfo> Properties = new(StringComparer.OrdinalIgnoreCase);
     // Names this (class) module declares as `Public Event Foo(...)` — Phase 5. Recorded for completeness; dispatch
@@ -28,6 +31,7 @@ public class PrePass : VB6BaseVisitor<object?>
     // by then are both already built.
     public List<string> Implemented = new();
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
+    internal List<Antlr4.Runtime.ParserRuleContext> DeclarationItems { get; } = new();
 
     /// <summary>True for a class or a form: an object module, where VB6 refuses some Public members outright.</summary>
     public bool ObjectModule { get; init; }
@@ -52,6 +56,43 @@ public class PrePass : VB6BaseVisitor<object?>
     // the interpreter). Public by default — MVP does no Private-Type module-scoping.
     public Dictionary<string, UdtTypeDef> Types = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, Dictionary<string, long>> Enums = new(StringComparer.OrdinalIgnoreCase);
+
+    // Project Const values are read when declarations execute; retain names before their values exist (#4614).
+    internal Dictionary<string, (VB6Parser.EnumerationStmtContext Statement, int First)> DeferredEnums { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, VB6Parser.EnumerationStmtContext> enumStatements = new(StringComparer.OrdinalIgnoreCase);
+
+    internal IEnumerable<string> EnumMemberNames(string enumName)
+    {
+        foreach (var member in enumStatements[enumName].enumerationStmt_Constant())
+            yield return member.ambiguousIdentifier().GetText();
+    }
+
+    internal bool HasPendingEnumMember(string name) => DeferredEnums.Values.Any(p =>
+        p.Statement.enumerationStmt_Constant().Skip(p.First).Any(m => m.ambiguousIdentifier().GetText().Equals(name, StringComparison.OrdinalIgnoreCase)));
+
+    internal void DeferEnum(string enumName, string memberName)
+    {
+        var statement = enumStatements[enumName];
+        var members = statement.enumerationStmt_Constant();
+        var first = Array.FindIndex(members, m => m.ambiguousIdentifier().GetText().Equals(memberName, StringComparison.OrdinalIgnoreCase));
+        if (DeferredEnums.TryGetValue(enumName, out var earlier) && earlier.First <= first)
+            return;
+        DeferredEnums[enumName] = (statement, first);
+        for (var i = first; i < members.Length; i++)
+        {
+            var name = members[i].ambiguousIdentifier().GetText();
+            Enums[enumName].Remove(name);
+            var location = state.Alloc(default(Vb6Value));
+            state.MarkConstant(location);
+            rootEnv.DefineVariable(name, location);
+        }
+        if (!DeclarationItems.Contains(statement))
+        {
+            var index = DeclarationItems.FindIndex(item => item.Start.TokenIndex > statement.Start.TokenIndex);
+            DeclarationItems.Insert(index < 0 ? DeclarationItems.Count : index, statement);
+        }
+    }
 
     /// <summary>Where each Enum is declared, so that a module-level Const or bound above it can be refused, as VB6 refuses
     /// it (measured: "Constant expression required"). Collected, not related: the check runs with the declarations.</summary>
@@ -120,7 +161,29 @@ public class PrePass : VB6BaseVisitor<object?>
             Declare(constant.ambiguousIdentifier().GetText());
         foreach (var local in procedure.DeclaredLocals)
             Declare(local.ambiguousIdentifier().GetText());
+        // A bare Cls: is a label, including VB6's duplicate-declaration check (#988).
+        var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (procedure.Body is { } body)
+            CheckBody(body);
         return procedure;
+
+        void CheckBody(Antlr4.Runtime.Tree.IParseTree tree)
+        {
+            var pending = new Stack<Antlr4.Runtime.Tree.IParseTree>();
+            pending.Push(tree);
+            while (pending.TryPop(out var node))
+            {
+                // Bare Exit parses as an implicit procedure call; VB6 refuses it at compile time (#5064).
+                if (node is VB6Parser.BlockStmtContext statement
+                    && statement.implicitCallStmt_InBlock()?.iCS_B_ProcedureCall() is { } call
+                    && call.GetText().Trim().Equals("Exit", StringComparison.OrdinalIgnoreCase))
+                    throw new VBCompileErrorException("Syntax error") { Line = call.Start.Line };
+                if (node is VB6Parser.LineLabelContext label && !labels.Add(label.labelName().GetText()))
+                    throw new VBCompileErrorException("Duplicate declaration in current scope");
+                for (var i = 0; i < node.ChildCount; i++)
+                    pending.Push(node.GetChild(i));
+            }
+        }
 
         void Declare(string name)
         {
@@ -219,21 +282,27 @@ public class PrePass : VB6BaseVisitor<object?>
     /// </summary>
     public bool DeclaresDefaultMember => DefaultMember is not null;
 
-    private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body, DefaultMemberKind kind)
+    private void NoteDefaultMember(Antlr4.Runtime.Tree.IParseTree? body, DefaultMemberKind kind, bool enumeration = false)
     {
-        if (body is null || body is VB6Parser.ValueStmtContext || DeclaresDefaultMember)
+        if (body is null || body is VB6Parser.ValueStmtContext)
             return;
         if (body is VB6Parser.AttributeStmtContext attribute
             && attribute.implicitCallStmt_InStmt().GetText() is var name
             && (name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase)
                 || name.EndsWith(".VB_VarUserMemId", StringComparison.OrdinalIgnoreCase))
-            && attribute.signedLiteral().Length == 1 && attribute.signedLiteral(0).GetText() == "0")
+            && attribute.signedLiteral().Length == 1)
         {
-            DefaultMember = new DefaultMemberInfo(name[..name.LastIndexOf('.')], kind);
+            var member = new DefaultMemberInfo(name[..name.LastIndexOf('.')], kind);
+            if (attribute.signedLiteral(0).GetText() == "0")
+                DefaultMember ??= member;
+            else if (attribute.signedLiteral(0).GetText() == "-4"
+                     && enumeration
+                     && name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase))
+                EnumerationMember ??= member;
             return;
         }
         for (var i = 0; i < body.ChildCount; i++)
-            NoteDefaultMember(body.GetChild(i), kind);
+            NoteDefaultMember(body.GetChild(i), kind, enumeration);
     }
 
     public PrePass(ExecutionEnvironment rootEnv, ExecutionState state, bool allowIndexedLet = false, bool allowIndexedSet = false)
@@ -251,18 +320,25 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public bool PredeclaredId { get; private set; }
+    private bool Exposed { get; set; }
 
     public override object? VisitModuleAttributes(VB6Parser.ModuleAttributesContext context)
     {
         foreach (var attribute in context.attributeStmt())
-            if (attribute.implicitCallStmt_InStmt().GetText().Equals("VB_PredeclaredId", StringComparison.OrdinalIgnoreCase))
+        {
+            var name = attribute.implicitCallStmt_InStmt().GetText();
+            if (name.Equals("VB_PredeclaredId", StringComparison.OrdinalIgnoreCase))
                 PredeclaredId = attribute.signedLiteral(0).GetText().Equals("True", StringComparison.OrdinalIgnoreCase);
+            else if (name.Equals("VB_Exposed", StringComparison.OrdinalIgnoreCase))
+                Exposed = attribute.signedLiteral(0).GetText().Equals("True", StringComparison.OrdinalIgnoreCase);
+        }
         return base.VisitModuleAttributes(context);
     }
 
     public override object? VisitModuleBlock(VB6Parser.ModuleBlockContext context)
     {
         topLevelBlocks.Add(context.block());
+        DeclarationItems.Add(context.block());
         Visit(context.block());
         NoteDefaultMember(context.block(), DefaultMemberKind.Variable);   // a Public variable's VB_VarUserMemId follows it here
         return default;
@@ -480,10 +556,6 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public override object? VisitDeclareStmt(VB6Parser.DeclareStmtContext context)
-        // `Declare Sub/Function … Lib` (Win32/DLL API) is a documented deferral (docs/interpreter-gaps.md). Rather
-        // than fail the whole module load, skip the declaration — the name is simply not registered, so an actual
-        // CALL to it raises the clean "Sub or Function not defined" error. This lets a module that merely declares
-        // an API (a near-universal pattern in real VB6) load and run its non-API code.
     {
         // #4245: only active declarations reach this walk, as inactive code is never parsed. vb6.exe refuses an active
         // PtrSafe with "Expected: Sub or Function" (measured, native and p-code). 64-bit VBA7 refuses a Declare without
@@ -497,7 +569,23 @@ public class PrePass : VB6BaseVisitor<object?>
         if (ObjectModule && context.visibility()?.PUBLIC() != null)
             throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;
-        DeclareModuleName(context.ambiguousIdentifier().GetText(), exported: !IsPrivate(context.visibility()));
+        var name = context.ambiguousIdentifier().GetText();
+        DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
+        // Collect the signature without loading native code (#4820) or applying procedure parameter checks (#4869).
+        var parameters = new List<ParamInfo>();
+        if (context.argList() is { } argList)
+            foreach (var arg in argList.arg())
+                parameters.Add(new ParamInfo(arg.ambiguousIdentifier().GetText(), ByRef: arg.BYVAL() == null,
+                    Optional: arg.OPTIONAL() != null, ParamArray: arg.PARAMARRAY() != null,
+                    DeclaredType: null, Default: arg.argDefaultValue(), IsArray: arg.LPAREN() != null));
+        Declares[name] = new ProcedureInfo(name, context.FUNCTION() != null, parameters,
+            Vb6Value.ValueType.EmptyVariant, null, IsPrivate(context.visibility()))
+        {
+            Declaration = context,
+            DeclareLibrary = context.STRINGLITERAL(0).GetText()[1..^1].Replace("\"\"", "\"")
+        };
+        if (context.SUB() != null && !IsPrivate(context.visibility()))
+            DeclareSubs.Add(name);
         return default;
     }
 
@@ -511,31 +599,41 @@ public class PrePass : VB6BaseVisitor<object?>
         //
         // Evaluation is a SINGLE FORWARD WALK, and that is measured rather than convenient: VB6 refuses a
         // member that references a later member, and one that references a later Const, both with
-        // "Constant expression required". So source order is the rule, and the lazy-memoised treatment
-        // CLAUDE.md prescribes for Const — which exists precisely because Const is order-independent — is
-        // not wanted here. Collecting values as the walk reaches them stays pure collection.
+        // "Constant expression required". Values naming project Consts complete that forward walk with
+        // the module's declarations, in the same source order.
         var enumName = context.ambiguousIdentifier().GetText();
         DeclareModuleTypeName(enumName);
         var members = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        enumStatements[enumName] = context;
+        int? firstDeferred = null;
+        var memberIndex = 0;
         long next = 0;
         foreach (var c in context.enumerationStmt_Constant())
         {
             var constName = c.ambiguousIdentifier().GetText();
             DeclareModuleName(constName, inEnum: enumName);
-            long value;
-            if (c.valueStmt() is { } vs)
+            long value = 0;
+            if (firstDeferred is null)
             {
-                foldingMember = constName;
-                if (!TryFoldEnumValue(vs, enumName, members, out value))
-                    throw new VBCompileErrorException(
-                        $"Constant expression required (Enum {enumName}, member '{constName}': '{vs.GetText().Trim()}')");
-                next = value + 1;
+                if (c.valueStmt() is { } vs)
+                {
+                    foldingMember = constName;
+                    if (!TryFoldEnumValue(vs, enumName, members, out value))
+                    {
+                        if (!ObjectModule && NamesProjectConstant(vs, enumName))
+                            firstDeferred = memberIndex;
+                        else
+                            throw new VBCompileErrorException(
+                                $"Constant expression required (Enum {enumName}, member '{constName}': '{vs.GetText().Trim()}')");
+                    }
+                    next = value + 1;
+                }
+                else
+                {
+                    value = next++;
+                }
+                if (firstDeferred is null) members[constName] = value;
             }
-            else
-            {
-                value = next++;
-            }
-            members[constName] = value;
 
             // A member name already hoisted by a DIFFERENT enum in this module is AMBIGUOUS. VB6 accepts
             // both declarations and refuses the bare use — "Ambiguous name detected" — so the name is
@@ -551,9 +649,16 @@ public class PrePass : VB6BaseVisitor<object?>
             // Hoisted READ-ONLY. VB6 answers `pTwo = 5` with "Assignment to constant not permitted", and a
             // plain variable slot silently accepted it — so a program could overwrite vbRed and nothing
             // would say so.
-            var location = state.Alloc(new Vb6Value(value));
-            state.MarkReadOnly(location);
+            var location = state.Alloc(firstDeferred is null ? new Vb6Value(value) : default(Vb6Value));
+            if (firstDeferred is null) state.MarkReadOnly(location);
+            else state.MarkConstant(location);
             rootEnv.DefineVariable(constName, location);
+            memberIndex++;
+        }
+        if (firstDeferred is { } first)
+        {
+            DeferredEnums[enumName] = (context, first);
+            DeclarationItems.Add(context);
         }
         Enums[enumName] = members;
         EnumDeclaredAt[enumName] = context.Start.TokenIndex;
@@ -562,15 +667,35 @@ public class PrePass : VB6BaseVisitor<object?>
         return default;
     }
 
+    private bool NamesProjectConstant(Antlr4.Runtime.Tree.IParseTree node, string enumName, int depth = 0)
+    {
+        if (depth > 500) return false;
+        if (node is VB6Parser.VsICSContext read)
+        {
+            var text = read.GetText();
+            if (text.Contains('(')) return false;
+            var parts = text.Split('.');
+            if (parts.Length == 1)
+                return ModuleConsts.ContainsKey(text) || !rootEnv.TryGetVariableLocation(text, out _)
+                    && !VB6InBoxLibraries.TryBare(text, out _);
+            var lead = parts[0];
+            return !VB6InBoxLibraries.IsLibrary(lead) && !VB6InBoxLibraries.IsContainer(lead)
+                && !Enums.ContainsKey(lead) && !lead.Equals(enumName, StringComparison.OrdinalIgnoreCase);
+        }
+        for (var i = 0; i < node.ChildCount; i++)
+            if (NamesProjectConstant(node.GetChild(i), enumName, depth + 1)) return true;
+        return false;
+    }
+
     /// <summary>
     /// Fold one Enum member's value expression to the Long it denotes, or fail.
     ///
     /// <para>
     /// This is a CONSTANT folder, deliberately separate from <see cref="ExpressionExecutor"/>: an Enum body
-    /// is evaluated before anything runs, so there is no environment to evaluate against and nothing here
-    /// may have a side effect. VB6 draws the same line and reports crossing it as "Constant expression
-    /// required". Anything this cannot fold is refused rather than guessed — a member is a value the whole
-    /// program reads, so a wrong one would be wrong everywhere and silently.
+    /// is folded before declarations run, so project Const values are not available here and nothing here
+    /// may have a side effect. Values outside this fold are refused or deferred to the module's declaration
+    /// walk, never guessed — a member is a value the whole program reads, so a wrong one would be wrong
+    /// everywhere and silently.
     /// </para>
     ///
     /// <para>
@@ -737,21 +862,22 @@ public class PrePass : VB6BaseVisitor<object?>
                 : parts.Length == 3 && VB6InBoxLibraries.ContainerBelongsTo(parts[0], parts[1])
                     && VB6InBoxLibraries.TryInLibraryContainer(parts[0], parts[1], parts[2], out value);
             if (!found)
-                refusal = parts.Length == 2
-                    ? new VBCompileErrorException("Method or data member not found")
-                    : new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4594)");
+                refusal = new VBCompileErrorException(parts.Length == 3
+                    && VB6InBoxLibraries.TryInLibrary(parts[0], parts[1], out _)
+                        ? "Invalid qualifier"
+                        : "Method or data member not found");
         }
         else if (parts.Length == 2 && VB6InBoxLibraries.IsContainer(parts[0]))
         {
             found = VB6InBoxLibraries.TryInContainer(parts[0], parts[1], out value);
             if (!found)
-                refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': in-box container member '{text}' is not implemented (#4594)");
+                refusal = new VBCompileErrorException("Method or data member not found");
         }
         else
             return false;
         if (!found && refusal is null) return false;
         if (found && !TryAsDouble(value, out result))
-            refusal = new NotImplementedException($"Enum {enumName}, member '{foldingMember}': nonnumeric in-box constant '{text}' is not implemented (#4594)");
+            refusal = new VBCompileErrorException("Type mismatch");
         EnumLibraryNames.Add(new(enumName, foldingMember, text, parts.Length > 1, refusal));
         return true;
     }
@@ -803,7 +929,7 @@ public class PrePass : VB6BaseVisitor<object?>
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context, Accessor = "Get" });
-        NoteDefaultMember(context.block(), DefaultMemberKind.Property);
+        NoteDefaultMember(context.block(), DefaultMemberKind.Property, enumeration: true);
         return default;
     }
 
@@ -846,6 +972,10 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitTypeStmt(VB6Parser.TypeStmtContext context)
     {
+        var visibility = context.visibility();
+        if (ObjectModule && !Exposed && (visibility is null || visibility.PUBLIC() != null))
+            throw new VBCompileErrorException("Cannot define a Public user-defined type within a private object module");
+
         declared = true;
         // A `Type … End Type` definition: parse each field to a scalar ValueType or a nested-type NAME (resolved
         // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array bounds and fixed-string
@@ -867,9 +997,12 @@ public class PrePass : VB6BaseVisitor<object?>
                     var lower = ArrayBase;
                     if ((values.Length == 2 && !TryReadLiteralBound(values[0], out lower))
                         || !TryReadLiteralBound(values[^1], out var upper))
-                        throw new NotImplementedException($"Nonliteral array bounds for field '{fieldName}' inside Type '{name}' are not implemented (#178)");
+                    {
+                        bounds = null;
+                        break;
+                    }
                     if (upper < lower)
-                        throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#178)");
+                        throw new VBCompileErrorException("Range has no values");
                     bounds.Add((lower, upper));
                 }
             }
@@ -884,9 +1017,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 throw new NotImplementedException("fieldLength as type not implemented");
             if (asType.NEW() != null)
             {
-                if (isArray)
-                    throw new NotImplementedException($"An array field As New inside Type '{name}' is not implemented (#178)");
-                fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
+                fields.Add(new UdtField(fieldName, null, isArray ? asType.type().GetText() : null,
+                    asType.type().GetText(), IsArray: isArray, Bounds: bounds));
                 continue;
             }
             if (BaseTypeMapper.VbaType(asType.type().GetText(), VbaBitness) is { } wide)
@@ -900,10 +1032,15 @@ public class PrePass : VB6BaseVisitor<object?>
                         ?? throw new NotImplementedException($"Unsupported field type for '{fieldName}' in Type '{name}'"),
                     null, IsArray: isArray, Bounds: bounds, FixedLength: asType.fieldLength()));
         }
+        for (var i = 0; i < fields.Count; i++)
+            if (fields[i].IsArray && fields[i].Bounds is null && context.typeStmt_Element(i).subscripts() is { } pending)
+                fields[i] = fields[i] with { BoundSyntax = pending };
         // Visibility is RECORDED rather than ignored. `Private` means invisible outside this module, and
         // measured means it: a foreign Private Type is "User-defined type not defined" whether the
         // reference is bare or qualified. Reading it here is what lets two modules each own a Point.
         Types[name] = new UdtTypeDef(name, fields, IsPrivateVisibility(context.visibility()?.GetText()));
+        if (fields.Any(f => f.BoundSyntax != null))
+            DeclarationItems.Add(context);
         return default;
     }
 
@@ -926,13 +1063,22 @@ public class PrePass : VB6BaseVisitor<object?>
             returnUdt != null && !returnType.IsArray ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
             returnsVariant, returnsObject) { Declaration = context });
-        NoteDefaultMember(context.block(), DefaultMemberKind.Function);
+        NoteDefaultMember(context.block(), DefaultMemberKind.Function, enumeration: true);
         return default;
     }
+
+    // Measured for Sub names only, not other declarations (#4674).
+    private static readonly HashSet<string> RefusedSubNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Close", "Debug", "End", "Get", "Input", "Len", "Lock", "Open",
+        "Print", "Put", "Seek", "Spc", "Stop", "Tab", "Unlock", "Write"
+    };
 
     public override object? VisitSubStmt(VB6Parser.SubStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
+        if (RefusedSubNames.Contains(name))
+            throw new VBCompileErrorException("Expected: identifier");
         DeclareModuleName(name, exported: !IsPrivate(context.visibility()));
         Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
             Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())) { Declaration = context });
@@ -952,7 +1098,7 @@ public class PrePass : VB6BaseVisitor<object?>
         foreach (var arg in argList.arg())
         {
             if (arg.asTypeClause() is { } fixedType && fixedType.fieldLength() is not null
-                && fixedType.type()?.baseType()?.STRING() is not null)
+                && fixedType.type()?.baseType()?.STRING() is not null && arg.LPAREN() is null)
                 throw new VBCompileErrorException("Expected array");
             // `Sub F(n%)` is `Sub F(n As Integer)`, and an As clause beside the character is VB6's compile error (measured,
             // #742). With neither, the DefType's for the name's letter (measured, #169: `Sub ITake(i7)` under DefInt, given
@@ -979,7 +1125,8 @@ public class PrePass : VB6BaseVisitor<object?>
                     && (defaultType is null ? DeclaresVariant(arg.asTypeClause()) : defaultType == Vb6Value.ValueType.Object),
                 TypeName: NamedType(arg.asTypeClause()),
                 DeclaredObject: arg.LPAREN() == null
-                    && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object)));
+                    && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object))
+            { FixedStringLength = arg.asTypeClause()?.fieldLength() });
         }
         return result;
     }

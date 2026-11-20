@@ -22,6 +22,15 @@ internal sealed class HexIdeHost(
     HexIDE.Debugging.DebugLaunchService debugLaunches,
     HexIDE.Projects.ContributedProjects contributedProjects) : IHexIdeHost
 {
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public void ReportFailure(string message, Exception? exception = null) =>
+        ReportFailure(message, exception, AddinOrigin.Of(System.Reflection.Assembly.GetCallingAssembly(), Registry));
+
+    internal void ReportFailure(string message, Exception? exception, AddinOrigin origin)
+    {
+        if (Registry is AddinRegistry addins) addins.ReportFailure(origin, message, exception);
+    }
+
     public IMenuContributor Menus { get; } = menuService;
     public IToolWindowContributor ToolWindows { get; } = toolWindowService;
     public IAddinEvents Events { get; } = eventService;

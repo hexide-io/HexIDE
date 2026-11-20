@@ -69,7 +69,8 @@ standing where a procedure call should be compiles, as a late call of its defaul
 - any other slot that holds an object and isn't a Variant's.
 
 **What a Let into one does.** It refuses before anything is released or stored:
-- 438 for a class with no default member, and for a Collection;
+- 438 for a class with no default member, and for a Collection held `As Object` (`As Collection` doesn't compile,
+  #4675);
 - 91 for Nothing;
 - a refusal naming #174 for a class with a default member;
 - a refusal naming #790 for a control.
@@ -124,3 +125,140 @@ referenced nothing beyond VB's own libraries. p-code and native code logged the 
   `As Class1` and `As Object` read "Nothing" (#4622).
 
 **Not measured:** a referenced library's own class, a Property Get, and a Function returning an array of these.
+
+## A default member, by kind and by target (2026-11-18, #4694)
+
+**The question.** The section above found that `d = 11` calls the default `Property Let`. Real code reaches the same
+Let through fields, `With`, ByRef parameters, a Function's own name and array elements, and a default member can
+also be Get-only, a field, or a Function. What does each do?
+
+**The probe.**
+- **Build:** VB6 SP6, `/make`, native code and p-code, which logged every row identically.
+- **The classes:**
+  - `D`: a default `Property Get/Let Value` As Variant, whose Let logs `Let <x>`;
+  - `DG`: a Get-only default;
+  - `DF`: a default Public field `Value As Variant`, by `VB_VarUserMemId = 0`;
+  - `DFn`: a default Function;
+  - `DL`: a default Get/Let As Long;
+  - `DT`: like `D`, and logs its Terminate;
+  - `H`: `Public d As D`.
+- **The two compile errors** were each built as a project of their own.
+
+| Target and statement | VB6 |
+|---|---|
+| `Dim d As D`, holding a `D`: `d = 11` | `Let 11`; `d` still the `D`, `d.Value` 11 |
+| `Dim o As Object`, holding a `D`: `o = 12` | `Let 12`, `o` still the `D` |
+| `d = 13` with `keep` also holding it | `Let 13`; `d Is keep` True |
+| `Dim g As DG`: `g = 14` | compile error **"Invalid use of property"** |
+| `Dim f As DF`: `f = 15` | the field takes 15; `f` still the `DF` |
+| `Dim fn As DFn`: `fn = 16` | compile error **"Type mismatch"** |
+| `Dim l As DL`: `l = "17"`; `l = "abc"` | `l.Value` Long 17; 13 |
+| a class field `h.d = 18`; `With h`: `.d = 19` | `Let 18`, `h.d` still the `D`; `Let 19` |
+| a ByRef parameter `x As D`: `x = 20` | `Let 20`, on the caller's object |
+| inside `Function GetD() As D`, after `Set GetD = New D`: `GetD = 21` | `Let 21`; the Function returns the `D` |
+| inside `Function GetO() As Object`, the same: `GetO = 27` | `Let 27` |
+| `Dim arr(1 To 2) As D`, holding a `D`: `arr(1) = 22` | `Let 22`; `arr(1)` still the `D` |
+| `Dim n As D`, holding Nothing: `n = 23` | 91 |
+| `Dim v As Variant`, holding a `D`: `v = 24` | `v` is Integer 24, the object dropped |
+| `Dim og As Object`, holding a `DG`: `og = 25` | **451** |
+| `Dim o As Object`, holding a `DF`: `o = 28`; holding a `DFn`: `o = 29` | the field takes 28; **450** |
+| `Dim t As DT`: `t = 26`, then `Set t = Nothing` | `Let 26`, and Terminate at the `Set`, not at the Let |
+
+The probe's `TypeName(d)` printed `d`, not `D`. VB6 recases an identifier project-wide to its last-typed spelling,
+and the variable `d` shares the class's name. That's the probe's naming, not a finding.
+
+**Readings:**
+- **Every object-typed target hands the value to the default member, and keeps its object:** a variable, a field, a
+  `With` member, a ByRef parameter, a Function's own name and an array element alike. Only a Variant takes the value.
+- **A default Property Let converts the value** as a call converts its argument: `"17"` into a Long Let is 17, and
+  `"abc"` is 13.
+- **A default field takes the value.**
+- **A default that can't take a Let** is a compile error through a class-typed variable, and a run-time error
+  through `As Object`:
+  - Get-only: "Invalid use of property", or 451;
+  - a Function: "Type mismatch", or 450.
+- **The Let doesn't release the object.** Terminate runs when the last reference goes, as before.
+
+**Not measured:**
+- a Sub as the default;
+- a typed (non-Variant) field as the default;
+- a UDT's object field;
+- an element of an object array holding a class with no default member.
+
+## A Let into an object whose default member needs an argument (2026-11-18, #4675)
+
+**The question.** #1368's rerun found programs where HexIDE answered a Let without `Set` differently from vb6.exe:
+into a Collection, and into a standard module's property with a Get and no Let. What does vb6.exe do when the
+target's declared type is a Collection, or a class whose default member needs an argument? And what does a module
+property with no Let do with each type of Get?
+
+**The probe.**
+- **Build:** VB6 SP6 (6.00.9782, MSVBVM60 6.00.9848), `/make` of a Standard EXE, one project per row. Native code
+  and p-code agreed on every row.
+- **The classes:**
+  - `D0`: a parameterless default `Property Get/Let Value`;
+  - `D1`: a default `Property Get/Let Item(i As Long)`;
+  - `N0`: no default member;
+  - `IFoo`: an interface with one Sub and no default member, and `D1i`, which implements it and has `D1`'s default.
+- **The module properties** are in Module2: a `Property Get PO() As T` and a `Property Set PO`, and no Let, unless
+  the row says otherwise. Module1 makes the Let, under `On Error Resume Next`.
+
+### Variables
+
+| Target and statement | VB6 |
+|---|---|
+| `Dim c As Collection`, holding Nothing: `c = New Collection` | compile error **"Argument not optional"** |
+| `Dim c As Collection`, holding a Collection: `c = 5` | the same |
+| `Dim c As D1`, holding a `D1`: `c = 5` | the same |
+| `Dim c As D0`, holding a `D0`: `c = 5` | `D0`'s Let, with 5 |
+| `Dim c As N0`, holding an `N0`: `c = 5` | 438 |
+| `Dim o As Object`, holding a Collection: `o = 5` | 438; `o` still the Collection |
+| `Dim o As Object`, holding a `D1`: `o = 5` | **449** |
+| `Dim o As Object`, holding a `D0`: `o = 5` | `D0`'s Let, with 5 |
+| `Dim c As IFoo`, holding a `D1i`: `c = 5` | **438**; `c` still the `D1i` |
+
+### A module property with no Let
+
+| `PO`, and the statement | VB6 |
+|---|---|
+| `As Collection`, holding Nothing: `PO = New Collection` | compile error **"Argument not optional"** |
+| `As Collection`, after `Set PO = New Collection`: `PO = 5` | the same |
+| `As Collection`, a Get and no Set: `PO = New Collection` | the same |
+| `As Collection`: `PO = New Collection` in a Sub never called | the same: the build is refused |
+| `As D1`, after `Set PO = New D1`: `PO = 5` | the same |
+| `As D0`, holding Nothing: `PO = 5` | 91 |
+| `As D0`, after `Set PO = New D0`: `PO = 5` | `D0`'s Let, with 5 |
+| `As N0`, after `Set PO = New N0`: `PO = 5` | 438 |
+| `As Object`, holding Nothing: `PO = New Collection`, with a Set and without one | 91 |
+| `As Object`, after `Set PO = New Collection`: `PO = 5` | 438 |
+| `As Variant`, holding Empty, with a `Property Set PO(v As Object)`: `PO = 5` | **424** |
+| `As Variant`, holding Empty, a Get and no Set: `PO = 5` | 424. It builds, and with the line in a Sub never called too |
+
+**Readings:**
+- **The declared type decides at compile time.** A Collection, or a class whose default member's first parameter is
+  required, can't take a Let without `Set`. VB6 refuses the build with "Argument not optional", whatever the target
+  holds and whether or not the line runs. A module property with no Let counts as its Get's type.
+- **`As Object` decides at run time,** by the held object's default member: 449 for one that needs an argument, and
+  438 for a Collection or a class with none.
+- **An interface variable reaches the interface's default member, not the class's.** `IFoo` has none, so the Let is
+  438, where `D1` held `As Object` is 449.
+- **A module property with no Let is read through its Get,** and the value goes to what the Get returns: 91 for
+  Nothing, and 424 for a Variant holding no object. "Can't assign to read-only property" is for a Get of a scalar
+  type, as #977 measured with `As String`.
+- **#977's 91 for `PO = New Collection`** was measured with `PO As Object`. With `As Collection` it doesn't compile.
+
+**Not measured:**
+- a Variant Get returning an object;
+- an interface whose own default member needs an argument;
+- a Type's field declared as a class or a Collection.
+
+### In HexIDE (#4675)
+
+- **Early-bound:** "Argument not optional" is raised as the statement runs, before the right-hand side for a variable
+  and before the Get for a module property. It's interpreter-core's *An error VB6 reports before running*: a line
+  that never runs isn't caught.
+- **Late-bound:** 449 or 438 by the declared type's default member, or by the held object's under `As Object`.
+- **A parameterless default member** takes the value, through #4694's default Let, from a module property as from a
+  variable.
+- **Still refused:** an interface's own default member, and a Variant Get returning an object, each naming #4675.
+- **`LetIntoObject4675Tests`** pins every row above.

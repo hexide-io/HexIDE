@@ -15,6 +15,17 @@ prompt for a reset and the execution point moves only between top-level statemen
 
 ## Requirements
 
+### Requirement: Inline value evaluation preserves paused state
+Server-provided inline debug values SHALL resolve through `IDebugController`: variable lookups use the
+formatted Locals values and expressions use `EvaluateWatchAsync` only (#5014). The Immediate statement
+executor SHALL never be called for a server expression. This optional code-window display SHALL clear
+on continuation or session end and SHALL NOT alter how the program stops or steps.
+
+#### Scenario: An expression resembles an assignment
+- **WHEN** an inline-value provider supplies `x = 1` while the program is paused
+- **THEN** the editor uses the watch evaluator and leaves `x` unchanged
+- **AND** only a successful result is displayed
+
 ### Requirement: Desktop run-time dialogs and keyboard focus
 
 A run-time error dialog SHALL retain the active running form as owner and SHALL disable all existing desktop
@@ -101,6 +112,16 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **THEN** the program suspends at the next executed statement and enters break mode
 - **AND** between events it enters break mode immediately with no current statement
 
+#### Scenario: Breaking while a handler waits for a modal form
+- **WHEN** Pause is requested while a handler waits in `Show vbModal` with no other code running
+- **THEN** the modal loop SHALL wake and enter break mode with reason Pause on the waiting Show line
+- **AND** Locals and Call Stack SHALL use that calling procedure's frame
+- **AND** Continue SHALL resume the wait without returning from Show or dismissing the modal form
+- **AND** nested modal waits SHALL stop at the innermost waiting Show (a HexIDE choice, unmeasured in VB6)
+
+The single-wait Pause and Continue behavior is measured in [#4708, rows c/d](https://github.com/hexide-io/HexIDE/issues/4708).
+Stepping from that stop retains the ordinary gate rules; its VB6 behavior remains unmeasured.
+
 #### Scenario: Breaking a DoEvents loop from the IDE
 - **WHEN** a running form has focus and its event handler loops with `DoEvents`
 - **THEN** the Standard and Debug toolbar Break buttons remain enabled
@@ -114,12 +135,14 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 #### Scenario: Continue restores the program window active at Pause
 - **WHEN** a Pause stop brings the IDE forward while a running program's window is active
 - **THEN** the IDE SHALL remember that window, including a modal form
+- **AND** Continue through the interpreter runner SHALL first request non-activating raises of the program's other shown, non-minimised forms, least recently activated first, on Windows, macOS and X11 (#4667; X11 window managers may decline the request; Wayland and unknown backends do not raise)
 - **AND** Continue through the interpreter runner SHALL activate it once if still shown
+- **AND** bringing these forms back SHALL add no form Activate or Deactivate events ([measured rows c/d](https://github.com/hexide-io/HexIDE/issues/4667))
 - **AND** Step Into and Step Over SHALL leave the IDE in front and retain that window for a later Continue
 - **AND** ending or starting the run SHALL forget the window
 
 #### Scenario: A step returns to event idle
-- **WHEN** Step Into or Step Over runs off the outermost event handler
+- **WHEN** Step Into, Step Over or Step Out runs off the outermost event handler
 - **THEN** break-mode chrome clears and frozen events are released
 - **AND** the step remains armed for the next event's handler declaration, before any statement executes
 - **AND** events raised inside the still-running chain retain its stepping depth rules
@@ -182,7 +205,7 @@ Stepping follows VB6's gestures and granularity: one statement at a time, with c
 
 #### Scenario: Starting a run with F8
 - **WHEN** the developer presses F8 while the project is idle
-- **THEN** the project starts and breaks at its first executed statement
+- **THEN** the project starts and breaks at the startup procedure's declaration: Main, Form_Initialize when present, or Form_Load otherwise (#4449)
 
 #### Scenario: Stepping over a call
 - **WHEN** the developer presses Shift+F8 while paused on a line that calls a procedure
@@ -539,8 +562,11 @@ The interpreter debugger SHALL honour breakpoints on Sub declarations before
 executing their bodies, and on Sub, Function and Property Get natural End lines after the last statement and before returning.
 A step from the last statement of a called Sub or Function SHALL stop on its End line; the following step
 SHALL reach the caller's next line. These positions retain the callee's frame until return (#2172).
-Entry procedures SHALL retain breakpoint-only End positions, so startup stepping advances from
-Initialize's last statement into Load's first statement.
+Event handlers SHALL also stop on their End Sub when stepping (#4619, measured in
+[the idle-break oracle](../../../docs/vb6-fidelity-oracle/break-on-an-idle-program-and-a-step-off-an-event-handler.md)).
+Startup procedures SHALL also stop on their End lines when stepping, as measured in
+[#4449](https://github.com/hexide-io/HexIDE/issues/4449) (VB6 SP6, 2026-11-18, oracle PR #4651).
+Property Get's End line SHALL remain breakpoint-only.
 
 #### Scenario: Break on a procedure's natural End line
 - **WHEN** a procedure finishes its last statement with a breakpoint on its End line
@@ -552,12 +578,50 @@ Initialize's last statement into Load's first statement.
 - **THEN** execution pauses on End Function
 - **AND** the next Step Over pauses on the caller's next line
 
+#### Scenario: Step off an event handler
+- **WHEN** Step Over runs Form_Click's last statement
+- **THEN** execution pauses on End Sub
+- **AND** the next Step Over runs off the handler, retaining a step for the next event's declaration
+- **WHEN** Step Into runs Timer1_Timer's last statement
+- **THEN** execution pauses on End Sub
+- **AND** the next Step Into pauses on the declaration at the next tick
+
 #### Scenario: Step through form startup
 - **WHEN** Step Into from design mode starts a form with Form_Initialize
-- **THEN** execution pauses on Initialize's first statement
-- **AND** a step from its last statement pauses on Load's first statement
+- **THEN** execution pauses on Initialize's declaration
+- **AND** Step Over advances through its statement, its End Sub, Load's declaration and Load's first statement
 - **WHEN** the form has no Form_Initialize
-- **THEN** the initial step pauses on Load's first statement
+- **THEN** the initial step pauses on Load's declaration (#4449, oracle PR #4683)
+
+#### Scenario: Step Over off startup Load's end
+- **WHEN** Step Over resumes from a startup form's Form_Load End Sub, with or without Form_Initialize
+- **THEN** Form_Resize runs without a step stop, after Load and before Activate
+- **AND** execution pauses on Form_Activate's declaration, before its first statement
+- **AND** subsequent Step Over commands pause on Activate's statement and End Sub, then resume running
+- **AND** this startup-show rule does not change stepping through later window resizes
+- **AND** Step Into off Load's End Sub retains its existing, unmeasured positions
+
+#### Scenario: Step through startup Main
+- **WHEN** Step Into or Step Over starts a project at Sub Main from design mode
+- **THEN** execution pauses on Main's declaration
+- **WHEN** Step Into executes Form1.Show in Main
+- **THEN** execution pauses on Form_Load's declaration before any statement runs
+- **WHEN** Step Over executes Form1.Show instead
+- **THEN** Load runs without a step stop
+- **WHEN** Step Over executes Main's last statement
+- **THEN** execution pauses on Main's End Sub
+
+#### Scenario: Carry past startup Main
+- **WHEN** Step Into runs past Main's End Sub, or Step Out runs from inside Main
+- **THEN** the step SHALL carry to the next event's declaration before any statement runs
+- **WHEN** Step Over runs past Main's End Sub
+- **THEN** the program SHALL run freely without carrying the step
+
+#### Scenario: Step Out across event idle
+- **WHEN** Step Out runs from an outermost event handler, including one entered at Stop
+- **THEN** the next event SHALL pause at its declaration
+- **AND** Step Out again from that declaration SHALL run the handler and carry again
+- **AND** Continue SHALL clear the carried step
 
 ### Requirement: A made program surfaces fatal errors
 The standalone host SHALL apply the same event boundary when deciding whether a run-time error is unhandled. It SHALL

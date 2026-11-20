@@ -8,6 +8,7 @@ internal sealed class AddinContext(AddinInfo info)
     public IAddin? Instance { get; set; }
     public AddinStatus Status { get; set; }
     public string? ErrorMessage { get; set; }
+    public AddinFailureReport? ReportedFailure { get; set; }
 
     /// <summary>The package directory this add-in was loaded from (also the enable/disable key).</summary>
     public string PackageDirectory { get; set; } = info.AssemblyPath;
@@ -22,3 +23,5 @@ internal sealed class AddinContext(AddinInfo info)
     /// the post-window consent pass can prompt and then late-load. Null once resolved.</summary>
     public PackageVerificationResult? PendingResult { get; set; }
 }
+
+internal sealed record AddinFailureReport(string Message, string? ExceptionType, string? ExceptionMessage, DateTimeOffset Time);

@@ -65,23 +65,38 @@ public class FinancialIntrinsicTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Pmt(0.1, 10)")]
-    [InlineData("Pmt(0.1, 10, 1000, 0, 0, 0)")]
-    [InlineData("Pmt(0.1, 10, Null)")]
-    [InlineData("FV(Null, 10, -100)")]
-    [InlineData("PV(0.1, 10, \"-100\")")]
-    [InlineData("Pmt(\"not numeric\", 10, 1000)")]
-    [InlineData("PV(#1/1/2000#, 10, -100)")]
-    [InlineData("FV(1, 2000, -1)")]
-    [InlineData("FV(-1, 10, -100)")]
-    [InlineData("PV(0.1, 10001, -100)")]
-    [InlineData("NPer(Null, -100, 1000)")]
-    [InlineData("IPmt(0.1, 1, 10)")]
-    [InlineData("PPmt(-1, 1, 10, 1000)")]
-    [InlineData("Rate(48, -200, 8000, 0, 0, Null)")]
-    public async Task Unmeasured_edges_refuse(string expression)
+    [InlineData("Pmt(0.1, 10)", 449)]
+    [InlineData("Pmt(0.1, 10, 1000, 0, 0, 0)", 450)]
+    [InlineData("Pmt(0.1, 10, Null)", 94)]
+    [InlineData("FV(Null, 10, -100)", 94)]
+    [InlineData("Pmt(\"not numeric\", 10, 1000)", 13)]
+    [InlineData("FV(1, 2000, -1)", 6)]
+    [InlineData("PV(0.1, 10001, -100)", 6)]
+    [InlineData("NPer(Null, -100, 1000)", 94)]
+    [InlineData("IPmt(0.1, 1, 10)", 449)]
+    [InlineData("Rate(48, -200, 8000, 0, 0, Null)", 94)]
+    public async Task Former_refusals_report_measured_errors(string expression, int error)
     {
-        var run = () => Run($"Dim answer\nanswer = {expression}\n");
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#2523*");
+        // Argument rules and p-code arithmetic errors: #4883, latest measurement comment.
+        await Run($"On Error Resume Next\nx = {expression}\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value((long)error)]);
+    }
+
+    [Theory]
+    [InlineData("PV(0.1, 10, \"-100\")", "PV(0.1, 10, -100)")]
+    [InlineData("PV(#1/1/2000#, 10, -100)", "PV(CDbl(#1/1/2000#), 10, -100)")]
+    public async Task Former_conversion_refusals_match_number(string expression, string equivalent)
+    {
+        // #4883 measures these conversions against their numeric twins.
+        await Run($"Debug.Print {expression}\nDebug.Print {equivalent}\n");
+        debug.Should().HaveCount(2);
+        debug[0].Should().Be(debug[1]);
+    }
+
+    [Fact]
+    public async Task Unmeasured_first_period_at_minus_one_stays_refused()
+    {
+        var run = () => Run("x = PPmt(-1, 1, 10, 1000)\n");
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4883*");
     }
 }

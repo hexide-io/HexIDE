@@ -29,6 +29,40 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void LinkedEditingDefaultsOffAndRoundTrips()
+    {
+        var settings = CreateSut();
+        settings.LinkedEditing.Should().BeFalse();
+        File.WriteAllText(SettingsPath, "{}");
+        CreateSut().LinkedEditing.Should().BeFalse();
+        settings.LinkedEditing = true;
+        settings.Save();
+        using var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+        saved.RootElement.GetProperty("linkedEditing").GetBoolean().Should().BeTrue();
+        CreateSut().LinkedEditing.Should().BeTrue();
+        settings.LinkedEditing = false;
+        settings.Save();
+        CreateSut().LinkedEditing.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ListMembersAsYouTypeDefaultsAndRoundTrips()
+    {
+        var settings = CreateSut();
+        settings.ListMembersAsYouType.Should().BeTrue();
+        File.WriteAllText(SettingsPath, "{}");
+        CreateSut().ListMembersAsYouType.Should().BeTrue();
+        settings.ListMembersAsYouType = false;
+        settings.Save();
+        using var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+        saved.RootElement.GetProperty("listMembersAsYouType").GetBoolean().Should().BeFalse();
+        CreateSut().ListMembersAsYouType.Should().BeFalse();
+        settings.ListMembersAsYouType = true;
+        settings.Save();
+        CreateSut().ListMembersAsYouType.Should().BeTrue();
+    }
+
+    [Fact]
     public void RevocationUrlDefaultsWhenUnsetButPreservesExplicitEmpty()
     {
         CreateSut().RevocationListUrl.Should().Be("https://hexide.io/revocations.json");
@@ -57,6 +91,58 @@ public class SettingsServiceTests : IDisposable
         Directory.GetFiles(_tempDir, "settings.json.*.recovery")
             .Select(File.ReadAllBytes).Should().Contain(bytes => bytes.SequenceEqual(original));
         CreateSut().TabWidth.Should().Be(8);
+    }
+
+    // Installation scope and persistence decided in #5036.
+    [Fact]
+    public void RDCoreWin64SettingIsStagedPersistedAndRestored()
+    {
+        var setting = typeof(SettingsService).GetProperty("RDCoreWin64OnlySetOnWindows");
+        var option = typeof(HexIDE.Forms.ViewModels.Options.EnvironmentGeneralPageViewModel).GetProperty("RDCoreWin64OnlySetOnWindows");
+        setting.Should().NotBeNull();
+        option.Should().NotBeNull();
+        var settings = CreateSut();
+        setting!.GetValue(settings).Should().Be(false);
+        var page = new HexIDE.Forms.ViewModels.Options.EnvironmentGeneralPageViewModel(settings);
+        option!.GetValue(page).Should().Be(false);
+        setting.SetValue(settings, true);
+        page.LoadFromSettings();
+        option.GetValue(page).Should().Be(true);
+        option.SetValue(page, false);
+        setting.GetValue(settings).Should().Be(true);
+        page.SaveToSettings();
+        setting.GetValue(CreateSut()).Should().Be(false);
+        option.SetValue(page, true);
+        page.SaveToSettings();
+        using (var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath)))
+            saved.RootElement.GetProperty("rdcoreWin64OnlySetOnWindows").GetBoolean().Should().BeTrue();
+        setting.GetValue(CreateSut()).Should().Be(true);
+        page.RestoreDefaults();
+        option.GetValue(page).Should().Be(false);
+        page.SaveToSettings();
+        setting.GetValue(CreateSut()).Should().Be(false);
+    }
+
+    [Fact]
+    public void InlineValuesToggleIsStagedPersistedAndRestored()
+    {
+        var settings = CreateSut();
+        settings.ShowInlineValues.Should().BeTrue();
+        File.WriteAllText(SettingsPath, "{}");
+        CreateSut().ShowInlineValues.Should().BeTrue();
+        var page = new HexIDE.Forms.ViewModels.Options.EditorGeneralPageViewModel(settings);
+        page.ShowInlineValues.Should().BeTrue();
+        page.ShowInlineValues = false;
+        settings.ShowInlineValues.Should().BeTrue();
+        page.SaveToSettings();
+        settings.ShowInlineValues.Should().BeFalse();
+        CreateSut().ShowInlineValues.Should().BeFalse();
+        using var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+        saved.RootElement.GetProperty("showInlineValues").GetBoolean().Should().BeFalse();
+        page.RestoreDefaults();
+        page.ShowInlineValues.Should().BeTrue();
+        page.SaveToSettings();
+        CreateSut().ShowInlineValues.Should().BeTrue();
     }
 
     [Fact]
@@ -110,6 +196,7 @@ public class SettingsServiceTests : IDisposable
     [Theory]
     [InlineData(nameof(SettingsService.RequireVariableDeclaration), true)]
     [InlineData(nameof(SettingsService.AutoListMembers), false)]
+    [InlineData(nameof(SettingsService.ListMembersAsYouType), false)]
     [InlineData(nameof(SettingsService.AutoQuickInfo), false)]
     [InlineData(nameof(SettingsService.AutoIndent), false)]
     [InlineData(nameof(SettingsService.TabWidth), 8)]
@@ -329,6 +416,7 @@ public class SettingsServiceTests : IDisposable
 
         sut.RequireVariableDeclaration.Should().Be(SettingsDefaults.RequireVariableDeclaration);
         sut.AutoListMembers.Should().Be(SettingsDefaults.AutoListMembers);
+        sut.ListMembersAsYouType.Should().Be(SettingsDefaults.ListMembersAsYouType);
         sut.AutoQuickInfo.Should().Be(SettingsDefaults.AutoQuickInfo);
         sut.AutoIndent.Should().Be(SettingsDefaults.AutoIndent);
         sut.TabWidth.Should().Be(SettingsDefaults.TabWidth);

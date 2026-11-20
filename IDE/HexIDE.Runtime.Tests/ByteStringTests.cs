@@ -341,7 +341,6 @@ public class ByteStringTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("InputB(1, 1)", "InputB")]
     [InlineData("StrConv(\"A\", vbFromUnicode)", "StrConv")]
     public async Task Deferred_byte_conversions_do_not_claim_the_representation_is_missing(string expression, string operation)
     {

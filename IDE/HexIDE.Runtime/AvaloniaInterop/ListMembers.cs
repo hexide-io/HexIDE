@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -22,7 +23,7 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>AddItem takes an index from 0 to ListCount and RemoveItem from 0 to ListCount - 1, and both are 5 outside. Sorted
 /// does not override AddItem's index.</item>
 /// <item>The selection follows its item through all of these, and is emptied when its item is removed. None raises
-/// Click.</item>
+/// Click. Checkbox lists instead keep a numeric position and move checks with their items (#4209).</item>
 /// </list>
 /// A ListBox's Selected(i), SelCount and Text (#1395), measured the same way (the oracle's "A ListBox's Selected, SelCount
 /// and Text"):
@@ -96,6 +97,19 @@ internal static class ListMembers
         value = default;
         if (control is not SelectingItemsControl list || !IsList(control))
             return false;
+        if (control is VBListBox savedList)
+        {
+            if (member.Equals("Style", StringComparison.OrdinalIgnoreCase))
+            {
+                value = new Vb6Value(savedList.SavedStyle);
+                return true;
+            }
+            if (member.Equals("Columns", StringComparison.OrdinalIgnoreCase))
+            {
+                value = new Vb6Value(savedList.Columns);
+                return true;
+            }
+        }
         if (control is VBListBox topList && member.Equals("TopIndex", StringComparison.OrdinalIgnoreCase))
         {
             value = new Vb6Value(topList.TopIndex);
@@ -225,14 +239,19 @@ internal static class ListMembers
         return index;
     }
 
-    /// <summary><c>AddItem item[, index]</c>: appends, or inserts at 0 to ListCount.</summary>
+    /// <summary><c>AddItem item[, index]</c>: sorts or appends, unless an explicit index wins.</summary>
     public static void AddItem(ItemsControl list, IReadOnlyList<Vb6Value> args)
     {
         // AddItem's Item is a String, so the list holds CStr's text of it: `List1.AddItem 1 / 3` lists 0.333333333333333.
         var text = Text(args[0]);
         if (args.Count < 2 || args[1].IsMissing)
         {
-            list.Items.Add(text);
+            var at = list is VBListBox { Sorted: true } or VBComboBox { Sorted: true }
+                ? SortedIndex(list, text) : list.ItemCount;
+            if (list is VBListBox { HasChecks: true } checkbox)
+                checkbox.InsertCheckboxItem(at, text);
+            else
+                list.Items.Insert(at, text);
             return;
         }
         // A Null index is 13, where a Null item is 94 (measured).
@@ -241,8 +260,43 @@ internal static class ListMembers
         var index = Integer(args[1]);
         if (index < 0 || index > list.ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
-        // Avalonia's selection follows its item, as VB6's does.
-        list.Items.Insert(index, text);
+        if (list is VBListBox { HasChecks: true } checkboxList)
+            checkboxList.InsertCheckboxItem(index, text);
+        else
+            list.Items.Insert(index, text);
+    }
+
+    // #5059, oracle: the-order-a-sorted-listbox-or-combobox-keeps.md. The lower midpoint and
+    // inserting before the first equal item probed both matter for the measured ties.
+    private static int SortedIndex(ItemsControl list, string text)
+    {
+        var min = 0;
+        var max = list.ItemCount;
+        while (min != max)
+        {
+            var probe = (min + max - 1) / 2;
+            var order = CompareSorted(text, list.Items[probe] as string ?? "");
+            if (order == 0)
+                return probe;
+            if (order < 0)
+                max = probe;
+            else
+                min = probe + 1;
+        }
+        return max;
+    }
+
+    private static int CompareSorted(string first, string second)
+    {
+        // A leading '[' goes last: a list's own rule, separate from Windows' comparison.
+        var firstBracket = first.StartsWith('[');
+        var secondBracket = second.StartsWith('[');
+        if (firstBracket != secondBracket)
+            return firstBracket ? 1 : -1;
+        var culture = VbLocale.Current;
+        return OperatingSystem.IsWindows()
+            ? WindowsLocaleCompare.Compare(first, second, culture.Name)
+            : culture.CompareInfo.Compare(first, second, CompareOptions.IgnoreCase);
     }
 
     /// <summary><c>RemoveItem index</c>: 0 to ListCount - 1; the selection follows its item, or empties with it.</summary>
@@ -253,8 +307,10 @@ internal static class ListMembers
         var index = Integer(args[0]);
         if (index < 0 || index >= list.ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
-        // Avalonia's selection follows its item, and empties when it goes, as VB6's does.
-        list.Items.RemoveAt(index);
+        if (list is VBListBox { HasChecks: true } checkbox)
+            checkbox.RemoveCheckboxItem(index);
+        else
+            list.Items.RemoveAt(index);
     }
 
     private static int Index(IReadOnlyList<Vb6Value> indexes, string member)

@@ -16,9 +16,22 @@ internal static class FixedLengthString
                 throw new VBCompileErrorException("Constant expression required");
             value = state[location];
         }
-        if (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long)
+        // #179 / oracle PR #4923: numeric constants (including numeric text and Date serials)
+        // round half to even. Non-numeric text has no measured compile error.
+        double number;
+        if (value.Type == Vb6Value.ValueType.Boolean)
+            number = (bool)value.Value! ? -1 : 0;
+        else if (value.Type == Vb6Value.ValueType.String)
+        {
+            try { number = VB6BuiltIns.ToNum(value); }
+            catch (VBRunTimeException)
+            {
+                throw new NotImplementedException("Fixed-length string width conversion is not implemented (#179)");
+            }
+        }
+        else if (!Vb6Value.TryNumericToDouble(value, out number))
             throw new NotImplementedException("Fixed-length string width conversion is not implemented (#179)");
-        var count = Convert.ToInt64(value.Value, System.Globalization.CultureInfo.InvariantCulture);
+        var count = Math.Round(number, MidpointRounding.ToEven);
         if (count < 1 || count > 65526)
             throw new VBCompileErrorException("Invalid length for fixed-length string");
         return (int)count;

@@ -245,7 +245,25 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     // A disabled form is shown without being activated, so the control that had the focus keeps it (measured, #1101).
 
-    public void ShowForm()
+    public void ShowForm() => ShowForm(null);
+
+    internal void ShowModalForm(VBFormRuntime? owner)
+    {
+        ShowInTaskbar = false;
+        // Ownership for promotion over an owned descendant is unmeasured; keep that form unowned, not a native cycle.
+        for (WindowBase? ancestor = owner; ancestor is not null; ancestor = ancestor.Owner)
+            if (ReferenceEquals(ancestor, this))
+            {
+                ClearLeavingOwnership();
+                owner = null;
+                break;
+            }
+        ShowForm(owner);
+    }
+
+    internal void ClearModalOwner() => Owner = null;
+
+    private void ShowForm(VBFormRuntime? owner)
     {
         if (!positioned && CenterOnShow)
         {
@@ -254,20 +272,47 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         }
         positioned = true;
         ShowActivated = IsEnabled;
-        Show();
+        var wasShown = IsVisible;
+        if (owner is null)
+            Show();
+        else
+        {
+            // Show(owner) leaves an already visible window alone; VB6 also allows modeless-to-modal Show (#822).
+            Owner = owner;
+            Show(owner);
+        }
         // The last visible form hidden and re-shown keeps its VB focus, without another GotFocus (#3936).
         if (ReferenceEquals(windowContext.Program?.ActiveForm, windowContext.FormInstance))
             ActiveControl?.Focus();
-        // Me.Show in Load raises Activate and initial GotFocus before the next statement (#2436).
-        if (windowContext.Loading && IsEnabled)
+        // Own a new window's activation before the next statement, even when the platform callback waits (#4744,
+        // Sub Main). Activated posts the events (#994), except Me.Show inside Load's measured exception (#2436).
+        if ((windowContext.Loading || !wasShown) && IsEnabled && heldBy is null)
             windowContext.Program?.Activated(windowContext);
     }
 
-    public void HideForm() => Hide();
+    private void ClearLeavingOwnership()
+    {
+        // VB6 hides only the requested form (#3936); Avalonia hides owned children too.
+        foreach (var child in OwnedWindows)
+            if (child is VBFormRuntime form)
+                form.ClearModalOwner();
+        ClearModalOwner();
+    }
+
+    public void HideForm()
+    {
+        ClearLeavingOwnership();
+        Hide();
+    }
 
     public bool IsShown => IsVisible;
 
-    public void CloseForm() => Close();
+    public void CloseForm()
+    {
+        // The program chooses the previously active form (#994), not necessarily this modal form's owner (#4618).
+        ClearLeavingOwnership();
+        Close();
+    }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {

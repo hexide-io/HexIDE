@@ -22,6 +22,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>The server invalidated inlay hints; sender identifies the issuing connection.</summary>
     event EventHandler? InlayHintRefreshRequested;
 
+    /// <summary>The server invalidated inline debug values; sender identifies the issuing connection.</summary>
+    event EventHandler? InlineValueRefreshRequested;
+
     /// <summary>The server invalidated semantic tokens; sender identifies the issuing connection.</summary>
     event EventHandler? SemanticTokensRefreshRequested;
 
@@ -166,7 +169,7 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>
     /// Opens a document at <see cref="LspDocumentVersion.Opening"/>, stating whether it belongs to a VB6
-    /// project.
+    /// project and, where applicable, the manifest id of the add-in whose project type opened it.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -189,7 +192,8 @@ public interface ILspClient : IAsyncDisposable
     /// </para>
     /// </remarks>
     Task OpenDocumentAsync(
-        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default);
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
+        string? ownerAddinId = null);
 
     /// <summary>
     /// Sends a document's whole new text. <paramref name="version"/> must be later than the version of the
@@ -337,6 +341,8 @@ public interface ILspClient : IAsyncDisposable
     /// cannot reach the other one at all.
     /// </remarks>
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
+    Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(string uri, Position position, CancellationToken cancellationToken = default) => Task.FromResult<LinkedEditingRanges?>(null);
+
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>Requests server fixes on demand, retaining their origin for resolution and execution.</summary>
@@ -366,6 +372,9 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default);
+
+    /// <summary>Requests debug value descriptions for a visible document range.</summary>
+    Task<InlineValue[]> RequestInlineValuesAsync(string uri, HexIDE.Lsp.Messages.Range range, InlineValueContext context, CancellationToken cancellationToken = default);
 
     /// <summary>Requests display labels in a document range from offering servers.</summary>
     Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default);

@@ -8,8 +8,13 @@ public class ClipboardTests : BaseVBTestFixture
     private sealed class MemoryClipboard : ITextClipboard
     {
         public string? Text;
+        public string? Rtf;
+        public bool OtherFormats;
+        public Task<string?> GetRtf() => Task.FromResult(Rtf);
+        public Task SetRtf(string text) { Rtf = text; return Task.CompletedTask; }
+        public Task<bool> HasOtherFormats() => Task.FromResult(OtherFormats);
         public TaskCompletionSource? Gate;
-        public Task Clear() { Text = null; return Task.CompletedTask; }
+        public Task Clear() { Text = Rtf = null; OtherFormats = false; return Task.CompletedTask; }
         public async Task<string?> GetText() { if (Gate is { } gate) await gate.Task; return Text; }
         public Task SetText(string text) { Text = text; return Task.CompletedTask; }
     }
@@ -90,6 +95,7 @@ public class ClipboardTests : BaseVBTestFixture
 
     [Theory]
     [InlineData("Clipboard.SetText Null", 94)]
+    [InlineData("Clipboard.SetText Null, vbCFRTF", 94)]
     [InlineData("Debug.Print Clipboard.GetFormat(Null)", 94)]
     [InlineData("Debug.Print Clipboard.GetFormat(32768)", 6)]
     [InlineData("Debug.Print Clipboard.GetFormat(\"bad\")", 13)]
@@ -101,17 +107,127 @@ public class ClipboardTests : BaseVBTestFixture
         await Interpreter($"On Error Resume Next\n{statement}\nDebug.Print Err.Number\n").Execute();
         AssertDebugLog([new((long)error)]);
         clipboard.Text.Should().BeNull();
+        clipboard.Rtf.Should().BeNull();
     }
 
     [Theory]
-    [InlineData("Clipboard.GetData(2)")]
-    [InlineData("Clipboard.GetFormat(2)")]
-    [InlineData("Clipboard.GetText(vbCFRTF)")]
-    [InlineData("Clipboard.GetText(vbCFLink)")]
-    public async Task Unsupported_formats_are_not_silently_skipped(string expression)
+    [InlineData("Clipboard.GetData(2)", 4682)]
+    public async Task Unsupported_formats_are_not_silently_skipped(string expression, int issue)
     {
         var run = () => Interpreter($"On Error Resume Next\nDebug.Print {expression}\nDebug.Print \"continued\"\n").Execute();
-        await run.Should().ThrowAsync<NotImplementedException>();
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage($"*(#{issue})");
+        debug.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("Clipboard.SetData Nothing", 4682)]
+    public async Task Unsupported_format_statements_name_the_open_issue(string statement, int issue)
+    {
+        var run = () => Interpreter($"On Error Resume Next\n{statement}\nDebug.Print \"continued\"\n").Execute();
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage($"*(#{issue})");
+    }
+
+    // #4955, corrected supervisor measurements R0-R12; text-clipboard.md records KeepFormats.
+    public static IEnumerable<object[]> FormatRows()
+    {
+        (int row, string setup, string? text, string? rtf)[] rows =
+        [
+            (0, "", null, null),
+            (1, "Clipboard.SetText \"hello\"", "hello", null),
+            (2, "Clipboard.SetText \"\"", "", null),
+            (3, "Clipboard.SetText \"{\\rtf1 x}\", vbCFRTF", null, "{\\rtf1 x}"),
+            (4, "Clipboard.SetText \"\", vbCFRTF", null, ""),
+            (5, "Clipboard.SetText \"hello\"\nClipboard.SetText \"{\\rtf1 x}\", vbCFRTF", "hello", "{\\rtf1 x}"),
+            (6, "Clipboard.SetText \"{\\rtf1 a}\", vbCFRTF\nClipboard.SetText \"{\\rtf1 b}\", vbCFRTF", null, "{\\rtf1 b}"),
+            (7, "Clipboard.SetText \"t1\"\nClipboard.SetText \"{\\rtf1 a}\", vbCFRTF\nClipboard.SetText \"t2\"\nClipboard.SetText \"{\\rtf1 b}\", vbCFRTF", "t2", "{\\rtf1 b}"),
+            (9, "Clipboard.SetText \"hello\"\nClipboard.SetText \"x\", vbCFLink", "hello", null),
+            (10, "Clipboard.SetText 42, vbCFRTF", null, "42"),
+            (11, "Clipboard.SetText Null, vbCFRTF", null, null),
+            (12, "Clipboard.SetText \"{\\rtf1 a}\", vbCFRTF\nClipboard.Clear", null, null)
+        ];
+        foreach (var row in rows)
+        {
+            foreach (var format in new[] { 0, 1, 2, 3, 7, 8, 9, 13, 14, 15, 16, 17, -1, 32767, -16639, -16640 })
+                yield return [row.row, row.setup, format.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    new Vb6Value(format is 1 or 7 or 13 or 16 ? row.text != null : format == -16639 && row.rtf != null)];
+            yield return [row.row, row.setup, "text", new Vb6Value(row.text ?? "")];
+            yield return [row.row, row.setup, "rtf", new Vb6Value(row.rtf ?? "")];
+            yield return [row.row, row.setup, "link", new Vb6Value("")];
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(FormatRows))]
+    public async Task Measured_format_rows(int row, string setup, string query, Vb6Value expected)
+    {
+        var expression = query switch
+        {
+            "text" => "Clipboard.GetText",
+            "rtf" => "Clipboard.GetText(vbCFRTF)",
+            "link" => "Clipboard.GetText(vbCFLink)",
+            _ => $"Clipboard.GetFormat({query})"
+        };
+        await Interpreter($"On Error Resume Next\nClipboard.Clear\n{setup}\nErr.Clear\nDebug.Print {expression}\n").Execute();
+        debug.Should().Equal([expected], $"measured row R{row}");
+    }
+
+    [Fact]
+    public async Task Rtf_uses_measured_best_fit_and_nul_cut()
+    {
+        await Interpreter("""
+            Clipboard.SetText ChrW$(937) & ChrW$(256) & "a" & Chr$(0) & "b", vbCFRTF
+            Debug.Print Clipboard.GetText(vbCFRTF)
+            """).Execute();
+        AssertDebugLog([new("OAa")]);
+    }
+
+    [Fact]
+    public async Task Plain_text_keeps_rtf()
+    {
+        await Interpreter("""
+            Clipboard.SetText "{\rtf1 old}", vbCFRTF
+            Clipboard.SetText "new"
+            Debug.Print CStr(Clipboard.GetFormat(vbCFRTF)) & ":" & Clipboard.GetText(vbCFRTF) & ":" & Clipboard.GetText
+            """).Execute();
+        AssertDebugLog([new("True:{\\rtf1 old}:new")]);
+    }
+
+    [Theory]
+    [InlineData("x")]
+    [InlineData("")]
+    public async Task Link_raises_294_without_changing_text(string value)
+    {
+        await Interpreter($"""
+            On Error Resume Next
+            Clipboard.SetText "hello"
+            Clipboard.SetText "{value}", vbCFLink
+            Debug.Print Err.Number
+            Debug.Print Err.Description
+            Debug.Print Error$(294)
+            Debug.Print Clipboard.GetText
+            """).Execute();
+        AssertDebugLog([new(294L), new("Invalid DDE Link format"), new("Application-defined or object-defined error"), new("hello")]);
+    }
+
+    [Fact]
+    public async Task Raised_460_has_measured_capitalization()
+    {
+        await Interpreter("""
+            On Error Resume Next
+            Clipboard.SetText "x", 2
+            Debug.Print Err.Description
+            """).Execute();
+        AssertDebugLog([new("Invalid Clipboard format")]);
+    }
+
+    [Theory]
+    [InlineData("Clipboard.GetFormat(2)")]
+    [InlineData("Clipboard.GetText(vbCFLink)")]
+    public async Task External_formats_remain_unmeasured(string expression)
+    {
+        clipboard.OtherFormats = true;
+        var run = () => Interpreter($"On Error Resume Next\nDebug.Print {expression}\n").Execute();
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*(#5075)");
         debug.Should().BeEmpty();
     }
 

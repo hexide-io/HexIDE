@@ -50,8 +50,8 @@ public class LineComponentClass : ComponentBaseClass
     /// is read (#933). A user scale is the container's client size over its ScaleWidth and ScaleHeight, in Single
     /// precision, as VB6 holds a scale: the About Dialog's 5730-twip client over a ScaleWidth of 5380.766 makes its X1
     /// of 84.515 90 twips, and 90 twips reads back 84.51466 and 2445 reads 1687.583 (measured). Worked in Double, the
-    /// same quotients read 84.51465 and 1687.582. HexIDE holds a user scale only for a form. Centimetres and
-    /// millimetres refuse, as positions do, because VB6's measured values for them are unexplained.
+    /// same quotients read 84.51465 and 1687.582. HexIDE holds a saved Line user scale only for a form. Centimetre
+    /// PictureBoxes use #4693's measured factor; other metric Line containers remain refused pending measurement.
     /// </remarks>
     public static (double X, double Y) TwipsPerUnit(ComponentInstance line, FormDefinition form)
     {
@@ -75,7 +75,9 @@ public class LineComponentClass : ComponentBaseClass
         {
             var mode = VBLoader.DeclaredScaleMode(container) ?? VBScaleMode.Twip;
             if (mode == VBScaleMode.User)
-                throw new NotImplementedException("A Line in a PictureBox whose ScaleMode is User is not implemented (#990)");
+                throw new NotImplementedException("A Line in a PictureBox whose ScaleMode is User is not implemented (#4693)");
+            if (mode == VBScaleMode.Centimiter)
+                return (AvaloniaInterop.RuntimeScale.TwipsPerCentimetre, AvaloniaInterop.RuntimeScale.TwipsPerCentimetre);
             return Known(mode);
         }
         return (1, 1);
@@ -84,7 +86,7 @@ public class LineComponentClass : ComponentBaseClass
         {
             VBScaleMode.Twip or VBScaleMode.Point or VBScaleMode.Pixel or VBScaleMode.Character or VBScaleMode.Inch =>
                 mode.TwipsPerUnit(),
-            _ => throw new NotImplementedException($"A Line in a container whose ScaleMode is {mode} is not implemented (#990)"),
+            _ => throw new NotImplementedException($"A Line in a container whose ScaleMode is {mode} is not implemented (#4693)"),
         };
     }
 }

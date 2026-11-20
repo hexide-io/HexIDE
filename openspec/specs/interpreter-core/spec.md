@@ -18,9 +18,9 @@ worse than one that is obviously incomplete.
 >   The measured non-object Variant, Nothing and Collection paths are covered by #257; a form member through
 >   Object likewise raises 438 when absent.
 >
-> `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs and ImageList Images. Over any other
-> object, a control array included, it stops the run as not implemented rather than raising an error a handler could
-> trap.
+> `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs, ImageList Images and control arrays
+> (CommonDialog retains #4148's restrictions). Over any other control or proxy, it stops the run as not implemented
+> rather than raising an error a handler could trap. User classes dispatch their -4 enumeration member (#4679).
 >
 > Separately, some of the engine's own refusals carry no message of their own. Such a run does end, and its dialog
 > quotes the statement that reached the refusal, where that statement is known.
@@ -29,6 +29,213 @@ worse than one that is obviously incomplete.
 > here, not the intent.
 
 ## Requirements
+
+### Requirement: InputB reads bytes without code-page conversion
+
+The interpreter SHALL implement InputB and InputB$ for Binary and Input files according to
+[#4895's VB6 SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4895)
+([oracle PR #4896](https://github.com/hexide-io/HexIDE/pull/4896)). The result SHALL be a String
+holding exactly the bytes read, including odd byte counts and unchanged CR/LF bytes. File numbers
+SHALL be accepted with or without `#`. InputB SHALL retain the existing refusal of named arguments.
+
+#### Scenario: Binary bytes and positions
+- **WHEN** InputB reads two bytes followed by one byte from `41 42 43` opened for Binary
+- **THEN** the results contain `41 42` and `43`, with LenB/Len of 2/1 and 1/0
+- **AND** Loc/Seek/EOF are 2/3/False and then 3/4/False
+- **AND** a zero count reads nothing, while a negative count raises error 5 without moving or assigning
+
+#### Scenario: Input bytes and end markers
+- **WHEN** InputB reads from an Input file
+- **THEN** it counts bytes, sharing Input's error 62 and positions at physical EOF or Ctrl+Z
+- **AND** a failed read leaves the target unchanged
+- **AND** an Output or Random file raises 54, and an unopened number raises 52
+
+#### Scenario: Append checks the count before the mode
+- **WHEN** InputB or InputB$ targets an Append file
+- **THEN** the interpreter SHALL raise 54, or 5 for a negative count, without moving or assigning
+- **AND** InputB on Output and Input on Output or Append SHALL also check a negative count before the mode
+- **AND** these errors SHALL follow [#4927's native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4927) ([oracle PR #4942](https://github.com/hexide-io/HexIDE/pull/4942))
+
+#### Scenario: A Binary file changes while open
+- **WHEN** InputB reads a Binary file changed through another handle while it is open
+- **THEN** the interpreter SHALL read the current contents through the file's own stream at its position, retaining the read-access check
+- **AND** it SHALL use the current length, including growth, truncation and rewriting, whether or not the file's timestamp changed, as measured in #4927
+
+#### Scenario: A Binary read past the end is refused
+- **WHEN** a Binary read would run past the file's current end
+- **THEN** the interpreter SHALL refuse with NotImplementedException naming #4927 before moving the position or assigning the result
+- **AND** it SHALL NOT invent the stale bytes VB6 returns from its previous buffer contents
+
+#### Scenario: A file changes while open
+- **WHEN** an Input file changes through an external handle while open
+- **THEN** InputB, Input, Line Input and Input # SHALL share one 512-byte buffer, filled from the requested byte as needed, retaining held bytes even past a new end (#4944)
+- **AND** Seek SHALL empty it; EOF SHALL fill it when needed and report True only when no byte remains, retaining Ctrl+Z handling
+- **AND** LOF SHALL report the current file length; a failed fill SHALL raise 62 with the position at the buffer's end
+- **AND** EOF at the buffer's end SHALL refill it, as SHALL a Line Input looking for the LF after a CR in its last byte; LOF and a read ending exactly at the buffer's end SHALL NOT
+- **AND** a fill that finds nothing SHALL end the file until a Seek: EOF SHALL stay True and reads SHALL raise 62, even after the file grows
+- **WHEN** a Binary file changes through an external handle
+- **THEN** Input, Line Input and Input # SHALL read current bytes, retaining the read-access check
+- **AND** these behaviours SHALL match the native and p-code rows on oracle PRs #4942 and #4954
+
+### Requirement: Missing Declare libraries off Windows
+
+The interpreter SHALL collect Declare names, parameter lists, Lib strings and Sub/Function kinds without probing native libraries. Off Windows, supported missing-library calls SHALL evaluate arguments once, retaining ByRef targets, then raise trappable error 53, `File not found: ` plus the Lib string. Windows and host-library calls SHALL keep their refusal. In the missing-library path, a call through an Alias SHALL raise the same error 53, since the library fails before its entry point is sought (measured). A named argument SHALL be placed by the Declare's parameter name and evaluated once before error 53.
+
+#### Scenario: A missing DLL Function evaluates its argument
+
+- **WHEN** a Function declared in `Lib "hexide-nosuch.dll"` is called off Windows with a counted argument under On Error Resume Next
+- **THEN** the argument runs once and Err.Number is 53 with Err.Description `File not found: hexide-nosuch.dll`
+- **AND** the result follows the measurements in [#4820](https://github.com/hexide-io/HexIDE/issues/4820)
+
+#### Scenario: A native call remains deferred
+
+- **WHEN** the host is Windows or the Lib string ends in `.dylib` or `.so`, or contains `.so.` (case-insensitive)
+- **THEN** the call retains the existing "Sub or Function not defined" refusal
+- **AND** no library is loaded or probed
+
+#### Scenario: A call through an Alias
+
+- **WHEN** an off-Windows missing-library call goes through an Alias
+- **THEN** Err.Number is 53 with Err.Description `File not found: ` plus the Lib string, as without an Alias
+
+#### Scenario: A named-argument Declare call
+
+- **WHEN** an off-Windows missing-library call passes a named argument
+- **THEN** the argument is placed by name and runs once before error 53 with Err.Description `File not found: ` plus the Lib string, as measured in [#4869](https://github.com/hexide-io/HexIDE/issues/4869)
+- **AND** an uncalled declaration still loads
+
+### Requirement: For Each walks control-array indices captured at entry
+
+The interpreter SHALL walk a control array in sorted index order, capturing the indices once and resolving each
+element when reached, following [#4716's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4716).
+CommonDialog's existing enumeration restrictions remain unchanged.
+
+#### Scenario: Controls change during the walk
+- **WHEN** a new index is loaded during the loop
+- **THEN** it is not visited
+- **WHEN** an index captured at entry is unloaded before its turn
+- **THEN** error 340 names that index; under On Error Resume Next the error is recorded and the walk continues at the next index
+- **WHEN** that index is unloaded and reloaded before its turn
+- **THEN** the replacement control is visited
+
+### Requirement: GoSub and computed branches execute at procedure-level labels
+
+The interpreter SHALL execute GoSub, Return, On selector GoTo and On selector GoSub using nested passes of the procedure's top-level statement driver, following [#4726's measured rows G1–G35 and G41–G42](https://github.com/hexide-io/HexIDE/issues/4726). It SHALL preserve the existing label lookup, debugger gates and nested-granular Resume limitations.
+
+#### Scenario: Return and procedure exit
+- **WHEN** a GoSub routine executes Return
+- **THEN** execution continues after the innermost pending GoSub
+- **AND** Return with no pending GoSub raises trappable error 3, Return without GoSub
+- **WHEN** the routine executes Exit Sub or reaches the procedure's end
+- **THEN** the procedure ends, including when GoSub was inside a block
+
+#### Scenario: Computed branch selection
+- **WHEN** On selector GoTo or GoSub executes
+- **THEN** the selector is evaluated once and narrowed as CInt, including half-to-even rounding and Null's error 94
+- **AND** a selector below 0 or above 255 raises error 5; 0 or a selector past the label list falls through
+- **AND** conversion overflow beyond Integer range raises trappable error 6, before the 0 to 255 check (#4880, oracle PR #4986)
+
+#### Scenario: Error handling and stack exhaustion
+- **WHEN** an error occurs in a nested pass
+- **THEN** the procedure's handler and shared fault position govern Resume, without resetting the handler on pass entry
+- **AND** a Resume in a nested pass reached from the active handler resumes the handler's error: Err is cleared, the handler traps again, and the pending GoSubs stay pending, so code a later Return comes back to runs outside the handler (#4880, oracle PR #4986)
+- **WHEN** pending GoSubs reach HexIDE's 2,000-level cap or the execution stack guard fails
+- **THEN** ordinary trappable error 28 allows the procedure's own handler to run, including Exit Sub and Resume Next
+
+### Requirement: Set checks intrinsic control classes before storing
+
+Scalar slots declared as an intrinsic VB control class or Form SHALL retain that class, bare or
+`VB.`-qualified. Set SHALL check the actual object rather than the right-hand side's declared type,
+following [#1563's VB6 SP6 measurements](https://github.com/hexide-io/HexIDE/issues/1563)
+(native and p-code, oracle PR #4796).
+
+#### Scenario: An incompatible intrinsic control preserves the previous reference
+- **WHEN** a ListBox is assigned to a TextBox slot, directly or through Object or Variant
+- **THEN** error 13 is raised before the store and the slot retains Nothing or its previous TextBox
+- **AND** HScrollBar and VScrollBar are distinct classes, using the same names as TypeOf and TypeName
+- **AND** an intrinsic control is refused with 13 by a Form or project-class slot
+
+#### Scenario: Compatible controls and form references
+- **WHEN** a control is assigned to its own class, Control, Object or Variant
+- **THEN** the slot retains that same control
+- **AND** a project form can be stored in a Form slot
+- **AND** a form or project-class instance assigned to a control-class slot raises 13
+
+#### Scenario: For Each uses the same store check
+- **GIVEN** a form whose first control is a Timer
+- **WHEN** `For Each t In Controls` runs with `t As TextBox` under On Error Resume Next
+- **THEN** Err.Number is 13, the body runs once and t remains Nothing
+
+#### Scenario: A scalar Control slot refuses measured non-control objects
+- **GIVEN** a scalar variable declared `As Control` or `As VB.Control`
+- **WHEN** Set assigns a form instance, a project-class instance, Collection, StdFont or a form's Controls collection
+- **THEN** error 13 SHALL be raised before storing, retaining Nothing or the previous control reference
+- **AND** the check SHALL inspect the object, including through Object or Variant
+- **AND** rejecting another form SHALL NOT run its Load event
+- **AND** intrinsic controls and Nothing SHALL still store, including a Timer through Object
+- **AND** Control SHALL retain its late-binding view on reads
+
+These scalar Control stores follow [#4864's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4864)
+(oracle PR #4866), including stores in standard modules. Other objects, UserControls, OCX controls,
+control arrays/elements and parameters retain their existing behaviour pending measurement. Type
+fields follow #3924’s measured checks, and array fields follow #4925’s measured checks. `As Form1` remains outside this slice.
+
+### Requirement: Let into an object target checks its declared view during execution
+
+The interpreter SHALL refuse Let into a variable declared As Collection, or as a project class whose default member's first parameter is required, with "Argument not optional" when the statement executes. It SHALL apply the same check to a module property without Let, using the Get's declared type before running the getter. These outcomes are measured in [#4675](https://github.com/hexide-io/HexIDE/issues/4675).
+
+#### Scenario: Early-bound target and an uncalled procedure
+- **WHEN** a Let into such a target executes
+- **THEN** the interpreter raises the compile-error exception even under On Error Resume Next
+- **AND** a line in a procedure never called remains undiagnosed, unlike VB6's build check
+
+#### Scenario: Late-bound default requires an argument
+- **WHEN** an As Object target holds a project class whose default member requires its first argument
+- **THEN** Let raises run-time error 449 and retains the object
+- **AND** a Collection held As Object or a class without a default member raises 438
+- **AND** a variable declared as an interface uses the interface's default member, so one with none raises 438
+- **AND** a parameterless project default member takes the value, through a module property as through a variable
+
+#### Scenario: A module property has no Let accessor
+- **WHEN** a class or Object getter returns Nothing
+- **THEN** Let raises 91
+- **WHEN** a Variant getter returns a non-object
+- **THEN** Let raises 424
+- **AND** a Variant getter returning an object remains unmeasured and refused as not implemented (#4675)
+
+### Requirement: Type fields hold measured object types and accept indexed Set targets
+
+Type fields declared as Object, Collection, project classes, StdFont, TextBox, Control, Form or StdPicture SHALL start as Nothing and hold references. Set SHALL check the declared object type before replacing the slot; record copies SHALL share references in independent slots. These outcomes follow [#3924's SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/3924).
+
+#### Scenario: An object field type remains unmeasured
+- **WHEN** a scalar field declares another recognised object type, including ADODB.Connection
+- **THEN** the interpreter SHALL refuse it as not implemented pending measurement
+
+#### Scenario: A Set target remains unmeasured
+- **WHEN** Set reaches another scalar field, a fixed-length String field, a non-Integer scalar-array element or a typed scalar array held in a Variant field
+- **THEN** the interpreter SHALL keep the explicit not-implemented refusal naming #3924
+- **AND** successive index groups, indexed object defaults and As New scalar-field Set retain that refusal
+
+#### Scenario: A held built-in object receives Let
+- **WHEN** a Let assigns to a held TextBox or StdFont field
+- **THEN** it writes Text or Name respectively without replacing the object
+- **AND** Let into either field while Nothing raises 91
+
+#### Scenario: Set through an indexed record or array field
+- **WHEN** Set targets an object field through a fixed, nested or dynamic Type-array element
+- **THEN** it updates the owned record and leaves other records untouched
+- **AND** ReDim Preserve retains surviving references
+- **WHEN** Set targets an element of an object or Variant array field, or of an array held in a Variant field
+- **THEN** it stores the reference, applying an object array's declared-type check
+- **AND** an out-of-range subscript raises 9, and indexing an Empty Variant field raises 13
+- **AND** a plain Variant field accepts an object or Nothing through Set
+
+#### Scenario: A target cannot hold an object reference
+- **WHEN** Set targets an Integer, variable-length String or nested-Type field, or an Integer-array field element
+- **THEN** the interpreter raises the compile-error exception with "Object required"
+- **WHEN** a field declares an unknown type
+- **THEN** it raises the compile-error exception with "User-defined type not defined"
+- **AND** Put refuses a record containing a StdFont field as an object-containing record
 
 ### Requirement: A running form accepts Icon assignments
 
@@ -48,9 +255,94 @@ A running form's default instance SHALL accept icon pictures or Nothing through 
 - **AND** a subsequent LoadPicture() leaves that window state unchanged
 
 #### Scenario: Reads before assignment
-- **WHEN** a program reads Icon before assigning it
-- **THEN** the interpreter SHALL refuse it as not implemented
+- **WHEN** a program reads a default or saved icon before assigning Icon
+- **THEN** the interpreter SHALL return its original icon picture with Type 3, as measured for the default icon in [#3924](https://github.com/hexide-io/HexIDE/issues/3924); a saved icon reads the same way, reasoned rather than measured
+- **AND** reading a saved (None) before assignment remains unmeasured and refused as not implemented
 
+
+### Requirement: Predefined conditional constants follow the project target and host
+
+Interpreter runs and default code-window greying SHALL select predefined constants by the project's
+`[HexIDE] Targets=RDCore`, then its VBA7 bitness and host, following
+[#4821](https://github.com/hexide-io/HexIDE/issues/4821). The key SHALL NOT choose a run engine. Besides the
+constants, `Targets=RDCore` SHALL switch on the run-time additions of the next requirement
+([#4967](https://github.com/hexide-io/HexIDE/issues/4967)). Module `#Const` definitions SHALL shadow project
+`CondComp` arguments, which SHALL shadow predefined constants.
+
+#### Scenario: Recorded host tables
+- **WHEN** the target and host are one of the following rows
+- **THEN** the constants are the numeric 0 or 1 values shown, with undefined names omitted
+- **AND** the external backend table mirrors SDK `PredefinedConditionalConstants.cs` (`Of`) at version 0.1.11-alpha ([#4890](https://github.com/hexide-io/HexIDE/issues/4890)), omitting `DEBUG`, on HexIDE's 64-bit hosts
+
+| Target | Host | Win16 | Win32 | Win64 | Mac | Linux | Is64BitEnv | VBA6 | VBA7 |
+|---|---|---|---|---|---|---|---|---|---|
+| `Targets=RDCore` | Windows | 0 | 1 | 1 | 0 | 0 | 1 | 1 | 1 |
+| `Targets=RDCore` | macOS | 0 | 0 | 1 | 1 | 0 | 1 | 1 | 1 |
+| `Targets=RDCore` | Linux | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
+| VBA7 64-bit | macOS | 0 | 0 | 1 | 1 | undefined | undefined | 1 | 1 |
+
+For `Targets=RDCore`, the IDE-wide `RDCoreWin64OnlySetOnWindows` setting SHALL change only macOS's `Win64` to 0
+when true ([#5036](https://github.com/hexide-io/HexIDE/issues/5036)). It SHALL default to false and be profile-settable.
+The setting SHALL have no effect without that target. Each run SHALL capture its value at startup;
+a settings change SHALL apply to the next run. The legacy project key SHALL be ignored.
+`Linux64` SHALL be undefined unless the project or module defines it.
+
+#### Scenario: Default targets and unmeasured hosts
+- **WHEN** a 64-bit VBA7 project has no target key on macOS
+- **THEN** it uses the measured Excel for Mac 16.115 row above
+- **AND** unmeasured 32-bit VBA7 on macOS and VBA7 on Linux retain their Windows tables
+- **AND** VB6 retains its existing table on every host
+
+#### Scenario: A project opened by its external backend type
+- **WHEN** a project is opened through the `.rdproj` project type
+- **THEN** the code window defaults to the external backend constants target
+- **AND** the project's run offers are unchanged
+
+#### Scenario: A portable pause avoids a Windows Declare
+- **WHEN** a project selects `Targets=RDCore` on macOS with `RDCoreWin64OnlySetOnWindows` enabled, or on Linux with either setting value, and tests `#If Win32 Or Win64 Then`
+- **THEN** execution and default editor greying select its `#Else` Timer loop
+- **AND** on macOS the default RDCore table, or `VbaBitness=64` with no target key, selects its Windows Declare branch
+- **AND** on Windows either setting value selects the Windows Declare branch
+
+#### Scenario: Program definitions override the selected target
+- **WHEN** a project argument defines `Mac=0` for the external backend target on macOS
+- **THEN** `#If Mac` is false
+- **AND** a module's `#Const Mac=1` overrides that argument
+
+### Requirement: An RDCore target takes RDCore's run-time additions
+
+A run targeting RDCore (`[HexIDE] Targets=RDCore` or a contributed `.rdproj`) SHALL support PNG in `LoadPicture`
+and Image, Label and PictureBox `Opacity` (#4967, [#4982](https://github.com/hexide-io/HexIDE/issues/4982)).
+Other projects SHALL keep VB6's behaviour. These additions SHALL follow measured RDC behaviour, never RDCore's
+source. The run SHALL select them centrally from the project's target, never from a particular program.
+
+#### Scenario: LoadPicture reads a PNG
+- **WHEN** a run that targets RDCore calls `LoadPicture` on a PNG file
+- **THEN** it SHALL return a bitmap picture of `Type` 1, sized in HIMETRIC at 96 DPI
+- **AND** an Image or a PictureBox given it SHALL show it, and its `Picture` SHALL read it back
+- **AND** a PNG cut short that keeps its signature and a whole IHDR SHALL load as a `Type` 1 picture of the size IHDR
+  declares, and one cut shorter SHALL raise 481
+- **AND** a VB6 or VBA project's `LoadPicture` SHALL still refuse a PNG with 481
+- **AND** a Panel's picture and the designer's Load Picture SHALL refuse a PNG in every project
+
+#### Scenario: An Image's Opacity
+- **WHEN** a run that targets RDCore reads or sets an Image's `Opacity`
+- **THEN** it SHALL be a Double that reads 1 on a new Image, and a value from 0 to 1 SHALL be kept as given
+- **AND** a value outside 0 to 1 SHALL raise 380 and keep the value before it
+- **AND** a form file's `Opacity` line SHALL be read, and an element made by `Load` SHALL take its template's
+- **AND** a form file's value outside 0 to 1 SHALL be ignored with no error, leaving 1
+- **AND** the Image SHALL draw its picture blended over what is behind it, with `Opacity` as its alpha, as RDC does
+- **AND** in a VB6 or VBA project `Opacity` SHALL be refused as any member an Image lacks is
+
+#### Scenario: A Label's or PictureBox's Opacity
+- **WHEN** a run that targets RDCore reads or sets a Label's or PictureBox's `Opacity`
+- **THEN** it SHALL be a Double, defaulting to 1, accepting 0 to 1, and raising 380 outside that range while keeping its previous value
+- **AND** a form-file value in range SHALL be read; an out-of-range value SHALL be ignored without error, leaving 1
+- **AND** an opaque BackColor (220, 40, 40) over a white form at 0.5 SHALL draw (238, 148, 148), as measured under RDC on Linux in #4982
+- **AND** hiding and showing a PictureBox SHALL preserve its Opacity and restore its drawing at that alpha
+- **AND** PictureBox `CallByName` Get/Let SHALL reach the same property, coercing a String and accepting case-insensitive names; Set SHALL raise 438 without changing the value
+- **AND** VB6 and VBA projects SHALL refuse the member and ignore the form-file line
+- **AND** transparent Labels, children inside a translucent PictureBox, overlapping controls, and Windows/macOS drawing remain unmeasured and retain today's Avalonia drawing
 
 ### Requirement: Measured 32-bit VBA7 integer support
 
@@ -63,7 +355,7 @@ power operator and Declare SHALL accept either presence or absence of PtrSafe (m
 for an As Long result and with it for As Long and As LongPtr; As LongPtr without it is reasoned).
 
 #### Scenario: 32-bit constants
-- **WHEN** a project targets 32-bit VBA7
+- **WHEN** a project targets 32-bit VBA7 and has no predefined constants target
 - **THEN** VBA6, VBA7 and Win32 are numeric 1, and Win64, Win16 and Mac are numeric 0
 
 #### Scenario: 32-bit pointer integer
@@ -160,9 +452,37 @@ or Property Let on a write, preserving the returned value without scalar coercio
 - **WHEN** Holder.State is a parameterless Get returning a Bag with default Item(key)
 - **THEN** `h.State("k")` reads Item("k") and `h.State("k") = "w"` runs its Property Let
 
-#### Scenario: Unmeasured parameterized defaults
-- **WHEN** arguments reach a class without a default, a Variable/Sub default, or a write without a default Property Let
-- **THEN** execution refuses untrappably naming #4606
+#### Scenario: Arguments on a missing default
+- **WHEN** arguments reach a class without a default member
+- **THEN** reads and writes raise 438, following the native and p-code measurements in [#4747](https://github.com/hexide-io/HexIDE/issues/4747)
+
+#### Scenario: Arguments on a Sub default
+- **WHEN** arguments reach a default Sub on a read or write
+- **THEN** an early-bound reference gives the compile error "Expected Function or variable"
+- **AND** a late-bound reference runs the Sub on a read, returning Empty; on a write, As Object runs it and raises 451, and a Variant raises 450 without running it
+
+#### Scenario: Arguments on a variable default
+- **WHEN** arguments reach a default variable
+- **THEN** a late-bound reference raises 451; early-bound Variant arrays return the indexed element, and writes check the index without changing the field
+- **AND** early-bound Variant scalar/Empty fields raise 13, array indexes past the bounds raise 9, and typed scalar fields give "Wrong number of arguments or invalid property assignment" on a read or "Can't assign to read-only property" on a write
+- **AND** these results follow the native and p-code measurements in [#4747](https://github.com/hexide-io/HexIDE/issues/4747)
+
+#### Scenario: Assignment without a default Let
+- **WHEN** an indexed assignment reaches a default Get without a Let, or a default Function
+- **THEN** the member runs with the index arguments and a scalar result raises 424 early-bound or 451 late-bound
+- **AND** held in a Variant, a write through a default Function raises 450 without running it
+- **AND** an object result receives the value through its own default Property Let, as measured in [#4906](https://github.com/hexide-io/HexIDE/issues/4906)
+
+#### Scenario: A default Property without an accessor
+- **WHEN** a Let reaches a default Property with no Get and no Let, or a read reaches one with no Get
+- **THEN** an early-bound reference gives the compile error "Invalid use of property"
+- **AND** a late-bound reference raises 450 without running anything
+
+#### Scenario: A Let of Nothing
+- **WHEN** a Let's value is Nothing
+- **THEN** it raises 91, following [#5083](https://github.com/hexide-io/HexIDE/issues/5083)
+- **AND** a project class's indexed default-member result leaves a Variant target Empty on failure,
+  whereas a variable holding Nothing preserves its target
 
 ### Requirement: Trailing argument and declared array type refusals
 
@@ -197,6 +517,31 @@ raise "Variable not defined" during execution. These behaviours are
 #### Scenario: An existing module array
 - **WHEN** a procedure executes ReDim on its module's `Dim mArr() As Long`
 - **THEN** it resizes that module array instead of declaring a local
+
+### Requirement: Collection class enumeration
+
+The interpreter SHALL collect a Function or Property Get marked `VB_UserMemId = -4` and call it
+when For Each walks a user class held through its own type, Object or Variant. A returned Collection
+enumerator SHALL use the existing live Collection cursor. A missing member, Nothing or non-enumerator
+result SHALL raise 92 "For loop not initialized"; under Resume Next the body SHALL run once with Empty.
+These behaviours are measured in [#4679](https://github.com/hexide-io/HexIDE/issues/4679).
+
+#### Scenario: Appending during class enumeration
+
+- **WHEN** a class returns its Collection's `[_NewEnum]` from a -4 member and appends an item during the loop
+- **THEN** the loop visits that item after the existing items
+
+### Requirement: Opaque Collection enumerator
+
+`Collection.[_NewEnum]` SHALL return a fresh opaque value with TypeName "Unknown", VarType 13 and
+IsObject False. Set into IUnknown or Variant SHALL succeed; Set into Object and Let into Variant
+SHALL raise 13, following the measured p-code row in #4679. A late call SHALL raise 424 and direct
+For Each over the enumerator SHALL raise 92.
+
+#### Scenario: Independent reads
+
+- **WHEN** two reads of a Collection's `[_NewEnum]` are compared with Is
+- **THEN** the result is False
 
 ### Requirement: For Each collection references and declarations
 
@@ -249,6 +594,21 @@ Missing files in existing folders SHALL raise 53, missing folders 76 and directo
 The description SHALL preserve the passed path; relative-path spelling remains unmeasured.
 Metafiles and file cursors SHALL refuse as unmeasured, and recognised but undecodable images and other I/O
 failures SHALL retain their not-implemented refusals. No-argument clearing and other argument refusals remain unchanged.
+
+For ICO files, `LoadPicture` SHALL take the first 32×32 directory entry when several images exist,
+following [#4623](https://github.com/hexide-io/HexIDE/issues/4623) and [the order measurements](https://github.com/hexide-io/HexIDE/pull/4692).
+A single-image file SHALL keep its own dimensions. When no entry is 32×32, `LoadPicture` SHALL take
+the first image at its own dimensions, following [#4748](https://github.com/hexide-io/HexIDE/issues/4748)
+and [the measurements in PR #4837](https://github.com/hexide-io/HexIDE/pull/4837). A selected PNG image or
+a BITMAPINFOHEADER image missing its AND mask at any depth SHALL raise trappable 481 regardless of
+image-size/resolution header fields. Only the selected image SHALL undergo these checks.
+Saved pictures, SSTab pictures and resource groups SHALL retain their existing decoding paths.
+
+#### Scenario: An icon contains a larger PNG beside a 32×32 bitmap
+
+- **WHEN** LoadPicture reads an ICO with a 256×256 PNG and a masked 32×32 bitmap in either order
+- **THEN** the Picture reports Type 3 and Width 847 HiMetric
+- **AND** it draws the 32×32 bitmap
 
 #### Scenario: A program falls back after a picture error
 
@@ -341,7 +701,8 @@ be refused as not implemented.
 
 A variable declared `As ErrObject` SHALL accept Err and Nothing. Assigning a Collection SHALL
 raise 13 and preserve the previous reference. `New ErrObject` SHALL raise a trappable run-time
--2147221164, "Class not registered" (VB6 SP6 native/p-code measurements, #2627).
+-2147221164, "Class not registered" followed by CR LF (22 characters; VB6 SP6 native/p-code/IDE
+measurement in [#4676](https://github.com/hexide-io/HexIDE/issues/4676), oracle PR #4731).
 
 #### Scenario: Refused Collection assignment
 
@@ -353,7 +714,7 @@ raise 13 and preserve the previous reference. `New ErrObject` SHALL raise a trap
 
 - **GIVEN** `e As ErrObject` holds Nothing
 - **WHEN** `Set e = New ErrObject` executes under `On Error Resume Next`
-- **THEN** Err.Number is -2147221164, Err.Description is "Class not registered", and e remains Nothing
+- **THEN** Err.Number is -2147221164, Err.Description is "Class not registered" followed by CR LF (length 22), and e remains Nothing
 
 ### Requirement: One engine SHALL serve every execution path
 Running from the IDE, running under automation, and running in tests SHALL all execute through the same
@@ -543,15 +904,44 @@ may not be named", and named IMEStatus "Wrong number of arguments or invalid pro
 - **WHEN** `FV(Pmt:=-100, NPer:=12, Rate:=0.01)` executes
 - **THEN** its value equals `FV(0.01, 12, -100)`
 
+### Requirement: Measured control and form named arguments
+
+The interpreter SHALL bind the control/form parameter names measured by
+[#1474](https://github.com/hexide-io/HexIDE/issues/1474) in parameter order. Unknown/repeated names and
+missing required parameters SHALL raise the measured compile errors as the statement executes.
+Unmeasured names SHALL remain unimplemented. Name binding SHALL preserve existing method execution refusals.
+
+#### Scenario: Measured method signatures
+- **WHEN** an early-bound control or form method receives named arguments
+- **THEN** ListBox/ComboBox AddItem takes Item/Index and RemoveItem takes Index; TextBox/form Move takes Left/Top/Width/Height; ZOrder takes Position; form TextWidth takes Str; PictureBox ScaleX takes Width/FromScale/ToScale
+- **AND** form TextWidth and form ZOrder execution remain explicitly unimplemented
+
+#### Scenario: AddItem evaluates its parameters in order
+- **WHEN** `List1.AddItem Index:=F(1), Item:=F("c")` executes early-bound
+- **THEN** F receives "c" before 1 and c is inserted at index 1
+
+#### Scenario: A gap prevents a move
+- **WHEN** `Text1.Move 200, Height:=400` executes
+- **THEN** error 448 is raised and no position or size changes
+- **AND** optional gaps in TextBox/form Move and PictureBox ScaleX raise 448 whether named or positional
+
+#### Scenario: A late-bound control takes no names
+- **WHEN** an Object holding a ListBox executes `o.AddItem Item:="late"`
+- **THEN** error 448 is raised and the list stays unchanged
+- **AND** all named method arguments on the measured control/form targets through Object or Variant raise 448, including repeated names
+- **AND** `As Control` and `As VB.Control` ListBox AddItem and TextBox Move calls with names raise 448 without changing the target, while positional calls still work ([#4737](https://github.com/hexide-io/HexIDE/issues/4737), SP6 native/p-code, measuring PR #4753)
+- **AND** a variable declared as the control's or form's own class (`As ListBox`, `As TextBox`, `As Form`, `As Form1`) binds the names
+- **AND** a Collection retains its existing named binding
+
 ### Requirement: Measured straight-line and sum-of-years depreciation
 
 The interpreter SHALL implement positional `SLN` and `SYD` calls with Double results matching
 all measured rows in [#2524](https://github.com/hexide-io/HexIDE/issues/2524) bit for bit.
-It SHALL accept their measured named parameters (#4145) and refuse unmeasured positional argument counts as not implemented.
+It SHALL accept their measured named parameters (#4145) and the argument/error rules measured in #4883.
 `DDB` SHALL use #2524's approved closest model: exact rate, a Double spill at
 `1 - rate`, financial-number power and exact book value and amount, returning the nearest Double
 to the smaller of amount and book value minus salvage. It SHALL default Factor to 2, raise error 5
-for zero life or period outside 1 to life, and refuse unmeasured argument counts and power domains.
+for zero life, zero factor, period outside 1 to life or the measured overflowing cost-minus-salvage case (#4883). It SHALL refuse unmeasured DDB power domains and non-finite inputs.
 It SHALL take the named arguments `Cost`, `Salvage`, `Life`, `Period` and `Factor`, as measured on SP6.
 
 #### Scenario: Approved DDB rounding divergence
@@ -588,14 +978,29 @@ program that compiles and runs.
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
 ### Requirement: CallByName SHALL dispatch class and implemented in-box members
-`CallByName` SHALL support Collection `Add` with item/key and `Item` with one index through VbMethod,
+`CallByName` SHALL support Collection `Count` without arguments, `Add` with one to three arguments,
+`Remove` and `Item` with one index through VbMethod (#4688, measured native and p-code; oracle PR #4690),
 and `Err.Number` through VbGet, as expressions or statements, bare or VBA-qualified (#2519).
+Collection object results SHALL retain identity for Set and TypeName; a C1 instance with no default member
+used without Set SHALL raise 438. Collection Add/Remove as values SHALL return Empty.
+Count with arguments and Item without an index SHALL raise 450, independently of late-bound Count
+arity error 451. Unknown Collection VbMethod names and Item via VbLet SHALL raise 438.
+Other Collection errors SHALL pass through unchanged.
 Class instances SHALL support public scalar field Get/Let, Property Get/Let/Set and method calls through the
 same procedure binder as direct calls, preserving conversions, Optional, ParamArray and ByRef writeback.
 Class object results SHALL be returned for Set; a Collection result used as a value raises 450.
 A Sub used as a value SHALL return Empty. Missing or empty class member names and call types 0/16 raise 438;
 Get on a method raises 450, too few arguments 449, and too many 450.
-Forms/controls, Collection object results, private members, non-scalar fields, field Set/indexing and
+TextBox, ListBox, ComboBox, PictureBox and form access SHALL share the existing parse-tree property and method helpers (#4520,
+[SP6 native/p-code measurements](https://github.com/hexide-io/HexIDE/issues/4520), oracle PR #4759).
+Names SHALL be case-insensitive; call type 3 SHALL read properties. A mismatched call type SHALL raise 438,
+and measured method/property arity errors SHALL raise 450. List Get without an index SHALL raise 385;
+ListCount Let SHALL raise 383. Indexed Let SHALL take its index before its value.
+An empty TextBox member name SHALL read Text. Object results SHALL preserve identity for Set; a TextBox
+consumed by a Let assignment SHALL read Text, a Font its Name, and a form without its default index SHALL raise 450.
+Let arguments SHALL use the same default-value conversion as direct assignment. Members the direct paths
+refuse SHALL remain refused, including TextWidth and New StdFont; no initial StdFont values SHALL be invented.
+Private members, non-scalar fields, field Set/indexing and
 unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
 combinations, omitted arguments and name/call-type conversions. Named arguments SHALL raise the compile
 error "Argument in ParamArray may not be named" as the statement runs (#4145).
@@ -709,13 +1114,26 @@ program that never fails.
 ### Requirement: Parse-time compile errors carry their file location
 A compile error leaving `BasicInterpreter.Parse` with a `Line` SHALL carry an `ErrorLocation` with the module
 being parsed and that line, counted from the top of the whole file as the code window numbers it (#3960).
-The exception type and message SHALL remain unchanged. A compile error without a line SHALL remain unlocated.
+The exception type SHALL remain unchanged. A compile error without a line SHALL remain unlocated.
 
 #### Scenario: A project fails to start while parsing
 - **WHEN** a syntax error or classic-dialect refusal is found while parsing a standard module, class or form
 - **THEN** the failed start exposes that module and whole-file line through `FailureLocation` while reporting
 - **AND** `get_last_runtime_error` returns them in its `module` and `line` fields
 - **AND** the compile-error dialog still offers only End
+
+### Requirement: Parse failures retain parser detail below the VB6 message
+The interpreter and syntax checker SHALL lead parse failures with the VB6 message measured in
+[#4415](https://github.com/hexide-io/HexIDE/issues/4415), or `Syntax error` for unmeasured inputs.
+The next line SHALL start `Parser: ` and retain the previous parser detail and position. Pairing SHALL
+use block keywords within each procedure and ignore single-line If. Language-server diagnostics and
+non-parse compile errors SHALL remain unchanged.
+
+#### Scenario: An unclosed block If
+- **WHEN** parsing fails for a block If without End If
+- **THEN** the first diagnostic line is `Block If without End If`
+- **AND** the reported line is the procedure's End Function
+- **AND** the next diagnostic line retains the parser's own explanation and position
 
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
@@ -1182,8 +1600,23 @@ TypeName is `Font`, whose default member is Name, and whose Size reads as Curren
 SHALL share that reference and propagate supported mutations to every owning control. Independent form
 and control fonts SHALL start as distinct references. `Set Font = Nothing` SHALL raise 380 without
 replacing the font. Font access on scroll bars, Timer, Shape, Line and Image SHALL raise 438.
-Unmeasured object-member conversions and writes SHALL refuse as not implemented. Standalone StdFont,
-the file controls and Data, and Locals expansion remain outside this implementation slice (#934).
+Unmeasured object-member conversions and writes SHALL refuse as not implemented. The file controls and
+Data, and Locals expansion remain outside this implementation slice (#934).
+
+Standalone `New StdFont` and `New stdole.StdFont`, including auto-instancing, SHALL create an ownerless
+Font with the initial members and supported assignments measured in [#4781](https://github.com/hexide-io/HexIDE/issues/4781).
+It SHALL share the control Font reference and publish later mutations after `Set Text1.Font = f`.
+Assignments SHALL also implement the exact successful and error rows measured in
+[#4807](https://github.com/hexide-io/HexIDE/issues/4807), including name, size and charset substitutions
+and the differing Bold/Weight name results. Failed assignments SHALL preserve every member.
+On a font reading exactly as fresh (MS Sans Serif, Size 8.25, Weight 400, Charset 0 and all flags False),
+assignments SHALL additionally implement the conversions and exact substitutions measured in
+[oracle PR #4943](https://github.com/hexide-io/HexIDE/pull/4943)
+([rows](../../../docs/vb6-fidelity-oracle/a-free-standing-stdfonts-values-of-every-type.md)).
+Null SHALL raise 13 for every member in that state. Standalone Weight SHALL retain measured 350 and 500 readbacks.
+Other values and input types, and other font states beyond the earlier supported rows, SHALL refuse as not implemented,
+citing #4926. TypeName retains
+the shared object’s `Font` spelling.
 
 #### Scenario: Two controls share one Font
 
@@ -1374,6 +1807,18 @@ Measured in [a form's own ActiveControl](../../../docs/vb6-fidelity-oracle/a-for
 - **WHEN** a form's Visible property is set to False or True
 - **THEN** it SHALL follow Hide or Show respectively, including the active form's control focus and activation transition
 
+#### Scenario: A control on a loaded or hidden form
+- **WHEN** a program reads a windowed control's Visible on a form that is not shown
+- **THEN** it SHALL read False, using the form view's IsShown on desktop and hosted forms
+- **WHEN** the form is shown
+- **THEN** the control SHALL read its own visibility value
+- **AND** a Label, Image, Shape, Line or menu SHALL keep reading its own value through Load, Show and Hide
+- **AND** a UserControl, windowless or not, SHALL read as a windowed control does
+- **AND** the setter and the hidden-container behavior SHALL remain unchanged
+
+Measured button, Line, ProgressBar and loaded button-array rows: [#4829](https://github.com/hexide-io/HexIDE/issues/4829). Label, Image, Shape, menu and UserControl rows: `docs/vb6-fidelity-oracle/visible-before-a-form-is-shown.md`.
+Hidden Frame/PictureBox ancestry and immediate reads after setting Visible on a hidden form remain unmeasured.
+
 #### Scenario: The active form unloads with another form shown
 - **WHEN** the active form unloads while a previously active form remains shown
 - **THEN** that remaining form SHALL receive Activate and its remembered control SHALL receive GotFocus
@@ -1483,9 +1928,9 @@ and unmeasured HelpContext conversions SHALL be refused as not implemented.
 The interpreter SHALL execute the measured positional `Pmt`, `FV` and `PV` calls from
 [#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving their exact Double bits and
 measured errors. It SHALL round the base `1 + rate` to Double before retaining higher-precision
-intermediates. Named calls SHALL use the measured names, including Due (#4145). Unmeasured positional
-argument errors and unsupported calculation domains SHALL
-fail clearly as unimplemented, rather than supply an invented VB6 result.
+intermediates. Named calls SHALL use the measured names, including Due (#4145).
+The argument and p-code domain rows measured in #4883 SHALL execute with their recorded bits and errors.
+Non-finite inputs and powers beyond the measured 20,000-period range SHALL refuse as unimplemented.
 
 #### Scenario: Ordinary loan payment retains intermediate precision
 - **WHEN** a program evaluates `Pmt(0.08 / 12, 120, 10000)`
@@ -1499,13 +1944,52 @@ fail clearly as unimplemented, rather than supply an invented VB6 result.
 - **WHEN** a program calls `Pmt(0.1, 0, 1000)` or `Pmt(Null, 10, 1000)`
 - **THEN** it raises error 5 or 94 respectively
 
+### Requirement: Financial argument conversions and p-code errors
+
+The thirteen financial intrinsics SHALL follow the Variant conversions, argument counts,
+array errors and p-code arithmetic rows measured on SP6 in [#4883](https://github.com/hexide-io/HexIDE/issues/4883).
+They SHALL preserve the recorded bits and errors, except in the explicitly refused model domains
+and accepted #2524/#2525 precision differences below. Non-finite inputs SHALL remain refused.
+
+#### Scenario: Variant scalar conversions
+- **WHEN** a financial numeric argument is a numeric String, Date, Boolean, Empty, Currency or Decimal
+- **THEN** it converts as CDbl does
+- **WHEN** it is Null, a nonnumeric or empty String, an array, an Error value, Nothing or a Collection without an index
+- **THEN** it raises 94, 13, 13, 13, 91 or 450 respectively
+
+#### Scenario: Optional omission and excess arguments
+- **WHEN** a missing Optional Variant is forwarded to an optional financial position
+- **THEN** that position takes its default
+- **WHEN** a call supplies too many arguments
+- **THEN** it raises 450 at execution time
+
+#### Scenario: Required omission differs from forwarded Missing
+- **WHEN** Pmt is called with a required blank slot or too few arguments
+- **THEN** execution raises 449
+- **WHEN** a missing Optional Variant is forwarded as Pmt's required rate
+- **THEN** execution raises 13
+
+#### Scenario: Financial cash-flow array shape
+- **WHEN** NPV, IRR or MIRR receives an undefined or multidimensional Double array
+- **THEN** it raises 5
+- **WHEN** NPV or IRR receives a Long array, Variant array, Variant holding a Double array or scalar
+- **THEN** it raises 13
+- **WHEN** NPV receives rate 0.1 and a Double array from 1 to 3 containing -100, 50, 60
+- **THEN** the Double result has bits `C012081400C4F3E8`
+
 ### Requirement: Measured periods, interest, principal and rate calculations
 
 The interpreter SHALL execute every measured positional NPer, IPmt, PPmt and Rate row in
 [#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving exact Double bits and errors.
-It SHALL use the fitted per-function spills described in
-[Financial precision](../../../docs/financial-precision-2523.md). Unmeasured argument conversions,
-and unsupported domains SHALL refuse as unimplemented. Named calls SHALL use the measured names, including Due (#4145).
+It SHALL use the fitted per-function spills in [Financial precision](../../../docs/financial-precision-2523.md)
+and #4883's measured conversions and p-code errors. Named calls SHALL accept the measured names (#4145).
+The remaining precision/unmeasured domains below SHALL refuse.
+
+#### Scenario: Remaining interest and principal precision domains
+- **WHEN** an IPmt/PPmt powered principal exceeds Double range
+- **THEN** execution refuses with #4883, because the fitted model misses the measured 1E+308 rows by one ULP
+- **WHEN** rate -1 is used at a period other than 2, or a financial power exceeds 20,000 periods
+- **THEN** execution remains refused with #4883 because that domain remains unmeasured
 
 #### Scenario: Beginning-period interest and zero-rate interest
 - **WHEN** the program evaluates the measured first-period beginning payment or zero-rate IPmt call
@@ -1526,10 +2010,18 @@ accept these styles without changing window state. WindowStyle SHALL convert thr
 to 2 when omitted. Values outside 0–9 SHALL raise 5. These styles and defaults are measured in
 [#4146](https://github.com/hexide-io/HexIDE/issues/4146); the original argument/result measurements are in
 [the Shell oracle](../../../docs/vb6-fidelity-oracle/shell.md).
-Empty paths, directories and recognisable ASCII text documents (including associated documents) SHALL raise 5, missing programs
-53 and Null arguments 94. Unix SHALL retain direct process launching and map non-executable document
-failures to 5 where distinguishable. Non-string PathName conversions, access denied to executables,
-programs that exist but cannot start, and ambiguous/binary document classification SHALL refuse explicitly as not implemented pending measurement (#4406).
+PathName SHALL convert scalar values through CStr; Empty paths and directories SHALL raise 5,
+Null SHALL raise 94, arrays and Error values SHALL raise 13, Nothing SHALL raise 91, and a
+Collection SHALL raise 450. Other live objects and unmeasured PathName types (including UDTs
+and unsigned Automation values) SHALL refuse explicitly as not implemented.
+Windows launch errors 2/3 SHALL raise 53 and 5/193/216 SHALL raise 5 regardless of file content
+or association; batch files SHALL launch and return their process ID. Unix SHALL retain direct
+launching: ENOENT for a missing program SHALL raise 53, and EACCES/ENOEXEC on an existing file
+SHALL raise 5 regardless of content or execute permissions. Other launch failures, including an
+existing Unix script with a missing interpreter, SHALL refuse explicitly, naming the native error.
+These additional measurements are recorded in [#4406](https://github.com/hexide-io/HexIDE/issues/4406)
+and [oracle PR #4721](https://github.com/hexide-io/HexIDE/pull/4721), extending
+[the Shell oracle](../../../docs/vb6-fidelity-oracle/shell.md).
 
 #### Scenario: A program launches a helper
 - **WHEN** code calls `Shell` with a quoted executable path, arguments and an accepted explicit style
@@ -1597,8 +2089,7 @@ through an implemented interface SHALL leave it unloaded; controls and built-in 
 A loaded instance SHALL be retained by Forms until Unload, and an unloaded instance SHALL terminate at
 its last reference's release, including statement temporaries. Forms SHALL receive the same interface
 conformance check as classes when constructed. Without a forms program, construction SHALL refuse with
-NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, native and p-code agreeing;
-`As New Form2` remains outside this change.
+NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, native and p-code agreeing.
 
 #### Scenario: A temporary instance does not become the default
 
@@ -1610,6 +2101,27 @@ NotImplementedException naming #4598. These are #4598's measured VB6 SP6 rows, n
 
 - **WHEN** an instance created by New is loaded, unloaded and then used through a built-in member
 - **THEN** Load runs again without Initialize, and the instance rejoins Forms
+
+### Requirement: As New on a form creates a separate instance on first use
+
+A local or standard-module variable declared `As New Form2` SHALL create nothing at declaration and
+SHALL make its instance on first use, including `Is Nothing`, `TypeName` and a Public member. The instance
+SHALL follow explicit New's loading and Unload rules. Set to Nothing SHALL release an unloaded instance;
+the next use SHALL make another. An unloaded local SHALL terminate on procedure return.
+Measured VB6 SP6, native and p-code: [#4640](https://github.com/hexide-io/HexIDE/issues/4640).
+
+#### Scenario: Reusing and releasing an auto-instantiated form
+
+- **WHEN** a local As New form is loaded through Caption, unloaded, and used through Caption again
+- **THEN** Load runs again without Initialize, on the same instance
+- **WHEN** it is unloaded and set to Nothing, then read with Is Nothing
+- **THEN** the old instance terminates at Set and a new instance initializes, with Is Nothing reading False
+
+#### Scenario: A module variable is distinct from the default instance
+
+- **WHEN** a Public As New form variable is first used through its Id member, then shown and compared to Form2
+- **THEN** its own Initialize precedes Show's Load and Form2 initializes a separate default instance
+- **AND** the comparison reads False
 
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
@@ -2100,13 +2612,90 @@ and Declare statements not allowed as Public members of object modules". A Publi
 with the same message when instance member storage is allocated and its type is resolved at run time; a class or form never instantiated is not checked.
 Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in-an-object-module.md); #3350 extends the array refusal.
 
+A `Public Type` or a bare `Type` in a class, form or UserControl whose `VB_Exposed`
+attribute is not True SHALL be refused as the program loads, with "Cannot define a Public user-defined type
+within a private object module" ([#5042](https://github.com/hexide-io/HexIDE/issues/5042)).
+
 #### Scenario: A Public UDT variable names a type collected later
 - **WHEN** a class or form declares `Public t As TT` and a standard module declares `Public Type TT`
 - **THEN** loading the program succeeds, and allocating the instance's member storage refuses the Public member
 
+#### Scenario: A private object module declares a Public Type
+- **WHEN** a class, form or UserControl with no `VB_Exposed = True` declares `Public Type T` or `Type T`
+- **THEN** loading the program refuses it with "Cannot define a Public user-defined type within a private object module"
+
+#### Scenario: An exposed class declares a Public Type
+- **WHEN** a class whose `VB_Exposed` is True declares `Public Type T`
+- **THEN** the program loads
+
 #### Scenario: A declaration outside the measured Public object-member scope
 - **WHEN** a declaration is Private, Dim, or in a standard module
 - **THEN** this refusal does not apply and its existing implementation or refusal is retained
+
+### Requirement: Saved ListBox checks and columns
+
+A ListBox SHALL read saved Style and Columns at runtime (part of #4209, measured in
+[the oracle](../../../docs/vb6-fidelity-oracle/a-listboxs-page-up-checkboxes-and-columns.md)).
+For Style 1 without MultiSelect, Selected(i) SHALL read check state, and Space SHALL toggle
+that state with Click then ItemCheck(Item As Integer). Selected(i) = True on an unchecked item SHALL check,
+select and scroll the item into view, raising ItemCheck then Click without Scroll. Unmeasured
+Selected False writes on unchecked items SHALL refuse as not implemented. SelCount SHALL count checked
+items. Repeated Selected(i) = True SHALL do nothing without events. Selected(i) = False on a checked
+item SHALL uncheck it, leave ListIndex and Text in place, and raise ItemCheck then Click without Scroll.
+ListIndex assignments SHALL raise Click when the position changes without changing checks.
+AddItem and RemoveItem SHALL keep ListIndex as a position, with checks moving with their items.
+Adding to an empty checkbox list SHALL set ListIndex to 0; appending to a nonempty list with ListIndex -1
+SHALL retain -1. Removing the item at ListIndex SHALL move the position to the previous item, or 0
+while items remain, or -1 when empty. Clear SHALL empty the list and checks and set ListIndex to -1.
+The measured saved Sorted insertions SHALL keep the position and move checks with their items.
+AddItem, RemoveItem and Clear SHALL raise no events. These rules are measured in
+[#4209's round 2 comment](https://github.com/hexide-io/HexIDE/issues/4209), SP6 native and p-code, 2026-11-20.
+Checkbox fonts beyond the measured default SHALL retain their existing row heights.
+Columns above zero SHALL arrange items down each column then across. TopIndex SHALL snap
+to a column start and clamp to the last page. Measured navigation SHALL raise Click then
+Scroll when the top changes; code selection SHALL scroll without Scroll.
+Unmeasured mouse checkbox toggling, Style 1 with MultiSelect, runtime Style/Columns
+assignments, horizontal-bar dragging and designer drawing retain their existing behaviour.
+
+#### Scenario: Unchecking preserves the current position
+- **WHEN** items 1 and 3 are checked, ListIndex is 3, and code sets Selected(1) = False
+- **THEN** SelCount is 1, ListIndex stays 3 and Text is the text of item 3
+- **AND** ItemCheck(1) precedes Click with ListIndex 3, without Scroll
+
+#### Scenario: Inserting before a checked item
+- **WHEN** a checkbox list contains i0, i1, checked i2 and checked i3, with ListIndex 2, and code adds z at 0
+- **THEN** ListIndex stays 2, Text is i1, and items 3 and 4 are checked
+- **AND** no event is raised
+
+#### Scenario: Two columns of nine rows
+- **WHEN** a 60-item Columns 2 list showing nine rows per column receives TopIndex = 25 then TopIndex = 59
+- **THEN** the resulting top items are 18 and 45, each with one Scroll
+- **AND** ListIndex = 50 from TopIndex 0 scrolls to TopIndex 36 with Click only
+
+### Requirement: Saved Sorted list insertion
+
+ListBoxes, including checkbox lists, and ComboBoxes saved Sorted SHALL order index-free AddItem
+using the [measured binary insertion](../../../docs/vb6-fidelity-oracle/the-order-a-sorted-listbox-or-combobox-keeps.md)
+(#5059). Explicit indices SHALL retain precedence over sorting; unsorted lists SHALL append.
+Runtime Sorted access, sorted List writes and saved List item loading retain their existing behaviour.
+
+#### Scenario: An equal item is inserted before the item probed
+- **WHEN** an index-free AddItem is inserted into a sorted list
+- **THEN** the search probes `(min + max - 1) / 2` and inserts before the first equal item probed
+- **AND** b then B added to a sorted plain or checkbox ListBox keeps B then b
+
+#### Scenario: A leading bracket follows ordinary text
+- **WHEN** [a, z and a are added without indices to a sorted ListBox
+- **THEN** its items are a, z and [a
+- **AND** two leading-bracket strings compare normally
+
+#### Scenario: Comparison follows the program locale on each host
+- **WHEN** a sorted list compares two strings
+- **THEN** Windows uses CompareStringEx with NORM_IGNORECASE in the program locale
+- **AND** Linux/macOS use the host's case-insensitive comparison in the program culture, which can differ
+  for hyphens, apostrophes and some symbols (#5105), by the Team Desk decision recorded in
+  [#5059](https://github.com/hexide-io/HexIDE/issues/5059)
+- **AND** ComboBox Style 1 uses the same rules as Styles 0/2, reasoned, not measured
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
 
@@ -2158,12 +2747,15 @@ exact result bits and measured error numbers. It SHALL retain the base and sum w
 each cumulative discount power to Double as described in
 [Cash-flow precision](../../../docs/financial-precision-2525.md).
 Named NPV calls SHALL accept Rate and ValueArray (#4145).
-Unmeasured conversions, empty/multidimensional arrays and unsupported arithmetic
-domains SHALL refuse as unimplemented. IRR and MIRR SHALL execute the closest 64-bit models
+The conversions, array shape errors and arithmetic errors measured in #4883 SHALL execute.
+Non-finite arguments SHALL refuse as unimplemented. IRR and MIRR SHALL execute the closest 64-bit models
 recorded in the precision note (Horner masks 9 and 84), authorized by Jen’s 2026-11-17 decision
 in #2525, preserving their documented computed bits and measured error numbers. Their
-unmeasured conversions, argument shapes, nonconvergence, other flows without a sign change,
-ReinvestRate -1 and unsupported power domains SHALL refuse as unimplemented.
+measured argument conversions, sign domains, nonconvergence and ReinvestRate -1 cases in #4883
+SHALL execute with the measured error numbers. A zero IRR guess and negative MIRR radicands
+SHALL remain refused as unmeasured. The new leading-zero IRR and loss/10,001-flow MIRR rows
+SHALL use those same closest models under the standing precision exception, retaining the
+computed bits documented in the precision note. Their accepted #2525 results SHALL remain unchanged.
 
 #### Scenario: Every cash flow is discounted
 - **WHEN** NPV is called with rate 0.1 and the measured five-element Double array a
@@ -2182,9 +2774,16 @@ ReinvestRate -1 and unsupported power domains SHALL refuse as unimplemented.
 - **WHEN** IRR(cs), MIRR(cs, 0.1, 0.12), or MIRR(b, -1, 0.12) is called
 - **THEN** the error number is 5, 11, or 5, respectively
 
-#### Scenario: Unmeasured cash-flow domain
-- **WHEN** IRR does not converge or MIRR is called with ReinvestRate -1
-- **THEN** execution stops with HexIDE's not-implemented error naming #2525
+#### Scenario: Measured cash-flow domains and remaining precision gaps
+- **WHEN** IRR has the measured nonconvergence or MIRR has ReinvestRate -1 in #4883
+- **THEN** it raises error 5
+- **WHEN** IRR has a zero guess or MIRR has a negative radicand, or a power exceeds 20,000 periods
+- **THEN** execution stops with HexIDE's not-implemented error naming #4883
+
+#### Scenario: Additional authorized closest-model cash flows
+- **WHEN** IRR receives {0, -100, 110}, or MIRR receives {-1000, 1, 1} or -1000 followed by 10,000 ones at rates 0.01
+- **THEN** the computed Double bits are `3FB9999999999994`, `BFEE90BA55C3468C` or `3F8400F70D38208B` respectively
+- **AND** the #4883 measured bits and small differences remain documented in the precision note
 
 ### Requirement: Windows program dates use Windows locale data
 On Windows, for a locale whose default calendar is Gregorian, the interpreter SHALL take
@@ -2280,7 +2879,7 @@ state and saved form values.
 The interpreter SHALL allocate module, local and Static scalar `String * N` variables with N NUL
 characters. Each store SHALL convert to String, truncate on the right or pad on the right with spaces
 to N characters. Null SHALL raise 94 and leave the stored value unchanged. N SHALL be an integer literal
-or integer Const from 1 to 65,526; an invalid length SHALL report "Invalid length for fixed-length
+or numeric Const from 1 to 65,526, rounded half to even (including numeric text and Date serials); an invalid length SHALL report "Invalid length for fixed-length
 string", and a variable width SHALL report "Constant expression required".
 
 Measured native and p-code behaviour: [#179](https://github.com/hexide-io/HexIDE/issues/179), supervisor
@@ -2291,7 +2890,7 @@ field by its width (Integer plus String * 4 is 6). ByRef String/Variant paramete
 value in and coerce the copy out on return. Get/Put SHALL omit length prefixes for fixed Strings and Type
 fields, using their declared widths
 ([measured record rows](../../../docs/vb6-fidelity-oracle/random-and-binary-files-get-put-and-len.md)).
-Fixed-length String parameters SHALL report "Expected array"; Function and Property Get returns SHALL
+Scalar fixed-length String parameters SHALL report "Expected array"; Function and Property Get returns SHALL
 report "Expected: end of statement".
 
 #### Scenario: Padding is part of the value
@@ -2303,6 +2902,68 @@ report "Expected: end of statement".
 - **WHEN** Mid, LSet or RSet writes a fixed-length scalar String
 - **THEN** it retains its declared width
 - **AND** both LSet and RSet retain the leftmost characters of an overlong source
+
+### Requirement: Fixed-length String arrays and parameter storage
+
+The interpreter SHALL implement the fixed String array storage, ReDim and parameter rows measured
+native and p-code in [#179](https://github.com/hexide-io/HexIDE/issues/179) (oracle PR #4923),
+raising errors as the statements and calls execute.
+
+#### Scenario: Whole-array stores
+- **WHEN** a dynamic fixed String array, including a Type field, receives a matching-width fixed String array
+- **THEN** it owns an independent copy, or becomes unallocated if the source is unallocated
+- **AND** static targets and declared arrays of incompatible widths or String kinds report "Can't assign to array"
+- **AND** an incompatible Variant or expression source raises 13 without changing the target
+- **AND** coercing a fixed String array into Variant reports "Can't assign or coerce array of fixed-length string or user-defined type to Variant"
+- **AND** storing one into a variable declared with a scalar type, such as a String or a Long, reports "Type mismatch"
+
+#### Scenario: ReDim As keeps the declared width
+- **WHEN** ReDim or ReDim Preserve names the same fixed String width
+- **THEN** new elements contain N NULs and surviving preserved elements retain their values
+- **AND** changing width or switching between fixed and variable Strings reports "Can't change data types of array elements"
+- **AND** ReDim As on a new local name declares its width even under Option Explicit
+
+#### Scenario: Fixed String array parameters share storage
+- **WHEN** a fixed String array is passed to an array parameter of the same width
+- **THEN** element stores and ReDim of a dynamic array reach the caller
+- **AND** a fixed String array passed to a variable String array parameter, or any other array or a Variant holding one passed to a fixed-width array parameter, reports "Type mismatch: array or user-defined type expected"
+- **AND** differing fixed widths remain explicitly not implemented because native and p-code disagree
+
+#### Scenario: A Variant parameter retains a String
+- **WHEN** a fixed String is passed ByRef to a Variant parameter
+- **THEN** the parameter uses ordinary String storage, converts stores to String and raises 94 on Null without changing its value
+- **AND** copy-out coerces to the caller's width
+
+#### Scenario: Other measured ByRef types refuse fixed String lvalues
+- **WHEN** a fixed String scalar, array element or Type field is passed ByRef to Integer, Long, Single, Double, Currency, Byte, Boolean, Date or Object
+- **THEN** the call reports "ByRef argument type mismatch"
+- **AND** passing a scalar to a String or Variant array parameter reports "Type mismatch: array or user-defined type expected"
+
+### Requirement: Fixed-length String array file records
+
+The interpreter SHALL implement the Binary and Random fixed String array Get/Put rows measured native
+and p-code in [#179](https://github.com/hexide-io/HexIDE/issues/179), recorded in the
+[fixed String oracle](../../../docs/vb6-fidelity-oracle/fixed-length-strings.md#arrays-of-fixed-length-strings-the-width-and-parameters-2026-11-19-179).
+Double-byte array code pages and Random Get into a fixed String array SHALL remain explicitly not
+implemented pending measurements. Types containing array fields SHALL use the packed record layout measured in [#4925](https://github.com/hexide-io/HexIDE/issues/4925), including fixed String array fields without length prefixes.
+
+#### Scenario: Put writes fixed-width elements
+- **WHEN** Put writes a fixed String array to a Binary or Random file
+- **THEN** each element is written at its width without a length prefix, including NULs, first index fastest
+- **AND** code page 1252 uses the measured ANSI best-fit conversions
+- **AND** only a Random dynamic array prepends its dimension count and reversed dimension counts and lower bounds
+- **AND** a Random record too short raises 59 without writing
+
+#### Scenario: Binary Get reads into existing bounds
+- **WHEN** Get reads a Binary file into an allocated fixed String array
+- **THEN** it reads only the existing elements at their declared width
+- **AND** bytes past EOF become NULs, replacing the previous contents
+- **AND** EOF is False after reading exactly the file length and True after reading past it
+
+#### Scenario: Random Get retains the target width
+- **WHEN** Get reads a Random record into a dynamic fixed String array
+- **THEN** the descriptor replaces its bounds, whether previously allocated or not
+- **AND** elements use the target's own width and the array remains dynamic
 
 ### Requirement: LSet between plain-data user-defined types
 
@@ -2336,7 +2997,7 @@ measuring PR #4241).
 The interpreter SHALL return a Long for early-bound CommonDialog Color reads and an unsigned Automation Long
 (VarType 19) through Object or Variant, using the measured conversions and assignment rows in
 [#4513](https://github.com/hexide-io/HexIDE/issues/4513) (oracle PR #4508). It SHALL retain explicit refusals for
-unmeasured unsigned numeric uses. CallByName remains outside this support (#4520).
+unmeasured unsigned numeric uses. CallByName SHALL use this same late-bound path (#4520).
 
 #### Scenario: The same system colour is read through different bindings
 - **WHEN** Color is `&H80000005`
@@ -2363,7 +3024,12 @@ Height SHALL use the unit’s magnitude even in flipped user scales. Negative Co
 raise 380 from a property assignment and 5 from Move, before anything moves (issue #990 round-2 measurements).
 Form and PictureBox mouse coordinates SHALL use the object’s
 own mapping; other controls retain their existing mouse units. A form resize SHALL retain the size
-of a user unit. UserControl scales and PictureBox resize are outside this slice (part of #990).
+of a user unit. A placed UserControl SHALL own the same coordinate properties, Scale statement and conversions,
+initialized from its saved scale over its child canvas. Its saved child positions SHALL remain twips even when
+its .ctl declares pixels. A form or PictureBox saved in User mode with no extents or origins SHALL use one twip
+per unit and zero origins. Origins and extents of a saved UserControl User scale without extents SHALL remain refused as unmeasured.
+Me-qualified coordinate access and Object aliases to the own root SHALL retain their prior refusals pending measurement.
+PictureBox resize and UserControl drawing remain unmeasured (#4693).
 
 The interpreter and bundled LSP grammars SHALL parse the bare and qualified Scale statement with either
 two points or no arguments. ScaleX and ScaleY SHALL default from HiMetric to the current scale, returning
@@ -2371,6 +3037,20 @@ Single lengths. Container-position/container-size units and vbUser outside a use
 The measured metric factor and its accepted last-place precision difference are recorded in
 [#990](https://github.com/hexide-io/HexIDE/issues/990); the other values come from the
 [coordinate oracle](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
+
+Late-bound Scale, ScaleX and ScaleY SHALL use a form's or PictureBox's mapping; TextBox and UserControl
+extenders SHALL raise 438. Other objects SHALL retain their existing behaviour. Zero conversion arguments
+SHALL raise "Argument not optional"; four on either axis and five on ScaleX SHALL raise "Wrong number of
+arguments or invalid property assignment" as execution reaches the statement. ScaleY with five and counts
+above five SHALL remain refused as unmeasured. Centimetre PictureBox Line endpoints SHALL load as whole twips
+using the approved factor, with the one-Single-step X1/Y1 difference the maintainer accepted with #990's factor.
+These rows are measured in the coordinate oracle's #4693 sections.
+User-scale PictureBox Lines and other unmeasured Line modes SHALL remain refused naming #4693.
+
+#### Scenario: A pixel-saved UserControl
+- **WHEN** a 2400 by 1800 twip UserControl is saved in pixel mode with a Label at 10, 20, 40 by 17
+- **THEN** its scale reads 160 by 120 and the Label reads 0.6666667, 1.333333, 2.666667 by 1.133333
+- **AND** selecting twips reads the saved Label numbers unchanged
 
 #### Scenario: An upward user scale
 
@@ -2384,3 +3064,203 @@ The measured metric factor and its accepted last-place precision difference are 
 - **THEN** the interpreter raises 380
 - **WHEN** a Scale statement supplies a zero extent
 - **THEN** it raises 11 and retains the previous scale
+
+### Requirement: UDT parameters declared ByVal are refused
+
+The interpreter SHALL refuse a call to a Sub, Function or Property whose non-Optional parameter is declared ByVal with a UDT type, using `VBCompileErrorException("User-defined type may not be passed ByVal")`, as the call binds its parameters. vb6.exe refuses the build instead, even when the procedure is never called (measured, [#4673](https://github.com/hexide-io/HexIDE/issues/4673)); deciding that `As T` names a Type is binding, which the pre-pass does not do, so the refusal comes at the call. Declare, Event and Optional signatures SHALL retain their existing behaviour.
+
+#### Scenario: A call to a procedure with a ByVal UDT parameter
+- **WHEN** a statement calls a procedure that takes a UDT ByVal
+- **THEN** the statements before the call SHALL have run
+- **AND** the call SHALL raise "User-defined type may not be passed ByVal"
+
+#### Scenario: A procedure with a ByVal UDT parameter that is never called
+- **WHEN** a module declares a procedure that takes a UDT ByVal, and nothing calls it
+- **THEN** the module SHALL load and run, unlike in VB6
+- **AND** the difference SHALL be recorded as a missing error on a path never taken
+
+### Requirement: Form and PictureBox drawing at pen width one
+
+The interpreter SHALL execute Cls, PSet, Line, Circle and Point on each form and PictureBox's own surface through its
+coordinate system, with the state, syntax, pixels and refusals measured for
+[#988](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and
+[#990](../../../docs/vb6-fidelity-oracle/the-coordinate-system-scalemode-scale-scalex-and-scaley.md).
+
+#### Scenario: Runtime state and coordinate storage
+- **WHEN** a form or PictureBox loads
+- **THEN** its bitmap sits behind every control, and drawing state comes from saved values or measured defaults
+- **AND** CurrentX/CurrentY are Singles, DrawWidth/DrawStyle/DrawMode/FillStyle Integers, FillColor Long,
+  and AutoRedraw/FontTransparent Booleans
+- **AND** current positions remain whole twips rounded half to even and keep their physical positions across scale changes
+
+#### Scenario: Drawing placement follows display scaling and resizing
+- **WHEN** a form or PictureBox displays its drawing surface at any render scaling, including after resizing
+- **THEN** each bitmap pixel covers one device-independent unit, aligned with the contained controls
+- **AND** neighbouring bitmap pixels retain their own colours without smoothing
+- **AND** the surface covers the client area while retained pixels keep their positions; Point's pixel rules are unchanged
+
+#### Scenario: Graphics syntax and unsuitable receivers
+- **WHEN** either grammar parses graphics statements
+- **THEN** Line, PSet and Circle accept qualified or bare receivers, Step coordinates, short Line, B/BF boxes
+  and omitted Circle arguments, and reject the measured invalid syntax
+- **AND** Circle/PSet are reserved, Line/Cls nonreserved, and Cls: is a label
+- **WHEN** a graphics statement runs in a standard module without a suitable object
+- **THEN** it reports VB6's compile error as the statement executes; bare Cls remains an undefined Sub
+
+#### Scenario: Later and unmeasured drawing members refuse explicitly
+- **WHEN** Circle requests an arc/sector or unequal x/y scale-unit sizes, or drawing uses an unsupported thick pen, DrawStyle other than 0, DrawMode other than 13
+  or FillStyle other than 0/1
+- **THEN** execution refuses with NotImplementedException naming #988
+- **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
+- **AND** an unrepresentable saved FillColor refuses instead of silently using black
+- **AND** AutoRedraw assignments are retained; persistence and Paint-event timing remain #991, and text drawing #989
+
+#### Scenario: Drawing and readback use distinct rounding paths
+- **WHEN** a form draws PSet (7.5, 7.5) in twips
+- **THEN** the point is kept at 8 twips and lights pixel (1, 1)
+- **AND** Point(7.5, 7.5) reads pixel (0, 0), which is still the background
+
+#### Scenario: Lines, boxes and clearing
+- **WHEN** a pixel-scale form draws Line (10, 10)-(20, 10)
+- **THEN** pixels 10 through 19 are drawn and pixel 20 is excluded
+- **AND** a B or BF box includes its far corner; B with FillStyle 0 fills its interior with FillColor
+- **WHEN** Cls runs
+- **THEN** the surface is cleared to BackColor and the current position returns to zero in the default twip scale
+
+#### Scenario: Full circles and ellipses at pen width one
+- **WHEN** a form or PictureBox draws a full Circle with equal-sized x/y scale units
+- **THEN** its outline and solid FillStyle-0 fill match the 12 full-circle Point grids measured in `docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md`
+- **AND** zero radius draws nothing, aspect zero draws one inclusive row, negative aspects use their magnitude, and the radius is the longer half-axis
+- **AND** fractional centres use the drawing statement's whole-twip conversion, CurrentX/Y end at the centre, and Step counts from the previous position
+- **AND** the edge uses the method colour conversion or ForeColor, with FillColor inside
+- **WHEN** a radius is negative or either angle has magnitude above 2π
+- **THEN** error 5 is raised before drawing; the current position after an error is not specified by these measurements
+- **AND** arcs and sectors remain explicitly refused with #988: none of the 63 candidates in the [comparison probe](../../../scripts/probes/circle-arcs/README.md) reproduces all 22 measured grids (five on the [oracle page](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), seventeen supplied by [#4771](https://github.com/hexide-io/HexIDE/issues/4771) from oracle PR #4904)
+- **AND** a single supplied angle remains refused with #988 because the other angle's default is unmeasured
+
+#### Scenario: Measured finite thick-pen footprints
+- **WHEN** PSet draws with width 2–12, or a full transparent Circle draws with width 2/3, physical radius 10 pixels, aspect 1 and a whole-pixel centre
+- **THEN** the pixels SHALL match the corresponding grids on the [drawing oracle](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md) and [circle/thick-pen oracle](../../../docs/vb6-fidelity-oracle/circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md), as scoped by [#4813](https://github.com/hexide-io/HexIDE/issues/4813) and [#4841](https://github.com/hexide-io/HexIDE/issues/4841)
+- **AND** PSet ends at its whole-twip point and Circle ends at its centre
+- **WHEN** PSet uses width above 12, or a thick Circle requests any other shape, width or solid fill
+- **THEN** execution SHALL refuse with NotImplementedException naming #988 before drawing or moving CurrentX/Y
+- **AND** thick Line, B and BF SHALL remain refused together (#4841): neither tried capsule nor stamped-disc model reproduces all measured line grids; width-one drawing is unchanged
+
+#### Scenario: Overflow preserves the current position
+- **WHEN** PSet or Line receives a coordinate that overflows a Long in twips
+- **THEN** error 6 is raised without changing either current coordinate
+- **AND** Point returns Long -1 at the two measured outside points, but raises 6 for Point(1E+30, 0)
+- **AND** no additional VB6 backing-store boundary is asserted beyond the measured row outside the client area
+
+### Requirement: Date and Time statements convert before denying clock changes
+
+The interpreter SHALL evaluate `Date`, `Date$`, `Time` and `Time$` assignment operands before
+raising the measured conversion error or error 70. It SHALL never change the host clock, even
+elevated (deliberate divergence from VB6). Measurements: #4681 and
+[#4733](https://github.com/hexide-io/HexIDE/issues/4733), SP6 native and p-code, measurement PR #4777.
+
+#### Scenario: Scalar conversion precedes permission
+- **WHEN** a clock statement receives Integer, Long, Byte, Single, Double, Currency, Decimal, Boolean, Empty, Error, Null or an array
+- **THEN** it raises error 13
+- **WHEN** it receives a Date or a convertible String, including the measured boundary dates
+- **THEN** it raises error 70 without changing the host clock
+- **AND** String `"1/1/10000"` or `"25:00"` raises error 13
+
+#### Scenario: An object operand
+- **WHEN** the object holds Nothing
+- **THEN** it raises error 91
+- **WHEN** a class default member returns a Date, including through an As Object variable
+- **THEN** the member is read and the statement raises error 70
+- **AND** an object with no default member or a default returning anything other than Date or String explicitly refuses as not implemented, citing #4733, pending measurement
+
+### Requirement: Running menu bars wrap in the host menu font
+A running form's in-window menu bar SHALL measure displayed captions in the host menu font, adding 14 pixels per item,
+and SHALL put an item on the next row when it would leave fewer than 7 pixels spare in the client width.
+The first item on a row SHALL remain there even when wider than the client. The bar SHALL draw those same
+rows and item widths, with a height of 19n + 1 pixels for n rows, before Form_Load.
+A Width assignment SHALL re-wrap inside the statement, preserving Height and raising one Resize with the
+new ScaleHeight. A change to the top-level menus that changes the row count SHALL take effect at the next
+message, as the bar's coming or going does, with one Resize, and none when the count is unchanged by then
+([oracle PR #5001](https://github.com/hexide-io/HexIDE/pull/5001)). Measured rules: [#4978](https://github.com/hexide-io/HexIDE/issues/4978),
+oracle PRs [#4977](https://github.com/hexide-io/HexIDE/pull/4977) and [#4985](https://github.com/hexide-io/HexIDE/pull/4985).
+Where an item breaks follows the host font, as VB6's follows the desktop font.
+
+#### Scenario: A Width assignment unwraps the bar
+- **GIVEN** the measured Form3 with console caption widths and two menu rows
+- **WHEN** Width increases by 3000 twips
+- **THEN** ScaleHeight reads 3705 and Height remains 4440 inside the statement and its one Resize
+- **AND** narrowing it by 3000 restores ScaleHeight 3420 and two drawn rows
+
+#### Scenario: Hiding a menu unwraps the bar at the next message
+- **GIVEN** measured Form3 at 196 pixels wide with Foxtrot hidden and two menu rows
+- **WHEN** Echo is hidden
+- **THEN** ScaleHeight remains 3420 until DoEvents, then reads 3705 with one Resize
+- **AND** Height remains 4440 and the drawn bar has one row
+
+#### Scenario: Reversing a row change before delivery
+- **GIVEN** measured Form3 at 196 pixels wide with Foxtrot hidden and two menu rows
+- **WHEN** Echo is hidden and shown again before DoEvents
+- **THEN** ScaleHeight remains 3420, Height remains 4440, and no Resize is raised
+- **AND** the drawn bar still has two rows after delivery
+
+### Requirement: Type arrays and array fields execute the measured remaining cases
+
+The interpreter SHALL read and write Type arrays and Type array fields in the packed order measured
+in [#4925](https://github.com/hexide-io/HexIDE/issues/4925), native and p-code agreeing. Dynamic array
+fields SHALL carry a descriptor in Binary and Random files. A Random Get into a dynamic Type array
+SHALL install descriptor bounds before reading its elements, including when a short record raises 59.
+
+#### Scenario: Array fields round-trip
+- **WHEN** a Type containing fixed or dynamic array fields is written and read
+- **THEN** its elements retain their measured values and dynamic fields take descriptor bounds
+- **AND** Binary reads past EOF zero-fill, while a Random Put exceeding the record raises 59 without writing
+- **AND** object array fields report the object-reference compile error
+
+#### Scenario: Lazy Collection array fields
+- **WHEN** a Type has a fixed or dynamic Collection array field declared As New
+- **THEN** reading an untouched element creates its instance and reading after Set Nothing creates a fresh instance
+- **AND** copying the Type shares created instances while untouched elements remain independent
+- **AND** ReDim Preserve keeps surviving instances and Erase frees a dynamic field
+
+#### Scenario: Field bounds and object element constraints
+- **WHEN** a Type array field has inverted literal or Const-resolved bounds
+- **THEN** it reports "Range has no values"
+- **AND** StdFont, TextBox and Control array fields start Nothing and check the measured Set constraints
+- **AND** an undeclared array field type reports "User-defined type not defined"
+
+#### Scenario: Arguments on Type fields
+- **WHEN** Integer or String fields receive arguments
+- **THEN** they report "Expected array"
+- **AND** Variant fields holding arrays support successive index groups
+- **AND** indexed Lets on the measured Variant/Object fields report 13, 91, 438, 451 or 344 as applicable
+
+### Requirement: Desktop form menus use the macOS menu bar
+
+On macOS, a running desktop form with an Avalonia Window SHALL mirror its existing VB menu tree into
+that window's NativeMenu, keeping the hidden in-window tree for program reads, arrays and shortcuts.
+The form SHALL select this mode once at load time. Other hosts and platforms SHALL retain their
+in-window menus. The window SHALL omit the menu strip's height and the bar's 300 twips from its frame
+and position. A BorderStyle 0 form with a visible top-level menu SHALL still get Fixed Single's frame
+and caption bar, as it does with the in-window bar ([#5103](https://github.com/hexide-io/HexIDE/issues/5103)).
+Top-level menu visibility changes SHALL NOT alter its frame or raise Form_Resize in this mode.
+Native menu items SHALL reflect shown captions, Enabled, Visible and Checked; separators SHALL be
+omitted while hidden and restored in order when shown. Array Load and Unload SHALL update the mirror
+in order. Top-level items without children SHALL have empty native submenus. Native Click SHALL
+raise the existing menu Click with its array Index, and a submenu's Opening SHALL raise its
+holding menu's Click; NeedsUpdate alone, which AppKit also raises when it searches the menus for a key equivalent,
+SHALL raise no Click. Native items SHALL have no Gesture; the existing window shortcut chain SHALL
+remain responsible for shortcut dispatch. Measured platform rules: [#5011 K1–K14](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7031789606)
+and [K15–K18](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7034162303);
+implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
+
+#### Scenario: A menu enables an item before its native submenu opens
+- **GIVEN** a desktop form using the system menu bar with a disabled submenu item
+- **WHEN** the holding native submenu raises Opening and its menu Click enables the item
+- **THEN** that same native item is enabled before the submenu opens
+- **AND** no in-window menu strip appears
+
+#### Scenario: A borderless menu form keeps its frame with the system menu bar
+- **GIVEN** a BorderStyle 0 desktop form with a 2520 by 2520 twip client and a visible top-level menu, using the system menu bar
+- **WHEN** it loads
+- **THEN** Width, Height, ScaleWidth and ScaleHeight read 2610, 2955, 2520 and 2520
+- **AND** its window has a caption bar

@@ -369,7 +369,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     public void Dispose()
     {
-        _disposed = true;
+        lock (_serverTrustGate) _disposed = true;
         foreach (var ctx in _contexts)
         {
             if (ctx.Instance is { } instance)
@@ -381,7 +381,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             try { ctx.LoadContext?.Unload(); }
             catch (Exception ex) { Log.Warning(ex, "AddinRegistry: error unloading {Title}", ctx.Info.Title); }
         }
-        _contexts.Clear();
+        lock (_serverTrustGate) _contexts.Clear();
     }
 
     // ── IAddinRegistry ───────────────────────────────────────────
@@ -437,6 +437,27 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             Log.Information("AddinRegistry: consent revoked for {Title} — re-prompts next launch",
                 ctx?.Info.Title ?? manifestHash);
         }
+    }
+
+    internal AddinFailureReport? GetReportedFailure(string id)
+    {
+        lock (_serverTrustGate)
+            return _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase))?.ReportedFailure;
+    }
+
+    internal void ReportFailure(AddinOrigin origin, string message, Exception? exception)
+    {
+        string title;
+        lock (_serverTrustGate)
+        {
+            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, origin.Id, StringComparison.OrdinalIgnoreCase));
+            title = ctx?.Info.Title ?? origin.Title;
+            if (!_disposed && ctx is not null && !_disabled.Contains(ctx.PackageDirectory)
+                && !_revokedConsent.Contains(ctx.Info.ManifestHash))
+                ctx.ReportedFailure = new AddinFailureReport(message, exception?.GetType().FullName,
+                    exception?.Message, DateTimeOffset.UtcNow);
+        }
+        Log.Warning(exception, "AddinRegistry: {Title} ({AddinId}) reported a failure: {Message}", title, origin.Id, message);
     }
 
     internal void CheckLanguageServerLaunch(string id) => CheckLaunch(id, "Str.Addins.ServerLaunchRefused");

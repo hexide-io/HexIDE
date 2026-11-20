@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace HexIDE.Runtime.Interpreter;
@@ -35,6 +36,12 @@ public sealed record ProcedureInfo(
     // Object` one is read late all the same, as ReturnsVariant says.
     bool ReturnsObject = false)
 {
+    internal string? DeclareLibrary { get; init; }
+    internal bool HasMissingDeclareLibrary => DeclareLibrary is { } library && !OperatingSystem.IsWindows()
+        && !library.EndsWith(".dylib", StringComparison.OrdinalIgnoreCase)
+        && !library.EndsWith(".so", StringComparison.OrdinalIgnoreCase)
+        && !library.Contains(".so.", StringComparison.OrdinalIgnoreCase);
+
     public Antlr4.Runtime.ParserRuleContext? Declaration { get; init; }
 
     /// <summary>
@@ -153,7 +160,10 @@ public sealed record ParamInfo(
     // Whether it is declared `As Object`: it reads as a Variant does (ReadsAsVariant), but it is an object variable, so a
     // Let into it is the held object's default member (measured, #1493: `x = 1` with `x As Object`, ByRef or ByVal, is
     // 438 where `x As Variant` takes 1).
-    bool DeclaredObject = false);
+    bool DeclaredObject = false)
+{
+    internal VB6Parser.FieldLengthContext? FixedStringLength { get; init; }
+}
 
 /// <summary>
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller

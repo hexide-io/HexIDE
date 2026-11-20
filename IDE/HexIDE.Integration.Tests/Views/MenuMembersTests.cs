@@ -203,10 +203,9 @@ public class MenuMembersTests : WindowTestFixture
     }
 
     [AvaloniaFact]
-    public async Task Hiding_the_last_visible_top_level_menu_is_refused_rather_than_leave_an_empty_bar()
+    public async Task Hiding_the_last_visible_top_level_menu_removes_the_bar()
     {
-        // VB6 takes the bar away, and how the window or ScaleHeight changes then is unmeasured (#1140). Leaving the bar in
-        // place would give a wrong ScaleHeight with no error, so the run stops instead, even under On Error Resume Next.
+        // Geometry and posted timing are exercised by runtime FormOuterSizeTests (#1140).
         var (content, _, ctx, env) = Spawn(TwoMenus);
         var bar = ((DockPanel)content).Children.OfType<Menu>().Single();
 
@@ -217,15 +216,15 @@ public class MenuMembersTests : WindowTestFixture
 
             """);
 
-        (await hide.Should().ThrowAsync<System.NotImplementedException>()).WithMessage("*#1140*");
-        Item(bar, "&Game").IsVisible.Should().BeTrue();
-        bar.IsVisible.Should().BeTrue();
+        await hide();
+        Item(bar, "&Game").IsVisible.Should().BeFalse();
+        bar.IsVisible.Should().BeFalse();
     }
 
     [AvaloniaFact]
-    public async Task Showing_a_top_level_menu_on_a_form_whose_menus_are_all_hidden_is_refused_rather_than_draw_nothing()
+    public async Task Showing_a_top_level_menu_on_a_form_whose_menus_are_all_hidden_shows_the_bar()
     {
-        // The PopupMenu idiom: the bar was never shown, so showing the menu would draw nothing (#1140).
+        // The PopupMenu idiom starts without a bar (#1140).
         var (content, _, ctx, env) = Spawn(PopupOnly);
         var bar = ((DockPanel)content).Children.OfType<Menu>().Single();
 
@@ -235,8 +234,8 @@ public class MenuMembersTests : WindowTestFixture
 
             """);
 
-        (await show.Should().ThrowAsync<System.NotImplementedException>()).WithMessage("*#1140*");
-        bar.IsVisible.Should().BeFalse();
+        await show();
+        bar.IsVisible.Should().BeTrue();
 
         // Its sub-items are still the program's to change, which is what a popup menu's code does.
         var printed = await ContainerRuntimeHarness.Run(ctx, env, """

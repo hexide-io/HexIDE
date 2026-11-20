@@ -996,10 +996,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             ReassertOwnedText(qualifiers: qualifierWriteWasUndone);
     }
 
+    internal bool ConditionalWin64OnlySetOnWindows => Settings.RDCoreWin64OnlySetOnWindows;
+
+    private static int ConditionalTargetFor(ProjectDefinition project) => project.Target == ProjectTarget.RDCore ? 5 :
+        project.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
+
     public CodeEditorViewModel Initialize(FormDefinition formElement)
     {
         this.formDefinition = formElement;
-        ConditionalTargetIndex = formElement.Owner.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
+        ConditionalTargetIndex = ConditionalTargetFor(formElement.Owner);
         this.identity = DocumentIdentity.For(formElement);
         // Both subscriptions also reconcile the wire name. A document with no file is named
         // untitled:<Project>/<Name>, so BOTH its own rename and its project's change what servers should
@@ -1029,7 +1034,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public CodeEditorViewModel Initialize(ModuleDefinition moduleElement)
     {
         this.moduleDefinition = moduleElement;
-        ConditionalTargetIndex = moduleElement.Owner.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
+        ConditionalTargetIndex = ConditionalTargetFor(moduleElement.Owner);
         // BOTH halves, because a UserControl or PropertyPage HAS both and they are one file.
         //
         // This used to set only the module, while the designer's View Code went through
@@ -1111,7 +1116,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // PropertyPages, and every one of them is a member. That is what gates a `.cls` away from a LaTeX
         // server claiming the same extension (#279); the carried-file editor states the opposite.
         session = new LspDocumentSession(
-            lspClient, Document, DocumentWireName.For(Identity), isProjectMember: true);
+            lspClient, Document, DocumentWireName.For(Identity), isProjectMember: true,
+            ownerAddinId: Identity.Project.ContributedBy);
 
         // Forwarded into this class's own event rather than re-exposed as a pass-through. The view
         // subscribes once when it attaches and never replays, so a subscription that landed on the session
@@ -1324,6 +1330,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal void NavigateToSymbol(DocumentSymbol symbol)
     {
+        if (symbol.Kind == SymbolKind.Property && formDefinition is { } form && FindComponent(symbol.Name) is { } control)
+        {
+            editorService.EditForm(form, control);
+            return;
+        }
+        if (symbol.Range.Start == symbol.Range.End) return;
         var position = symbol.SelectionRange.Start;
         if (position.Line < 0 || position.Line >= Document.LineCount) return;
         var line = Document.GetLineByNumber(position.Line + 1);
@@ -1332,6 +1344,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     private bool refreshingProcedureNames;
+    private readonly Dictionary<string, DocumentSymbol> procedureSymbols = new();
 
     private void RefreshProcedureNames()
     {
@@ -1340,17 +1353,22 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         {
             var current = SelectedProcedure;
             ProcedureNames.Clear();
+            procedureSymbols.Clear();
 
             if (SelectedObject == GeneralObject || SelectedObject is null)
             {
                 ProcedureNames.Add(DeclarationsProc);
-                foreach (var s in FlattenedSymbols())
-                    // A form's controls can arrive as Property symbols too (RDCore, #4526); they belong in the Object
-                    // box. Only Property symbols are filtered: a procedure keeps its place even if it shares a name
-                    // FindComponent knows, such as the root's "Form".
-                    if (s.Kind is SymbolKind.Method or SymbolKind.Function ||
+                // A form's controls can arrive as Property symbols too (RDCore, #4526); they belong in the Object
+                // box. A procedure keeps its place even if it shares a component's name, such as "Form".
+                var entries = FlattenedSymbols()
+                    .Where(s => s.Kind is SymbolKind.Method or SymbolKind.Function ||
                         (s.Kind is SymbolKind.Property && FindComponent(s.Name) is null))
-                        ProcedureNames.Add(s.Name);
+                    .Select(s => (Symbol: s, Entry: ProcedureEntry(s)))
+                    .OrderBy(x => x.Entry.Name, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(x => x.Entry.Accessor);
+                foreach (var (symbol, entry) in entries)
+                    if (procedureSymbols.TryAdd(entry.Text, symbol))
+                        ProcedureNames.Add(entry.Text);
             }
             else
             {
@@ -1366,6 +1384,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         finally { refreshingProcedureNames = false; }
     }
 
+    private static (string Name, string Text, int Accessor) ProcedureEntry(DocumentSymbol symbol)
+    {
+        if (symbol.Kind == SymbolKind.Property)
+        {
+            var accessors = new[] { "Get", "Let", "Set" };
+            for (var i = 0; i < accessors.Length; i++)
+                if (string.Equals(symbol.Detail, "Property " + accessors[i], StringComparison.OrdinalIgnoreCase))
+                    return (symbol.Name, $"{symbol.Name} [Property{accessors[i]}]", i);
+            for (var i = 0; i < accessors.Length; i++)
+            {
+                var suffix = $" ({accessors[i]})";
+                if (symbol.Name.EndsWith(suffix, StringComparison.Ordinal))
+                {
+                    var name = symbol.Name[..^suffix.Length];
+                    return (name, $"{name} [Property{accessors[i]}]", i);
+                }
+            }
+        }
+        return (symbol.Name, symbol.Name, 0);
+    }
+
     private string? RootEventPrefix => formDefinition?.RootVBTypeName switch
     {
         "VB.Form" => "Form",
@@ -1376,12 +1415,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private ComponentInstance? FindComponent(string name)
     {
         if (formDefinition is null) return null;
-        if (name == RootEventPrefix)
+        if (string.Equals(name, RootEventPrefix, StringComparison.OrdinalIgnoreCase))
             return formDefinition.Components[0];
-        foreach (var c in formDefinition.Components)
-            if (c.GetPropertyOrDefault(VBProperties.NameProperty) == name)
-                return c;
-        return null;
+        return formDefinition.Components
+            .Where(c => string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), name, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(PropertyText.ArrayIndexOf)
+            .FirstOrDefault();
     }
 
     private void OnSelectedObjectChanged(string? oldValue, string? newValue)
@@ -2421,6 +2460,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<Location[]?> RequestDeclarationAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDeclarationAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
 
+    internal bool CanLinkedEdit => LiveDocumentUri is { } uri && lspClient.SupportsCapability(uri, "linkedEditingRangeProvider");
+
+    internal async Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(Position position, CancellationToken ct)
+    {
+        await FlushDocumentAsync(ct);
+        ct.ThrowIfCancellationRequested();
+        return LiveDocumentUri is { } uri ? await lspClient.RequestLinkedEditingRangesAsync(uri, position, ct) : null;
+    }
+
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDocumentHighlightAsync(uri, position, ct) : Task.FromResult<DocumentHighlight[]?>(null);
 
@@ -2653,11 +2701,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         if (SelectedObject == GeneralObject || SelectedObject is null)
         {
-            // Navigate to existing proc by symbol range
-            // Searched over the same flattened view the dropdown was filled from. Looking only at the top
-            // level here would offer a name and then decline to navigate to it.
-            var sym = FlattenedSymbols().FirstOrDefault(s => s.Name == newValue);
-            if (sym is null) return;
+            if (!procedureSymbols.TryGetValue(newValue, out var sym)) return;
             var line = sym.SelectionRange.Start.Line + 1;
             if (line >= 1 && line <= Document.LineCount)
                 this.NavigateToOffset(Document.GetLineByNumber(line).Offset);

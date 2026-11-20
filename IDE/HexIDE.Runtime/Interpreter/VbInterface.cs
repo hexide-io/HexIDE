@@ -35,7 +35,10 @@ internal static class VbInterface
         var view = reference.DeclaredAs;
         if (view == null
             || string.Equals(view, target.ClassName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(view, "Object", StringComparison.OrdinalIgnoreCase))
+            || target.ClassDef.Kind == InterpreterModuleKind.Form && string.Equals(view, "Form", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(view, "Object", StringComparison.OrdinalIgnoreCase)
+            // `As Control` is a late-binding view like Object, not an interface (#4737).
+            || string.Equals(view, "Control", StringComparison.OrdinalIgnoreCase))
             return memberName;
 
         // Read through a name declared As some OTHER class. If the object implements it, the interface's
@@ -61,6 +64,7 @@ internal static class VbInterface
     /// else is Err 13 "Type mismatch" at the Set, measured.</summary>
     internal static bool IsAssignableTo(VbObject target, string declaredClass)
         => string.Equals(target.ClassName, declaredClass, StringComparison.OrdinalIgnoreCase)
+           || target.ClassDef.Kind == InterpreterModuleKind.Form && string.Equals(declaredClass, "Form", StringComparison.OrdinalIgnoreCase)
            || string.Equals(declaredClass, "Object", StringComparison.OrdinalIgnoreCase)
            || Implements(target.ClassDef, declaredClass);
 

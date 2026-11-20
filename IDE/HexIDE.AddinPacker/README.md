@@ -59,9 +59,17 @@ same commands without a `dotnet` prefix. No CI artifact is added by this command
 - `signing/public/intermediate.sig` → `IDE/HexIDE.AddinPacker/firstparty/intermediate.sig`
 - `signing/public/publisher.json` → `IDE/HexIDE.AddinPacker/firstparty/publisher.json`
 - `signing/public/publisher.sig` → `IDE/HexIDE.AddinPacker/firstparty/publisher.sig`
-- `signing/firstparty/firstparty.key` → `HEXIDE_FIRSTPARTY_KEY` (CI secret)
+- `signing/firstparty/firstparty.key` → `HEXIDE_FIRSTPARTY_KEY` (CI secret, read by `publish.yml` only: `build.yml` packs with a
+  throwaway chain it generates and deletes in each run, #4740)
 - `IDE/HexIDE.AddinPacker/firstparty/README.md`
 - `TRUST.md` — `HexIDE root`, `First-party publisher` SHA-256 fingerprints
+
+`pack` refuses a `firstparty.key` that isn't the key its trust folder's `publisher.json` names, before it writes anything,
+and the error gives both fingerprints. So a release whose `HEXIDE_FIRSTPARTY_KEY` and committed records come from different
+chains fails at packing instead of shipping first-party add-ins that HexIDE refuses. A Desktop build fails the same way
+when `firstparty/` holds a key left over from an earlier chain: remove it, or get the current key (#4109).
+`CommittedFirstPartyChainTests` checks that the records chain to the embedded root and first-party key, and that both
+copies of each public key agree.
 
 ## Checking a revocation list
 

@@ -325,6 +325,16 @@ public partial class EditorService : IEditorService
         }
     }
 
+    public void EditForm(FormDefinition? form, ComponentInstance component)
+    {
+        if (form is null) return;
+        EditForm(form);
+        var designer = documentDockService.OpenDocuments.OfType<FormEditViewModel>()
+            .FirstOrDefault(vm => vm.FormDefinition == form);
+        if (designer?.AllComponents.FirstOrDefault(vm => vm.Instance == component) is { } selected)
+            designer.SelectedComponent = selected;
+    }
+
     public void EditForm(FormDefinition? form)
     {
         if (form == null) return;

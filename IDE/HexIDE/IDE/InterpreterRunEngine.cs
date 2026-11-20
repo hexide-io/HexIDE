@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -18,12 +19,15 @@ namespace HexIDE.IDE;
 /// <summary>Runs a project with HexIDE's own interpreter and its run-time forms, in the IDE's process.</summary>
 public sealed class InterpreterRunEngine : IRunEngine
 {
+    internal OSPlatform? Host { get; init; }
+    private readonly ISettingsService settings;
     private readonly IProgramHost programHost;
     private readonly IDebugGate debugController;
     private Func<RunFailure, Task<bool>>? haltHost;
 
-    public InterpreterRunEngine(IProgramHost programHost, IDebugGate debugController)
+    public InterpreterRunEngine(IProgramHost programHost, IDebugGate debugController, ISettingsService settings)
     {
+        this.settings = settings;
         this.programHost = programHost;
         this.debugController = debugController;
         // A running program's CommonDialog shows the IDE's own dialogs (#1084), whichever window the form runs in.
@@ -97,7 +101,7 @@ public sealed class InterpreterRunEngine : IRunEngine
             else
             {
                 // RunForm starts the form and shows it once Load has run (#822).
-                task = VBLoader.RunForm(form, tokenSource.Token, out _, debugController);
+                task = VBLoader.RunForm(form, tokenSource.Token, out _, debugController, settings.RDCoreWin64OnlySetOnWindows, Host);
             }
         }
         catch (Exception e)
@@ -157,7 +161,7 @@ public sealed class InterpreterRunEngine : IRunEngine
             // reported the way the form path reports one (#590).
             var context = new VBWindowContext(new MDIStandaloneStandardLib(programHost));
             program = new VBProgram(project, context, debugController,
-                Static.SingleView ? OpenInBrowser : VBLoader.OpenWindow);
+                Static.SingleView ? OpenInBrowser : VBLoader.OpenWindow, settings.RDCoreWin64OnlySetOnWindows, Host);
             // A missing or ambiguous Main is found here, before anything runs, so it too is a start that never became a
             // run. It used to be raised as the run began, and arrived as a run that ended, which run_project answered as
             // a success (#759).
@@ -321,7 +325,7 @@ public sealed class InterpreterRunEngine : IRunEngine
         // a syntax error fails the start without leaving a window behind that nothing would close. The program's other
         // forms get MDI windows of their own.
         var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element), VBLoader.HasMenuBar(element));
-        VBLoader.PrepareForm(element, shown.Context, shown.SetContent, debugController, OpenInBrowser);
+        VBLoader.PrepareForm(element, shown.Context, shown.SetContent, debugController, OpenInBrowser, settings.RDCoreWin64OnlySetOnWindows, Host);
         return VBLoader.StartAndShow(shown.Context, token, close: shown.CloseForm,
             showUntilClosed: () => shown.ShowInHost(blockBehind: true));
     }

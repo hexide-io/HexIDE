@@ -80,7 +80,7 @@ public class CommandButtonDefaultCancelTests
         var plain = (VBCommandButton)run.Named("Command2");
         button.Bounds.Size.Should().Be(plain.Bounds.Size);
         var bounds = button.Bounds;
-        var presenter = button.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().Single();
+        var presenter = button.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().Single(p => p.Name == "PART_ContentPresenter");
         var caption = presenter.TranslatePoint(default, button);
         using var frame = run.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("no frame");
         using var buffer = frame.Lock();

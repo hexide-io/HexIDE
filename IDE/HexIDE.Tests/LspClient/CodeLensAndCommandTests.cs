@@ -64,6 +64,52 @@ public class CodeLensAndCommandTests : IAsyncDisposable
     }
 
     [Theory]
+    [InlineData("{\"inlineValueProvider\":true}")]
+    [InlineData("{\"inlineValueProvider\":{}}")]
+    public async Task InlineValuesSendContextAndReadAllThreeKinds(string capabilities)
+    {
+        var server = new StubServer(capabilities, "[]");
+        var client = await ConnectedToAsync(server);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(2, 0), new Position(8, 7));
+        var context = new InlineValueContext(0, new(new(4, 0), new(4, 9)));
+        var values = await client.RequestInlineValuesAsync("file:///test.bas", range, context, TestContext.Current.CancellationToken);
+        values.Should().HaveCount(3);
+        values[0].Should().BeOfType<InlineValueText>().Which.Text.Should().Be("given");
+        values[1].Should().BeOfType<InlineValueVariableLookup>().Which.VariableName.Should().Be("x");
+        values[2].Should().BeOfType<InlineValueEvaluatableExpression>().Which.Expression.Should().BeNull();
+        var capabilitiesSent = server.LastInitializeParams!.Value.GetProperty("capabilities");
+        capabilitiesSent.GetProperty("textDocument").GetProperty("inlineValue")
+            .GetProperty("dynamicRegistration").GetBoolean().Should().BeFalse();
+        capabilitiesSent.GetProperty("workspace").GetProperty("inlineValue")
+            .GetProperty("refreshSupport").GetBoolean().Should().BeTrue();
+        var sent = server.LastInlineParams!.Value;
+        sent.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///test.bas");
+        sent.GetProperty("range").GetRawText().Should().Be(System.Text.Json.JsonSerializer.Serialize(range));
+        sent.GetProperty("context").GetProperty("frameId").GetInt32().Should().Be(0);
+        sent.GetProperty("context").GetProperty("stoppedLocation").GetRawText()
+            .Should().Be(System.Text.Json.JsonSerializer.Serialize(context.StoppedLocation));
+        foreach (var unsupported in new[] { "{}", "{\"inlineValueProvider\":false}" })
+        {
+            var silent = new StubServer(unsupported, "[]");
+            var gated = await ConnectedToAsync(silent);
+            (await gated.RequestInlineValuesAsync("file:///test.bas", range, context,
+                TestContext.Current.CancellationToken)).Should().BeEmpty();
+            silent.LastInlineParams.Should().BeNull();
+        }
+    }
+
+    [Fact]
+    public async Task InlineValueRefreshAnswersNullAndRaisesEvent()
+    {
+        var server = new StubServer("{}", "[]");
+        var client = await ConnectedToAsync(server);
+        var refreshes = 0;
+        client.InlineValueRefreshRequested += (_, _) => refreshes++;
+        (await server.Rpc!.InvokeAsync<JsonElement?>("workspace/inlineValue/refresh")).Should().BeNull();
+        refreshes.Should().Be(1);
+    }
+
+    [Theory]
     [InlineData("{\"inlayHintProvider\":true}")]
     [InlineData("{\"inlayHintProvider\":{\"resolveProvider\":false}}")]
     public async Task InlayHintsSendTheDocumentAndRange(string capabilities)
@@ -384,6 +430,20 @@ public class CodeLensAndCommandTests : IAsyncDisposable
     private sealed class StubServer(string capabilities, string lenses)
     {
         public JsonRpc? Rpc { get; set; }
+        public JsonElement? LastInlineParams { get; private set; }
+
+        [JsonRpcMethod("textDocument/inlineValue", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement InlineValue(JsonElement p)
+        {
+            LastInlineParams = p.Clone();
+            // The lookup is RDCore's measured answer in #5014; the other two are protocol fixtures.
+            return JsonDocument.Parse("""
+                [{"range":{"start":{"line":4,"character":4},"end":{"line":4,"character":5}},"text":"given"},
+                 {"variableName":"x","caseSensitiveLookup":false,"range":{"start":{"line":4,"character":4},"end":{"line":4,"character":5}}},
+                 {"range":{"start":{"line":4,"character":4},"end":{"line":4,"character":5}}}]
+                """).RootElement.Clone();
+        }
+
         public JsonElement? LastInlayParams { get; private set; }
         public JsonElement? LastInitializeParams { get; private set; }
 

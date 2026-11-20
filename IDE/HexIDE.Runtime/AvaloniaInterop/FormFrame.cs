@@ -17,7 +17,7 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>the border, across and down: 240 for Sizable and Sizable ToolWindow, 90 for the fixed styles, and none for None;</item>
 /// <item>a caption bar, 345 more down, unless ControlBox is False and the Caption is empty. Then Fixed Single and Fixed
 /// ToolWindow have a border of 30;</item>
-/// <item>a menu bar, 300 more down. A borderless form with a menu has Fixed Single's border and caption bar.</item>
+/// <item>a one-row menu bar, 300 more down, and 285 for each further row (#4978). A borderless form with a menu has Fixed Single's border and caption bar.</item>
 /// </list>
 /// </para>
 /// <para>
@@ -38,6 +38,9 @@ internal static class FormFrame
         // back what was assigned while the window keeps that size (measured: 4000 reads 4000 on a window of 267 pixels).
         public (double Twips, double Client)? Width;
         public (double Twips, double Client)? Height;
+
+        public double? WindowWidth;
+        public double? WindowHeight;
     }
 
     private static readonly ConditionalWeakTable<Window, State> states = new();
@@ -64,8 +67,59 @@ internal static class FormFrame
     }
 
     /// <summary>Give <paramref name="window"/> the frame its form's file describes.</summary>
-    public static void Set(Window window, FormChrome chrome, bool menu) =>
-        states.GetOrCreateValue(window).Frame = Of(chrome.BorderStyle, chrome.CaptionBar, menu);
+    public static void Set(Window window, FormChrome chrome, bool menu)
+    {
+        var state = states.GetOrCreateValue(window);
+        state.Frame = Of(chrome.BorderStyle, chrome.CaptionBar, menu);
+        state.WindowWidth = window.Width;
+        state.WindowHeight = window.Height;
+        // A user's drag and a DPI change give the window a size of their own. Unspecified is not one: Win32 reports it for
+        // the window's first show too, at the size HexIDE gave it, truncated (seen live at 150%, #4995). A maximize or
+        // restore also reports it, and the one-pixel test in WindowSize takes the platform's size for those.
+        window.Resized += (_, e) =>
+        {
+            if (e.Reason is WindowResizeReason.User or WindowResizeReason.DpiChange)
+                (state.WindowWidth, state.WindowHeight) = (null, null);
+        };
+    }
+
+    public static double RememberWindowSize(Window window, bool vertical, double pixels)
+    {
+        var state = states.GetOrCreateValue(window);
+        if (vertical)
+            state.WindowHeight = pixels;
+        else
+            state.WindowWidth = pixels;
+        return pixels;
+    }
+
+    // Win32 truncates DIPs to physical pixels; retain our assignment only inside that rounding margin (#4995).
+    public static double WindowSize(Window window, bool vertical)
+    {
+        var actual = vertical ? window.Height : window.Width;
+        if (states.TryGetValue(window, out var state)
+            && (vertical ? state.WindowHeight : state.WindowWidth) is { } recorded
+            && Math.Abs(actual - recorded) * window.RenderScaling < 1)
+            return recorded;
+        return actual;
+    }
+
+    internal static void ChangeMenu(Window window, bool visible)
+    {
+        var state = states.GetOrCreateValue(window);
+        state.Frame = (state.Frame.Across, state.Frame.Down + (visible ? MenuBar : -MenuBar));
+        if (state.Height is { } assigned)
+            state.Height = (assigned.Twips, assigned.Client + (visible ? -MenuBar : MenuBar) / VBScaleModeExtensions.PixelToTwips);
+    }
+
+    // The counted bar belongs to VB's frame, though it occupies the window here (#4978).
+    internal static void ChangeMenuHeight(Window window, double pixels)
+    {
+        var state = states.GetOrCreateValue(window);
+        state.Frame = (state.Frame.Across, state.Frame.Down + pixels * VBScaleModeExtensions.PixelToTwips);
+        if (state.Height is { } assigned)
+            state.Height = (assigned.Twips, assigned.Client - pixels);
+    }
 
     /// <summary>The form's Width or Height, in twips: what was assigned, or the client area and the frame.</summary>
     public static double Read(Window window, bool vertical)

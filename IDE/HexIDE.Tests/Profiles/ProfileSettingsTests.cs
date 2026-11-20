@@ -21,6 +21,76 @@ public sealed class ProfileSettingsTests : IDisposable
         return new SettingsService(SettingsPath, profile);
     }
 
+    // #5036: white-label defaults may select the installation's RDCore behaviour.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RDCoreWin64ProfileDefaultAndSavedOverride(bool savedOverride)
+    {
+        if (savedOverride) File.WriteAllText(SettingsPath, """{"rdcoreWin64OnlySetOnWindows":false}""");
+        var settings = Create("""{"rdcoreWin64OnlySetOnWindows":true}""");
+        var setting = typeof(SettingsService).GetProperty("RDCoreWin64OnlySetOnWindows");
+        setting.Should().NotBeNull();
+        setting!.GetValue(settings).Should().Be(!savedOverride);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ShowInlineValuesProfileDefaultAndSavedOverride(bool savedOverride)
+    {
+        if (savedOverride) File.WriteAllText(SettingsPath, """{"showInlineValues":true}""");
+        var settings = Create("""{"showInlineValues":false}""");
+        settings.ShowInlineValues.Should().Be(savedOverride);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ListMembersAsYouTypeProfileDefaultAndSavedOverride(bool savedOverride)
+    {
+        if (savedOverride) File.WriteAllText(SettingsPath, """{"listMembersAsYouType":true}""");
+        var settings = Create("""{"listMembersAsYouType":false}""");
+        settings.ListMembersAsYouType.Should().Be(savedOverride);
+    }
+
+    [Theory]
+    [InlineData("showInlayHints", nameof(ISettingsService.ShowInlayHints), "false", "true")]
+    [InlineData("showCodeLenses", nameof(ISettingsService.ShowCodeLenses), "false", "true")]
+    [InlineData("colorBracketsByDepth", nameof(ISettingsService.ColorBracketsByDepth), "false", "true")]
+    [InlineData("showIndentGuides", nameof(ISettingsService.ShowIndentGuides), "false", "true")]
+    [InlineData("isStickyScrollEnabled", nameof(ISettingsService.IsStickyScrollEnabled), "false", "true")]
+    [InlineData("stickyScrollDepth", nameof(ISettingsService.StickyScrollDepth), "1", "3")]
+    [InlineData("stickyScrollDepth", nameof(ISettingsService.StickyScrollDepth), "10", "3")]
+    [InlineData("editorFontFamily", nameof(ISettingsService.EditorFontFamily), "\"Example Mono\"", "\"Consolas\"")]
+    [InlineData("editorFontSize", nameof(ISettingsService.EditorFontSize), "6", "12")]
+    [InlineData("editorFontSize", nameof(ISettingsService.EditorFontSize), "12.5", "12")]
+    [InlineData("editorFontSize", nameof(ISettingsService.EditorFontSize), "72", "12")]
+    public void EditorProfileDefaultsStartNewUsersAndSavedChoicesWin(string name, string propertyName,
+        string startingValue, string savedValue)
+    {
+        var property = typeof(ISettingsService).GetProperty(propertyName)!;
+        var defaults = "{\"" + name + "\":" + startingValue + "}";
+        var settings = Create(defaults);
+        JsonSerializer.SerializeToElement(property.GetValue(settings)).GetRawText().Should().Be(startingValue);
+        settings.ActiveLanguage = "de";
+        settings.Save();
+        using (var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath)))
+            saved.RootElement.TryGetProperty(name, out _).Should().BeFalse("unedited defaults stay in the profile");
+        File.WriteAllText(SettingsPath, "{\"" + name + "\":" + savedValue + "}");
+        JsonSerializer.SerializeToElement(property.GetValue(Create(defaults))).GetRawText().Should().Be(savedValue);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LinkedEditingProfileDefaultAndSavedOverride(bool savedOverride)
+    {
+        if (savedOverride) File.WriteAllText(SettingsPath, """{"linkedEditing":false}""");
+        var settings = Create("""{"linkedEditing":true}""");
+        settings.LinkedEditing.Should().Be(!savedOverride);
+    }
+
     [Fact]
     [Trait("Issue", "4307")]
     public void ServerSettingsReplaceOneDefaultWholeAndResetWithoutTouchingOtherIdsOrProfile()

@@ -1005,6 +1005,40 @@ the Avalonia frame properties. Other controls SHALL have no frame section.
 - **WHEN** a caller inspects the `Window` of a running form on Windows
 - **THEN** `nativeStyle` and `nativeExStyle` equal the window's `GWL_STYLE` and `GWL_EXSTYLE`
 
+### Requirement: Window ownership is observable
+
+Window inspection SHALL report `frame.owner` from Avalonia's `Window.Owner` as `{ name, title }`, or
+null when there is none. The name SHALL be the value the `window` parameter resolves to that window:
+`ide` for the main window, else the running form's name or the window's title, with `#n` when several
+visible windows answer to it.
+
+#### Scenario: A window is shown with an owner
+
+- **WHEN** a window shown with an owner is inspected
+- **THEN** `frame.owner` names that owner and gives its current title
+
+#### Scenario: The owner is one of two instances of a form
+
+- **WHEN** two visible windows answer to one name and the second owns the inspected window
+- **THEN** `frame.owner.name` is that name with `#2`, which the `window` parameter resolves to the owner
+
+#### Scenario: An unowned window is inspected
+
+- **WHEN** a window with no Avalonia owner is inspected
+- **THEN** `frame.owner` is null
+
+### Requirement: Native window ownership is observable
+
+On a Windows HWND inspection SHALL report `frame.nativeOwner` from `GetWindow(hwnd, GW_OWNER)`, using
+the same identity as `owner` for a known window, or the title and `className` with no `name` otherwise, and null
+when there is no native owner. Without a Windows HWND it SHALL omit `nativeOwner`. The two owners can
+differ; Windows stacking and minimization follow the native owner.
+
+#### Scenario: A native owner is outside the managed windows
+
+- **WHEN** an inspected HWND's owner is not a known Avalonia window
+- **THEN** `frame.nativeOwner` gives its native class name as `className` and its title as `title`, with no `name`
+
 ### Requirement: A frame snapshot SHALL show the window whatever covers it
 
 The snapshot tool SHALL accept optional `includeFrame`, default false. When true on Windows, it SHALL
@@ -1132,7 +1166,12 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 A `window` named by a title or a running form's name SHALL reach the one visible window of that name. Where several
 share it and sit on one another, each owning the next, the name SHALL reach the one on top, the one a person can use,
 and a path that fails there SHALL say that the name reached the window on top of another of that name. Where several
-share it side by side, the refusal SHALL name what does reach one of them, rather than advice no caller can follow.
+share it side by side, the refusal SHALL list each window's indexed address and title, explain that each address
+reaches that window, and retain the explanation of what `auto` reaches.
+When no window matches a value exactly, a trailing `#n` with a positive integer SHALL select the n-th visible
+window answering to the preceding name, in opening order starting at 1. Hidden windows SHALL NOT count.
+An index past the count SHALL be refused with the count. Exact titles, form names and floating-tool keys
+containing `#` SHALL keep their existing meaning.
 
 #### Scenario: A dialog and its own message box share a title
 - **WHEN** the Find dialog has raised a message box also titled "Find", and a tool is called with `window: "Find"`
@@ -1141,8 +1180,17 @@ share it side by side, the refusal SHALL name what does reach one of them, rathe
 
 #### Scenario: Two instances of one form are open
 - **WHEN** two instances of Form1 are showing side by side, and a tool is called with `window: "Form1"`
-- **THEN** it is refused, naming both
+- **THEN** it is refused, listing `Form1#1` and `Form1#2` with their titles and saying each address reaches that window
 - **AND** the refusal says which of them `auto` reaches
+
+#### Scenario: An indexed window address
+- **WHEN** two visible instances answer to Form1 and no window matches the exact value `Form1#2`
+- **THEN** `window: "Form1#2"` reaches the second instance in opening order
+- **AND** `window: "Form1#3"` is refused, saying two windows answer to Form1
+
+#### Scenario: An exact title includes an index
+- **WHEN** a window is titled "Form1#2" while two other windows answer to Form1
+- **THEN** `window: "Form1#2"` reaches the window with that exact title
 
 ### Requirement: Floating tools SHALL remain part of the IDE
 Automatic window selection SHALL exclude the IDE's Dock host windows, while explicit window titles and
@@ -1191,9 +1239,16 @@ a control in it SHALL have no `boundingRect`, rather than a position that reads 
 - **THEN** the button is pressed, and its `boundingRect` is where `take_snapshot` shows it
 
 #### Scenario: Popup geometry on native Wayland
-- **WHEN** a menu or tooltip is open under `--platform wayland` with Avalonia 12.1.5 or later
+- **WHEN** a menu or tooltip is open and placed by the compositor under `--platform wayland` with Avalonia 12.1.5 or later
 - **THEN** `take_snapshot` includes the popup at its reported position, `inspect_element` reports `boundingRect` inside it,
   and `hover` reports the open tooltip's `tipBounds` in the selected window's coordinates
+
+#### Scenario: A native Wayland popup has not been placed yet
+- **WHEN** an open popup's platform position is still default on native Wayland
+- **THEN** `inspect_element` SHALL omit its `boundingRect` and `take_snapshot` SHALL leave it out of the image,
+  each explaining that the compositor has not placed it yet and asking the caller to retry
+- **AND** `hover` SHALL wait up to 500 ms for the tooltip popup's first position change before reading its bounds;
+  if it remains unplaced, it SHALL omit `tipBounds` and explain that its position is unknown and hovering again reads it
 
 ### Requirement: A DPI-unaware IDE's window state SHALL say why its scale is 1
 An IDE started with `--dpi-unaware` SHALL give every window-state rectangle in the pixels Windows reports to it, the
@@ -2327,3 +2382,66 @@ SHALL refuse without pressing and name the clipping ancestor (#4558).
 - **WHEN** another control covers an in-view target's press point
 - **THEN** the click retains its existing success reply naming the cover it pressed
 - **AND** this change leaves drag release targets, `wheel`, `hover`, `double_click` and non-pointer verbs unchanged
+
+### Requirement: Native menu bar automation
+
+The automation tools SHALL expose Avalonia's NativeMenu model through the reserved, case-insensitive
+`window: "menubar"` scope in `dump_visual_tree`, `inspect_element` and `interact`, on every platform
+including headless. Native paths, window selection, state, event order and refusals SHALL follow the
+scenarios below. `invoke_menu_item` SHALL also reach the application menu by its title.
+
+#### Scenario: Choose the bar window
+
+- **WHEN** a tool reads the native menu bar
+- **THEN** it lists the application menu first, titled with Application.Name or `Application` when empty
+- **AND** it adds the single visible active window's NativeMenu items, or uses ForegroundWindow's `auto` choice when zero or several visible windows read active, falling back to the main window
+- **AND** the reply names the selected window and the rule that selected it
+
+#### Scenario: Address and inspect native items
+
+- **WHEN** a caller dumps or inspects the menubar scope
+- **THEN** paths start at `MenuBar` and use `MenuItem[header]` with access-key markers removed, or `MenuItem[#n]` for duplicate names, indexed from zero among that type
+- **AND** root, maxDepth, interactiveOnly and match work as on windows
+- **AND** nodes report their own enabled state, and hidden state for invisible items and top-level items without submenus
+- **AND** inspection reports checked state for checkable items
+- **AND** separators have class NativeMenuItemSeparator, type Separator and no providers, and are omitted under interactiveOnly
+
+#### Scenario: Invoke a running form's native menu
+
+- **WHEN** Form1 is the bar window and exposes File › Open in its NativeMenu
+- **THEN** a menubar dump includes `MenuBar/MenuItem[File]/MenuItem[Open]` after the app menu
+- **AND** invoking that path opens ancestor submenus outermost first, raising NeedsUpdate then Opening, followed by Open's Click once through Avalonia's exporter bridge
+- **AND** the application's root menu is opened on its path, while the window's root menu is not
+- **AND** invoke raises no Closed; collapse raises Closed on the target's submenu
+
+#### Scenario: A no-menu dialog is the bar window
+
+- **WHEN** the selected bar window is a modal dialog without a NativeMenu
+- **THEN** only the application's menu is contributed, without inheriting its owner's menus
+
+#### Scenario: A submenu cannot be clicked
+
+- **WHEN** invoke addresses a native item with a submenu, even an empty one
+- **THEN** it refuses, names expand, and raises no Click
+- **AND** expand opens ancestor menus then raises NeedsUpdate and Opening on the item's submenu, without clicking
+
+#### Scenario: Native refusals explain the applicable action
+
+- **WHEN** an item is disabled or hidden, or the requested verb does not apply
+- **THEN** interaction refuses, naming the state or the applicable verbs
+- **AND** a Window path under menubar, or a MenuBar path under a window, refuses and explains the scope to use
+
+#### Scenario: Invoke the application menu by title
+
+- **WHEN** invoke_menu_item's first segment names the app menu title
+- **THEN** it resolves in that menu with the same invocation and refusal rules
+- **AND** the main window's in-window route remains unchanged, including its no-menu-bar refusal
+- **AND** an unknown first segment lists in-window menus followed by the app menu title
+- **AND** running forms' native menus are reached through interact's menubar scope
+
+#### Scenario: Explain the menu bar's limits
+
+- **WHEN** the model is empty
+- **THEN** the reply explains that HexIDE puts menus in the macOS bar only on macOS and names the windows
+- **AND** hidden top-level leaves explain that macOS does not draw top-level items without submenus
+- **AND** snapshot, typing, hover and key tools refuse the menubar scope, explaining that macOS draws it outside the windows and naming the three tools that reach it

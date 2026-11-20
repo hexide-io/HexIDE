@@ -123,7 +123,18 @@ public class VBLine : Control
         return Math.Round(value, MidpointRounding.ToEven);
     }
 
-    private double Factor(int coordinate) => coordinate % 2 == 0 ? TwipsPerUnit!.Value.X : TwipsPerUnit!.Value.Y;
+    private double Factor(int coordinate)
+    {
+        if (TwipsPerUnit is { X: AvaloniaInterop.RuntimeScale.TwipsPerCentimetre }
+            && Parent is Control host && AvaloniaInterop.RuntimeScale.Of(host) is { } scale)
+        {
+            var mode = VBProps.GetScaleMode(host);
+            if (mode is not (VBScaleMode.Twip or VBScaleMode.Centimiter))
+                throw new NotImplementedException($"A Line in a container whose ScaleMode is {mode} is not implemented (#4693)");
+            return scale.TwipsPerUnit(coordinate % 2 != 0);
+        }
+        return coordinate % 2 == 0 ? TwipsPerUnit!.Value.X : TwipsPerUnit!.Value.Y;
+    }
 
     // The pixel nearest a twips position. Twips are whole and a pixel is 15 of them, so no position is halfway.
     private static int Pixel(double twips) => (int)Math.Round(twips / VBScaleModeExtensions.PixelToTwips);

@@ -38,6 +38,25 @@ grammar VB6;
 
 @parser::members {
     public bool IsVba64 { get; set; }
+    // Line is not reserved: an ordinary call still works, but a coordinate pair belongs to graphics syntax (#988).
+    private bool OrdinaryLineCallAhead()
+    {
+        if (TokenStream.LA(1) != LINE) return true;
+        var i = TokenStream.LA(2) == WS ? 3 : 2;
+        if (TokenStream.LA(i) is STEP or MINUS) return false;
+        if (TokenStream.LA(i) != LPAREN) return true;
+        var depth = 0;
+        do
+        {
+            var token = TokenStream.LA(i++);
+            if (token == TokenConstants.EOF) return true;
+            if (token == LPAREN) depth++;
+            if (token == RPAREN) depth--;
+            if (depth == 1 && token == COMMA) return false;
+        } while (depth > 0);
+        return true;
+    }
+
     // Keep inline-If branches and a continued Debug.Print statement outside the preceding list.
     // Both refusals are measured in corpus/conformance/results.json.
     private bool OutputAdjacentAhead()
@@ -272,7 +291,7 @@ cp_Properties
 	| cp_NestedProperty
 	| controlProperties;
 
-// A designer property line. The name may be a DESIGNER_KEY, which an ordinary VB6 expression cannot be:
+// A designer property line. The name may be a bare DESIGNER_KEY:
 // VB6 writes `_ExtentX`, `_ExtentY` and `_Version` into the Begin block of every ActiveX control, and a
 // VB6 identifier may not begin with an underscore. One lexer serves both halves of a .frm, so when the
 // underscore stopped being an identifier character these keys stopped lexing — a false rejection of
@@ -401,13 +420,14 @@ blockStmt
    | inputStmt
    | killStmt
    | timeStmt
+   | lsetStmt
+   | rsetStmt
    | setStmt
    | letStmt
    | lineInputStmt
    | lineLabel
    | loadStmt
    | lockStmt
-   | lsetStmt
    | macroIfThenElseStmt
    | midStmt
    | mkdirStmt
@@ -425,8 +445,10 @@ blockStmt
    | resumeStmt
    | returnStmt
    | rmdirStmt
-   | rsetStmt
    | scaleStmt
+   | lineStmt
+   | psetStmt
+   | circleStmt
    | savepictureStmt
    | saveSettingStmt
    | seekStmt
@@ -475,7 +497,7 @@ constSubStmt
    ;
 
 dateStmt
-   : DATE WS? EQ WS? valueStmt
+   : DATE DOLLAR? WS? EQ WS? valueStmt
    ;
 
 // `Lib WS? "x"` / `Alias WS? "x"` — a Declare line is long and gets continued before the library name.
@@ -765,6 +787,36 @@ rsetStmt
    : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt
    ;
 
+// VB6 graphics use coordinates and positional omissions, rather than tuple arithmetic (#988).
+lineStmt
+   : (receiver=implicitCallStmt_InStmt DOT WS?)? LINE WS?
+     (startPoint=graphicsPoint WS?)? MINUS WS? endPoint=graphicsPoint
+     (WS? COMMA WS? colour=graphicsValue? (WS? COMMA WS? graphicsBox)?)?
+   ;
+
+psetStmt
+   : (receiver=implicitCallStmt_InStmt DOT WS?)? PSET WS? graphicsPoint (WS? COMMA WS? graphicsValue)?
+   ;
+
+circleStmt
+   : (receiver=implicitCallStmt_InStmt DOT WS?)? CIRCLE WS? graphicsPoint WS? COMMA WS? graphicsValue
+     (WS? COMMA WS? graphicsValue? (WS? COMMA WS? graphicsValue?
+      (WS? COMMA WS? graphicsValue? (WS? COMMA WS? graphicsValue?)?)?)?)?
+   ;
+
+graphicsPoint
+   : (STEP WS?)? LPAREN WS? graphicsValue WS? COMMA WS? graphicsValue WS? RPAREN
+   ;
+
+graphicsValue
+   : valueStmt {!($valueStmt.ctx is VsAssignContext)}?
+   ;
+
+graphicsBox
+   : IDENTIFIER {string.Equals($IDENTIFIER.text, "B", StringComparison.OrdinalIgnoreCase)
+                 || string.Equals($IDENTIFIER.text, "BF", StringComparison.OrdinalIgnoreCase)}?
+   ;
+
 // A coordinate-system statement, not a call whose argument is the subtraction of two tuples (#990).
 scaleStmt
    : (receiver=implicitCallStmt_InStmt DOT WS?)? SCALE
@@ -845,7 +897,7 @@ subStmt
    ;
 
 timeStmt
-   : TIME WS? EQ WS? valueStmt
+   : TIME DOLLAR? WS? EQ WS? valueStmt
    ;
 
 // At least ONE member — see enumerationStmt. VB6: "User-defined type without members not allowed".
@@ -876,7 +928,6 @@ valueStmt
    | NEW WS valueStmt                                                # vsNew
    | typeOfStmt                                                      # vsTypeOf
    | ADDRESSOF WS valueStmt                                          # vsAddressOf
-   | implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt                # vsAssign
    | valueStmt WS? POW WS? valueStmt                                 # vsPow
    | MINUS WS? valueStmt                                             # vsNegation
    | PLUS WS? valueStmt                                              # vsPlus
@@ -898,6 +949,8 @@ valueStmt
    | valueStmt WS? XOR WS? valueStmt                                 # vsXor
    | valueStmt WS? EQV WS? valueStmt                                 # vsEqv
    | valueStmt WS? IMP WS? valueStmt                                 # vsImp
+   // Lowest prefix precedence: the value after := includes every operator (#4851, measured).
+   | implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt                # vsAssign
    | implicitCallStmt_InStmt                                         # vsICS
    | midStmt                                                         # vsMid
    ;
@@ -954,14 +1007,14 @@ implicitCallStmt_InBlock
 // variables cannot be called in blocks
 // certainIdentifier instead of ambiguousIdentifier for preventing ambiguity with statement keywords
 iCS_B_ProcedureCall
-   : certainIdentifier (WS argsCall)?
+   : {OrdinaryLineCallAhead()}? certainIdentifier (WS argsCall)?
    ;
 
 // Without WS, only a parenthesised argument is admitted; keep the parentheses as an expression (#1064).
 iCS_B_MemberProcedureCall
     : implicitCallStmt_InStmt? DOT
         (PRINT (WS? outputList)?
-        | {TokenStream.LA(1) != PRINT}? ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?)
+        | {TokenStream.LA(1) != PRINT && OrdinaryLineCallAhead()}? ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?)
     ;
 
 // Prefer bare names in SLL, without splitting calls or member chains (#3248).
@@ -1041,6 +1094,11 @@ subscript
 ambiguousIdentifier
    : (IDENTIFIER | ambiguousKeyword) +
    | L_SQUARE_BRACKET (IDENTIFIER | ambiguousKeyword) + R_SQUARE_BRACKET
+   | L_SQUARE_BRACKET
+     // The token before the bracket must be a member separator, not a type or designer qualifier.
+     {TokenStream.LT(1).Text.Equals("_NewEnum", StringComparison.OrdinalIgnoreCase)
+      || (TokenStream.LT(-2)?.Type is DOT or EXCLAMATIONMARK
+          && $ctx.Parent is not (ComplexTypeContext or Cp_PropertyNameContext))}? DESIGNER_KEY R_SQUARE_BRACKET
    ;
 
 asTypeClause
@@ -1065,6 +1123,7 @@ baseType
 certainIdentifier
    : IDENTIFIER (ambiguousKeyword | IDENTIFIER)*
    | ambiguousKeyword (ambiguousKeyword | IDENTIFIER) +
+   | LINE
    | PTRSAFE
    ;
 
@@ -1129,6 +1188,7 @@ labelName
    | BEEP
    | ERROR
    | KILL
+   | LINE
    | LOAD
    | MID
    | NAME
@@ -1273,6 +1333,7 @@ ambiguousKeyword
    | IS
    | INTEGER
    | KILL
+   | LINE
    | LOAD
    | LOCK
    | LONG
@@ -2124,6 +2185,18 @@ RSET
    ;
 
 
+CIRCLE
+   : C I R C L E
+   ;
+
+PSET
+   : P S E T
+   ;
+
+LINE
+   : L I N E
+   ;
+
 SCALE
    : S C A L E
    ;
@@ -2539,9 +2612,8 @@ OCTALLITERAL
 // underscore, which is exactly what makes them safe as property-bag keys that cannot collide with user
 // code. One lexer serves both halves of a .frm, so they need a token of their own.
 //
-// It is reachable only from cp_SingleProperty, so a leading underscore in ORDINARY code still fails — just
-// at the parser rather than the lexer, which is the better error anyway. `_z`, `__` and `_ab` are all
-// refused as before; a lone `_` does not match this at all, because the key needs a name after it.
+// Outside designer property lines, the parser takes this token only in bracketed member names
+// or as `[_NewEnum]`. A lone `_` does not match this token, because the key needs a name after it.
 DESIGNER_KEY
    : '_' LETTERORDIGIT +
    ;

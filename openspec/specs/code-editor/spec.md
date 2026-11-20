@@ -15,6 +15,37 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Inline debug values beside visible code
+The code window SHALL request server inline values for each pane's visible lines while the debugger is
+paused in that document's module and Show inline values while debugging is enabled (#5014). The setting
+SHALL default to true, persist as `showInlineValues`, be available beneath Show inlay hints in Editor →
+General, and accept a Boolean profile default. The client SHALL declare static inline-value support and
+workspace refresh support, gate requests on `inlineValueProvider`, and send the stopped statement's line
+as `stoppedLocation`. The interpreter SHALL send frame id 0 because its debugger seam carries no DAP frame id;
+an external session SHALL send the selected frame's own DAP id and line (#5049).
+
+#### Scenario: Values beside a stopped statement
+- **WHEN** the server returns literal text, variable lookups or evaluatable expressions
+- **THEN** the editor displays text unchanged, resolves locals with the specified case sensitivity, and evaluates expressions through the read-only watch evaluator
+- **AND** omitted names and expressions use the document text in the reported range
+- **AND** failed evaluations and missing locals contribute no entry
+- **AND** entries on one line are joined by `, ` after the line's text in the inlay-hint style
+- **AND** the labels add no document text, saved or copied characters, or caret columns
+
+#### Scenario: An external debug adapter is stopped
+- **WHEN** an active external session has a current stop and its selected frame is in this document
+- **THEN** the editor requests inline values using that frame's DAP id and line, including a selected caller
+- **AND** variable lookups use its loaded non-expensive scopes with the requested case sensitivity
+- **AND** expressions use DAP watch evaluation, never REPL evaluation; refusals and expired frames show no label
+- **AND** changes to the stop, selected frame id or variables list instance request fresh values, while unrelated adapter changes do not
+- **AND** an inactive session or a stop that is absent or expired clears the labels
+
+#### Scenario: Display lifetime
+- **WHEN** a new stop, a server inline-value refresh or a viewport scroll occurs while paused
+- **THEN** the editor requests the visible range again and obsolete replies cannot replace newer values
+- **AND** continuing or ending the session clears the labels
+- **AND** disabling the setting clears labels and sends no further requests
+
 ### Requirement: Split code window
 Window → Split SHALL toggle two vertically stacked, resizable editor views over the same document
 and undo stack (#70). Each pane SHALL retain its own caret, selection and scroll position. Navigation
@@ -540,6 +571,22 @@ SHALL NOT navigate the caret when restoring that selection. Choosing a procedure
 - **WHEN** diagnostics cause the document symbols and Procedure list to refresh
 - **THEN** the same Procedure item remains selected and the caret and document text are unchanged
 
+### Requirement: Procedure entries distinguish property accessors
+
+Under General, the Procedure box SHALL display Property symbols with case-insensitive `Property Get`,
+`Property Let` or `Property Set` detail as `Name [PropertyGet]`, `Name [PropertyLet]` or
+`Name [PropertySet]`. When no such detail exists, the bundled server's ` (Get)`, ` (Let)` and
+` (Set)` suffixes SHALL yield the same text. Other symbols and unrecognised details SHALL retain the
+symbol name. The list SHALL begin with Declarations, then sort by base name ignoring case and by
+Get, Let, Set. Object event lists SHALL retain their existing order. Each displayed entry SHALL map
+to its symbol, retaining the first symbol for duplicate display text.
+
+#### Scenario: RDCore reports three identically named accessors
+- **GIVEN** three Property symbols named Value with distinct accessor details and selection ranges
+- **WHEN** the developer chooses `Value [PropertyLet]`
+- **THEN** the caret navigates to the Let's selection line
+- **AND** a symbol refresh preserves that accessor's selection without navigating
+
 ### Requirement: Delete SHALL work without a selection
 The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
 forward deletion. Both the Delete key and the menu command SHALL arm the existing reset prompt when a run is active.
@@ -595,7 +642,14 @@ The IDE SHALL offer a docked Outline window from the View menu for the active co
 editor. It SHALL render the document symbols supplied by that document's language server with their
 hierarchy intact, accepting flat replies as top-level nodes. It SHALL request updated symbols after
 edits without requiring a diagnostics notification. It SHALL discard replies superseded by a newer
-request or buffer contents.
+request or buffer contents. Symbol detail SHALL appear after the name in an existing secondary
+foreground when present, without changing the node name or document order. Its automation name
+SHALL be the name followed by a comma, a space and the detail, or just the name without detail.
+
+#### Scenario: Accessor detail in the outline
+- **WHEN** a Property symbol named Value has detail `Property Let`
+- **THEN** its node retains the name Value and shows Property Let beside it
+- **AND** its automation name is `Value, Property Let`
 
 #### Scenario: Refresh without a notification loop
 
@@ -618,7 +672,10 @@ request or buffer contents.
 - **WHEN** the caret moves inside a symbol's range
 - **THEN** the outline selects the innermost containing symbol without moving the caret
 - **WHEN** the user clicks a node or presses Enter on it
-- **THEN** the editor navigates to the start of that symbol's selection range
+- **THEN** a Property symbol resolving to a form's control SHALL open or activate that form's designer with the control selected, without moving the code caret
+- **AND** control names SHALL match without regard to case; a control array SHALL select the element with the lowest Index
+- **AND** any other symbol with an empty range SHALL do nothing
+- **AND** every other symbol SHALL navigate to the start of its selection range
 
 #### Scenario: Change the active document
 
@@ -832,10 +889,16 @@ was SHALL keep the greying until the next evaluation, and an edit that adds or r
 
 ### Requirement: The view-as selector SHALL appear only with conditional compilation, and SHALL belong to its window
 A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
-VB6, VBA 32-bit, VBA 64-bit, twinBASIC 32-bit and twinBASIC 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
-The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
-Changing the selection SHALL NOT send language-server requests or notifications.
-VBA's constants are not measured, since there is no VBA oracle.
+VB6, VBA 32-bit, VBA 64-bit, twinBASIC 32-bit, twinBASIC 64-bit and the external backend target selected
+by `[HexIDE] Targets=RDCore` (#4821). The selection SHALL belong to the window and SHALL NOT be persisted,
+affect execution or LSP diagnostics, or send language-server requests or notifications.
+
+#### Scenario: Defaulting to the project's constants
+- **WHEN** a code window opens
+- **THEN** its default follows the project's constants target, then its VBA7 bitness, otherwise VB6
+- **AND** a project opened through the `.rdproj` type defaults to the external backend target
+- **AND** the external backend preview follows the IDE-wide `RDCoreWin64OnlySetOnWindows` setting, including when selected in the window; changing the setting SHALL re-grey open code windows ([#5036](https://github.com/hexide-io/HexIDE/issues/5036))
+- **AND** that target and the VBA previews share the host tables used by interpreter runs, as specified in interpreter-core, including its fallback for unmeasured host/bitness combinations
 
 #### Scenario: Previewing a VBA branch
 - **WHEN** a module contains `#If VBA7 Then` with an `#Else` branch
@@ -874,3 +937,37 @@ For snippets, adjustment SHALL precede variable resolution so multiline variable
 - **WHEN** a multiline completion with two nested indentation levels is accepted at an indented caret
 - **THEN** each later line retains its indentation after the caret line's prefix
 - **AND** the innermost placeholder remains selected and editable
+
+### Requirement: Server-provided linked editing is opt-in
+
+The code window SHALL offer Linked editing beside the completion settings, defaulting to off and
+configurable through profiles as `linkedEditing`. It SHALL flush pending document changes before each
+request. When enabled and served, it SHALL debounce
+`textDocument/linkedEditingRange` requests after caret moves and edits in words. Disabled linked editing
+SHALL send no requests or mirror edits.
+
+#### Scenario: A profile enables linked editing
+- **GIVEN** a profile sets `linkedEditing` to true and the user has not overridden it
+- **WHEN** the caret rests in a word served by a linked-editing provider
+- **THEN** the code window requests linked ranges
+
+#### Scenario: An edit is still reaching the server
+- **GIVEN** a document change is still being sent
+- **WHEN** the caret rests in a word after typing
+- **THEN** the linked-range request waits for that send to complete
+
+### Requirement: Linked edits SHALL stay bounded and undo together
+
+The editor SHALL accept only sets of at least two non-overlapping, writable ranges containing identical
+text and including the caret's range. It SHALL mark them lightly and mirror an edit wholly inside the current
+range to all the others as one undo step. It SHALL end linking on Escape, leaving the ranges, an outside
+document change, or text failing a supplied `wordPattern`, retaining edits already made.
+
+#### Scenario: Rename while typing
+- **GIVEN** linked editing is enabled and the server returns three occurrences of a variable
+- **WHEN** the developer types within one occurrence
+- **THEN** all three change and one Undo restores all three
+
+#### Scenario: Stop linking
+- **WHEN** the developer presses Escape or moves outside the linked ranges
+- **THEN** later typing changes only the edited occurrence

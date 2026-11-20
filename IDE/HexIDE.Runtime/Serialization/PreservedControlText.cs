@@ -18,17 +18,34 @@ public static class PreservedControlText
     /// </summary>
     public static IEnumerable<int> TabIndexes(string text)
     {
+        foreach (var number in TabIndexNumbers(text))
+            yield return int.Parse(text.AsSpan(number.Start, number.Length), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    internal static string WithTabIndex(string text, int ordinal, int value)
+    {
+        var number = TabIndexNumbers(text).ElementAt(ordinal);
+        return text.Remove(number.Start, number.Length).Insert(number.Start,
+            value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private static IEnumerable<(int Start, int Length)> TabIndexNumbers(string text)
+    {
         var propertyDepth = 0;
-        foreach (var raw in SourceLines.Split(text))
+        for (var start = 0; start < text.Length;)
         {
+            var (end, next) = SourceLines.LineAt(text, start);
+            var raw = text[start..end];
             var line = raw.Trim();
             if (line.StartsWith("BeginProperty", StringComparison.OrdinalIgnoreCase))
                 propertyDepth++;
             else if (line.Equals("EndProperty", StringComparison.OrdinalIgnoreCase))
                 propertyDepth--;
             else if (propertyDepth == 0 && TabIndexLine.Match(line) is { Success: true } match
-                     && int.TryParse(match.Groups[1].Value, out var tabIndex))
-                yield return tabIndex;
+                     && int.TryParse(match.Groups[1].Value, out _))
+                yield return (start + raw.Length - raw.TrimStart().Length + match.Groups[1].Index,
+                    match.Groups[1].Length);
+            start = next;
         }
     }
 }

@@ -27,7 +27,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// provider that carries the whole-document verdict (#273 task 3.7).
 /// Neither is observable from a view-model test, so it is checked here against a real (headless) visual tree.
 /// </summary>
-public class ReadOnlyBannerIntegrationTests
+public class ReadOnlyBannerIntegrationTests : WindowTestFixture
 {
     private static FormDefinition MakeForm(bool faithful)
     {
@@ -53,13 +53,16 @@ public class ReadOnlyBannerIntegrationTests
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.Document.CodeSuffix").Returns("Code");
 
+        var settings = Substitute.For<ISettingsService>();
+        settings.TabWidth.Returns(4);
+
         return new CodeEditorViewModel(
             Substitute.For<IWindowManager>(),
             Substitute.For<IEditorService>(),
             Substitute.For<IProjectService>(),
             eventBus,
             Substitute.For<ILspClient>(),
-            Substitute.For<ISettingsService>(),
+            settings,
             Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
@@ -88,12 +91,13 @@ public class ReadOnlyBannerIntegrationTests
         using var vm = MakeCodeEditorViewModel();
         vm.Initialize(MakeForm(faithful: false));
 
-        var view = Render(new CodeEditorView { DataContext = vm });
+        var view = new CodeEditorView { DataContext = vm };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+        window.Show();
+        window.UpdateLayout();
 
         vm.IsReadOnly.Should().BeTrue();
 
-        // Named lookup rather than a visual walk: the editor sits inside a templated decorator that a
-        // headless measure/arrange pass does not fully realise.
         var area = view.FindControl<TextEditor>("TextEditor")!.TextArea;
         area.ReadOnlySectionProvider.Should().BeSameAs(vm.ReadOnlySections,
             "binding TextEditor.IsReadOnly would replace the provider and lose the region rules");
@@ -106,6 +110,8 @@ public class ReadOnlyBannerIntegrationTests
         // merged into the headless app. That the key exists is covered by LocalizationCoverageTests.
         view.FindControl<Border>("ReadOnlyBanner")!.IsVisible
             .Should().BeTrue("silent read-only would be worse than either alternative");
+        view.GetVisualDescendants().Should().Contain(area,
+            "the read-only provider must be installed on the templated text surface");
     }
 
     /// <summary>
@@ -157,7 +163,10 @@ public class ReadOnlyBannerIntegrationTests
         using var vm = MakeCodeEditorViewModel();
         vm.Initialize(MakeForm(faithful: true));
 
-        var view = Render(new CodeEditorView { DataContext = vm });
+        var view = new CodeEditorView { DataContext = vm };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+        window.Show();
+        window.UpdateLayout();
 
         vm.IsReadOnly.Should().BeFalse("the gate must be narrow");
         var area = view.FindControl<TextEditor>("TextEditor")!.TextArea;
@@ -166,6 +175,8 @@ public class ReadOnlyBannerIntegrationTests
         area.ReadOnlySectionProvider.CanInsert(vm.Document.Text.IndexOf("End Sub", StringComparison.Ordinal))
             .Should().BeTrue("a faithful form's code takes typing");
         view.FindControl<Border>("ReadOnlyBanner")!.IsVisible.Should().BeFalse();
+        view.GetVisualDescendants().Should().Contain(area,
+            "the read-only provider must be installed on the templated text surface");
     }
 
     /// <summary>

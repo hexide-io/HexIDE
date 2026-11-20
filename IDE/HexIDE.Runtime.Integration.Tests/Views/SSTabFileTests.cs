@@ -159,6 +159,92 @@ public class SSTabFileTests : WindowTestFixture
             """);
         values.Select(v => v.Value).Should().Equal((short)2, 1L, 2L, 510f, 850f, false, false, "&Second", true, true, 1230f);
     }
+
+    // VB6 SP6, native and p-code: #4953's final measurement comment (oracle PR #4969).
+    [AvaloniaTheory]
+    [InlineData(1, 1, 0)]
+    [InlineData(3, 2, 0)]
+    [InlineData(26, 15, 1)]
+    [InlineData(100, 57, 4)]
+    [InlineData(254, 144, 10)]
+    [InlineData(300, 170, 11)]
+    [InlineData(500, 283, 19)]
+    [InlineData(519, 294, 20)]
+    [InlineData(520, 295, 20)]
+    [InlineData(527, 299, 20)]
+    [InlineData(600, 340, 23)]
+    [InlineData(900, 510, 34)]
+    [InlineData(1000, 567, 38)]
+    [InlineData(1500, 850, 57)]
+    [InlineData(5000, 2835, 189)]
+    [InlineData(100000, 56693, 3780)]
+    public void SavedDimensionsReadInTwipsAndPixels(int saved, int twips, int pixels)
+    {
+        var (values, errors) = ControlsAddTests.Run("""
+            Debug.Print SSTab1.TabHeight
+            Debug.Print SSTab1.TabMaxWidth
+            ScaleMode = 3
+            Debug.Print SSTab1.TabHeight
+            Debug.Print SSTab1.TabMaxWidth
+            """, "", Form($"TabMaxWidth = {saved}").Replace("TabHeight = 520", $"TabHeight = {saved}"));
+        errors.Should().BeEmpty();
+        values.Select(v => v.Trim()).Should().Equal($"{twips}", $"{twips}", $"{pixels}", $"{pixels}");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(2, 1, "2.834646E-02")]
+    [InlineData(2, 600, "17.00788")]
+    [InlineData(2, 2540, "72")]
+    [InlineData(4, 2540, "12")]
+    [InlineData(4, 527, "2.489764")]
+    [InlineData(5, 254, "0.1")]
+    [InlineData(5, 10000, "3.937008")]
+    public void SavedDimensionsUseHorizontalScaleAndSingleText(int mode, int saved, string expected)
+    {
+        var (values, errors) = ControlsAddTests.Run(
+            $"ScaleMode = {mode}\nDebug.Print CStr(SSTab1.TabHeight)\nDebug.Print CStr(SSTab1.TabMaxWidth)", "",
+            Form($"TabMaxWidth = {saved}").Replace("TabHeight = 520", $"TabHeight = {saved}"));
+        errors.Should().BeEmpty();
+        values.Should().Equal(expected, expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("", "")]
+    [InlineData("TabHeight = 0", "TabMaxWidth = -1")]
+    [InlineData("TabHeight = -1", "")]
+    public void MissingAndNonpositiveSavedDimensionsUseDefaults(string height, string width)
+    {
+        var (values, errors) = ControlsAddTests.Run(
+            "Debug.Print CStr(SSTab1.TabHeight)\nDebug.Print CStr(SSTab1.TabMaxWidth)", "",
+            Form(width).Replace("TabHeight = 520", height));
+        errors.Should().BeEmpty();
+        values.Should().Equal("295", "0");
+    }
+
+    [AvaloniaFact]
+    public void SavedPixelScaleUsesRoundedPixels()
+    {
+        var (values, errors) = ControlsAddTests.Run(
+            "Debug.Print CStr(SSTab1.TabHeight)\nDebug.Print CStr(SSTab1.TabMaxWidth)", "",
+            Form("TabMaxWidth = 1500").Replace("Begin VB.Form Form1", "Begin VB.Form Form1\n   ScaleMode = 3"));
+        errors.Should().BeEmpty();
+        values.Should().Equal("20", "57");
+    }
+
+    // These measured twip reads already passed on main; keep them as regression guards (#4953).
+    [AvaloniaTheory]
+    [InlineData(520, "295")]
+    [InlineData(900, "510")]
+    [InlineData(1500, "850")]
+    public void RecordedSavedTwipReadsRemainUnchanged(int saved, string expected)
+    {
+        var (values, errors) = ControlsAddTests.Run(
+            "Debug.Print CStr(SSTab1.TabHeight)\nDebug.Print CStr(SSTab1.TabMaxWidth)", "",
+            Form($"TabMaxWidth = {saved}").Replace("TabHeight = 520", $"TabHeight = {saved}"));
+        errors.Should().BeEmpty();
+        values.Should().Equal(expected, expected);
+    }
+
     private sealed class Sink : IDeserializeErrorSink
     {
         public void LogError(string message) => throw new InvalidOperationException(message);

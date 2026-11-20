@@ -60,6 +60,8 @@ public class CarriedFileHoverFormattingForeignTests
     private sealed class Rules : IEditorCompletionRules
     {
         public bool MayOpenCompletion() => false;
+        public bool LettersOpenCompletion => true;
+        public bool LettersSelect => true;
         public bool RefusesTyping(int offset, int length) => false;
         public bool Commits(Avalonia.Input.Key key) => false;
         public bool HandlesReturn => true;

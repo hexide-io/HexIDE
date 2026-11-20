@@ -13,7 +13,14 @@ public class NativeInteropTests
     {
         var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Runtime",
             "BuiltinControls", "VBToolbar.cs")).ReplaceLineEndings("\n");
-        source.Should().Contain("if (OperatingSystem.IsWindows())\n            return ToolbarCaptionMetrics.Measure");
+        var method = CSharpSyntaxTree.ParseText(source, cancellationToken: TestContext.Current.CancellationToken)
+            .GetRoot(TestContext.Current.CancellationToken).DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.Text == "CaptionExtent");
+        var windows = method.DescendantNodes().OfType<IfStatementSyntax>()
+            .Single(s => s.Condition.ToString() == "OperatingSystem.IsWindows()");
+        windows.Statement.ToString().Should().Contain("ToolbarCaptionMetrics.MessageFont()");
+        windows.Statement.ToString().Should().Contain("ToolbarCaptionMetrics.Measure");
+        method.Body!.Statements.Last().ToString().Should().Contain("PortableCaptionExtent");
         source.Should().Contain("extent += Math.Round(advance * scale)");
     }
 
@@ -28,7 +35,8 @@ public class NativeInteropTests
     [InlineData("HexIDE.Runtime", "Interpreter/WindowsLanguages.cs", 3)]
     [InlineData("HexIDE", "TypeLibrary/TypeLibReader.cs", 2)]
     [InlineData("HexIDE", "IDE/DownloadMark.cs", 1)]
-    [InlineData("HexIDE.Runtime", "BuiltinControls/ToolbarCaptionMetrics.cs", 6)]
+    [InlineData("HexIDE", "IDE/WindowRaiser.cs", 7)]
+    [InlineData("HexIDE.Runtime", "BuiltinControls/ToolbarCaptionMetrics.cs", 7)]
     [InlineData("HexIDE.Lsp", "Transports/LaunchedServerGuard.cs", 2)]
     [InlineData("HexIDE.LspGuard", "Program.cs", 4)]
     public void NativeDeclarationsUseSourceGeneration(string project, string file, int count)

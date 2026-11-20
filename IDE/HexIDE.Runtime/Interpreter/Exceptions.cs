@@ -202,7 +202,8 @@ public struct VBStandardError
     public static readonly VBStandardError ThisKeyIsAlreadyAssociatedWithAnElementOfThisCollection = new(457, "This key is already associated with an element of this collection");
     public static readonly VBStandardError VariableUsesATypeNotSupportedInVisualBasic = new(458, "Variable uses an Automation type not supported in Visual Basic");
     public static readonly VBStandardError ThisComponentDoesntSupportTheSetOfEvents = new(459, "Object or class does not support the set of events");
-    public static readonly VBStandardError InvalidClipboardFormat = new(460, "Invalid clipboard format");
+    public static readonly VBStandardError InvalidDdeLinkFormat = new(294, "Invalid DDE Link format");
+    public static readonly VBStandardError InvalidClipboardFormat = new(460, "Invalid Clipboard format");
     public static readonly VBStandardError MethodOrDataMemberNotFound = new(461, "Method or data member not found");
     public static readonly VBStandardError TheRemoteServerMachineDoesNotExistOrIsUnavailable = new(462, "The remote server machine does not exist or is unavailable");
     public static readonly VBStandardError ClassNotRegisteredOnLocalMachine = new(463, "Class not registered on local machine");

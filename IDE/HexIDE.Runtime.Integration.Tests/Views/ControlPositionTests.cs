@@ -325,14 +325,13 @@ public class ControlPositionTests
 
     [AvaloniaTheory]
     [InlineData("0  'User")]
-    public void A_ScaleMode_HexIDE_cannot_convert_exactly_is_refused(string mode)
+    public void A_saved_User_scale_without_extents_uses_twips(string mode)
     {
-        // This saved User scale has no recorded extents. Its mapping remains unmeasured (#990).
-        var run = RunLoad(Form($"   ScaleMode       =   {mode}\r\n", TextBox), "Debug.Print Text1.Left");
+        // #4693 final comment: a saved User scale without extents is one twip per unit.
+        var run = RunLoad(Form($"   ScaleMode       =   {mode}\r\n", TextBox), "Debug.Print CStr(Text1.Left)");
 
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("#990");
-        run.Printed.Should().BeEmpty();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("120");
     }
 
     [AvaloniaFact]

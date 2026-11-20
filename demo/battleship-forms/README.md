@@ -36,7 +36,7 @@ Written the natural way, it ran into four things HexIDE got wrong, each measured
   type-character work is #742.
 - **`lblCell(i).Move ...`,** laying out the grid, stopped the run: Move wasn't implemented. Fixed here.
 - **`Width - ScaleWidth`,** fitting the form to the grid, stopped the run: a form's ScaleWidth and ScaleHeight couldn't
-  be read. Fixed here for the default ScaleMode. The rest of the form's coordinate system is #990.
+  be read. Fixed here for the default ScaleMode. The rest of the form's coordinate system came with #990, and its remaining cases are #4693.
 - **`gSize * gSize \ 2`** gave a 5 x 5 board 10 shots instead of 12, with no error, because every operator had a
   precedence level of its own. That was fixed on its own, in #1074, since it touches every program.
 

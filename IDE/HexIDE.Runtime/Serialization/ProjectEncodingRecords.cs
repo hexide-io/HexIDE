@@ -8,7 +8,7 @@ using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Serialization;
 
-/// <summary>The trailing project section's source encoding records and VBA7 target (#4245).</summary>
+/// <summary>The trailing project section's source encoding records and targets (#4245, #4821).</summary>
 internal static class ProjectEncodingRecords
 {
     public static VbaBitness ReadBitness(string? tail)
@@ -39,6 +39,34 @@ internal static class ProjectEncodingRecords
         };
     }
 
+    public static ProjectTarget ReadTarget(string? tail)
+    {
+        var inSection = false;
+        using var reader = new StringReader(tail ?? "");
+        while (reader.ReadLine() is { } line)
+        {
+            if (line.StartsWith('['))
+                inSection = line.Equals("[HexIDE]", StringComparison.OrdinalIgnoreCase);
+            else if (inSection && KnownTarget(line) is { } target)
+                return target;
+        }
+        return ProjectTarget.None;
+    }
+
+    // `Targets` is plural so that a project naming several targets later needs no second key, which is how MSBuild's
+    // TargetFramework and TargetFrameworks came to differ. Its value is a list separated by `;`, as TargetFrameworks'
+    // is. One target is taken for now: a list of more than one, or a name not known here, reads as no target and is
+    // written back as it was (#4821).
+    private static ProjectTarget? KnownTarget(string line)
+    {
+        var separator = line.IndexOf('=');
+        if (separator < 0 || !line[..separator].Trim().Equals(TargetsKey, StringComparison.OrdinalIgnoreCase))
+            return null;
+        var targets = line[(separator + 1)..].Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return targets is [var only] && only.Equals("RDCore", StringComparison.OrdinalIgnoreCase) ? ProjectTarget.RDCore : null;
+    }
+
+    private const string TargetsKey = "Targets";
     public static Vb6TextEncoding? Read(string? tail, string memberPath)
     {
         var inSection = false;
@@ -61,12 +89,15 @@ internal static class ProjectEncodingRecords
         return path.Length > 0 && line[(separator + 1)..].Trim().Equals("utf-8", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static string Write(string? tail, IReadOnlyList<string> paths, VbaBitness bitness)
+    public static string Write(string? tail, IReadOnlyList<string> paths, VbaBitness bitness, ProjectTarget target)
     {
         // Keep other tools' sections verbatim, and unknown keys even in our own section.
         var result = new StringBuilder();
         var inSection = false;
         var sectionBody = new StringBuilder();
+        var wroteBitness = false;
+        var wroteTarget = false;
+        var keptRecords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in LinesWithEndings(tail ?? ""))
         {
             var text = line.TrimEnd('\r', '\n');
@@ -74,18 +105,42 @@ internal static class ProjectEncodingRecords
                 inSection = text.Equals("[HexIDE]", StringComparison.OrdinalIgnoreCase);
             if (!inSection)
                 result.Append(line);
-            else if (!text.StartsWith('[') && !TryRecord(text, out _) && KnownBitness(text) is null && text.Length > 0)
+            else if (KnownBitness(text) is not null)
+            {
+                if (bitness != VbaBitness.None)
+                    sectionBody.Append("VbaBitness=").Append((int)bitness).Append(line[text.Length..]);
+                wroteBitness = true;
+            }
+            else if (KnownTarget(text) is not null)
+            {
+                if (target == ProjectTarget.RDCore)
+                    sectionBody.Append(TargetsKey).Append("=RDCore").Append(line[text.Length..]);
+                wroteTarget = true;
+            }
+            else if (!text.StartsWith('['))
+            {
+                var record = TryRecord(text, out var path);
+                // Unknown option values remain verbatim, even when they also name a member's encoding record.
+                if (record && !text[..text.IndexOf('=')].Trim().Equals(TargetsKey, StringComparison.OrdinalIgnoreCase) &&
+                    !text[..text.IndexOf('=')].Trim().Equals("Win64OnlySetOnWindows", StringComparison.OrdinalIgnoreCase) &&
+                    !paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+                    continue;
                 sectionBody.Append(line);
+                if (record) keptRecords.Add(path);
+            }
         }
-        if (paths.Count > 0 || sectionBody.Length > 0 || bitness != VbaBitness.None)
+        if (paths.Count > 0 || sectionBody.Length > 0 || bitness != VbaBitness.None || target != ProjectTarget.None)
         {
             if (result.Length > 0 && result[^1] != '\n') result.Append("\r\n");
             result.Append("[HexIDE]\r\n").Append(sectionBody);
             if (sectionBody.Length > 0 && result[^1] != '\n') result.Append("\r\n");
-            if (bitness != VbaBitness.None)
+            if (bitness != VbaBitness.None && !wroteBitness)
                 result.Append("VbaBitness=").Append((int)bitness).Append("\r\n");
+            if (target == ProjectTarget.RDCore && !wroteTarget)
+                result.Append(TargetsKey).Append("=RDCore\r\n");
             foreach (var path in paths)
-                result.Append(path).Append("=utf-8\r\n");
+                if (!keptRecords.Contains(path))
+                    result.Append(path).Append("=utf-8\r\n");
         }
         return result.ToString();
     }

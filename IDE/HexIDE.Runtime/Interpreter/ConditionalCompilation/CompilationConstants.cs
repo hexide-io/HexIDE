@@ -1,3 +1,7 @@
+using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
+using HexIDE.Language;
+
 namespace HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 /// <summary>
@@ -7,22 +11,31 @@ namespace HexIDE.Runtime.Interpreter.ConditionalCompilation;
 /// </summary>
 public sealed class CompilationConstants
 {
+    private static readonly ConcurrentDictionary<IReadOnlyDictionary<string, int>, IReadOnlyDictionary<string, Vb6Value>> Tables =
+        new(ReferenceEqualityComparer.Instance);
+
     /// <summary>
     /// vb6.exe's built-ins, measured: <c>Win32</c> is 1, and <c>Win32 = True</c> false, and <c>Win16</c> is 0. <c>VBA6</c>,
     /// <c>VBA7</c>, <c>Win64</c> and <c>Mac</c> are not defined, so they read 0. Projects without a VBA7 target take
-    /// these built-ins (#4245).
+    /// these built-ins unless they select another target (#4245, #4821).
     /// </summary>
-    public static readonly IReadOnlyDictionary<string, Vb6Value> Vb6BuiltIns = Variants(("Win16", 0), ("Win32", 1));
+    public static readonly IReadOnlyDictionary<string, Vb6Value> Vb6BuiltIns = BuiltInsFor(ProjectTarget.None, VbaBitness.None, OSPlatform.Windows);
 
     // Excel x64 row K, recorded in #4245 (oracle measuring PR #3965).
     public static readonly IReadOnlyDictionary<string, Vb6Value> Vba64BuiltIns =
-        Variants(("VBA6", 1), ("VBA7", 1), ("Win32", 1), ("Win64", 1), ("Win16", 0), ("Mac", 0));
+        BuiltInsFor(ProjectTarget.None, VbaBitness.Bit64, OSPlatform.Windows);
 
     // Excel x86 W1–W6, issue #4399 (oracle measuring PR #4398).
     public static readonly IReadOnlyDictionary<string, Vb6Value> Vba32BuiltIns =
-        Variants(("VBA6", 1), ("VBA7", 1), ("Win32", 1), ("Win64", 0), ("Win16", 0), ("Mac", 0));
+        BuiltInsFor(ProjectTarget.None, VbaBitness.Bit32, OSPlatform.Windows);
 
     public VbaBitness VbaBitness { get; init; }
+
+    /// <summary>
+    /// The project's target. Besides choosing <see cref="BuiltIns"/>, RDCore switches on RDCore's run-time additions to
+    /// VB6 (#4967): a run asks <c>BasicInterpreter.RDCoreAdditions</c>, which reads this and nothing else.
+    /// </summary>
+    internal ProjectTarget Target { get; init; }
 
     /// <summary>A program with no project arguments, under VB6's built-ins.</summary>
     public static readonly CompilationConstants Vb6 = new(CompilationArguments.None);
@@ -53,13 +66,18 @@ public sealed class CompilationConstants
     /// </summary>
     public bool NullIsUndetermined { get; init; }
 
-    /// <summary>A project's constants: its <c>CondComp</c> and the built-ins its VBA7 target selects (#4245).</summary>
-    public static CompilationConstants ForProject(ProjectDefinition project) => project.VbaBitness switch
-    {
-        VbaBitness.Bit32 => new(CompilationArguments.ForProject(project), Vba32BuiltIns) { VbaBitness = VbaBitness.Bit32 },
-        VbaBitness.Bit64 => new(CompilationArguments.ForProject(project), Vba64BuiltIns) { VbaBitness = VbaBitness.Bit64 },
-        _ => new(CompilationArguments.ForProject(project)),
-    };
+    /// <summary>A project's CondComp and its target's predefined constants (#4821), and the target itself (#4967).</summary>
+    public static CompilationConstants ForProject(ProjectDefinition project) => ForProject(project, null);
+
+    internal static CompilationConstants ForProject(ProjectDefinition project, bool win64OnlySetOnWindows) => ForProject(project, null, win64OnlySetOnWindows);
+
+    internal static CompilationConstants ForProject(ProjectDefinition project, OSPlatform? host, bool win64OnlySetOnWindows = false) =>
+        new(CompilationArguments.ForProject(project), BuiltInsFor(project.Target, project.VbaBitness, host, win64OnlySetOnWindows))
+        { VbaBitness = project.VbaBitness, Target = project.Target };
+
+    /// <summary>The predefined constants shared by interpreter runs and editor previews, on the current or specified host.</summary>
+    internal static IReadOnlyDictionary<string, Vb6Value> BuiltInsFor(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null, bool win64OnlySetOnWindows = false) =>
+        Tables.GetOrAdd(PredefinedCompilationConstants.ForTarget(target, bitness, host, win64OnlySetOnWindows), static table => Variants(table));
 
     /// <summary>An argument's or a built-in's value, as the Variant a constant is.</summary>
     internal bool TryGet(string name, out Vb6Value value)
@@ -72,7 +90,7 @@ public sealed class CompilationConstants
         return BuiltIns.TryGetValue(name, out value);
     }
 
-    private static Dictionary<string, Vb6Value> Variants(params (string Name, int Value)[] constants)
+    private static Dictionary<string, Vb6Value> Variants(IReadOnlyDictionary<string, int> constants)
     {
         var table = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, value) in constants) table[name] = new Vb6Value(value).AsVariant();

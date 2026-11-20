@@ -105,7 +105,14 @@ Three evidence-writing regression cases cover changed, added and deleted files o
 After comparing the saved bytes, each scratch project starts through `VBLoader.RunMadeProgram`, the
 entry point used by `HexIDE.Standalone.App`, in an isolated Avalonia headless worker process. The
 `ProjectSmokeRunner.StartupSeconds` constant bounds startup at **3 seconds**, including synchronous
-loops; worker preparation has a separate 60-second watchdog starting when the worker writes its entry
+loops. A project whose startup is a form is watched from when that form's window opens, which a slow build or
+`Form_Load` can delay past the 3 seconds; a `Load` that never ends is given up on after `ShowSeconds`, 30 seconds.
+A Sub Main project is watched from entry to Main, after parsing, the pre-pass and module declarations;
+if Main has not started within `ShowSeconds`, the run reaches its time limit and says so
+([#4863](https://github.com/hexide-io/HexIDE/issues/4863)). The worker can insert a test-only delay after
+`.ready` to check that preparation does not spend this window. A Timer that startup sets going, as the demos' `Form_Load`s do, is then watched until one of its events has
+finished, up to `TimerSeconds`, 30 seconds from the form showing, so an error in its handler fails the run
+whenever its first tick comes (#4774). Worker preparation has a separate 60-second watchdog starting when the worker writes its entry
 marker. The test host has up to 300 seconds to enter the worker, so its own startup does not spend the
 project's preparation budget (#2934). Both waits are bounded. Regression fixtures allow 30 seconds for
 cold JIT work when asserting completion/refusal/fault results; the infinite-loop fixture uses the corpus
@@ -123,7 +130,8 @@ Make. The packaging regression uses a fixture runner and checks the archive on L
 the published executable starts.
 
 The report includes `Run` and `Make` status/detail pairs for every project, even after a save refusal or
-an execution fault. Startup reports `ran to completion`, `ran to the time limit`, `refused` for
+an execution fault. Startup reports `ran to completion`, `ran to the time limit`, `timer did not fire` when a Timer armed and none
+of its events finished in time, `refused` for
 `NotImplementedException` (also used when no startup path is configured), or `crashed` for every other
 exception, preserving the stack. Make reports
 `made`, `refused` or `crashed`. Only crashes and unexpected save differences fail the sweep. No interpreter

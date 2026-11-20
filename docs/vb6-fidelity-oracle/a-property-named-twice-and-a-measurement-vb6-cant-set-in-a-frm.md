@@ -71,3 +71,125 @@ The control is the duplicate-only form, which loaded clean: there, Ctrl+S saved 
 **What this overturned.** It was reasonable to guess VB6 refuses a duplicated property, or keeps the first. It takes
 each line in turn, silently. And the refusal people remember, "Errors during load", turned out to cost the whole form
 only in a `/make` build. The IDE opens the form, leaves the failed lines unset, and then declines to save it in place.
+
+### Which values a .frm line can hold, by the property's type (2026-11-19, #4317, `/make`, SP6)
+
+**The question.** "Had an invalid value" is the log entry for a line VB6 can't read, and the rows above measure one
+case of it, `ClientHeight = abc`. Which other texts does VB6 refuse, and does it depend on the property's type?
+
+**The probe.**
+- **The software:** VB6 SP6 6.00.9782.
+- **The form:** one form holding 28 CommandButtons. Each block names one property twice: a readable value, then the
+  text under test on the next line.
+- **The types:**
+  - Height, a Single, with 15 texts;
+  - TabIndex, an Integer, with 4;
+  - BackColor, a colour, with 4;
+  - Style, an enum, with 3;
+  - Caption, a string, with 2.
+- **The run:** one `/make` in session 0. It fails, because some lines are refused, and its log lists every refused line
+  by number. A line with no log entry was accepted.
+
+| Property | Refused: "had an invalid value" | Accepted: no log entry |
+|---|---|---|
+| Height (Single) | `abc`, `x`, `Fixed`, `5abc`, `1D2`, `1,5`, `"500"`, `&H10`, `&H10&`, `&O17`, `&H8000000F&` | `1e3`, `--5`, `1.5.2` |
+| TabIndex (Integer) | `abc`, `1.5`, `"3"` | `&H3` |
+| BackColor | `abc`, `"255"` | `255`, `&H02C0C0C0&` |
+| Style (enum) | `abc`, `1.5`, `Graphical` | |
+| Caption (string) | `abc` and `5`, logged as "must be a quoted string" | |
+
+- **An empty value,** `Height =` with nothing after it, was logged as "could not be loaded", not "had an invalid value",
+  and against the line after it (78 for a value on line 77).
+- **What an accepted text sets isn't measured.** The build failed, so nothing read `--5` or `1.5.2` back.
+
+**What it says.**
+- **A word is refused for every type,** even the enum's own name: `Graphical` for Style.
+- **A quoted value is refused on a property that isn't a string,** even a quoted number.
+- **A number isn't always accepted.** An Integer or an enum refuses `1.5`. A Single refuses `1,5`, `1D2`, and `&H` and
+  `&O` forms, where an Integer accepts `&H3`.
+- **VB6 accepts some texts that don't look like numbers,** `--5` and `1.5.2` on a Single. I have no rule for which.
+
+**Where HexIDE's reader and this disagree,** read from `FormDeserializer.cs` and `VbFrmFormatDeserializer.cs` on main
+`d5c6dc78d`, not run:
+- **HexIDE can't read these, though VB6 does:** `--5` and `1.5.2` on a Single, `&H3` on an Integer, and `255` on a
+  colour.
+- **HexIDE reads these, though VB6 refuses them:** `1,5` on a Single, read as a number with a thousands separator, and
+  `1.5` on an Integer or an enum.
+
+### What an accepted text reads as, and more texts by type (2026-11-20, #4988, `/make`, SP6)
+
+**The question.** The section above found texts VB6 accepts that don't look like numbers, but couldn't read their
+values, because the build failed. What does each accepted text set? And which other spellings that .NET reads as
+numbers does VB6 refuse?
+
+**The probe:**
+- **The software:** VB6 SP6 6.00.9782, in the Win10 oracle guest.
+- **The form:** 34 CommandButtons, each naming one text once, with no duplicates:
+  - 20 on `Left`, a Single;
+  - 8 on `MousePointer`, an Integer;
+  - 6 on `BackColor`.
+
+  `MousePointer` stands in for an Integer, because duplicate `TabIndex` values would renumber each other.
+- **Phase 1:** one `/make` of every text. It fails, and the log lists the refused lines.
+- **Phase 2:** a `/make` of only the accepted texts, built native and p-code. Each EXE wrote every control's value from
+  `Form_Load`. The two builds wrote the same lines.
+
+| Property | Text | VB6 |
+|---|---|---|
+| Left (Single) | `--5`, `---5`, `--5.5` | 0 |
+| | `1.5.2`, `1.5.2.` | 2 |
+| | `1.2.3.4` | 1 |
+| | `1..5` | 1 |
+| | `5-`, `+5`, `5e`, `5.` | 5 |
+| | `1e` | 1 |
+| | `.5` | 0 |
+| | `1e3` | 1000 |
+| | `-5` | −5 |
+| | `(5)`, `NaN`, `Infinity` | refused: "had an invalid value" |
+| | `- 5`, `5 5` | refused differently: `Syntax error: property 5 in C15 was missing an '='` |
+| MousePointer (Integer) | `&H3`, `&H3&` | 3 |
+| | `&O7` | 7 |
+| | `3.`, `1.0`, `(3)`, `3-`, `--3` | refused: "had an invalid value" |
+| BackColor | `255`, `&HFF`, `&HFF&` | 255 |
+| | `16777215` | 16777215 (`&HFFFFFF`) |
+| | `--255`, `255.0` | refused: "had an invalid value" |
+
+**What it says:**
+- **On a Single, a refusal depends on the characters, and the value on the text's start.**
+  - Every accepted text uses only digits, `.`, `+`, `-` and `e`.
+  - Every text refused as invalid holds some other character: a quote, `&`, `(`, a comma, or a letter other than `e`.
+    That includes the rows above, such as `5abc`, `1D2`, `1,5`, `"500"` and `&H10`.
+  - The value is the longest number at the start of the text, or 0 when there is none. That's how `--5` gives 0 and
+    `1.5.2` gives 1.5.
+  - No row contradicts this, but it's a rule fitted to these rows, not one I'd defend beyond them. Other characters,
+    and an upper-case `E`, weren't tried.
+- **A space ends the value.** `Left = - 5` makes VB6 read `5` as the next property's name, missing its `=`. The
+  error is a syntax error, not an invalid value.
+- **`Left` keeps whole twips.** `1.5.2` reads back 2 and `.5` reads back 0: 1.5 and 0.5 rounded half to even.
+  - These rows don't show whether the rounding is the reader's or `Left`'s.
+  - A font's `Size = 8.25` keeps its fraction, so not every Single is rounded.
+- **An Integer is stricter than a Single.**
+  - It refuses a decimal point, even in `1.0` and `3.`.
+  - It refuses a trailing `-` and a doubled `-`, which a Single accepts.
+  - Like a Single, it refuses parentheses.
+  - It accepts `&H` and `&O`, which a Single refuses.
+- **A colour takes a plain decimal and a short `&H`,** as well as the eight-digit `&H…&` VB6 writes. It refuses a
+  decimal point.
+
+**Where HexIDE's reader disagrees.** From main `1bec9d018`:
+- *Run* in PowerShell: `ParseValue`'s parse of each text, `int.TryParse` and then `double.TryParse` with
+  `NumberStyles.Any` less the thousands separator, invariant culture.
+- *Read from the code, not run:* what `FormDeserializer` then does with it.
+
+| Text | VB6 | HexIDE's parse | So HexIDE |
+|---|---|---|---|
+| Single `5-` | 5 | −5 | reads −5 |
+| Single `(5)` | refused | −5 | reads −5 |
+| Single `NaN`, `Infinity` | refused | NaN, ∞ | reads NaN, ∞ |
+| Integer `3.`, `1.0` | refused | 3, 1 | reads 3, 1 |
+| Integer `(3)`, `3-` | refused | −3 | reads −3 |
+| Single `--5`, `1.5.2`, `5e`, `1e`, `1..5` | 0, 2, 5, 1, 1 | not a number | refuses |
+| Integer `&H3`, `&H3&`, `&O7` | 3, 3, 7 | not a number | refuses |
+| colour `255`, `16777215`, `&HFF`, `&HFF&` | 255, 16777215, 255, 255 | not a colour | refuses |
+
+The first five rows are values VB6 never sets. The rest are refusals of values VB6 reads.

@@ -45,6 +45,10 @@ Three probes, each compiled native and as p-code. Every line of output was the s
 - **The control array:** Count 2 and UBound 1. `Load Line1(2)` gives an element that is not Visible, with element 0's
   X1 and Y1, and Count 3. `Unload` takes it back to 2.
 - **The default member is Visible:** `"" & LineP` printed False after `LineP.Visible = False`.
+- **Visible on the console** (2026-11-18, #4768; probe A above ran in session 0). A Line read True whether its form
+  was loaded, shown or hidden, in session 0 and on the console alike, and `Load Line1(2)` read False, with Count 3
+  and element 0's X1 and Y1. A Line has no window, so unlike a CommandButton's, its Visible doesn't follow the
+  form's (#4829).
 
 **How a Line draws (probes B and C):**
 - **An endpoint is on the pixel nearest its twips.** 3007 twips (200.47 pixels) is row 200 and 3008 (200.53) is row

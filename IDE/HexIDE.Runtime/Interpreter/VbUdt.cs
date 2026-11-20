@@ -8,7 +8,11 @@ namespace HexIDE.Runtime.Interpreter;
 /// a nested-UDT field carries the referenced type's name (resolved against the program's type table at
 /// instantiation). Array fields carry their bounds and String fields their declared width.</summary>
 public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, string? UdtTypeName, string? AutoNewClass = null,
-    bool IsArray = false, IReadOnlyList<(int, int)>? Bounds = null, VB6Parser.FieldLengthContext? FixedLength = null);
+    bool IsArray = false, IReadOnlyList<(int, int)>? Bounds = null, VB6Parser.FieldLengthContext? FixedLength = null)
+{
+    internal VB6Parser.SubscriptsContext? BoundSyntax { get; init; }
+    internal IReadOnlyList<(int, int)>? ResolvedBounds { get; set; }
+}
 
 /// <summary>A user-defined <c>Type … End Type</c> definition, owned by the module that declares it.
 ///
@@ -61,6 +65,8 @@ public sealed class VbUdt
     private readonly IReadOnlyDictionary<string, AutoNew> autoNewFields;
     private readonly IReadOnlyDictionary<string, string> objectFields;
 
+    internal IReadOnlySet<string>? BuiltinObjectFields { get; init; }
+
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields)
         : this(typeName, fields, new Dictionary<string, Vb6Value.ValueType>(), new HashSet<string>())
     {
@@ -112,7 +118,7 @@ public sealed class VbUdt
         if (FixedStringWidthOf(field) is { } width)
             value = FixedLengthString.Store(value, width, ctx);
         if (objectFields.TryGetValue(field, out var declaredClass))
-            ModuleExecutionContext.CheckObjectStore(value, declaredClass.Equals("Object", StringComparison.OrdinalIgnoreCase) ? null : declaredClass, ctx);
+            ModuleExecutionContext.CheckObjectStore(value, declaredClass.Equals("Object", StringComparison.OrdinalIgnoreCase) ? null : declaredClass, ctx, builtinUdtField: BuiltinObjectFields?.Contains(field) == true);
         fields[field] = value;
         return true;
     }
@@ -138,26 +144,42 @@ public sealed class VbUdt
             throw new NotImplementedException("The layout of a Type containing LongLong is unmeasured (#1548)");
     }
 
-    internal bool HasFixedStringFields => fixedStringWidths.Count > 0
-        || fields.Values.Any(value => value.Value is VbUdt nested && nested.HasFixedStringFields);
-
-    // Len's packed, fixed record size (#179). Variable-sized fields need separate measurements.
+    // Len counts declared field sizes without padding, independent of their contents (#4924, measured native and
+    // p-code: docs/vb6-fidelity-oracle/what-len-counts-in-a-user-defined-type.md). A Variant field is 16 whatever it
+    // holds, an array included, so it is tested before the array field it may hold; a dynamic array is 4 whatever its
+    // element type, Byte, Double, Variant or a Type, allocated or not (measured).
     internal long FixedRecordLength()
     {
         long size = 0;
         foreach (var (name, value) in fields)
         {
-            if (FixedStringWidthOf(name) is { } width) size += width;
-            else if (value.Value is VbUdt nested) size += nested.FixedRecordLength();
-            else if (DeclaredTypeOf(name) is { } type && type != Vb6Value.ValueType.String)
+            if (IsVariantField(name)) size += 16;
+            else if (value.Value is VBArray array)
             {
-                var writer = new VbRecordFormat.Writer();
-                VbRecordFormat.WriteTyped(writer, value, type, prefixed: false);
-                size += writer.ToArray().Length;
+                if (array.IsDynamic) size += 4;
+                else
+                    foreach (var element in array.EnumerateElements())
+                        size += FieldLength(element, array.ElementType, array.FixedStringWidth);
             }
-            else throw new NotImplementedException("Len of a Type with variable-sized fields is not implemented (#179)");
+            else if (IsObjectField(name) || autoNewFields.ContainsKey(name)) size += 4;
+            else size += FieldLength(value, DeclaredTypeOf(name), FixedStringWidthOf(name));
         }
         return size;
+    }
+
+    private static long FieldLength(Vb6Value value, Vb6Value.ValueType? declared, int? fixedWidth)
+    {
+        if (fixedWidth is { } width) return width;
+        if (value.Value is VbUdt nested) return nested.FixedRecordLength();
+        var type = declared ?? Vb6Value.ValueType.EmptyVariant;
+        if (type == Vb6Value.ValueType.Byte) return 1;
+        if (type == Vb6Value.ValueType.Integer || type == Vb6Value.ValueType.Boolean) return 2;
+        if (type == Vb6Value.ValueType.Long || type == Vb6Value.ValueType.Single
+            || type == Vb6Value.ValueType.String || type == Vb6Value.ValueType.Object) return 4;
+        if (type == Vb6Value.ValueType.Double || type == Vb6Value.ValueType.Currency || type == Vb6Value.ValueType.Date) return 8;
+        if (type == Vb6Value.ValueType.LongLong)
+            throw new NotImplementedException("The layout of a Type containing LongLong is unmeasured (#1548)");
+        return 16; // Variant, whatever it holds.
     }
 
     internal bool IsObjectField(string field) => objectFields.ContainsKey(field);
@@ -172,6 +194,7 @@ public sealed class VbUdt
     private static Vb6Value CloneArray(Vb6Value value, VBArray array)
     {
         var copy = array.CopyForLet(CloneValue);
+        copy.AutoNew = array.AutoNew;
         copy.IsDynamic = array.IsDynamic;
         return value.WithArray(copy);
     }
@@ -186,6 +209,7 @@ public sealed class VbUdt
         return new VbUdt(TypeName, copy, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths)
         {
             LsetBytes = LsetBytes is null ? null : (byte[])LsetBytes.Clone(),
+            BuiltinObjectFields = BuiltinObjectFields,
         };
     }
 }

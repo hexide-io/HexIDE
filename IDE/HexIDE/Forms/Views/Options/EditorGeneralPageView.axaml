@@ -20,6 +20,10 @@
             <StackPanel Orientation="Vertical" Spacing="6">
                 <CheckBox IsChecked="{CompiledBinding RequireVariableDeclaration}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration}" />
                 <CheckBox IsChecked="{CompiledBinding AutoListMembers}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.AutoListMembers}" />
+                <CheckBox x:Name="ListMembersAsYouType" Margin="20,0,0,0" IsChecked="{CompiledBinding ListMembersAsYouType}"
+                          IsEnabled="{CompiledBinding AutoListMembers}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType}" />
+                <CheckBox x:Name="LinkedEditing" IsChecked="{CompiledBinding LinkedEditing}"
+                          Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.LinkedEditing}" />
                 <CheckBox IsChecked="{CompiledBinding AutoQuickInfo}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo}" />
                 <CheckBox IsChecked="{CompiledBinding AutoIndent}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.AutoIndent}" />
                 <CheckBox IsChecked="{CompiledBinding FormatOnSave}" Content="{DynamicResource Str.Options.EditorGeneral.CodeSettings.FormatOnSave}" />
@@ -28,6 +32,7 @@
         <HeaderedContentControl Header="{DynamicResource Str.Options.EditorGeneral.Display.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">
                 <CheckBox IsChecked="{CompiledBinding ShowInlayHints}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowInlayHints}" />
+                <CheckBox IsChecked="{CompiledBinding ShowInlineValues}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowInlineValues}" />
                 <CheckBox IsChecked="{CompiledBinding ShowCodeLenses}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowCodeLenses}" />
                 <CheckBox IsChecked="{CompiledBinding ShowIndentGuides}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowIndentGuides}" />
                 <CheckBox IsChecked="{CompiledBinding IsStickyScrollEnabled}" Content="{DynamicResource Str.Options.EditorGeneral.Display.StickyScroll}" />

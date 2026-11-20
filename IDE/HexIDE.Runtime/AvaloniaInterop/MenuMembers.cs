@@ -1,5 +1,10 @@
+using System;
+using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -63,7 +68,10 @@ internal static class MenuMembers
             {
                 if (caption == "-")
                     throw new VBRunTimeException(SeparatorAsName);
+                if (item.Parent is VBMenuBar captionBar)
+                    ChangeRows(captionBar, item, caption: caption);
                 item.Header = caption;
+                if (item.Parent is VBMenuBar updatedBar) updatedBar.PrepareItem(item);
             }
             else if (caption != "-")
                 throw new System.NotImplementedException("Giving a menu separator a caption, which makes it an item, is not implemented (#1126)");
@@ -85,7 +93,10 @@ internal static class MenuMembers
             if (!visible && menu.Parent is MenuItem owner && !AnyOtherVisible(owner, menu))
                 throw CantSet("Visible");
             if (menu.Parent is Menu bar)
-                RefuseBarChange(bar, bar.IsVisible && !visible && !AnyOtherVisible(bar, menu) || !bar.IsVisible && visible);
+            {
+                if (bar is VBMenuBar wrapped) ChangeRows(wrapped, menu, visible);
+                else ChangeBar(bar, visible || AnyOtherVisible(bar, menu) ? 1 : 0);
+            }
         }
         if (ReferenceEquals(property, VBProperties.WindowListProperty))
             throw new System.NotImplementedException("Setting a menu's WindowList at run time is not implemented (#1126)");
@@ -97,17 +108,88 @@ internal static class MenuMembers
     private static bool AnyOtherVisible(ItemsControl parent, Control menu) =>
         parent.Items.OfType<Control>().Any(other => !ReferenceEquals(other, menu) && other.IsVisible);
 
-    /// <summary>
-    /// Refuses a change that would make the menu bar appear or go away: the last visible top-level menu hidden, or one shown
-    /// on a form whose top-level menus are all hidden, as a form that only pops its menus up has them. The bar's height is
-    /// taken off the client area, so the window or ScaleHeight would have to change with it, and how is unmeasured.
-    /// Leaving the bar in place would be a wrong ScaleHeight, so the run stops instead (#1140).
-    /// </summary>
-    internal static void RefuseBarChange(Menu bar, bool changes)
+    private sealed class BarChange
     {
-        if (changes)
-            throw new System.NotImplementedException(
-                "Showing or hiding the menu bar at run time, by the last visible top-level menu's Visible, is not implemented (#1140)");
+        public int? Pending;
+    }
+
+    private static readonly ConditionalWeakTable<Menu, BarChange> barChanges = new();
+
+    // The statement changes the item; the posted message changes the client area (#1140, measured at DoEvents).
+    internal static void ChangeBar(Menu bar, int rows)
+    {
+        if (FormNativeMenu.IsNative(bar)) return;
+        var root = bar.FindLogicalAncestorOfType<IModuleExecutionRoot>();
+        var window = bar.FindLogicalAncestorOfType<Window>();
+        var change = barChanges.GetOrCreateValue(bar);
+        if (change.Pending is not null)
+        {
+            change.Pending = rows;
+            return;
+        }
+        if (AppliedRows(bar) == rows)
+            return;
+        var context = root switch
+        {
+            VBFormRuntime form => form.Context,
+            HostedFormRoot hosted => hosted.Context,
+            _ => null
+        };
+        if (context?.FormDefinition is { } definition && IsMdiChild(definition))
+            throw new System.NotImplementedException("Changing an MDI child's menu bar is not implemented (#4946)");
+
+        Task Apply()
+        {
+            var target = bar is VBMenuBar wrapped ? wrapped.RowCount() : change.Pending ?? rows;
+            change.Pending = null;
+            var before = AppliedRows(bar);
+            if (before == target)
+                return Task.CompletedTask;
+            var oldHeight = MenuBarLayout.Height(before);
+            bar.IsVisible = target > 0;
+            if (bar is VBMenuBar updatedBar) updatedBar.Refresh();
+            if (window is not null)
+            {
+                if ((before == 0) != (target == 0))
+                    FormFrame.ChangeMenu(window, target > 0);
+                var firstRow = before == 0 ? VBLoader.MenuBarHeight : target == 0 ? -VBLoader.MenuBarHeight : 0;
+                FormFrame.ChangeMenuHeight(window, MenuBarLayout.Height(target) - oldHeight - firstRow);
+            }
+            // DockPanel lays the canvas out in the area left below the bar; do not resize the window.
+            window?.UpdateLayout();
+            root?.ExecuteSub("Form_Resize");
+            return Task.CompletedTask;
+        }
+        if (root?.Events is { } events)
+        {
+            using var posting = events.Posting();
+            change.Pending = rows;
+            events.Raise("MenuBar", Apply);
+        }
+        else
+            Apply().GetAwaiter().GetResult();
+    }
+
+    // A shown bar takes at least one row: a Width change before the message re-wraps a bar whose menus are all hidden to
+    // no rows, and it still holds its 20 pixels until the message removes it.
+    private static int AppliedRows(Menu bar) =>
+        bar.IsVisible ? bar is VBMenuBar wrapped ? Math.Max(1, wrapped.AppliedRows) : 1 : 0;
+
+    internal static void ChangeRows(VBMenuBar bar, Control? changed = null, bool? visible = null,
+        string? caption = null, Control? added = null, int position = -1) =>
+        ChangeBar(bar, bar.RowCount(changed, visible, caption, added, position));
+
+    private static bool IsMdiChild(ProjectElements.FormDefinition definition)
+    {
+        foreach (var property in VBLoader.FormComponentOf(definition).UnknownRawProperties)
+        {
+            if (!property.Name.Equals("MDIChild", StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
+                continue;
+            var line = property.Lines[0];
+            var value = line[(line.IndexOf('=') + 1)..].Split('\'')[0].Trim();
+            return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var child) && child != 0;
+        }
+        return false;
     }
 
     private static bool IsShared(PropertyClass property) =>

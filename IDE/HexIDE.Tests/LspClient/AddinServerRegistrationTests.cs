@@ -842,6 +842,28 @@ public class AddinServerRegistrationTests : IDisposable
     // ── the contribution ────────────────────────────────────────────────────────────────────────
 
     [Fact]
+    public void RegistrationKeepsManifestIdSeparatelyFromDisplayOrigin()
+    {
+        var configured = new LanguageServerRegistrationFactory(_loggerFactory)
+            .Create([PipeEntry("configured", "unused")]).Single();
+        var locator = Substitute.For<ILspServerLocator>();
+        locator.FindLspServer().Returns(new LspServerInfo("unused", "", ""));
+        var bundled = new LanguageServerRegistrationFactory(_loggerFactory)
+            .Create(LanguageServerDefaults.For(locator, _loggerFactory.CreateLogger<AddinServerRegistrationTests>())).Single();
+        var router = Router(configured, bundled);
+        using var connection = Contributions(router).Register(
+            new AddinLanguageServer(PipeEntry("probe", "unused")), "My Add-in", "publisher.addin");
+
+        // The routing identity is intentionally absent from the display connection model.
+        var entries = (IReadOnlyList<LspClientRegistry.Entry>)typeof(LspClientRegistry)
+            .GetField("_entries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(router)!;
+        entries.Single(e => e.Registration.Id == "probe").Registration.AddinId.Should().Be("publisher.addin");
+        entries.Single(e => e.Registration.Id == "probe").Registration.Origin.Should().Be("My Add-in");
+        entries.Where(e => e.Registration.Id != "probe").Should().OnlyContain(e => e.Registration.AddinId == null);
+    }
+
+    [Fact]
     public void AContributedServer_IsListedUnderTheAddinThatContributedIt()
     {
         var router = Router();

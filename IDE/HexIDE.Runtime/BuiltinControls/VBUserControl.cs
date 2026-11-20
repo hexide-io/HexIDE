@@ -55,11 +55,12 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
         Context.AttachControl(program, module);
         if (Child is Panel old)
             old.Children.Remove(ContainerHost);
-        Child = new Grid { Children =
-        {
-            VBLoader.SpawnComponents(definition, Context.ExecutionContext, Context.InstanceEnv, program.StandardLibrary,
-                Context.FormInstance, program), ContainerHost
-        } };
+        var contents = VBLoader.SpawnComponents(definition, Context.ExecutionContext, Context.InstanceEnv, program.StandardLibrary,
+            Context.FormInstance, program);
+        var canvas = contents is Canvas direct ? direct : ((Panel)contents).Children.OfType<Canvas>().Single();
+        RuntimeScale.Initialize(this, canvas, definition);
+        Context.FormInstance!.UserControlHost = this;
+        Child = new Grid { Children = { contents, ContainerHost } };
         ApplyBackground();
         var value = new Vb6Value(new RootObject(this));
         Context.ExecutionContext.AllocVariable(Context.InstanceEnv, "UserControl", value);
@@ -111,11 +112,14 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
     public EventPump? Events => Context?.Events;
     public bool Handles(string name) => Context?.Handles(name) == true;
     // The measured root surface is implemented here; other members remain an explicit engine refusal.
-    private sealed class RootObject(VBUserControl owner) : ICSharpProxy, ICSharpPropertyBag
+    internal sealed class RootObject(VBUserControl owner) : ICSharpProxy, ICSharpPropertyBag
     {
+        internal VBUserControl Owner => owner;
         public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException($"UserControl.{method} is not implemented (#1631)");
         public bool TryGetProperty(string name, out Vb6Value value)
         {
+            if (RuntimeScale.TryGet(owner, name, out value))
+                return true;
             value = name.ToLowerInvariant() switch
             {
                 "containedcontrols" => new Vb6Value(new ContainedControls(owner)),
@@ -127,6 +131,8 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
         }
         public bool TrySetProperty(string name, Vb6Value value)
         {
+            if (RuntimeScale.TrySet(owner, name, value))
+                return true;
             if (name.Equals("BackStyle", StringComparison.OrdinalIgnoreCase))
             {
                 var style = Convert.ToInt16(VB6BuiltIns.NarrowNum(value, Vb6Value.ValueType.Integer).Value);
@@ -166,18 +172,17 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
                 value = new Vb6Value(owner.DisplayAsDefault);
                 return true;
             }
-            // Only form-hosted controls were measured (#4149); resolve the current container on every read.
+            // #4448: a PictureBox or Frame child reads the form too; other containers remain unmeasured.
             if (UserControlContainers.TryGet(owner, "Container", out _)
                 || !ContainerMembers.TryGet(owner, "Container", out var container)
-                || container.Value is not VbObject form || !ReferenceEquals(form, owner.ambientForm)
-                || form.FormWindow is not { } window)
-                throw new NotImplementedException($"Ambient.{name} on a non-form container is not implemented (#4149)");
+                || !FormAmbients.TryForm(container.Value, owner.ambientForm, out var window))
+                throw new NotImplementedException($"Ambient.{name} on a non-form container is not implemented (#4732)");
             value = name.ToLowerInvariant() switch
             {
                 "backcolor" => new Vb6Value((long)(AttachedProperties.GetBackColor(window)
-                    ?? throw new NotImplementedException("Ambient.BackColor is not implemented (#4149)")).ToOle()),
+                    ?? throw new NotImplementedException("Ambient.BackColor is not implemented (#4732)")).ToOle()),
                 "forecolor" => new Vb6Value((long)(AttachedProperties.GetForeColor(window)
-                    ?? throw new NotImplementedException("Ambient.ForeColor is not implemented (#4149)")).ToOle()),
+                    ?? throw new NotImplementedException("Ambient.ForeColor is not implemented (#4732)")).ToOle()),
                 "font" => new Vb6Value(ControlFont.Get(window)),
                 // A control-array element's name carries its index, as `AmbCtl1(0)` (measured, oracle PR #4271).
                 "displayname" => new Vb6Value(VBProps.GetIndex(owner) is { } index ? $"{owner.ambientName}({index})" : owner.ambientName),
@@ -192,7 +197,7 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
                 "righttoleft" when !owner.ambientRightToLeft && window.FlowDirection == FlowDirection.LeftToRight => new Vb6Value(false),
                 "usermode" => new Vb6Value(true),
                 "supportsmnemonics" or "messagereflect" => new Vb6Value(true),
-                _ => throw new NotImplementedException($"Ambient.{name} is not implemented (#4149)"),
+                _ => throw new NotImplementedException($"Ambient.{name} is not implemented (#4732)"),
             };
             return true;
         }

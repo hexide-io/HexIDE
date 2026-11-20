@@ -188,3 +188,39 @@ before the next step. Run in the guest's console session, built native and p-cod
 - **`SetCursorPos` raises a MouseMove even when the cursor does not move.**
 - When the program moved its own form under a resting cursor at start-up, the form and Command1 each logged a
   MouseMove before the first step. That depends on where the cursor happened to be, so no row is drawn from it.
+
+### A right and a middle click on a control (2026-11-20, #4965, SP6)
+
+**The question.** The rows above measured the right and the middle button on the form only. Does a control raise Click
+for them too? A program that turns something on a right-button MouseUp and acts on Click gets both from one right
+click if it does.
+
+**The probe:**
+- **The software:** VB6 SP6 (6.00.9782), in the Win10 oracle guest. Built with `/make`, native code and p-code, run in
+  the guest's console session.
+- **The form:** an opaque Label `lblCell(0)`, element 0 of a control array; a transparent Label `LblClear`; an Image
+  with no picture; a PictureBox; a Frame; and the form's own area.
+- **The input:** real, from the program itself. A Timer moved the cursor with `SetCursorPos`, then pressed and released
+  with `mouse_event`, with `DoEvents` between. Each handler wrote its name and `Button` to a file.
+- **The builds:** both logged the same lines.
+
+| Input | VB6 |
+|---|---|
+| right click on `lblCell(0)` | MouseDown `2`, MouseUp `2`, **Click** |
+| left click on `lblCell(0)` | MouseDown `1`, MouseUp `1`, Click |
+| middle click on `lblCell(0)` | MouseDown `4`, MouseUp `4`, **Click** |
+| right click on the transparent `LblClear` | MouseDown `2`, MouseUp `2`, **Click** |
+| right click on Image1, on Picture1, on Frame1 | MouseDown `2`, MouseUp `2`, **Click**, on each |
+| right click on the form | MouseDown `2`, MouseUp `2`, **Click**, as in the first table |
+
+**What it says.** A Label, an Image, a PictureBox and a Frame raise Click for every button, as the form does. A
+CommandButton, by contrast, raises it for the left button alone (*Mouse events*). A TextBox, a ListBox, a CheckBox and
+an OptionButton weren't tried with the right or middle button.
+
+**What it means for a program.** Click carries no Button argument. So a program that turns a piece on a right-button
+MouseUp and places it on Click does both on one right click: MouseUp comes first, so it places the piece already
+turned. The Naval Battle demo's board does this: on HexIDE, a right click on a cell turned the ship and placed it. The
+demo wasn't run in VB6.
+
+**HexIDE** raises Click on release for any button on these controls: `AttachClick` has no button filter. A right click
+on a Label was seen raising Click, live, on 2026-11-20.

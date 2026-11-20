@@ -652,7 +652,7 @@ Package versions are pinned centrally in the root `Directory.Packages.props` (Av
 - **Server** (`LspServer/HexIDE.VbLspServer`): out-of-process console app built on **EmmyLua.LanguageServer.Framework** (MIT); handlers wired in `LspServerHost.cs` (stdio, `TimingScheduler`: a `SingleThreadScheduler` for all but completion, `AddRequestHandler`/`AddNotificationHandler`). Parses with the **proleap / grammars-v4** VB6 grammar (`VisualBasic6Lexer.g4` + `VisualBasic6Parser.g4`) via a two-stage SLL→LL strategy + a wall-clock parse backstop (`VbDiagnosticsProvider`). Diagnostics = collecting ANTLR error listener, messages via `VbErrorMessages.Prettify()`. The `Option Explicit` undeclared-variable check (`VbScopeAnalyzer`) is compiled out; see the language-analysis boundary below. Run standalone with `dotnet run --project HexIDE.VbLspServer/`.
 - **Client** (`HexIDE.Lsp`): `VBLspClient` uses `StreamJsonRpc` + `SystemTextJsonFormatter`. Auto-started by `App.axaml.cs`, stopped on `ShutdownRequested`. Desktop-only.
 - **Diagnostics flow**: server → `publishDiagnostics` → `VBLspClient.DiagnosticsPublished` → `LspDocumentSession.OnDiagnosticsPublished` (posted to the UI thread) → AvaloniaEdit offsets → `LspTextMarkerService.SetMarkers()` → wavy underlines.
-- **AOT**: `StreamJsonRpc` IL warnings suppressed in Desktop. `LspJsonContext` (source-gen `JsonSerializerContext`) covers all LSP types.
+- **Serialization**: `LspJsonContext` (source-gen `JsonSerializerContext`) covers all LSP types, and a type it lacks throws even under JIT, because the client's serializer has no fallback (step 4 of *Adding a new LSP method*). Desktop isn't an AOT target (`IsAotCompatible` is false, since add-ins load through `Assembly.Load`), so the trim-analysis warnings `IL2026`, `IL3053` and `IL2104` stay warnings there (`WarningsNotAsErrors`).
 - **Desktop.csproj** uses `Exists()` condition on the LspServer reference — the IDE builds fine without it (LSP diagnostics disabled).
 - **To see what crossed the wire, use the protocol inspector** (`Tools → Protocol Inspector`, or
   `list_lsp_messages` / `get_lsp_message` from automation). Envelopes are recorded for every connection
@@ -674,7 +674,7 @@ Package versions are pinned centrally in the root `Directory.Packages.props` (Av
 
 ### IDE internals
 
-- **DI**: `Pure.DI` (source-generated, zero reflection — required for `PublishAot=true`). All singletons registered in `DISetup.cs`. Roots include `MainViewViewModel` and `ILspClient` (41 in all).
+- **DI**: `Pure.DI` (source-generated, with no reflection: the object graph is built at compile time). All singletons registered in `DISetup.cs`. Roots include `MainViewViewModel` and `ILspClient` (41 in all).
 - **Services** in `IDE/HexIDE/IDE/`: `ProjectManager`, `EditorService`, `WindowManager`, `EventBus`, `FindReplaceService`, `SettingsService`.
 - **Visual designer**: `VisualDesigner/` — works with `ComponentInstance` objects (not live controls).
 - **MVVM**: `ViewLocator` resolves View from ViewModel through an **explicit registration table** in its
@@ -775,9 +775,11 @@ run that module's declarations first, once, and treat re-entering a module still
 own "Circular dependencies between modules" (#893). Same behaviour as VB6, at VB6's granularity, and the
 pre-pass stays pure collection.
 
-What it still refuses, for the same reason rather than a different one: the linearized CFG that `GoSub` /
-`Return` / `On expr GoTo` and nested-granular `Resume` are deferred pending. A control-flow graph relates
-statements to each other; it is a map of the program, not a lookup for the walk.
+What it still refuses, for the same reason rather than a different one: a linearized CFG. `GoSub`, `Return`
+and `On expr GoTo`/`GoSub` run inside the walk for labels at the top of a procedure body, because the body's
+driver already keeps an index over its top-level statements, and a GoSub is a nested pass of that driver
+(#4726). What still can't run is what would need the CFG: a label inside a block, and nested-granular `Resume`.
+A control-flow graph relates statements to each other; it is a map of the program, not a lookup for the walk.
 
 **The interpreter is an APPROXIMATION, not a reimplementation.** If a program is valid VB6 and can be made
 to run, running it beats refusing it — even at a different evaluation point, even with an error raised later
@@ -820,11 +822,13 @@ holds it. What is out of reach is:
    consequence worth stating: VB6 compiles the
    whole program and HexIDE only sees executed statements, so an error on a never-taken path is invisible
    here and fatal there.
-2. **Tree-walking — an execution-strategy limit, NOT the AST limit.** `GoSub`/`Return`, `On expr
-   GoTo`/`GoSub`, and nested-granular `Resume` need "jump to label L, then resume where I was" — a position
-   in a linear statement sequence. A tree-walk's position is a stack of visitor frames, not an index, so
-   there is nothing to save and return to. The CST has the labels and the statements; a linearized CFG or
-   bytecode would lift this without touching the binding question. **This is the only limit that costs
+2. **Tree-walking — an execution-strategy limit, NOT the AST limit.** A `GoTo` or `GoSub` to a label inside
+   a block, and nested-granular `Resume`, need "jump to a statement inside that block" — a position in a
+   linear statement sequence. Inside a block, a tree-walk's position is a stack of visitor frames, not an
+   index, so there is nothing to jump into. Labels at the top of a procedure body are different: the body's
+   driver keeps an index over its top-level statements, so `GoSub`/`Return` and `On expr GoTo`/`GoSub` to them
+   run as nested passes of that driver (#4726). The CST has every label and statement; a linearized CFG or
+   bytecode would lift the rest without touching the binding question. **This is the only limit that costs
    actual constructs.**
 3. **Missing input — platform.** Type libraries: an OCX's default member, `New Excel.Application`, COM
    instancing. Not a comprehension failure at all. COM/OLE is *in scope and Windows-gated* per
@@ -929,7 +933,7 @@ When a new `HexIDE.*` namespace becomes widely used in a project, add it to that
 
 ### LSP JSON serialization
 
-- Always use `SystemTextJsonFormatter` + `LspJsonContext`. **Never use `new {}` anonymous types** in `NotifyAsync`/`InvokeAsync` — use `EmptyParams.Instance` instead. AOT has no metadata for anonymous types.
+- Always use `SystemTextJsonFormatter` + `LspJsonContext`. **Never use `new {}` anonymous types** in `NotifyAsync`/`InvokeAsync` — use `EmptyParams.Instance` instead. `LspJsonContext` can't describe an anonymous type, and the serializer has no fallback, so one throws even under JIT (step 4 below).
 - All `TextDocument` and marker access must be on the UI thread (`Dispatcher.UIThread.Post`).
 
 ### Adding a new LSP method (5-step recipe)

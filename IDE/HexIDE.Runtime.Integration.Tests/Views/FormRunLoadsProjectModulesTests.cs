@@ -96,6 +96,32 @@ public class FormRunLoadsProjectModulesTests
         window.Close();
     }
 
+    // #5042, oracle PR #5053, rows U1, A2 and A1.
+    [AvaloniaTheory]
+    [InlineData(VBProjectType.EXE, false)]
+    [InlineData(VBProjectType.Control, false)]
+    [InlineData(VBProjectType.Control, true)]
+    public void A_UserControls_public_type_depends_on_its_exposure(VBProjectType projectType, bool exposed)
+    {
+        var project = new ProjectDefinition(projectType, "P");
+        var form = new FormDeserializer().Deserialize(project, MinimalForm, NullSink.Instance)!;
+        project.AddForm(form);
+        var control = new ModuleDefinition(project, "Gauge", ModuleKind.UserControl);
+        control.UpdateFormPart(new FormDeserializer().Deserialize(project,
+            "VERSION 5.00\r\nBegin VB.UserControl Gauge\r\nClientWidth = 1200\r\nEnd\r\nAttribute VB_Name = \"Gauge\"\r\n",
+            NullSink.Instance)!);
+        control.UpdateCode($"Attribute VB_Name = \"Gauge\"\r\nAttribute VB_Exposed = {exposed}\r\n"
+            + "Public Type T\r\na(1 To 3) As Long\r\nEnd Type\r\nPrivate x As T\r\n");
+        project.AddModule(control);
+
+        var load = () => new VBProgram(form, new VBWindowContext(new UserControlKeyTests.Library()), null, null);
+        if (exposed)
+            load().Interpreter.Modules.Contains("Gauge").Should().BeTrue();
+        else
+            load.Should().Throw<VBCompileErrorException>().Which.Message.Should()
+                .EndWith("Cannot define a Public user-defined type within a private object module");
+    }
+
     [AvaloniaFact]
     public void AFormWithNoOtherModulesStillRuns()
     {

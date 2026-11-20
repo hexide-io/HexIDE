@@ -66,9 +66,10 @@ public class ModulePropertyStoreTests : BaseVBTestFixture
     [Fact]
     public async Task LetWithoutLetReadsObjectGetter()
     {
-        await RunModules("Option Explicit\nOn Error Resume Next\nPO = New Collection\nDebug.Print CStr(Err.Number)",
+        // Measured compile refusal, raised here when executed: #4675.
+        var run = () => RunModules("Option Explicit\nOn Error Resume Next\nPO = New Collection\nDebug.Print CStr(Err.Number)",
             ("Module2", ObjectProperty));
-        AssertDebugLog(["91"]);
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain("Argument not optional");
     }
 
     [Fact]
@@ -80,9 +81,9 @@ public class ModulePropertyStoreTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task NonNothingGetterWithoutLetIsUnmeasured()
+    public async Task CollectionGetterWithoutLetRequiresArgument()
     {
         var run = async () => await RunModules("Option Explicit\nOn Error Resume Next\nSet PO = New Collection\nPO = New Collection", ("Module2", ObjectProperty));
-        await run.Should().ThrowAsync<NotImplementedException>();
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain("Argument not optional");
     }
 }
