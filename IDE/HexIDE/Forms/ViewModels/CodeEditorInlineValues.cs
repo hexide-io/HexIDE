@@ -5,6 +5,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
+using HexIDE.Dap;
+using HexIDE.Debugging;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Debugging;
@@ -16,6 +18,7 @@ public partial class CodeEditorViewModel
 {
     internal async Task<InlayHint[]> RequestInlineValuesAsync(HexIDE.Lsp.Messages.Range visible, CancellationToken ct)
     {
+        if (ExternalDebugger?.IsActive == true) return await RequestExternalInlineValuesAsync(visible, ct);
         if (!Settings.ShowInlineValues || debugController.State != DebugState.Paused
             || debugController.CurrentStop is not { HasStatement: true } stop || !Identity.IsNamed(stop.Module)
             || (RunningProject is { } running && !Identity.IsIn(running))
@@ -69,6 +72,63 @@ public partial class CodeEditorViewModel
             { PaddingLeft = true }).ToArray();
     }
 
+    private async Task<InlayHint[]> RequestExternalInlineValuesAsync(HexIDE.Lsp.Messages.Range visible, CancellationToken ct)
+    {
+        if (!Settings.ShowInlineValues || ExternalDebugger is not { IsActive: true, Stop: { } stop } external
+            || !external.IsCurrent(stop) || external.SelectedFrame is not { } frame
+            || external.SelectedLocation is not { } location || LiveDocumentUri is not { } uri
+            || !string.Equals(location.Uri, uri,
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+            || location.Line > Document.LineCount) return [];
+        var frameId = frame.GetProperty("id").GetInt32();
+        var locals = external.Variables;
+        var version = Document.Version;
+        bool IsCurrent() => external.IsActive && external.Stop == stop && external.IsCurrent(stop)
+            && external.SelectedFrame?.GetProperty("id").GetInt32() == frameId
+            && ReferenceEquals(external.Variables, locals) && Document.Version == version && Settings.ShowInlineValues;
+        var line = Document.GetLineByNumber(location.Line);
+        var context = new InlineValueContext(frameId, new(new(location.Line - 1, 0), new(location.Line - 1, line.Length)));
+        await FlushDocumentAsync(ct);
+        var values = await lspClient.RequestInlineValuesAsync(uri, visible, context, ct);
+        ct.ThrowIfCancellationRequested();
+        if (!IsCurrent()) return [];
+        var labels = new List<(int Line, string Text)>();
+        foreach (var value in values)
+        {
+            if (!TryInlineValueText(value.Range, out var source)) continue;
+            string? label = null;
+            switch (value)
+            {
+                case InlineValueText text:
+                    label = text.Text;
+                    break;
+                case InlineValueVariableLookup lookup:
+                    var name = lookup.VariableName ?? source;
+                    var local = locals.FirstOrDefault(node => string.Equals(node.Name, name,
+                        lookup.CaseSensitiveLookup ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase));
+                    if (local is not null) label = $"{name} = {local.Value}";
+                    break;
+                case InlineValueEvaluatableExpression expression:
+                    var watch = expression.Expression ?? source;
+                    try
+                    {
+                        var result = await external.EvaluateWatchAsync(stop, frameId, watch);
+                        label = $"{watch} = {result.Value}";
+                    }
+                    catch (InvalidOperationException) { /* An expired frame contributes no label. */ }
+                    catch (DapRequestException) { /* An adapter refusal contributes no label. */ }
+                    break;
+            }
+            ct.ThrowIfCancellationRequested();
+            if (!IsCurrent()) return [];
+            if (!string.IsNullOrEmpty(label)) labels.Add((value.Range.End.Line, label));
+        }
+        return labels.GroupBy(label => label.Line).Select(group => new InlayHint(
+            new(group.Key, Document.GetLineByNumber(group.Key + 1).Length),
+            JsonSerializer.SerializeToElement(string.Join(", ", group.Select(label => label.Text).Distinct(StringComparer.Ordinal))))
+            { PaddingLeft = true }).ToArray();
+    }
+
     private bool TryInlineValueText(HexIDE.Lsp.Messages.Range range, out string text)
     {
         text = "";
@@ -99,12 +159,16 @@ internal sealed class InlineValueSession : IDisposable
     private CancellationTokenSource? request;
     private int revision;
     private bool disposed;
+    private DapStop? externalStop;
+    private int? externalFrame;
+    private IReadOnlyList<ExternalVariable>? externalVariables;
 
     public InlineValueSession(CodeEditorViewModel owner, ILspClient client, Action<InlayHint[]> show)
     {
         this.owner = owner;
         this.client = client;
         this.show = show;
+        if (owner.ExternalDebugger is { } external) external.Changed += OnExternalChanged;
         owner.DebugController.Stopped += OnStopped;
         owner.DebugController.Continued += OnContinued;
         owner.Settings.PropertyChanged += OnSettingsChanged;
@@ -119,6 +183,19 @@ internal sealed class InlineValueSession : IDisposable
         visible = range;
         Refresh();
     }
+
+    private void OnExternalChanged() => dispatcher.Post(() =>
+    {
+        if (disposed || owner.ExternalDebugger is not { } external) return;
+        var stop = external.IsActive && external.Stop is { } current && external.IsCurrent(current) ? current : null;
+        var frame = external.SelectedFrame?.GetProperty("id").GetInt32();
+        if (externalStop == stop && externalFrame == frame && ReferenceEquals(externalVariables, external.Variables)) return;
+        externalStop = stop;
+        externalFrame = frame;
+        externalVariables = external.Variables;
+        if (stop is null) Clear();
+        else Refresh();
+    });
 
     private void OnStopped(StoppedInfo _) => dispatcher.Post(Refresh);
     private void OnContinued() => dispatcher.Post(Clear);
@@ -170,6 +247,7 @@ internal sealed class InlineValueSession : IDisposable
         if (disposed) return;
         Clear();
         disposed = true;
+        if (owner.ExternalDebugger is { } external) external.Changed -= OnExternalChanged;
         owner.DebugController.Stopped -= OnStopped;
         owner.DebugController.Continued -= OnContinued;
         owner.Settings.PropertyChanged -= OnSettingsChanged;

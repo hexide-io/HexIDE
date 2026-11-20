@@ -102,6 +102,137 @@ public class InlineValueTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData("context")]
+    [InlineData("lookup")]
+    [InlineData("expression")]
+    [InlineData("lifetime")]
+    [InlineData("other-document")]
+    [InlineData("refresh")]
+    [InlineData("stale")]
+    public async Task ExternalInlineValuesUseTheSelectedStoppedFrame(string check)
+    {
+        var token = TestContext.Current.CancellationToken;
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-inline-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new HexIDE.Conversations.ConversationLog(armEveryConnection: true);
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        var settings = Substitute.For<ISettingsService>();
+        settings.ShowInlineValues.Returns(true);
+        var client = Substitute.For<ILspClient>();
+        using var vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
+            Substitute.For<IProjectService>(), new EventBus(), client, settings,
+            Substitute.For<IStatusBarService>(), Substitute.For<IBookmarkService>(),
+            Substitute.For<HexIDE.Debugging.IBreakpointService>(), Substitute.For<IDebugController>(),
+            Substitute.For<HexIDE.Debugging.IRunScope>(), new LocalizationService(), external);
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Caller", ModuleKind.StandardModule)
+        { AbsolutePath = Path.Combine(directory, "Caller.bas") };
+        module.UpdateCode(string.Join("\n", Enumerable.Repeat("callerValue", 20)));
+        vm.Initialize(module);
+        var contexts = new List<InlineValueContext>();
+        var pending = new TaskCompletionSource<InlineValue[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var range = new HexIDE.Lsp.Messages.Range(new(11, 0), new(11, 11));
+        client.RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>()).Returns(call =>
+            {
+                contexts.Add(call.Arg<InlineValueContext>());
+                if (check == "stale") return pending.Task;
+                if (check == "refresh") return Task.FromResult<InlineValue[]>([
+                    new InlineValueVariableLookup(range, false) { VariableName = "callerValue" }]);
+                return Task.FromResult<InlineValue[]>([
+                    new InlineValueText(range, "literal"),
+                    new InlineValueVariableLookup(range, false) { VariableName = "CALLERVALUE" },
+                    new InlineValueVariableLookup(range, true) { VariableName = "CallerValue" },
+                    new InlineValueEvaluatableExpression(range) { Expression = "value + 1" },
+                    new InlineValueEvaluatableExpression(range) { Expression = "reject" }]);
+            });
+        var executable = Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""),
+            System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory());
+        var config = Path.Combine(directory, "launch.json");
+        await File.WriteAllTextAsync(config, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            executable, arguments = new[] { typeof(HexIDE.Dap.TestAdapter.Program).Assembly.Location, "evaluate-running" },
+            adapterId = "fixture", launch = new { }
+        }), token);
+        InlayHint[] shown = [];
+        using var pane = vm.CreateInlineValueSession(values => shown = values);
+        pane.SetVisibleRange(new(new(0, 0), new(19, 11)));
+        var run = external.StartAsync(config);
+        try
+        {
+            await Until(() => external.CanEvaluate && external.Variables.Count > 0);
+            if (check == "other-document")
+            {
+                (await vm.RequestInlineValuesAsync(range, token)).Should().BeEmpty();
+                contexts.Should().BeEmpty();
+                return;
+            }
+            await external.SelectFrameAsync(external.Stop!, 7);
+            if (check == "context")
+            {
+                await Until(() => contexts.Count > 0);
+                contexts.Last().Should().Be(new InlineValueContext(7, new(new(11, 0), new(11, 11))));
+            }
+            else if (check == "lookup")
+            {
+                await Until(() => shown.Any(h => h.Label.GetString()!.Contains("CALLERVALUE = 42")));
+                shown.Single().Label.GetString().Should().Be("literal, CALLERVALUE = 42, value + 1 = frame:7:value + 1");
+            }
+            else if (check == "expression")
+            {
+                var hints = await vm.RequestInlineValuesAsync(range, token);
+                hints.Should().ContainSingle();
+                hints.Single().Label.GetString().Should().Contain("value + 1 = frame:7:value + 1").And.NotContain("reject");
+                await log.DrainAsync();
+                var evaluations = log.Snapshot().Where(e => e.Method == "evaluate").ToArray();
+                evaluations.Should().NotBeEmpty();
+                foreach (var entry in evaluations)
+                {
+                    using var body = System.Text.Json.JsonDocument.Parse(log.Body(entry.ConnectionId, entry.Sequence)!.Head);
+                    body.RootElement.GetProperty("arguments").GetProperty("context").GetString().Should().Be("watch");
+                }
+            }
+            else if (check == "refresh")
+            {
+                await Until(() => shown.Any(h => h.Label.GetString() == "callerValue = 42"));
+                var count = contexts.Count;
+                external.ToggleBreakpoint(vm.GetDocumentUriPublic()!, 1).Should().BeTrue();
+                await Until(() => external.GetBreakpoints(vm.GetDocumentUriPublic()!).Any(row => !row.Pending));
+                Dispatcher.UIThread.RunJobs();
+                contexts.Should().HaveCount(count, "breakpoint changes do not change the inspection key");
+                var stop = external.Stop;
+                await external.EvaluateAsync("callerValue = 99");
+                external.Stop.Should().Be(stop);
+                external.SelectedFrame!.Value.GetProperty("id").GetInt32().Should().Be(7);
+                await Until(() => shown.Any(h => h.Label.GetString() == "callerValue = 99"));
+            }
+            else if (check == "stale")
+            {
+                await Until(() => contexts.Count > 0);
+                var late = vm.RequestInlineValuesAsync(range, token);
+                await external.CommandAsync("continue");
+                await Until(() => external.Stop is null);
+                pending.SetResult([new InlineValueText(range, "obsolete")]);
+                (await late).Should().BeEmpty();
+                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                shown.Should().BeEmpty();
+            }
+            else
+            {
+                await Until(() => shown.Length > 0);
+                await external.CommandAsync("continue");
+                await Until(() => shown.Length == 0);
+                (await vm.RequestInlineValuesAsync(range, token)).Should().BeEmpty();
+            }
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), token);
+            Directory.Delete(directory, true);
+        }
+    }
+
     private static InlineObjectElement[] Elements(TextEditor editor)
     {
         editor.TextArea.TextView.EnsureVisualLines();

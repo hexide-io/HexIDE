@@ -20,8 +20,9 @@ The code window SHALL request server inline values for each pane's visible lines
 paused in that document's module and Show inline values while debugging is enabled (#5014). The setting
 SHALL default to true, persist as `showInlineValues`, be available beneath Show inlay hints in Editor →
 General, and accept a Boolean profile default. The client SHALL declare static inline-value support and
-workspace refresh support, gate requests on `inlineValueProvider`, and send frame id 0 with the stopped
-statement's line as `stoppedLocation` because the debugger seam carries no DAP frame id.
+workspace refresh support, gate requests on `inlineValueProvider`, and send the stopped statement's line
+as `stoppedLocation`. The interpreter SHALL send frame id 0 because its debugger seam carries no DAP frame id;
+an external session SHALL send the selected frame's own DAP id and line (#5049).
 
 #### Scenario: Values beside a stopped statement
 - **WHEN** the server returns literal text, variable lookups or evaluatable expressions
@@ -30,6 +31,14 @@ statement's line as `stoppedLocation` because the debugger seam carries no DAP f
 - **AND** failed evaluations and missing locals contribute no entry
 - **AND** entries on one line are joined by `, ` after the line's text in the inlay-hint style
 - **AND** the labels add no document text, saved or copied characters, or caret columns
+
+#### Scenario: An external debug adapter is stopped
+- **WHEN** an active external session has a current stop and its selected frame is in this document
+- **THEN** the editor requests inline values using that frame's DAP id and line, including a selected caller
+- **AND** variable lookups use its loaded non-expensive scopes with the requested case sensitivity
+- **AND** expressions use DAP watch evaluation, never REPL evaluation; refusals and expired frames show no label
+- **AND** changes to the stop, selected frame id or variables list instance request fresh values, while unrelated adapter changes do not
+- **AND** an inactive session or a stop that is absent or expired clears the labels
 
 #### Scenario: Display lifetime
 - **WHEN** a new stop, a server inline-value refresh or a viewport scroll occurs while paused
