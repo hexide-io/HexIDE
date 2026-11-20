@@ -1,9 +1,13 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.Platform;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.BuiltinControls;
@@ -52,7 +56,7 @@ public class FormOuterSizeTests
     private sealed record Run(List<string> Printed, List<System.Exception> Errors);
 
     /// <summary>Run Form1 as F5 does, with <paramref name="load"/> as its Load, then close it.</summary>
-    private static Run RunLoad(string frm, string load, string extra = "")
+    private static Run RunLoad(string frm, string load, string extra = "", System.Action<Window>? afterLoad = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var code = "Private Sub Form_Load()\r\n" + load.ReplaceLineEndings("\r\n") + "\r\nEnd Sub\r\n";
@@ -71,6 +75,7 @@ public class FormOuterSizeTests
         {
             VBLoader.RunForm(form, CancellationToken.None, out var window);
             Dispatcher.UIThread.RunJobs();
+            afterLoad?.Invoke(window);
             window.Close();
         }
         finally
@@ -81,6 +86,96 @@ public class FormOuterSizeTests
             VBWindowContext.CompileError -= OnCompileError;
         }
         return run;
+    }
+
+    // Issue #4995's final supervisor comment specifies these platform read-backs and expectations.
+    // The frame and Width-change invariant were measured in menus-at-run-time-and-the-menu-bar.md.
+    [AvaloniaTheory]
+    [InlineData(1.5, "Width = Width + 3000", false, WindowResizeReason.Layout, 229, "3435 3870")]
+    [InlineData(1, "Width = Width + 3000", false, WindowResizeReason.Layout, 229, "3435 3870")]
+    [InlineData(1.5, "Height = 3870\nWidth = Width + 3000", false, WindowResizeReason.Layout, 229, "3435 3870")]
+    [InlineData(1.5, "Height = Height + 1500", true, WindowResizeReason.Layout, 197, "2955 3045")]
+    [InlineData(1.5, "", false, WindowResizeReason.User, 229, "3420 3855")]
+    [InlineData(1.5, "", false, WindowResizeReason.DpiChange, 229, "3420 3855")]
+    // Review: Win32 reports Unspecified for the first show at the truncated size (seen live), and for a maximize or
+    // restore, which the one-pixel test hands to the platform.
+    [InlineData(1.5, "", false, WindowResizeReason.Unspecified, 229, "3435 3870")]
+    [InlineData(1.5, "", false, WindowResizeReason.Unspecified, 400, "6000 6435")]
+    [InlineData(1.5, "Width = Width + 3000", false, WindowResizeReason.Layout, 226, "3390 3825")]
+    public void Platform_rounding_preserves_only_the_size_the_program_assigned(double scale, string statements,
+        bool across, WindowResizeReason reason, double dips, string expected)
+    {
+        var frm = Form(Style(1), "Form1", menu: false)
+            .Replace("ClientHeight    =   2520", "ClientHeight    =   3435")
+            .Replace("ClientWidth     =   2520", "ClientWidth     =   2955");
+        var extra = "Private Sub ChangeSize()\n" + statements + "\nEnd Sub\n"
+            + "Private Sub Probe()\nDebug.Print CStr(" + (across ? "ScaleWidth" : "ScaleHeight")
+            + ") & \" \" & CStr(" + (across ? "Width" : "Height") + ")\nEnd Sub\n"
+            + "Private Sub Narrower()\nWidth = Width - 3000\nEnd Sub\n";
+        var run = RunLoad(frm, "", extra, window =>
+        {
+            window.SetRenderScaling(scale);
+            ((VBFormRuntime)window).ExecuteSub("ChangeSize");
+            Dispatcher.UIThread.RunJobs();
+            var rounded = System.Math.Floor(dips * scale) / scale;
+            // Resize is internal in Avalonia 12; invoke the real headless platform implementation.
+            typeof(IWindowImpl).GetMethod("Resize", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+                .Invoke(window.PlatformImpl, [across ? new Size(rounded, window.Height) : new Size(window.Width, rounded), reason]);
+            Dispatcher.UIThread.RunJobs();
+            ((VBFormRuntime)window).ExecuteSub("Probe");
+            if (statements.Contains("Width = Width + 3000"))
+            {
+                ((VBFormRuntime)window).ExecuteSub("Narrower");
+                Dispatcher.UIThread.RunJobs();
+                typeof(IWindowImpl).GetMethod("Resize", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+                    .Invoke(window.PlatformImpl, [new Size(window.Width, rounded), reason]);
+                Dispatcher.UIThread.RunJobs();
+                ((VBFormRuntime)window).ExecuteSub("Probe");
+            }
+        });
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(statements.Contains("Width = Width + 3000") ? [expected, expected] : [expected]);
+    }
+
+    // Review of #4995: a wrapped bar makes the window taller after FormFrame.Set records it (#4978), so the bar's
+    // initialisation records the new size too. Form3's two rows make a 267-pixel window, which 150% truncates.
+    [AvaloniaFact]
+    public void Platform_rounding_preserves_a_wrapped_bars_window_height()
+    {
+        MenuBarLayout.MeasureCaption = caption => ConsoleWidths[caption];
+        try
+        {
+            var extra = """
+                Private Sub Wider()
+                Width = Width + 3000
+                End Sub
+                Private Sub Narrower()
+                Width = Width - 3000
+                End Sub
+                Private Sub Probe()
+                Debug.Print CStr(ScaleHeight) & " " & CStr(Height)
+                End Sub
+
+                """;
+            var run = RunLoad(WrappedForm(false), "", extra, window =>
+            {
+                window.SetRenderScaling(1.5);
+                var resize = typeof(IWindowImpl).GetMethod("Resize",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+                var truncated = System.Math.Floor(window.Height * 1.5) / 1.5;
+                foreach (var change in new[] { "Wider", "Narrower" })
+                {
+                    ((VBFormRuntime)window).ExecuteSub(change);
+                    Dispatcher.UIThread.RunJobs();
+                    resize.Invoke(window.PlatformImpl, [new Size(window.Width, truncated), WindowResizeReason.Layout]);
+                    Dispatcher.UIThread.RunJobs();
+                    ((VBFormRuntime)window).ExecuteSub("Probe");
+                }
+            });
+            run.Errors.Should().BeEmpty();
+            run.Printed.Select(line => line.Trim()).Should().Equal("3705 4440", "3420 4440");
+        }
+        finally { MenuBarLayout.MeasureCaption = null; }
     }
 
     private const string Dims = "Debug.Print CStr(Width) & \" \" & CStr(Height) & \" \" & CStr(ScaleWidth) & \" \" & CStr(ScaleHeight)";
