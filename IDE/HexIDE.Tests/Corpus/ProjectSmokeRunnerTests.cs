@@ -92,11 +92,12 @@ internal static class ProjectSmokeRunner
     internal const int TimerSeconds = 30;
 
     // The worker's marker files beside the result, each written once (#4774): the startup is a form; its window opened; a
-    // Timer armed; a Timer event finished.
+    // Timer armed; a Timer event finished; Sub Main entered (#4863).
     internal const string StartupFormMarker = ".form";
     internal const string ShownMarker = ".shown";
     internal const string ArmedMarker = ".armed";
     internal const string TickedMarker = ".ticked";
+    internal const string MainMarker = ".main";
 
     internal sealed class PreparationBudget
     {
@@ -129,7 +130,7 @@ internal static class ProjectSmokeRunner
 
     // A separate process bounds even a synchronous infinite loop in a startup event.
     public static async Task<SmokeStage> Run(string project, int startupSeconds = StartupSeconds, int showSeconds = ShowSeconds,
-        int timerSeconds = TimerSeconds)
+        int timerSeconds = TimerSeconds, int preparationDelayMilliseconds = 0)
     {
         var result = project + ".smoke-result.json";
         var ready = result + ".ready";
@@ -138,6 +139,7 @@ internal static class ProjectSmokeRunner
         var shown = result + ShownMarker;
         var armed = result + ArmedMarker;
         var ticked = result + TickedMarker;
+        var main = result + MainMarker;
         var start = new ProcessStartInfo("dotnet")
         {
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
@@ -148,6 +150,7 @@ internal static class ProjectSmokeRunner
         start.ArgumentList.Add("HexIDE.Tests.Corpus.ProjectSmokeRunnerTests.Startup_worker");
         start.Environment["HEXIDE_SMOKE_PROJECT"] = project;
         start.Environment["HEXIDE_SMOKE_RESULT"] = result;
+        start.Environment["HEXIDE_SMOKE_PREPARATION_DELAY"] = preparationDelayMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
         using var process = Process.Start(start)!;
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
@@ -173,6 +176,14 @@ internal static class ProjectSmokeRunner
                 if (File.Exists(shown))
                     clock.Restart();
             }
+            else
+            {
+                // Parsing, the pre-pass and module declarations do not spend Sub Main's window (#4863).
+                while (!Ended() && !File.Exists(main) && clock.Elapsed < TimeSpan.FromSeconds(showSeconds))
+                    await Task.Delay(20, CancellationToken.None);
+                if (File.Exists(main))
+                    clock.Restart();
+            }
             while (!Ended() && clock.Elapsed < TimeSpan.FromSeconds(startupSeconds))
                 await Task.Delay(20, CancellationToken.None);
             // An armed Timer is waited for until one of its events has finished, so an error in its handler is seen
@@ -190,14 +201,15 @@ internal static class ProjectSmokeRunner
                 ? new("crashed", $"Startup worker exited {process.ExitCode}: {await stdout}\n{await stderr}")
                 : new("ran to the time limit", Watched());
 
-            // What the waits saw, so a run that reached its limit says how far startup got. Null when there was nothing to
-            // see, as for a Sub Main project.
+            // What the waits saw, so a run that reached its limit says how far startup got.
             string? Watched()
             {
                 var seen = new[]
                 {
                     !File.Exists(form) ? null : File.Exists(shown) ? "the startup form showed"
                         : $"the startup form did not show within {showSeconds} seconds",
+                    File.Exists(form) ? null : File.Exists(main) ? "Sub Main started"
+                        : $"Sub Main did not start within {showSeconds} seconds",
                     File.Exists(armed) ? "a Timer armed" : null,
                     File.Exists(armed) && !File.Exists(ticked)
                         ? $"none of its events finished within {timerSeconds} seconds of the form showing" : null,
@@ -212,7 +224,7 @@ internal static class ProjectSmokeRunner
             catch (InvalidOperationException) when (process.HasExited) { }
             await process.WaitForExitAsync(CancellationToken.None);
             await Task.WhenAll(stdout, stderr);
-            foreach (var marker in new[] { result, ready, started, form, shown, armed, ticked })
+            foreach (var marker in new[] { result, ready, started, form, shown, armed, ticked, main })
                 File.Delete(marker);
         }
     }
@@ -340,6 +352,28 @@ public class ProjectSmokeRunnerTests
         finally { Directory.Delete(directory, true); }
     }
 
+    // #4863: preparation after .ready must not spend Sub Main's window. Err.Raise 5 is measured in
+    // docs/vb6-fidelity-oracle/when-err-is-cleared-and-what-a-running-handler-traps.md (#877).
+    [Theory]
+    [InlineData("Err.Raise 5", 4000, "crashed", "Run-time error '5'")]
+    [InlineData("Do\r\nLoop", 0, "ran to the time limit", "Sub Main started.")]
+    public async Task Sub_Main_is_watched_from_when_it_starts(string code, int preparationDelayMilliseconds,
+        string expected, string detail)
+    {
+        var directory = Directory.CreateTempSubdirectory("hexide-startup-main-").FullName;
+        try
+        {
+            var project = Path.Join(directory, "Test.vbp");
+            File.WriteAllText(project, "Type=Exe\r\nModule=Module1; Module1.bas\r\nStartup=\"Sub Main\"\r\nName=\"Test\"\r\n");
+            File.WriteAllText(Path.Join(directory, "Module1.bas"),
+                "Attribute VB_Name = \"Module1\"\r\nSub Main()\r\n" + code + "\r\nEnd Sub\r\n");
+            var result = await ProjectSmokeRunner.Run(project, preparationDelayMilliseconds: preparationDelayMilliseconds);
+            result.Status.Should().Be(expected, result.Detail);
+            result.Detail.Should().Contain(detail);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     // A Timer on the startup form, enabled in Form_Load as the corpus demos enable theirs: the Timer is saved with no
     // Interval, or disabled (#4774). The startup window opens when the form shows, and an armed Timer is watched until one
     // of its events has finished, so an error in its handler fails the run whenever its first tick comes.
@@ -421,6 +455,8 @@ public class ProjectSmokeRunnerTests
                 Mark(ProjectSmokeRunner.ArmedMarker);
         }
         void Ticked(VBWindowContext _) => Mark(ProjectSmokeRunner.TickedMarker);
+        void MainStarted() => Mark(ProjectSmokeRunner.MainMarker);
+        BasicInterpreter.StartupSubMainStarted += MainStarted;
         VBTimer.Armed += Armed;
         VBWindowContext.TimerEventFinished += Ticked;
         using var dialogs = Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) =>
@@ -450,6 +486,8 @@ public class ProjectSmokeRunnerTests
             if (!project.StartsAtSubMain)
                 Mark(ProjectSmokeRunner.StartupFormMarker);
             File.WriteAllText(output + ".ready", "ready");
+            if (int.TryParse(Environment.GetEnvironmentVariable("HEXIDE_SMOKE_PREPARATION_DELAY"), out var delay))
+                Thread.Sleep(delay); // Stand in for a cold parse, after ready (#4863); test worker only.
             // This is the entry point used by HexIDE.Standalone.App.
             await VBLoader.RunMadeProgram(project, TestContext.Current.CancellationToken, out _);
             Record(new("ran to completion"));
@@ -463,6 +501,7 @@ public class ProjectSmokeRunnerTests
             VBWindowContext.Faulted -= Fault;
             VBWindowContext.RunTimeError -= RuntimeFault;
             VBWindowContext.CompileError -= CompileFault;
+            BasicInterpreter.StartupSubMainStarted -= MainStarted;
             VBTimer.Armed -= Armed;
             VBWindowContext.TimerEventFinished -= Ticked;
         }
