@@ -95,6 +95,7 @@ public sealed class VBLspClient : ILspClient
 
     public event EventHandler? CodeLensRefreshRequested;
     public event EventHandler? InlayHintRefreshRequested;
+    public event EventHandler? InlineValueRefreshRequested;
     public event EventHandler? SemanticTokensRefreshRequested;
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
@@ -773,6 +774,7 @@ public sealed class VBLspClient : ILspClient
                          "async", "modification", "documentation", "defaultLibrary"], ["relative"]))
                 {
                     LinkedEditingRange = new LinkedEditingRangeClientCapabilities(),
+                    InlineValue = new InlineValueClientCapabilities(),
                 },
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
@@ -785,7 +787,7 @@ public sealed class VBLspClient : ILspClient
                     CodeLens: new WorkspaceCodeLensClientCapabilities(),
                     InlayHint: new WorkspaceInlayHintClientCapabilities(),
                     SemanticTokens: new WorkspaceSemanticTokensClientCapabilities(),
-                    FileOperations: new FileOperationsClientCapabilities()),
+                    FileOperations: new FileOperationsClientCapabilities()) { InlineValue = new WorkspaceInlineValueClientCapabilities() },
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities(),
                     ShowMessage: new ShowMessageClientCapabilities(new MessageActionItemClientCapabilities()))));
@@ -2319,6 +2321,21 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<InlineValue[]> RequestInlineValuesAsync(string uri, HexIDE.Lsp.Messages.Range range, InlineValueContext context, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("inlineValueProvider")) return [];
+        try
+        {
+            return await InvokeRequestAsync<InlineValue[]?>(_rpc, "textDocument/inlineValue",
+                new InlineValueParams(new TextDocumentIdentifier(uri), range, context), cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/inlineValue", ex, cancellationToken);
+            return [];
+        }
+    }
+
     public async Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("inlayHintProvider")) return [];
@@ -3110,6 +3127,10 @@ public sealed class VBLspClient : ILspClient
             }
         }
 
+        [JsonRpcMethod("workspace/inlineValue/refresh")]
+        public void OnInlineValueRefresh() =>
+            _client.InlineValueRefreshRequested?.Invoke(_client, EventArgs.Empty);
+
         [JsonRpcMethod("workspace/inlayHint/refresh")]
         public void OnInlayHintRefresh() =>
             _client.InlayHintRefreshRequested?.Invoke(_client, EventArgs.Empty);
@@ -3272,6 +3293,7 @@ public sealed class VBLspClient : ILspClient
         "semanticTokensProvider",
         "hoverProvider",
         "inlayHintProvider",
+        "inlineValueProvider",
         "referencesProvider",
         "callHierarchyProvider",
         "typeHierarchyProvider",

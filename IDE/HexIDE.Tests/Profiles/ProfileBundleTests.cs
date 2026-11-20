@@ -38,6 +38,7 @@ public class ProfileBundleTests
     [InlineData("theme.json", null, "theme", "UnreadablePath")]
     [InlineData("settings.json", "{\"rdcoreWin64OnlySetOnWindows\":\"true\"}", "settingsDefaults.rdcoreWin64OnlySetOnWindows", "InvalidType")]
     [InlineData("settings.json", "{\"listMembersAsYouType\":\"false\"}", "settingsDefaults.listMembersAsYouType", "InvalidType")]
+    [InlineData("settings.json", "{\"showInlineValues\":\"false\"}", "settingsDefaults.showInlineValues", "InvalidType")]
     [InlineData("settings.json", "{\"window\":{}}", "settingsDefaults.window", "DisallowedSetting")]
     [InlineData("settings.json", "{\"tabWidth\":\"four\"}", "settingsDefaults.tabWidth", "InvalidType")]
     [InlineData("settings.json", "{\"stickyScrollDepth\":\"x\"}", "settingsDefaults.stickyScrollDepth", "InvalidType")]

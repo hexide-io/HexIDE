@@ -637,6 +637,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Rodymas",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Rodyti miniatiūrinį žemėlapį",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Rodyti įterptąsias užuominas",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Derinant rodyti reikšmes kodo eilutėse",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Rodyti kodo lęšius",
     "Str.Editor.RunCodeLens": "Vykdyti kodo l_ęšį",
     "Str.Options.EditorFormatting.Indentation.Header": "Įtraukos",

@@ -631,6 +631,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formater ved lagring",
     "Str.Options.EditorGeneral.Display.Header": "Visning",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Vis innebygde hint",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Vis verdier i koden under feilsøking",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Vis kodelinser",
     "Str.Editor.RunCodeLens": "K_jør kodelinse",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Vis miniatyrkart",

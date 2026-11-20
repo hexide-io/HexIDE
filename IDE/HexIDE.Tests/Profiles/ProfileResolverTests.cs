@@ -23,6 +23,16 @@ public sealed class ProfileResolverTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void InlineValuesBooleanDefaultIsAccepted(bool value)
+    {
+        var directory = Bundle("""{"schemaVersion":1,"id":"custom","settingsDefaults":"settings.json"}""");
+        File.WriteAllText(Path.Combine(directory, "settings.json"), JsonSerializer.Serialize(new { showInlineValues = value }));
+        Resolver.Resolve(directory)!.SettingsDefaults!.Content.GetProperty("showInlineValues").GetBoolean().Should().Be(value);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void ListMembersAsYouTypeBooleanDefaultIsAccepted(bool value)
     {
         var directory = Bundle("""{"schemaVersion":1,"id":"custom","settingsDefaults":"settings.json"}""");

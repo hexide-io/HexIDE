@@ -123,6 +123,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public event EventHandler? CodeLensRefreshRequested;
     public event EventHandler? InlayHintRefreshRequested;
+    public event EventHandler? InlineValueRefreshRequested;
     public event EventHandler? SemanticTokensRefreshRequested;
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
@@ -298,6 +299,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             client.DiagnosticsPublished -= OnInnerDiagnostics;
             client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
             client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+            client.InlineValueRefreshRequested -= OnInnerInlineValueRefresh;
             client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
             client.MessageShown -= OnInnerMessage;
             client.MessageLogged -= OnInnerLogMessage;
@@ -974,6 +976,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         && value.ValueKind != JsonValueKind.Null
         && value.ValueKind != JsonValueKind.Undefined;
 
+    public async Task<InlineValue[]> RequestInlineValuesAsync(string uri, HexIDE.Lsp.Messages.Range range, InlineValueContext context, CancellationToken ct = default) =>
+        await FirstAnswerAsync(uri, async client =>
+        {
+            var hints = await client.RequestInlineValuesAsync(uri, range, context, ct);
+            return hints.Length > 0 ? hints : null;
+        }, ct) ?? [];
+
     public async Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken ct = default) =>
         await FirstAnswerAsync(uri, async client =>
         {
@@ -1347,6 +1356,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         client.DiagnosticsPublished -= OnInnerDiagnostics;
         client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
         client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+        client.InlineValueRefreshRequested -= OnInnerInlineValueRefresh;
         client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
         client.MessageShown -= OnInnerMessage;
         client.MessageLogged -= OnInnerLogMessage;
@@ -1561,6 +1571,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                     client.DiagnosticsPublished += OnInnerDiagnostics;
                     client.CodeLensRefreshRequested += OnInnerCodeLensRefresh;
                     client.InlayHintRefreshRequested += OnInnerInlayHintRefresh;
+                    client.InlineValueRefreshRequested += OnInnerInlineValueRefresh;
                     client.SemanticTokensRefreshRequested += OnInnerSemanticTokensRefresh;
                     client.MessageShown += OnInnerMessage;
                     client.ProgressReceived += OnInnerProgress;
@@ -1585,6 +1596,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 client.DiagnosticsPublished -= OnInnerDiagnostics;
                 client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
                 client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+                client.InlineValueRefreshRequested -= OnInnerInlineValueRefresh;
                 client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
                 client.MessageShown -= OnInnerMessage;
                 client.MessageLogged -= OnInnerLogMessage;
@@ -1704,6 +1716,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ServerDisplayName = _entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender))?.Registration.DisplayName
                 ?? p.ServerDisplayName,
         });
+
+    private void OnInnerInlineValueRefresh(object? sender, EventArgs e) =>
+        InlineValueRefreshRequested?.Invoke(sender, e);
 
     private void OnInnerInlayHintRefresh(object? sender, EventArgs e) =>
         InlayHintRefreshRequested?.Invoke(sender, e);
@@ -1900,6 +1915,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         client.DiagnosticsPublished -= OnInnerDiagnostics;
         client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
         client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+        client.InlineValueRefreshRequested -= OnInnerInlineValueRefresh;
         client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
         client.MessageShown -= OnInnerMessage;
         client.ProgressReceived -= OnInnerProgress;
@@ -1946,6 +1962,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 client.DiagnosticsPublished -= OnInnerDiagnostics;
                 client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
                 client.InlayHintRefreshRequested -= OnInnerInlayHintRefresh;
+                client.InlineValueRefreshRequested -= OnInnerInlineValueRefresh;
                 client.SemanticTokensRefreshRequested -= OnInnerSemanticTokensRefresh;
                 client.MessageShown -= OnInnerMessage;
                 client.MessageLogged -= OnInnerLogMessage;

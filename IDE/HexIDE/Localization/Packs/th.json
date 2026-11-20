@@ -603,6 +603,7 @@
     "Str.Options.EditorGeneral.Display.Header": "การแสดงผล",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "แสดงแผนที่ย่อ",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "แสดงคำแนะนำในบรรทัด",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "แสดงค่าในบรรทัดขณะแก้จุดบกพร่อง",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "แสดงเลนส์โค้ด",
     "Str.Editor.RunCodeLens": "เรียกใช้เลนส์โค้ด",
     "Str.Options.EditorFormatting.Indentation.Header": "การเยื้อง",

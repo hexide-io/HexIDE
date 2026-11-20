@@ -637,6 +637,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Attēlojums",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Rādīt minikarti",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Rādīt iegultos padomus",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Atkļūdošanas laikā rādīt vērtības koda rindās",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Rādīt koda lēcas",
     "Str.Editor.RunCodeLens": "Palaist koda lēcu",
     "Str.Options.EditorFormatting.Indentation.Header": "Atkāpes",
