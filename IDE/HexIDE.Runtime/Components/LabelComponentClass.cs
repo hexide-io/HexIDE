@@ -48,6 +48,7 @@ public class LabelComponentClass : ComponentBaseClass
             WordWrap = instance.GetPropertyOrDefault(WordWrapProperty),
             RecognizesAccessKey = instance.GetPropertyOrDefault(UseMnemonicProperty),
         };
+        LabelAutoSize.Load(control, instance.GetPropertyOrDefault(AutoSizeProperty));
         return control;
     }
 

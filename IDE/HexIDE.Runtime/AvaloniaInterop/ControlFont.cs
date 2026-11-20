@@ -110,12 +110,21 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
         foreach (var owner in owners)
             if (owner.TryGetTarget(out var control))
                 targets.Add(control);
+        var changedLabels = new List<VBLabel>();
         foreach (var control in targets)
+        {
+            if (control is VBLabel label && AttachedProperties.GetFont(label) != font)
+                changedLabels.Add(label);
             control.SetValue(AttachedProperties.FontProperty, font);
+        }
         // Publish every owner's descriptor before calling code which may itself change the shared font.
         if (notify)
+        {
+            foreach (var label in changedLabels)
+                LabelAutoSize.Resize(label);
             foreach (var control in targets)
                 FormAmbients.Changed(control, "Font");
+        }
     }
 
     internal Vb6Value DefaultValue => new(font.FontFamilyName);

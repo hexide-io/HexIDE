@@ -110,6 +110,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/HeaderFoldTests.cs` | split |
 | `Views/ImplementationNavigationTests.cs` | split |
 | `Views/InBoxToolboxTests.cs` | split |
+| `Views/LabelAutoSizeDesignerTests.cs` | split |
 | `Views/LineControlTests.cs` | split |
 | `Views/LineNumbersFromTheTopOfTheFileTests.cs` | split |
 | `Views/LoadedFormMenuTests.cs` | split |

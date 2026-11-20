@@ -1136,7 +1136,7 @@ these restrictions apply to the new VBA7 type, not to the existing VB6 argument 
 
 ## AutoSize control members (outside the baseline inventory)
 
-[Issue #922's measurements](vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md) cover the bitmap cases below. The baseline name counts do not move for these AutoSize slices.
+[Issue #922's measurements](vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md) cover the Label and bitmap PictureBox cases below. The baseline name counts do not move for these AutoSize slices.
 
 | Member | Status | Detail | Source |
 |---|---|---|---|
@@ -1146,7 +1146,8 @@ these restrictions apply to the new VBA7 type, not to the existing VB6 argument 
 | PictureBox.AutoSize at runtime | Partial | Assigning a bitmap from LoadPicture fits its pixels plus the default 3-D border, or no border; clearing with LoadPicture() keeps dimensions. Saved dimensions survive load and an explicit Width holds until the next picture assignment. Turning AutoSize on with no picture keeps dimensions; enabling AutoSize with a picture already present refuses as unmeasured. | VBPictureBox.cs; AvaloniaInteroperability.cs |
 | PictureBox.AutoSize enabled with a picture already present | Dies | The transition is unmeasured; refuses as not implemented before changing AutoSize. | AvaloniaInteroperability.cs |
 | PictureBox.Picture conversions | Dies | Assignment accepts LoadPicture objects; other conversions refuse as not implemented. Picture reads now supply a Picture object for the measured SSTab control-assignment path (#3426 / #4297), and it is one object until the picture is assigned again: `Picture1.Picture Is Picture1.Picture` is True, as measured; empty Type reads 0. Native/default handles and remaining StdPicture submembers remain refused. | AvaloniaInteroperability.cs; PanelPicture.cs |
-| Label.AutoSize | Silently wrong | Remaining measured work for #922: caption/font changes, alignment, WordWrap and AutoSize transitions. | LabelComponentClass.cs |
+| Label.AutoSize | Partial | Runtime caption/font changes and enabling AutoSize fit the caption; saved and explicit dimensions hold until a trigger (#922, [measurements](vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md), [oracle PR #4984](https://github.com/hexide-io/HexIDE/pull/4984)). Windows uses GDI in the VBFont at 96 DPI; other platforms approximate with whole-pixel advances in the drawn font, without overhang. MS Sans Serif is drawn with a substitute that can differ from the measured font. Center with WordWrap deliberately avoids VB6’s repeated odd-width growth: from Left 600 / Width 1000 the sentence gives 600 / 1005, versus VB6 585 / 1035; after the long word, Hi holds 90 / 2025 versus VB6 75 / 2055. Captions consisting only of line breaks other than the measured CRLF refuse with a program-facing English not-implemented error; no width is guessed. Identical font assignments retain today’s no-resize behaviour, unmeasured in VB6. Design time and unmeasured triggers (Alignment, BorderStyle, WordWrap, UseMnemonic changes) remain unchanged. | LabelAutoSize.cs, LabelCaptionMetrics.cs |
+| Label.AutoSize with only unmeasured line breaks | Dies | A caption consisting only of line breaks, except the measured CRLF pair, refuses with not implemented (#922). [Oracle PR #4984](https://github.com/hexide-io/HexIDE/pull/4984) explicitly leaves other break-only captions unmeasured. | LabelCaptionMetrics.cs |
 
 ## Keyboard events (outside the baseline inventory)
 
