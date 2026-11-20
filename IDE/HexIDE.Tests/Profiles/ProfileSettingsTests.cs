@@ -31,6 +31,33 @@ public sealed class ProfileSettingsTests : IDisposable
         settings.ListMembersAsYouType.Should().Be(savedOverride);
     }
 
+    [Theory]
+    [InlineData("showInlayHints", nameof(ISettingsService.ShowInlayHints), "false", "true")]
+    [InlineData("showCodeLenses", nameof(ISettingsService.ShowCodeLenses), "false", "true")]
+    [InlineData("colorBracketsByDepth", nameof(ISettingsService.ColorBracketsByDepth), "false", "true")]
+    [InlineData("showIndentGuides", nameof(ISettingsService.ShowIndentGuides), "false", "true")]
+    [InlineData("isStickyScrollEnabled", nameof(ISettingsService.IsStickyScrollEnabled), "false", "true")]
+    [InlineData("stickyScrollDepth", nameof(ISettingsService.StickyScrollDepth), "1", "3")]
+    [InlineData("stickyScrollDepth", nameof(ISettingsService.StickyScrollDepth), "10", "3")]
+    [InlineData("editorFontFamily", nameof(ISettingsService.EditorFontFamily), "\"Example Mono\"", "\"Consolas\"")]
+    [InlineData("editorFontSize", nameof(ISettingsService.EditorFontSize), "6", "12")]
+    [InlineData("editorFontSize", nameof(ISettingsService.EditorFontSize), "12.5", "12")]
+    [InlineData("editorFontSize", nameof(ISettingsService.EditorFontSize), "72", "12")]
+    public void EditorProfileDefaultsStartNewUsersAndSavedChoicesWin(string name, string propertyName,
+        string startingValue, string savedValue)
+    {
+        var property = typeof(ISettingsService).GetProperty(propertyName)!;
+        var defaults = "{\"" + name + "\":" + startingValue + "}";
+        var settings = Create(defaults);
+        JsonSerializer.SerializeToElement(property.GetValue(settings)).GetRawText().Should().Be(startingValue);
+        settings.ActiveLanguage = "de";
+        settings.Save();
+        using (var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath)))
+            saved.RootElement.TryGetProperty(name, out _).Should().BeFalse("unedited defaults stay in the profile");
+        File.WriteAllText(SettingsPath, "{\"" + name + "\":" + savedValue + "}");
+        JsonSerializer.SerializeToElement(property.GetValue(Create(defaults))).GetRawText().Should().Be(savedValue);
+    }
+
     [Fact]
     [Trait("Issue", "4307")]
     public void ServerSettingsReplaceOneDefaultWholeAndResetWithoutTouchingOtherIdsOrProfile()

@@ -225,7 +225,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 
 | Feature | Status | Notes |
 |---|---|---|
-| Distribution descriptor | Done | Accepted `brand.json` schema supplies installation name, logo, append-only credits, links and default profile; invalid descriptors refuse startup. Host captions and path diagnostics follow the installation; engine implementation statements retain HexIDE (#2042, #4061). See [white-label guide](white-label.md) |
+| Distribution descriptor | Done | Accepted `brand.json` schema supplies installation name, logo, append-only credits, links and default profile; invalid descriptors refuse startup. Default profiles can seed every user-facing editor setting, including font, hints, code lenses and sticky scroll; saved user choices win, and each new setting must be allowed or explicitly excluded with a reason (#5016). Host captions and path diagnostics follow the installation; engine implementation statements retain HexIDE (#2042, #4061). See [white-label guide](white-label.md) |
 | Per-brand state | Done | Stable distribution id separates configuration, logs and recovery; explicit `--user-data-dir` still wins for configuration and recovery. Bundled children share the distribution's log root (#2042) |
 | Distribution repack tool | Partial | `HexIDE.Repack` stages Windows executable/installer identity, Linux desktop assets and macOS bundle identity from the descriptor, preserving notices and trust anchors; adopter signing remains the adopter's responsibility (#2042). macOS bundles are re-sealed ad hoc and strictly verified after rewriting (#4495); live macOS verification remains with CI and review. See [white-label guide](white-label.md) |
 

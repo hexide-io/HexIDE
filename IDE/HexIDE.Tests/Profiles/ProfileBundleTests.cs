@@ -1,4 +1,8 @@
 using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using HexIDE.IDE;
 using HexIDE.IDE.Profiles;
 
 namespace HexIDE.Tests.Profiles;
@@ -35,6 +39,7 @@ public class ProfileBundleTests
     [InlineData("settings.json", "{\"listMembersAsYouType\":\"false\"}", "settingsDefaults.listMembersAsYouType", "InvalidType")]
     [InlineData("settings.json", "{\"window\":{}}", "settingsDefaults.window", "DisallowedSetting")]
     [InlineData("settings.json", "{\"tabWidth\":\"four\"}", "settingsDefaults.tabWidth", "InvalidType")]
+    [InlineData("settings.json", "{\"stickyScrollDepth\":\"x\"}", "settingsDefaults.stickyScrollDepth", "InvalidType")]
     [InlineData("settings.json", "{\"tabWidth\":4,\"tabWidth\":8}", "settingsDefaults.tabWidth", "DuplicateField")]
     public void FailedAssemblyAttributesTheFileAndField(string file, string? contents, string field, string code)
     {
@@ -55,6 +60,94 @@ public class ProfileBundleTests
             error.Data["field"].Should().Be(field);
             error.Data["code"].Should().Be(code);
         });
+    }
+
+    [Theory]
+    [InlineData("editorFontFamily", "\"\"")]
+    [InlineData("editorFontFamily", "\"   \"")]
+    [InlineData("editorFontFamily", "42")]
+    [InlineData("editorFontSize", "\"12\"")]
+    [InlineData("editorFontSize", "5.5")]
+    [InlineData("editorFontSize", "73")]
+    [InlineData("editorFontSize", "1e400")]
+    [InlineData("stickyScrollDepth", "0")]
+    [InlineData("stickyScrollDepth", "11")]
+    [InlineData("stickyScrollDepth", "1.5")]
+    [InlineData("showInlayHints", "\"false\"")]
+    [InlineData("showCodeLenses", "0")]
+    [InlineData("colorBracketsByDepth", "null")]
+    [InlineData("showIndentGuides", "[]")]
+    [InlineData("isStickyScrollEnabled", "{}")]
+    public void InvalidEditorDefaultsAreRejected(string name, string value)
+    {
+        WithBundle(directory =>
+        {
+            WriteSettings(directory, name, value);
+            var error = ((Action)(() => ProfileBundleLoader.Load(directory)))
+                .Should().Throw<InvalidDataException>().Which;
+            error.Data["field"].Should().Be("settingsDefaults." + name);
+            error.Data["code"].Should().Be("InvalidType");
+        });
+    }
+
+    [Theory]
+    [InlineData("loadUnsignedAddins", "true")]
+    [InlineData("revocationListUrl", "\"\"")]
+    [InlineData("reloadFilesChangedOutsideIde", "false")]
+    [InlineData("editorColorOverrides", "{}")]
+    [InlineData("serverChatTools", "{}")]
+    [InlineData("window", "{}")]
+    public void NonDefaultSettingsRemainDisallowed(string name, string value)
+    {
+        WithBundle(directory =>
+        {
+            WriteSettings(directory, name, value);
+            var error = ((Action)(() => ProfileBundleLoader.Load(directory)))
+                .Should().Throw<InvalidDataException>().Which;
+            error.Data["field"].Should().Be("settingsDefaults." + name);
+            error.Data["code"].Should().Be("DisallowedSetting");
+        });
+    }
+
+    [Fact]
+    public void EverySettableSettingIsAllowedOrExcludedWithAReason()
+    {
+        // Read the actual persisted names, including JsonPropertyName overrides, rather than guessing casing.
+        var dataType = typeof(SettingsService).GetNestedType("SettingsData", BindingFlags.NonPublic)!;
+        var defaults = JsonSerializer.SerializeToElement(Activator.CreateInstance(dataType, nonPublic: true), dataType);
+        var unclassified = new List<string>();
+        foreach (var property in typeof(ISettingsService).GetProperties().Where(property => property.CanWrite))
+        {
+            var persisted = dataType.GetProperty(property.Name);
+            persisted.Should().NotBeNull("{0} must have a persisted JSON mapping", property.Name);
+            var name = persisted!.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? persisted.Name;
+            WithBundle(directory =>
+            {
+                WriteSettings(directory, name, defaults.GetProperty(name).GetRawText());
+                var allowed = true;
+                try { ProfileBundleLoader.Load(directory); }
+                catch (InvalidDataException error)
+                {
+                    error.Data["code"].Should().Be("DisallowedSetting");
+                    allowed = false;
+                }
+                if (ProfileBundleLoader.ExcludedSettings.TryGetValue(name, out var reason))
+                {
+                    reason.Should().NotBeNullOrWhiteSpace("{0} needs an exclusion reason", name);
+                    allowed.Should().BeFalse("{0} is explicitly excluded", name);
+                }
+                else if (!allowed)
+                    unclassified.Add(property.Name + " (" + name + ")");
+            });
+        }
+        unclassified.Should().BeEmpty("add each setting to the profile list, or to ExcludedSettings with a reason");
+    }
+
+    private static void WriteSettings(string directory, string name, string value)
+    {
+        File.WriteAllText(Path.Combine(directory, "profile.json"),
+            """{"schemaVersion":1,"id":"example","settingsDefaults":"settings.json"}""");
+        File.WriteAllText(Path.Combine(directory, "settings.json"), "{\"" + name + "\":" + value + "}");
     }
 
     [Theory]
