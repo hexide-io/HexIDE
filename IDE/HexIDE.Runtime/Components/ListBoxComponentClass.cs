@@ -72,7 +72,7 @@ public class ListBoxComponentClass : ComponentBaseClass
             MultiSelect = instance.GetPropertyOrDefault(MultiSelectProperty),
             SavedStyle = VBLoader.RawNumber(instance, "Style") ?? 0,
             Columns = VBLoader.RawNumber(instance, "Columns") ?? 0,
-            SortedChecks = VBLoader.RawDouble(instance, "Sorted") is { } sorted && sorted != 0
+            Sorted = VBLoader.RawDouble(instance, "Sorted") is { } sorted && sorted != 0
         };
     }
 

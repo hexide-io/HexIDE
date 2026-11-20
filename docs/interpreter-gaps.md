@@ -112,6 +112,13 @@ unsaved relative path is refused rather than written into the IDE's own working 
 
 ## Known host limitation
 
+- **Sorted ListBox/ComboBox order (#5059):** off Windows, sorted lists use the host's case-insensitive
+  comparison in the program's culture, as decided on the Team Desk (2026-11-20). Hyphens, apostrophes
+  and some symbols can therefore sort differently from VB6's Windows order. Windows uses its own
+  comparison in the program locale. The [measured en-GB rows](vb6-fidelity-oracle/the-order-a-sorted-listbox-or-combobox-keeps.md)
+  cover plain/checkbox ListBoxes and ComboBox Styles 0/2; applying the same rules to Style 1 and other
+  locales is reasoned. Mapping Windows locale orders across hosts is [#5105](https://github.com/hexide-io/HexIDE/issues/5105).
+
 - **Linux locale categories (#798):** the program uses one culture, captured from .NET's
   `CultureInfo.CurrentCulture` as `VbLocale.Default`. Separate `LC_TIME` and `LC_NUMERIC` overrides
   are not applied, so date and number parsing and formatting can differ from the desktop's split locale.
