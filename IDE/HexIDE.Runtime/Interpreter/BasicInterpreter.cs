@@ -541,6 +541,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         var objectFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string>? builtinObjectFields = null;
         var fixedStringWidths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
@@ -617,7 +618,23 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 var name = objectName[(dot + 1)..];
                 if (ExpressionExecutor.IsCollectionType(objectName)
                     || IsObjectTypeWithoutClass(qualifier, name, out var aliasScalar) && aliasScalar is null)
+                {
+                    // Only these scalar object fields were measured in #3924 (native and p-code).
+                    if ((qualifier is null || qualifier.Equals("VB", StringComparison.OrdinalIgnoreCase))
+                            && (name.Equals("TextBox", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("Control", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("Form", StringComparison.OrdinalIgnoreCase))
+                        || (qualifier is null || qualifier.Equals("stdole", StringComparison.OrdinalIgnoreCase))
+                            && (name.Equals("StdFont", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("StdPicture", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        fields[f.Name] = Vb6Value.Nothing;
+                        objectFields[f.Name] = name;
+                        (builtinObjectFields ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase)).Add(f.Name);
+                        continue;
+                    }
                     throw new NotImplementedException($"Object field '{f.Name}' inside Type '{typeName}' is not implemented (#3924): its VB6 behaviour is unmeasured");
+                }
             }
             // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
             if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
@@ -636,11 +653,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else if (f.UdtTypeName is { } nested)
                 fields[f.Name] = Types.ContainsKey(nested) ? Vb6Value.NewUdt(NewUdt(nested, depth + 1))
                     : Enums.ContainsKey(nested) ? new Vb6Value(0L)   // an Enum-typed field is a Long
-                    : throw new VBCompileErrorException($"Type '{typeName}' field '{f.Name}' references undefined type '{nested}'");
+                    : throw new VBCompileErrorException("User-defined type not defined");
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths);
+        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths)
+        {
+            BuiltinObjectFields = builtinObjectFields,
+        };
     }
 
     private bool IsUdtObjectArrayType(string typeName)

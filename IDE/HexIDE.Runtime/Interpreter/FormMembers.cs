@@ -70,8 +70,13 @@ internal static class FormMembers
     public static Vb6Value Read(VbObject form, string name)
     {
         var window = Owner(form, name);
-        if (IsIcon(name) && form.FormIconPicture is { } icon)
-            return new Vb6Value(icon);
+        if (IsIcon(name))
+        {
+            if (form.FormIconPicture is { } icon)
+                return new Vb6Value(icon);
+            if (window is Avalonia.Controls.Window iconWindow && FormIcon.PictureOf(iconWindow) is { } picture)
+                return new Vb6Value(picture);
+        }
         // A form's Name is its module's, read-only at run time: no property of the window holds it.
         if (IsName(name))
             return new Vb6Value(form.ClassName);
