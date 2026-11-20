@@ -67,6 +67,7 @@ public partial class App : Application
         // Initialise file logging before DI so ILogger<T> instances are backed by Serilog.
         LoggingSetup.Initialise();
         LoggingSetup.ObserveCrashes();
+        LoggingSetup.ForwardTrace();
 #if DEBUG
         DebugCrashHook.ArmFromEnvironment();
         HexIDE.Automation.UiAutomationDriver.TrackWindows();

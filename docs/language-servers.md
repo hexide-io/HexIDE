@@ -444,6 +444,10 @@ In order of likelihood:
    brand). IDE logs are in `ide/`, and bundled language-server logs are in `lsp/`. For the stock build,
    the IDE logs are under `%LocalAppData%/HexIDE/logs/ide/`. A malformed entry is reported there with the
    reason, the field, and the line and column. A rejected entry does not stop the others from working.
+   In-process `System.Diagnostics.Trace` output, including an add-in’s own failure reports, reaches
+   this log too (#5071): critical, error and warning events at Warning, other events and plain text
+   at Debug (enable with `HEXIDE_LOG_LEVEL=Debug`). Warning events carry the writer’s assembly as
+   `TraceSource` where the stack identifies it.
 2. **Use forward slashes for Windows paths**, or double each backslash in JSON. An invalid escape
    names the offending field, such as `$.servers[0].command`, with the line and position and the two
    supported forms. Valid escapes can instead produce control characters: the loader warns about those
