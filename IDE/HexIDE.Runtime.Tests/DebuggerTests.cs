@@ -19,7 +19,11 @@ public class DebuggerTests : BaseVBTestFixture
         dbg.SetBreakpoints("Module1", [3]);
         var stops = 0;
         dbg.Stopped += _ => { stops++; dbg.Continue(); };
-        await vb.Execute().Guarded();
+        // On a fresh stack, and off the unwind afterwards. A test starts on whatever stack the runner resumes it on, which
+        // measured 451 frames deep here, and a 1,000-deep walk's return path nests its continuations inline, so this one
+        // ended 3,304 to 4,102 frames deep. A test inheriting that stack fails its first call with Error 28.
+        await Task.Run(() => vb.Execute(), TestContext.Current.CancellationToken).Guarded();
+        await Task.Yield();
         stops.Should().Be(1001);
         AssertDebugLog(Enumerable.Range(0, 1001).Reverse().Select(n => new Vb6Value((long)n)).ToList());
     }
