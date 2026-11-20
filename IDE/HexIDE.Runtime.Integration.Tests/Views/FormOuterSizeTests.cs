@@ -18,8 +18,8 @@ using HexIDE.Runtime.Serialization;
 namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
-/// A form's Width and Height at run time are its outer size, border, caption bar and menu bar included (#1072). Every
-/// expectation was measured on vb6.exe, built EXEs on the themed Windows 10 desktop at 96 dpi, native and p-code agreeing:
+/// A form's Width and Height at run time are its outer size, border, caption bar and menu bar included (#1072). The in-window
+/// expectations were measured on vb6.exe, built EXEs on the themed Windows 10 desktop at 96 dpi, native and p-code agreeing:
 /// the oracle's "A form's Width and Height: the frame round its client area".
 /// </summary>
 /// <remarks>
@@ -28,8 +28,8 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 /// </remarks>
 public class FormOuterSizeTests : System.IDisposable
 {
-    // These rows measure vb6.exe's in-window menu bar. On macOS a form's menus go in the system menu bar (#5065), so the
-    // bar is kept in the window here on every platform. FormNativeMenuTests covers a form with the system menu bar.
+    // The vb6.exe rows keep the bar in the window on every platform. Native-bar rows explicitly select the system
+    // bar and pin the product decision and headless measurements recorded in issue #5103.
     private readonly bool systemMenuBar = FormNativeMenu.UseSystemMenuBar;
 
     public FormOuterSizeTests() => FormNativeMenu.UseSystemMenuBar = false;
@@ -191,6 +191,77 @@ public class FormOuterSizeTests : System.IDisposable
     }
 
     private const string Dims = "Debug.Print CStr(Width) & \" \" & CStr(Height) & \" \" & CStr(ScaleWidth) & \" \" & CStr(ScaleHeight)";
+
+    // Product decision and all native-bar values: https://github.com/hexide-io/HexIDE/issues/5103.
+    // These are system-bar readbacks, not vb6.exe measurements.
+    [AvaloniaTheory]
+    [InlineData(0, false, "2610 2955 2520 2520")]
+    [InlineData(0, true, "4000 3000 3915 2565")]
+    [InlineData(1, false, "2610 2955 2520 2520")]
+    [InlineData(1, true, "4000 3000 3915 2565")]
+    [InlineData(2, false, "2760 3105 2520 2520")]
+    [InlineData(2, true, "4000 3000 3765 2415")]
+    [InlineData(3, false, "2610 2955 2520 2520")]
+    [InlineData(3, true, "4000 3000 3915 2565")]
+    [InlineData(4, false, "2610 2955 2520 2520")]
+    [InlineData(4, true, "4000 3000 3915 2565")]
+    [InlineData(5, false, "2760 3105 2520 2520")]
+    [InlineData(5, true, "4000 3000 3765 2415")]
+    public void Native_bar_sizes_keep_the_frame_and_omit_the_bar(int style, bool assign, string expected)
+    {
+        FormNativeMenu.UseSystemMenuBar = true;
+        var run = RunLoad(Form(Style(style), "Form1", menu: true),
+            (assign ? "Width = 4000\nHeight = 3000\n" : "") + Dims);
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0, false, "2610 2955 2520 2520")]
+    [InlineData(0, true, "4000 3000 3915 2565")]
+    [InlineData(1, false, "2610 2955 2520 2520")]
+    [InlineData(1, true, "4000 3000 3915 2565")]
+    [InlineData(2, false, "2760 3105 2520 2520")]
+    [InlineData(2, true, "4000 3000 3765 2415")]
+    [InlineData(3, false, "2610 2955 2520 2520")]
+    [InlineData(3, true, "4000 3000 3915 2565")]
+    [InlineData(4, false, "2610 2955 2520 2520")]
+    [InlineData(4, true, "4000 3000 3915 2565")]
+    [InlineData(5, false, "2760 3105 2520 2520")]
+    [InlineData(5, true, "4000 3000 3765 2415")]
+    public void Native_bar_visibility_keeps_all_dimensions_and_raises_no_Resize(int style, bool assign, string expected)
+    {
+        FormNativeMenu.UseSystemMenuBar = true;
+        var extra = """
+            Private watching As Boolean
+            Private changes As Integer
+            Private Sub Form_Resize()
+                If watching Then changes = changes + 1
+            End Sub
+            """;
+        var load = (assign ? "Width = 4000\nHeight = 3000\n" : "") + Dims
+            + "\nwatching = True\nmnuFile.Visible = False\nDoEvents\n" + Dims + "\nDebug.Print CStr(changes)";
+        if (!assign)
+            load += "\nmnuFile.Visible = True\nDoEvents\n" + Dims + "\nDebug.Print CStr(changes)";
+        var run = RunLoad(Form(Style(style), "Form1", menu: true), load, extra);
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(assign ? [expected, expected, "0"] : [expected, expected, "0", expected, "0"]);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Native_bar_borderless_form_is_framed_only_with_a_visible_menu(bool hidden)
+    {
+        FormNativeMenu.UseSystemMenuBar = true;
+        var frm = Form(Style(0), "Form1", menu: true);
+        if (hidden)
+            frm = frm.Replace("      Caption", "      Visible = 0 'False\r\n      Caption");
+        var run = RunLoad(frm, Dims, afterLoad: window =>
+            window.WindowDecorations.Should().Be(hidden ? WindowDecorations.None : WindowDecorations.Full));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(hidden ? "2520 2520 2520 2520" : "2610 2955 2520 2520");
+    }
 
     [AvaloniaTheory]
     [InlineData(0, false, false, "2520 2520")]

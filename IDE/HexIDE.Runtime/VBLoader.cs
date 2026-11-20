@@ -463,7 +463,8 @@ public class VBLoader
     {
         var nativeMenus = FormNativeMenu.UseSystemMenuBar;
         var component = FormComponentOf(definition);
-        var window = ((FormComponentClass)component.BaseClass).InstantiateWindow(component, HasInWindowMenuBar(definition, nativeMenus));
+        var window = ((FormComponentClass)component.BaseClass).InstantiateWindow(component,
+            HasInWindowMenuBar(definition, nativeMenus), HasMenuBar(definition));
         FormNativeMenu.Register(window, nativeMenus);
         return window;
     }
