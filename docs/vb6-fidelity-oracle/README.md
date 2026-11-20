@@ -574,6 +574,7 @@ added afterwards.
 - [Mouse events (2026-10-14, #974)](mouse-events.md#mouse-events-2026-10-14-974)
 - [Mouse events: a transparent Label takes the pointer across its whole rectangle (2026-11-19, #4966, SP6)](mouse-events.md#a-transparent-label-takes-the-pointer-across-its-whole-rectangle-2026-11-19-4966-sp6)
 - [A click with real input: where Click and DblClick fall (2026-10-22, #1364)](a-click-with-real-input-where-click-and-dblclick-fall.md#a-click-with-real-input-where-click-and-dblclick-fall-2026-10-22-1364)
+- [A right and a middle click on a control (2026-11-20, #4965, SP6)](a-click-with-real-input-where-click-and-dblclick-fall.md#a-right-and-a-middle-click-on-a-control-2026-11-20-4965-sp6)
 - [A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)](a-listboxs-click-a-left-press-on-an-item-or-code-or-a-key-that-moves-the-selection.md#a-listboxs-click-a-left-press-on-an-item-or-code-or-a-key-that-moves-the-selection-2026-10-22-1374)
 - [A ListBox's Selected, SelCount and Text, with MultiSelect and without (2026-10-22, #1395)](a-listboxs-selected-selcount-and-text-with-multiselect-and-without.md#a-listboxs-selected-selcount-and-text-with-multiselect-and-without-2026-10-22-1395)
 - [A ListBox's Scroll event: what raises it, and what doesn't (2026-11-06, #3275)](a-listboxs-scroll-event.md#a-listboxs-scroll-event-what-raises-it-and-what-doesnt-2026-11-06-3275)
