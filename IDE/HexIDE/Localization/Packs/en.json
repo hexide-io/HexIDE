@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "No content was sent, so nothing was changed.",
     "Str.AIChat.ProjectCannotStart": "Cannot start project (none loaded or already running)",
     "Str.AIChat.ProjectNotRunning": "No project is currently running",
-    "Str.SessionEnd.UnsavedWork": "Unsaved changes in {0}"
+    "Str.SessionEnd.UnsavedWork": "Unsaved changes in {0}",
+    "Str.Options.Addin.ReportedFailure": "Reported a problem at {0}: {1}"
   }
 }

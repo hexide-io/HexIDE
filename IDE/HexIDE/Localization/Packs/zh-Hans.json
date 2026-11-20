@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "未发送内容，因此未作任何更改。",
     "Str.AIChat.ProjectCannotStart": "无法启动项目（未加载项目或项目已在运行）",
     "Str.AIChat.ProjectNotRunning": "当前没有正在运行的项目",
-    "Str.SessionEnd.UnsavedWork": "{0} 中有未保存的更改"
+    "Str.SessionEnd.UnsavedWork": "{0} 中有未保存的更改",
+    "Str.Options.Addin.ReportedFailure": "于 {0} 报告了问题：{1}"
   }
 }

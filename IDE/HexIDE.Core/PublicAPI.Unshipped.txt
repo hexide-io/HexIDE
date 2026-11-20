@@ -22,3 +22,4 @@ HexIDE.Lsp.WorkspaceProjectReference.IsProject.init -> void
 HexIDE.Runtime.Components.ComponentInstance.SetPreservedChildText(int index, string! text) -> void
 HexIDE.Addins.IAddinCodeEditorActions.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 HexIDE.Addins.IAddinServerConnection.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+HexIDE.Addins.IHexIdeHost.ReportFailure(string! message, System.Exception? exception = null) -> void

@@ -16,6 +16,7 @@ internal sealed class CapturedLog : ILogEventSink, IDisposable
     private readonly object gate = new();
     private readonly List<(string Fragment, TaskCompletionSource Seen)> awaited = [];
     public List<string> Messages { get; } = [];
+    public List<LogEvent> Events { get; } = [];
 
     /// <summary>
     /// Faulted tasks nothing observed, with their exceptions, kept out of <see cref="Messages"/>. Once a test has run
@@ -38,6 +39,7 @@ internal sealed class CapturedLog : ILogEventSink, IDisposable
                 Unobserved.Add(message + Environment.NewLine + logEvent.Exception);
                 return;
             }
+            Events.Add(logEvent);
             Messages.Add(message);
             foreach (var (fragment, seen) in awaited)
                 if (message.Contains(fragment, StringComparison.Ordinal))

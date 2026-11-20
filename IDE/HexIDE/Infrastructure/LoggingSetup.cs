@@ -1,5 +1,8 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -83,6 +86,88 @@ public static class LoggingSetup
                 retainedFileCountLimit: retainedPartsPerSession,
                 outputTemplate: OutputTemplate,
                 shared: false);
+    }
+
+    private static readonly object TraceGate = new();
+
+    /// <summary>Forwards process-wide Trace output to the current logger, leaving other listeners in place.</summary>
+    internal static void ForwardTrace()
+    {
+        lock (TraceGate)
+        {
+            foreach (TraceListener listener in Trace.Listeners)
+                if (listener is SerilogTraceListener) return;
+            Trace.Listeners.Add(new SerilogTraceListener());
+        }
+    }
+
+    private sealed class SerilogTraceListener : TraceListener
+    {
+        private readonly StringBuilder pending = new();
+
+        public override void Write(string? message)
+        {
+            try { pending.Append(message); }
+            catch { /* Diagnostics must never fail the caller. */ }
+        }
+
+        public override void WriteLine(string? message)
+        {
+            try
+            {
+                pending.Append(message);
+                var line = pending.ToString();
+                pending.Clear();
+                Record(TraceEventType.Verbose, line);
+            }
+            catch { /* Diagnostics must never fail the caller. */ }
+        }
+
+        public override void TraceEvent(TraceEventCache? eventCache, string source, TraceEventType eventType,
+            int id, string? message) => Record(eventType, message);
+
+        public override void TraceEvent(TraceEventCache? eventCache, string source, TraceEventType eventType,
+            int id, string? format, params object?[]? args)
+        {
+            try
+            {
+                Record(eventType, args == null ? format : string.Format(CultureInfo.InvariantCulture, format ?? "", args));
+            }
+            catch { /* A malformed format string must not fail the caller either. */ }
+        }
+
+        private static void Record(TraceEventType eventType, string? message)
+        {
+            try
+            {
+                var logger = Log.Logger;
+                if (eventType is TraceEventType.Critical or TraceEventType.Error or TraceEventType.Warning)
+                {
+                    var assembly = WriterAssembly();
+                    if (assembly != null)
+                        logger.Warning("[{TraceSource:l}] {TraceMessage:l}", assembly, message);
+                    else
+                        logger.Warning("{TraceMessage:l}", message);
+                }
+                else
+                    logger.Debug("{TraceMessage:l}", message);
+            }
+            catch { /* A logging failure must not escape into the code that traced. */ }
+        }
+
+        private static string? WriterAssembly()
+        {
+            foreach (var frame in new StackTrace().GetFrames())
+            {
+                var type = frame.GetMethod()?.DeclaringType;
+                if (type == null || type == typeof(SerilogTraceListener)
+                    || type.Namespace == "System.Diagnostics"
+                    || type.Namespace?.StartsWith("System.Diagnostics.", StringComparison.Ordinal) == true)
+                    continue;
+                return type.Assembly.GetName().Name;
+            }
+            return null;
+        }
     }
 
     private static int s_observingCrashes;

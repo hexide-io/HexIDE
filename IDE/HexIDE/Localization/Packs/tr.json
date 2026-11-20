@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "İçerik gönderilmediği için hiçbir şey değiştirilmedi.",
     "Str.AIChat.ProjectCannotStart": "Proje başlatılamıyor (yüklü proje yok veya zaten çalışıyor)",
     "Str.AIChat.ProjectNotRunning": "Şu anda çalışan bir proje yok",
-    "Str.SessionEnd.UnsavedWork": "Kaydedilmemiş değişiklikler: {0}"
+    "Str.SessionEnd.UnsavedWork": "Kaydedilmemiş değişiklikler: {0}",
+    "Str.Options.Addin.ReportedFailure": "{0} tarihinde bir sorun bildirildi: {1}"
   }
 }

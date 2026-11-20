@@ -44,6 +44,11 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
         host is HexIdeHost concrete ? concrete.RegisterDebugLaunch(launch, origin) : host.RegisterDebugLaunch(launch);
     public IDisposable RegisterProjectType(AddinProjectType type) =>
         host is HexIdeHost concrete ? concrete.RegisterProjectType(type, origin) : host.RegisterProjectType(type);
+    public void ReportFailure(string message, Exception? exception = null)
+    {
+        if (host is HexIdeHost concrete) concrete.ReportFailure(message, exception, origin);
+        else host.ReportFailure(message, exception);
+    }
     public bool RunProject() => host.RunProject();
     public bool StopProject() => host.StopProject();
 }

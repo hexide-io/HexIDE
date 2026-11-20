@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Nem érkezett tartalom, ezért semmi sem változott.",
     "Str.AIChat.ProjectCannotStart": "A projekt nem indítható (nincs betöltve vagy már fut)",
     "Str.AIChat.ProjectNotRunning": "Jelenleg nem fut projekt",
-    "Str.SessionEnd.UnsavedWork": "Nem mentett módosítások: {0}"
+    "Str.SessionEnd.UnsavedWork": "Nem mentett módosítások: {0}",
+    "Str.Options.Addin.ReportedFailure": "Probléma jelentve ekkor: {0}: {1}"
   }
 }

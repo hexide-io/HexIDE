@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "لم يُرسل أي محتوى، لذا لم يتغير شيء.",
     "Str.AIChat.ProjectCannotStart": "يتعذر بدء المشروع (لم يُحمّل أي مشروع أو أنه قيد التشغيل بالفعل)",
     "Str.AIChat.ProjectNotRunning": "لا يوجد مشروع قيد التشغيل حاليًا",
-    "Str.SessionEnd.UnsavedWork": "تغييرات غير محفوظة في {0}"
+    "Str.SessionEnd.UnsavedWork": "تغييرات غير محفوظة في {0}",
+    "Str.Options.Addin.ReportedFailure": "تم الإبلاغ عن مشكلة في {0}: {1}"
   }
 }

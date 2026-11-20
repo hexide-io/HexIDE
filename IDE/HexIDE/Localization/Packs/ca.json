@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "No s’ha enviat contingut, de manera que no s’ha canviat res.",
     "Str.AIChat.ProjectCannotStart": "No es pot iniciar el projecte (no n’hi ha cap de carregat o ja s’està executant)",
     "Str.AIChat.ProjectNotRunning": "No hi ha cap projecte en execució",
-    "Str.SessionEnd.UnsavedWork": "Canvis no desats a {0}"
+    "Str.SessionEnd.UnsavedWork": "Canvis no desats a {0}",
+    "Str.Options.Addin.ReportedFailure": "S’ha informat d’un problema a les {0}: {1}"
   }
 }

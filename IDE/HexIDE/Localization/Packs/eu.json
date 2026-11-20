@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Ez da edukirik bidali, beraz ez da ezer aldatu.",
     "Str.AIChat.ProjectCannotStart": "Ezin da proiektua abiarazi (ez dago kargatuta edo abian da dagoeneko)",
     "Str.AIChat.ProjectNotRunning": "Une honetan ez dago proiekturik abian",
-    "Str.SessionEnd.UnsavedWork": "Gorde gabeko aldaketak: {0}"
+    "Str.SessionEnd.UnsavedWork": "Gorde gabeko aldaketak: {0}",
+    "Str.Options.Addin.ReportedFailure": "Arazo baten berri eman da {0} unean: {1}"
   }
 }
