@@ -921,3 +921,4 @@ added afterwards.
 - [Complete Word, a bare word, and the selected item (2026-11-19, #3613, design-time, IDE, SP6)](complete-word-a-bare-word-and-the-selected-item.md#complete-word-a-bare-word-and-the-selected-item-2026-11-19-3613-design-time-ide-sp6)
 - [PSet at DrawWidth 9, 11 and 12 (2026-11-19, #4841, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#pset-at-drawwidth-9-11-and-12-2026-11-19-4841-sp6)
 - [What a form's saved TabIndexes become when it loads (2026-11-19, #4843, SP6, run time)](the-tabindex-a-new-or-pasted-control-takes.md#what-a-forms-saved-tabindexes-become-when-it-loads-2026-11-19-4843-sp6-run-time)
+- [A Public Type, and a variable in another module (2026-11-20, #4907)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-public-type-and-a-variable-in-another-module-2026-11-20-4907)
