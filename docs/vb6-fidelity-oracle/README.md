@@ -766,6 +766,7 @@ added afterwards.
 - [A UserControl instance's saved properties](usercontrol-files.md) (#1631, group 2A file-save subset).
 - [A UDT copied whole, and arrays of a UDT (#178)](a-udt-copied-whole-and-arrays-of-a-udt.md)
 - [A UDT copied whole, and arrays of a UDT (2026-10-26, #178)](a-udt-copied-whole-and-arrays-of-a-udt.md#a-udt-copied-whole-and-arrays-of-a-udt-2026-10-26-178)
+- [Get and Put of Type arrays and array fields, As New and object array fields, and arguments on a field (2026-11-19, #4925)](a-udt-copied-whole-and-arrays-of-a-udt.md#get-and-put-of-type-arrays-and-array-fields-as-new-and-object-array-fields-and-arguments-on-a-field-2026-11-19-4925)
 - [A breakpoint on a procedure's End line or its header (2026-10-26, #2172, IDE)](a-breakpoint-on-a-procedures-end-line-or-its-header.md#a-breakpoint-on-a-procedures-end-line-or-its-header-2026-10-26-2172-ide)
 - [Break on an idle program, and a step off the end of an event handler (2026-11-16, #4261, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#break-on-an-idle-program-and-a-step-off-the-end-of-an-event-handler-2026-11-16-4261-ide)
 - [Which window comes to the front: Continue, a step, and a modal form (2026-11-17, #4262, IDE)](break-on-an-idle-program-and-a-step-off-an-event-handler.md#which-window-comes-to-the-front-continue-a-step-and-a-modal-form-2026-11-17-4262-ide)
