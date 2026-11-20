@@ -637,6 +637,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Megjelenítés",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Minitérkép megjelenítése",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Beágyazott tippek megjelenítése",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Értékek megjelenítése a kódban hibakeresés közben",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Kódlencsék megjelenítése",
     "Str.Editor.RunCodeLens": "K_ódlencse futtatása",
     "Str.Options.EditorFormatting.Indentation.Header": "Behúzás",

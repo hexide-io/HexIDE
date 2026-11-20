@@ -12,6 +12,8 @@ namespace HexIDE.Controls;
 internal sealed class InlayHintRenderer(TextEditor editor) : VisualLineElementGenerator
 {
     private InlayHint[] hints = [];
+    private InlayHint[] inlineValues = [];
+    private IEnumerable<InlayHint> Labels => hints.Concat(inlineValues);
     public IBrush? Brush { get; set; }
 
     public void SetHints(InlayHint[] value)
@@ -20,7 +22,13 @@ internal sealed class InlayHintRenderer(TextEditor editor) : VisualLineElementGe
         editor.TextArea.TextView.Redraw();
     }
 
-    private IEnumerable<InlayHint> At(int offset) => hints.Where(h => Offset(h) == offset && h.Text.Length > 0);
+    public void SetInlineValues(InlayHint[] value)
+    {
+        inlineValues = value;
+        editor.TextArea.TextView.Redraw();
+    }
+
+    private IEnumerable<InlayHint> At(int offset) => Labels.Where(h => Offset(h) == offset && h.Text.Length > 0);
 
     private int Offset(InlayHint hint)
     {
@@ -30,7 +38,7 @@ internal sealed class InlayHintRenderer(TextEditor editor) : VisualLineElementGe
             ? line.Offset + hint.Position.Character : -1;
     }
 
-    public override int GetFirstInterestedOffset(int startOffset) => hints.Where(h => h.Text.Length > 0)
+    public override int GetFirstInterestedOffset(int startOffset) => Labels.Where(h => h.Text.Length > 0)
         .Select(Offset).Where(offset => offset >= startOffset).DefaultIfEmpty(-1).Min();
 
     public override VisualLineElement? ConstructElement(int offset)

@@ -603,6 +603,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Prikaz",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Prikaži pomanjšan pregled",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Pokaži vstavljene namige",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Prikaži vrednosti v kodi med razhroščevanjem",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Pokaži leče kode",
     "Str.Editor.RunCodeLens": "Za_ženi lečo kode",
     "Str.Options.EditorFormatting.Indentation.Header": "Zamikanje",

@@ -597,6 +597,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Форматировать при сохранении",
     "Str.Options.EditorGeneral.Display.Header": "Отображение",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Показывать встроенные подсказки",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Показывать значения в строках кода при отладке",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Показывать линзы кода",
     "Str.Editor.RunCodeLens": "Выполнить линзу кода",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Показывать мини-карту",

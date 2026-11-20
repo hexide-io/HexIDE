@@ -96,6 +96,7 @@ public partial class CodeEditorView : UserControl
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
     private InlayHintRenderer? _inlayHintRenderer;
+    private InlineValueSession? _inlineValues;
     private System.ComponentModel.PropertyChangedEventHandler? _inlaySettingsChanged;
     private int _inlayRevision;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
@@ -499,6 +500,10 @@ public partial class CodeEditorView : UserControl
 
             _inlayHintRenderer = new InlayHintRenderer(TextEditor);
             TextEditor.TextArea.TextView.ElementGenerators.Add(_inlayHintRenderer);
+            _inlineValues = vm.CreateInlineValueSession(hints => _inlayHintRenderer?.SetInlineValues(hints));
+            TextEditor.TextArea.TextView.VisualLinesChanged += OnInlineValueViewportChanged;
+            TextEditor.TextArea.TextView.ScrollOffsetChanged += OnInlineValueViewportChanged;
+            OnInlineValueViewportChanged(this, EventArgs.Empty);
             _inlaySettingsChanged = (_, e) =>
             {
                 if (e.PropertyName == nameof(vm.Settings.RDCoreWin64OnlySetOnWindows))
@@ -825,6 +830,10 @@ public partial class CodeEditorView : UserControl
             vm.StatusBar.Column = null;
         }
 
+        TextEditor.TextArea.TextView.VisualLinesChanged -= OnInlineValueViewportChanged;
+        TextEditor.TextArea.TextView.ScrollOffsetChanged -= OnInlineValueViewportChanged;
+        _inlineValues?.Dispose();
+        _inlineValues = null;
         ++_inlayRevision;
         if (_inlayHintRenderer is not null)
         {
@@ -1485,6 +1494,18 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[folding] {ErrorMessage}", ex.Message);
         }
+    }
+
+    private void OnInlineValueViewportChanged(object? sender, EventArgs args)
+    {
+        var view = TextEditor.TextArea.TextView;
+        if (_inlineValues is null || !view.VisualLinesValid || view.VisualLines.Count == 0) return;
+        var visible = view.VisualLines.Where(line => line.VisualTop + line.Height >= view.ScrollOffset.Y
+            && line.VisualTop <= view.ScrollOffset.Y + view.Bounds.Height).ToArray();
+        if (visible.Length == 0) return;
+        var first = visible[0].FirstDocumentLine;
+        var last = visible[^1].LastDocumentLine;
+        _inlineValues.SetVisibleRange(new(new(first.LineNumber - 1, 0), new(last.LineNumber - 1, last.Length)));
     }
 
     private async Task RequestInlayHintsAsync(CodeEditorViewModel vm, CancellationToken token)

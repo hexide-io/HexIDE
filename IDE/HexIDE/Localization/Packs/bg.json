@@ -636,6 +636,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Показване",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Показване на миникарта",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Показване на вградени подсказки",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Показване на стойности в кода при отстраняване на грешки",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Показване на кодови лещи",
     "Str.Editor.RunCodeLens": "Изпълнение на кодова леща",
     "Str.Options.EditorFormatting.Indentation.Header": "Отстъпи",

@@ -124,6 +124,28 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void InlineValuesToggleIsStagedPersistedAndRestored()
+    {
+        var settings = CreateSut();
+        settings.ShowInlineValues.Should().BeTrue();
+        File.WriteAllText(SettingsPath, "{}");
+        CreateSut().ShowInlineValues.Should().BeTrue();
+        var page = new HexIDE.Forms.ViewModels.Options.EditorGeneralPageViewModel(settings);
+        page.ShowInlineValues.Should().BeTrue();
+        page.ShowInlineValues = false;
+        settings.ShowInlineValues.Should().BeTrue();
+        page.SaveToSettings();
+        settings.ShowInlineValues.Should().BeFalse();
+        CreateSut().ShowInlineValues.Should().BeFalse();
+        using var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+        saved.RootElement.GetProperty("showInlineValues").GetBoolean().Should().BeFalse();
+        page.RestoreDefaults();
+        page.ShowInlineValues.Should().BeTrue();
+        page.SaveToSettings();
+        CreateSut().ShowInlineValues.Should().BeTrue();
+    }
+
+    [Fact]
     public void InlayHintsToggleIsStagedPersistedAndRestored()
     {
         var settings = CreateSut();

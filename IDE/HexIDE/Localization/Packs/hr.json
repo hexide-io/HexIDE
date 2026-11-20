@@ -670,6 +670,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Prikaz",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Prikaži minikartu",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Prikaži umetnute savjete",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Prikaži vrijednosti u kodu tijekom otklanjanja pogrešaka",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Prikaži leće koda",
     "Str.Editor.RunCodeLens": "Pokreni le_ću koda",
     "Str.Options.EditorFormatting.Indentation.Header": "Uvlačenje",

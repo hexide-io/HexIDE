@@ -630,6 +630,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Mettre en forme à l'enregistrement",
     "Str.Options.EditorGeneral.Display.Header": "Affichage",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Afficher les indications intégrées",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Afficher les valeurs dans le code pendant le débogage",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Afficher les lentilles de code",
     "Str.Editor.RunCodeLens": "E_xécuter la lentille de code",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Afficher la mini-carte",
