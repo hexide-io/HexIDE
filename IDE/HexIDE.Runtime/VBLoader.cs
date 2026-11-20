@@ -57,6 +57,10 @@ public class VBLoader
             ClipToBounds = true
         };
         AvaloniaInterop.DrawingHandles.Register(canvas, executionContext.State.DrawingHandles);
+        // Every control on the form inherits whether the run takes RDCore's additions (#4967).
+        var rdcoreAdditions = program?.Interpreter.RDCoreAdditions ?? false;
+        if (rdcoreAdditions)
+            VBProps.SetRDCoreAdditions(canvas, true);
         // The form's ScaleMode is the unit its controls' positions are read and written in (#933). The .frm holds them
         // in twips whatever it is.
         VBProps.SetScaleMode(canvas, (VBScaleMode)(element.Scale?.Mode ?? (int)VBScaleMode.Twip));
@@ -118,6 +122,7 @@ public class VBLoader
                     element.RootVBTypeName == "VB.Form" ? form : null,
                     component.GetPropertyOrDefault(VBProperties.NameProperty) ?? "",
                     RawDouble(FormComponentOf(element), "RightToLeft") is { } rtl && rtl != 0);
+            AvaloniaInterop.RDCoreMembers.ApplyFormFile(control, component, rdcoreAdditions);
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
                 return;
 

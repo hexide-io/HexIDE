@@ -813,8 +813,10 @@ unknown keys. A `VbaBitness` value other than 32 or 64 SHALL read as no target a
 verbatim. This is HexIDE metadata, not a claim about VBA's native project format.
 
 The section SHALL also store `Targets=RDCore` when the project selects that predefined conditional
-constants table ([#4821](https://github.com/hexide-io/HexIDE/issues/4821)). This key SHALL select only
-predefined `#If` constants, not the engine that runs the project. An absent key SHALL retain the normal
+constants table ([#4821](https://github.com/hexide-io/HexIDE/issues/4821)). This key SHALL select the
+predefined `#If` constants and RDCore's run-time additions to VB6
+([#4967](https://github.com/hexide-io/HexIDE/issues/4967), interpreter-core), and SHALL NOT select the engine that
+runs the project. An absent key SHALL retain the normal
 VB6 or VBA7 selection. A known target SHALL survive a fresh open, and clearing it SHALL remove only that
 key. The key SHALL be `Targets`, plural, and its value a list separated by `;`, so that naming several targets
 needs no second key. A value naming exactly one known target SHALL select it; a list of more than one, an unknown

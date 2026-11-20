@@ -367,6 +367,7 @@ public partial class PropertiesToolViewModel : Tool
                 FrxImageHelper.FrxBlobKind.Cursor => "cur",
                 FrxImageHelper.FrxBlobKind.Jpeg => "jpg",
                 FrxImageHelper.FrxBlobKind.Gif => "gif",
+                FrxImageHelper.FrxBlobKind.Png => "png",
                 _ => "bin",
             };
             var path = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions

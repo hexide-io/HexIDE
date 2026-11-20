@@ -133,12 +133,12 @@ The interpreter SHALL execute GoSub, Return, On selector GoTo and On selector Go
 - **WHEN** On selector GoTo or GoSub executes
 - **THEN** the selector is evaluated once and narrowed as CInt, including half-to-even rounding and Null's error 94
 - **AND** a selector below 0 or above 255 raises error 5; 0 or a selector past the label list falls through
-- **AND** conversion overflow beyond Integer range is refused as unmeasured, naming #4880
+- **AND** conversion overflow beyond Integer range raises trappable error 6, before the 0 to 255 check (#4880, oracle PR #4986)
 
 #### Scenario: Error handling and stack exhaustion
 - **WHEN** an error occurs in a nested pass
-- **THEN** the procedure's handler and that pass's fault position govern Resume, without resetting the handler on pass entry
-- **AND** a Resume in a nested pass with no fault of its own is refused as unmeasured, naming #4880
+- **THEN** the procedure's handler and shared fault position govern Resume, without resetting the handler on pass entry
+- **AND** a Resume in a nested pass reached from the active handler resumes the handler's error: Err is cleared, the handler traps again, and the pending GoSubs stay pending, so code a later Return comes back to runs outside the handler (#4880, oracle PR #4986)
 - **WHEN** pending GoSubs reach HexIDE's 2,000-level cap or the execution stack guard fails
 - **THEN** ordinary trappable error 28 allows the procedure's own handler to run, including Exit Sub and Resume Next
 
@@ -229,9 +229,10 @@ A running form's default instance SHALL accept icon pictures or Nothing through 
 
 Interpreter runs and default code-window greying SHALL select predefined constants by the project's
 `[HexIDE] Targets=RDCore`, then its VBA7 bitness and host, following
-[#4821](https://github.com/hexide-io/HexIDE/issues/4821). The key SHALL choose constants only, not a run
-engine. Module `#Const` definitions SHALL shadow project `CondComp` arguments, which SHALL shadow
-predefined constants.
+[#4821](https://github.com/hexide-io/HexIDE/issues/4821). The key SHALL NOT choose a run engine. Besides the
+constants, `Targets=RDCore` SHALL switch on the run-time additions of the next requirement
+([#4967](https://github.com/hexide-io/HexIDE/issues/4967)). Module `#Const` definitions SHALL shadow project
+`CondComp` arguments, which SHALL shadow predefined constants.
 
 #### Scenario: Recorded host tables
 - **WHEN** the target and host are one of the following rows
@@ -270,6 +271,32 @@ Absent or `0` SHALL mean false. The key SHALL have no effect without that target
 - **WHEN** a project argument defines `Mac=0` for the external backend target on macOS
 - **THEN** `#If Mac` is false
 - **AND** a module's `#Const Mac=1` overrides that argument
+
+### Requirement: An RDCore target takes RDCore's run-time additions
+
+A run whose project selects `[HexIDE] Targets=RDCore`, or a contributed `.rdproj`, SHALL take the additions to VB6
+that [#4967](https://github.com/hexide-io/HexIDE/issues/4967) decided: PNG in `LoadPicture`, and an Image's
+`Opacity`. A run of any other project SHALL keep VB6's behaviour. The behaviour SHALL follow RDC as measured, and
+SHALL NOT be taken from RDCore's source. The run SHALL decide it in one place, from the project's target, and SHALL
+NOT key it on any particular program.
+
+#### Scenario: LoadPicture reads a PNG
+- **WHEN** a run that targets RDCore calls `LoadPicture` on a PNG file
+- **THEN** it SHALL return a bitmap picture of `Type` 1, sized in HIMETRIC at 96 DPI
+- **AND** an Image or a PictureBox given it SHALL show it, and its `Picture` SHALL read it back
+- **AND** a PNG cut short that keeps its signature and a whole IHDR SHALL load as a `Type` 1 picture of the size IHDR
+  declares, and one cut shorter SHALL raise 481
+- **AND** a VB6 or VBA project's `LoadPicture` SHALL still refuse a PNG with 481
+- **AND** a Panel's picture and the designer's Load Picture SHALL refuse a PNG in every project
+
+#### Scenario: An Image's Opacity
+- **WHEN** a run that targets RDCore reads or sets an Image's `Opacity`
+- **THEN** it SHALL be a Double that reads 1 on a new Image, and a value from 0 to 1 SHALL be kept as given
+- **AND** a value outside 0 to 1 SHALL raise 380 and keep the value before it
+- **AND** a form file's `Opacity` line SHALL be read, and an element made by `Load` SHALL take its template's
+- **AND** a form file's value outside 0 to 1 SHALL be ignored with no error, leaving 1
+- **AND** the Image SHALL draw its picture blended over what is behind it, with `Opacity` as its alpha, as RDC does
+- **AND** in a VB6 or VBA project `Opacity` SHALL be refused as any member an Image lacks is
 
 ### Requirement: Measured 32-bit VBA7 integer support
 

@@ -283,3 +283,122 @@ fixed overflow and later panel positions are covered headlessly.
 Saved panel blocks now load their measured values, with HIMETRIC lengths converted to twips. Panel picture records survive load/save byte for byte and now supply runtime objects. Panels accept another picture, a LoadPicture BMP/ICO file, or Nothing, and draw the picture in normal style. Picture submembers and TypeName refuse until their return types are measured; the recorded numeric values alone do not pin their types.
 The rest of part B draws panels, key indicators, time/date, SimpleText and the grip, with the measured mouse/panel event order. Exact text inset/clipping remains unmeasured rendering. Nonempty Contents sizing still refuses rather than guessing a program-visible width; the measured StatusBar forms and picture companions round-trip byte for byte. Non-Windows key indicators follow keys seen by the form, without an initial host lock-state query.
 The `statusbar` and `statusbar-picture` saves are now in `corpus/inbox-controls/saved/`. Their raw panel blocks retain TextSave snapshots, field order and picture citations; runtime panel edits do not change the designer model.
+
+### Panels: argument counts, keys by case, conversions, Tag, Picture, a removed panel and lengths (2026-11-19, #4882)
+
+vb6.exe SP6 with MSCOMCTL.OCX 6.01.9782, `/make`, native code and p-code logging the same lines in every row. **The
+setup:** a Sub Main loaded and showed Form1, with a bottom-aligned StatusBar1 at its defaults, and drove it late-bound
+through `Object` variables under `On Error Resume Next`. A second round added a top-aligned StatusBar2 and a Label1.
+Each row started from `Panels.Clear` and one `Panels.Add`, or three where a row says so, and logged the error number
+and what was read back afterwards.
+
+**What was overturned, ours:** the obvious guess, from a VB `Collection`, was that keys would compare without case.
+They compare exactly. And `Panels.Item()` with its one required argument left out was expected to be 449, "Argument
+not optional", as for a procedure; it is 450.
+
+**1. Argument counts, late-bound:**
+
+| Call | vb6.exe |
+|---|---|
+| `Panels.Add 1, "k", "t", 0, Nothing, 6` | 450, and nothing added |
+| `Panels.Item(1, 2)`, `Panels(1, 2)` | 450 |
+| `Panels.Remove 1, 2` | 450, and nothing removed |
+| `Panels.Clear 1` | 450, and nothing cleared |
+| `Panels.Item()`, `Panels.Remove` with no argument | **450**, not 449 |
+| `x = Panels.Count(1)` | **451**, "Property let procedure not defined and property get procedure did not return an object" |
+
+**2. Keys compare case-sensitively,** with no folding of any kind:
+- `Add , "abc"` then `Add , "ABC"` adds both (3 panels).
+- With only "abc", `Panels("ABC")` and `Remove "ABC"` are 35601.
+- `Key = "ABC"` on another panel beside "abc" is accepted. A panel keyed "abc" can be re-keyed "ABC".
+- é (`ChrW(233)`) and É (`ChrW(201)`) are two keys, so `Panels(ChrW(201))` is 35601 when only é exists. The same holds for "i" and "I", and for "ss" and ß (`ChrW(223)`).
+
+**3. Index conversion.** The rows start from three panels with panel 2 keyed "two". `Item` reads `Panels(x).Key`; `Remove x` and `Add x, "new"` are logged with the keys after.
+
+| `x` | `Panels(x)` and `Remove x` | `Add x, "new"` |
+|---|---|---|
+| `CDate(2)`, `CCur(2)`, `CDec(2)`, `CByte(2)`, `CLng(2)` | panel 2 | inserted at 2 |
+| `CSng(2.5)`, `CSng(1.5)`, `CCur(2.5)`, `CDec(2.5)` | panel 2: half to even | inserted at 2 |
+| `True`, `False` | 35600 | 35600 |
+| `Empty` | **35601** | **35600** |
+| `Null` | **35603** | **13** |
+| `1E+10`, `-1E+10`, `2147483647.5` | 35603 | 13 |
+| `CVErr(2)` | 35601 | 13 |
+| Nothing, `Array(2)` | 35603 | 13 |
+
+Nothing is added or removed on an error.
+
+**4. Enum conversion,** for Style (0 to 7), Alignment, Bevel and AutoSize (each 0 to 2). The table gives what each assignment raised and what the property reads after:
+
+| Value | Raised, then read back |
+|---|---|
+| `1.5`, `CSng(1.5)`, `CCur(1.5)` | no error, 2 |
+| `2.5` | no error, 2: half to even |
+| `0.5` | no error, 0 |
+| `"1"`, `" 1 "`, `"&H1"`, `CCur(1)`, `CDec(1)` | no error, 1 |
+| `False`, `Empty` | no error, 0 |
+| `True`, `-1` | **380**; the property keeps its value |
+| `"abc"`, `Null`, `CVErr(1)`, Nothing | **13**; keeps its value |
+| `2147483648#`, `-2147483649#` | **6**; keeps its value |
+
+`Panels.Add , "n", , x` takes the same values for Style, with the same errors, with one difference: `2147483648#` and `-2147483649#` are **13** there, not 6. A failed Add adds nothing.
+
+**5. Tag holding an object:**
+- **Accepted, and the reference kept:**
+  - `Set Tag = c` keeps the Collection itself: `p.Tag Is c` is True. After `Set c = Nothing` the panel still holds it, with Count 1.
+  - `Form1`, `Form1.Label1` and another StatusBar (`StatusBar2`) are taken too, and so are its Panels, a panel of it, `StatusBar1.Font`, `Form1.Icon` and `Form1.Controls`.
+  - A panel of StatusBar2 takes `StatusBar1` as its Tag.
+- **35700**, "Circular object referencing is not allowed": the panel's own StatusBar, its Panels, the panel itself, or another panel of the same bar.
+- **The same assignment without `Set`:**
+  - `Tag = StatusBar1` is 438.
+  - `x = p.Tag`, while Tag holds a Collection, is 450.
+  - `Tag = "s"` after holding an object replaces it with the String.
+- `Set Tag = Nothing` reads back Nothing.
+
+**6. Picture assignment.**
+- **`Set Picture =` and `Picture =` (without `Set`) both take a Picture object.**
+  - `LoadPicture()` reads back as a Picture with Type 0 and Handle 0. It isn't Nothing.
+  - `Form1.Icon` reads back with Type 3 and a non-zero Handle.
+- **Anything else is 13, and the panel keeps the picture it had.** That's a Collection, `5`, `"x"`, `Null`, `Empty`, `StatusBar1` or `Label1`. A panel holding nothing still holds Nothing, and one holding the icon still holds it.
+- `Set Picture = Nothing` clears it.
+
+**7. A removed panel** (`Set p = Panels(1)`, then `Panels.Remove 1` or `Panels.Clear`):
+- **These go on working:**
+  - reading Text, Key, Tag, ToolTipText, Style, Alignment, AutoSize, Bevel, Enabled, Visible and Picture, which give the values the panel had;
+  - its default member, Text;
+  - `TypeName(p)`, `IPanel`;
+  - setting Key, Tag (`Set` too) and ToolTipText.
+- **These are 35605, "This item's control has been deleted":**
+  - reading Index, Width, MinWidth and Left;
+  - setting Text, Style, Alignment, AutoSize, Bevel, Enabled, Visible, Width, MinWidth and Picture.
+- **A failed Text assignment leaves the old Text:** reading it after `p.Text = "x"` gives "one".
+- **A removed panel stays removed:** after `Remove 3` and a new `Add`, `p.Index` is still 35605.
+- **The same holds for another StatusBar's removed panel.**
+
+**8. Lengths, Width and MinWidth alike.** MinWidth sets Width to the same value, as main already does (`StatusBarPanels.cs:278`).
+
+| Value | Raised, then read back |
+|---|---|
+| `"2000"`, `" 2000 "`, `CCur(2000)`, `CDec(2000)` | no error, 2000.126 |
+| `CDate(1)` | no error, 1.133858 (2 HIMETRIC) |
+| `"abc"`, `Null`, `CVErr(1)`, Nothing, `Array(1)` | **13**; keeps 1440 |
+| `Empty`, `True` | **380**; keeps 1440 |
+| `0.2`, `0.28` (under half a HIMETRIC) | 380 |
+| `0.3` | no error, 0.5669292 (1 HIMETRIC) |
+| `36`, `108`, `180`, `252` (63.5, 190.5, 317.5 and 444.5 HIMETRIC) | no error: 35.71654, 107.7165, 179.7165 and 251.7166, so **63, 190, 317 and 444: a tie rounds down** |
+| `35.5`, `2000.5` | no error: 35.71654, 2000.693 |
+| `10000`, `100000`, `120000`, `150000`, `180000`, `200000` | no error: 10000.06, 100000.1, 120000.2, 149999.8, 180000 and 200000.1 |
+| `245745` (16383 px) | no error, 245745.1 |
+| `245760` (16384 px), `250000`, `300000`, `327675`, `400000`, `491490`, `491505`, `491520`, `1E+6`, `1E+7` | **380**; keeps 1440 |
+| `1E+39` | **6**: the Single overflows |
+
+**Above 1E+7 twips, no rule fits:**
+- accepted: `2E+7`, `5E+7`, `7E+7`, `9E+7`, `1E+8` and `1.5E+8`;
+- 380: `1.1E+8`, `1.3E+8`, `1.8E+8`, `2E+8`, `4E+8` to `9E+8`, `1E+9` to `2E+9`, and `1E+30`.
+
+**The first refusal is at 16384 pixels:** 245745 twips (16383 px at 96 DPI) is taken and 245760 (16384 px) is 380, and so is every value measured from there to `1E+7`. **Above that, what resisted explanation:** the accepted and refused values alternate. A guess that the length's HIMETRIC times 96 is computed in 32 bits and wraps, with only a positive pixel count of 16384 or more refused, fits 15 of the 20 values from `2E+7` to `2E+9` (computed, not measured), and would accept `2E+8`, `4E+8`, `6E+8`, `8E+8` and `2E+9`, which are 380. No rule is recorded.
+
+### In HexIDE (#4882)
+
+On `upstream/main` `b79e59bcb`, every case in this section except the over-range enums, duplicate keys and the
+measured index rows refused, citing #4882, in `StatusBarPanels.cs`. The work is briefed on #4882.

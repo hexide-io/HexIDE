@@ -11,12 +11,24 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 
     internal byte[] FileBytes { get; }
 
+    /// <summary>The pixel size a PNG's IHDR declares, for one that doesn't decode (#4967); null for any other picture.</summary>
+    private Avalonia.PixelSize? DeclaredSize { get; init; }
+
+    // The size in a PNG's IHDR, which follows its 8-byte signature as the first chunk: a 4-byte length, "IHDR", then the
+    // width and height, big-endian. Null unless the whole chunk is there, 33 bytes in all.
+    private static Avalonia.PixelSize? PngDeclaredSize(byte[] file) =>
+        file.Length >= 33 && file.AsSpan(12, 4).SequenceEqual("IHDR"u8)
+            ? new Avalonia.PixelSize((int)System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(file.AsSpan(16)),
+                (int)System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(file.AsSpan(20)))
+            : null;
+
     internal PanelPicture(byte[] file, bool resourceIcon = false)
     {
         FileBytes = file;
         bitmap = new(() =>
         {
-            var decoded = FrxImageHelper.TryDecodeToAvaloniaBitmap(file);
+            // A picture holding a PNG was let in by FromFile's png, so it is drawn (#4967).
+            var decoded = FrxImageHelper.TryDecodeToAvaloniaBitmap(file, png: true);
             if (!resourceIcon || decoded is null || decoded.PixelSize == new Avalonia.PixelSize(32, 32)) return decoded;
             using (decoded) return decoded.CreateScaledBitmap(new Avalonia.PixelSize(32, 32));
         });
@@ -33,9 +45,26 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
         return FromFile(record[28..]);
     }
 
-    internal static PanelPicture FromFile(byte[] file, bool loadPicture = false)
+    /// <param name="png">
+    /// Read a PNG, as RDCore's <c>LoadPicture</c> does (measured under RDC, #4967): it is a bitmap picture, Type 1. VB6
+    /// refuses PNG with 481 (measured). So only a run that takes RDCore's additions sets this: for its
+    /// <c>LoadPicture</c>, and to read back the picture a control was given. A Panel's record never does.
+    /// </param>
+    internal static PanelPicture FromFile(byte[] file, bool loadPicture = false, bool png = false)
     {
         var kind = FrxImageHelper.DetectKind(file);
+        if (png && kind == FrxImageHelper.FrxBlobKind.Png)
+        {
+            var decoded = new PanelPicture(file);
+            if (decoded.Bitmap is not null)
+                return decoded;
+            // RDC reads a PNG cut short by its header (measured, #4967): with its signature and a whole IHDR it is a
+            // picture of the size IHDR declares, with no error; cut into IHDR it is 481. What such a picture draws is
+            // unmeasured, and here it draws nothing (reasoned).
+            return PngDeclaredSize(file) is { } declared
+                ? new PanelPicture(file) { DeclaredSize = declared }
+                : throw new VBRunTimeException(VBStandardError.InvalidPicture);
+        }
         // Metafiles and cursors have no LoadPicture measurements (#4597).
         if (kind == FrxImageHelper.FrxBlobKind.Cursor
             || file.AsSpan().StartsWith(new byte[] { 0xd7, 0xcd, 0xc6, 0x9a })
@@ -152,7 +181,8 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 
     internal Bitmap? Bitmap => bitmap.Value;
 
-    internal static Vb6Value Load(IReadOnlyList<Vb6Value> args, VbFiles files)
+    /// <param name="png">Whether PNG is read too, which RDCore's <c>LoadPicture</c> does (#4967); see <see cref="FromFile"/>.</param>
+    internal static Vb6Value Load(IReadOnlyList<Vb6Value> args, VbFiles files, bool png = false)
     {
         // Clearing with LoadPicture() keeps an AutoSize PictureBox's dimensions (#922).
         if (args.Count == 0)
@@ -164,7 +194,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             var fullPath = files.FullPath(path);
             if (Directory.Exists(fullPath))
                 throw FileError(VBStandardError.PathFileAccessError);
-            return new Vb6Value(FromFile(File.ReadAllBytes(fullPath), loadPicture: true));
+            return new Vb6Value(FromFile(File.ReadAllBytes(fullPath), loadPicture: true, png: png));
         }
         catch (FileNotFoundException) { throw FileError(VBStandardError.FileNotFound); }
         catch (DirectoryNotFoundException) { throw FileError(VBStandardError.PathNotFound); }
@@ -183,14 +213,14 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             value = new Vb6Value((short)0);
             return true;
         }
-        if (Bitmap is { } decoded)
+        if ((Bitmap?.PixelSize ?? DeclaredSize) is { } size)
         {
             if (name.Equals("Type", StringComparison.OrdinalIgnoreCase))
                 value = new Vb6Value((short)(FrxImageHelper.DetectKind(FileBytes) == FrxImageHelper.FrxBlobKind.Icon ? 3 : 1));
             else if (name.Equals("Width", StringComparison.OrdinalIgnoreCase))
-                value = new Vb6Value((long)Math.Round(decoded.PixelSize.Width * 2540d / 96));
+                value = new Vb6Value((long)Math.Round(size.Width * 2540d / 96));
             else if (name.Equals("Height", StringComparison.OrdinalIgnoreCase))
-                value = new Vb6Value((long)Math.Round(decoded.PixelSize.Height * 2540d / 96));
+                value = new Vb6Value((long)Math.Round(size.Height * 2540d / 96));
             else throw new NotImplementedException($"Panel.Picture.{name} is not implemented (#4882)");
             return true;
         }

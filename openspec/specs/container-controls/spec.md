@@ -288,7 +288,8 @@ A minimal SSTab block SHALL run as a container with three tabs, tab zero showing
 and captions Tab 0 through Tab 2. TabCaption, TabEnabled and TabVisible SHALL accept indexes, with
 381 for an invalid index. Tab SHALL reject out-of-range or hidden pages with 380, accept disabled pages,
 and raise Click with the previous tab after movement. Rows SHALL count visible tabs and refuse writes
-with 383. Its implicit default member SHALL read zero and ignore assignments.
+with 383. Its default member SHALL read Integer zero and ignore assignments, including when named
+explicitly as `.[_Tab]`. [SSTab measurement](../../../docs/vb6-fidelity-oracle/in-box-controls-the-sstab.md#the-object-model).
 
 Saved own properties and page lists SHALL initialize the runtime pages as described below.
 Unimplemented members and unmeasured property coercions SHALL refuse explicitly.

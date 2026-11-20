@@ -28,7 +28,7 @@ public static class AvaloniaInteroperability
     {
         var held = controlPictures.GetOrCreateValue(control);
         if (held.Value.Picture is null || !ReferenceEquals(held.Value.Bytes, bytes))
-            held.Value = (bytes, SSTabMembers.ControlPicture(bytes));
+            held.Value = (bytes, SSTabMembers.ControlPicture(bytes, png: VBProps.GetRDCoreAdditions(control)));
         return held.Value.Picture!;
     }
 

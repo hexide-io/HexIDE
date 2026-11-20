@@ -1044,7 +1044,11 @@ subscript_
 ambiguousIdentifier
     : (IDENTIFIER | ambiguousKeyword)+
     | L_SQUARE_BRACKET (IDENTIFIER | ambiguousKeyword)+ R_SQUARE_BRACKET
-    | L_SQUARE_BRACKET {TokenStream.LT(1).Text.Equals("_NewEnum", StringComparison.OrdinalIgnoreCase)}? DESIGNER_KEY R_SQUARE_BRACKET
+    | L_SQUARE_BRACKET
+      // The token before the bracket must be a member separator, not a type or designer qualifier.
+      {TokenStream.LT(1).Text.Equals("_NewEnum", StringComparison.OrdinalIgnoreCase)
+       || (TokenStream.LT(-2)?.Type is DOT or EXCLAMATIONMARK
+           && $ctx.Parent is not (ComplexTypeContext or Cp_PropertyNameContext))}? DESIGNER_KEY R_SQUARE_BRACKET
     ;
 
 asTypeClause
