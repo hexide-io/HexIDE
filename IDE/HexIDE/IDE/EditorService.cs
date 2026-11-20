@@ -230,42 +230,51 @@ public partial class EditorService : IEditorService
     {
         if (string.IsNullOrWhiteSpace(uri)) return false;
 
-        // Every loaded project, not just the startup one. A group's members live in different directories
-        // and a definition can perfectly well be in a sibling project — see hexide-io/HexIDE#261.
-        foreach (var project in projectManager().LoadedProjects)
+        // Exact matches across all projects take priority over any linked spelling.
+        for (var pass = 0; pass < 2; pass++)
         {
-            foreach (var module in project.Modules)
-            {
-                if (!Names(uri, DocumentIdentity.For(module), module.AbsolutePath)) continue;
-                EditCode(module, takeFocus);
-                PlaceCaret(vm => vm.ModuleDefinition == module, line, column);
-                return true;
-            }
+            if (pass == 1 && (!Uri.TryCreate(uri, UriKind.Absolute, out var source) || !source.IsFile)) break;
+            bool Matches(DocumentIdentity? document, string? absolutePath) => pass == 0
+                ? Names(uri, document, absolutePath)
+                : !string.IsNullOrEmpty(absolutePath) && HexIDE.Debugging.SourcePaths.SameSourcePath(uri, absolutePath);
 
-            foreach (var form in project.Forms)
+            // Every loaded project, not just the startup one. A group's members live in different directories
+            // and a definition can perfectly well be in a sibling project — see hexide-io/HexIDE#261.
+            foreach (var project in projectManager().LoadedProjects)
             {
-                if (!Names(uri, DocumentIdentity.For(form), form.AbsolutePath)) continue;
-                EditCode(form, takeFocus);
-                // EditCode(form) redirects a UserControl or PropertyPage to its module, so the editor that
-                // opened may be keyed on the module rather than the form. Accept either.
-                PlaceCaret(
-                    vm => vm.FormDefinition == form || vm.ModuleDefinition?.FormPart == form, line, column);
-                return true;
-            }
-
-            foreach (var carried in project.RelatedDocuments)
-            {
-                if (!Names(uri, null, carried.AbsolutePath)) continue;
-                EditRelatedDocument(carried, takeFocus);
-                foreach (var open in documentDockService.OpenDocuments)
+                foreach (var module in project.Modules)
                 {
-                    if (open is not RelatedDocumentEditorViewModel editor || editor.RelatedDocument != carried) continue;
-                    if (line < 1 || line > editor.Document.LineCount) break;
-                    var target = editor.Document.GetLineByNumber(line);
-                    editor.NavigateToOffset(Math.Min(target.Offset + Math.Max(column - 1, 0), target.EndOffset));
-                    break;
+                    if (!Matches(DocumentIdentity.For(module), module.AbsolutePath)) continue;
+                    EditCode(module, takeFocus);
+                    PlaceCaret(vm => vm.ModuleDefinition == module, line, column);
+                    return true;
                 }
-                return true;
+
+                foreach (var form in project.Forms)
+                {
+                    if (!Matches(DocumentIdentity.For(form), form.AbsolutePath)) continue;
+                    EditCode(form, takeFocus);
+                    // EditCode(form) redirects a UserControl or PropertyPage to its module, so the editor that
+                    // opened may be keyed on the module rather than the form. Accept either.
+                    PlaceCaret(
+                        vm => vm.FormDefinition == form || vm.ModuleDefinition?.FormPart == form, line, column);
+                    return true;
+                }
+
+                foreach (var carried in project.RelatedDocuments)
+                {
+                    if (!Matches(null, carried.AbsolutePath)) continue;
+                    EditRelatedDocument(carried, takeFocus);
+                    foreach (var open in documentDockService.OpenDocuments)
+                    {
+                        if (open is not RelatedDocumentEditorViewModel editor || editor.RelatedDocument != carried) continue;
+                        if (line < 1 || line > editor.Document.LineCount) break;
+                        var target = editor.Document.GetLineByNumber(line);
+                        editor.NavigateToOffset(Math.Min(target.Offset + Math.Max(column - 1, 0), target.EndOffset));
+                        break;
+                    }
+                    return true;
+                }
             }
         }
 

@@ -58,6 +58,82 @@ public class EditorServiceNavigationTests
         return project;
     }
 
+    [Theory]
+    [InlineData("module")]
+    [InlineData("form")]
+    [InlineData("carried")]
+    public void Linked_sources_navigate_only_to_the_named_file(string kind)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-navigation-" + Guid.NewGuid());
+        var real = Path.Combine(directory, "real");
+        var link = Path.Combine(directory, "link");
+        Directory.CreateDirectory(real);
+        try
+        {
+            Directory.CreateSymbolicLink(link, real);
+            var project = ProjectWith();
+            var path = Path.Combine(link, "Source.bas");
+            switch (kind)
+            {
+                case "module":
+                    project.AddModule(new ModuleDefinition(project, "Source", ModuleKind.StandardModule) { AbsolutePath = path });
+                    break;
+                case "form":
+                    project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Source") { AbsolutePath = path });
+                    break;
+                case "carried":
+                    project.AddRelatedDocument(new RelatedDocumentDefinition(project, "Source.bas", path));
+                    _dock.TryActivate(Arg.Any<Func<RelatedDocumentEditorViewModel, bool>>()).Returns(true);
+                    break;
+            }
+            Sut().NavigateTo(new Uri(Path.Combine(real, "Source.bas")).AbsoluteUri, 1, 1).Should().BeTrue();
+            Sut().NavigateTo(new Uri(Path.Combine(real, "Other.bas")).AbsoluteUri, 1, 1).Should().BeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(link)) Directory.Delete(link);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Exact_navigation_matches_win_even_in_a_later_project()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-navigation-priority-" + Guid.NewGuid());
+        var real = Path.Combine(directory, "real");
+        var link = Path.Combine(directory, "link");
+        Directory.CreateDirectory(real);
+        try
+        {
+            Directory.CreateSymbolicLink(link, real);
+            var first = ProjectWith(moduleName: "Linked", modulePath: Path.Combine(link, "Source.bas"));
+            var second = ProjectWith(moduleName: "Exact", modulePath: Path.Combine(real, "Source.bas"));
+            _projects.LoadedProjects.Returns([first, second]);
+            CodeEditorViewModel Editor(ModuleDefinition module) => new CodeEditorViewModel(
+                Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
+                Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), Substitute.For<HexIDE.Lsp.ILspClient>(),
+                Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+                Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
+                Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+                Substitute.For<IRunScope>(), Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(module);
+            using var editor = Editor(second.Modules.Single());
+            using var linkedEditor = Editor(first.Modules.Single());
+            Func<CodeEditorViewModel, bool>? selected = null;
+            _dock.TryActivate(Arg.Do<Func<CodeEditorViewModel, bool>>(predicate => selected = predicate)).Returns(true);
+
+            Sut().NavigateTo(new Uri(Path.Combine(real, "Source.bas")).AbsoluteUri, 1, 1).Should().BeTrue();
+
+            selected.Should().NotBeNull();
+            selected!(editor).Should().BeTrue("the exact match must beat the earlier linked spelling");
+            selected(linkedEditor).Should().BeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(link)) Directory.Delete(link);
+            Directory.Delete(directory, true);
+        }
+    }
+
     [AvaloniaFact]
     public void ACarriedDiagnosticOpensItsFileAndPlacesTheCaret()
     {
