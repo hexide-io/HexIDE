@@ -52,7 +52,7 @@ writes its children in reverse order. #5140 has the measurements.
 
 | File | Made from | Change, then save |
 |---|---|---|
-| `tb1044-01-new-project.twinproj` | the template | A new Standard EXE named `NewProject`, saved where the Save dialog offered. A second save in the same session was byte-identical |
+| `tb1044-01-new-project.twinproj` | the template | A new Standard EXE named `NewProject`, saved where the Save dialog offered. In the harness's own new-project run, a second save straight after the first was byte-identical to it |
 | `tb1044-02-reopened.twinproj` | 01, reopened | No change |
 | `tb1044-03-reopened-twice.twinproj` | 02, reopened | No change |
 | `tb1044-04-one-character.twinproj` | 01, reopened, then saved | `Form1.twin`'s `[Description("")]` became `[Description("x")]` |

@@ -10,12 +10,13 @@
          with -NoWait returns at once and leaves the output in C:\tbo\gui.log (to answer a dialog a later step opens).
   run    runs -Command (PowerShell) in session 0. DevTools answers on the VM's loopback, so the Node drivers run here.
   fetch  copies -From (a path in the VM) to -To (a folder on the host).
+  put    copies -From (a file on the host) to -To (a full file path in the VM), making its folder.
 
   Needs an elevated shell on the Hyper-V host and the guest's credential as an Export-Clixml'd PSCredential
   (-CredentialFile). The compiler is launch-and-watch only: nothing here reads, hooks or instruments it.
 #>
 param(
-  [Parameter(Mandatory)] [ValidateSet('push', 'gui', 'run', 'fetch')] [string] $Action,
+  [Parameter(Mandatory)] [ValidateSet('push', 'gui', 'run', 'fetch', 'put')] [string] $Action,
   [Parameter(Mandatory)] [string] $CredentialFile,
   [string] $VMName = 'twinBASIC-Win11',
   [string] $Payload,
@@ -83,6 +84,12 @@ try {
     'run' {
       if (-not $Command) { throw 'run needs -Command' }
       Invoke-Command -Session $s -ScriptBlock ([scriptblock]::Create($Command))
+    }
+    'put' {
+      if (-not $From -or -not $To) { throw 'put needs -From and -To' }
+      Invoke-Command -Session $s -ArgumentList (Split-Path $To) { param($d) New-Item -ItemType Directory -Force $d | Out-Null }
+      Copy-Item $From $To -ToSession $s -Force
+      "put $From at $To"
     }
     'fetch' {
       if (-not $From -or -not $To) { throw 'fetch needs -From and -To' }

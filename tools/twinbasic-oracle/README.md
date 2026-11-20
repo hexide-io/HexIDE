@@ -55,7 +55,11 @@ defaults. Then checkpoint the VM.
 `run.json` with the beta, the WebView2 and Windows builds, and each save's SHA-256. With no baseline, the first change
 must be `new`, which makes a project from the template; `dialog.ps1` answers its first Save dialog.
 
+The committed fixtures 02 to 10 were made from `IDE/HexIDE.TwinBasic.Tests/Fixtures/tb1044-01-new-project.twinproj`,
+so put that file in the VM as the baseline to make them again; a fresh `new` run gives a project with other GUIDs.
+
 ```powershell
+.\vm.ps1 -Action put -CredentialFile <guest credential> -From ..\..\IDE\HexIDE.TwinBasic.Tests\Fixtures\tb1044-01-new-project.twinproj -To C:\tbo\runs\1044\baseline.twinproj
 $run = '& C:\tbo\harness\scenario.ps1 -Install C:\tbo\tb\beta-1044 -Baseline C:\tbo\runs\1044\baseline.twinproj ' +
        '-Changes none,add-module,rename-module,remove-module,add-folder,add-form -Out C:\tbo\runs\1044\tree'
 .\vm.ps1 -Action gui -CredentialFile <guest credential> -Command $run
