@@ -462,40 +462,265 @@ public class PropertyBagTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("p.WriteProperty \"x\", Null, Null")]
-    [InlineData("p.Contents = Empty")]
-    [InlineData("p.Contents = Null")]
-    [InlineData("p.Contents = True")]
-    [InlineData("p.Contents = Array(1)")]
-    [InlineData("p.WriteProperty 1, 2")]
-    [InlineData("v = p.ReadProperty(1)")]
-    [InlineData("p.WriteProperty \"x\"")]
-    [InlineData("v = p.ReadProperty(\"x\", 1, 2)")]
-    [InlineData("v = p.OtherMember")]
-    public async Task Unmeasured_edges_are_explicitly_refused(string statement)
+    [InlineData("p.WriteProperty f, 1")]
+    [InlineData("p.WriteProperty Array(1), 1")]
+    [InlineData("p.WriteProperty CVErr(5), 1")]
+    [InlineData("p.WriteProperty \"a\", CVErr(5), 0")]
+    [InlineData("p.WriteProperty \"a\", b, b")]
+    [InlineData("p.WriteProperty \"a\", f, f")]
+    [InlineData("p.WriteProperty \"a\", Nothing, c")]
+    [InlineData("p.WriteProperty \"a\", \"0\", False")]
+    [InlineData("p.WriteProperty \"a\", CLng(5), CVErr(5)")]
+    [InlineData("p.WriteProperty \"a\", \"x\", b")]
+    [InlineData("Dim v As Variant: v = p.Contents(0)")]
+    public async Task Unmeasured_names_and_default_pairings_remain_refused(string statement)
     {
+        // Refusal-policy guards, not additional VB6 measurements (#4741).
         var act = async () => await Run($"""
-            Dim p As PropertyBag, v As Variant
-            Set p = New PropertyBag
+            Dim p As New PropertyBag, f As Object, b(0 To 2) As Byte, c As New Collection
+            Set f = New StdFont
             {statement}
             """);
         await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4741*");
     }
 
-    [Theory]
-    [InlineData("p.WriteProperty \"a\", ChrW$(&HD800)")]
-    [InlineData("p.WriteProperty ChrW$(&HD800), 1")]
-    [InlineData("p.Contents = b")]
-    public async Task Unpaired_utf16_text_is_explicitly_refused(string statement)
+    // vb6.exe SP6, native and p-code: #4741's final 2026-11-20 comment, sections 1–6.
+    [Fact]
+    public async Task Error_value_has_the_measured_SCODE_and_round_trips()
     {
-        // A synthetic malformed UTF-16 payload tests HexIDE's refusal policy, not a VB6 value.
-        var bytes = Convert.FromHexString("93B200001C00000008000100610000000000000061000100000000D8");
+        var hex = "93B200001C0000000A0001006100000000000000610005000A800000";
+        await Run($"""
+            {HexHelper}
+            Dim p As New PropertyBag, q As New PropertyBag
+            p.WriteProperty "a", CVErr(5)
+            Debug.Print HexBytes(p.Contents)
+            {InputBytes(Convert.FromHexString(hex))}
+            q.Contents = b
+            Debug.Print TypeName(q.ReadProperty("a"))
+            Debug.Print CStr(q.ReadProperty("a"))
+            """);
+        AssertDebugLog([new Vb6Value(hex), new Vb6Value("Error"), new Vb6Value("Error 5")]);
+    }
+
+    [Fact]
+    public async Task An_Error_entry_outside_VBs_facility_is_refused()
+    {
+        // Refusal-policy guard: only CVErr's 0x800A facility was measured (#4741's review). This is a Missing argument's SCODE.
         var act = async () => await Run($"""
-            Dim p As PropertyBag
-            Set p = New PropertyBag
-            {InputBytes(bytes)}
-            {statement}
+            Dim q As New PropertyBag
+            {InputBytes(Convert.FromHexString("93B200001C0000000A00010061000000000000006100040002800000"))}
+            q.Contents = b
             """);
         await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4741*");
+    }
+
+    [Theory]
+    [InlineData("5", "\"5\"", false)]
+    [InlineData("\"5\"", "5", false)]
+    [InlineData("5", "5#", false)]
+    [InlineData("5", "CCur(5)", false)]
+    [InlineData("5", "CLng(5)", false)]
+    [InlineData("Empty", "Empty", false)]
+    [InlineData("Empty", "0", false)]
+    [InlineData("0", "Empty", false)]
+    [InlineData("\"\"", "Empty", false)]
+    [InlineData("Empty", "\"\"", false)]
+    [InlineData("Null", "Null", false)]
+    [InlineData("Null", "0", false)]
+    [InlineData("0", "Null", true)]
+    [InlineData("True", "-1", false)]
+    [InlineData("True", "True", false)]
+    [InlineData("False", "0", false)]
+    [InlineData("\"abc\"", "\"ABC\"", true)]
+    [InlineData("#1/1/2000#", "36526", false)]
+    [InlineData("CByte(5)", "5", false)]
+    [InlineData("\"x\"", "Null", true)]
+    [InlineData("5", "b", true)]
+    [InlineData("5", "5.4", false)]
+    [InlineData("5", "4.6", false)]
+    [InlineData("5", "5.5", true)]
+    [InlineData("4", "4.5", false)]
+    [InlineData("\"5.0\"", "5", true)]
+    [InlineData("\"5\"", "5.0", false)]
+    [InlineData("1", "\"1.4\"", false)]
+    [InlineData("True", "1", false)]
+    [InlineData("True", "\"True\"", false)]
+    [InlineData("\"True\"", "True", true)]
+    [InlineData("\"abc\"", "5", true)]
+    [InlineData("5", "\"abc\"", true)]
+    [InlineData("CCur(1.23456)", "1.2346", false)]
+    [InlineData("1.2346", "CCur(1.23456)", false)]
+    [InlineData("CSng(0.1)", "0.1", false)]
+    [InlineData("0.1", "CSng(0.1)", true)]
+    [InlineData("#1/1/2000#", "\"1/1/2000\"", false)]
+    [InlineData("Null", "\"x\"", false)]
+    [InlineData("Empty", "Null", true)]
+    [InlineData("CByte(5)", "261", true)]
+    [InlineData("Nothing", "Nothing", false)]
+    [InlineData("f", "Nothing", true)]
+    [InlineData("Nothing", "f", true)]
+    public async Task Defaults_convert_to_the_value_type(string value, string fallback, bool written)
+    {
+        using var locale = VbLocale.Use(System.Globalization.CultureInfo.GetCultureInfo("en-GB"));
+        await Run($"""
+            Dim p As New PropertyBag, f As Object, v As Variant, b(0 To 2) As Byte
+            Set f = New StdFont
+            p.WriteProperty "a", {value}, {fallback}
+            On Error Resume Next
+            If IsObject(p.ReadProperty("a")) Then
+                Set v = p.ReadProperty("a")
+            Else
+                v = p.ReadProperty("a")
+            End If
+            Debug.Print Err.Number
+            {(!written ? "" : $"Debug.Print TypeName(v) = TypeName({value})")}
+            {(!written || value is "Nothing" or "f" ? "" : $"Debug.Print CStr(v) = CStr({value})")}
+            """);
+        var expected = new List<Vb6Value> { new(written ? 0L : 327L) };
+        if (written)
+        {
+            expected.Add(new Vb6Value(true));
+            if (value is not ("Nothing" or "f")) expected.Add(new Vb6Value(true));
+        }
+        AssertDebugLog(expected);
+    }
+
+    [Theory]
+    [InlineData("o.WriteProperty \"a\"", 450)]
+    [InlineData("o.WriteProperty \"a\", 1, 1, 1", 450)]
+    [InlineData("v = o.ReadProperty()", 450)]
+    [InlineData("v = o.ReadProperty(\"a\", 1, 2)", 450)]
+    [InlineData("v = o.Contents(0)", 451)]
+    [InlineData("o.Foo", 438)]
+    [InlineData("v = o.Foo", 438)]
+    public async Task Late_bound_member_errors(string statement, int number)
+    {
+        await Run($"""
+            Dim o As Object, v As Variant
+            Set o = New PropertyBag
+            On Error Resume Next
+            {statement}
+            Debug.Print Err.Number
+            """);
+        AssertDebugLog([new Vb6Value((long)number)]);
+    }
+
+    [Theory]
+    [InlineData("p.WriteProperty \"a\"", "Argument not optional")]
+    [InlineData("v = p.ReadProperty(\"a\", 1, 2)", "Wrong number of arguments or invalid property assignment")]
+    [InlineData("p.Foo", "Method or data member not found")]
+    [InlineData("v = p.Foo", "Method or data member not found")]
+    public async Task Early_bound_member_errors(string statement, string message)
+    {
+        var act = async () => await Run($"""
+            Dim p As New PropertyBag, v As Variant
+            {statement}
+            """);
+        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*" + message + "*");
+    }
+
+    [Theory]
+    [InlineData("5", "5")]
+    [InlineData("1.5", "1.5")]
+    [InlineData("True", "true")]
+    [InlineData("CByte(7)", "7")]
+    [InlineData("#1/2/2003#", "02/01/2003")]
+    [InlineData("CCur(2)", "2")]
+    public async Task Names_use_VB_string_conversion(string name, string stored)
+    {
+        using var locale = VbLocale.Use(System.Globalization.CultureInfo.GetCultureInfo("en-GB"));
+        await Run($"""
+            {HexHelper}
+            Dim p As New PropertyBag, q As New PropertyBag
+            p.WriteProperty {name}, 1
+            Debug.Print p.ReadProperty({name})
+            q.WriteProperty "{stored}", 1
+            Debug.Print HexBytes(p.Contents) = HexBytes(q.Contents)
+            """);
+        AssertDebugLog([new Vb6Value(1), new Vb6Value(true)]);
+    }
+
+    [Fact]
+    public async Task Numeric_read_name_finds_a_String_name()
+    {
+        await Run("""
+            Dim p As New PropertyBag
+            p.WriteProperty "5", 9
+            Debug.Print p.ReadProperty(5)
+            """);
+        AssertDebugLog([new Vb6Value(9)]);
+    }
+
+    [Theory]
+    [InlineData("p.WriteProperty Null, 1", 94)]
+    [InlineData("v = p.ReadProperty(Null)", 13)]
+    [InlineData("p.WriteProperty Empty, 1", 5)]
+    [InlineData("v = p.ReadProperty(Empty)", 5)]
+    public async Task Null_and_Empty_name_errors(string statement, int number)
+    {
+        await Run($"""
+            Dim p As New PropertyBag, v As Variant
+            On Error Resume Next
+            {statement}
+            Debug.Print Err.Number
+            """);
+        AssertDebugLog([new Vb6Value((long)number)]);
+    }
+
+    [Theory]
+    [InlineData("Array(1, 2)")]
+    [InlineData("Empty")]
+    [InlineData("Null")]
+    [InlineData("True")]
+    [InlineData("#1/1/2000#")]
+    [InlineData("integers")]
+    [InlineData("matrix")]
+    public async Task Contents_type_mismatch_is_atomic(string value)
+    {
+        // Native ignores these assignments; HexIDE follows p-code's 13 (#4741).
+        await Run($"""
+            Dim p As New PropertyBag, integers(1 To 2) As Integer, matrix(1 To 2, 1 To 2) As Byte
+            p.WriteProperty "s", "hi"
+            On Error Resume Next
+            p.Contents = {value}
+            Debug.Print Err.Number
+            Debug.Print p.ReadProperty("s")
+            """);
+        AssertDebugLog([new Vb6Value(13L), new Vb6Value("hi")]);
+    }
+
+    [Theory]
+    [InlineData("b")]
+    [InlineData("v")]
+    public async Task Contents_accepts_one_based_and_Variant_Byte_arrays(string source)
+    {
+        await Run($"""
+            Dim p As New PropertyBag, q As New PropertyBag, b(1 To 24) As Byte, v As Variant, i As Integer
+            p.WriteProperty "a", 1
+            v = p.Contents
+            For i = 1 To 24
+                b(i) = v(i - 1)
+            Next
+            v = b
+            q.Contents = {source}
+            Debug.Print q.ReadProperty("a")
+            """);
+        AssertDebugLog([new Vb6Value(1)]);
+    }
+
+    [Theory]
+    [InlineData("\"a\" & ChrW(&HD800)", "1", "93B200001C0000000200020000F80C0000000000610000D801000000")]
+    [InlineData("\"a\"", "\"x\" & ChrW(&HDC00)", "93B2000020000000080001006100000000000000610002000000780000DC0000")]
+    public async Task Unpaired_utf16_is_preserved_verbatim(string name, string value, string hex)
+    {
+        await Run($"""
+            {HexHelper}
+            Dim p As New PropertyBag, q As New PropertyBag
+            p.WriteProperty {name}, {value}
+            Debug.Print HexBytes(p.Contents)
+            q.Contents = p.Contents
+            Debug.Print q.ReadProperty({name}) = {value}
+            """);
+        AssertDebugLog([new Vb6Value(hex), new Vb6Value(true)]);
     }
 }

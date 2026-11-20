@@ -1141,7 +1141,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
         }
 
-        if (value.Value is VbCollection)
+        if (value.Value is VbCollection or VbPropertyBag)
         {
             await ExpressionExecutor.AsBound(value, identifier, async () =>
                 await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier,
@@ -5930,7 +5930,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return default;
         }
 
-        if (value.Value is VbCollection)
+        if (value.Value is VbCollection or VbPropertyBag)
         {
             await ExpressionExecutor.AsBound(value, identifier, async () =>
                 await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier,
