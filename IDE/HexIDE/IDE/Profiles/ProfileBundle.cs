@@ -103,6 +103,17 @@ internal static class ProfileBundleLoader
         }
     }
 
+    internal static readonly IReadOnlyDictionary<string, string> ExcludedSettings =
+        new Dictionary<string, string>
+        {
+            ["loadUnsignedAddins"] = "Security: profiles must not weaken add-in signature checks.",
+            ["revocationListUrl"] = "Security: profiles must not redirect or disable revocation updates.",
+            ["reloadFilesChangedOutsideIde"] = "Replacing open documents with disk changes stays the user's choice (#2504).",
+            ["editorColorOverrides"] = "Per-theme user edits; profiles supply colours through their theme payload.",
+            ["serverChatTools"] = "The user's consent for each server's AI Chat tools, never a profile's decision.",
+            ["window"] = "The user's window position, size and state, not a portable starting setting."
+        }.ToImmutableDictionary(StringComparer.Ordinal);
+
     private static void ValidateSettings(JsonElement json, string file)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -119,10 +130,16 @@ internal static class ProfileBundleLoader
                 "tabWidth" or "gridWidth" or "gridHeight" =>
                     kind == JsonValueKind.Number && property.Value.TryGetInt32(out _),
                 "activeTheme" or "activeKeymap" or "activeLanguage" => kind == JsonValueKind.String,
+                "editorFontFamily" => kind == JsonValueKind.String && !string.IsNullOrWhiteSpace(property.Value.GetString()),
+                "editorFontSize" => kind == JsonValueKind.Number && property.Value.TryGetDouble(out var size)
+                    && double.IsFinite(size) && size is >= 6 and <= 72,
+                "stickyScrollDepth" => kind == JsonValueKind.Number && property.Value.TryGetInt32(out var depth)
+                    && depth is >= 1 and <= 10,
                 "requireVariableDeclaration" or "autoListMembers" or "listMembersAsYouType" or "autoQuickInfo" or "autoIndent"
                     or "formatOnSave" or "showGrid" or "alignToGrid" or "promptForProjectOnStartup"
                     or "isStandardToolbarVisible" or "isEditToolbarVisible" or "isDebugToolbarVisible"
-                    or "isFormEditorToolbarVisible" or "isMinimapVisible" =>
+                    or "isFormEditorToolbarVisible" or "isMinimapVisible" or "showInlayHints" or "showCodeLenses"
+                    or "colorBracketsByDepth" or "showIndentGuides" or "isStickyScrollEnabled" =>
                     kind is JsonValueKind.True or JsonValueKind.False,
                 _ => throw Error(file, field, "DisallowedSetting")
             };
