@@ -152,4 +152,29 @@ Each probe was a form whose one ListBox, `G`, cited records written by hand, as 
 - **Only a List record cut short stops the form loading.** Bytes after the entries that a record needs are ignored.
 - **On code page 1252,** the five bytes the code page doesn't define read as the characters of the same number (U+0081, U+008D, U+008F, U+0090, U+009D). `E9` is `é`, as the code page says.
 
-**Not measured:** a plus sign, a tab or other characters before an ItemData entry's digits, and text in any code page other than 1252.
+**Not measured** in these probes: a plus sign, a tab or other characters before an ItemData entry's digits (since measured, in the next section), and text in any code page other than 1252.
+
+### Signs and whitespace before an ItemData entry's digits (2026-11-20, #5127, SP6)
+
+These are three more probes set up as in the section above: the List record held `ab`, `cde`, `fghi`, and the ItemData record held three hand-written entries. They were built with `/make` as native code and as p-code, and the two logged the same lines.
+
+| ItemData entries | VB6 |
+|---|---|
+| `+5`, a tab then `6`, `x5` | 5, 6, 0 |
+| a CR then `7`, `+ 8`, `- 9` | 7, 0, 0 |
+| `+-7`, an LF then `8`, `--9` | 0, 8, 0 |
+
+**What these show:**
+- **Tabs, CRs and LFs are skipped,** as spaces are.
+- **`+` is a sign,** as `-` is.
+- **One sign, and the digits must follow it at once.** `+ 8`, `- 9`, `+-7` and `--9` all read 0.
+
+Put together with the section above, every entry measured fits one reading:
+1. Skip spaces, tabs, CRs and LFs.
+2. Take at most one `+` or `-`.
+3. Read decimal digits up to the first character that isn't one, wrapping past a Long.
+4. Anything else is 0.
+
+That's a rule fitted to these rows, not a measurement of its own.
+
+**Not measured:** a vertical tab or a form feed before the digits, and whitespace before a sign, as in ` -8`.
