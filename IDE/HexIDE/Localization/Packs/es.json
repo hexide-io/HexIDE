@@ -630,6 +630,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatear al guardar",
     "Str.Options.EditorGeneral.Display.Header": "Visualización",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Mostrar sugerencias intercaladas",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Mostrar valores en línea durante la depuración",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Mostrar lentes de código",
     "Str.Editor.RunCodeLens": "Ejecutar lente de código",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostrar minimapa",

@@ -597,6 +597,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Muotoile tallennettaessa",
     "Str.Options.EditorGeneral.Display.Header": "Näyttö",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Näytä koodivihjeet",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Näytä arvot koodiriveillä virheenkorjauksen aikana",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Näytä koodilinssit",
     "Str.Editor.RunCodeLens": "Suorita koodilinssi",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Näytä pienoiskartta",

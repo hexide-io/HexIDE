@@ -15,6 +15,17 @@ prompt for a reset and the execution point moves only between top-level statemen
 
 ## Requirements
 
+### Requirement: Inline value evaluation preserves paused state
+Server-provided inline debug values SHALL resolve through `IDebugController`: variable lookups use the
+formatted Locals values and expressions use `EvaluateWatchAsync` only (#5014). The Immediate statement
+executor SHALL never be called for a server expression. This optional code-window display SHALL clear
+on continuation or session end and SHALL NOT alter how the program stops or steps.
+
+#### Scenario: An expression resembles an assignment
+- **WHEN** an inline-value provider supplies `x = 1` while the program is paused
+- **THEN** the editor uses the watch evaluator and leaves `x` unchanged
+- **AND** only a successful result is displayed
+
 ### Requirement: Desktop run-time dialogs and keyboard focus
 
 A run-time error dialog SHALL retain the active running form as owner and SHALL disable all existing desktop

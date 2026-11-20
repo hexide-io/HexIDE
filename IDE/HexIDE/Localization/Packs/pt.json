@@ -597,6 +597,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatar ao Guardar",
     "Str.Options.EditorGeneral.Display.Header": "Apresentação",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Mostrar dicas no código",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Mostrar valores em linha durante a depuração",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Mostrar lentes de código",
     "Str.Editor.RunCodeLens": "E_xecutar lente de código",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostrar Minimapa",

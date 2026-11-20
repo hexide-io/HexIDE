@@ -62,6 +62,29 @@ public class LspClientRegistryTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task InlineValuesUseFirstNonemptyProvider(bool topIsEmpty)
+    {
+        var high = FakeServer(capabilitiesJson: "{\"inlineValueProvider\":true}");
+        var low = FakeServer(capabilitiesJson: "{\"inlineValueProvider\":true}");
+        var range = new LspRange(new Position(0, 0), new Position(0, 23));
+        var context = new InlineValueContext(0, range);
+        var first = new InlineValueText(range, "first");
+        var second = new InlineValueText(range, "second");
+        high.RequestInlineValuesAsync(Vb6Doc, range, context, Arg.Any<CancellationToken>()).Returns(topIsEmpty ? [] : [first, second]);
+        low.RequestInlineValuesAsync(Vb6Doc, range, context, Arg.Any<CancellationToken>()).Returns([second]);
+        await using var sut = Registry(Registration("low", low), Registration("high", high, priority: 10));
+        await sut.OpenDocumentAsync(Vb6Doc, "    total = AddUp(1, 2)", TestContext.Current.CancellationToken);
+
+        InlineValue[] expected = topIsEmpty ? [second] : [first, second];
+        (await sut.RequestInlineValuesAsync(Vb6Doc, range, context, TestContext.Current.CancellationToken))
+            .Should().Equal(expected);
+        if (!topIsEmpty)
+            await low.DidNotReceive().RequestInlineValuesAsync(Vb6Doc, range, context, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task InlayHintsUseFirstNonemptyProvider(bool topIsEmpty)
     {
         var high = FakeServer(capabilitiesJson: "{\"inlayHintProvider\":true}");

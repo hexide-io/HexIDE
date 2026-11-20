@@ -597,6 +597,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Kaydederken Biçimlendir",
     "Str.Options.EditorGeneral.Display.Header": "Görüntü",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Satır içi ipuçlarını göster",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Hata ayıklarken satır içi değerleri göster",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Kod merceklerini göster",
     "Str.Editor.RunCodeLens": "K_od merceğini çalıştır",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mini Haritayı Göster",

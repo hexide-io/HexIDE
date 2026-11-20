@@ -664,6 +664,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "עיצוב בעת שמירה",
     "Str.Options.EditorGeneral.Display.Header": "תצוגה",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "הצגת רמזים בתוך הקוד",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "הצגת ערכים בתוך הקוד בזמן איתור באגים",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "הצגת עדשות קוד",
     "Str.Editor.RunCodeLens": "הפעלת עדשת קוד",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "הצג מפה ממוזערת",

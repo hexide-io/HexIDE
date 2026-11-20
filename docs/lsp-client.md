@@ -80,7 +80,7 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `semanticTokens/full`, `selectionRange`, `prepareCallHierarchy`, `prepareTypeHierarchy` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `inlineValue`, `semanticTokens/full`, `selectionRange`, `prepareCallHierarchy`, `prepareTypeHierarchy` |
 | Actions | `codeLens/resolve`, `codeAction/resolve`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`, `typeHierarchy/subtypes`, `typeHierarchy/supertypes`, `workspace/executeCommand` — see *Commands and lenses* |
 | Workspace | `workspace/symbol`, `didChangeWorkspaceFolders`, `didChangeConfiguration`, `didCreateFiles`, `didRenameFiles`, `didDeleteFiles` |
 | Protocol | `$/setTrace`, `$/cancelRequest` |
@@ -376,7 +376,7 @@ The metamodel guard also checks the numeric values of the wire enums (`Diagnosti
 `workspace/diagnostic/refresh`, which re-asks open documents and workspace diagnostics when offered,
 `window/workDoneProgress/create`, which registers a progress token and succeeds, and
 `workspace/configuration`, `window/showMessageRequest`, `workspace/applyEdit`, `window/showDocument`,
-`workspace/codeLens/refresh`, `workspace/inlayHint/refresh` and `workspace/semanticTokens/refresh`, each
+`workspace/codeLens/refresh`, `workspace/inlayHint/refresh`, `workspace/inlineValue/refresh` and `workspace/semanticTokens/refresh`, each
 described in its own section below. Everything
 else gets whatever StreamJsonRpc answers an unknown method with, which is an error response rather than
 silence, on the library's own account; those rows are the library's documented behaviour, not a measurement
@@ -1643,6 +1643,28 @@ boundary below. Parameter names and inferred types still need binding and remain
 The client consumes label text, positions and padding. `inlayHint/resolve`, refresh requests, tooltips,
 navigation, commands and hint text edits are not supported or advertised.
 
+## Inline values while debugging
+
+The client declares `textDocument.inlineValue.dynamicRegistration: false` and
+`workspace.inlineValue.refreshSupport: true`. It requests `textDocument/inlineValue` only when the server
+advertises `inlineValueProvider` (a flag or options object), the debugger is paused in the document's
+module, and **Show inline values while debugging** is enabled in Options → Editor → General (on by
+default; profiles can set `showInlineValues`). This is an optional modern display, absent from VB6.
+The first nonempty answer in server priority order supplies each pane's visible lines. The request
+includes the stopped statement's line as `context.stoppedLocation` and `frameId: 0`: the debugger seam
+has no DAP frame id. RDCore's measured variable-lookup reply is recorded in [#5014](https://github.com/hexide-io/HexIDE/issues/5014).
+
+Literal text is displayed as supplied. Variable lookups use the provided name or text in the reported
+range, search Locals with the requested case sensitivity, and reuse its formatted value. Expressions
+use the provided expression or range text and `EvaluateWatchAsync`, never the Immediate statement
+executor. Only successful evaluations appear; missing locals and unsuccessful evaluations are omitted.
+Entries on a line are joined with `, ` after its text in the inlay-hint style. They add no document
+characters, saved text, copied text or caret columns.
+
+New stops, scrolling while paused, and `workspace/inlineValue/refresh` request fresh values (refresh
+answers null). Continuing or ending the session clears them; disabling the setting stops requests.
+Obsolete replies cannot restore cleared values. The bundled server offers no inline values.
+
 ## Custom methods
 
 `vb/builtinSymbols` is HexIDE's own method, not an LSP one. It is gated on the server advertising it under
@@ -1864,7 +1886,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 63 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 65 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1886,7 +1908,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 30 of 41
+### `textDocument/*` — 31 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1911,8 +1933,8 @@ than inferred.
 | ✅ | `textDocument/implementation` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
 | ✅ | `textDocument/inlayHint` | → | Inline labels at their positions; first nonempty provider; bundled syntactic block ends |
 | ○ | `textDocument/inlineCompletion` | → |  |
-| ○ | `textDocument/inlineValue` | → |  |
-| ✅ | `textDocument/linkedEditingRange` | → | Opt-in code-window linked editing; static and dynamic providers (#5015) |
+| ✅ | `textDocument/inlineValue` | → | Visible-line debug values; text, locals and read-only watch expressions |
+| ✅ | `textDocument/linkedEditingRange` | → | Opt-in code-window linked editing, from the server's static `initialize` offer (#5015) |
 | ○ | `textDocument/moniker` | → |  |
 | ✅ | `textDocument/onTypeFormatting` | → | Claimed typing triggers, guarded edits, caret mapping and one-step undo (#2672) |
 | ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
@@ -1932,7 +1954,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 13 of 21
+### `workspace/*` — 14 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1950,7 +1972,7 @@ than inferred.
 | ✅ | `workspace/executeCommand` | → | Declared commands go to their server; contributed action/lens claims run on the offering connection (#4258) |
 | ○ | `workspace/foldingRange/refresh` | ← |  |
 | ✅ | `workspace/inlayHint/refresh` | ← | Answers null and refetches analysis in attached documents |
-| ○ | `workspace/inlineValue/refresh` | ← |  |
+| ✅ | `workspace/inlineValue/refresh` | ← | Answers null and refreshes inline values in paused editors |
 | ✅ | `workspace/semanticTokens/refresh` | ← | Answers null and refetches analysis in attached documents |
 | ✅ | `workspace/symbol` | → | Asked of every running server that offers it, and unioned |
 | ○ | `workspace/willCreateFiles` | → |  |

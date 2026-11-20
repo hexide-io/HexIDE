@@ -15,6 +15,28 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Inline debug values beside visible code
+The code window SHALL request server inline values for each pane's visible lines while the debugger is
+paused in that document's module and Show inline values while debugging is enabled (#5014). The setting
+SHALL default to true, persist as `showInlineValues`, be available beneath Show inlay hints in Editor →
+General, and accept a Boolean profile default. The client SHALL declare static inline-value support and
+workspace refresh support, gate requests on `inlineValueProvider`, and send frame id 0 with the stopped
+statement's line as `stoppedLocation` because the debugger seam carries no DAP frame id.
+
+#### Scenario: Values beside a stopped statement
+- **WHEN** the server returns literal text, variable lookups or evaluatable expressions
+- **THEN** the editor displays text unchanged, resolves locals with the specified case sensitivity, and evaluates expressions through the read-only watch evaluator
+- **AND** omitted names and expressions use the document text in the reported range
+- **AND** failed evaluations and missing locals contribute no entry
+- **AND** entries on one line are joined by `, ` after the line's text in the inlay-hint style
+- **AND** the labels add no document text, saved or copied characters, or caret columns
+
+#### Scenario: Display lifetime
+- **WHEN** a new stop, a server inline-value refresh or a viewport scroll occurs while paused
+- **THEN** the editor requests the visible range again and obsolete replies cannot replace newer values
+- **AND** continuing or ending the session clears the labels
+- **AND** disabling the setting clears labels and sends no further requests
+
 ### Requirement: Split code window
 Window → Split SHALL toggle two vertically stacked, resizable editor views over the same document
 and undo stack (#70). Each pane SHALL retain its own caret, selection and scroll position. Navigation

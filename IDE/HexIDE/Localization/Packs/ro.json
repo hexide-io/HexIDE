@@ -603,6 +603,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Afișare",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Afișează miniharta",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Afișează indiciile în linie",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Afișează valorile în cod în timpul depanării",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Afișează lentilele de cod",
     "Str.Editor.RunCodeLens": "E_xecută lentila de cod",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentare",

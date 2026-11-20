@@ -597,6 +597,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatér ved gem",
     "Str.Options.EditorGeneral.Display.Header": "Visning",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Vis indlejrede tip",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Vis værdier i koden under fejlfinding",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Vis kodelinser",
     "Str.Editor.RunCodeLens": "Kør kodelinse",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Vis minikort",

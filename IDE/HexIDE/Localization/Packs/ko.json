@@ -631,6 +631,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "저장 시 서식 지정",
     "Str.Options.EditorGeneral.Display.Header": "표시",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "인레이 힌트 표시",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "디버깅 중 인라인 값 표시",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "코드 렌즈 표시",
     "Str.Editor.RunCodeLens": "코드 렌즈 실행",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "미니맵 표시",

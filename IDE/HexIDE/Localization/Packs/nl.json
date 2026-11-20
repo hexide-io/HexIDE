@@ -631,6 +631,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Opmaken bij opslaan",
     "Str.Options.EditorGeneral.Display.Header": "Weergave",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Inline-hints tonen",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Waarden in de code tonen tijdens foutopsporing",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Codelenzen weergeven",
     "Str.Editor.RunCodeLens": "Codelens uitvoeren",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Minimap weergeven",

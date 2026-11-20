@@ -597,6 +597,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Định dạng khi lưu",
     "Str.Options.EditorGeneral.Display.Header": "Hiển thị",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Hiện gợi ý nội tuyến",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Hiển thị giá trị trong dòng khi gỡ lỗi",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Hiện thấu kính mã",
     "Str.Editor.RunCodeLens": "Chạ_y thấu kính mã",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Hiện bản đồ thu nhỏ",

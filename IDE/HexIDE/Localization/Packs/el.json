@@ -597,6 +597,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Μορφοποίηση κατά την αποθήκευση",
     "Str.Options.EditorGeneral.Display.Header": "Εμφάνιση",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Εμφάνιση ενσωματωμένων υποδείξεων",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Εμφάνιση τιμών μέσα στον κώδικα κατά τον εντοπισμό σφαλμάτων",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Εμφάνιση φακών κώδικα",
     "Str.Editor.RunCodeLens": "Εκτέλεση φακού κώδικα",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Εμφάνιση μικρογραφίας",

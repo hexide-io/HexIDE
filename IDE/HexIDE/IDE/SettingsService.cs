@@ -126,6 +126,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     // ── Editor extras defaults ──────────────────────────────────
     private bool _rdcoreWin64OnlySetOnWindows = SettingsDefaults.RDCoreWin64OnlySetOnWindows;
     private bool _showInlayHints = SettingsDefaults.ShowInlayHints;
+    private bool _showInlineValues = SettingsDefaults.ShowInlineValues;
     private bool _showCodeLenses = SettingsDefaults.ShowCodeLenses;
     private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
@@ -355,6 +356,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set { if (SetProperty(ref _showInlayHints, value)) Save(); }
     }
 
+    public bool ShowInlineValues
+    {
+        get => _showInlineValues;
+        set { if (SetProperty(ref _showInlineValues, value)) Save(); }
+    }
+
     public bool ShowIndentGuides
     {
         get => _showIndentGuides;
@@ -464,6 +471,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsMinimapVisible = _isMinimapVisible,
                 RDCoreWin64OnlySetOnWindows = _rdcoreWin64OnlySetOnWindows,
                 ShowInlayHints = _showInlayHints,
+                ShowInlineValues = _showInlineValues,
                 ShowCodeLenses = _showCodeLenses,
                 ColorBracketsByDepth = _colorBracketsByDepth,
                 IsStickyScrollEnabled = _isStickyScrollEnabled,
@@ -578,6 +586,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isMinimapVisible = data.IsMinimapVisible;
             _rdcoreWin64OnlySetOnWindows = data.RDCoreWin64OnlySetOnWindows;
             _showInlayHints = data.ShowInlayHints;
+            _showInlineValues = data.ShowInlineValues;
             _showCodeLenses = data.ShowCodeLenses;
             _colorBracketsByDepth = data.ColorBracketsByDepth;
             IsStickyScrollEnabled = data.IsStickyScrollEnabled;
@@ -694,6 +703,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("showInlayHints")]
         public bool ShowInlayHints { get; set; } = SettingsDefaults.ShowInlayHints;
+
+        [JsonPropertyName("showInlineValues")]
+        public bool ShowInlineValues { get; set; } = SettingsDefaults.ShowInlineValues;
         [JsonPropertyName("showIndentGuides")]
         public bool ShowIndentGuides { get; set; } = SettingsDefaults.ShowIndentGuides;
 

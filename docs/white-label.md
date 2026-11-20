@@ -119,7 +119,7 @@ Every file a profile names is a path inside its folder. A `settingsDefaults` fil
 - the integers `tabWidth`, `gridWidth` and `gridHeight`;
 - the names `activeTheme`, `activeKeymap` and `activeLanguage`, and the non-blank string `editorFontFamily`;
 - the number `editorFontSize` (6–72) and the integer `stickyScrollDepth` (1–10), matching Options;
-- `true` or `false` for `requireVariableDeclaration`, `autoListMembers`, `listMembersAsYouType`, `linkedEditing` (off by default), `autoQuickInfo`, `autoIndent`,
+- `true` or `false` for `requireVariableDeclaration`, `autoListMembers`, `listMembersAsYouType`, `linkedEditing` (off by default), `showInlineValues`, `autoQuickInfo`, `autoIndent`,
   `formatOnSave`, `showGrid`, `alignToGrid`, `promptForProjectOnStartup`, `isStandardToolbarVisible`,
   `isEditToolbarVisible`, `isDebugToolbarVisible`, `isFormEditorToolbarVisible`, `isMinimapVisible`,
   `showInlayHints`, `showCodeLenses`, `colorBracketsByDepth`, `showIndentGuides`, `isStickyScrollEnabled` and

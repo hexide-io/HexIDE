@@ -603,6 +603,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Kuvamine",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Näita miniülevaadet",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Kuva reasiseseid vihjeid",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Kuva silumisel väärtused koodiridadel",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Kuva koodiläätsed",
     "Str.Editor.RunCodeLens": "K_äivita koodilääts",
     "Str.Options.EditorFormatting.Indentation.Header": "Taanded",

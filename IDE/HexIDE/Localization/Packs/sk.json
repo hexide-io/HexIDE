@@ -603,6 +603,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Zobrazenie",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Zobraziť minimapu",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Zobraziť vložené nápovedy",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Zobrazovať hodnoty v kóde pri ladení",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Zobraziť šošovky kódu",
     "Str.Editor.RunCodeLens": "Sp_ustiť šošovku kódu",
     "Str.Options.EditorFormatting.Indentation.Header": "Odsadenie",

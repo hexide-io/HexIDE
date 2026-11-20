@@ -636,6 +636,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Visualització",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostra el minimapa",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Mostra les pistes en línia",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Mostra els valors en línia durant la depuració",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Mostra les lents de codi",
     "Str.Editor.RunCodeLens": "Executa la lent de codi",
     "Str.Options.EditorFormatting.Indentation.Header": "Sagnat",

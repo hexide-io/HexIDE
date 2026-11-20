@@ -22,6 +22,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>The server invalidated inlay hints; sender identifies the issuing connection.</summary>
     event EventHandler? InlayHintRefreshRequested;
 
+    /// <summary>The server invalidated inline debug values; sender identifies the issuing connection.</summary>
+    event EventHandler? InlineValueRefreshRequested;
+
     /// <summary>The server invalidated semantic tokens; sender identifies the issuing connection.</summary>
     event EventHandler? SemanticTokensRefreshRequested;
 
@@ -369,6 +372,9 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default);
+
+    /// <summary>Requests debug value descriptions for a visible document range.</summary>
+    Task<InlineValue[]> RequestInlineValuesAsync(string uri, HexIDE.Lsp.Messages.Range range, InlineValueContext context, CancellationToken cancellationToken = default);
 
     /// <summary>Requests display labels in a document range from offering servers.</summary>
     Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default);

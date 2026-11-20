@@ -603,6 +603,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Bistaratzea",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Erakutsi minimapa",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Erakutsi lerro barruko argibideak",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Erakutsi lerroko balioak arazketan",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Erakutsi kode-lenteak",
     "Str.Editor.RunCodeLens": "E_xekutatu kode-lentea",
     "Str.Options.EditorFormatting.Indentation.Header": "Koskatzea",

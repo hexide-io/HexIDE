@@ -636,6 +636,7 @@
     "Str.Options.EditorGeneral.Display.Header": "Visualización",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostrar minimapa",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Amosar as indicacións en liña",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Amosar valores en liña durante a depuración",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Amosar lentes de código",
     "Str.Editor.RunCodeLens": "Executar lente de código",
     "Str.Options.EditorFormatting.Indentation.Header": "Sangría",
