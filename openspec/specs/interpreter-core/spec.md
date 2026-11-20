@@ -2976,3 +2976,20 @@ elevated (deliberate divergence from VB6). Measurements: #4681 and
 - **WHEN** a class default member returns a Date, including through an As Object variable
 - **THEN** the member is read and the statement raises error 70
 - **AND** an object with no default member or a default returning anything other than Date or String explicitly refuses as not implemented, citing #4733, pending measurement
+
+### Requirement: Running menu bars wrap in the host menu font
+A running form's menu bar SHALL measure displayed captions in the host menu font, adding 14 pixels per item,
+and SHALL put an item on the next row when it would leave fewer than 7 pixels spare in the client width.
+The first item on a row SHALL remain there even when wider than the client. The bar SHALL draw those same
+rows and item widths, with a height of 19n + 1 pixels for n rows, before Form_Load.
+A Width assignment SHALL re-wrap inside the statement, preserving Height and raising one Resize with the
+new ScaleHeight. Menu edits that change between nonzero row counts, or make a wrapped bar appear or disappear,
+SHALL remain explicitly unimplemented under #4946. Measured rules: [#4978](https://github.com/hexide-io/HexIDE/issues/4978),
+oracle PRs [#4977](https://github.com/hexide-io/HexIDE/pull/4977) and [#4985](https://github.com/hexide-io/HexIDE/pull/4985).
+Where an item breaks follows the host font, as VB6's follows the desktop font.
+
+#### Scenario: A Width assignment unwraps the bar
+- **GIVEN** the measured Form3 with console caption widths and two menu rows
+- **WHEN** Width increases by 3000 twips
+- **THEN** ScaleHeight reads 3705 and Height remains 4440 inside the statement and its one Resize
+- **AND** narrowing it by 3000 restores ScaleHeight 3420 and two drawn rows

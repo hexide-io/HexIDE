@@ -70,7 +70,7 @@ public class VBLoader
         AttachedEvents.AttachFormMouse(canvas);
         if (form is not null)
             AvaloniaInterop.ContainerMembers.Register(canvas, Vb6Value.NewObject(form));
-        var menu = new Menu();
+        Menu menu = form?.FormWindow is Control ? new VBMenuBar() : new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
         var menus = new List<(ComponentInstance Component, Control Control, ItemsControl Parent)>();
@@ -376,6 +376,9 @@ public class VBLoader
             }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
         }
 
+        if (form?.FormWindow is Control menuHost)
+            VBMenuBar.Initialize(menuHost, menu);
+
         AvaloniaInterop.UserControlKeys.Attach(root, controls);
         AvaloniaInterop.UserControlFocus.Attach(root);
         root.SizeChanged += (_, _) =>
@@ -428,21 +431,19 @@ public class VBLoader
         // with no menus would be laid out differently from the same form in VB6. So does a bar whose menus are all
         // hidden, as a form's are when it keeps them only for PopupMenu, and VB6 shows no bar then (measured, #1127).
         menu.IsVisible = HasMenuBar(element);
-        // VB6's bar, so that the client area below it is the .frm's ClientHeight in a window HasMenuBar made taller by
-        // this much, before anything has been laid out (#1127).
+        // The first row; VBMenuBar counts further rows before Form_Load (#4978), keeping the .frm's ClientHeight below it.
         menu.Height = MenuBarHeight;
     }
 
     /// <summary>
-    /// The height of a running form's menu bar, in pixels: VB6's themed desktop, 300 twips at 96 dpi (measured, #1140). It is fixed
-    /// rather than measured from the theme's Menu because Form_Load reads ScaleHeight before the form is shown, so
-    /// before any layout, and because a form's client area must not change with the IDE's theme.
+    /// One row of a running form's menu bar, in pixels: 300 twips at 96 dpi (#1140). VBMenuBar adds the measured
+    /// 19 pixels for each further row before Form_Load, and re-wraps when the client width changes (#4978).
     /// </summary>
     public const double MenuBarHeight = 20;
 
     /// <summary>
     /// Whether the form runs with a menu bar: it has a top-level menu that is visible. In VB6 the bar is outside the
-    /// client area, so the window is the form's ClientHeight plus <see cref="MenuBarHeight"/> tall, and a form whose
+    /// client area, so the window adds the bar's counted height to the form's ClientHeight (#4978). A form whose
     /// top-level menus are all hidden has no bar and is no taller (measured, #1127).
     /// </summary>
     public static bool HasMenuBar(FormDefinition element) =>
