@@ -153,6 +153,7 @@ public interface ISettingsService : INotifyPropertyChanged
     bool IsMinimapVisible { get; set; }
     bool RDCoreWin64OnlySetOnWindows { get; set; }
     bool ShowInlayHints { get; set; }
+    bool ShowInlineValues { get; set; }
     bool ShowCodeLenses { get; set; }
     bool ColorBracketsByDepth { get; set; }
 

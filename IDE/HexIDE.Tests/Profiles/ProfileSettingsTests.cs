@@ -37,6 +37,16 @@ public sealed class ProfileSettingsTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void ShowInlineValuesProfileDefaultAndSavedOverride(bool savedOverride)
+    {
+        if (savedOverride) File.WriteAllText(SettingsPath, """{"showInlineValues":true}""");
+        var settings = Create("""{"showInlineValues":false}""");
+        settings.ShowInlineValues.Should().Be(savedOverride);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void ListMembersAsYouTypeProfileDefaultAndSavedOverride(bool savedOverride)
     {
         if (savedOverride) File.WriteAllText(SettingsPath, """{"listMembersAsYouType":true}""");

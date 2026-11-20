@@ -155,7 +155,9 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         var files = caps.GetProperty("workspace").GetProperty("didChangeWatchedFiles");
         files.GetProperty("dynamicRegistration").GetBoolean().Should().BeTrue();
         files.GetProperty("relativePatternSupport").GetBoolean().Should().BeTrue();
-        System.Text.RegularExpressions.Regex.Matches(caps.GetRawText(), "dynamicRegistration").Count.Should().Be(1);
+        System.Text.RegularExpressions.Regex.Matches(caps.GetRawText(), @"""dynamicRegistration""\s*:\s*true").Count.Should().Be(1);
+        caps.GetProperty("textDocument").GetProperty("inlineValue")
+            .GetProperty("dynamicRegistration").GetBoolean().Should().BeFalse();
     }
 
     [Fact]

@@ -25,6 +25,7 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
     [ObservableProperty] private bool _formatOnSave;
     [ObservableProperty] private bool _isMinimapVisible;
     [ObservableProperty] private bool _showInlayHints;
+    [ObservableProperty] private bool _showInlineValues;
     [ObservableProperty] private bool _showCodeLenses;
     [ObservableProperty] private bool _showIndentGuides;
     [ObservableProperty] private bool _colorBracketsByDepth;
@@ -42,6 +43,7 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         FormatOnSave = _settings.FormatOnSave;
         IsMinimapVisible = _settings.IsMinimapVisible;
         ShowInlayHints = _settings.ShowInlayHints;
+        ShowInlineValues = _settings.ShowInlineValues;
         ShowCodeLenses = _settings.ShowCodeLenses;
         ShowIndentGuides = _settings.ShowIndentGuides;
         ColorBracketsByDepth = _settings.ColorBracketsByDepth;
@@ -60,6 +62,7 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         _settings.FormatOnSave = FormatOnSave;
         _settings.IsMinimapVisible = IsMinimapVisible;
         _settings.ShowInlayHints = ShowInlayHints;
+        _settings.ShowInlineValues = ShowInlineValues;
         _settings.ShowCodeLenses = ShowCodeLenses;
         _settings.ShowIndentGuides = ShowIndentGuides;
         _settings.ColorBracketsByDepth = ColorBracketsByDepth;
@@ -78,6 +81,7 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         FormatOnSave = SettingsDefaults.FormatOnSave;
         IsMinimapVisible = SettingsDefaults.IsMinimapVisible;
         ShowInlayHints = SettingsDefaults.ShowInlayHints;
+        ShowInlineValues = SettingsDefaults.ShowInlineValues;
         ShowCodeLenses = SettingsDefaults.ShowCodeLenses;
         ShowIndentGuides = SettingsDefaults.ShowIndentGuides;
         ColorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;

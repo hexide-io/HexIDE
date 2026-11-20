@@ -597,6 +597,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatera vid spara",
     "Str.Options.EditorGeneral.Display.Header": "Visning",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Visa infogade tips",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "Visa värden i koden under felsökning",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Visa kodlinser",
     "Str.Editor.RunCodeLens": "Kör kodlins",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Visa miniatyrkarta",

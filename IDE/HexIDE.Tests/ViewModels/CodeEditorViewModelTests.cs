@@ -495,6 +495,164 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task InlineValuesResolveAllKindsAtLineEndsAndIgnoreMissingLocals()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        vm.Document.Text = "    x = 1\n    title";
+        _settingsService.ShowInlineValues.Returns(true);
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        _debugController.CurrentStop.Returns(new HexIDE.Runtime.Debugging.StoppedInfo(
+            HexIDE.Runtime.Debugging.StopReason.Step, "Module1", 1));
+        var xValue = "7";
+        _debugController.GetLocals().Returns(_ => new HexIDE.Runtime.Debugging.DebugScope("Module1.Main",
+            [new("X", xValue, "Integer"), new("title", "\"hello\"", "String")]));
+        _debugController.EvaluateAsync("x = 1").Returns(_ =>
+        {
+            xValue = "1";
+            return Task.FromResult<string?>(null);
+        });
+        var x = new HexIDE.Lsp.Messages.Range(new(0, 4), new(0, 5));
+        var title = new HexIDE.Lsp.Messages.Range(new(1, 4), new(1, 9));
+        _lspClient.RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>()).Returns([
+                new InlineValueText(x, "given"), new InlineValueVariableLookup(x, false),
+                new InlineValueVariableLookup(x, true), new InlineValueVariableLookup(x, false, "absent"),
+                new InlineValueVariableLookup(title, true), new InlineValueEvaluatableExpression(x, "x = 1"),
+                new InlineValueEvaluatableExpression(x), new InlineValueEvaluatableExpression(x, "bad")]);
+        _debugController.EvaluateWatchAsync("x = 1").Returns(new HexIDE.Runtime.Debugging.DebugEvalResult(
+            true, "False", "Boolean", false, new("x = 1", "False", "Boolean")));
+        _debugController.EvaluateWatchAsync("x").Returns(new HexIDE.Runtime.Debugging.DebugEvalResult(
+            true, "7", "Integer", true, new("x", "7", "Integer")));
+        _debugController.EvaluateWatchAsync("bad").Returns(new HexIDE.Runtime.Debugging.DebugEvalResult(
+            false, "error", "", false, new("bad", "error", "")));
+        var visible = new HexIDE.Lsp.Messages.Range(new(0, 0), new(1, 9));
+        var hints = await vm.RequestInlineValuesAsync(visible, TestContext.Current.CancellationToken);
+        hints.Select(h => h.Text).Should().Equal(["given, x = 7, x = 1 = False", "title = \"hello\""],
+            "the lookup and the evaluated x read the same, so the line shows it once");
+        hints.Select(h => h.Position).Should().Equal(new Position(0, 9), new Position(1, 9));
+        await _lspClient.Received(1).RequestInlineValuesAsync(vm.GetDocumentUriPublic(), visible,
+            new InlineValueContext(0, new(new(0, 0), new(0, 9))), Arg.Any<CancellationToken>());
+        await _debugController.DidNotReceive().EvaluateAsync(Arg.Any<string>());
+        _debugController.GetLocals()!.Locals[0].Value.Should().Be("7", "a server expression must not assign to x");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, "Module1", HexIDE.Runtime.Debugging.DebugState.Paused)]
+    [InlineData(true, "Other", HexIDE.Runtime.Debugging.DebugState.Paused)]
+    [InlineData(true, "Module1", HexIDE.Runtime.Debugging.DebugState.Running)]
+    public async Task InlineValuesRequireTheSettingAndAPauseInThisModule(bool enabled, string module,
+        HexIDE.Runtime.Debugging.DebugState state)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        _settingsService.ShowInlineValues.Returns(enabled);
+        _debugController.State.Returns(state);
+        _debugController.CurrentStop.Returns(new HexIDE.Runtime.Debugging.StoppedInfo(
+            HexIDE.Runtime.Debugging.StopReason.Step, module, 1));
+        (await vm.RequestInlineValuesAsync(new(new(0, 0), new(0, 1)), TestContext.Current.CancellationToken))
+            .Should().BeEmpty();
+        await _lspClient.DidNotReceive().RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task InlineValueSessionRequestsOnStopsRefreshesAndScrollingAndClearsOnContinue()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        vm.Document.Text = "x\ny";
+        _settingsService.ShowInlineValues.Returns(true);
+        var stop = new HexIDE.Runtime.Debugging.StoppedInfo(HexIDE.Runtime.Debugging.StopReason.Step, "Module1", 1);
+        var first = new HexIDE.Lsp.Messages.Range(new(0, 0), new(0, 1));
+        var second = new HexIDE.Lsp.Messages.Range(new(1, 0), new(1, 1));
+        _lspClient.RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>()).Returns([new InlineValueText(first, "value")]);
+        _lspClient.HandlesRefresh(Arg.Any<string>(), _lspClient).Returns(true);
+        InlayHint[] shown = [];
+        using var session = vm.CreateInlineValueSession(hints => shown = hints);
+        session.SetVisibleRange(first);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        await _lspClient.DidNotReceive().RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>());
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        _debugController.CurrentStop.Returns(stop);
+        _debugController.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
+        await PumpInlineValuesUntil(() => shown.Length == 1);
+        var calls = _lspClient.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "RequestInlineValuesAsync");
+        _lspClient.InlineValueRefreshRequested += Raise.Event<EventHandler>(_lspClient, EventArgs.Empty);
+        await PumpInlineValuesUntil(() => _lspClient.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "RequestInlineValuesAsync") > calls);
+        session.SetVisibleRange(second);
+        await PumpInlineValuesUntil(() => _lspClient.ReceivedCalls().Any(c => c.GetMethodInfo().Name == "RequestInlineValuesAsync"
+            && Equals(c.GetArguments()[1], second)));
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Running);
+        _debugController.CurrentStop.Returns((HexIDE.Runtime.Debugging.StoppedInfo?)null);
+        _debugController.Continued += Raise.Event<Action>();
+        await PumpInlineValuesUntil(() => shown.Length == 0);
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        _debugController.CurrentStop.Returns(stop);
+        _debugController.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
+        await PumpInlineValuesUntil(() => shown.Length == 1);
+        _settingsService.ShowInlineValues.Returns(false);
+        _settingsService.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(_settingsService,
+            new PropertyChangedEventArgs(nameof(ISettingsService.ShowInlineValues)));
+        await PumpInlineValuesUntil(() => shown.Length == 0);
+        _lspClient.ClearReceivedCalls();
+        session.SetVisibleRange(first);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        await _lspClient.DidNotReceive().RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InlineValuesDiscardRepliesAfterContinueOrANewerStop(bool newerStop)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        vm.Document.Text = "x\ny";
+        _settingsService.ShowInlineValues.Returns(true);
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+        var stop = new HexIDE.Runtime.Debugging.StoppedInfo(HexIDE.Runtime.Debugging.StopReason.Step, "Module1", 1);
+        _debugController.CurrentStop.Returns(stop);
+        var pending = new TaskCompletionSource<InlineValue[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var visible = new HexIDE.Lsp.Messages.Range(new(0, 0), new(1, 1));
+        var requests = 0;
+        _lspClient.RequestInlineValuesAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<InlineValueContext>(), Arg.Any<CancellationToken>()).Returns(_ =>
+                ++requests == 1 ? pending.Task : Task.FromResult<InlineValue[]>([new InlineValueText(visible, "new")]));
+        InlayHint[] shown = [];
+        using var session = vm.CreateInlineValueSession(hints => shown = hints);
+        session.SetVisibleRange(visible);
+        await PumpInlineValuesUntil(() => requests == 1);
+        if (newerStop)
+        {
+            stop = stop with { Line = 2 };
+            _debugController.CurrentStop.Returns(stop);
+            _debugController.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
+            await PumpInlineValuesUntil(() => shown.Length > 0);
+        }
+        else
+        {
+            _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Stopped);
+            _debugController.CurrentStop.Returns((HexIDE.Runtime.Debugging.StoppedInfo?)null);
+            _debugController.Continued += Raise.Event<Action>();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        }
+        pending.SetResult([new InlineValueText(visible, "old")]);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        shown.Select(h => h.Text).Should().Equal(newerStop ? new[] { "new" } : Array.Empty<string>());
+    }
+
+    private static async Task PumpInlineValuesUntil(Func<bool> done)
+    {
+        for (var attempt = 0; attempt < 1000 && !done(); attempt++)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+        done().Should().BeTrue();
+    }
+
+    [AvaloniaFact]
     public async Task InlayHintsUseTheWholeDocumentAndRespectTheToggle()
     {
         var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));

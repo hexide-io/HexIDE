@@ -664,6 +664,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "保存時に整形",
     "Str.Options.EditorGeneral.Display.Header": "表示",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "インレイヒントを表示",
+    "Str.Options.EditorGeneral.Display.ShowInlineValues": "デバッグ中にインライン値を表示する",
     "Str.Options.EditorGeneral.Display.ShowCodeLenses": "コード レンズを表示",
     "Str.Editor.RunCodeLens": "コード レンズを実行",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "ミニマップを表示",
