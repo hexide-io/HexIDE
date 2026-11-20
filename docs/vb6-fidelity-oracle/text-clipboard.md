@@ -53,6 +53,12 @@ End Function
 `SetText Null` raises 94 and leaves the cleared clipboard without text. Through `Dim c As Object: Set c = Clipboard`,
 `c.Clear 1`, `c.SetText` and `c.GetFormat` each raise **450**, captured with On Error Resume Next.
 
+**Error 294, from `SetText` with `vbCFLink`** (2026-11-20, #4955, SP6, `/make` native and p-code in session 0, the two agreeing):
+- `SetText "x", vbCFLink` and `SetText "", vbCFLink`, after `SetText "hello"`, each raised **294** with `Err.Description`
+  **"Invalid DDE Link format"** and `Err.Source` the project's name. `GetText` read `hello` afterwards.
+- `Error$(294)` reads "Application-defined or object-defined error": the description comes with the raised error only.
+- `SetText "x", 2` raised 460 with "Invalid Clipboard format".
+
 ### ANSI best-fit conversion and multiple formats
 
 This helper returned `65`, `79`, `63`, `8364`, `63` (all **Long**) for arguments `256`, `937`, `1046`, `8364`, `20013`:
