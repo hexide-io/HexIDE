@@ -13,6 +13,7 @@ internal sealed class VBMenuBar : Menu
 {
     protected override Type StyleKeyOverride => typeof(Menu);
     private double clientWidth;
+    internal int AppliedRows { get; private set; }
 
     internal VBMenuBar()
     {
@@ -79,7 +80,8 @@ internal sealed class VBMenuBar : Menu
     {
         clientWidth = width;
         foreach (var item in Items.OfType<Control>()) PrepareItem(item);
-        Height = Math.Max(20, MenuBarLayout.Height(RowCount()));
+        AppliedRows = RowCount();
+        Height = Math.Max(20, MenuBarLayout.Height(AppliedRows));
         InvalidateMeasure();
     }
 
