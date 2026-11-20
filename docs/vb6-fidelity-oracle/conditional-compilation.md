@@ -304,8 +304,11 @@ version's table wasn't read, so what `rdc` takes today isn't recorded here.
     "view as" work;
     - **Off Windows (#4821):** every host takes the same table. #4821 makes it follow the project's engine, as
       decided on 2026-11-18: RDCore's table for an RDCore project, Excel for Mac's for a VBA7 project on a Mac.
-      Since #4890, the RDCore table is SDK 0.1.11-alpha's, above. A project's `[HexIDE] Win64OnlySetOnWindows=1` turns
-      `Win64` off on a Mac, as RDCore's opt-in does;
+      Since #4890, the RDCore table is SDK 0.1.11-alpha's, above. Since #5036, the IDE-wide setting "RDCore projects: set
+      Win64 only on Windows" (Options → Environment → General, off by default; `rdcoreWin64OnlySetOnWindows` in a
+      white-label profile) turns `Win64` off on a Mac for an RDCore project, as RDCore's opt-in does. Like RDCore's,
+      it's set once per installation. A project's old `[HexIDE] Win64OnlySetOnWindows` line, from #4890, is ignored and
+      kept on save;
     - **Measured since in 64-bit VBA7 (#1548):** `VBA7`, `VBA6`, `Win64` and `Win32` are all set there. See
       [LongLong and LongPtr in 64-bit VBA7](longlong-and-longptr-in-64-bit-vba7.md);
   - `Like` was refused, not implemented, until HexIDE had `Like` (#1547). It runs since #1598;

@@ -88,6 +88,34 @@ public class PublicMemberInObjectModuleTests : BaseVBTestFixture
         Load(declaration, kind);
     }
 
+    // #5042, rows C1/C3 and F1/F3, measured native and p-code in oracle PR #5043.
+    [Theory]
+    [InlineData("Public Type", InterpreterModuleKind.Class, "")]
+    [InlineData("Type", InterpreterModuleKind.Class, "")]
+    [InlineData("Public Type", InterpreterModuleKind.Form, "")]
+    [InlineData("Type", InterpreterModuleKind.Form, "")]
+    [InlineData("Public Type", InterpreterModuleKind.Class, "Attribute VB_Exposed = False\n")]
+    [InlineData("Type", InterpreterModuleKind.Class, "Attribute VB_Exposed = False\n")]
+    [InlineData("Public Type", InterpreterModuleKind.Form, "Attribute VB_Exposed = False\n")]
+    [InlineData("Type", InterpreterModuleKind.Form, "Attribute VB_Exposed = False\n")]
+    public void Public_types_in_private_object_modules_are_refused_at_load(string type, InterpreterModuleKind kind, string attributes)
+    {
+        var load = () => Load(attributes + type + " T\na(1 To 3) As Long\nEnd Type\nPrivate x As T", kind);
+        load.Should().Throw<VBCompileErrorException>().Which.Message.Should()
+            .EndWith("Cannot define a Public user-defined type within a private object module");
+    }
+
+    // #5042, oracle PRs #5043 (private Types) and #5053 (exposed classes D1/D3).
+    [Theory]
+    [InlineData("Private Type", InterpreterModuleKind.Class, "")]
+    [InlineData("Private Type", InterpreterModuleKind.Form, "")]
+    [InlineData("Public Type", InterpreterModuleKind.Standard, "")]
+    [InlineData("Type", InterpreterModuleKind.Standard, "")]
+    [InlineData("Public Type", InterpreterModuleKind.Class, "Attribute VB_Exposed = True\n")]
+    [InlineData("Type", InterpreterModuleKind.Class, "Attribute VB_Exposed = True\n")]
+    public void Other_type_declarations_still_load(string type, InterpreterModuleKind kind, string attributes)
+        => Load(attributes + type + " T\na(1 To 3) As Long\nEnd Type\nPrivate x As T", kind);
+
     private BasicInterpreter Load(string declaration, InterpreterModuleKind kind)
         => new(new MockStdLib(debug), context, rootEnv, declaration + "\n",
             additionalModules: [("Definitions", Types)], primaryKind: kind);

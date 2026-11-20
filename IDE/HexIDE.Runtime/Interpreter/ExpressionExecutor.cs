@@ -652,9 +652,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
     /// <summary>
-    /// A call to a Collection's member, its arguments refused as VB6 refuses them (#1471): before the program runs through a
-    /// variable declared As Collection, which HexIDE raises as the statement runs, and at run time through an Object or a
-    /// Variant, as 448, 450 or 451 (VbCollection.LateBound). Anything else is called as it is.
+    /// Collection (#1471) and standalone PropertyBag (#4741) member errors depend on the declared receiver type.
+    /// Early-bound compile errors surface as the statement runs; Object and Variant calls raise the measured runtime errors.
+    /// Anything else is called as it is.
     /// </summary>
     internal static async Task<T> AsBound<T>(Vb6Value reference, string member, Func<Task<T>> call)
     {
@@ -666,6 +666,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && VbCollection.LateBound(refused, member) is { } lateBound)
         {
             throw lateBound;
+        }
+        catch (VBCompileErrorException refused) when (reference.Value is VbPropertyBag
+            && VbPropertyBag.LateBound(reference, refused, member) is { } bagError)
+        {
+            throw bagError;
         }
     }
 

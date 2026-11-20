@@ -10,7 +10,6 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
 {
     private sealed record Entry(string Name, Vb6Value Value);
     private List<Entry> entries = [];
-    private static readonly UnicodeEncoding WireEncoding = new(bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: true);
     private static readonly Vb6Value.ValueType BytesType = new(Vb6Value.ValueType.Byte, true);
 
     void ICSharpProxy.Call(string method, List<Vb6Value> args) => throw new InvalidOperationException("PropertyBag calls must be awaited");
@@ -31,41 +30,113 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
                 using (var writer = new BinaryWriter(stream)) WriteValue(writer, value);
                 if (args.Count == 3)
                 {
-                    var comparison = value.TryCompareTo(args[2]);
-                    if (comparison is null)
-                        throw new NotImplementedException("PropertyBag default comparison is unmeasured (#4741)");
-                    if (comparison == 0) return Task.FromResult<Vb6Value?>(null);
+                    if (EqualsDefault(value, args[2])) return Task.FromResult<Vb6Value?>(null);
                 }
                 entries.Add(new Entry(name.ToLowerInvariant(), Copy(value)));
                 return Task.FromResult<Vb6Value?>(null);
             case "readproperty":
                 Count(args, 1, 2);
-                var key = Name(args[0]);
+                var key = Name(args[0], reading: true);
                 for (var i = entries.Count - 1; i >= 0; i--)
                     if (entries[i].Name.Equals(key, StringComparison.OrdinalIgnoreCase))
                         return Task.FromResult<Vb6Value?>(Copy(entries[i].Value));
                 if (args.Count == 2) return Task.FromResult<Vb6Value?>(args[1]);
                 throw new VBRunTimeException(new VBStandardError(327, $"Data value named '{key}' not found"));
             default:
-                throw new NotImplementedException($"PropertyBag member {method} is not implemented (#4741)");
+                throw new VBCompileErrorException("Method or data member not found");
         }
     }
 
     private static void Count(List<Vb6Value> args, int min, int max)
     {
-        if (args.Count < min || args.Count > max)
-            throw new NotImplementedException("PropertyBag argument-count errors are unmeasured (#4741)");
+        if (args.Count < min) throw new VBCompileErrorException("Argument not optional");
+        if (args.Count > max) throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
     }
 
-    private static string Name(Vb6Value value)
+    // SP6 native/p-code: #4741, remaining standalone-bag measurements (2026-11-20).
+    internal static Exception? LateBound(Vb6Value reference, VBCompileErrorException error, string member)
     {
-        if (value.Type != Vb6Value.ValueType.String)
+        if (reference.DeclaredAs?.Equals("PropertyBag", StringComparison.OrdinalIgnoreCase) == true)
+            // Early-bound Contents(0) may index the returned array, as a Variant-returning property can; unmeasured.
+            return member.Equals("Contents", StringComparison.OrdinalIgnoreCase)
+                ? new NotImplementedException("Early-bound PropertyBag.Contents with arguments is unmeasured (#4741)")
+                : null;
+        if (error.Message.Contains("Method or data member not found"))
+            return new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        if (error.Message.Contains("Argument not optional") || error.Message.Contains("Wrong number of arguments"))
+            return new VBRunTimeException(member.Equals("Contents", StringComparison.OrdinalIgnoreCase)
+                ? VBStandardError.ObjectNotACollection : VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        return null;
+    }
+
+    private static string Name(Vb6Value value, bool reading = false)
+    {
+        if (value.IsNull)
+            throw new VBRunTimeException(reading ? VBStandardError.TypeMismatch : VBStandardError.InvalidUseOfNull);
+        if (IsObject(value) || value.Value is VBArray || value.Type == Vb6Value.ValueType.Error)
             throw new NotImplementedException("PropertyBag name conversion is unmeasured (#4741)");
-        var name = (string)value.Value!;
+        var name = VbDisplay.ToText(value);
         if (name.Length == 0) throw Invalid();
-        _ = EncodeText(name);
         return name;
     }
+
+    private static bool IsObject(Vb6Value value) => value.Type == Vb6Value.ValueType.Object
+        || value.Type == Vb6Value.ValueType.CSharpProxyObject || value.Type == Vb6Value.ValueType.Control
+        || value.Type == Vb6Value.ValueType.Nothing;
+
+    private static bool EqualsDefault(Vb6Value value, Vb6Value fallback)
+    {
+        if (IsObject(value) || IsObject(fallback))
+        {
+            if (IsObject(value) && IsObject(fallback) && fallback.Value is null or ControlFont
+                && (value.Value is null || fallback.Value is null))
+                return value.Value is null && fallback.Value is null;
+            throw UnmeasuredComparison();
+        }
+        if (value.Value is VBArray || value.Type == Vb6Value.ValueType.Error) throw UnmeasuredComparison();
+        // An Error default was never measured, and assignment's rule for it (#2520) need not be OLE's conversion.
+        if (fallback.Type == Vb6Value.ValueType.Error) throw UnmeasuredComparison();
+        // OLE converts a Byte array to a String, so a String against an array default may compare equal. Unmeasured.
+        if (fallback.Value is VBArray && value.Type == Vb6Value.ValueType.String) throw UnmeasuredComparison();
+        if (value.IsNull)
+        {
+            if (fallback.Value is VBArray) throw UnmeasuredComparison();
+            return true;
+        }
+        if (fallback.IsNull) return false;
+        if (value.Type == Vb6Value.ValueType.EmptyVariant)
+        {
+            if (fallback.Type == Vb6Value.ValueType.EmptyVariant
+                || fallback.Type == Vb6Value.ValueType.String && (string)fallback.Value! == ""
+                || Vb6Value.TryNumericToDouble(fallback, out var number) && number == 0) return true;
+            throw UnmeasuredComparison();
+        }
+        try
+        {
+            // Automation's Boolean-to-String is not VB's "True"/"False". Only this comparison
+            // is measured; do not expose an inferred conversion value (#4741, section 2).
+            if (value.Type == Vb6Value.ValueType.String && fallback.Type == Vb6Value.ValueType.Boolean)
+            {
+                if ((string)value.Value! == "True" && (bool)fallback.Value!) return false;
+                throw new NotImplementedException("PropertyBag Boolean-to-String default comparison is unmeasured (#4741)");
+            }
+            if (fallback.Value is VBArray) return false;
+            var converted = VbNumeric.CoerceOnStore(fallback, value.Type, null);
+            var comparison = value.TryCompareTo(converted) ?? throw UnmeasuredComparison();
+            return comparison == 0;
+        }
+        catch (VBRunTimeException)
+        {
+            return false;
+        }
+        catch (NotImplementedException)
+        {
+            throw UnmeasuredComparison();
+        }
+    }
+
+    private static NotImplementedException UnmeasuredComparison() =>
+        new("PropertyBag default comparison is unmeasured (#4741)");
 
     private static Vb6Value Copy(Vb6Value value) => value.Value switch
     {
@@ -85,13 +156,8 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
     public bool TrySetProperty(string name, Vb6Value value)
     {
         if (!name.Equals("Contents", StringComparison.OrdinalIgnoreCase)) return false;
-        if (value.Type == Vb6Value.ValueType.String || value.Type == Vb6Value.ValueType.Integer
-            || value.Type == Vb6Value.ValueType.Long || value.Type == Vb6Value.ValueType.Single
-            || value.Type == Vb6Value.ValueType.Double || value.Type == Vb6Value.ValueType.Currency
-            || value.Type == Vb6Value.ValueType.Decimal || value.Type == Vb6Value.ValueType.Byte)
-            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (value.Value is not VBArray array || array.ElementType != Vb6Value.ValueType.Byte || array.Rank != 1)
-            throw new NotImplementedException("PropertyBag Contents conversion is unmeasured (#4741)");
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         var bytes = new byte[array.Length()];
         for (var i = 0; i < bytes.Length; i++) bytes[i] = (byte)array.GetValue([array.LowerBound() + i]).Value!;
         var parsed = Decode(bytes);
@@ -167,6 +233,7 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
             if (value.Value is null or ControlFont) return 9;
             throw Objects();
         }
+        if (type == Vb6Value.ValueType.Error) return 10;
         if (type == Vb6Value.ValueType.Boolean) return 11;
         if (type == Vb6Value.ValueType.Decimal) return 14;
         if (type == Vb6Value.ValueType.Byte) return 17;
@@ -193,6 +260,7 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
                 if (value.Value is ControlFont font) font.Persistence.Write(writer);
                 else writer.Write(new byte[16]);
                 return;
+            case 10: writer.Write(0x800A0000u | (ushort)value.Value!); return;
             case 11: writer.Write((short)((bool)value.Value! ? -1 : 0)); return;
             case 14:
                 var bits = decimal.GetBits((decimal)value.Value!);
@@ -245,30 +313,18 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
     private static string ReadText(BinaryReader reader, int length)
     {
         if (length < 0 || length > (reader.BaseStream.Length - reader.BaseStream.Position) / 2) throw Invalid();
-        try
-        {
-            return WireEncoding.GetString(reader.ReadBytes(checked(length * 2)));
-        }
-        catch (DecoderFallbackException)
-        {
-            throw UnpairedText();
-        }
+        var chars = new char[length];
+        for (var i = 0; i < length; i++) chars[i] = (char)reader.ReadUInt16();
+        return new string(chars);
     }
 
     private static byte[] EncodeText(string text)
     {
-        try
-        {
-            return WireEncoding.GetBytes(text);
-        }
-        catch (EncoderFallbackException)
-        {
-            throw UnpairedText();
-        }
+        var bytes = new byte[checked(text.Length * 2)];
+        for (var i = 0; i < text.Length; i++)
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(i * 2), text[i]);
+        return bytes;
     }
-
-    private static NotImplementedException UnpairedText() =>
-        new("PropertyBag unpaired UTF-16 code units are unmeasured (#4741)");
 
     private static Vb6Value ReadValue(BinaryReader reader, ushort type)
     {
@@ -290,6 +346,12 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
                     return new Vb6Value(ControlFont.FromPersistence(PropertyBagFont.Read(reader)));
                 foreach (var b in clsid) if (b != 0) throw Objects();
                 return Vb6Value.Nothing;
+            case 10:
+                var scode = reader.ReadUInt32();
+                // Only VB's own facility (an Error from CVErr) was measured; another SCODE, such as a Missing argument's, is not.
+                if ((scode & 0xFFFF0000) != 0x800A0000)
+                    throw new NotImplementedException("PropertyBag Error entries outside VB's facility are unmeasured (#4741)");
+                return Vb6Value.NewError((ushort)scode);
             case 11: return new Vb6Value(reader.ReadInt16() != 0);
             case 14:
                 if (reader.ReadUInt16() != 14) throw Invalid();
