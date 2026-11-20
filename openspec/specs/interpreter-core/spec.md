@@ -1057,13 +1057,26 @@ program that never fails.
 ### Requirement: Parse-time compile errors carry their file location
 A compile error leaving `BasicInterpreter.Parse` with a `Line` SHALL carry an `ErrorLocation` with the module
 being parsed and that line, counted from the top of the whole file as the code window numbers it (#3960).
-The exception type and message SHALL remain unchanged. A compile error without a line SHALL remain unlocated.
+The exception type SHALL remain unchanged. A compile error without a line SHALL remain unlocated.
 
 #### Scenario: A project fails to start while parsing
 - **WHEN** a syntax error or classic-dialect refusal is found while parsing a standard module, class or form
 - **THEN** the failed start exposes that module and whole-file line through `FailureLocation` while reporting
 - **AND** `get_last_runtime_error` returns them in its `module` and `line` fields
 - **AND** the compile-error dialog still offers only End
+
+### Requirement: Parse failures retain parser detail below the VB6 message
+The interpreter and syntax checker SHALL lead parse failures with the VB6 message measured in
+[#4415](https://github.com/hexide-io/HexIDE/issues/4415), or `Syntax error` for unmeasured inputs.
+The next line SHALL start `Parser: ` and retain the previous parser detail and position. Pairing SHALL
+use block keywords within each procedure and ignore single-line If. Language-server diagnostics and
+non-parse compile errors SHALL remain unchanged.
+
+#### Scenario: An unclosed block If
+- **WHEN** parsing fails for a block If without End If
+- **THEN** the first diagnostic line is `Block If without End If`
+- **AND** the reported line is the procedure's End Function
+- **AND** the next diagnostic line retains the parser's own explanation and position
 
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is

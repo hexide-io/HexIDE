@@ -16,6 +16,7 @@ public class SyntaxErrorTextTests : BaseVBTestFixture
         var run = () => Run(Module);
         var error = (await run.Should().ThrowAsync<VBCompileErrorException>()).Which;
         error.Line.Should().Be(5);
+        error.Message.ReplaceLineEndings("\n").Should().StartWith("Compile error:\n\nSyntax error\nParser: ");
         error.Message.Should().NotContain("Optional");
         error.Message.Should().NotContain("Attribute");
     }
@@ -26,6 +27,7 @@ public class SyntaxErrorTextTests : BaseVBTestFixture
         var check = () => new SyntaxChecker().Run(Module);
         var error = check.Should().Throw<VBCompileErrorException>().Which;
         error.Line.Should().Be(5);
+        error.Message.ReplaceLineEndings("\n").Should().StartWith("Compile error:\n\nSyntax error\nParser: ");
         error.Message.Should().NotContain("Optional");
     }
 
