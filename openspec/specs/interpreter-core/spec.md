@@ -274,11 +274,10 @@ Absent or `0` SHALL mean false. The key SHALL have no effect without that target
 
 ### Requirement: An RDCore target takes RDCore's run-time additions
 
-A run whose project selects `[HexIDE] Targets=RDCore`, or a contributed `.rdproj`, SHALL take the additions to VB6
-that [#4967](https://github.com/hexide-io/HexIDE/issues/4967) decided: PNG in `LoadPicture`, and an Image's
-`Opacity`. A run of any other project SHALL keep VB6's behaviour. The behaviour SHALL follow RDC as measured, and
-SHALL NOT be taken from RDCore's source. The run SHALL decide it in one place, from the project's target, and SHALL
-NOT key it on any particular program.
+A run targeting RDCore (`[HexIDE] Targets=RDCore` or a contributed `.rdproj`) SHALL support PNG in `LoadPicture`
+and Image, Label and PictureBox `Opacity` (#4967, [#4982](https://github.com/hexide-io/HexIDE/issues/4982)).
+Other projects SHALL keep VB6's behaviour. These additions SHALL follow measured RDC behaviour, never RDCore's
+source. The run SHALL select them centrally from the project's target, never from a particular program.
 
 #### Scenario: LoadPicture reads a PNG
 - **WHEN** a run that targets RDCore calls `LoadPicture` on a PNG file
@@ -297,6 +296,16 @@ NOT key it on any particular program.
 - **AND** a form file's value outside 0 to 1 SHALL be ignored with no error, leaving 1
 - **AND** the Image SHALL draw its picture blended over what is behind it, with `Opacity` as its alpha, as RDC does
 - **AND** in a VB6 or VBA project `Opacity` SHALL be refused as any member an Image lacks is
+
+#### Scenario: A Label's or PictureBox's Opacity
+- **WHEN** a run that targets RDCore reads or sets a Label's or PictureBox's `Opacity`
+- **THEN** it SHALL be a Double, defaulting to 1, accepting 0 to 1, and raising 380 outside that range while keeping its previous value
+- **AND** a form-file value in range SHALL be read; an out-of-range value SHALL be ignored without error, leaving 1
+- **AND** an opaque BackColor (220, 40, 40) over a white form at 0.5 SHALL draw (238, 148, 148), as measured under RDC on Linux in #4982
+- **AND** hiding and showing a PictureBox SHALL preserve its Opacity and restore its drawing at that alpha
+- **AND** PictureBox `CallByName` Get/Let SHALL reach the same property, coercing a String and accepting case-insensitive names; Set SHALL raise 438 without changing the value
+- **AND** VB6 and VBA projects SHALL refuse the member and ignore the form-file line
+- **AND** transparent Labels, children inside a translucent PictureBox, overlapping controls, and Windows/macOS drawing remain unmeasured and retain today's Avalonia drawing
 
 ### Requirement: Measured 32-bit VBA7 integer support
 

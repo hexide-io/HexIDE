@@ -21,7 +21,7 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// RDCore's additions to VB6, which a run takes when its project targets RDCore (#4967): PNG in <c>LoadPicture</c>, and an
-/// Image's <c>Opacity</c>. A VB6 project keeps VB6's behaviour. Every RDCore expectation was measured under RDC by the
+/// Image's, Label's or PictureBox's <c>Opacity</c> (#4982). A VB6 project keeps VB6's behaviour. Every RDCore expectation was measured under RDC by the
 /// rdcore session's own probe project, and every VB6 one under vb6.exe (the 481 is #4597's). Each test runs its program
 /// through <see cref="VBLoader.RunForm"/>, as F5 does.
 /// </summary>
@@ -330,6 +330,167 @@ public class RDCoreAdditionsTests
             .Should().Be(Describe(lacking.Errors.Should().ContainSingle().Subject));
     }
 
+    // RDC measurements: #4982, issuecomment-7022244344 and -7024628433, RDCore 6fd4c80a.
+    [AvaloniaTheory]
+    [InlineData("Label")]
+    [InlineData("PictureBox")]
+    public void RDCore_Opacity_has_the_measured_type_range_and_error(string kind)
+    {
+        var (printed, errors) = Run(ProjectTarget.RDCore, """
+            Debug.Print TypeName(Test1.Opacity)
+            Debug.Print Test1.Opacity
+            Test1.Opacity = 0.5
+            Debug.Print Test1.Opacity
+            Test1.Opacity = 0.75
+            Debug.Print Test1.Opacity
+            On Error Resume Next
+            Test1.Opacity = 2
+            Debug.Print Err.Number
+            Debug.Print Err.Description
+            Debug.Print Test1.Opacity
+            Err.Clear
+            Test1.Opacity = -1
+            Debug.Print Err.Number
+            Debug.Print Test1.Opacity
+            """, designer: OpacityDesigner(kind));
+        errors.Should().BeEmpty();
+        printed.Should().Equal("Double", "1", "0.5", "0.75", "380", "Invalid property value", "0.75", "380", "0.75");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Label", "0.5", "0.5")]
+    [InlineData("Label", "2", "1")]
+    [InlineData("Label", "-0.5", "1")]
+    [InlineData("PictureBox", "0.5", "0.5")]
+    [InlineData("PictureBox", "2", "1")]
+    [InlineData("PictureBox", "-0.5", "1")]
+    public void RDCore_Opacity_reads_valid_form_file_values_and_ignores_invalid_ones(string kind, string written, string expected)
+    {
+        var (printed, errors) = Run(ProjectTarget.RDCore, "Debug.Print Test1.Opacity", designer: OpacityDesigner(kind, written));
+        errors.Should().BeEmpty();
+        printed.Should().Equal(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Label")]
+    [InlineData("PictureBox")]
+    public void RDCore_Opacity_blends_an_opaque_background_as_RDC_draws_it(string kind)
+    {
+        var drawn = default(Color);
+        var (_, errors) = Run(ProjectTarget.RDCore, "Test1.Opacity = 0.5",
+            designer: OpacityDesigner(kind), inspect: window => drawn = CentrePixel(window));
+        errors.Should().BeEmpty();
+        drawn.Should().Be(Color.FromRgb(238, 148, 148));
+    }
+
+    [AvaloniaFact]
+    public void RDCore_PictureBox_Visible_keeps_Opacity_and_restores_its_drawing()
+    {
+        var drawn = new List<Color>();
+        var (printed, errors) = Run(ProjectTarget.RDCore, """
+            Test1.Opacity = 0.5
+            Debug.Print Test1.Opacity
+            Test1.Visible = False
+            Debug.Print Test1.Opacity
+            Debug.Print Test1.Visible
+            """, designer: OpacityDesigner("PictureBox"), activation: true, inspect: window =>
+            {
+                drawn.Add(CentrePixel(window));
+                window.Context.ExecuteSub("ShowAgain");
+                Pump();
+                drawn.Add(CentrePixel(window));
+            }, extraCode: """
+            Private Sub ShowAgain()
+                Test1.Visible = True
+                Debug.Print Test1.Opacity
+                Debug.Print Test1.Visible
+            End Sub
+            """);
+        errors.Should().BeEmpty();
+        printed.Should().Equal("0.5", "0.5", "False", "0.5", "True");
+        drawn.Should().Equal(Colors.White, Color.FromRgb(238, 148, 148));
+    }
+
+    [AvaloniaFact]
+    public void RDCore_PictureBox_CallByName_reaches_the_same_Opacity()
+    {
+        var (printed, errors) = Run(ProjectTarget.RDCore, """
+            Debug.Print TypeName(CallByName(Test1, "Opacity", VbGet))
+            Debug.Print CallByName(Test1, "Opacity", VbGet)
+            Test1.Opacity = 0.5
+            Debug.Print CallByName(Test1, "Opacity", VbGet)
+            CallByName Test1, "Opacity", VbLet, 0.25
+            Debug.Print Test1.Opacity
+            On Error Resume Next
+            CallByName Test1, "Opacity", VbLet, 2
+            Debug.Print Err.Number
+            Debug.Print Test1.Opacity
+            Debug.Print CallByName(Test1, "Opacity", VbGet)
+            Err.Clear
+            CallByName Test1, "Opacity", VbLet, "0.75"
+            Debug.Print Test1.Opacity
+            CallByName Test1, "Opacity", VbSet, 0.5
+            Debug.Print Err.Number
+            Debug.Print Test1.Opacity
+            Debug.Print CallByName(Test1, "opacity", VbGet)
+            """, designer: OpacityDesigner("PictureBox"));
+        errors.Should().BeEmpty();
+        printed.Should().Equal("Double", "1", "0.5", "0.25", "380", "0.25", "0.25", "0.75", "438", "0.75", "0.75");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Label", false)]
+    [InlineData("PictureBox", false)]
+    [InlineData("Label", true)]
+    [InlineData("PictureBox", true)]
+    public void Other_targets_refuse_Opacity_as_a_member_they_lack(string kind, bool vba)
+    {
+        foreach (var use in new[] { "Debug.Print Test1.{0}", "Test1.{0} = 0.5" })
+        {
+            var opacity = Run(ProjectTarget.None, string.Format(use, "Opacity"), designer: OpacityDesigner(kind, "0.5"), vba: vba);
+            var lacking = Run(ProjectTarget.None, string.Format(use, "NoSuchMember"), designer: OpacityDesigner(kind), vba: vba);
+            opacity.Printed.Should().BeEmpty();
+            Describe(opacity.Errors.Should().ContainSingle().Subject)
+                .Should().Be(Describe(lacking.Errors.Should().ContainSingle().Subject));
+        }
+        var (_, errors) = Run(ProjectTarget.None, "", designer: OpacityDesigner(kind, "0.5"), vba: vba,
+            inspect: window => Control<Avalonia.Controls.Control>(window, "Test1").Opacity.Should().Be(1));
+        errors.Should().BeEmpty();
+    }
+
+    private static string OpacityDesigner(string kind, string? opacity = null) => $$"""
+        VERSION 5.00
+        Begin VB.Form Form1
+           BackColor       =   &H00FFFFFF&
+           ClientHeight    =   1500
+           ClientWidth     =   4000
+           Begin VB.{{kind}} Test1
+              BackColor       =   &H002828DC&
+              BackStyle       =   1
+              BorderStyle     =   0
+              Height          =   960
+              Left            =   240
+              Top             =   240
+              Width           =   960
+              {{(opacity is null ? "" : "Opacity         =   " + opacity)}}
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    private static Color CentrePixel(VBFormRuntime window)
+    {
+        Pump();
+        using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("no frame");
+        using var buffer = frame.Lock();
+        var control = Control<Avalonia.Controls.Control>(window, "Test1");
+        var centre = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+        var offset = (int)(centre.Y * window.RenderScaling) * buffer.RowBytes + (int)(centre.X * window.RenderScaling) * 4;
+        byte At(int k) => Marshal.ReadByte(buffer.Address, offset + k);
+        return buffer.Format == Avalonia.Platform.PixelFormat.Bgra8888
+            ? Color.FromRgb(At(2), At(1), At(0)) : Color.FromRgb(At(0), At(1), At(2));
+    }
+
     private static string Describe(Exception error) =>
         error.GetType().Name + (error is VBRunTimeException runTime ? " " + runTime.Error.ErrNo : "");
 
@@ -365,12 +526,14 @@ public class RDCoreAdditionsTests
     private static T Control<T>(VBFormRuntime window, string name) where T : Avalonia.Controls.Control =>
         window.GetLogicalDescendants().OfType<T>().Single(control => VBProps.GetName(control) == name);
 
-    /// <summary>Run <paramref name="load"/> as Form_Load in a project that targets <paramref name="target"/>.</summary>
+    /// <summary>Run <paramref name="load"/> as Form_Load (or Form_Activate) in the selected project.</summary>
     private static (List<string> Printed, List<Exception> Errors) Run(ProjectTarget target, string load,
-        Action<VBFormRuntime>? inspect = null, string designer = Designer)
+        Action<VBFormRuntime>? inspect = null, string designer = Designer, bool activation = false,
+        string extraCode = "", bool vba = false)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P") { Target = target };
-        var code = "\r\nPrivate Sub Form_Load()\r\n" + load + "\r\nEnd Sub\r\n";
+        if (vba) project.VbaBitness = VbaBitness.Bit64;
+        var code = "\r\nPrivate Sub Form_" + (activation ? "Activate" : "Load") + "()\r\n" + load + "\r\nEnd Sub\r\n" + extraCode;
         var form1 = new FormDeserializer().Deserialize(project, (designer + code).ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form1);
 
