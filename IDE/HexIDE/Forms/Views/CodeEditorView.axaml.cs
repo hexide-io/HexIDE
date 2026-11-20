@@ -607,8 +607,7 @@ public partial class CodeEditorView : UserControl
                     int? line = null;
                     if (_externalDebugger.CurrentLocation is { } location)
                     {
-                        if (string.Equals(location.Uri, vm.GetDocumentUriPublic(),
-                                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                        if (HexIDE.Debugging.SourcePaths.SameSourcePath(new Uri(location.Uri), new Uri(vm.GetDocumentUriPublic())))
                             line = location.Line;
                     }
                     _currentLineRenderer?.SetLine(line);

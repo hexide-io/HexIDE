@@ -2412,31 +2412,6 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
     }
 
-    private static bool SameSourcePath(string uri, string? path)
-    {
-        if (path is null) return false;
-        var actual = new Uri(uri).LocalPath;
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        if (string.Equals(actual, path, comparison)) return true;
-        try { return string.Equals(Resolve(actual), Resolve(path), comparison); }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
-        {
-            return false;
-        }
-
-        // An adapter can canonicalize a linked working directory even when the source itself is not on disk.
-        static string Resolve(string value)
-        {
-            var full = Path.GetFullPath(value);
-            var parent = Path.GetDirectoryName(full);
-            if (parent is null) return full;
-            var resolved = Path.Combine(Resolve(parent), Path.GetFileName(full));
-            FileSystemInfo info = Directory.Exists(resolved) ? new DirectoryInfo(resolved) : new FileInfo(resolved);
-            var target = info.Exists ? info.ResolveLinkTarget(true) : null;
-            return target is null ? resolved : Resolve(target.FullName);
-        }
-    }
-
     private string PausedAt(StoppedInfo at) => at.HasStatement
         ? $"Paused at {ctx.ProjectRunnerService.RunningProject?.Name}/{at.Module} line {at.Line} ({at.Reason})." + ConditionFailureNote(at)
         : "Paused with no current statement (Pause).";
@@ -2516,7 +2491,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 ctx.ProjectRunnerService.RunToCursorProject(document, line);
                 return null;
             }, StepReplyWait, ct, () => external.CurrentLocation is { } at &&
-                (at.Line != line || !SameSourcePath(at.Uri, externalDocument?.AbsolutePath))
+                (at.Line != line || !HexIDE.Debugging.SourcePaths.SameSourcePath(at.Uri, externalDocument?.AbsolutePath))
                     ? $" Stopped before reaching the cursor target ({externalDocument?.Display} line {line}); the temporary breakpoint was removed."
                     : "");
         });
