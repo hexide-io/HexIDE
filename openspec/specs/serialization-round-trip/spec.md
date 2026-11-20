@@ -1249,8 +1249,17 @@ file without a question. An unchanged disk file SHALL save without a conflict qu
 
 The reader SHALL apply repeated modelled designer properties in file order, comparing names without
 regard to case. Readable duplicates SHALL save as a single line holding the winning value. If a
-repeated property has an unreadable value, the reader SHALL keep the readable value and mark the form
-unfaithful to save with a cause naming the property.
+repeated property has an unreadable value, the reader SHALL keep the readable value. If a readable
+line precedes the failed line in the same component, names compared without regard to case, the reader
+SHALL recover with `LoadedWithErrors` when the raw value is quoted on a non-string property, starts
+with a letter and was returned unrecognised as text by the parser on a non-string property, or starts
+with `&` on a Single/Double property. It SHALL retain the invalid-value diagnostic, omit the recovered
+property's raw lines, and require Save As while keeping the form editable. Other unreadable duplicates
+SHALL mark the form unfaithful to save with a cause naming the property; recovery SHALL NOT clear an
+earlier hold. This scoped rule follows [#4317](https://github.com/hexide-io/HexIDE/issues/4317) and
+[the refused-text measurements in oracle PR #4987](https://github.com/hexide-io/HexIDE/pull/4987).
+Applying the measured shapes across properties and extending the measured words are reasoned
+generalisations. Client-size pixel snapping remains unchanged.
 
 A twip measurement whose value converted to Single is at least 2^31 (except `Height` on a form's control),
 or a negative `Height` on anything but a control of a form, SHALL be
@@ -1259,7 +1268,7 @@ property and value. Save SHALL refuse these forms before writing the original. T
 [the #4096 measurements](https://github.com/hexide-io/HexIDE/issues/4096#issuecomment-6915523429);
 the upper bound shares the reader's geometry path, while the negative rule applies only to `Height`.
 VB6 keeps the form editable and opens Save As after load errors. HexIDE protects the original through
-its existing read-only gate; a load-error recovery Save As flow remains outside this requirement.
+its existing read-only gate except for the recovered duplicates described above.
 A negative `Width` or `Height`, or a `Height` whose Single value is at least 2^31, on a form's control
 follows the next requirement instead (#4179, #4422).
 
@@ -1274,8 +1283,8 @@ follows the next requirement instead (#4179, #4422).
 
 - **GIVEN** `ClientHeight = 2000` followed by `ClientHeight = abc`
 - **WHEN** the form is loaded
-- **THEN** its height holds 2000 twips and the form is unfaithful to save
-- **AND** Save refuses without changing the original bytes
+- **THEN** its height holds 2000 twips and the form is editable with load errors
+- **AND** Save asks for a new path, writes one `ClientHeight = 2000` line there and leaves the original bytes unchanged
 
 #### Scenario: A measurement cannot be set
 

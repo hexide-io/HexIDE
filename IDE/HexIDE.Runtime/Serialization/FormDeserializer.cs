@@ -342,6 +342,7 @@ public class FormDeserializer
 
             // Known properties whose value could not be read, kept as raw lines below.
             var unparsedKnownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var readableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             var assignments = serializedComponent.PropertyAssignments.Count > 0
                 ? serializedComponent.PropertyAssignments
@@ -349,8 +350,9 @@ public class FormDeserializer
             var duplicatedNames = assignments.GroupBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
                 .Where(group => group.Count() > 1).Select(group => group.Key)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var serializedProperty in assignments)
+            for (var assignmentIndex = 0; assignmentIndex < assignments.Count; assignmentIndex++)
             {
+                var serializedProperty = assignments[assignmentIndex];
                 // One spelling, before anything compares it. VB6 reads a property name in any case: measured,
                 // `caption`, `TEXT` and `backcolor` on controls, and on a form's own root `clientwidth`,
                 // `scalewidth` and a Font block's `name` and `size`, all load. The special cases below compare
@@ -453,9 +455,25 @@ public class FormDeserializer
                     errorSink.LogError("Str.ProjectLoad.PropertyNotSet", "Line {0}: Property {1} in {2} could not be set.",
                         serializedComponent.BeginLine, propertyName, serializedComponent.Name);
                 }
+                var readSuccessfully = true;
                 void InvalidValue()
                 {
+                    readSuccessfully = false;
                     errorSink.LogError("Str.ProjectLoad.InvalidValue", "Property {0} in {1} had an invalid value.", serializedProperty.Key, serializedComponent.Name);
+                    // #4317 / oracle PR #4987: recover only refused text after a readable line. Recognised
+                    // numeric words (True, Infinity, etc.) must not be mistaken for unrecognised words.
+                    var rawText = assignmentIndex < serializedComponent.PropertyValueTexts.Count
+                        ? serializedComponent.PropertyValueTexts[assignmentIndex] : null;
+                    if (readableNames.Contains(serializedProperty.Key) && !string.IsNullOrEmpty(rawText)
+                        && propertyClass.PropertyType != typeof(string)
+                        && (rawText[0] == '"'
+                            || char.IsLetter(rawText[0]) && val is string
+                            || rawText[0] == '&' && (propertyClass.PropertyType == typeof(float)
+                                || propertyClass.PropertyType == typeof(double))))
+                    {
+                        form.LoadedWithErrors = true;
+                        return;
+                    }
                     // Kept as written, so a save puts it back rather than losing it: a palette colour
                     // (&H02C0C0C0&) is a value VB6 accepts that HexIDE cannot hold yet (#786).
                     unparsedKnownNames.Add(serializedProperty.Key);
@@ -475,7 +493,10 @@ public class FormDeserializer
                     if (comment >= 0)
                         numberText = numberText[..comment].TrimEnd();
                     if (lines.Length == 1 && int.TryParse(numberText, out var number))
+                    {
                         instance.SetUntypedProperty(propertyClass, number);
+                        readableNames.Add(serializedProperty.Key);
+                    }
                     else
                         InvalidValue();
                     continue;
@@ -637,6 +658,8 @@ public class FormDeserializer
                         weight: MetricOr(fontWeight, VBFont.NormalWeight));
                     instance.SetUntypedProperty(propertyClass, font);
                 }
+                if (readSuccessfully)
+                    readableNames.Add(serializedProperty.Key);
             }
 
             // The offset between the root's two rectangles, once both have been read. Recorded only when

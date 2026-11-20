@@ -300,11 +300,10 @@ public class SaveRecordsTheHeaderTests : IDisposable
     }
     // Measured load-error save protection: #4096, issuecomment-6915523429.
     [Theory]
-    [InlineData("ClientHeight = 2000\r\nClientHeight = abc", false)]
     [InlineData("Left = 2147483648", true)]
     [InlineData("ClientHeight = 3.7E+18", false)]
-    // A negative Height on a form's control recovers as zero and saves through Save As (#4179); this service's
-    // picker answers with the original path, which re-prompts without end, so that row lives in #4179's tests.
+    // Recovered control sizes (#4179) and duplicates (#4317) require Save As. This picker answers with
+    // the original path, which re-prompts without end; those rows live in NegativeSizeSaveTests.
     public async Task DamagedPropertySaveLeavesOriginalBytes(string properties, bool button)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Test") { AbsolutePath = Path.Join(dir, "Test.vbp") };
