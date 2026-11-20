@@ -3292,9 +3292,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (variable.Value is Control listControl && ListMembers.IsList(listControl)
                 && members[0].iCS_S_ProcedureOrArrayCall() is { } listItem && listItem.argsCall().Length == 1)
             {
-                if (UdtFieldName(members[0]).Equals("List", StringComparison.OrdinalIgnoreCase))
+                if (UdtFieldName(members[0]).Equals("List", StringComparison.OrdinalIgnoreCase)
+                    || UdtFieldName(members[0]).Equals("ItemData", StringComparison.OrdinalIgnoreCase))
                 {
-                    ControlMembers.TryWrite(variable, "List", await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
+                    ControlMembers.TryWrite(variable, UdtFieldName(members[0]), await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
                     return default;
                 }
                 if (listControl is VBListBox listBox && UdtFieldName(members[0]).Equals("Selected", StringComparison.OrdinalIgnoreCase))

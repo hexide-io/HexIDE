@@ -12,7 +12,7 @@ namespace HexIDE.Runtime.Serialization;
 ///
 /// <b>Records are returned verbatim, framing included.</b> That is deliberate, and it is what lets the
 /// writer put them back byte for byte without understanding any of them: an .frx holds several record
-/// shapes, and HexIDE only knows one of them.
+/// shapes, and HexIDE decodes them at their property consumers.
 ///
 /// <b>The .frm partitions the companion.</b> Records are contiguous, so a record runs from its own cited
 /// offset to the next one, and the last runs to the end of the file. That is the whole parsing rule, and

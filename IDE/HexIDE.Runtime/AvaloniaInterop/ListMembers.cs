@@ -130,6 +130,11 @@ internal static class ListMembers
             value = new Vb6Value(textList.ListIndexText);
             return true;
         }
+        if (member.Equals("NewIndex", StringComparison.OrdinalIgnoreCase))
+        {
+            value = new Vb6Value(ListItemState.For(list).NewIndex);
+            return true;
+        }
         if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase))
         {
             // An Integer: a VB6 list holds at most 32767 items.
@@ -137,7 +142,7 @@ internal static class ListMembers
             return true;
         }
         // List with no index, `x = List1.List`: VB6's compile error, measured as `List1.List()`.
-        if (member.Equals("List", StringComparison.OrdinalIgnoreCase))
+        if (member.Equals("List", StringComparison.OrdinalIgnoreCase) || member.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
             throw new VBCompileErrorException("Argument not optional");
         return false;
     }
@@ -167,9 +172,9 @@ internal static class ListMembers
                 combo.SetTextFromCode(Text(value));
             return true;
         }
-        if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase))
+        if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase) || member.Equals("NewIndex", StringComparison.OrdinalIgnoreCase))
             throw new VBCompileErrorException(AssignToReadOnly);
-        if (member.Equals("List", StringComparison.OrdinalIgnoreCase))
+        if (member.Equals("List", StringComparison.OrdinalIgnoreCase) || member.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
             throw new VBCompileErrorException("Argument not optional");
         return false;
     }
@@ -194,6 +199,8 @@ internal static class ListMembers
             throw new VBRunTimeException(OutOfMemoryHResult);
         if (index == -1 || index == list.ItemCount)
         {
+            var state = ListItemState.For(list);
+            if (index == -1) state.ZeroData();
             list.Items.Add(text);
             return;
         }
@@ -210,6 +217,20 @@ internal static class ListMembers
         var selected = list.SelectedIndex;
         list.Items[index] = text;
         list.SelectedIndex = selected;
+    }
+
+    public static Vb6Value ReadItemData(Control control, IReadOnlyList<Vb6Value> indexes)
+    {
+        var list = (SelectingItemsControl)control;
+        return new Vb6Value(ListItemState.For(list).Data[ItemIndex(list, indexes, "ItemData")]);
+    }
+
+    public static void WriteItemData(Control control, IReadOnlyList<Vb6Value> indexes, Vb6Value value)
+    {
+        var list = (SelectingItemsControl)control;
+        var index = ItemIndex(list, indexes, "ItemData");
+        var converted = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, null);
+        ListItemState.For(list).Data[index] = Convert.ToInt64(converted.Value);
     }
 
     /// <summary><c>Selected(i)</c>, read: whether item i is selected; 381 outside the list.</summary>
@@ -242,6 +263,7 @@ internal static class ListMembers
     /// <summary><c>AddItem item[, index]</c>: sorts or appends, unless an explicit index wins.</summary>
     public static void AddItem(ItemsControl list, IReadOnlyList<Vb6Value> args)
     {
+        _ = ListItemState.For(list);
         // AddItem's Item is a String, so the list holds CStr's text of it: `List1.AddItem 1 / 3` lists 0.333333333333333.
         var text = Text(args[0]);
         if (args.Count < 2 || args[1].IsMissing)

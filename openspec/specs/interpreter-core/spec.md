@@ -2677,7 +2677,7 @@ assignments, horizontal-bar dragging and designer drawing retain their existing 
 ListBoxes, including checkbox lists, and ComboBoxes saved Sorted SHALL order index-free AddItem
 using the [measured binary insertion](../../../docs/vb6-fidelity-oracle/the-order-a-sorted-listbox-or-combobox-keeps.md)
 (#5059). Explicit indices SHALL retain precedence over sorting; unsorted lists SHALL append.
-Runtime Sorted access, sorted List writes and saved List item loading retain their existing behaviour.
+Runtime Sorted access retains its existing behaviour. List writes and saved item loading follow the rules below (#5106, #5114).
 
 #### Scenario: An equal item is inserted before the item probed
 - **WHEN** an index-free AddItem is inserted into a sorted list
@@ -2695,7 +2695,54 @@ Runtime Sorted access, sorted List writes and saved List item loading retain the
 - **AND** Linux/macOS use the host's case-insensitive comparison in the program culture, which can differ
   for hyphens, apostrophes and some symbols (#5105), by the Team Desk decision recorded in
   [#5059](https://github.com/hexide-io/HexIDE/issues/5059)
-- **AND** ComboBox Style 1 uses the same rules as Styles 0/2, reasoned, not measured
+- **AND** ComboBox Style 1 uses the same rules as Styles 0/2, also measured in #5106
+
+### Requirement: The last list insertion index
+
+ListBoxes and ComboBoxes SHALL expose Integer NewIndex following the
+[corrected direct-call measurements in #5106](https://github.com/hexide-io/HexIDE/issues/5106)
+(SP6 native/p-code, oracle PR #5115). It SHALL start at -1, name the inserted item after AddItem
+or a List append, remain unchanged on rejected mutations and text replacement, and reset to -1
+on RemoveItem/Clear. Assignment SHALL raise "Can't assign to read-only property".
+
+#### Scenario: Explicit insertion takes precedence
+- **WHEN** AddItem "c", 0 inserts into a sorted or unsorted list
+- **THEN** NewIndex is 0
+- **AND** removing any item resets NewIndex to -1
+
+### Requirement: Per-item Long data
+
+ListBoxes and ComboBoxes SHALL expose indexed Long ItemData, initially 0, following #5106.
+Indices SHALL convert as Integer and values as Long. Data SHALL follow items through insertion
+and removal and survive text replacement, including sorted and checkbox lists. An invalid
+item index SHALL raise 381; omitting it SHALL raise "Argument not optional".
+
+#### Scenario: The two append forms differ
+- **WHEN** a list with ItemData 10, 11 and 12 receives List(ListCount) = "w"
+- **THEN** its data is 10, 11, 12, 0 and NewIndex is 3
+- **WHEN** List(-1) = "w" follows
+- **THEN** all five ItemData values are 0 and NewIndex is 4
+
+### Requirement: Saved list records populate the running control
+
+The runtime SHALL decode List and ItemData records using
+[#5106 / #5114's measurements](https://github.com/hexide-io/HexIDE/issues/5106): counted ANSI
+strings and decimal Long data. Loading SHALL retain saved order, including on Sorted controls,
+and set NewIndex/ListIndex to -1. Original bytes SHALL remain verbatim for saving. Undecodable
+records or disagreeing counts SHALL refuse before population with NotImplementedException naming
+#5114. The designer's preview of a ListBox SHALL stay empty until it can draw saved items (#5121).
+
+#### Scenario: Counted records load with no initial selection
+- **WHEN** a ListBox loads s2, s1, s3 with ItemData 20, 10, 30
+- **THEN** those items and values remain in saved order, with NewIndex and ListIndex both -1
+- **AND** an unsorted AddItem "n" gives NewIndex 3 with ItemData 0
+- **AND** nonempty records use a two-byte count, ignored two-byte field and strings with two-byte lengths;
+  an empty record is a zero count alone
+
+#### Scenario: The measured loading scope
+- **WHEN** saved items are loaded
+- **THEN** Properties-window list/data editing, record writing and CallByName remain outside this change
+- **AND** late-bound differences are tracked by #5117 and non-ASCII saved-text fidelity remains unmeasured
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
 
