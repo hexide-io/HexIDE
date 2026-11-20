@@ -223,3 +223,83 @@ On the 11-18 page, every row set some properties and then read all of them, so e
 **What resisted explanation:** realization comes from the system's font mapping. An empty name with weight 700 realizes
 as **Arial**, while an empty name alone or with Italic realizes as MS Sans Serif. No rule is offered for which name a
 request maps to beyond these rows.
+
+### Errors, defaults, argument counts, names, `Contents` and unpaired UTF-16 (2026-11-20, #4741)
+
+**The probe.** vb6.exe SP6, `/make`, native code and p-code, on the en-GB guest. They agreed on every row except the
+`Contents` ones in section 5. Each case ran under `On Error Resume Next` in a Standard EXE with `Sub Main`. A read used
+`Set` when `IsObject(pb.ReadProperty(name))`, and a Let otherwise. There were 76 rows in all, 3 of them compile-time,
+each built as a project of its own.
+
+**What was guessed, and overturned.** The first reading of the default rows was "skip when the value equals the
+default". Twenty rows chosen to tell that apart from a conversion settle it: `5` with a default of `5.4` isn't
+written, and `"True"` with a default of `True` is.
+
+**1. An Error value is stored.** `pb.WriteProperty "a", CVErr(5)` works. `ReadProperty("a")` gives `TypeName` `Error`, and `CStr` gives "Error 5". The one-entry bag is `93B20000 1C000000` then `0A00 0100 61000000 00000000 6100 0500 0A80 0000`: variant type 10, then the SCODE `&H800A0005` as 32 bits.
+
+**2. The default comparison.** `WriteProperty name, value, default` skips the write when the default, converted to the value's type, equals the value.
+- The conversion is OLE Automation's own, with no flags, not VB's: a Boolean becomes "-1" or "0", not "True". That's reasoned from the `"True"`/`True` row below, which shows only that the result isn't "True".
+- If the conversion fails, the value is written.
+- Strings compare exactly, case included.
+- Numbers convert with VB's rounding, half to even.
+
+| Value | Default | Written? | | Value | Default | Written? |
+|---|---|---|---|---|---|---|
+| `5` | `"5"` | no | | `5` | `5.4` | **no** (5.4 → 5) |
+| `"5"` | `5` | no | | `5` | `4.6` | no |
+| `5` | `5#` | no | | `5` | `5.5` | **yes** (5.5 → 6) |
+| `5` | `CCur(5)` | no | | `4` | `4.5` | **no** (4.5 → 4) |
+| `5` | `CLng(5)` | no | | `"5.0"` | `5` | **yes** ("5" ≠ "5.0") |
+| `Empty` | `Empty` | no | | `"5"` | `5.0` | no |
+| `Empty` | `0` | no | | `1` | `"1.4"` | no |
+| `0` | `Empty` | no | | `True` | `1` | no |
+| `""` | `Empty` | no | | `True` | `"True"` | no |
+| `Empty` | `""` | no | | `"True"` | `True` | **yes** |
+| `Null` | `Null` | no | | `"abc"` | `5` | yes |
+| `Null` | `0` | **no** | | `5` | `"abc"` | yes |
+| `0` | `Null` | **yes** | | `CCur(1.23456)` | `1.2346` | no |
+| `True` | `-1` | no | | `1.2346` | `CCur(1.23456)` | no |
+| `True` | `True` | no | | `CSng(0.1)` | `0.1` | no |
+| `False` | `0` | no | | `0.1` | `CSng(0.1)` | **yes** (the Single widens) |
+| `"abc"` | `"ABC"` | **yes** | | `#1/1/2000#` | `"1/1/2000"` | no (en-GB) |
+| `#1/1/2000#` | `36526` | no | | `Null` | `"x"` | no |
+| `CByte(5)` | `5` | no | | `Empty` | `Null` | **yes** |
+| `"x"` | `Null` | yes | | `CByte(5)` | `261` | **yes** (overflow) |
+| `5` | a Byte array | yes | | | | |
+
+**Objects:** `Nothing` against a default of `Nothing` is not written. A `New StdFont` against `Nothing` is written, and so is `Nothing` against a font.
+
+**3. Argument counts and unknown members.**
+- **Through `As Object`, at run time:**
+  - `o.WriteProperty "a"`, `o.WriteProperty "a", 1, 1, 1`, `o.ReadProperty()` and `o.ReadProperty("a", 1, 2)` all raise **450**;
+  - `v = o.Contents(0)` raises **451**;
+  - `o.Foo` and `v = o.Foo` raise **438**.
+- **Through `As PropertyBag` (early-bound), vb6.exe refuses to compile:**
+  - `pb.WriteProperty "a"` is **"Argument not optional"**;
+  - `pb.ReadProperty("a", 1, 2)` is **"Wrong number of arguments or invalid property assignment"**;
+  - `pb.Foo` is **"Method or data member not found"**.
+
+**4. A name that isn't a String** converts as `CStr` does: VB's own conversion, so `True` is "True". The stored name is lower-cased as usual.
+
+| Name | Stored as | Read back by the same value, and by `"5"` |
+|---|---|---|
+| `5` | "5" | Integer 1; `"5"` finds it too |
+| `1.5` | "1.5" | Integer 1 |
+| `True` | "true" (`7400720075006500`) | Integer 1 |
+| `CByte(7)` | "7" | Integer 1 |
+| `#1/2/2003#` | "02/01/2003" (en-GB short date) | Integer 1 |
+| `CCur(2)` | "2" | Integer 1 |
+| `Null` | **94** on `WriteProperty`; **13** on `ReadProperty` | |
+| `Empty` | **5** on both, as an empty name | |
+
+`ReadProperty(5)` after `WriteProperty "5", 9` gives Integer 9.
+
+**5. `Contents` assigned anything other than a one-dimensional Byte array.** The p-code answer is **13**, and the bag keeps what it had (`"s"` still reads "hi"). Rows: `Array(1, 2)`, `Empty`, `Null`, `True`, `#1/1/2000#`, an Integer array, a 2-D Byte array. **Native code differs:** it ignored all seven silently.
+- A Byte array of a valid bag declared `1 To n` works.
+- So does a Variant holding the Byte array.
+
+**6. Unpaired UTF-16 is stored verbatim.**
+- **A name with a lone high surrogate,** `"a" & ChrW(&HD800)`, is stored, and reads back by the same name. The entry is `0200 0200 00F80C00 00000000 6100 00D8 0100 0000`. Its hash, `000CF800`, follows the page's rotate-13 rule over the code units.
+- **A value with a lone low surrogate,** `"x" & ChrW(&HDC00)`, is stored as `0800 0100 61000000 00000000 6100 02000000 7800 00DC 0000`. Copied into a new bag and read back, it has `Len` 2 and last `AscW` -9216.
+
+**Not measured:** the UserControl's own bag.

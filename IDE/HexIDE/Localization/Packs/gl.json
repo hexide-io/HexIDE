@@ -554,6 +554,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Preguntar polo proxecto",
     "Str.Options.Environment.FileHandling.Header": "Xestión de ficheiros",
     "Str.Options.Environment.ReloadExternalChanges": "Recargar os ficheiros modificados fóra do IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Proxectos RDCore: definir Win64 só en Windows",
     "Str.Options.Theme.GroupHeader": "Tema do IDE",
     "Str.Theme.HighContrastLight": "Alto contraste claro",
     "Str.Theme.HighContrastDark": "Alto contraste escuro",
@@ -628,6 +629,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Esixir a declaración de variables",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Listar membros automaticamente",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao escribir",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edición vinculada (renomear os outros usos dunha variable ao escribir)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Información rápida automática",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Sangría automática",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatar ao gardar",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Non se enviou contido, polo que non se cambiou nada.",
     "Str.AIChat.ProjectCannotStart": "Non se pode iniciar o proxecto (non hai ningún cargado ou xa se está a executar)",
     "Str.AIChat.ProjectNotRunning": "Non hai ningún proxecto en execución",
-    "Str.SessionEnd.UnsavedWork": "Cambios sen gardar en {0}"
+    "Str.SessionEnd.UnsavedWork": "Cambios sen gardar en {0}",
+    "Str.Options.Addin.ReportedFailure": "Informouse dun problema ás {0}: {1}"
   }
 }

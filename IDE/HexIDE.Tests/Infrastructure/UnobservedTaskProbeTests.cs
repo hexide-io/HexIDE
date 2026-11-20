@@ -46,6 +46,9 @@ public class UnobservedTaskProbeTests
     [InlineData("ShutdownWireShapeTests")]
     [InlineData("RenameWireShapeTests")]
     [InlineData("CancellationWireShapeTests")]
+    [InlineData("TraceOnTheWireTests")]
+    [InlineData("StdioProcessLspTransportTests")]
+    [InlineData("WebSocketLspTransportTests")]
     public Task Teardown_leaves_no_unobserved_fault(string testClass) => CheckClassAsync(testClass);
 
     [Fact(Skip = "Set HEXIDE_UNOBSERVED_PROBE and provide netcoredbg to run adapter teardown diagnostics.",

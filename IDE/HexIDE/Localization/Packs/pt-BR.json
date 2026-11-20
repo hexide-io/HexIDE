@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edição vinculada (renomear os outros usos de uma variável ao digitar)",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao digitar",
     "Str.Menu.MacApp.About": "Sobre o HexIDE",
     "Str.Office.ProjectFiles": "Arquivos de projeto e do Office",
@@ -212,6 +213,7 @@
     "Str.AIChat.EditContentMissing": "Nenhum conteúdo foi enviado, então nada foi alterado.",
     "Str.AIChat.ProjectNotRunning": "Nenhum projeto está em execução no momento",
     "Str.FilePicker.ReplaceExisting": "{0} já existe. Deseja substituí-lo?",
-    "Str.SessionEnd.UnsavedWork": "Alterações não salvas em {0}"
+    "Str.SessionEnd.UnsavedWork": "Alterações não salvas em {0}",
+    "Str.Options.Addin.ReportedFailure": "Foi relatado um problema às {0}: {1}"
   }
 }

@@ -282,7 +282,8 @@ public class VbFrmFormatDeserializer
 
             if (int.TryParse(numText, out var intValue))
                 return intValue;
-            if (double.TryParse(numText, NumberStyles.Any & ~NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var doubleValue))
+            if (double.TryParse(numText, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue)
+                && double.IsFinite(doubleValue))
                 return doubleValue;
         }
 

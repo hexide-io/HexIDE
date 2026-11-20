@@ -139,7 +139,17 @@ public sealed class WebSocketLspTransport : ILspTransport
             using var cancellation = timeout.Token.Register(listener.Close);
             while (true)
             {
-                var context = await listener.GetContextAsync().WaitAsync(timeout.Token);
+                var pending = listener.GetContextAsync();
+                HttpListenerContext context;
+                try { context = await pending.WaitAsync(timeout.Token); }
+                catch
+                {
+                    // Closing the listener can fault the accept after its cancellable wait has ended.
+                    _ = pending.ContinueWith(t => _ = t.Exception, CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
+                    throw;
+                }
                 if (RefusalOf(context.Request) is not { } refusal)
                 {
                     var accepted = await context.AcceptWebSocketAsync(null).WaitAsync(timeout.Token);

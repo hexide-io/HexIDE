@@ -22,7 +22,7 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>AddItem takes an index from 0 to ListCount and RemoveItem from 0 to ListCount - 1, and both are 5 outside. Sorted
 /// does not override AddItem's index.</item>
 /// <item>The selection follows its item through all of these, and is emptied when its item is removed. None raises
-/// Click.</item>
+/// Click. Checkbox lists instead keep a numeric position and move checks with their items (#4209).</item>
 /// </list>
 /// A ListBox's Selected(i), SelCount and Text (#1395), measured the same way (the oracle's "A ListBox's Selected, SelCount
 /// and Text"):
@@ -96,6 +96,19 @@ internal static class ListMembers
         value = default;
         if (control is not SelectingItemsControl list || !IsList(control))
             return false;
+        if (control is VBListBox savedList)
+        {
+            if (member.Equals("Style", StringComparison.OrdinalIgnoreCase))
+            {
+                value = new Vb6Value(savedList.SavedStyle);
+                return true;
+            }
+            if (member.Equals("Columns", StringComparison.OrdinalIgnoreCase))
+            {
+                value = new Vb6Value(savedList.Columns);
+                return true;
+            }
+        }
         if (control is VBListBox topList && member.Equals("TopIndex", StringComparison.OrdinalIgnoreCase))
         {
             value = new Vb6Value(topList.TopIndex);
@@ -232,7 +245,20 @@ internal static class ListMembers
         var text = Text(args[0]);
         if (args.Count < 2 || args[1].IsMissing)
         {
-            list.Items.Add(text);
+            if (list is VBListBox { HasChecks: true } checkbox)
+            {
+                var at = list.ItemCount;
+                if (checkbox.SortedChecks)
+                    for (var i = 0; i < list.ItemCount; i++)
+                        if (string.Compare(text, list.Items[i] as string, StringComparison.CurrentCultureIgnoreCase) < 0)
+                        {
+                            at = i;
+                            break;
+                        }
+                checkbox.InsertCheckboxItem(at, text);
+            }
+            else
+                list.Items.Add(text);
             return;
         }
         // A Null index is 13, where a Null item is 94 (measured).
@@ -241,8 +267,10 @@ internal static class ListMembers
         var index = Integer(args[1]);
         if (index < 0 || index > list.ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
-        // Avalonia's selection follows its item, as VB6's does.
-        list.Items.Insert(index, text);
+        if (list is VBListBox { HasChecks: true } checkboxList)
+            checkboxList.InsertCheckboxItem(index, text);
+        else
+            list.Items.Insert(index, text);
     }
 
     /// <summary><c>RemoveItem index</c>: 0 to ListCount - 1; the selection follows its item, or empties with it.</summary>
@@ -253,8 +281,10 @@ internal static class ListMembers
         var index = Integer(args[0]);
         if (index < 0 || index >= list.ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
-        // Avalonia's selection follows its item, and empties when it goes, as VB6's does.
-        list.Items.RemoveAt(index);
+        if (list is VBListBox { HasChecks: true } checkbox)
+            checkbox.RemoveCheckboxItem(index);
+        else
+            list.Items.RemoveAt(index);
     }
 
     private static int Index(IReadOnlyList<Vb6Value> indexes, string member)

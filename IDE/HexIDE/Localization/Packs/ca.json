@@ -554,6 +554,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Demana un projecte",
     "Str.Options.Environment.FileHandling.Header": "Gestió de fitxers",
     "Str.Options.Environment.ReloadExternalChanges": "Torna a carregar els fitxers modificats fora de l'IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projectes RDCore: defineix Win64 només al Windows",
     "Str.Options.Theme.GroupHeader": "Tema de l'IDE",
     "Str.Theme.HighContrastLight": "Contrast alt clar",
     "Str.Theme.HighContrastDark": "Contrast alt fosc",
@@ -628,6 +629,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Exigeix la declaració de variables",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Llista automàtica de membres",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Llista els membres mentre escriviu",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edició vinculada (canviar el nom dels altres usos d’una variable mentre escriviu)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Informació ràpida automàtica",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Sagnat automàtic",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Dona format en desar",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "No s’ha enviat contingut, de manera que no s’ha canviat res.",
     "Str.AIChat.ProjectCannotStart": "No es pot iniciar el projecte (no n’hi ha cap de carregat o ja s’està executant)",
     "Str.AIChat.ProjectNotRunning": "No hi ha cap projecte en execució",
-    "Str.SessionEnd.UnsavedWork": "Canvis no desats a {0}"
+    "Str.SessionEnd.UnsavedWork": "Canvis no desats a {0}",
+    "Str.Options.Addin.ReportedFailure": "S’ha informat d’un problema a les {0}: {1}"
   }
 }

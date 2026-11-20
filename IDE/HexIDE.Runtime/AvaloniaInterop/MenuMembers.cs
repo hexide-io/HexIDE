@@ -69,9 +69,9 @@ internal static class MenuMembers
                 if (caption == "-")
                     throw new VBRunTimeException(SeparatorAsName);
                 if (item.Parent is VBMenuBar captionBar)
-                    CheckRows(captionBar, item, caption: caption);
+                    ChangeRows(captionBar, item, caption: caption);
                 item.Header = caption;
-                if (item.Parent is VBMenuBar updatedBar) updatedBar.Refresh();
+                if (item.Parent is VBMenuBar updatedBar) updatedBar.PrepareItem(item);
             }
             else if (caption != "-")
                 throw new System.NotImplementedException("Giving a menu separator a caption, which makes it an item, is not implemented (#1126)");
@@ -94,8 +94,8 @@ internal static class MenuMembers
                 throw CantSet("Visible");
             if (menu.Parent is Menu bar)
             {
-                if (bar is VBMenuBar wrapped) CheckRows(wrapped, menu, visible);
-                ChangeBar(bar, visible || AnyOtherVisible(bar, menu));
+                if (bar is VBMenuBar wrapped) ChangeRows(wrapped, menu, visible);
+                else ChangeBar(bar, visible || AnyOtherVisible(bar, menu) ? 1 : 0);
             }
         }
         if (ReferenceEquals(property, VBProperties.WindowListProperty))
@@ -110,13 +110,13 @@ internal static class MenuMembers
 
     private sealed class BarChange
     {
-        public bool? Pending;
+        public int? Pending;
     }
 
     private static readonly ConditionalWeakTable<Menu, BarChange> barChanges = new();
 
     // The statement changes the item; the posted message changes the client area (#1140, measured at DoEvents).
-    internal static void ChangeBar(Menu bar, bool visible)
+    internal static void ChangeBar(Menu bar, int rows)
     {
         if (FormNativeMenu.IsNative(bar)) return;
         var root = bar.FindLogicalAncestorOfType<IModuleExecutionRoot>();
@@ -124,10 +124,10 @@ internal static class MenuMembers
         var change = barChanges.GetOrCreateValue(bar);
         if (change.Pending is not null)
         {
-            change.Pending = visible;
+            change.Pending = rows;
             return;
         }
-        if (bar.IsVisible == visible)
+        if (AppliedRows(bar) == rows)
             return;
         var context = root switch
         {
@@ -137,61 +137,47 @@ internal static class MenuMembers
         };
         if (context?.FormDefinition is { } definition && IsMdiChild(definition))
             throw new System.NotImplementedException("Changing an MDI child's menu bar is not implemented (#4946)");
-        RefuseWrapped(bar);
 
         Task Apply()
         {
-            var target = change.Pending ?? visible;
+            var target = bar is VBMenuBar wrapped ? wrapped.RowCount() : change.Pending ?? rows;
             change.Pending = null;
-            if (bar.IsVisible == target)
+            var before = AppliedRows(bar);
+            if (before == target)
                 return Task.CompletedTask;
-            bar.IsVisible = target;
+            var oldHeight = MenuBarLayout.Height(before);
+            bar.IsVisible = target > 0;
+            if (bar is VBMenuBar updatedBar) updatedBar.Refresh();
             if (window is not null)
-                FormFrame.ChangeMenu(window, target);
+            {
+                if ((before == 0) != (target == 0))
+                    FormFrame.ChangeMenu(window, target > 0);
+                var firstRow = before == 0 ? VBLoader.MenuBarHeight : target == 0 ? -VBLoader.MenuBarHeight : 0;
+                FormFrame.ChangeMenuHeight(window, MenuBarLayout.Height(target) - oldHeight - firstRow);
+            }
             // DockPanel lays the canvas out in the area left below the bar; do not resize the window.
             window?.UpdateLayout();
-            try
-            {
-                // A bar first shown from code has no item extents until this layout.
-                if (target)
-                    RefuseWrapped(bar);
-            }
-            catch (NotImplementedException)
-            {
-                bar.IsVisible = !target;
-                if (window is not null)
-                    FormFrame.ChangeMenu(window, !target);
-                window?.UpdateLayout();
-                throw;
-            }
             root?.ExecuteSub("Form_Resize");
             return Task.CompletedTask;
         }
         if (root?.Events is { } events)
         {
             using var posting = events.Posting();
-            change.Pending = visible;
+            change.Pending = rows;
             events.Raise("MenuBar", Apply);
         }
         else
             Apply().GetAwaiter().GetResult();
     }
 
-    private static void RefuseWrapped(Menu bar)
-    {
-        if (!FormNativeMenu.IsNative(bar) && bar is VBMenuBar wrapped && wrapped.RowCount() > 1)
-            throw new NotImplementedException("Changing a wrapped menu bar is not implemented (#4946)");
-    }
+    // A shown bar takes at least one row: a Width change before the message re-wraps a bar whose menus are all hidden to
+    // no rows, and it still holds its 20 pixels until the message removes it.
+    private static int AppliedRows(Menu bar) =>
+        bar.IsVisible ? bar is VBMenuBar wrapped ? Math.Max(1, wrapped.AppliedRows) : 1 : 0;
 
-    internal static void CheckRows(VBMenuBar bar, Control? changed = null, bool? visible = null,
-        string? caption = null, Control? added = null, int position = -1)
-    {
-        if (FormNativeMenu.IsNative(bar)) return;
-        var before = bar.RowCount();
-        var after = bar.RowCount(changed, visible, caption, added, position);
-        if (before != after && Math.Max(before, after) > 1)
-            throw new NotImplementedException("Changing a wrapped menu bar is not implemented (#4946)");
-    }
+    internal static void ChangeRows(VBMenuBar bar, Control? changed = null, bool? visible = null,
+        string? caption = null, Control? added = null, int position = -1) =>
+        ChangeBar(bar, bar.RowCount(changed, visible, caption, added, position));
 
     private static bool IsMdiChild(ProjectElements.FormDefinition definition)
     {

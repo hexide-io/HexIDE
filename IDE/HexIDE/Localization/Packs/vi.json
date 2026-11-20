@@ -591,6 +591,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Yêu cầu khai báo biến",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Tự động liệt kê thành viên",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Liệt kê thành viên khi nhập",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Chỉnh sửa liên kết (đổi tên các chỗ dùng khác của biến khi nhập)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Tự động thông tin nhanh",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Tự động thụt lề",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Định dạng khi lưu",
@@ -779,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Hủy",
     "Str.Options.Environment.FileHandling.Header": "Xử lý tệp",
     "Str.Options.Environment.ReloadExternalChanges": "Nạp lại các tệp bị thay đổi bên ngoài IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Dự án RDCore: chỉ đặt Win64 trên Windows",
     "Str.StatusBar.FileReloaded": "Đã nạp lại {0}",
     "Str.Dialog.TrustChain.Title": "Chuỗi chữ ký",
     "Str.Dialog.TrustChain.RevokedBanner": "Add-in này đã bị thu hồi và sẽ không được nạp.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Không có nội dung được gửi nên không có gì thay đổi.",
     "Str.AIChat.ProjectCannotStart": "Không thể khởi chạy dự án (chưa tải dự án nào hoặc đã chạy)",
     "Str.AIChat.ProjectNotRunning": "Hiện không có dự án nào đang chạy",
-    "Str.SessionEnd.UnsavedWork": "Thay đổi chưa lưu trong {0}"
+    "Str.SessionEnd.UnsavedWork": "Thay đổi chưa lưu trong {0}",
+    "Str.Options.Addin.ReportedFailure": "Đã báo cáo sự cố lúc {0}: {1}"
   }
 }

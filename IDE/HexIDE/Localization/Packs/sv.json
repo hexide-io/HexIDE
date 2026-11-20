@@ -591,6 +591,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Kräv variabeldeklaration",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Lista medlemmar automatiskt",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Lista medlemmar medan du skriver",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Länkad redigering (byt namn på andra användningar av en variabel medan du skriver)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatisk snabbinfo",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatiskt indrag",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatera vid spara",
@@ -779,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Avbryt",
     "Str.Options.Environment.FileHandling.Header": "Filhantering",
     "Str.Options.Environment.ReloadExternalChanges": "Läs in filer som ändrats utanför IDE:t på nytt",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projekt: ange Win64 endast på Windows",
     "Str.StatusBar.FileReloaded": "Läste in {0} på nytt",
     "Str.Dialog.TrustChain.Title": "Signeringskedja",
     "Str.Dialog.TrustChain.RevokedBanner": "Det här tillägget har återkallats och kommer inte att läsas in.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Inget innehåll skickades, så ingenting ändrades.",
     "Str.AIChat.ProjectCannotStart": "Kan inte starta projektet (inget inläst eller redan igång)",
     "Str.AIChat.ProjectNotRunning": "Inget projekt körs för närvarande",
-    "Str.SessionEnd.UnsavedWork": "Osparade ändringar i {0}"
+    "Str.SessionEnd.UnsavedWork": "Osparade ändringar i {0}",
+    "Str.Options.Addin.ReportedFailure": "Ett problem rapporterades {0}: {1}"
   }
 }

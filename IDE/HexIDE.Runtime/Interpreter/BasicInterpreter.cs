@@ -201,7 +201,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name)
             : obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get;
         if (proc is null)
-            throw new NotImplementedException("Arguments on this default member kind are unmeasured (#4906)");
+        {
+            if (!IsLateBound(value))
+                throw new VBCompileErrorException("Invalid use of property");
+            throw new VBRunTimeException(ctx, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        }
         return await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames)
             ?? throw new NotImplementedException("A default member without a value is unmeasured (#4906)");
     }
@@ -238,14 +242,64 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? obj.ClassDef.PrePass.Properties.GetValueOrDefault(member.Name)?.Get
             : obj.ClassDef.PrePass.Procedures.GetValueOrDefault(member.Name);
         if (proc is null)
-            throw new NotImplementedException("A default member without a value is unmeasured (#4906)");
+        {
+            if (!IsLateBound(value))
+                throw new VBCompileErrorException("Invalid use of property");
+            throw new VBRunTimeException(ctx, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        }
+        // VB6 rejects these typed results before Item runs (#4906, native and p-code).
+        var declaredClass = ProjectClassFor(proc.ReturnUdtTypeName ?? "");
+        if (!proc.ReturnType.IsArray && !IsLateBound(value)
+            && declaredClass?.PrePass.DefaultMember is { Kind: PrePass.DefaultMemberKind.Property } declaredDefault
+            && declaredClass.PrePass.Properties.GetValueOrDefault(declaredDefault.Name) is { } declaredProperty)
+        {
+            if (declaredProperty.Let is { Parameters.Count: > 1 })
+                throw new VBCompileErrorException("Argument not optional");
+            if (declaredProperty.Let is null && declaredProperty.Get is { Parameters.Count: 0 })
+                throw new VBCompileErrorException("Invalid use of property");
+        }
         var result = await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames);
         if (result is null && member.Kind != PrePass.DefaultMemberKind.Sub)
             throw new NotImplementedException("A default member without a value is unmeasured (#4906)");
         if (result is { } returned && (returned.Type == Vb6Value.ValueType.Object
             || returned.Type == Vb6Value.ValueType.Control || returned.Type == Vb6Value.ValueType.CSharpProxyObject
             || returned.Type == Vb6Value.ValueType.Nothing))
+        {
+            var returnedObject = returned.Value as VbObject;
+            var returnedDefault = returnedObject?.ClassDef.PrePass.DefaultMember;
+            var property = returnedDefault is { Kind: PrePass.DefaultMemberKind.Property }
+                ? returnedObject!.ClassDef.PrePass.Properties.GetValueOrDefault(returnedDefault.Name) : null;
+            if (property?.Let is { Parameters.Count: 1 } resultLetter)
+            {
+                await RunProcedure(returnedObject!.ClassDef, resultLetter, [new CallArg(assigned, null)],
+                    returnedObject.InstanceEnv, returned, frames);
+                return;
+            }
+            if (!IsLateBound(value) && declaredClass is null
+                && (returned.Value is null || returnedObject is not null && returnedDefault is null
+                    || property?.Let is { Parameters.Count: > 1 }
+                    || property is { Let: null, Get.Parameters.Count: 0 }))
+                throw new NotImplementedException(proc.ReturnsVariant
+                    ? "A Let through a default member's Object or Variant result is unmeasured (#4906)"
+                    : "Let through an object-returning default member is unmeasured (#4906)");
+            if (returned.Value is null || returnedObject is not null && returnedDefault is null)
+            {
+                // As Object alone calls Item twice on these failures (A6/A8, #4906).
+                if (!value.HeldAsVariant && IsLateBound(value))
+                    await RunProcedure(obj.ClassDef, proc, args, obj.InstanceEnv, value, frames);
+                throw new VBRunTimeException(ctx, returned.Value is null && !IsLateBound(value)
+                    ? VBStandardError.ObjectVariableOrWithBlockVariableNotSet
+                    : VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            }
+            if (property?.Let is { Parameters.Count: > 1 })
+                throw new VBRunTimeException(ctx, VBStandardError.ArgumentNotOptionalOrInvalidPropertyAssignment);
+            if (property is { Let: null, Get.Parameters.Count: 0 })
+            {
+                await RunProcedure(returnedObject!.ClassDef, property.Get, [], returnedObject.InstanceEnv, returned, frames);
+                throw new VBRunTimeException(ctx, VBStandardError.ObjectNotACollection);
+            }
             throw new NotImplementedException("Let through an object-returning default member is unmeasured (#4906)");
+        }
         throw new VBRunTimeException(ctx, IsLateBound(value)
             ? VBStandardError.ObjectNotACollection : VBStandardError.ObjectRequired);
     }
@@ -531,7 +585,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         var typeName = def.Name;
         // EnsureTypeBounds runs the owner's declarations where possible; the allocation's executor resolves its own
-        // Private Type ahead (#4734). Other unresolved allocation orders keep this refusal pending measurement.
+        // Private Types (#4734) and Public Types in standard modules (#4907) ahead.
         if (def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
             throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4907)");
         if (depth > 64)
@@ -541,6 +595,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         var objectFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string>? builtinObjectFields = null;
         var fixedStringWidths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
@@ -617,7 +672,23 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 var name = objectName[(dot + 1)..];
                 if (ExpressionExecutor.IsCollectionType(objectName)
                     || IsObjectTypeWithoutClass(qualifier, name, out var aliasScalar) && aliasScalar is null)
+                {
+                    // Only these scalar object fields were measured in #3924 (native and p-code).
+                    if ((qualifier is null || qualifier.Equals("VB", StringComparison.OrdinalIgnoreCase))
+                            && (name.Equals("TextBox", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("Control", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("Form", StringComparison.OrdinalIgnoreCase))
+                        || (qualifier is null || qualifier.Equals("stdole", StringComparison.OrdinalIgnoreCase))
+                            && (name.Equals("StdFont", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("StdPicture", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        fields[f.Name] = Vb6Value.Nothing;
+                        objectFields[f.Name] = name;
+                        (builtinObjectFields ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase)).Add(f.Name);
+                        continue;
+                    }
                     throw new NotImplementedException($"Object field '{f.Name}' inside Type '{typeName}' is not implemented (#3924): its VB6 behaviour is unmeasured");
+                }
             }
             // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
             if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
@@ -636,11 +707,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else if (f.UdtTypeName is { } nested)
                 fields[f.Name] = Types.ContainsKey(nested) ? Vb6Value.NewUdt(NewUdt(nested, depth + 1))
                     : Enums.ContainsKey(nested) ? new Vb6Value(0L)   // an Enum-typed field is a Long
-                    : throw new VBCompileErrorException($"Type '{typeName}' field '{f.Name}' references undefined type '{nested}'");
+                    : throw new VBCompileErrorException("User-defined type not defined");
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths);
+        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths)
+        {
+            BuiltinObjectFields = builtinObjectFields,
+        };
     }
 
     private bool IsUdtObjectArrayType(string typeName)
@@ -2758,13 +2832,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
-            { Line = line };
+        var diagnostic = ParseFailureMessage.Classify(recognizer, line);
+        throw new VBCompileErrorException($"{diagnostic.Message}\nParser: {SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
+            { Line = diagnostic.Line };
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}") { Line = line };
+        var diagnostic = ParseFailureMessage.Classify(recognizer, line);
+        throw new VBCompileErrorException($"{diagnostic.Message}\nParser: {SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}") { Line = diagnostic.Line };
     }
 }

@@ -33,6 +33,13 @@ If deferred result deserialization fails, the protocol inspector marks the excha
 
 ---
 
+Linked editing (`textDocument/linkedEditingRange`, #5015) is opt-in through Options → Editor → General.
+It defaults to off; profiles may set `linkedEditing`. The client declares it without dynamic registration and asks only a server whose `initialize` result offers
+`linkedEditingRangeProvider`. It
+requests ranges after a 500 ms caret/edit debounce and a document flush, and mirrors only identical, validated ranges supplied
+by the server. Escape, leaving the ranges, an outside change or a failed `wordPattern` ends the link.
+Each mirrored edit is one undo step. The separate carried-file editor does not use this code-window path.
+
 ## The design claim this document is accountable to
 
 > The backend is replaceable. Any conformant language server should work, and where one does not, that is a
@@ -1089,6 +1096,17 @@ than `vb6` therefore started, initialized and was never sent a document
 ([#277](https://github.com/hexide-io/HexIDE/issues/277)). The scheme branch, `SchemeLanguageOf`, and the
 identifier as a claim are gone.
 
+### Projects opened by an add-in's project type
+
+The opener carries `ProjectDefinition.ContributedBy`, the owning add-in's manifest id, into the document
+session. If that add-in registered any servers claiming the document's extension, those servers alone
+claim the project member (#5055). The bundled server, configuration entries and other add-ins' servers
+neither start for nor receive that document. Requests, changes, saves and closes use the same claim.
+
+If the owner is null, or none of its servers claims the extension, ordinary extension and membership
+routing applies. HexIDE's own projects (including `.vbp` groups) and carried files keep that routing.
+The registration's `AddinId` identifies the owner; `Origin` remains the display title.
+
 ### The one place the identifier still counts: a project's class modules
 
 The `.cls` collision ([#279](https://github.com/hexide-io/HexIDE/issues/279)) is the worked example: a `.cls`
@@ -1167,6 +1185,9 @@ sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-doc
 
 `stdio`, `pipe` (named pipe, connecting or listening), `websocket` (connecting by default, or listening with `websocketRole: "listen"`) and `tcp` (connect or listen via `tcpRole`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other transports are covered against test peers.
+
+Cancelling a WebSocket listener observes the pending HTTP accept even if it faults after the
+cancellable wait ends (#4833). Closing the endpoint does not leave that task for the finalizer.
 
 TCP uses `tcp://host:port` endpoints and Content-Length framing in both directions (#386).
 Listen uses `localhost` (IPv4 loopback) unless an explicit IP address is named. A non-loopback
@@ -1843,7 +1864,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 62 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 63 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1865,7 +1886,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 29 of 41
+### `textDocument/*` — 30 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1891,7 +1912,7 @@ than inferred.
 | ✅ | `textDocument/inlayHint` | → | Inline labels at their positions; first nonempty provider; bundled syntactic block ends |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
-| ○ | `textDocument/linkedEditingRange` | → |  |
+| ✅ | `textDocument/linkedEditingRange` | → | Opt-in code-window linked editing; static and dynamic providers (#5015) |
 | ○ | `textDocument/moniker` | → |  |
 | ✅ | `textDocument/onTypeFormatting` | → | Claimed typing triggers, guarded edits, caret mapping and one-step undo (#2672) |
 | ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
@@ -2101,7 +2122,7 @@ Three clusters account for nearly all of the gap:
 - **Server-to-client courtesy** — `window/*` and `client/*` are 7 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration is honoured for
-  `workspace/didChangeWatchedFiles` only (#456); other methods remain logged and refused (#288).
+  `workspace/didChangeWatchedFiles` (#456) and `textDocument/linkedEditingRange` (#5015); other methods remain logged and refused (#288).
   Registrations belong to one connection and are discarded on disconnect. Both string globs and relative
   patterns (URI or WorkspaceFolder bases) support create/change/delete masks. String globs follow workspace
   folder additions and removals; relative patterns retain their registered base. Registrations that would

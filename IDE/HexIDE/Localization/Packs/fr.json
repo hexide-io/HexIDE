@@ -624,6 +624,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Exiger la déclaration des variables",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Liste automatique des membres",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Lister les membres pendant la saisie",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Modification liée (renommer les autres occurrences d’une variable pendant la saisie)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Info rapide automatique",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Indentation automatique",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Mettre en forme à l'enregistrement",
@@ -812,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "A_nnuler",
     "Str.Options.Environment.FileHandling.Header": "Gestion des fichiers",
     "Str.Options.Environment.ReloadExternalChanges": "Recharger les fichiers modifiés en dehors de l'EDI",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projets RDCore : définir Win64 uniquement sous Windows",
     "Str.StatusBar.FileReloaded": "{0} rechargé",
     "Str.Dialog.TrustChain.Title": "Chaîne de signature",
     "Str.Dialog.TrustChain.RevokedBanner": "Ce complément a été révoqué et ne sera pas chargé.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Aucun contenu n’a été envoyé, donc rien n’a été modifié.",
     "Str.AIChat.ProjectCannotStart": "Impossible de démarrer le projet (aucun projet chargé ou déjà en cours d’exécution)",
     "Str.AIChat.ProjectNotRunning": "Aucun projet n’est actuellement en cours d’exécution",
-    "Str.SessionEnd.UnsavedWork": "Modifications non enregistrées dans {0}"
+    "Str.SessionEnd.UnsavedWork": "Modifications non enregistrées dans {0}",
+    "Str.Options.Addin.ReportedFailure": "Problème signalé à {0} : {1}"
   }
 }

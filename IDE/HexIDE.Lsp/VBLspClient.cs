@@ -770,7 +770,10 @@ public sealed class VBLspClient : ILspClient
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
                          "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
                         ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
-                         "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
+                         "async", "modification", "documentation", "defaultLibrary"], ["relative"]))
+                {
+                    LinkedEditingRange = new LinkedEditingRangeClientCapabilities(),
+                },
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     ApplyEdit: true,
@@ -1021,7 +1024,8 @@ public sealed class VBLspClient : ILspClient
     /// directly (the tests, and the single-server path) must accept the same call.
     /// </summary>
     public Task OpenDocumentAsync(
-        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default) =>
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
+        string? ownerAddinId = null) =>
         OpenDocumentAsync(uri, text, cancellationToken);
 
     public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)
@@ -2112,6 +2116,22 @@ public sealed class VBLspClient : ILspClient
         if (!element.TryGetProperty("uri", out var uri) || uri.ValueKind != JsonValueKind.String) return null;
         if (!element.TryGetProperty("range", out var r) || ReadRange(r) is not { } plain) return null;
         return new Location(uri.GetString()!, plain);
+    }
+
+    public async Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("linkedEditingRangeProvider")) return null;
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            return await InvokeRequestAsync<LinkedEditingRanges?>(_rpc,
+                "textDocument/linkedEditingRange", p, cancellationToken, documentUri: uri);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/linkedEditingRange", ex, cancellationToken);
+            return null;
+        }
     }
 
     public async Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default)
@@ -3242,6 +3262,7 @@ public sealed class VBLspClient : ILspClient
         "documentOnTypeFormattingProvider",
         "documentRangeFormattingProvider",
         "documentHighlightProvider",
+        "linkedEditingRangeProvider",
         "documentSymbolProvider",
         // Read by the command-routing reader rather than a gate: a command is routed to the server that
         // named it, so the question is never "does any server offer this" but "which one declared it".

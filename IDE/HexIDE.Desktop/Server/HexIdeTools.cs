@@ -1,3 +1,4 @@
+using NativeMenuBar = HexIDE.Automation.NativeMenuBar;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
@@ -3136,6 +3137,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         bool includeFrame = false,
         CancellationToken ct = default)
     {
+        if (NativeMenuBar.IsScope(window)) return new SnapshotResult(null, NativeMenuBar.Unsupported, null, CaptureArea: null);
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             // Through the shared resolver, so 'window' means the same thing here as in every other tool.
@@ -3256,7 +3258,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "while it is paused at a breakpoint; among several, a dialog wins, then the one with focus, then the one opened "
         + "last, else the IDE's own. Floating IDE tools are skipped by auto; use their stable layout key (such as \"immediate\") or window title. \"ide\" reaches the IDE's own window; a window's title, or a running form's name such as \"Form2\", reaches that "
         + "window, or of two stacked under one name the one on top, which is how a form behind another form of the program is reached. An unknown name is refused with "
-        + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle. Use Form1#2 for the second visible match in opening order; exact names win.";
+        + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle. Use Form1#2 for the second visible match in opening order; exact names win. \"menubar\" reaches the macOS menu bar in dump_visual_tree, inspect_element and interact only.";
 
     [McpServerTool(Name = "dump_visual_tree")]
     [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId, an automation Name of their own or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers and isEnabled. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. Nodes may carry 'isHidden' and 'isOffscreen'; 'flagsNote' says what each means when a node has one. A long ListBox makes rows only for what is in view and a focused row, so its dump lists those; interact 'select' with a value scrolls to the rest. Top-level 'focusedPath' names the keyboard focus anywhere in the window, or 'focusReason' says why there is none. Scope a dump with 'root', or search with 'match'; 'maxDepth' and 'interactiveOnly' say what is kept and when a node is 'truncated'. A tree over about 40,000 characters is cut to fit, keeping the active document, and the 'note', written first, says what was cut.")]
@@ -3303,6 +3305,15 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string? activeDocumentPath = null;
         var result = await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (NativeMenuBar.IsScope(window))
+            {
+                var bar = new NativeMenuBar();
+                var (tree, menuError) = bar.Dump(root, maxDepth, match is null && interactiveOnly);
+                if (tree is null) return new VisualTreeResult(menuError, "menubar", null);
+                if (match is null) return new VisualTreeResult(null, "menubar", tree, Note: bar.Note);
+                var (items, menuTotal, menuUnsearched) = UiAutomationDriver.Find(tree, match, MatchLimit);
+                return new VisualTreeResult(null, "menubar", null, [.. items], bar.Note + MatchNote(match, menuTotal, menuUnsearched));
+            }
             var (active, label, error) = ResolveActiveWindow(window);
             if (active is null)
                 return new VisualTreeResult(error, null, null);
@@ -3341,10 +3352,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (result is { Root: { } tree, Matches: null })
         {
             var (fitted, fitNote) = FitToReply(tree, activeDocumentPath);
-            result = result with { Root = fitted, Note = fitNote ?? result.Note };
+            result = result with
+            {
+                Root = fitted,
+                Note = fitNote is null ? result.Note : fitNote + (NativeMenuBar.IsScope(window) ? " " + result.Note : "")
+            };
         }
         var shown = result.Root is { } root2 ? [root2] : result.Matches ?? [];
-        return result with { FlagsNote = FlagsNote(shown), Note = ScriptedFileDialogs.WithNativePickerNote(result.Note) };
+        return result with
+        {
+            FlagsNote = NativeMenuBar.IsScope(window) && FlagsNote(shown) is not null
+                ? "isHidden true marks a native item with IsVisible false, or a top-level item without a submenu, which macOS doesn't draw. Native menu interaction refuses hidden items."
+                : FlagsNote(shown),
+            Note = ScriptedFileDialogs.WithNativePickerNote(result.Note)
+        };
     }
 
     /// <summary>
@@ -3551,6 +3572,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (NativeMenuBar.IsScope(window))
+            {
+                var (element, menuError) = new NativeMenuBar().Inspect(target);
+                return new InspectResult(menuError, "menubar", element);
+            }
             var (active, label, error) = ResolveActiveWindow(window);
             if (active is null)
                 return new InspectResult(error, null, null);
@@ -3576,6 +3602,28 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string? window = null,
         CancellationToken ct = default)
     {
+        if (NativeMenuBar.IsScope(window))
+        {
+            UiAutomationDriver.ProgramWatch? menuWatch = null;
+            var barNote = "";
+            var native = await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (ScriptedFileDialogs.NativePickerNote is { } picker)
+                    return new InteractOutcome(false, "native-menu", null, picker);
+                var bar = new NativeMenuBar();
+                barNote = bar.Note;
+                // A running form's menu Click runs in its program, after the action returns: wait for it, as a
+                // window's interact does, so the state read back is the program's (#5066's Kronos check).
+                menuWatch = UiAutomationDriver.WatchProgram(bar.BarWindow, () => ctx.DebugController.CurrentStop);
+                return bar.Interact(target, action);
+            });
+            if (!native.Success)
+                return native;
+            native = await WaitForProgramAsync(menuWatch, native, ct);
+            var state = await Dispatcher.UIThread.InvokeAsync(() => new NativeMenuBar().StateOf(target));
+            var said = native.Detail ?? "";
+            return native with { Detail = said + (said.EndsWith('.') ? " " : ". ") + state + " " + barNote.TrimEnd() };
+        }
         using var documentSave = UiSaveFeedback.BeginDocumentSave();
         if (ScriptedFileDialogs.NativePickerNote is { } blocking)
             return new InteractOutcome(false, "peer", null, blocking);
@@ -3651,6 +3699,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string? mode = null,
         CancellationToken ct = default)
     {
+        if (NativeMenuBar.IsScope(window)) return new InteractOutcome(false, "native-menu", null, NativeMenuBar.Unsupported);
         var keyboard = (mode ?? "document").Trim().ToLowerInvariant() switch
         {
             "document" or "" => false,
@@ -3727,6 +3776,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         bool stay = false,
         CancellationToken ct = default)
     {
+        if (NativeMenuBar.IsScope(window)) return new InteractOutcome(false, "native-menu", null, NativeMenuBar.Unsupported);
         if (dwellMs is < 0 or > MaxHoverDwellMs)
             return new InteractOutcome(false, "pointer", null,
                 $"dwellMs must be between 0 and {MaxHoverDwellMs}; it was {dwellMs}");
@@ -4006,6 +4056,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         [Description(WindowParameter)] string? window = null,
         CancellationToken ct = default)
     {
+        if (NativeMenuBar.IsScope(window)) return new InteractOutcome(false, "native-menu", null, NativeMenuBar.Unsupported);
         using var documentSave = UiSaveFeedback.BeginDocumentSave();
         UiAutomationDriver.ProgramWatch? watch = null;
         var outcome = await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -4049,6 +4100,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     /// </summary>
     private static (Control? control, string? error) ResolveIn(Window active, string? scope, string path)
     {
+        if (path == "MenuBar" || path.StartsWith("MenuBar/", StringComparison.Ordinal))
+            return (null, NativeMenuBar.WindowPathError);
         var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         return main is null
             ? UiAutomationDriver.Resolve(active, path)
@@ -4267,7 +4320,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first: each submenu on the path gets its SubmenuOpened, as opening it does, so one filled then holds its items. An item whose header is a control is matched by its automation name, as dump_visual_tree names it. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. A checkable item with no command of its own, such as View/Minimap, is ticked or unticked, as a click does. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it. Document saves wait up to 2 s and report completion or still running, and any answer still armed. File/Make waits for its result: the program it wrote, with its size, or why it wrote none.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first: each submenu on the path gets its SubmenuOpened, as opening it does, so one filled then holds its items. An item whose header is a control is matched by its automation name, as dump_visual_tree names it. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. A checkable item with no command of its own, such as View/Minimap, is ticked or unticked, as a click does. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it. Document saves wait up to 2 s and report completion or still running, and any answer still armed. File/Make waits for its result: the program it wrote, with its size, or why it wrote none. The app menu is reached by its title as the first segment; running forms' native menus use interact with window: \"menubar\".")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
         using var documentSave = UiSaveFeedback.BeginDocumentSave();
@@ -4284,6 +4337,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (window is null)
                 return new MutateResult(false, "No main window");
 
+            var appMenu = NativeMenu.GetMenu(Avalonia.Application.Current!);
+            if (appMenu is not null && string.Equals(path.Split('/')[0], NativeMenuBar.AppTitle, StringComparison.OrdinalIgnoreCase))
+            {
+                var bar = new NativeMenuBar();
+                var native = bar.InvokeApp(path);
+                return new MutateResult(native.Success, native.Error,
+                    native.Success ? native.Detail + ". " + bar.Note.TrimEnd() : native.Detail);
+            }
             var menu = window.FindDescendantOfType<Menu>();
             if (menu is null)
                 return new MutateResult(false, "No menu bar found in main window");
@@ -4292,7 +4353,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // such as Recent Projects, has no MenuItem until that submenu is opened. (#544)
             var found = MenuPath.Resolve(menu.Items, path);
             if (found.Error is not null)
-                return new MutateResult(false, found.Error);
+                return new MutateResult(false, found.Error + (appMenu is not null && found.Error.Contains("in the menu bar.", StringComparison.Ordinal)
+                    ? ". App menu: " + NativeMenuBar.AppTitle : ""));
 
             // A checkable item such as View/Minimap has no command: a click moves its tick, which its binding carries
             // to the setting (#947).

@@ -353,9 +353,12 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
   Array fields have indexed reads/writes and whole-array store checks. Constant-expression Type-field bounds
   resolve in declaration order ([#4595, measured](https://github.com/hexide-io/HexIDE/issues/4595));
-  private Types allocated above their declaration in their own module or class resolve from Consts above the Type,
+  Private Types allocated above their declaration in their own module or class resolve from Consts above the Type,
   including Consts below the variable and chains of preceding Consts ([#4734, measured](https://github.com/hexide-io/HexIDE/issues/4734), oracle PR #4800).
-  Public Types and allocation from another module retain their existing behaviour ([#4907](https://github.com/hexide-io/HexIDE/issues/4907)); inverted Type-field bounds report "Range has no values". Get/Put of Type arrays and array fields use their packed layout,
+  A Public Type in a standard module follows the same rule, and a variable in another module or a class gets the Type's bounds
+  in the measured allocation orders ([#4907, measured](https://github.com/hexide-io/HexIDE/issues/4907), [oracle PR #5023](https://github.com/hexide-io/HexIDE/pull/5023)).
+  Allocating a Public Type above its declaration in its own class remains explicitly not implemented (#4907).
+  Inverted Type-field bounds report "Range has no values". Get/Put of Type arrays and array fields use their packed layout,
   with descriptors for dynamic fields even in Binary files ([#4925, measured native and p-code](https://github.com/hexide-io/HexIDE/issues/4925)).
   Collection array fields As New instantiate on first read and recreate after Nothing; copies share only created instances.
   Object array fields start Nothing, check incoming types and share references on copy. Variant fields support successive
@@ -417,14 +420,20 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   (writes check a copy without changing the field), scalar/Empty error 13 and late-bound variable error 451.
   Get-only/Function assignments execute the member then raise 424 early-bound or 451 through As Object. Held in
   a Variant, an assignment through a default Sub or Function raises 450 without calling it (measured).
-  Assignments through object-returning defaults and default members without a value remain unmeasured
-  and refuse naming #4906. Nothing in Variant/Object slots and object argument/value evaluation
-  order retain today's behaviour, unmeasured.
+  Assignments through object-returning defaults follow the measured rows
+  ([#4906](https://github.com/hexide-io/HexIDE/issues/4906)). An early-bound default declared As Object or
+  As Variant whose object can't take the Let, a built-in object given arguments, and default members
+  without a value still refuse naming #4906. Returned variable, Function or Sub defaults and Get-only
+  defaults requiring arguments also remain refused, as does unavailable default storage.
+  A Let of Nothing is 91 ([#5083](https://github.com/hexide-io/HexIDE/issues/5083)). Object argument/value
+  evaluation order retains today's behaviour, unmeasured.
   No-argument Lets into class/Object variables, class fields, With members and object-array elements now call
   the held class's default Property Let or store into its Variant default field, preserving the object
   ([#4694 measurements](https://github.com/hexide-io/HexIDE/issues/4694)). Get-only and Function defaults raise
-  the measured early/late-bound errors. UDT object fields and other object-array element cases (including Nothing,
-  no default, Sub or typed-field defaults) retain today's behaviour, unmeasured.
+  the measured early/late-bound errors. UDT fields holding project-class objects and the remaining object-array
+  element cases (including Nothing, no default, Sub or typed-field defaults) retain today's behaviour, unmeasured.
+  Typed UDT TextBox/StdFont fields write Text/Name through Let and raise 91 while Nothing
+  ([#3924 measurements](https://github.com/hexide-io/HexIDE/issues/3924)).
   Still refused naming #174: a Sub default used as a scalar, a member requiring arguments used without them,
   nested scalar defaults, typed Function Format/Abs and later Format arguments (unmeasured), and no-argument
   writes through variables or class fields to Sub or typed-field defaults (unmeasured). Synchronous Join/Filter reads,
@@ -575,4 +584,4 @@ moves it here (#3364). The *Missed* section keeps its own fixed entries, as the 
   elements and another module's Public UDT included, and a chained `Set` stores the final object reference. A field
   store through a UDT-returning property or function writes only the returned copy, calls the getter once, and never
   calls its Let, as [measured](vb6-fidelity-oracle/chained-writes-qualified-set-and-udt-returning-members.md) natively
-  and as p-code. `Set` through a class-typed UDT field is supported by #3924, including module-qualified chains. Object, Collection and project-class array fields allocate and take element `Set` since [#4596](https://github.com/hexide-io/HexIDE/issues/4596), with independent array copies sharing object references and measured Erase/scope-exit release timing; StdFont, TextBox and Control array fields now allocate and enforce the measured Set constraints ([#4925](https://github.com/hexide-io/HexIDE/issues/4925)); other recognised scalar object field types beyond Object and Collection remain explicitly refused pending measurements.
+  and as p-code. `Set` through a class-typed UDT field is supported by #3924, including module-qualified chains. Object, Collection and project-class array fields allocate and take element `Set` since [#4596](https://github.com/hexide-io/HexIDE/issues/4596), with independent array copies sharing object references and measured Erase/scope-exit release timing; StdFont, TextBox and Control array fields now allocate and enforce the measured Set constraints ([#4925](https://github.com/hexide-io/HexIDE/issues/4925)); StdFont, TextBox, Control, Form and StdPicture scalar fields now take Set and Nothing with the measured type checks, and held TextBox/StdFont fields accept Let through their defaults. Indexed record receivers, object/Variant array fields and plain Variant fields take Set; Integer, variable-length String, nested-Type and Integer-array-element targets raise "Object required" ([#3924 measurements](https://github.com/hexide-io/HexIDE/issues/3924), native and p-code, 2026-11-20). Other recognised scalar object field types, including ADODB.Connection and project-form names, and Set with successive index groups, indexed object defaults, As New scalar fields, other scalar targets (including fixed-length Strings), non-Integer scalar array elements or typed scalar arrays held in Variant fields remain explicitly refused pending measurements (#3924).

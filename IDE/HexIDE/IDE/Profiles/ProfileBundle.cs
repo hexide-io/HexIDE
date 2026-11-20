@@ -135,11 +135,12 @@ internal static class ProfileBundleLoader
                     && double.IsFinite(size) && size is >= 6 and <= 72,
                 "stickyScrollDepth" => kind == JsonValueKind.Number && property.Value.TryGetInt32(out var depth)
                     && depth is >= 1 and <= 10,
-                "requireVariableDeclaration" or "autoListMembers" or "listMembersAsYouType" or "autoQuickInfo" or "autoIndent"
+                "requireVariableDeclaration" or "autoListMembers" or "listMembersAsYouType" or "linkedEditing" or "autoQuickInfo" or "autoIndent"
                     or "formatOnSave" or "showGrid" or "alignToGrid" or "promptForProjectOnStartup"
                     or "isStandardToolbarVisible" or "isEditToolbarVisible" or "isDebugToolbarVisible"
                     or "isFormEditorToolbarVisible" or "isMinimapVisible" or "showInlayHints" or "showCodeLenses"
-                    or "colorBracketsByDepth" or "showIndentGuides" or "isStickyScrollEnabled" =>
+                    or "colorBracketsByDepth" or "showIndentGuides" or "isStickyScrollEnabled"
+                    or "rdcoreWin64OnlySetOnWindows" =>
                     kind is JsonValueKind.True or JsonValueKind.False,
                 _ => throw Error(file, field, "DisallowedSetting")
             };

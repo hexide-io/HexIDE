@@ -591,6 +591,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Kræv variabeldeklaration",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Vis medlemmer automatisk",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Vis medlemmer, mens du skriver",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Sammenkædet redigering (omdøb andre anvendelser af en variabel, mens du skriver)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatisk hurtig info",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatisk indrykning",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatér ved gem",
@@ -779,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Annuller",
     "Str.Options.Environment.FileHandling.Header": "Filhåndtering",
     "Str.Options.Environment.ReloadExternalChanges": "Genindlæs filer ændret uden for IDE'et",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projekter: angiv kun Win64 på Windows",
     "Str.StatusBar.FileReloaded": "Genindlæste {0}",
     "Str.Dialog.TrustChain.Title": "Signeringskæde",
     "Str.Dialog.TrustChain.RevokedBanner": "Dette tilføjelsesprogram er blevet tilbagekaldt og indlæses ikke.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Intet indhold blev sendt, så intet blev ændret.",
     "Str.AIChat.ProjectCannotStart": "Kan ikke starte projektet (intet indlæst eller kører allerede)",
     "Str.AIChat.ProjectNotRunning": "Intet projekt kører i øjeblikket",
-    "Str.SessionEnd.UnsavedWork": "Ikke-gemte ændringer i {0}"
+    "Str.SessionEnd.UnsavedWork": "Ikke-gemte ændringer i {0}",
+    "Str.Options.Addin.ReportedFailure": "Et problem blev rapporteret {0}: {1}"
   }
 }

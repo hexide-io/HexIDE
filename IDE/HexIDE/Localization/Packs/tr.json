@@ -591,6 +591,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Değişken Bildirimi Zorunlu",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Üyeleri Otomatik Listele",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Yazarken üyeleri listele",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Bağlantılı düzenleme (yazarken değişkenin diğer kullanımlarını yeniden adlandır)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Otomatik Hızlı Bilgi",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Otomatik Girinti",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Kaydederken Biçimlendir",
@@ -779,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "İp_tal",
     "Str.Options.Environment.FileHandling.Header": "Dosya işleme",
     "Str.Options.Environment.ReloadExternalChanges": "IDE dışında değiştirilen dosyaları yeniden yükle",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore projeleri: Win64 yalnızca Windows üzerinde ayarlansın",
     "Str.StatusBar.FileReloaded": "{0} yeniden yüklendi",
     "Str.Dialog.TrustChain.Title": "İmzalama zinciri",
     "Str.Dialog.TrustChain.RevokedBanner": "Bu eklenti iptal edildi ve yüklenmeyecek.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "İçerik gönderilmediği için hiçbir şey değiştirilmedi.",
     "Str.AIChat.ProjectCannotStart": "Proje başlatılamıyor (yüklü proje yok veya zaten çalışıyor)",
     "Str.AIChat.ProjectNotRunning": "Şu anda çalışan bir proje yok",
-    "Str.SessionEnd.UnsavedWork": "Kaydedilmemiş değişiklikler: {0}"
+    "Str.SessionEnd.UnsavedWork": "Kaydedilmemiş değişiklikler: {0}",
+    "Str.Options.Addin.ReportedFailure": "{0} tarihinde bir sorun bildirildi: {1}"
   }
 }

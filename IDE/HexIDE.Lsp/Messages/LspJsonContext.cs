@@ -73,6 +73,7 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(ReferenceParams))]
 [JsonSerializable(typeof(Location[]))]
 [JsonSerializable(typeof(DocumentHighlight[]))]
+[JsonSerializable(typeof(LinkedEditingRanges))]
 [JsonSerializable(typeof(CodeActionParams))]
 [JsonSerializable(typeof(RenameParams))]
 [JsonSerializable(typeof(WorkspaceEdit))]

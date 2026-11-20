@@ -555,6 +555,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Projekt bekérése",
     "Str.Options.Environment.FileHandling.Header": "Fájlkezelés",
     "Str.Options.Environment.ReloadExternalChanges": "Az IDE-n kívül módosított fájlok újratöltése",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projektek: a Win64 beállítása csak Windowson",
     "Str.Options.Theme.GroupHeader": "IDE-téma",
     "Str.Theme.HighContrastLight": "Kontrasztos világos",
     "Str.Theme.HighContrastDark": "Kontrasztos sötét",
@@ -629,6 +630,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Változók deklarálásának megkövetelése",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Tagok automatikus listázása",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Tagok listázása gépelés közben",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Összekapcsolt szerkesztés (a változó többi előfordulásának átnevezése gépelés közben)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatikus gyorsinformáció",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatikus behúzás",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formázás mentéskor",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Nem érkezett tartalom, ezért semmi sem változott.",
     "Str.AIChat.ProjectCannotStart": "A projekt nem indítható (nincs betöltve vagy már fut)",
     "Str.AIChat.ProjectNotRunning": "Jelenleg nem fut projekt",
-    "Str.SessionEnd.UnsavedWork": "Nem mentett módosítások: {0}"
+    "Str.SessionEnd.UnsavedWork": "Nem mentett módosítások: {0}",
+    "Str.Options.Addin.ReportedFailure": "Probléma jelentve ekkor: {0}: {1}"
   }
 }

@@ -625,6 +625,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Variabeledeclaratie vereisen",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Leden automatisch weergeven",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Leden weergeven tijdens het typen",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Gekoppeld bewerken (andere toepassingen van een variabele tijdens het typen hernoemen)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatische snelinfo",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatisch inspringen",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Opmaken bij opslaan",
@@ -813,6 +814,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Annuleren",
     "Str.Options.Environment.FileHandling.Header": "Bestandsbeheer",
     "Str.Options.Environment.ReloadExternalChanges": "Bestanden die buiten de IDE zijn gewijzigd opnieuw laden",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projecten: Win64 alleen op Windows instellen",
     "Str.StatusBar.FileReloaded": "{0} opnieuw geladen",
     "Str.Dialog.TrustChain.Title": "Ondertekeningsketen",
     "Str.Dialog.TrustChain.RevokedBanner": "Deze invoegtoepassing is ingetrokken en wordt niet geladen.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Er is geen inhoud verzonden, dus er is niets gewijzigd.",
     "Str.AIChat.ProjectCannotStart": "Kan project niet starten (geen geladen of al actief)",
     "Str.AIChat.ProjectNotRunning": "Er wordt momenteel geen project uitgevoerd",
-    "Str.SessionEnd.UnsavedWork": "Niet-opgeslagen wijzigingen in {0}"
+    "Str.SessionEnd.UnsavedWork": "Niet-opgeslagen wijzigingen in {0}",
+    "Str.Options.Addin.ReportedFailure": "Probleem gemeld op {0}: {1}"
   }
 }

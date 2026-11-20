@@ -521,6 +521,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Solicită un proiect",
     "Str.Options.Environment.FileHandling.Header": "Gestionarea fișierelor",
     "Str.Options.Environment.ReloadExternalChanges": "Reîncarcă fișierele modificate în afara IDE-ului",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Proiecte RDCore: setează Win64 numai pe Windows",
     "Str.Options.Theme.GroupHeader": "Tema IDE-ului",
     "Str.Theme.HighContrastLight": "Contrast ridicat luminos",
     "Str.Theme.HighContrastDark": "Contrast ridicat întunecat",
@@ -595,6 +596,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Solicită declararea variabilelor",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Listează automat membrii",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listează membrii în timpul tastării",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Editare asociată (redenumește celelalte utilizări ale unei variabile în timpul tastării)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Informații rapide automate",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Indentare automată",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatare la salvare",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Nu s-a trimis conținut, așa că nu s-a modificat nimic.",
     "Str.AIChat.ProjectCannotStart": "Proiectul nu poate fi pornit (niciunul încărcat sau rulează deja)",
     "Str.AIChat.ProjectNotRunning": "Niciun proiect nu rulează în prezent",
-    "Str.SessionEnd.UnsavedWork": "Modificări nesalvate în {0}"
+    "Str.SessionEnd.UnsavedWork": "Modificări nesalvate în {0}",
+    "Str.Options.Addin.ReportedFailure": "Problemă raportată la {0}: {1}"
   }
 }

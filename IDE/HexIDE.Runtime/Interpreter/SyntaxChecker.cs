@@ -10,13 +10,15 @@ public partial class SyntaxChecker : IAntlrErrorListener<IToken>, IAntlrErrorLis
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} in line {line}:{charPositionInLine}\nOffending symbol: {offendingSymbol.Text}") { Line = line };
+        var diagnostic = ParseFailureMessage.Classify(recognizer, line);
+        throw new VBCompileErrorException($"{diagnostic.Message}\nParser: {SyntaxErrorText.Of(msg)} in line {line}:{charPositionInLine}\nOffending symbol: {offendingSymbol.Text}") { Line = diagnostic.Line };
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} in line {line}:{charPositionInLine}") { Line = line };
+        var diagnostic = ParseFailureMessage.Classify(recognizer, line);
+        throw new VBCompileErrorException($"{diagnostic.Message}\nParser: {SyntaxErrorText.Of(msg)} in line {line}:{charPositionInLine}") { Line = diagnostic.Line };
     }
 
     public void Run(string code) => ParseStack.Run(() =>

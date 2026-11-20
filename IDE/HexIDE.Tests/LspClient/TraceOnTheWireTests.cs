@@ -35,12 +35,18 @@ public partial class TraceOnTheWireTests : IAsyncDisposable
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private Stream? _serverSide;
     private ILspTransport? _transport;
+    private Task? _serverLoop;
 
     public async ValueTask DisposeAsync()
     {
+        await _cts.CancelAsync();
         foreach (var d in _disposables)
         {
             try { await d.DisposeAsync(); } catch { /* teardown is best effort */ }
+        }
+        if (_serverLoop is not null)
+        {
+            try { await _serverLoop; } catch { /* observe the stand-in before releasing its lifetime */ }
         }
         _cts.Dispose();
         _writeLock.Dispose();
@@ -63,7 +69,7 @@ public partial class TraceOnTheWireTests : IAsyncDisposable
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         _serverSide = serverSide;
 
-        _ = Task.Run(async () =>
+        _serverLoop = Task.Run(async () =>
         {
             try
             {

@@ -658,6 +658,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "変数の宣言を強制する",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "メンバーを自動的に一覧表示",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "入力中にメンバーを一覧表示",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "連動編集（入力中に変数の他の使用箇所の名前も変更する）",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "クイックヒントを自動的に表示",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "自動インデント",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "保存時に整形",
@@ -846,6 +847,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "キャンセル(_C)",
     "Str.Options.Environment.FileHandling.Header": "ファイルの処理",
     "Str.Options.Environment.ReloadExternalChanges": "IDE の外部で変更されたファイルを再読み込みする",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore プロジェクト: Windows でのみ Win64 を設定する",
     "Str.StatusBar.FileReloaded": "{0} を再読み込みしました",
     "Str.Dialog.TrustChain.Title": "署名チェーン",
     "Str.Dialog.TrustChain.RevokedBanner": "このアドインは取り消されており、読み込まれません。",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "内容が送信されなかったため、何も変更されませんでした。",
     "Str.AIChat.ProjectCannotStart": "プロジェクトを開始できません（読み込まれていないか、既に実行中です）",
     "Str.AIChat.ProjectNotRunning": "現在実行中のプロジェクトはありません",
-    "Str.SessionEnd.UnsavedWork": "{0} に保存されていない変更があります"
+    "Str.SessionEnd.UnsavedWork": "{0} に保存されていない変更があります",
+    "Str.Options.Addin.ReportedFailure": "{0} に問題が報告されました: {1}"
   }
 }

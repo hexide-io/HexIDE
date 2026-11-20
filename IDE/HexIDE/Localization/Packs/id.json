@@ -625,6 +625,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Wajibkan Deklarasi Variabel",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Daftar Anggota Otomatis",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Tampilkan anggota saat mengetik",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Pengeditan tertaut (ubah nama penggunaan variabel lainnya saat mengetik)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Info Cepat Otomatis",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Inden Otomatis",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Format saat Menyimpan",
@@ -813,6 +814,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Batal",
     "Str.Options.Environment.FileHandling.Header": "Penanganan berkas",
     "Str.Options.Environment.ReloadExternalChanges": "Muat ulang berkas yang diubah di luar IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Proyek RDCore: tetapkan Win64 hanya di Windows",
     "Str.StatusBar.FileReloaded": "{0} dimuat ulang",
     "Str.Dialog.TrustChain.Title": "Rantai penandatanganan",
     "Str.Dialog.TrustChain.RevokedBanner": "Add-in ini telah dicabut dan tidak akan dimuat.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Tidak ada konten yang dikirim, jadi tidak ada yang diubah.",
     "Str.AIChat.ProjectCannotStart": "Tidak dapat memulai proyek (belum dimuat atau sudah berjalan)",
     "Str.AIChat.ProjectNotRunning": "Tidak ada proyek yang sedang berjalan",
-    "Str.SessionEnd.UnsavedWork": "Perubahan yang belum disimpan di {0}"
+    "Str.SessionEnd.UnsavedWork": "Perubahan yang belum disimpan di {0}",
+    "Str.Options.Addin.ReportedFailure": "Masalah dilaporkan pada {0}: {1}"
   }
 }

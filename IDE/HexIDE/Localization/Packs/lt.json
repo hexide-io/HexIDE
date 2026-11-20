@@ -555,6 +555,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Klausti projekto",
     "Str.Options.Environment.FileHandling.Header": "Failų tvarkymas",
     "Str.Options.Environment.ReloadExternalChanges": "Iš naujo įkelti už IDE ribų pakeistus failus",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore projektai: nustatyti Win64 tik sistemoje Windows",
     "Str.Options.Theme.GroupHeader": "IDE apipavidalinimas",
     "Str.Theme.HighContrastLight": "Didelis kontrastas šviesus",
     "Str.Theme.HighContrastDark": "Didelis kontrastas tamsus",
@@ -629,6 +630,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Reikalauti kintamųjų deklaravimo",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatiškai rodyti narius",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Rodyti narius rašant",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Susietasis redagavimas (kitų kintamojo naudojimo vietų pervardijimas rašant)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatiškai rodyti trumpąją informaciją",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatinė įtrauka",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatuoti įrašant",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Turinys neišsiųstas, todėl niekas nepakeista.",
     "Str.AIChat.ProjectCannotStart": "Nepavyksta paleisti projekto (nė vienas neįkeltas arba jau veikia)",
     "Str.AIChat.ProjectNotRunning": "Šiuo metu joks projektas neveikia",
-    "Str.SessionEnd.UnsavedWork": "Neįrašyti pakeitimai: {0}"
+    "Str.SessionEnd.UnsavedWork": "Neįrašyti pakeitimai: {0}",
+    "Str.Options.Addin.ReportedFailure": "Apie problemą pranešta {0}: {1}"
   }
 }

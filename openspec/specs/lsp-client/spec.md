@@ -192,6 +192,19 @@ The client SHALL advertise dynamic registration only for `workspace/didChangeWat
 - **THEN** it produces no further file events
 
 
+### Requirement: Server-provided linked editing ranges
+
+The client SHALL declare `textDocument.linkedEditingRange` without dynamic registration, and SHALL ask
+only a server whose `initialize` result offers `linkedEditingRangeProvider`. Requests SHALL carry the
+document URI and caret position; replies SHALL expose `ranges` and optional `wordPattern`, or null. The
+editor's opt-in and mirroring rules belong to code-editor.
+
+#### Scenario: A server offers linked editing at initialize
+- **WHEN** a server's `initialize` result includes `linkedEditingRangeProvider`
+- **THEN** the client can request linked ranges at the caret's position
+- **AND** a server that doesn't offer it is never asked
+
+
 ### Requirement: Failed initialize handshakes are visible
 
 When an initialize handshake fails, the client SHALL log a giving-up Warning including the reason,
@@ -1416,6 +1429,38 @@ in the way the next requirement describes.
 #### Scenario: An entry that names the language but claims none of its extensions
 - **WHEN** an entry declares the identifier `vb6` and claims no VB6 extension
 - **THEN** it is not offered the IDE's forms and modules
+
+### Requirement: An add-in's servers SHALL exclusively claim its project type's documents
+For a member opened by an add-in's project type, when that add-in has servers claiming its extension,
+those servers alone SHALL claim it. Other servers SHALL neither start for nor receive it. Requests,
+changes, saves and closes SHALL use the same claim. With no owner or no matching owner server, ordinary
+routing SHALL apply; carried files SHALL retain ordinary routing. Registrations SHALL retain the
+manifest id separately from the display origin.
+
+#### Scenario: A contributed project member
+- **WHEN** add-in X owns the project and its server claims `.bas`, also claimed by bundled and configured servers
+- **THEN** only X's server starts and receives the open, hover, changes, save and close
+
+#### Scenario: A HexIDE project
+- **WHEN** the project has no contributing add-in, including a `.vbp` in a project group
+- **THEN** ordinary extension and membership routing applies to all claimants
+
+#### Scenario: A gap in the owner's claims
+- **WHEN** X's server claims `.bas` but its project's document is `.frm`
+- **THEN** ordinary routing applies to that document
+
+#### Scenario: Another add-in's server
+- **WHEN** Y owns the project and only X has registered a server for its extension
+- **THEN** ordinary routing applies to that document
+
+#### Scenario: A carried file
+- **WHEN** a document is opened as a carried file
+- **THEN** ordinary routing applies regardless of an owner id
+
+#### Scenario: Registration origins
+- **WHEN** a server is registered by an add-in
+- **THEN** its registration retains that add-in's manifest id
+- **AND** configuration entries and the bundled server have no add-in id
 
 ### Requirement: Windows path escapes SHALL be diagnosed without lenient parsing
 The configuration loader SHALL reject invalid JSON string escapes and retain the parse error's field and

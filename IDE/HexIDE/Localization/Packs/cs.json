@@ -624,6 +624,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Vyžadovat deklaraci proměnných",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatický seznam členů",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Zobrazovat členy při psaní",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Propojené úpravy (při psaní přejmenovat i ostatní výskyty proměnné)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatické rychlé informace",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatické odsazení",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formátovat při uložení",
@@ -812,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Zrušit",
     "Str.Options.Environment.FileHandling.Header": "Práce se soubory",
     "Str.Options.Environment.ReloadExternalChanges": "Znovu načíst soubory změněné mimo IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projekty RDCore: nastavit Win64 pouze ve Windows",
     "Str.StatusBar.FileReloaded": "Znovu načteno: {0}",
     "Str.Dialog.TrustChain.Title": "Podpisový řetězec",
     "Str.Dialog.TrustChain.RevokedBanner": "Tento doplněk byl odvolán a nebude načten.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Nebyl odeslán žádný obsah, proto se nic nezměnilo.",
     "Str.AIChat.ProjectCannotStart": "Projekt nelze spustit (žádný není načten nebo již běží)",
     "Str.AIChat.ProjectNotRunning": "Momentálně neběží žádný projekt",
-    "Str.SessionEnd.UnsavedWork": "Neuložené změny: {0}"
+    "Str.SessionEnd.UnsavedWork": "Neuložené změny: {0}",
+    "Str.Options.Addin.ReportedFailure": "Problém nahlášen v {0}: {1}"
   }
 }

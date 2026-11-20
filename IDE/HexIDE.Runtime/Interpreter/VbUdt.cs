@@ -65,6 +65,8 @@ public sealed class VbUdt
     private readonly IReadOnlyDictionary<string, AutoNew> autoNewFields;
     private readonly IReadOnlyDictionary<string, string> objectFields;
 
+    internal IReadOnlySet<string>? BuiltinObjectFields { get; init; }
+
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields)
         : this(typeName, fields, new Dictionary<string, Vb6Value.ValueType>(), new HashSet<string>())
     {
@@ -116,7 +118,7 @@ public sealed class VbUdt
         if (FixedStringWidthOf(field) is { } width)
             value = FixedLengthString.Store(value, width, ctx);
         if (objectFields.TryGetValue(field, out var declaredClass))
-            ModuleExecutionContext.CheckObjectStore(value, declaredClass.Equals("Object", StringComparison.OrdinalIgnoreCase) ? null : declaredClass, ctx);
+            ModuleExecutionContext.CheckObjectStore(value, declaredClass.Equals("Object", StringComparison.OrdinalIgnoreCase) ? null : declaredClass, ctx, builtinUdtField: BuiltinObjectFields?.Contains(field) == true);
         fields[field] = value;
         return true;
     }
@@ -207,6 +209,7 @@ public sealed class VbUdt
         return new VbUdt(TypeName, copy, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths)
         {
             LsetBytes = LsetBytes is null ? null : (byte[])LsetBytes.Clone(),
+            BuiltinObjectFields = BuiltinObjectFields,
         };
     }
 }

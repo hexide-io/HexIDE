@@ -709,6 +709,54 @@ public class LspClientRegistryTests
         await markdown.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData("owner", true, ".bas", true)]
+    [InlineData(null, true, ".bas", false)]
+    [InlineData("owner", true, ".frm", false)]
+    [InlineData("other", true, ".bas", false)]
+    [InlineData("owner", false, ".bas", false)]
+    public async Task ProjectOwnerSelectsItsServersOnlyWhenTheyClaimTheExtension(
+        string? owner, bool member, string extension, bool exclusive)
+    {
+        var contributed = FakeServer();
+        var bundled = FakeServer();
+        var configured = FakeServer();
+        var another = FakeServer();
+        await using var sut = Registry(
+            Registration("addin", contributed) with { Extensions = [".bas"], AddinId = "owner" },
+            Registration("bundled", bundled, priority: 100),
+            Registration("configured", configured),
+            Registration("another", another) with { AddinId = "unrelated" });
+        var uri = "untitled:Project1/Module1" + extension;
+        var token = TestContext.Current.CancellationToken;
+        await sut.OpenDocumentAsync(uri, "code", member, token, owner);
+        await sut.RequestHoverAsync(uri, new Position(0, 0), token);
+        await sut.ChangeDocumentAsync(uri, 2, "changed", token);
+        await sut.SaveDocumentAsync(uri, token);
+        await sut.CloseDocumentAsync(uri, token);
+
+        foreach (var server in new[] { bundled, configured, another })
+        {
+            var count = exclusive ? 0 : 1;
+            await server.Received(count).StartAsync(Arg.Any<CancellationToken>());
+            await server.Received(count).OpenDocumentAsync(uri, "code", Arg.Any<CancellationToken>());
+            await server.Received(count).ChangeDocumentAsync(uri, 2, "changed", Arg.Any<CancellationToken>());
+            await server.Received(count).SaveDocumentAsync(uri, Arg.Any<CancellationToken>());
+            await server.Received(count).CloseDocumentAsync(uri, Arg.Any<CancellationToken>());
+        }
+        if (exclusive)
+        {
+            await contributed.Received(1).RequestHoverAsync(uri, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+            await bundled.DidNotReceive().RequestHoverAsync(uri, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        }
+        var contributedCount = extension == ".bas" ? 1 : 0;
+        await contributed.Received(contributedCount).StartAsync(Arg.Any<CancellationToken>());
+        await contributed.Received(contributedCount).OpenDocumentAsync(uri, "code", Arg.Any<CancellationToken>());
+        await contributed.Received(contributedCount).ChangeDocumentAsync(uri, 2, "changed", Arg.Any<CancellationToken>());
+        await contributed.Received(contributedCount).SaveDocumentAsync(uri, Arg.Any<CancellationToken>());
+        await contributed.Received(contributedCount).CloseDocumentAsync(uri, Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task StartAsyncOnTheRegistryStartsNothing()
     {

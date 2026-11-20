@@ -588,6 +588,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Zatraži odabir projekta",
     "Str.Options.Environment.FileHandling.Header": "Rukovanje datotekama",
     "Str.Options.Environment.ReloadExternalChanges": "Ponovno učitaj datoteke izmijenjene izvan IDE-a",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projekti RDCore: postavi Win64 samo u sustavu Windows",
     "Str.Options.Theme.GroupHeader": "Tema IDE-a",
     "Str.Theme.HighContrastLight": "Visoki kontrast svijetli",
     "Str.Theme.HighContrastDark": "Visoki kontrast tamni",
@@ -662,6 +663,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Zahtijevaj deklaraciju varijabli",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatski popis članova",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Prikazuj članove tijekom pisanja",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Povezano uređivanje (preimenovanje drugih upotreba varijable tijekom pisanja)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatske brze informacije",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatsko uvlačenje",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Oblikuj pri spremanju",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Nije poslan sadržaj pa ništa nije promijenjeno.",
     "Str.AIChat.ProjectCannotStart": "Nije moguće pokrenuti projekt (nijedan nije učitan ili je već pokrenut)",
     "Str.AIChat.ProjectNotRunning": "Trenutačno nije pokrenut nijedan projekt",
-    "Str.SessionEnd.UnsavedWork": "Nespremljene promjene: {0}"
+    "Str.SessionEnd.UnsavedWork": "Nespremljene promjene: {0}",
+    "Str.Options.Addin.ReportedFailure": "Problem prijavljen u {0}: {1}"
   }
 }

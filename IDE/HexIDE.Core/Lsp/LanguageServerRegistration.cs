@@ -22,7 +22,7 @@ namespace HexIDE.Lsp;
 /// <param name="Extensions">
 /// The file extensions this server claims, leading dot included. Routing keys on these rather than on a
 /// language name, so two servers may claim one extension without having to agree about what it is called.
-/// A document is offered to EVERY claimant.
+/// A document is offered to every claimant, restricted to its project owner's servers when they claim it.
 /// </param>
 /// <param name="LanguageId">
 /// What this server should be told a document is. Per-server rather than global: each server has its own
@@ -96,7 +96,9 @@ public sealed record LanguageServerRegistration(
     /// <c>LanguageServerRegistrationFactory</c>, the route of the configuration file's servers, the bundled one and a
     /// consented add-in's, sets it. The person's own setting in Options wins over the entry's value, never over null.
     /// </summary>
-    ServerChatToolsPolicy? ChatTools = null)
+    ServerChatToolsPolicy? ChatTools = null,
+    /// <summary>The contributing add-in's manifest id; null for configuration and bundled entries.</summary>
+    string? AddinId = null)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an

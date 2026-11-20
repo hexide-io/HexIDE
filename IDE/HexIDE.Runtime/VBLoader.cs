@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using HexIDE.Runtime.Utils;
 using System.Collections.Generic;
 using System.Linq;
@@ -1094,11 +1095,14 @@ public class VBLoader
     }
 
     public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
-        Debugging.IDebugGate? debugController = null)
+        Debugging.IDebugGate? debugController = null) => RunForm(element, token, out window, debugController, false);
+
+    public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
+        Debugging.IDebugGate? debugController, bool win64OnlySetOnWindows, OSPlatform? host = null)
     {
         var shown = window = DesktopWindow(element);
         // Another form of the program gets a window of its own the same way (#822).
-        PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenWindow);
+        PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenWindow, win64OnlySetOnWindows, host);
 
         // The run lasts until the program ends, not until this window closes: the startup form can unload and leave
         // another form running (measured, #822).
@@ -1194,9 +1198,13 @@ public class VBLoader
     /// a use of another form is then refused, naming #822.
     /// </param>
     public static VBProgram PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
-        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm = null)
+        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm = null) =>
+        PrepareForm(element, context, setContent, debugController, openForm, false);
+
+    public static VBProgram PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
+        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host = null)
     {
-        var program = new VBProgram(element, context, debugController, openForm);
+        var program = new VBProgram(element, context, debugController, openForm, win64OnlySetOnWindows, host);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary,
             context.FormInstance, program, context));
         context.HoldControlsUntilLoad();

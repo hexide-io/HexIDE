@@ -625,6 +625,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Richiedi dichiarazione delle variabili",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Elenca membri automaticamente",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Elenca i membri durante la digitazione",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Modifica collegata (rinomina gli altri usi di una variabile durante la digitazione)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Informazioni rapide automatiche",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Rientro automatico",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatta al salvataggio",
@@ -813,6 +814,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Annulla",
     "Str.Options.Environment.FileHandling.Header": "Gestione dei file",
     "Str.Options.Environment.ReloadExternalChanges": "Ricarica i file modificati all'esterno dell'IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Progetti RDCore: impostare Win64 solo su Windows",
     "Str.StatusBar.FileReloaded": "{0} ricaricato",
     "Str.Dialog.TrustChain.Title": "Catena di firma",
     "Str.Dialog.TrustChain.RevokedBanner": "Questo add-in è stato revocato e non verrà caricato.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Non è stato inviato alcun contenuto, quindi non è stato modificato nulla.",
     "Str.AIChat.ProjectCannotStart": "Impossibile avviare il progetto (nessun progetto caricato o già in esecuzione)",
     "Str.AIChat.ProjectNotRunning": "Nessun progetto è attualmente in esecuzione",
-    "Str.SessionEnd.UnsavedWork": "Modifiche non salvate in {0}"
+    "Str.SessionEnd.UnsavedWork": "Modifiche non salvate in {0}",
+    "Str.Options.Addin.ReportedFailure": "Problema segnalato alle {0}: {1}"
   }
 }

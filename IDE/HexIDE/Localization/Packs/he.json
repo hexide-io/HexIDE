@@ -658,6 +658,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "דרוש הצהרת משתנים",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "רשימת חברים אוטומטית",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "הצגת חברים תוך כדי הקלדה",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "עריכה מקושרת (שינוי שם בשימושים האחרים של משתנה תוך כדי הקלדה)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "מידע מהיר אוטומטי",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "הזחה אוטומטית",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "עיצוב בעת שמירה",
@@ -846,6 +847,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "ביטול",
     "Str.Options.Environment.FileHandling.Header": "טיפול בקבצים",
     "Str.Options.Environment.ReloadExternalChanges": "טען מחדש קבצים ששונו מחוץ לסביבת הפיתוח",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "פרויקטי RDCore: הגדרת Win64 רק ב־Windows",
     "Str.StatusBar.FileReloaded": "{0} נטען מחדש",
     "Str.Dialog.TrustChain.Title": "שרשרת חתימה",
     "Str.Dialog.TrustChain.RevokedBanner": "תוסף זה בוטל ולא ייטען.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "לא נשלח תוכן, ולכן דבר לא השתנה.",
     "Str.AIChat.ProjectCannotStart": "לא ניתן להפעיל את הפרויקט (לא נטען פרויקט או שהוא כבר פועל)",
     "Str.AIChat.ProjectNotRunning": "אין כרגע פרויקט פועל",
-    "Str.SessionEnd.UnsavedWork": "שינויים שלא נשמרו ב-{0}"
+    "Str.SessionEnd.UnsavedWork": "שינויים שלא נשמרו ב-{0}",
+    "Str.Options.Addin.ReportedFailure": "דווחה בעיה ב־{0}: {1}"
   }
 }

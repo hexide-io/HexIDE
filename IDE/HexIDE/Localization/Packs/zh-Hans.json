@@ -624,6 +624,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "要求变量声明",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "自动列出成员",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "键入时列出成员",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "联动编辑（键入时重命名变量的其他引用）",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "自动快速信息",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "自动缩进",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "保存时格式化",
@@ -812,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "取消(_C)",
     "Str.Options.Environment.FileHandling.Header": "文件处理",
     "Str.Options.Environment.ReloadExternalChanges": "重新加载在 IDE 外部被修改的文件",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore 项目：仅在 Windows 上设置 Win64",
     "Str.StatusBar.FileReloaded": "已重新加载 {0}",
     "Str.Dialog.TrustChain.Title": "签名链",
     "Str.Dialog.TrustChain.RevokedBanner": "此加载项已被吊销，将不会加载。",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "未发送内容，因此未作任何更改。",
     "Str.AIChat.ProjectCannotStart": "无法启动项目（未加载项目或项目已在运行）",
     "Str.AIChat.ProjectNotRunning": "当前没有正在运行的项目",
-    "Str.SessionEnd.UnsavedWork": "{0} 中有未保存的更改"
+    "Str.SessionEnd.UnsavedWork": "{0} 中有未保存的更改",
+    "Str.Options.Addin.ReportedFailure": "于 {0} 报告了问题：{1}"
   }
 }

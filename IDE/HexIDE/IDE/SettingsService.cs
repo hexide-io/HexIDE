@@ -88,6 +88,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _requireVariableDeclaration = SettingsDefaults.RequireVariableDeclaration;
     private bool _autoListMembers = SettingsDefaults.AutoListMembers;
     private bool _listMembersAsYouType = SettingsDefaults.ListMembersAsYouType;
+    private bool _linkedEditing = SettingsDefaults.LinkedEditing;
     private bool _autoQuickInfo = SettingsDefaults.AutoQuickInfo;
     private bool _autoIndent = SettingsDefaults.AutoIndent;
     private string _editorFontFamily = SettingsDefaults.EditorFontFamily;
@@ -123,6 +124,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _isFormEditorToolbarVisible = SettingsDefaults.IsFormEditorToolbarVisible;
 
     // ── Editor extras defaults ──────────────────────────────────
+    private bool _rdcoreWin64OnlySetOnWindows = SettingsDefaults.RDCoreWin64OnlySetOnWindows;
     private bool _showInlayHints = SettingsDefaults.ShowInlayHints;
     private bool _showCodeLenses = SettingsDefaults.ShowCodeLenses;
     private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
@@ -179,6 +181,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
     {
         get => _listMembersAsYouType;
         set => SetProperty(ref _listMembersAsYouType, value);
+    }
+
+    public bool LinkedEditing
+    {
+        get => _linkedEditing;
+        set => SetProperty(ref _linkedEditing, value);
     }
 
     public bool AutoQuickInfo
@@ -335,6 +343,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set { if (SetProperty(ref _showCodeLenses, value)) Save(); }
     }
 
+    public bool RDCoreWin64OnlySetOnWindows
+    {
+        get => _rdcoreWin64OnlySetOnWindows;
+        set { if (SetProperty(ref _rdcoreWin64OnlySetOnWindows, value)) Save(); }
+    }
+
     public bool ShowInlayHints
     {
         get => _showInlayHints;
@@ -399,7 +413,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!_loading && e.PropertyName is { } name)
-            lock (_settingsGate) _changedProperties.Add(JsonNamingPolicy.CamelCase.ConvertName(name));
+            lock (_settingsGate) _changedProperties.Add(name == nameof(RDCoreWin64OnlySetOnWindows)
+                ? "rdcoreWin64OnlySetOnWindows" : JsonNamingPolicy.CamelCase.ConvertName(name));
         base.OnPropertyChanged(e);
     }
 
@@ -421,6 +436,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 RequireVariableDeclaration = _requireVariableDeclaration,
                 AutoListMembers = _autoListMembers,
                 ListMembersAsYouType = _listMembersAsYouType,
+                LinkedEditing = _linkedEditing,
                 AutoQuickInfo = _autoQuickInfo,
                 AutoIndent = _autoIndent,
                 TabWidth = _tabWidth,
@@ -446,6 +462,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
                 ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
+                RDCoreWin64OnlySetOnWindows = _rdcoreWin64OnlySetOnWindows,
                 ShowInlayHints = _showInlayHints,
                 ShowCodeLenses = _showCodeLenses,
                 ColorBracketsByDepth = _colorBracketsByDepth,
@@ -533,6 +550,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             RequireVariableDeclaration = data.RequireVariableDeclaration;
             AutoListMembers = data.AutoListMembers;
             ListMembersAsYouType = data.ListMembersAsYouType;
+            LinkedEditing = data.LinkedEditing;
             AutoQuickInfo = data.AutoQuickInfo;
             AutoIndent = data.AutoIndent;
             TabWidth = data.TabWidth;
@@ -558,6 +576,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
             ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
+            _rdcoreWin64OnlySetOnWindows = data.RDCoreWin64OnlySetOnWindows;
             _showInlayHints = data.ShowInlayHints;
             _showCodeLenses = data.ShowCodeLenses;
             _colorBracketsByDepth = data.ColorBracketsByDepth;
@@ -594,6 +613,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("listMembersAsYouType")]
         public bool ListMembersAsYouType { get; set; } = SettingsDefaults.ListMembersAsYouType;
+
+        [JsonPropertyName("linkedEditing")]
+        public bool LinkedEditing { get; set; } = SettingsDefaults.LinkedEditing;
 
         [JsonPropertyName("autoQuickInfo")]
         public bool AutoQuickInfo { get; set; } = SettingsDefaults.AutoQuickInfo;
@@ -666,6 +688,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("showCodeLenses")]
         public bool ShowCodeLenses { get; set; } = SettingsDefaults.ShowCodeLenses;
+
+        [JsonPropertyName("rdcoreWin64OnlySetOnWindows")]
+        public bool RDCoreWin64OnlySetOnWindows { get; set; } = SettingsDefaults.RDCoreWin64OnlySetOnWindows;
 
         [JsonPropertyName("showInlayHints")]
         public bool ShowInlayHints { get; set; } = SettingsDefaults.ShowInlayHints;

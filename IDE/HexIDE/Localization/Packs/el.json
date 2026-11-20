@@ -591,6 +591,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Απαίτηση δήλωσης μεταβλητών",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Αυτόματη λίστα μελών",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Εμφάνιση μελών κατά την πληκτρολόγηση",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Συνδεδεμένη επεξεργασία (μετονομασία των άλλων χρήσεων μιας μεταβλητής κατά την πληκτρολόγηση)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Αυτόματες γρήγορες πληροφορίες",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Αυτόματη εσοχή",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Μορφοποίηση κατά την αποθήκευση",
@@ -779,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "Άκυρο",
     "Str.Options.Environment.FileHandling.Header": "Διαχείριση αρχείων",
     "Str.Options.Environment.ReloadExternalChanges": "Επαναφόρτωση αρχείων που τροποποιήθηκαν εκτός του IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Έργα RDCore: ορισμός του Win64 μόνο στα Windows",
     "Str.StatusBar.FileReloaded": "Έγινε επαναφόρτωση του {0}",
     "Str.Dialog.TrustChain.Title": "Αλυσίδα υπογραφής",
     "Str.Dialog.TrustChain.RevokedBanner": "Αυτό το πρόσθετο έχει ανακληθεί και δεν θα φορτωθεί.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Δεν στάλθηκε περιεχόμενο, οπότε δεν άλλαξε τίποτα.",
     "Str.AIChat.ProjectCannotStart": "Δεν είναι δυνατή η εκκίνηση του έργου (δεν έχει φορτωθεί κανένα ή εκτελείται ήδη)",
     "Str.AIChat.ProjectNotRunning": "Δεν εκτελείται κανένα έργο αυτή τη στιγμή",
-    "Str.SessionEnd.UnsavedWork": "Μη αποθηκευμένες αλλαγές: {0}"
+    "Str.SessionEnd.UnsavedWork": "Μη αποθηκευμένες αλλαγές: {0}",
+    "Str.Options.Addin.ReportedFailure": "Αναφέρθηκε πρόβλημα στις {0}: {1}"
   }
 }

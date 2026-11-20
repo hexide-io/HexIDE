@@ -61,6 +61,40 @@ and would leave add-in authors depending on things that were never meant to be c
 - **WHEN** an add-in needs a capability the host surface does not offer
 - **THEN** the capability is added to the host surface rather than the add-in reaching past it
 
+### Requirement: Add-ins SHALL be able to report a failure after loading
+`IHexIdeHost` SHALL expose `void ReportFailure(string message, Exception? exception = null)` with an
+empty default body. HexIDE SHALL log reports at Warning and retain only the latest report per add-in
+in memory without changing its status. Options → Add-ins SHALL show the report below the status with
+a localized label. See [the host API guide](../../../docs/addins.md).
+
+#### Scenario: Identifying the reporting add-in
+- **WHEN** an add-in reports through its owned host
+- **THEN** the report belongs to that host's add-in
+- **AND** a call through an unowned host uses the calling assembly's origin
+- **AND** existing external host implementations need not implement the new member
+
+#### Scenario: Reporting and replacing a failure
+- **WHEN** a loaded add-in reports a failure through its host and later reports another
+- **THEN** both complete reports are logged at Warning under that add-in's title and id
+- **AND** the supplied exception is included in the log
+- **AND** only the latest message, report time, and optional exception type and message are retained
+- **AND** the add-in's status is unchanged
+
+#### Scenario: Opening the add-in's Options page
+- **WHEN** the user opens the page after a report
+- **THEN** the page reads its message and local time once, showing them below the status with a localized surrounding label
+- **AND** a message longer than 500 characters displays its first 500 plus an ellipsis while the log keeps it whole
+- **AND** a page for an add-in without a report shows no report text
+
+#### Scenario: Enablement changes and a new start
+- **WHEN** an add-in with a report is disabled and enabled
+- **THEN** its existing report is preserved
+- **AND** the next IDE start has no report, because reports are not persisted
+
+#### Scenario: A report from an unknown or removed add-in
+- **WHEN** an unknown, disabled, consent-withdrawn or disposed add-in reports a failure
+- **THEN** the report is logged and otherwise ignored without throwing
+
 ### Requirement: Contributions SHALL be removable by the contributor
 Registering a menu item, tool window, command, control, project template, debug launch or project type
 (`contributed-projects`) SHALL return a handle that removes the contribution when disposed.
@@ -134,6 +168,9 @@ The host surface SHALL let an add-in contribute a language server registration, 
 server launches and a message channel of the add-in's own on the server's connection, as `lsp-client` specifies. The
 registration SHALL return a handle that stops the server and removes it when disposed, and SHALL be accepted after
 start-up, since an add-in whose first run waits for consent initialises after the window opens.
+
+A server registered by an add-in SHALL exclusively claim matching documents of projects opened by that same
+add-in's project type, as the project-owner routing requirement in `lsp-client` specifies.
 
 An add-in exists to make a server one thing to install rather than an entry to write by hand (#457), and it cannot
 do that if the server it brings has to be written into the user's configuration behind their back. The capability

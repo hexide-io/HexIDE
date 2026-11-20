@@ -625,6 +625,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Wymagaj deklaracji zmiennych",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatyczna lista składowych",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Pokazuj składowe podczas pisania",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edycja powiązana (zmiana nazwy w pozostałych użyciach zmiennej podczas pisania)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatyczne szybkie informacje",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatyczne wcięcia",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatuj przy zapisie",
@@ -813,6 +814,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Anuluj",
     "Str.Options.Environment.FileHandling.Header": "Obsługa plików",
     "Str.Options.Environment.ReloadExternalChanges": "Wczytaj ponownie pliki zmienione poza środowiskiem IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projekty RDCore: ustawiaj Win64 tylko w systemie Windows",
     "Str.StatusBar.FileReloaded": "Wczytano ponownie {0}",
     "Str.Dialog.TrustChain.Title": "Łańcuch podpisu",
     "Str.Dialog.TrustChain.RevokedBanner": "Ten dodatek został odwołany i nie zostanie załadowany.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Nie wysłano treści, więc nic nie zmieniono.",
     "Str.AIChat.ProjectCannotStart": "Nie można uruchomić projektu (żaden nie jest załadowany lub już działa)",
     "Str.AIChat.ProjectNotRunning": "Obecnie żaden projekt nie jest uruchomiony",
-    "Str.SessionEnd.UnsavedWork": "Niezapisane zmiany: {0}"
+    "Str.SessionEnd.UnsavedWork": "Niezapisane zmiany: {0}",
+    "Str.Options.Addin.ReportedFailure": "Zgłoszono problem o {0}: {1}"
   }
 }

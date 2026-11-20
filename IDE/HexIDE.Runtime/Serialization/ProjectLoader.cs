@@ -307,7 +307,6 @@ public sealed class ProjectLoader
         project.ExtensionTail = serializedProject.ExtensionTail;
         project.VbaBitness = ProjectEncodingRecords.ReadBitness(serializedProject.ExtensionTail);
         project.Target = ProjectEncodingRecords.ReadTarget(serializedProject.ExtensionTail);
-        project.Win64OnlySetOnWindows = ProjectEncodingRecords.ReadWin64OnlySetOnWindows(serializedProject.ExtensionTail);
 
         return new Result(project, serializedProject, readByteForByte, projectBytes);
     }

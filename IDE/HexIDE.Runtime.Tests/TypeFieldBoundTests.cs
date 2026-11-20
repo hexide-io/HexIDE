@@ -136,6 +136,72 @@ public class TypeFieldBoundTests : BaseVBTestFixture
             .EndWith("Constant expression required");
     }
 
+    private const string PublicType = "Public Type T\na(1 To N) As Long\nEnd Type\n";
+    private const string PrivateConstant = "Private Const N As Byte = 3\n";
+    private const string PublicVariable = "Public x As T\n";
+    private const string ReadBounds = "Debug.Print LBound(x.a)\nDebug.Print UBound(x.a)\nx.a(3) = 7\nDebug.Print x.a(3)";
+
+    // Rows P1 and P2, measured native and p-code in #4907, oracle PR #5023.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Public_allocation_before_type(bool constantAfterVariable)
+    {
+        var declarations = (constantAfterVariable ? PublicVariable + PrivateConstant : PrivateConstant + PublicVariable)
+            + PublicType;
+        await RunModulesAndClasses(ReadBounds, [("Module2", declarations)], []);
+        AssertDebugLog([new Vb6Value(1L), new Vb6Value(3L), new Vb6Value(7L)]);
+    }
+
+    // Row P3 (#4907).
+    [Fact]
+    public async Task Public_allocation_before_type_const_below_type()
+    {
+        Func<Task> run = () => RunModulesAndClasses(ReadBounds,
+            [("Module2", PublicVariable + PublicType + PrivateConstant)], []);
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should()
+            .EndWith("Constant expression required");
+    }
+
+    // Row X1 (#4907).
+    [Fact]
+    public async Task Public_allocation_in_another_standard_module()
+    {
+        await RunModulesAndClasses("Debug.Print LBound(x.a) & \" \" & UBound(x.a)\nx.a(3) = 7\nDebug.Print x.a(3)",
+            [("Module2", PublicVariable), ("Module3", PrivateConstant + PublicType)], []);
+        AssertDebugLog(["1 3", new Vb6Value(7L)]);
+    }
+
+    // Row X3 (#4907).
+    [Fact]
+    public async Task Public_allocation_with_a_circular_module_dependency()
+    {
+        Func<Task> run = () => RunModulesAndClasses(ReadBounds,
+            [("Module2", "Public Const N As Byte = 3\n" + PublicVariable), ("Module3", PublicType)], []);
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should()
+            .EndWith("Circular dependencies between modules");
+    }
+
+    // Row X4 (#4907).
+    [Fact]
+    public async Task Class_allocation_of_a_standard_modules_public_type()
+    {
+        await RunModulesAndClasses("Dim o As New Class1\no.Test",
+            [("Module3", PrivateConstant + PublicType)],
+            [("Class1", "Private x As T\nPublic Sub Test()\n" + ReadBounds + "\nEnd Sub")]);
+        AssertDebugLog([new Vb6Value(1L), new Vb6Value(3L), new Vb6Value(7L)]);
+    }
+
+    // VB6 behavior is unmeasured for a Public Type declared inside the allocating class (#4907).
+    [Fact]
+    public async Task Public_allocation_before_type_in_its_own_class_keeps_refusal()
+    {
+        Func<Task> run = () => RunClasses("Dim o As New Class1\no.Test",
+            ("Class1", "Private x As T\n" + PrivateConstant + PublicType + "Public Sub Test()\n" + ReadBounds + "\nEnd Sub"));
+        (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
+            .EndWith("(#4907)");
+    }
+
     // vb6.exe SP6 native and p-code measurements: hexide-io/HexIDE#4925, case 4.
     [Theory]
     [InlineData("", "a(5 To 1) As Integer")]

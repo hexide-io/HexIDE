@@ -30,7 +30,7 @@ public class VbaBitnessEngineTests
     }
 
     private static InterpreterRunEngine Engine(IProgramHost host) =>
-        new(host, new DebugController());
+        new(host, new DebugController(), Substitute.For<ISettingsService>());
 
     private static ProjectDefinition Project(VbaBitness bitness, string declarations)
     {

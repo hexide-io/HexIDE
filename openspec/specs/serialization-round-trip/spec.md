@@ -823,11 +823,10 @@ needs no second key. A value naming exactly one known target SHALL select it; a 
 value, and the singular key `Target` SHALL read as no target and SHALL be preserved verbatim on save. Existing VB6
 content outside the owned metadata SHALL retain its bytes, and encoding records SHALL remain intact.
 
-The section SHALL also store `Win64OnlySetOnWindows` beside `Targets`
-([#4890](https://github.com/hexide-io/HexIDE/issues/4890)). `1` SHALL set it; absent or `0` SHALL
-mean false. Other values SHALL be ignored and preserved verbatim. Saving SHALL retain the key's position,
-comments and surrounding order. The option SHALL survive a fresh open even without `Targets=RDCore`,
-but SHALL affect constants only with that target.
+The section SHALL NOT store a `Win64OnlySetOnWindows` setting
+([#5036](https://github.com/hexide-io/HexIDE/issues/5036)). An existing line SHALL be ignored and
+preserved verbatim as an unknown key, including its position, comments and surrounding order.
+Constants SHALL follow the IDE-wide setting instead.
 
 #### Scenario: A predefined constants target survives a fresh open
 - **WHEN** a project with `Targets=RDCore` is saved and freshly opened
@@ -1253,11 +1252,13 @@ repeated property has an unreadable value, the reader SHALL keep the readable va
 line precedes the failed line in the same component, names compared without regard to case, the reader
 SHALL recover with `LoadedWithErrors` when the raw value is quoted on a non-string property, starts
 with a letter and was returned unrecognised as text by the parser on a non-string property, or starts
-with `&` on a Single/Double property. It SHALL retain the invalid-value diagnostic, omit the recovered
-property's raw lines, and require Save As while keeping the form editable. Other unreadable duplicates
-SHALL mark the form unfaithful to save with a cause naming the property; recovery SHALL NOT clear an
-earlier hold. This scoped rule follows [#4317](https://github.com/hexide-io/HexIDE/issues/4317) and
-[the refused-text measurements in oracle PR #4987](https://github.com/hexide-io/HexIDE/pull/4987).
+with `&` on a Single/Double property. For this recovery it SHALL retain the invalid-value diagnostic,
+omit the recovered property's raw lines, and require Save As while keeping the form editable. Other
+unreadable duplicates SHALL mark the form unfaithful to save with a cause naming the property;
+recovery SHALL NOT clear an earlier hold. Non-finite numeric words such as `NaN` and `Infinity` SHALL
+retain the unreadable-duplicate hold because VB6 recovery for those duplicates is unmeasured
+([#4988](https://github.com/hexide-io/HexIDE/issues/4988)). The recovery rule follows
+[#4317](https://github.com/hexide-io/HexIDE/issues/4317) and [the refused-text measurements in oracle PR #4987](https://github.com/hexide-io/HexIDE/pull/4987).
 Applying the measured shapes across properties and extending the measured words are reasoned
 generalisations. Client-size pixel snapping remains unchanged.
 

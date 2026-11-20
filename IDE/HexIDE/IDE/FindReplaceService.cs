@@ -48,15 +48,17 @@ public class FindReplaceService : IFindReplaceService
     public void ShowFind()
     {
         Log.Debug("FindReplaceService: ShowFind");
-        EnsureDialog();
+        var reused = EnsureDialog();
         _viewModel!.ShowReplace = false;
+        if (reused) _viewModel.RequestFocus();
     }
 
     public void ShowReplace()
     {
         Log.Debug("FindReplaceService: ShowReplace");
-        EnsureDialog();
+        var reused = EnsureDialog();
         _viewModel!.ShowReplace = true;
+        if (reused) _viewModel.RequestFocus();
     }
 
     public void FindNext()
@@ -66,12 +68,12 @@ public class FindReplaceService : IFindReplaceService
             _viewModel.FindNextCommand.Execute(null);
     }
 
-    private void EnsureDialog()
+    private bool EnsureDialog()
     {
         if (_isOpen && _viewModel is not null)
         {
             Log.Debug("FindReplaceService: Reusing existing dialog");
-            return;
+            return true;
         }
 
         if (!_subscribed)
@@ -88,6 +90,7 @@ public class FindReplaceService : IFindReplaceService
 
         // ShowWindow is modeless — fire and forget, track close
         _ = ShowAndTrackAsync();
+        return false;
     }
 
     private async System.Threading.Tasks.Task ShowAndTrackAsync()

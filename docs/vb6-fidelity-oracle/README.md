@@ -495,6 +495,7 @@ added afterwards.
 - [A form as an object: its names, its lifecycle and its predeclared instance (2026-10-14, #822)](a-form-as-an-object-its-names-its-lifecycle-and-its-predeclared-instance.md#a-form-as-an-object-its-names-its-lifecycle-and-its-predeclared-instance-2026-10-14-822)
 - [Assigning to a control property (2026-10-12, #768)](assigning-to-a-control-property.md#assigning-to-a-control-property-2026-10-12-768)
 - [A list's members: ListCount, List(i), AddItem's index and RemoveItem (2026-10-22, #821)](a-lists-members-listcount-list.md#a-lists-members-listcount-listi-additems-index-and-removeitem-2026-10-22-821)
+- [The order a Sorted ListBox or ComboBox keeps (2026-11-20, #5059, SP6)](the-order-a-sorted-listbox-or-combobox-keeps.md#the-order-a-sorted-listbox-or-combobox-keeps-2026-11-20-5059-sp6)
 - [A ComboBox's Text, at each Style, from code (2026-10-22, #926)](a-comboboxs-text-at-each-style-from-code.md#a-comboboxs-text-at-each-style-from-code-2026-10-22-926)
 - [A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)](a-comboboxs-click-change-and-dropdown-with-real-input.md#a-comboboxs-click-change-and-dropdown-with-real-input-2026-10-22-1429)
 - [A Simple Combo's list, drawn and clicked (2026-10-23, #1603)](a-simple-combos-list-drawn-and-clicked.md#a-simple-combos-list-drawn-and-clicked-2026-10-23-1603)
@@ -580,6 +581,7 @@ added afterwards.
 - [A ListBox's Scroll event: what raises it, and what doesn't (2026-11-06, #3275)](a-listboxs-scroll-event.md#a-listboxs-scroll-event-what-raises-it-and-what-doesnt-2026-11-06-3275)
 - [A MultiSelect list's TopIndex, and TopIndex before the form is shown (2026-11-15, #3986)](a-listboxs-scroll-event.md#a-multiselect-lists-topindex-and-topindex-before-the-form-is-shown-2026-11-15-3986)
 - [A ListBox's Page Up, Selected and Text, checkboxes and columns (2026-11-16, #3986)](a-listboxs-page-up-checkboxes-and-columns.md#a-listboxs-page-up-selected-and-text-checkboxes-and-columns-2026-11-16-3986)
+- [A checkbox list's SelCount, Selected and ListIndex through AddItem and RemoveItem (2026-11-20, #4209's review)](a-listboxs-page-up-checkboxes-and-columns.md#a-checkbox-lists-selcount-selected-and-listindex-through-additem-and-removeitem-2026-11-20-4209s-review)
 - [Selected on a MultiSelect ListBox scrolls the item into view (2026-11-16, #4229, SP6 native and p-code)](selected-on-a-multiselect-listbox-scrolls-the-item-into-view.md#selected-on-a-multiselect-listbox-scrolls-the-item-into-view-2026-11-16-4229-sp6-native-and-p-code)
 - [One handler at a time (2026-10-14, #766)](one-handler-at-a-time.md#one-handler-at-a-time-2026-10-14-766)
 - [Unload Me (2026-10-14, #973)](unload-me.md#unload-me-2026-10-14-973)
@@ -765,6 +767,7 @@ added afterwards.
 - [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
 - [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
+- [What `/make` says for a syntax error or an unbalanced block (2026-11-20, #4415, SP6)](what-make-says-for-a-syntax-error-or-an-unbalanced-block.md#what-make-says-for-a-syntax-error-or-an-unbalanced-block-2026-11-20-4415-sp6)
 
 - [A UserControl's containers, drawing and events](usercontrol-containers-drawing-and-events.md) (#1631, part C).
 - [A UserControl instance's saved properties](usercontrol-files.md) (#1631, group 2A file-save subset).
@@ -872,6 +875,7 @@ added afterwards.
 - [Long lines, line continuations and long expressions (2026-11-06, #3202)](long-lines-line-continuations-and-long-expressions.md#long-lines-line-continuations-and-long-expressions-2026-11-06-3202)
 - [Nested `If` blocks (2026-11-06, #3210)](long-lines-line-continuations-and-long-expressions.md#nested-if-blocks-2026-11-06-3210)
 - [`For Each` collections that vb6.exe refuses to compile (2026-11-06, #3213)](resume-next-into-a-block.md#for-each-collections-that-vb6exe-refuses-to-compile-2026-11-06-3213)
+- [A Public Type in a UserControl, and in an ActiveX project's modules (2026-11-20, #5042)](a-public-type-in-a-usercontrol-or-an-activex-project.md#a-public-type-in-a-usercontrol-and-in-an-activex-projects-modules-2026-11-20-5042)
 - [A Public array in a class or a form, under /make and in the IDE (2026-11-08, #3335)](a-public-array-in-an-object-module.md#a-public-array-in-a-class-or-a-form-under-make-and-in-the-ide-2026-11-08-3335)
 - [A Public Type in a class or a form (2026-11-20, #4907)](a-public-array-in-an-object-module.md#a-public-type-in-a-class-or-a-form-2026-11-20-4907)
 - [`Print #` items with nothing between them, and a sign after `Spc` or `Tab` (2026-11-06, #3248)](sequential-files.md#print--items-with-nothing-between-them-and-a-sign-after-spc-or-tab-2026-11-06-3248)
@@ -905,6 +909,7 @@ added afterwards.
 - [Object array fields in a Type (2026-11-18, #4596, SP6)](object-array-fields-in-a-type.md#object-array-fields-in-a-type-2026-11-18-4596-sp6)
 - [With New, a default instance in its own Class_Initialize, and Set through members (2026-11-18, #4599 to #4607, SP6)](with-new-default-instances-and-set-through-members.md#with-new-a-default-instance-in-its-own-class_initialize-and-set-through-members-2026-11-18-4599-to-4607)
 - [When the default member can't take the arguments (2026-11-18, #4747)](with-new-default-instances-and-set-through-members.md#when-the-default-member-cant-take-the-arguments-2026-11-18-4747)
+- [A Let through a default member that returns an object, and a Let of Nothing (2026-11-20, #4906, SP6)](a-let-through-an-object-returning-default-member.md#a-let-through-a-default-member-that-returns-an-object-and-a-let-of-nothing-2026-11-20-4906-sp6)
 - [LoadPicture: which files load, and the errors for those that don't (2026-11-18, #4597, SP6)](loadpicture-file-kinds-and-file-errors.md#loadpicture-which-files-load-and-the-errors-for-those-that-dont-2026-11-18-4597-sp6)
 - [An auto-made object is in its slot while its Class_Initialize runs (2026-11-18, #4605, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6)
 - [A PropertyBag at run time (2026-11-18, #4680, SP6)](a-propertybag-at-run-time.md#a-propertybag-at-run-time-2026-11-18-4680-sp6)
@@ -923,9 +928,11 @@ added afterwards.
 - [The `Date` and `Time` statements: the other value types, an object, and the date range (2026-11-18, #4733)](the-date-and-time-statements.md#the-other-value-types-an-object-and-the-date-range-2026-11-18-4733)
 - [A StdFont in a PropertyBag (2026-11-18, #4741)](a-propertybag-at-run-time.md#a-stdfont-in-a-bag-2026-11-18-4741)
 - [When a StdFont takes its realized values (2026-11-20, #4741)](a-propertybag-at-run-time.md#when-a-stdfont-takes-its-realized-values-2026-11-20-4741)
+- [Errors, defaults, argument counts, names, `Contents` and unpaired UTF-16 in a PropertyBag (2026-11-20, #4741)](a-propertybag-at-run-time.md#errors-defaults-argument-counts-names-contents-and-unpaired-utf-16-2026-11-20-4741)
 - [`Set` of a control into a variable of another class (2026-11-18, #1563)](a-forms-controls-collection-and-typeof-on-a-control.md#set-of-a-control-into-a-variable-of-another-class-2026-11-18-1563)
 - [A free-standing StdFont's assignments (2026-11-18)](a-controls-font-object.md#a-free-standing-stdfonts-assignments-2026-11-18)
 - [Complete Word, a bare word, and the selected item (2026-11-19, #3613, design-time, IDE, SP6)](complete-word-a-bare-word-and-the-selected-item.md#complete-word-a-bare-word-and-the-selected-item-2026-11-19-3613-design-time-ide-sp6)
 - [PSet at DrawWidth 9, 11 and 12 (2026-11-19, #4841, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#pset-at-drawwidth-9-11-and-12-2026-11-19-4841-sp6)
 - [What a form's saved TabIndexes become when it loads (2026-11-19, #4843, SP6, run time)](the-tabindex-a-new-or-pasted-control-takes.md#what-a-forms-saved-tabindexes-become-when-it-loads-2026-11-19-4843-sp6-run-time)
 - [A Public Type, and a variable in another module (2026-11-20, #4907)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-public-type-and-a-variable-in-another-module-2026-11-20-4907)
+- [Format presence and RTF text (2026-11-20, #4955, SP6)](text-clipboard.md#format-presence-and-rtf-text-2026-11-20-4955-sp6)

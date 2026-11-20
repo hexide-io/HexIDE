@@ -996,7 +996,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             ReassertOwnedText(qualifiers: qualifierWriteWasUndone);
     }
 
-    internal bool ConditionalWin64OnlySetOnWindows => (ModuleDefinition?.Owner ?? FormDefinition?.Owner)?.Win64OnlySetOnWindows ?? false;
+    internal bool ConditionalWin64OnlySetOnWindows => Settings.RDCoreWin64OnlySetOnWindows;
 
     private static int ConditionalTargetFor(ProjectDefinition project) => project.Target == ProjectTarget.RDCore ? 5 :
         project.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
@@ -1116,7 +1116,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // PropertyPages, and every one of them is a member. That is what gates a `.cls` away from a LaTeX
         // server claiming the same extension (#279); the carried-file editor states the opposite.
         session = new LspDocumentSession(
-            lspClient, Document, DocumentWireName.For(Identity), isProjectMember: true);
+            lspClient, Document, DocumentWireName.For(Identity), isProjectMember: true,
+            ownerAddinId: Identity.Project.ContributedBy);
 
         // Forwarded into this class's own event rather than re-exposed as a pass-through. The view
         // subscribes once when it attaches and never replays, so a subscription that landed on the session
@@ -2458,6 +2459,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public Task<Location[]?> RequestDeclarationAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDeclarationAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
+
+    internal bool CanLinkedEdit => LiveDocumentUri is { } uri && lspClient.SupportsCapability(uri, "linkedEditingRangeProvider");
+
+    internal async Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(Position position, CancellationToken ct)
+    {
+        await FlushDocumentAsync(ct);
+        ct.ThrowIfCancellationRequested();
+        return LiveDocumentUri is { } uri ? await lspClient.RequestLinkedEditingRangesAsync(uri, position, ct) : null;
+    }
 
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDocumentHighlightAsync(uri, position, ct) : Task.FromResult<DocumentHighlight[]?>(null);

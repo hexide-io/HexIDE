@@ -591,6 +591,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Exigir Declaração de Variáveis",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Listar Membros Automaticamente",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao escrever",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edição ligada (mudar o nome nas outras utilizações de uma variável ao escrever)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Informação Rápida Automática",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Indentação Automática",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatar ao Guardar",
@@ -779,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Cancelar",
     "Str.Options.Environment.FileHandling.Header": "Gestão de ficheiros",
     "Str.Options.Environment.ReloadExternalChanges": "Recarregar ficheiros alterados fora do IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projetos RDCore: definir Win64 apenas no Windows",
     "Str.StatusBar.FileReloaded": "{0} recarregado",
     "Str.Dialog.TrustChain.Title": "Cadeia de assinatura",
     "Str.Dialog.TrustChain.RevokedBanner": "Este suplemento foi revogado e não será carregado.",
@@ -1481,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Não foi enviado conteúdo, pelo que nada foi alterado.",
     "Str.AIChat.ProjectCannotStart": "Não é possível iniciar o projeto (nenhum carregado ou já em execução)",
     "Str.AIChat.ProjectNotRunning": "Não há nenhum projeto em execução",
-    "Str.SessionEnd.UnsavedWork": "Alterações não guardadas em {0}"
+    "Str.SessionEnd.UnsavedWork": "Alterações não guardadas em {0}",
+    "Str.Options.Addin.ReportedFailure": "Foi comunicado um problema às {0}: {1}"
   }
 }
