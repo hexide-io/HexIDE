@@ -26,8 +26,16 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 /// Each form has a 2520 by 2520 twip client area. Session 0's unthemed frame is smaller, and HexIDE follows the themed
 /// one, which is what a user's desktop draws.
 /// </remarks>
-public class FormOuterSizeTests
+public class FormOuterSizeTests : System.IDisposable
 {
+    // These rows measure vb6.exe's in-window menu bar. On macOS a form's menus go in the system menu bar (#5065), so the
+    // bar is kept in the window here on every platform. FormNativeMenuTests covers a form with the system menu bar.
+    private readonly bool systemMenuBar = FormNativeMenu.UseSystemMenuBar;
+
+    public FormOuterSizeTests() => FormNativeMenu.UseSystemMenuBar = false;
+
+    public void Dispose() => FormNativeMenu.UseSystemMenuBar = systemMenuBar;
+
     private sealed class NullSink : IDeserializeErrorSink
     {
         public void LogError(string _) { }
