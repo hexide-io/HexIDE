@@ -86,15 +86,23 @@ NPer uses range-reduced logarithms with 160-bit series intermediates. IPmt retai
 payment boundary and the beginning-period recurrence; PPmt rounds each division in its composed
 payment-minus-interest calculation. Rate spills base, residual and each iterate, retaining exact
 rational arithmetic elsewhere. Each model was selected because it matches every measured row;
-several spill masks match, so unmeasured inputs are not proven. None of these measurements
+several spill masks match, so unmeasured inputs are not proven. None of #2523’s measurements
 distinguishes a 64-bit significand from the higher precision used here. All 41 issue rows are
 interpreter tests with exact Double bits and measured errors. No expected value was guessed or relaxed.
 
-Named calls, argument-count/missing-required errors, Date and nonnumeric conversions (except the measured
-Pmt rate String), Null outside Pmt's rate, singular powers, nonpositive bases and periods with
-magnitude above 10,000 refuse as unimplemented. The bound limits exact-power work; it is not a VB6
-limit. Overflow and other extreme-domain error rules remain unmeasured. The ordinary numeric
-calculation follows the fitted formula; agreement beyond the measured rows is not claimed.
+Named calls now use the measured names (#4145). The argument conversions, counts, missing
+arguments and p-code domain errors measured in [#4883](https://github.com/hexide-io/HexIDE/issues/4883)
+now execute. For NPer’s tiny-rate row, the model rounds `1+r` to a 64-bit significand before
+its logarithm: the increment disappears and the resulting `0/0` raises 6. The ordinary
+#2523 bases are exact at that precision, so their fitted results remain unchanged. This is
+an evaluation model, not a measurement of VB6’s internal operations.
+
+Payment powers through 10,000 periods retain exact integer powers; longer schedules through
+20,000 retain 160 bits to bound work. Non-finite inputs, powers beyond 20,000 periods and
+IPmt/PPmt at rate -1 outside period 2 remain refused. Powered IPmt/PPmt principals beyond Double
+range also refuse: the new 1E+308 rows miss their measured bits by one ULP in this model.
+The [inventory](MISSING_LANGUAGE.md) lists these remaining #4883 domains. Agreement beyond
+measured rows is not claimed.
 
 ## Verification on 2026-10-28 (Linux)
 
