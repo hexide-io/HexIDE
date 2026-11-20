@@ -72,6 +72,9 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         : _localization.GetString("Str.FindReplace.Msg.TitleFind");
     public bool CanResize => false;
     public event Action<bool>? CloseRequested;
+    internal event Action? FocusRequested;
+
+    internal void RequestFocus() => FocusRequested?.Invoke();
 
     [Notify] private string searchText = "";
     [Notify] private string replaceText = "";
