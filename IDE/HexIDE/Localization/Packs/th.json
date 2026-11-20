@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "ไม่ได้ส่งเนื้อหา จึงไม่มีการเปลี่ยนแปลงใด ๆ",
     "Str.AIChat.ProjectCannotStart": "ไม่สามารถเริ่มโครงการได้ (ยังไม่ได้โหลดโครงการหรือกำลังทำงานอยู่แล้ว)",
     "Str.AIChat.ProjectNotRunning": "ไม่มีโครงการที่กำลังทำงานอยู่ในขณะนี้",
-    "Str.SessionEnd.UnsavedWork": "มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึกใน {0}"
+    "Str.SessionEnd.UnsavedWork": "มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึกใน {0}",
+    "Str.Options.Addin.ReportedFailure": "รายงานปัญหาเมื่อ {0}: {1}"
   }
 }

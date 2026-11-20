@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Er is geen inhoud verzonden, dus er is niets gewijzigd.",
     "Str.AIChat.ProjectCannotStart": "Kan project niet starten (geen geladen of al actief)",
     "Str.AIChat.ProjectNotRunning": "Er wordt momenteel geen project uitgevoerd",
-    "Str.SessionEnd.UnsavedWork": "Niet-opgeslagen wijzigingen in {0}"
+    "Str.SessionEnd.UnsavedWork": "Niet-opgeslagen wijzigingen in {0}",
+    "Str.Options.Addin.ReportedFailure": "Probleem gemeld op {0}: {1}"
   }
 }

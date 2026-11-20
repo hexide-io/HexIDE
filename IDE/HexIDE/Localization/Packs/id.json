@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Tidak ada konten yang dikirim, jadi tidak ada yang diubah.",
     "Str.AIChat.ProjectCannotStart": "Tidak dapat memulai proyek (belum dimuat atau sudah berjalan)",
     "Str.AIChat.ProjectNotRunning": "Tidak ada proyek yang sedang berjalan",
-    "Str.SessionEnd.UnsavedWork": "Perubahan yang belum disimpan di {0}"
+    "Str.SessionEnd.UnsavedWork": "Perubahan yang belum disimpan di {0}",
+    "Str.Options.Addin.ReportedFailure": "Masalah dilaporkan pada {0}: {1}"
   }
 }

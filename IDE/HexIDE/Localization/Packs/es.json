@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "No se envió contenido, por lo que no se cambió nada.",
     "Str.AIChat.ProjectCannotStart": "No se puede iniciar el proyecto (no hay ninguno cargado o ya está en ejecución)",
     "Str.AIChat.ProjectNotRunning": "No hay ningún proyecto en ejecución",
-    "Str.SessionEnd.UnsavedWork": "Cambios sin guardar en {0}"
+    "Str.SessionEnd.UnsavedWork": "Cambios sin guardar en {0}",
+    "Str.Options.Addin.ReportedFailure": "Se informó de un problema a las {0}: {1}"
   }
 }

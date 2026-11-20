@@ -25,6 +25,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
     private readonly ILocalizationService _localization;
     private readonly AddinInfo _info;
     private readonly AddinStatus _trustStatus;
+    private readonly AddinFailureReport? _reportedFailure;
 
     private readonly IAddinRegistry _registry;
     private readonly string _assemblyPath;
@@ -51,6 +52,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
         Version = string.IsNullOrWhiteSpace(info.Version) ? "—" : info.Version;
         Author = string.IsNullOrWhiteSpace(info.Author) ? "—" : info.Author;
         _status = _trustStatus = registry.GetStatus(_assemblyPath);
+        _reportedFailure = (registry as AddinRegistry)?.GetReportedFailure(info.Id);
         ContributedContent = BuildContributedContent(contributedFactory);
         Logo = DecodeLogo(info);
         Servers = settings is null ? [] : (servers ?? []).Select(server =>
@@ -72,6 +74,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(Description));
         OnPropertyChanged(nameof(Publisher));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(ReportedFailure));
         OnPropertyChanged(nameof(ToggleLabel));
         OnPropertyChanged(nameof(ConsentText));
         OnPropertyChanged(nameof(TrustChain));
@@ -114,6 +117,12 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
         AddinStatus.Error => _info.LoadError is { } message ? Format(message) : Text("Status.Error"),
         _ => Text("Status." + Status),
     };
+    public string ReportedFailure => _reportedFailure is { } report
+        ? string.Format(Text("ReportedFailure"), report.Time.ToLocalTime().ToString("g"),
+            report.Message.Length > 500 ? report.Message[..500] + "…" : report.Message)
+        : "";
+    public bool HasReportedFailure => _reportedFailure is not null;
+
     public string ToggleLabel => Text(IsAddinEnabled ? "Deactivate" : "Activate");
 
     /// <summary>The first-load consent state, derived from the load status.</summary>

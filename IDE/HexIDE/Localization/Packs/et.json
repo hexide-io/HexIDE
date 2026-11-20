@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Sisu ei saadetud, seega midagi ei muudetud.",
     "Str.AIChat.ProjectCannotStart": "Projekti ei saa käivitada (ühtegi pole laaditud või see juba töötab)",
     "Str.AIChat.ProjectNotRunning": "Ükski projekt ei tööta praegu",
-    "Str.SessionEnd.UnsavedWork": "Salvestamata muudatused: {0}"
+    "Str.SessionEnd.UnsavedWork": "Salvestamata muudatused: {0}",
+    "Str.Options.Addin.ReportedFailure": "Probleemist teatati {0}: {1}"
   }
 }

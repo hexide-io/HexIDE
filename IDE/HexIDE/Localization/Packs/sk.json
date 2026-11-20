@@ -1483,6 +1483,7 @@
     "Str.AIChat.EditContentMissing": "Nebol odoslaný žiadny obsah, preto sa nič nezmenilo.",
     "Str.AIChat.ProjectCannotStart": "Projekt nemožno spustiť (žiadny nie je načítaný alebo už beží)",
     "Str.AIChat.ProjectNotRunning": "Momentálne nebeží žiadny projekt",
-    "Str.SessionEnd.UnsavedWork": "Neuložené zmeny: {0}"
+    "Str.SessionEnd.UnsavedWork": "Neuložené zmeny: {0}",
+    "Str.Options.Addin.ReportedFailure": "Problém nahlásený o {0}: {1}"
   }
 }
