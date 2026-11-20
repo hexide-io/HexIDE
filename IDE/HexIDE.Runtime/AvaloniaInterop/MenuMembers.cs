@@ -118,6 +118,7 @@ internal static class MenuMembers
     // The statement changes the item; the posted message changes the client area (#1140, measured at DoEvents).
     internal static void ChangeBar(Menu bar, bool visible)
     {
+        if (FormNativeMenu.IsNative(bar)) return;
         var root = bar.FindLogicalAncestorOfType<IModuleExecutionRoot>();
         var window = bar.FindLogicalAncestorOfType<Window>();
         var change = barChanges.GetOrCreateValue(bar);
@@ -178,13 +179,14 @@ internal static class MenuMembers
 
     private static void RefuseWrapped(Menu bar)
     {
-        if (bar is VBMenuBar wrapped && wrapped.RowCount() > 1)
+        if (!FormNativeMenu.IsNative(bar) && bar is VBMenuBar wrapped && wrapped.RowCount() > 1)
             throw new NotImplementedException("Changing a wrapped menu bar is not implemented (#4946)");
     }
 
     internal static void CheckRows(VBMenuBar bar, Control? changed = null, bool? visible = null,
         string? caption = null, Control? added = null, int position = -1)
     {
+        if (FormNativeMenu.IsNative(bar)) return;
         var before = bar.RowCount();
         var after = bar.RowCount(changed, visible, caption, added, position);
         if (before != after && Math.Max(before, after) > 1)

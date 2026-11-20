@@ -3036,12 +3036,12 @@ elevated (deliberate divergence from VB6). Measurements: #4681 and
 - **AND** an object with no default member or a default returning anything other than Date or String explicitly refuses as not implemented, citing #4733, pending measurement
 
 ### Requirement: Running menu bars wrap in the host menu font
-A running form's menu bar SHALL measure displayed captions in the host menu font, adding 14 pixels per item,
+A running form's in-window menu bar SHALL measure displayed captions in the host menu font, adding 14 pixels per item,
 and SHALL put an item on the next row when it would leave fewer than 7 pixels spare in the client width.
 The first item on a row SHALL remain there even when wider than the client. The bar SHALL draw those same
 rows and item widths, with a height of 19n + 1 pixels for n rows, before Form_Load.
 A Width assignment SHALL re-wrap inside the statement, preserving Height and raising one Resize with the
-new ScaleHeight. Menu edits that change between nonzero row counts, or make a wrapped bar appear or disappear,
+new ScaleHeight. In-window menu edits that change between nonzero row counts, or make a wrapped bar appear or disappear,
 SHALL remain explicitly unimplemented under #4946. Measured rules: [#4978](https://github.com/hexide-io/HexIDE/issues/4978),
 oracle PRs [#4977](https://github.com/hexide-io/HexIDE/pull/4977) and [#4985](https://github.com/hexide-io/HexIDE/pull/4985).
 Where an item breaks follows the host font, as VB6's follows the desktop font.
@@ -3082,3 +3082,24 @@ SHALL install descriptor bounds before reading its elements, including when a sh
 - **THEN** they report "Expected array"
 - **AND** Variant fields holding arrays support successive index groups
 - **AND** indexed Lets on the measured Variant/Object fields report 13, 91, 438, 451 or 344 as applicable
+
+### Requirement: Desktop form menus use the macOS menu bar
+
+On macOS, a running desktop form with an Avalonia Window SHALL mirror its existing VB menu tree into
+that window's NativeMenu, keeping the hidden in-window tree for program reads, arrays and shortcuts.
+The form SHALL select this mode once at load time. Other hosts and platforms SHALL retain their
+in-window menus. The window SHALL omit the menu strip's height, frame and position contribution;
+top-level menu visibility changes SHALL NOT alter its frame or raise Form_Resize in this mode.
+Native menu items SHALL reflect shown captions, Enabled, Visible and Checked; separators SHALL be
+omitted while hidden and restored in order when shown. Array Load and Unload SHALL update the mirror
+in order. Top-level items without children SHALL have empty native submenus. Native Click SHALL
+raise the existing menu Click with its array Index, and a submenu's NeedsUpdate SHALL raise its
+holding menu's Click. Native items SHALL have no Gesture; the existing window shortcut chain SHALL
+remain responsible for shortcut dispatch. Measured platform rules: [#5011 K1–K14](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7031789606);
+implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
+
+#### Scenario: A menu enables an item before its native submenu opens
+- **GIVEN** a desktop form using the system menu bar with a disabled submenu item
+- **WHEN** the holding native submenu requests NeedsUpdate and its menu Click enables the item
+- **THEN** that same native item is enabled before the submenu opens
+- **AND** no in-window menu strip appears
