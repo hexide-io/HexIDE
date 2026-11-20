@@ -420,9 +420,13 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   (writes check a copy without changing the field), scalar/Empty error 13 and late-bound variable error 451.
   Get-only/Function assignments execute the member then raise 424 early-bound or 451 through As Object. Held in
   a Variant, an assignment through a default Sub or Function raises 450 without calling it (measured).
-  Assignments through object-returning defaults and default members without a value remain unmeasured
-  and refuse naming #4906. Nothing in Variant/Object slots and object argument/value evaluation
-  order retain today's behaviour, unmeasured.
+  Assignments through object-returning defaults follow the measured rows
+  ([#4906](https://github.com/hexide-io/HexIDE/issues/4906)). An early-bound default declared As Object or
+  As Variant whose object can't take the Let, a built-in object given arguments, and default members
+  without a value still refuse naming #4906. Returned variable, Function or Sub defaults and Get-only
+  defaults requiring arguments also remain refused, as does unavailable default storage.
+  A Let of Nothing is 91 ([#5083](https://github.com/hexide-io/HexIDE/issues/5083)). Object argument/value
+  evaluation order retains today's behaviour, unmeasured.
   No-argument Lets into class/Object variables, class fields, With members and object-array elements now call
   the held class's default Property Let or store into its Variant default field, preserving the object
   ([#4694 measurements](https://github.com/hexide-io/HexIDE/issues/4694)). Get-only and Function defaults raise
