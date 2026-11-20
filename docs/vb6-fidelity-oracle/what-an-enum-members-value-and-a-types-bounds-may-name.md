@@ -197,4 +197,38 @@ before the owning module's own.
 - **What decides it is where the Const sits relative to the Type, not to the variable.** A Const above the Type works even when it's below the variable. A Const below the Type is the compile error recorded above, whether or not a variable comes first.
 - **The obvious guess was that the variable's position mattered:** that the bounds are fixed where the variable is declared, so a Const between the variable and its Type would be a forward reference. It isn't.
 
-**Not measured:** a variable of the Type in another module, declared above the Type's module in the project; and a Public Type.
+**Not measured:** a variable of the Type in another module, declared above the Type's module in the project; and a Public Type. Both are measured in the next section.
+
+### A Public Type, and a variable in another module (2026-11-20, #4907)
+
+**The probe.**
+- **Build:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, `/make` native and p-code in session 0. The two builds gave
+  the same result for every row: the same log, or the same compile error.
+- **The project:** one project per row, since a compile error stops the build. `Module1` holds `Sub Main` and the
+  logger, and comes first in the .vbp. The other modules follow in the order named.
+- **The Type:** always `Public Type T` with one field, `a(1 To N) As Long`.
+- **The read:** `Sub Main` logs `LBound(x.a)` and `UBound(x.a)`, sets `x.a(3) = 7` and reads it back. In X4,
+  `Sub Main` makes a `New Class1` and calls a method of it that does the same with the class's own `x`.
+- **The files:** each module is `Option Explicit`, a blank line, then the declarations in the order given.
+
+| Row | Declarations, in order | Result |
+|---|---|---|
+| P1 | `Module2`: `Private Const N As Byte = 3`, `Public x As T`, the Type | builds; bounds 1 To 3, and `x.a(3)` reads back 7 |
+| P2 | `Module2`: `Public x As T`, `Private Const N As Byte = 3`, the Type | builds; bounds 1 To 3, and `x.a(3)` reads back 7 |
+| P3 | `Module2`: `Public x As T`, the Type, `Private Const N As Byte = 3` | "Constant expression required", `Module2.bas` line 4 |
+| X1 | `Module2`: `Public x As T`. `Module3`: `Private Const N As Byte = 3`, the Type | builds; bounds 1 To 3, and `x.a(3)` reads back 7 |
+| X3 | `Module2`: `Public Const N As Byte = 3`, `Public x As T`. `Module3`: the Type | "Circular dependencies between modules", `Module3.bas` line 3 |
+| X4 | `Module3`: `Private Const N As Byte = 3`, the Type. `Class1`: `Private x As T` | builds; bounds 1 To 3, and `x.a(3)` reads back 7 |
+
+- **A Public Type follows the Private one's rule** (P1 to P3): a variable may come above the Type, and what matters
+  is whether the Const comes above the Type.
+- **A variable in another module gets the Type's bounds,** however the modules are listed (X1). A class's variable
+  does too (X4).
+- **Bounds naming a Const in the variable's own module are a compile error** when that module also declares the
+  variable (X3): "Circular dependencies between modules". The variable's module needs the Type's bounds, and they need
+  that module's Const.
+- **The line numbers** are the `Public Type T` line in both errors, counting `Option Explicit` as line 1. The build
+  log appears not to count the `Attribute VB_Name` line. That is read from these two rows only.
+
+**Not measured:** X3 with the Const in a third module; a Type whose bounds name a Public Const of a module listed
+after it.
