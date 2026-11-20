@@ -1,4 +1,5 @@
 ﻿using HexIDE.Runtime.Debugging;
+using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -10,6 +11,60 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class DebuggerTests : BaseVBTestFixture
 {
+    [Fact]
+    public async Task SynchronousResume_DeepRecursionUnwindsTheStack()
+    {
+        // #4433: a Continue that completes the break before the walk awaits it must still unwind the walk's stack.
+        var (vb, dbg) = NewDebuggable("Work 1000\nSub Work(ByVal n As Long)\nDebug.Print n\nIf n > 0 Then Work n - 1\nEnd Sub\n");
+        dbg.SetBreakpoints("Module1", [3]);
+        var stops = 0;
+        dbg.Stopped += _ => { stops++; dbg.Continue(); };
+        // On a fresh stack, and off the unwind afterwards. A test starts on whatever stack the runner resumes it on, which
+        // measured 451 frames deep here, and a 1,000-deep walk's return path nests its continuations inline, so this one
+        // ended 3,304 to 4,102 frames deep. A test inheriting that stack fails its first call with Error 28.
+        await Task.Run(() => vb.Execute(), TestContext.Current.CancellationToken).Guarded();
+        await Task.Yield();
+        stops.Should().Be(1001);
+        AssertDebugLog(Enumerable.Range(0, 1001).Reverse().Select(n => new Vb6Value((long)n)).ToList());
+    }
+
+    [Fact]
+    public void SynchronousResume_PostsToTheCapturedContext()
+    {
+        // #4433: an immediate Continue must post back to the UI context before passing the break.
+        var (vb, dbg) = NewDebuggable("Debug.Print 1\n");
+        dbg.SetBreakpoints("Module1", [1]);
+        var stops = 0;
+        dbg.Stopped += _ => { stops++; dbg.Continue(); };
+        var previous = SynchronizationContext.Current;
+        var pump = new ResumePump();
+        SynchronizationContext.SetSynchronizationContext(pump);
+        try
+        {
+            var run = vb.Execute();
+            stops.Should().Be(1);
+            run.IsCompleted.Should().BeFalse();
+            debug.Should().BeEmpty();
+            pump.Drain();
+            run.IsCompletedSuccessfully.Should().BeTrue();
+            AssertDebugLog([1]);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+    }
+
+    private sealed class ResumePump : SynchronizationContext
+    {
+        private readonly Queue<(SendOrPostCallback Callback, object? State)> pending = new();
+        public override void Post(SendOrPostCallback callback, object? state) => pending.Enqueue((callback, state));
+        public void Drain()
+        {
+            while (pending.TryDequeue(out var work))
+                work.Callback(work.State);
+        }
+    }
 
     // A task that completes when the controller next enters Break (one-shot).
     private static Task<StoppedInfo> NextStop(DebugController dbg)

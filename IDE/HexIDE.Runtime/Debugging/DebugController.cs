@@ -320,7 +320,7 @@ public sealed class DebugController : IDebugGate
         _resumeGate ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var session = _session;
         Stopped?.Invoke(_currentStop.Value);   // synchronous, on the walk's thread
-        await breakTcs.Task;
+        await breakTcs.Task.ConfigureAwait(ConfigureAwaitOptions.ContinueOnCapturedContext | ConfigureAwaitOptions.ForceYielding);
         // Abort if Stop() aborted us OR a Reset() started a new session while we were parked. The session check —
         // not _isAborting — is what defeats the Restart-while-paused race: RestartProject calls Stop() then
         // Reset() in one UI turn, and Reset clears _isAborting BEFORE this posted continuation runs, so without
