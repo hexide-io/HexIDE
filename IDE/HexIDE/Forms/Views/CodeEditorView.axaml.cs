@@ -500,6 +500,8 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.ElementGenerators.Add(_inlayHintRenderer);
             _inlaySettingsChanged = (_, e) =>
             {
+                if (e.PropertyName == nameof(vm.Settings.RDCoreWin64OnlySetOnWindows))
+                    ScheduleConditionalCompilation(null, EventArgs.Empty);
                 if (e.PropertyName != nameof(vm.Settings.ShowInlayHints)) return;
                 ScheduleFolding(vm);
             };

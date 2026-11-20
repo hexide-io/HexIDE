@@ -846,6 +846,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "キャンセル(_C)",
     "Str.Options.Environment.FileHandling.Header": "ファイルの処理",
     "Str.Options.Environment.ReloadExternalChanges": "IDE の外部で変更されたファイルを再読み込みする",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore プロジェクト: Windows でのみ Win64 を設定する",
     "Str.StatusBar.FileReloaded": "{0} を再読み込みしました",
     "Str.Dialog.TrustChain.Title": "署名チェーン",
     "Str.Dialog.TrustChain.RevokedBanner": "このアドインは取り消されており、読み込まれません。",

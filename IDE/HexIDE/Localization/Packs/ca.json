@@ -554,6 +554,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Demana un projecte",
     "Str.Options.Environment.FileHandling.Header": "Gestió de fitxers",
     "Str.Options.Environment.ReloadExternalChanges": "Torna a carregar els fitxers modificats fora de l'IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projectes RDCore: defineix Win64 només al Windows",
     "Str.Options.Theme.GroupHeader": "Tema de l'IDE",
     "Str.Theme.HighContrastLight": "Contrast alt clar",
     "Str.Theme.HighContrastDark": "Contrast alt fosc",

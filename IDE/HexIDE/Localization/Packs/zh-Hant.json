@@ -812,6 +812,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "取消(_C)",
     "Str.Options.Environment.FileHandling.Header": "檔案處理",
     "Str.Options.Environment.ReloadExternalChanges": "重新載入在 IDE 外部變更的檔案",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore 專案：僅在 Windows 上設定 Win64",
     "Str.StatusBar.FileReloaded": "已重新載入 {0}",
     "Str.Dialog.TrustChain.Title": "簽署鏈",
     "Str.Dialog.TrustChain.RevokedBanner": "此增益集已被撤銷，將不會載入。",

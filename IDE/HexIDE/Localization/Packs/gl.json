@@ -554,6 +554,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Preguntar polo proxecto",
     "Str.Options.Environment.FileHandling.Header": "Xestión de ficheiros",
     "Str.Options.Environment.ReloadExternalChanges": "Recargar os ficheiros modificados fóra do IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Proxectos RDCore: definir Win64 só en Windows",
     "Str.Options.Theme.GroupHeader": "Tema do IDE",
     "Str.Theme.HighContrastLight": "Alto contraste claro",
     "Str.Theme.HighContrastDark": "Alto contraste escuro",

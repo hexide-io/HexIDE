@@ -521,6 +521,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Zatraži projekat",
     "Str.Options.Environment.FileHandling.Header": "Rukovanje datotekama",
     "Str.Options.Environment.ReloadExternalChanges": "Ponovo učitaj datoteke izmenjene izvan IDE-a",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore projekti: postavi Win64 samo na Windowsu",
     "Str.Options.Theme.GroupHeader": "Tema IDE-a",
     "Str.Theme.HighContrastLight": "Visoki kontrast svetli",
     "Str.Theme.HighContrastDark": "Visoki kontrast tamni",

@@ -813,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Batal",
     "Str.Options.Environment.FileHandling.Header": "Penanganan berkas",
     "Str.Options.Environment.ReloadExternalChanges": "Muat ulang berkas yang diubah di luar IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Proyek RDCore: tetapkan Win64 hanya di Windows",
     "Str.StatusBar.FileReloaded": "{0} dimuat ulang",
     "Str.Dialog.TrustChain.Title": "Rantai penandatanganan",
     "Str.Dialog.TrustChain.RevokedBanner": "Add-in ini telah dicabut dan tidak akan dimuat.",

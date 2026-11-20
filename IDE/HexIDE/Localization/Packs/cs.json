@@ -812,6 +812,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Zrušit",
     "Str.Options.Environment.FileHandling.Header": "Práce se soubory",
     "Str.Options.Environment.ReloadExternalChanges": "Znovu načíst soubory změněné mimo IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projekty RDCore: nastavit Win64 pouze ve Windows",
     "Str.StatusBar.FileReloaded": "Znovu načteno: {0}",
     "Str.Dialog.TrustChain.Title": "Podpisový řetězec",
     "Str.Dialog.TrustChain.RevokedBanner": "Tento doplněk byl odvolán a nebude načten.",

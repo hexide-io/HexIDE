@@ -779,6 +779,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "Отмена",
     "Str.Options.Environment.FileHandling.Header": "Обработка файлов",
     "Str.Options.Environment.ReloadExternalChanges": "Перезагружать файлы, изменённые вне среды IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Проекты RDCore: задавать Win64 только в Windows",
     "Str.StatusBar.FileReloaded": "Перезагружен {0}",
     "Str.Dialog.TrustChain.Title": "Цепочка подписи",
     "Str.Dialog.TrustChain.RevokedBanner": "Эта надстройка была отозвана и не будет загружена.",

@@ -521,6 +521,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Küsi projekti",
     "Str.Options.Environment.FileHandling.Header": "Failide haldamine",
     "Str.Options.Environment.ReloadExternalChanges": "Laadi väljaspool IDE-d muudetud failid uuesti",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore projektid: määra Win64 ainult Windowsis",
     "Str.Options.Theme.GroupHeader": "IDE kujundus",
     "Str.Theme.HighContrastLight": "Suure kontrastsusega hele",
     "Str.Theme.HighContrastDark": "Suure kontrastsusega tume",

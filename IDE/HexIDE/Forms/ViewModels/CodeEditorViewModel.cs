@@ -996,7 +996,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             ReassertOwnedText(qualifiers: qualifierWriteWasUndone);
     }
 
-    internal bool ConditionalWin64OnlySetOnWindows => (ModuleDefinition?.Owner ?? FormDefinition?.Owner)?.Win64OnlySetOnWindows ?? false;
+    internal bool ConditionalWin64OnlySetOnWindows => Settings.RDCoreWin64OnlySetOnWindows;
 
     private static int ConditionalTargetFor(ProjectDefinition project) => project.Target == ProjectTarget.RDCore ? 5 :
         project.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };

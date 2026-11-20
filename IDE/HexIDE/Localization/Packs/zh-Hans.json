@@ -812,6 +812,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "取消(_C)",
     "Str.Options.Environment.FileHandling.Header": "文件处理",
     "Str.Options.Environment.ReloadExternalChanges": "重新加载在 IDE 外部被修改的文件",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore 项目：仅在 Windows 上设置 Win64",
     "Str.StatusBar.FileReloaded": "已重新加载 {0}",
     "Str.Dialog.TrustChain.Title": "签名链",
     "Str.Dialog.TrustChain.RevokedBanner": "此加载项已被吊销，将不会加载。",

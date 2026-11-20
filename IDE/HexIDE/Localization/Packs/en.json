@@ -553,6 +553,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Prompt for project",
     "Str.Options.Environment.FileHandling.Header": "File handling",
     "Str.Options.Environment.ReloadExternalChanges": "Reload files changed outside the IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore projects: set Win64 only on Windows",
     "Str.Options.Theme.GroupHeader": "IDE Theme",
     "Str.Theme.HighContrastLight": "High contrast light",
     "Str.Theme.HighContrastDark": "High contrast dark",

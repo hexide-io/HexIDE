@@ -17,5 +17,6 @@
                 <CheckBox IsChecked="{CompiledBinding ReloadFilesChangedOutsideIde}" Content="{DynamicResource Str.Options.Environment.ReloadExternalChanges}" />
             </StackPanel>
         </HeaderedContentControl>
+        <CheckBox IsChecked="{CompiledBinding RDCoreWin64OnlySetOnWindows}" Content="{DynamicResource Str.Options.Environment.RDCoreWin64OnlySetOnWindows}" />
     </StackPanel>
 </UserControl>

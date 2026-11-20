@@ -554,6 +554,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Подкана за избор на проект",
     "Str.Options.Environment.FileHandling.Header": "Работа с файлове",
     "Str.Options.Environment.ReloadExternalChanges": "Презареждане на файлове, променени извън IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Проекти RDCore: задаване на Win64 само в Windows",
     "Str.Options.Theme.GroupHeader": "Тема на IDE",
     "Str.Theme.HighContrastLight": "Висок контраст — светла",
     "Str.Theme.HighContrastDark": "Висок контраст — тъмна",

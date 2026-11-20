@@ -555,6 +555,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Projekt bekérése",
     "Str.Options.Environment.FileHandling.Header": "Fájlkezelés",
     "Str.Options.Environment.ReloadExternalChanges": "Az IDE-n kívül módosított fájlok újratöltése",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projektek: a Win64 beállítása csak Windowson",
     "Str.Options.Theme.GroupHeader": "IDE-téma",
     "Str.Theme.HighContrastLight": "Kontrasztos világos",
     "Str.Theme.HighContrastDark": "Kontrasztos sötét",

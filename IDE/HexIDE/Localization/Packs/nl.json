@@ -813,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Annuleren",
     "Str.Options.Environment.FileHandling.Header": "Bestandsbeheer",
     "Str.Options.Environment.ReloadExternalChanges": "Bestanden die buiten de IDE zijn gewijzigd opnieuw laden",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projecten: Win64 alleen op Windows instellen",
     "Str.StatusBar.FileReloaded": "{0} opnieuw geladen",
     "Str.Dialog.TrustChain.Title": "Ondertekeningsketen",
     "Str.Dialog.TrustChain.RevokedBanner": "Deze invoegtoepassing is ingetrokken en wordt niet geladen.",

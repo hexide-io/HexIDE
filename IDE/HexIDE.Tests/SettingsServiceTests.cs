@@ -76,6 +76,36 @@ public class SettingsServiceTests : IDisposable
         CreateSut().TabWidth.Should().Be(8);
     }
 
+    // Installation scope and persistence decided in #5036.
+    [Fact]
+    public void RDCoreWin64SettingIsStagedPersistedAndRestored()
+    {
+        var setting = typeof(SettingsService).GetProperty("RDCoreWin64OnlySetOnWindows");
+        var option = typeof(HexIDE.Forms.ViewModels.Options.EnvironmentGeneralPageViewModel).GetProperty("RDCoreWin64OnlySetOnWindows");
+        setting.Should().NotBeNull();
+        option.Should().NotBeNull();
+        var settings = CreateSut();
+        setting!.GetValue(settings).Should().Be(false);
+        var page = new HexIDE.Forms.ViewModels.Options.EnvironmentGeneralPageViewModel(settings);
+        option!.GetValue(page).Should().Be(false);
+        setting.SetValue(settings, true);
+        page.LoadFromSettings();
+        option.GetValue(page).Should().Be(true);
+        option.SetValue(page, false);
+        setting.GetValue(settings).Should().Be(true);
+        page.SaveToSettings();
+        setting.GetValue(CreateSut()).Should().Be(false);
+        option.SetValue(page, true);
+        page.SaveToSettings();
+        using (var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath)))
+            saved.RootElement.GetProperty("rdcoreWin64OnlySetOnWindows").GetBoolean().Should().BeTrue();
+        setting.GetValue(CreateSut()).Should().Be(true);
+        page.RestoreDefaults();
+        option.GetValue(page).Should().Be(false);
+        page.SaveToSettings();
+        setting.GetValue(CreateSut()).Should().Be(false);
+    }
+
     [Fact]
     public void InlayHintsToggleIsStagedPersistedAndRestored()
     {

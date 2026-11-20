@@ -521,6 +521,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "ถามหาโครงการ",
     "Str.Options.Environment.FileHandling.Header": "การจัดการไฟล์",
     "Str.Options.Environment.ReloadExternalChanges": "โหลดไฟล์ที่เปลี่ยนแปลงภายนอก IDE ใหม่",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "โครงการ RDCore: ตั้งค่า Win64 เฉพาะบน Windows",
     "Str.Options.Theme.GroupHeader": "ธีม IDE",
     "Str.Theme.HighContrastLight": "ความคมชัดสูงแบบสว่าง",
     "Str.Theme.HighContrastDark": "ความคมชัดสูงแบบมืด",

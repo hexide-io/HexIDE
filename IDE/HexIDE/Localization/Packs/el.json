@@ -779,6 +779,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "Άκυρο",
     "Str.Options.Environment.FileHandling.Header": "Διαχείριση αρχείων",
     "Str.Options.Environment.ReloadExternalChanges": "Επαναφόρτωση αρχείων που τροποποιήθηκαν εκτός του IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Έργα RDCore: ορισμός του Win64 μόνο στα Windows",
     "Str.StatusBar.FileReloaded": "Έγινε επαναφόρτωση του {0}",
     "Str.Dialog.TrustChain.Title": "Αλυσίδα υπογραφής",
     "Str.Dialog.TrustChain.RevokedBanner": "Αυτό το πρόσθετο έχει ανακληθεί και δεν θα φορτωθεί.",
