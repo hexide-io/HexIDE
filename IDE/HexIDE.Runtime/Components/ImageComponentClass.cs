@@ -45,6 +45,7 @@ public class ImageComponentClass : ComponentBaseClass
         {
             Picture = instance.GetPropertyOrDefault(PictureProperty),
             Stretch = instance.GetPropertyOrDefault(StretchProperty),
+            BorderStyle = instance.GetPropertyOrDefault(BorderStyleProperty),
             Cursor = instance.GetPropertyOrDefault(MousePointerProperty).ToCursor(),
             IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
             IsVisible = instance.GetPropertyOrDefault(VisibleProperty),

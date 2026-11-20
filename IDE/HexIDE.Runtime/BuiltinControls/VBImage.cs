@@ -6,6 +6,8 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Rendering;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -54,6 +56,32 @@ public class VBImage : Control, ICustomHitTest
     {
         get => GetValue(StretchProperty);
         set => SetValue(StretchProperty, value);
+    }
+
+    internal VBBorder BorderStyle { get; set; }
+
+    private PixelSize? runtimePictureSize;
+
+    internal void SetRuntimePicture(PanelPicture? picture)
+    {
+        runtimePictureSize = picture?.PixelSize;
+        Picture = picture?.FileBytes;
+        FitRuntimePicture();
+    }
+
+    internal void SetRuntimeStretch(bool stretch)
+    {
+        Stretch = stretch;
+        FitRuntimePicture();
+    }
+
+    private void FitRuntimePicture()
+    {
+        // VB6 SP6 and RDC measurements: #5010. Empty pictures keep the dimensions; saved pictures load unchanged.
+        if (Stretch || runtimePictureSize is not { } size) return;
+        var border = BorderStyle == VBBorder.FixedSingle ? 4 : 0;
+        Width = size.Width + border;
+        Height = size.Height + border;
     }
 
     private byte[]? decodedFrom;

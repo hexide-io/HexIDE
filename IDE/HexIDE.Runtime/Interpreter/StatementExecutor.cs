@@ -2545,6 +2545,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && pictureTarget.Value is VBSSTab)
             return value;
 
+        // Image.Picture takes the picture through Let, without its native default Handle (#5010).
+        if (value.Value is PanelPicture
+            && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } imagePictureCall
+            && imagePictureCall.iCS_S_VariableOrProcedureCall() is { } imagePictureLead
+            && imagePictureCall.iCS_S_MemberCall() is [var imagePictureMember]
+            && !MemberHasArgs(imagePictureMember)
+            && UdtFieldName(imagePictureMember).Equals("Picture", StringComparison.OrdinalIgnoreCase)
+            && interpreter.ExecutionContext.TryInspectVariable(currentEnv, imagePictureLead.GetText(), out var imagePictureTarget)
+            && imagePictureTarget.Value is VBImage)
+            return value;
+
         // BuddyControl is a Variant which accepts a control reference even through Let (#1093).
         if (value.Value is Control
             && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } buddyCall

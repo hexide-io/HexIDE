@@ -176,6 +176,24 @@ public class RDCoreAdditionsTests
     }
 
     [AvaloniaFact]
+    public void An_RDCore_unstretched_Image_takes_its_pngs_size()
+    {
+        // RDC's 14-by-10 PNG row, measured by the rdcore session: #4610, issuecomment-7026728482 (cited on #5010).
+        using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(14, 10));
+        using var stream = new System.IO.MemoryStream();
+        bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+        using var png = new PngFile(Convert.ToBase64String(stream.ToArray()));
+        var (printed, errors) = Run(ProjectTarget.RDCore, $"""
+            Set Image1.Picture = LoadPicture({png.Literal})
+            Debug.Print Image1.Width
+            Debug.Print Image1.Height
+            """, designer: Designer.Replace("Width           =   1200", "Width           =   330")
+                .Replace("Height          =   600", "Height          =   330"));
+        errors.Should().BeEmpty();
+        printed.Should().Equal("210", "150");
+    }
+
+    [AvaloniaFact]
     public void An_RDCore_png_shows_in_an_Image_and_a_PictureBox_and_reads_back()
     {
         using var png = new PngFile();

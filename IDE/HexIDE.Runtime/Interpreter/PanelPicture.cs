@@ -181,6 +181,8 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 
     internal Bitmap? Bitmap => bitmap.Value;
 
+    internal Avalonia.PixelSize? PixelSize => Bitmap?.PixelSize ?? DeclaredSize;
+
     /// <param name="png">Whether PNG is read too, which RDCore's <c>LoadPicture</c> does (#4967); see <see cref="FromFile"/>.</param>
     internal static Vb6Value Load(IReadOnlyList<Vb6Value> args, VbFiles files, bool png = false)
     {
@@ -213,7 +215,7 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
             value = new Vb6Value((short)0);
             return true;
         }
-        if ((Bitmap?.PixelSize ?? DeclaredSize) is { } size)
+        if (PixelSize is { } size)
         {
             if (name.Equals("Type", StringComparison.OrdinalIgnoreCase))
                 value = new Vb6Value((short)(FrxImageHelper.DetectKind(FileBytes) == FrxImageHelper.FrxBlobKind.Icon ? 3 : 1));

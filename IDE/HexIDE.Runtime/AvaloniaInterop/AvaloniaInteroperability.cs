@@ -118,6 +118,7 @@ public static class AvaloniaInteroperability
         Register<Control, double>(VBProperties.TopProperty, w => Canvas.GetTop(w).OrZero(), Canvas.SetTop);
         Register<Control, double>(VBProperties.WidthProperty, Layoutable.WidthProperty);
         Register<VBPictureBox, bool>(VBProperties.AutoSizeProperty, box => box.AutoSize, (box, value) => box.AutoSize = value);
+        Register<VBImage, bool>(VBProperties.StretchProperty, image => image.Stretch, (image, value) => image.SetRuntimeStretch(value));
         Register<Control, VBCursorType>(VBProperties.MousePointerProperty, AttachedProperties.GetMousePointer, (control, value) =>
         {
             control.Cursor = value.ToCursor();
@@ -302,9 +303,10 @@ public static class AvaloniaInteroperability
             && !pictureBox.AutoSize && ReferenceEquals(property, VBProperties.AutoSizeProperty)
             && ConvertForAssignment(property, value) is true)
             throw UnmeasuredAssignment(property, value);
-        if (control is VBImage image && ReferenceEquals(property, VBProperties.PictureProperty) && value.Value is PanelPicture imagePicture)
+        if (control is VBImage image && ReferenceEquals(property, VBProperties.PictureProperty)
+            && (value.Value is PanelPicture || value == Vb6Value.Nothing))
         {
-            image.Picture = imagePicture.FileBytes;
+            image.SetRuntimePicture(value.Value as PanelPicture);
             return true;
         }
         if (control is VBPictureBox box && ReferenceEquals(property, VBProperties.PictureProperty))
