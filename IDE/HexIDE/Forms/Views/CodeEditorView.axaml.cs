@@ -2996,8 +2996,9 @@ public partial class CodeEditorView : UserControl
             }
 
             var loc = locations[0];
-            var targetLine = loc.Range.Start.Line + 1; // AvaloniaEdit is 1-based
-            var targetCol  = loc.Range.Start.Character;
+            var target = CodeEditorClientActions.EditorLocation(loc.Range.Start);
+            var targetLine = target.Line;
+            var targetCol = target.Column - 1;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {

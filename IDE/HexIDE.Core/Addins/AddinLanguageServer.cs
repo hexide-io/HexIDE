@@ -124,6 +124,11 @@ public interface IAddinServerConnection : IDisposable
     /// <exception cref="InvalidOperationException">No claimed-command handler is running on this connection.</exception>
     Task<bool> StartRenameAsync(string uri, HexIDE.Lsp.Messages.Position position, CancellationToken cancellationToken = default);
 
+    /// <summary>Opens a document and selects its zero-based LSP range while this connection's claimed command is running.</summary>
+    /// <returns>False if the document cannot be opened or the range is outside it; otherwise true.</returns>
+    /// <exception cref="InvalidOperationException">No claimed-command handler is running on this connection.</exception>
+    Task<bool> GoToLocationAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default);
+
     /// <summary>Shows locations in Find References while this connection's claimed command is running.</summary>
     /// <exception cref="InvalidOperationException">No claimed-command handler is running on this connection.</exception>
     Task ShowReferencesAsync(IReadOnlyList<HexIDE.Lsp.Messages.Location> locations, CancellationToken cancellationToken = default);

@@ -402,6 +402,13 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
         return await _codeEditorActions!.StartRenameAsync(uri, position, lifetime.Token);
     }
 
+    public async Task<bool> GoToLocationAsync(string uri, HexIDE.Lsp.Messages.Range range,
+        CancellationToken cancellationToken = default)
+    {
+        using var lifetime = ActionLifetime(cancellationToken);
+        return await _codeEditorActions!.GoToLocationAsync(uri, range, lifetime.Token);
+    }
+
     public async Task ShowReferencesAsync(IReadOnlyList<HexIDE.Lsp.Messages.Location> locations,
         CancellationToken cancellationToken = default)
     {

@@ -1792,7 +1792,11 @@ attribution and message-only failures. Settings and publisher namespace binding 
 checks the position, navigates and uses the existing rename refusal checks and prompt. It returns false
 if the document cannot be opened or the position is outside it, and true when handled.
 `ShowReferencesAsync(locations, cancellationToken)` fills Find References with the supplied locations.
-Both marshal to the UI thread and are allowed only while that connection's claimed-command handler is
+`GoToLocationAsync(uri, range, cancellationToken)` opens or activates the document and selects the
+zero-based LSP range. It returns false without changing selection if the document is unavailable,
+an endpoint is outside the text, or the range is reversed. No native `rdcore.goToLocation` handler is
+provided; the add-in claims the command.
+All three marshal to the UI thread and are allowed only while that connection's claimed-command handler is
 running, like `ApplyEditAsync`. Outside that window they throw `InvalidOperationException` and show
 nothing. Core and the host calls share the same actions, including the code window's current VB6
 new-name validation. Core's `rdcore.*` cases remain until RDCore's add-in ships both claims (#4259 step 3).
