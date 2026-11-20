@@ -1,6 +1,7 @@
 using System.IO;
 using System.Numerics;
 using System.Text;
+using HexIDE.Runtime.AvaloniaInterop;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -66,8 +67,12 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
         return name;
     }
 
-    private static Vb6Value Copy(Vb6Value value) => value.Value is VBArray array
-        ? value.WithArray(array.CopyForLet(static v => v)) : value;
+    private static Vb6Value Copy(Vb6Value value) => value.Value switch
+    {
+        VBArray array => value.WithArray(array.CopyForLet(static v => v)),
+        ControlFont font => new Vb6Value(font.CopyForPropertyBag()),
+        _ => value,
+    };
 
     public bool TryGetProperty(string name, out Vb6Value value)
     {
@@ -159,7 +164,7 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
             throw new VBRunTimeException(new VBStandardError(330, "Illegal parameter.  Can't write object because it does not support persistence."));
         if (type == Vb6Value.ValueType.Object || type == Vb6Value.ValueType.Nothing || type == Vb6Value.ValueType.CSharpProxyObject || type == Vb6Value.ValueType.Control)
         {
-            if (value.Value is null) return 9;
+            if (value.Value is null or ControlFont) return 9;
             throw Objects();
         }
         if (type == Vb6Value.ValueType.Boolean) return 11;
@@ -184,7 +189,10 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
                 writer.Write(text.Length);
                 writer.Write(EncodeText(text));
                 return;
-            case 9: writer.Write(new byte[16]); return;
+            case 9:
+                if (value.Value is ControlFont font) font.Persistence.Write(writer);
+                else writer.Write(new byte[16]);
+                return;
             case 11: writer.Write((short)((bool)value.Value! ? -1 : 0)); return;
             case 14:
                 var bits = decimal.GetBits((decimal)value.Value!);
@@ -278,6 +286,8 @@ internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
             case 9:
                 var clsid = reader.ReadBytes(16);
                 if (clsid.Length != 16) throw Invalid();
+                if (clsid.AsSpan().SequenceEqual(PropertyBagFont.Clsid))
+                    return new Vb6Value(ControlFont.FromPersistence(PropertyBagFont.Read(reader)));
                 foreach (var b in clsid) if (b != 0) throw Objects();
                 return Vb6Value.Nothing;
             case 11: return new Vb6Value(reader.ReadInt16() != 0);

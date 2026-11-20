@@ -243,17 +243,171 @@ public class PropertyBagTests : BaseVBTestFixture
         string.Join("\n", bytes.Select((b, i) => $"b({i}) = {b}"));
 
     [Fact]
-    public async Task Persistable_font_Contents_is_explicitly_refused()
+    public async Task Persistable_font_Contents_reads_the_untouched_font()
     {
         // The font entry at offset 332 in the full measured dump; rebased as a single-entry bag.
         var bytes = Convert.FromHexString("93B20000380000000900040075F30DBC0000000066006F006E0074000352E30B918FCE119DE300AA004BB851010100000000803801000000");
-        var act = async () => await Run($"""
-            Dim p As PropertyBag
+        await Run($"""
+            Dim p As PropertyBag, g As Object
             Set p = New PropertyBag
             {InputBytes(bytes)}
             p.Contents = b
+            Set g = p.ReadProperty("font")
+            Debug.Print g.Name
+            Debug.Print g.Size
             """);
-        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*PropertyBag*objects*#4741*");
+        AssertDebugLog([new Vb6Value("MS Sans Serif"), Vb6Value.NewCurrency(8.25m)]);
+    }
+
+    // SP6 native/p-code: #4741's 2026-11-20 comment and
+    // docs/vb6-fidelity-oracle/a-propertybag-at-run-time.md, "A StdFont in a bag".
+    public static TheoryData<string, string, string, double, int, int, int> FontRows => new()
+    {
+        { "", "0101000000008038010000", "MS Sans Serif", 8.25, 400, 0, 0 },
+        { "v = f.Name", "010000009001444201000D4D532053616E73205365726966", "MS Sans Serif", 8.25, 400, 0, 0 },
+        { "v = f.Bold", "010000009001444201000D4D532053616E73205365726966", "MS Sans Serif", 8.25, 400, 0, 0 },
+        { "v = f.Size", "010000009001444201000D4D532053616E73205365726966", "MS Sans Serif", 8.25, 400, 0, 0 },
+        { "v = f.Charset", "010000009001444201000D4D532053616E73205365726966", "MS Sans Serif", 8.25, 400, 0, 0 },
+        { "p.WriteProperty \"before\", f: v = f.Name: Set p = New PropertyBag", "010000009001444201000D4D532053616E73205365726966", "MS Sans Serif", 8.25, 400, 0, 0 },
+        { "f.Name = \"Arial\"", "0101000000008038010005417269616C", "Arial", 8.25, 400, 0, 0 },
+        { "f.Size = 10", "010100000000A086010000", "MS Sans Serif", 9.75, 400, 0, 0 },
+        { "f.Bold = True", "01010000BC028038010000", "Arial", 8.25, 700, 0, 0 },
+        { "f.Weight = 700", "01010000BC028038010000", "Arial", 8.25, 700, 0, 0 },
+        { "f.Italic = True", "0101000200008038010000", "MS Sans Serif", 8.25, 400, 0, 2 },
+        { "f.Charset = 2", "0102000000008038010000", "Wingdings", 8.25, 400, 2, 0 },
+        { "f.Name = \"Arial\": v = f.Size", "0100000090014442010005417269616C", "Arial", 8.25, 400, 0, 0 },
+        { "f.Name = \"Arial\": f.Size = 10: v = f.Name", "010000009001DC7C010005417269616C", "Arial", 9.75, 400, 0, 0 },
+        { "f.Name = \"Arial\": f.Size = 10: f.Bold = True: v = f.Name", "01000000BC02DC7C010005417269616C", "Arial", 9.75, 700, 0, 0 },
+        { "f.Name = \"Arial\": f.Size = 10: f.Italic = True: v = f.Name", "010000029001DC7C010005417269616C", "Arial", 9.75, 400, 0, 2 },
+        { "f.Name = \"Arial\": f.Size = 10: f.Underline = True: v = f.Name", "010000049001DC7C010005417269616C", "Arial", 9.75, 400, 0, 4 },
+        { "f.Name = \"Arial\": f.Size = 10: f.Strikethrough = True: v = f.Name", "010000089001DC7C010005417269616C", "Arial", 9.75, 400, 0, 8 },
+        { "f.Name = \"Arial\": f.Size = 10: f.Weight = 600: v = f.Name", "01000000BC02DC7C010005417269616C", "Arial", 9.75, 700, 0, 0 },
+        { "f.Name = \"Arial\": f.Size = 10: f.Charset = 2: v = f.Name", "010200009001DC7C01000957696E6764696E6773", "Wingdings", 9.75, 400, 2, 0 },
+        { "f.Name = \"Courier New\": f.Size = 10: v = f.Name", "010000009001DC7C01000B436F7572696572204E6577", "Courier New", 9.75, 400, 0, 0 },
+        { "f.Name = \"Tahoma\": f.Size = 10.5: f.Bold = True: f.Italic = True: v = f.Name", "01000002BC02289A0100065461686F6D61", "Tahoma", 10.5, 700, 0, 2 },
+    };
+
+    private static string FontBag(string stream)
+    {
+        var body = "09000100660000000000000066000352E30B918FCE119DE300AA004BB851" + stream;
+        body = body.PadRight((body.Length + 7) / 8 * 8, '0');
+        return "93B20000" + Convert.ToHexString(BitConverter.GetBytes(8 + body.Length / 2)) + body;
+    }
+
+    [Theory]
+    [MemberData(nameof(FontRows))]
+    public async Task Font_Contents_and_read_back_match_measured_rows(string setup, string stream,
+        string name, double size, int weight, int charset, int flags)
+    {
+        await Run($"""
+            {HexHelper}
+            Dim p As New PropertyBag, q As New PropertyBag, f As Object, g As Object, v As Variant
+            Set f = New StdFont
+            {setup}
+            p.WriteProperty "F", f
+            Debug.Print HexBytes(p.Contents)
+            Debug.Print HexBytes(p.Contents)
+            q.Contents = p.Contents
+            Debug.Print HexBytes(q.Contents)
+            Set g = q.ReadProperty("F")
+            Debug.Print g Is f
+            Debug.Print TypeName(g)
+            Debug.Print g.Name
+            Debug.Print g.Size
+            Debug.Print g.Weight
+            Debug.Print g.Charset
+            Debug.Print g.Bold
+            Debug.Print g.Italic
+            Debug.Print g.Underline
+            Debug.Print g.Strikethrough
+            v = q.ReadProperty("F")
+            Debug.Print TypeName(v)
+            Debug.Print v
+            """);
+        var hex = FontBag(stream);
+        AssertDebugLog([new Vb6Value(hex), new Vb6Value(hex), new Vb6Value(hex), new Vb6Value(false),
+            new Vb6Value("Font"), new Vb6Value(name), Vb6Value.NewCurrency((decimal)size),
+            new Vb6Value(weight), new Vb6Value(charset), new Vb6Value(weight == 700),
+            new Vb6Value((flags & 2) != 0), new Vb6Value((flags & 4) != 0), new Vb6Value((flags & 8) != 0),
+            new Vb6Value("String"), new Vb6Value(name)]);
+    }
+
+    [Fact]
+    public async Task Writing_an_untouched_font_twice_does_not_realize_it()
+    {
+        // The last line, the first bag unchanged after the font is read, was measured in #4741's review (R01).
+        // #4741's 2026-11-20 comment: writing does not realize; reading Name afterwards does.
+        await Run($"""
+            {HexHelper}
+            Dim p As New PropertyBag, q As New PropertyBag, r As New PropertyBag, f As Object, v As Variant
+            Set f = New StdFont
+            p.WriteProperty "F", f
+            q.WriteProperty "F", f
+            Debug.Print HexBytes(p.Contents)
+            Debug.Print HexBytes(q.Contents)
+            v = f.Name
+            r.WriteProperty "F", f
+            Debug.Print HexBytes(r.Contents)
+            Debug.Print HexBytes(p.Contents)
+            """);
+        var untouched = new Vb6Value(FontBag("0101000000008038010000"));
+        AssertDebugLog([untouched, untouched,
+            new Vb6Value(FontBag("010000009001444201000D4D532053616E73205365726966")), untouched]);
+    }
+
+    [Theory]
+    [InlineData("0101000100008038010000")] // unmeasured flag 01
+    [InlineData("0101000000008038010001FF")] // non-ASCII font name
+    [InlineData("010100000000803801000E4141414141414141414141414141")] // over 13 characters
+    [InlineData("01010002BC028038010000")] // empty name, Bold and Italic together
+    public async Task Unmeasured_font_streams_are_explicitly_refused(string stream)
+    {
+        // Synthetic policy guards, not additional VB6 measurements; #4741 explicitly excludes these.
+        var act = async () => await Run($"""
+            Dim p As New PropertyBag
+            {InputBytes(Convert.FromHexString(FontBag(stream)))}
+            p.Contents = b
+            """);
+        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4741*");
+    }
+
+    // vb6.exe SP6, native and p-code agreeing, 2026-11-20 (#4741's review, R02-R06): a font read back from a bag
+    // and written again unread writes the stream it was loaded from; read first, it writes its realized values.
+    [Theory]
+    [InlineData("", "", "0101000000008038010000")]
+    [InlineData("f.Size = 10", "", "010100000000A086010000")]
+    [InlineData("v = f.Name", "", "010000009001444201000D4D532053616E73205365726966")]
+    [InlineData("f.Bold = True", "", "01010000BC028038010000")]
+    [InlineData("f.Size = 10", "v = g.Name", "010000009001DC7C01000D4D532053616E73205365726966")]
+    public async Task A_font_read_back_is_written_again_as_loaded_until_it_is_read(string setup, string readBack,
+        string rewritten)
+    {
+        await Run($"""
+            {HexHelper}
+            Dim p As New PropertyBag, q As New PropertyBag, r As New PropertyBag, f As Object, g As Object, v As Variant
+            Set f = New StdFont
+            {setup}
+            p.WriteProperty "F", f
+            q.Contents = p.Contents
+            Set g = q.ReadProperty("F")
+            {readBack}
+            r.WriteProperty "F", g
+            Debug.Print HexBytes(r.Contents)
+            """);
+        AssertDebugLog([new Vb6Value(FontBag(rewritten))]);
+    }
+
+    [Fact]
+    public async Task Unmeasured_font_request_is_explicitly_refused()
+    {
+        var act = async () => await Run("""
+            Dim p As New PropertyBag, f As Object
+            Set f = New StdFont
+            f.Bold = True
+            f.Italic = True
+            p.WriteProperty "F", f
+            """);
+        await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4741*");
     }
 
     [Theory]
