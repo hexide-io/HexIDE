@@ -2601,9 +2601,21 @@ and Declare statements not allowed as Public members of object modules". A Publi
 with the same message when instance member storage is allocated and its type is resolved at run time; a class or form never instantiated is not checked.
 Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in-an-object-module.md); #3350 extends the array refusal.
 
+A `Public Type` or a bare `Type` in a class, form or UserControl whose `VB_Exposed`
+attribute is not True SHALL be refused as the program loads, with "Cannot define a Public user-defined type
+within a private object module" ([#5042](https://github.com/hexide-io/HexIDE/issues/5042)).
+
 #### Scenario: A Public UDT variable names a type collected later
 - **WHEN** a class or form declares `Public t As TT` and a standard module declares `Public Type TT`
 - **THEN** loading the program succeeds, and allocating the instance's member storage refuses the Public member
+
+#### Scenario: A private object module declares a Public Type
+- **WHEN** a class, form or UserControl with no `VB_Exposed = True` declares `Public Type T` or `Type T`
+- **THEN** loading the program refuses it with "Cannot define a Public user-defined type within a private object module"
+
+#### Scenario: An exposed class declares a Public Type
+- **WHEN** a class whose `VB_Exposed` is True declares `Public Type T`
+- **THEN** the program loads
 
 #### Scenario: A declaration outside the measured Public object-member scope
 - **WHEN** a declaration is Private, Dim, or in a standard module

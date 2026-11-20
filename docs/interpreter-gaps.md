@@ -357,7 +357,11 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   including Consts below the variable and chains of preceding Consts ([#4734, measured](https://github.com/hexide-io/HexIDE/issues/4734), oracle PR #4800).
   A Public Type in a standard module follows the same rule, and a variable in another module or a class gets the Type's bounds
   in the measured allocation orders ([#4907, measured](https://github.com/hexide-io/HexIDE/issues/4907), [oracle PR #5023](https://github.com/hexide-io/HexIDE/pull/5023)).
-  Allocating a Public Type above its declaration in its own class remains explicitly not implemented (#4907).
+  A `Public Type` or a bare `Type` in a class, form or UserControl whose `VB_Exposed` is absent or False is refused as the
+  program loads, as vb6.exe refuses it ([#5042, measured](https://github.com/hexide-io/HexIDE/issues/5042),
+  [oracle PR #5043](https://github.com/hexide-io/HexIDE/pull/5043) and [oracle PR #5053](https://github.com/hexide-io/HexIDE/pull/5053)).
+  In a class whose `VB_Exposed` is True, allocating its own Public Type above the declaration remains explicitly
+  not implemented (#4907).
   Inverted Type-field bounds report "Range has no values". Get/Put of Type arrays and array fields use their packed layout,
   with descriptors for dynamic fields even in Binary files ([#4925, measured native and p-code](https://github.com/hexide-io/HexIDE/issues/4925)).
   Collection array fields As New instantiate on first read and recreate after Nothing; copies share only created instances.
