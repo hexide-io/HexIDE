@@ -3603,9 +3603,24 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         CancellationToken ct = default)
     {
         if (NativeMenuBar.IsScope(window))
-            return await Dispatcher.UIThread.InvokeAsync(() => ScriptedFileDialogs.NativePickerNote is { } picker
-                ? new InteractOutcome(false, "native-menu", null, picker)
-                : new NativeMenuBar().Interact(target, action));
+        {
+            UiAutomationDriver.ProgramWatch? menuWatch = null;
+            var native = await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (ScriptedFileDialogs.NativePickerNote is { } picker)
+                    return new InteractOutcome(false, "native-menu", null, picker);
+                var bar = new NativeMenuBar();
+                // A running form's menu Click runs in its program, after the action returns: wait for it, as a
+                // window's interact does, so the state read back is the program's (#5066's Kronos check).
+                menuWatch = UiAutomationDriver.WatchProgram(bar.BarWindow, () => ctx.DebugController.CurrentStop);
+                return bar.Interact(target, action);
+            });
+            if (!native.Success)
+                return native;
+            native = await WaitForProgramAsync(menuWatch, native, ct);
+            var state = await Dispatcher.UIThread.InvokeAsync(() => new NativeMenuBar().StateOf(target));
+            return native with { Detail = native.Detail + " " + state };
+        }
         using var documentSave = UiSaveFeedback.BeginDocumentSave();
         if (ScriptedFileDialogs.NativePickerNote is { } blocking)
             return new InteractOutcome(false, "peer", null, blocking);

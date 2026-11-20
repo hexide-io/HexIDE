@@ -9,7 +9,7 @@ using HexIDE.Integration.Tests.Views;
 
 namespace HexIDE.Integration.Tests.Automation;
 
-// Model and event order from #5066's supervisor comment (K1–K14, Kronos 2026-11-20).
+// Model and event order from #5066's brief (#5011's K1–K14, Kronos 2026-11-20).
 public class MenuBarToolTests
 {
     private const string OpenPath = "MenuBar/MenuItem[File]/MenuItem[Open]";
@@ -72,7 +72,7 @@ public class MenuBarToolTests
         result.Root!.Children.Select(n => n.Name).Should().Equal("HexIDE", "File");
         result.Root.Children[1].Children.Single().Path.Should().Be(OpenPath);
         result.Note.Should().Contain("Form1").And.Contain(h.Windows.Count(w => w.IsVisible && w.IsActive) == 1
-            ? "single visible active window" : "auto").And.Contain("Services, Hide and Quit");
+            ? "single visible active window" : "auto").And.NotContain("Services");
         result.Note.Should().NotContain("without a submenu", "no top-level item lacks one here");
     }
     [AvaloniaFact]
@@ -126,7 +126,30 @@ public class MenuBarToolTests
         var result = await h.Tools.InteractAsync(OpenPath, "invoke", window: "menubar");
         result.Success.Should().BeFalse();
         result.Error.Should().Contain(reason);
+        if (reason == "hidden")
+            result.Error.Should().Contain("IsVisible is False").And.NotContain("without a submenu");
         h.Events.Should().BeEmpty();
+    }
+
+    // On Kronos a running form's Click handler unticked Wrap after the reply had read it as ticked (#5066's live check).
+    [AvaloniaFact]
+    public async Task Reply_reads_the_state_after_the_click_has_run()
+    {
+        using var h = new Harness();
+        h.Open.ToggleType = MenuItemToggleType.CheckBox;
+        h.Open.IsChecked = true;
+        h.Open.Click += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => h.Open.IsChecked = !h.Open.IsChecked);
+        var result = await h.Tools.InteractAsync(OpenPath, "invoke", window: "menubar");
+        result.Success.Should().BeTrue();
+        result.Detail.Should().Contain("checked False").And.NotContain("checked True");
+    }
+
+    [AvaloniaFact]
+    public async Task Reply_names_no_tick_for_an_item_that_takes_none()
+    {
+        using var h = new Harness();
+        var result = await h.Tools.InteractAsync(OpenPath, "invoke", window: "menubar");
+        result.Detail.Should().Contain("Now: enabled True").And.NotContain("checked");
     }
     [AvaloniaFact]
     public async Task Checked_item_reports_toggle_state()
@@ -239,7 +262,7 @@ public class MenuBarToolTests
         tree.Note.Should().Contain("macOS doesn't draw a top-level item without a submenu");
         tree.FlagsNote.Should().Contain("Native menu interaction refuses hidden items").And.NotContain("invoke_command");
         var result = await h.Tools.InteractAsync("MenuBar/MenuItem[Leaf]", "invoke", window: "menubar");
-        result.Error.Should().Contain("hidden");
+        result.Error.Should().Contain("hidden").And.Contain("without a submenu").And.NotContain("IsVisible");
         h.Events.Should().BeEmpty();
     }
     [AvaloniaFact]
@@ -267,7 +290,7 @@ public class MenuBarToolTests
         full.Root!.Children.Should().ContainSingle();
         for (var i = 0; i < 200; i++) h.Sub.Items.Add(new NativeMenuItem(new string('x', 200) + i));
         var fitted = await h.Tools.DumpVisualTreeAsync(window: "menubar");
-        fitted.Note.Should().Contain("cut").And.Contain("Form1").And.Contain("Services, Hide and Quit");
+        fitted.Note.Should().Contain("cut").And.Contain("Form1").And.Contain("Bar window");
     }
     [AvaloniaFact]
     public async Task Window_root_is_not_opened_and_app_root_is_opened()

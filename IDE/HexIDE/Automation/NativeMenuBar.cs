@@ -16,6 +16,8 @@ internal sealed class NativeMenuBar
     internal static bool IsScope(string? window) => string.Equals(window, "menubar", StringComparison.OrdinalIgnoreCase);
     internal static string AppTitle => string.IsNullOrEmpty(Application.Current?.Name) ? "Application" : Application.Current.Name;
     internal string Note { get; }
+    /// <summary>The window whose menus follow the app menu, or null; an action waits for its program.</summary>
+    internal Window? BarWindow { get; }
     private readonly Entry root;
     private sealed record Entry(string Name, NativeMenuItemBase? Item, NativeMenu? Menu, bool Top, List<Entry> Children);
 
@@ -25,6 +27,7 @@ internal sealed class NativeMenuBar
         var windows = lifetime?.Windows ?? [];
         var active = windows.Where(w => w.IsVisible && w.IsActive).ToArray();
         var window = active.Length == 1 ? active[0] : lifetime?.MainWindow is { } main ? ForegroundWindow.Pick(main, windows) : null;
+        BarWindow = window;
         root = new Entry("", null, null, false, []);
         var app = Application.Current is { } application ? NativeMenu.GetMenu(application) : null;
         if (app is not null)
@@ -34,8 +37,6 @@ internal sealed class NativeMenuBar
         Note = $"Bar window: '{window?.Title ?? "none"}', picked by {(active.Length == 1 ? "the single visible active window" : "auto (fallback when zero or several visible windows are active)")}. ";
         if (root.Children.Count == 0)
             Note += "HexIDE puts menus in the macOS menu bar only on macOS. Here they are in their windows. Windows: " + string.Join(", ", windows.Where(w => w.IsVisible).Select(w => w.Title)) + ". ";
-        if (app is not null)
-            Note += "macOS adds Services, Hide and Quit to the app menu; these are outside the NativeMenu and the tools can't reach them. ";
         if (root.Children.Any(e => e.Top && e.Item is not null && e.Menu is null))
             Note += "macOS doesn't draw a top-level item without a submenu; it is marked isHidden. ";
     }
@@ -47,6 +48,14 @@ internal sealed class NativeMenuBar
     private static string Type(Entry e) => e.Item is NativeMenuItemSeparator ? "Separator" : "MenuItem";
     private static bool Hidden(Entry e) => e.Item is NativeMenuItem { IsVisible: false } || e.Top && e.Menu is null;
     private static bool Enabled(Entry e) => e.Item is not NativeMenuItem i || i.IsEnabled;
+    // Why a hidden node isn't shown: its own IsVisible, or macOS leaving out a top-level item with no submenu (K13).
+    private static string HiddenReason(Entry e) => e.Item is NativeMenuItem { IsVisible: false }
+        ? "its IsVisible is False, so macOS doesn't show it"
+        : "macOS doesn't draw a top-level item without a submenu";
+    private static string? HiddenRefusal(string path, Entry e, List<Entry> ancestors) =>
+        ancestors.Append(e).FirstOrDefault(Hidden) is { } hidden
+            ? $"'{path}' is hidden: {HiddenReason(hidden)}{(hidden == e ? "" : $" ('{hidden.Name}' is)")}."
+            : null;
     private static string[] Providers(Entry e) => e.Item is NativeMenuItemSeparator ? [] : e.Menu is null ? ["invoke"] : ["expandCollapse"];
     private static string Segment(Entry e, List<Entry> siblings) => Type(e) + "[" +
         (e.Name.Length == 0 || siblings.Count(s => Type(s) == Type(e) && string.Equals(s.Name, e.Name, StringComparison.OrdinalIgnoreCase)) > 1
@@ -111,7 +120,7 @@ internal sealed class NativeMenuBar
         if (e is null) return Refuse(error!);
         if (e == root || e.Item is NativeMenuItemSeparator) return Refuse("This node has no actions.");
         if (!Enabled(e) || ancestors.Any(a => !Enabled(a))) return Refuse($"'{path}' is disabled.");
-        if (Hidden(e) || ancestors.Any(Hidden)) return Refuse($"'{path}' is hidden. macOS doesn't draw a top-level item without a submenu.");
+        if (HiddenRefusal(path, e, ancestors) is { } hiddenBefore) return Refuse(hiddenBefore);
         action = action.ToLowerInvariant();
         if (e.Menu is not null && action == "invoke") return Refuse($"'{path}' is a submenu; use expand.");
         if (e.Menu is null ? action != "invoke" : action is not ("expand" or "collapse"))
@@ -122,11 +131,22 @@ internal sealed class NativeMenuBar
             foreach (var ancestor in ancestors.Where(a => a.Menu is not null)) Open(ancestor.Menu!);
             // Opening handlers may change whether the leaf can be chosen.
             if (!Enabled(e) || ancestors.Any(a => !Enabled(a))) return Refuse($"'{path}' is disabled.");
-            if (Hidden(e) || ancestors.Any(Hidden)) return Refuse($"'{path}' is hidden.");
+            if (HiddenRefusal(path, e, ancestors) is { } hiddenAfter) return Refuse(hiddenAfter);
             if (action == "expand") Open(e.Menu!);
             else ((INativeMenuItemExporterEventsImplBridge)e.Item!).RaiseClicked();
         }
-        return new(true, "native-menu", $"{action}: '{path}'. Enabled: {Enabled(e)}, checked: {(e.Item as NativeMenuItem)?.IsChecked}. " + Note, null);
+        return new(true, "native-menu", $"{action}: '{path}'. " + Note, null);
+    }
+
+    /// <summary>The item's state as it reads now, for a reply sent once the program has handled the action.</summary>
+    internal string StateOf(string path)
+    {
+        var (e, _, _) = Resolve(path);
+        if (e?.Item is not NativeMenuItem item)
+            return $"'{path}' is no longer in the menu bar.";
+        return $"Now: enabled {item.IsEnabled}"
+            + (item.ToggleType == MenuItemToggleType.None ? "" : $", checked {item.IsChecked}")
+            + (Hidden(e) ? ", hidden" : "") + ".";
     }
 
     private static string WithoutEllipsis(string text)

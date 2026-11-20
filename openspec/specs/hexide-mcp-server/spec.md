@@ -2443,6 +2443,5 @@ scenarios below. `invoke_menu_item` SHALL also reach the application menu by its
 
 - **WHEN** the model is empty
 - **THEN** the reply explains that HexIDE puts menus in the macOS bar only on macOS and names the windows
-- **AND** a dump including the app menu explains that macOS supplies Services, Hide and Quit outside the NativeMenu model
 - **AND** hidden top-level leaves explain that macOS does not draw top-level items without submenus
 - **AND** snapshot, typing, hover and key tools refuse the menubar scope, explaining that macOS draws it outside the windows and naming the three tools that reach it
