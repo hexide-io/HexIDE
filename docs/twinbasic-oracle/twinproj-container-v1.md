@@ -61,7 +61,10 @@ In `tb1044-01`, for example, the root's name length is at 0x6 (10), its name `Ne
 every file. Nothing else was seen.
 
 **name.**
-- **The root's** is the project's name: `NewProject`, which `Settings`' `project.name` also holds.
+- **The root's** is `NewProject` in every fixture, the same as `Settings`' `project.name`.
+  - **It doesn't follow the file's name.** Opening `tb1044-01`'s bytes from a file called `Other.twinproj` and
+    saving with no change gave bytes identical to `tb1044-02`.
+  - **Whether it follows `project.name`** is unmeasured: no save changed that setting.
 - **The encoding is untested.** Every name in every fixture is ASCII, so whether a non-ASCII name is UTF-8 is unmeasured.
 - **Rename:** renaming a module through the tree changes only its name and name length (`tb1044-06`).
 
@@ -97,7 +100,7 @@ byte-order mark, and their line endings differ by where they came from:
 
 | Entry | Written by | Line endings |
 |---|---|---|
-| `.meta` (the IDE's view state as JSON) | every save | LF |
+| `.meta` (the IDE's view state as JSON) | a new project's first save, and unchanged in every save since | LF |
 | `Settings` (JSON) | the template | LF, keys in no particular order |
 | `Settings` | Apply Changes in Project Settings (`tb1044-09`) | **CRLF, keys sorted** |
 | `Form1.twin`, `Form1.tbform` | the template | CRLF |
@@ -129,10 +132,13 @@ does. That's reasoned, not measured.
 
 ## Saving with no change
 
-- **Two saves in one session are byte-identical.** That held for a new project's first and second saves, and after
-  a reopen.
-- **A save after a close and reopen differs** in its order and its files' revisions, and nothing else. Every
-  content is unchanged (`tb1044-01` against `tb1044-02`).
+- **Two saves with no load between them are byte-identical.**
+  - Seen for a new project's first and second saves, in the harness's own new-project run.
+  - Seen for two saves after a reopen.
+- **A save after the project loads again differs** in its order and its files' revisions, and nothing else.
+  - A close and reopen does it: every content is unchanged (`tb1044-01` against `tb1044-02`).
+  - So does the compiler restarting from the file after Apply Changes. That happens within one IDE session
+    (`tb1044-09` against `tb1044-10`), so the unit is a load of the project, not a session.
 - **Deleting an added module restores the bytes.** Its save was identical to the save from before the module was
   added.
 - **Two new projects differ only in their GUIDs.** Made separately, they differed in `Settings`' `project.id` and
@@ -174,7 +180,8 @@ therefore waits for it.
   compiler's restart.
 - **Why reopening reverses the order,** beyond the reasoning above.
 - **Why Add Module writes CR CR LF,** where the template and Add Windows Form write CRLF.
-- **When `.meta` is rewritten.** No save within a session changed it.
+- **When `.meta` is rewritten.** Its content hasn't changed since a new project's first save, reopens included,
+  though editor tabs opened and closed.
 - **Flags, the revision trailer and category 1.** Never seen other than 0, empty and absent.
 - **Non-ASCII names.**
 - **What the IDE does with a container HexIDE wrote.** #5143 measures it, once #5141's writer is in: the IDE
