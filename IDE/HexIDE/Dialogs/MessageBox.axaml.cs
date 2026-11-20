@@ -128,6 +128,7 @@ public partial class MessageBox : UserControl
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        new KeyUpCommit(this);
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
