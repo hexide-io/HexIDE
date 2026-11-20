@@ -799,8 +799,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // built, NewObject holds it, so a method Class_Initialize calls on it cannot take it to 0. Class_Initialize's
     // own Me is not counted either (a lifecycle hook — see RunProcedure).
 
-    /// <summary>Increment the reference count if <paramref name="v"/> is a live class instance (no-op for
-    /// Nothing / controls / proxies / value types). Callers do AddRef(new) BEFORE Release(old) at every store, so
+    /// <summary>Increment the count for references the interpreter tracks. Callers do AddRef(new) BEFORE
+    /// Release(old) at every store, so
     /// <c>Set x = x</c> and aliased assignment can't transiently hit zero and self-terminate.</summary>
     public void AddRef(Vb6Value v)
     {
@@ -810,6 +810,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             o.RefCount++;
         else if (v.Value is VbCollection c)
             c.RefCount++;
+        else if (v.Value is StatusBarPanel panel)
+            panel.References++;
     }
 
     /// <summary>A new Collection (#1471), with no references yet: <c>New Collection</c> hands it back as <c>New</c> hands
@@ -853,6 +855,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // A Collection whose last reference goes releases what it holds, first to last (measured, #1471).
         else if (v.Value is VbCollection c && --c.RefCount <= 0)
             await c.ReleaseItems();
+        else if (v.Value is StatusBarPanel panel && --panel.References == 0)
+            await panel.ReleaseTagIfUnowned();
     }
 
     /// <summary>Run the instance's <c>Private Sub Class_Terminate</c> (if any), one-shot. Sets <see
