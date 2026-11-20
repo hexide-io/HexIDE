@@ -30,12 +30,17 @@ public class AttachedProperties
     public static VBFont? GetFont(AvaloniaObject element) => element.GetValue(FontProperty);
     public static void SetFont(AvaloniaObject element, VBFont? value)
     {
+        var changed = GetFont(element) != value;
         if (element is Control control && value is { } font
             && AvaloniaInterop.ControlFont.DescriptorChanged(control, font))
             return;
         element.SetValue(FontProperty, value);
         if (element is Control owner)
+        {
+            if (changed && owner is VBLabel label)
+                LabelAutoSize.Resize(label);
             AvaloniaInterop.FormAmbients.Changed(owner, "Font");
+        }
     }
 
     static AttachedProperties()

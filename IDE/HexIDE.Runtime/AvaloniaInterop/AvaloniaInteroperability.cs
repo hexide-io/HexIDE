@@ -117,6 +117,7 @@ public static class AvaloniaInteroperability
         Register<Control, double>(VBProperties.LeftProperty, w => Canvas.GetLeft(w).OrZero(), Canvas.SetLeft);
         Register<Control, double>(VBProperties.TopProperty, w => Canvas.GetTop(w).OrZero(), Canvas.SetTop);
         Register<Control, double>(VBProperties.WidthProperty, Layoutable.WidthProperty);
+        Register<VBLabel, bool>(VBProperties.AutoSizeProperty, LabelAutoSize.Get, LabelAutoSize.Set);
         Register<VBPictureBox, bool>(VBProperties.AutoSizeProperty, box => box.AutoSize, (box, value) => box.AutoSize = value);
         Register<Control, VBCursorType>(VBProperties.MousePointerProperty, AttachedProperties.GetMousePointer, (control, value) =>
         {
@@ -170,6 +171,8 @@ public static class AvaloniaInteroperability
         Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.BackColorProperty, AttachedProperties.BackColorProperty, x => x, x=> x ?? default);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.ForeColorProperty, AttachedProperties.ForeColorProperty, x => x, x=> x ?? default);
+        Register<VBLabel, VBFont>(VBProperties.FontProperty, label => AttachedProperties.GetFont(label) ?? VBFont.Default,
+            (label, font) => AttachedProperties.SetFont(label, font));
         Register<TemplatedControl, VBFont, VBFont?>(VBProperties.FontProperty, AttachedProperties.FontProperty, x => x, x=> x ?? default);
         Register<Window, string>(VBProperties.CaptionProperty, (window) => window.Title ?? "", (window, value) => window.Title = value);
 
@@ -199,7 +202,7 @@ public static class AvaloniaInteroperability
             button.ExecuteSub(ComponentBaseClass.ClickEvent);
         });
 
-        Register<VBLabel, string, string?>(VBProperties.CaptionProperty, VBLabel.TextProperty, x => x, x => x ?? "");
+        Register<VBLabel, string>(VBProperties.CaptionProperty, label => label.Text ?? "", LabelAutoSize.Caption);
         Register<VBCheckBox, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBOptionButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBCommandButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
