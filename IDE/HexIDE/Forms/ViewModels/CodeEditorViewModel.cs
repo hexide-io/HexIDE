@@ -1950,7 +1950,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                     if (target is not null) await target.FlushDocumentAsync(ct);
                 }
             }
-            if (await TryRunClientCommandAsync(command, action.IsClaimed?.Invoke(command) == true)) return null;
+            if (await TryRunClientCommandAsync(command)) return null;
             if (action.CanExecute?.Invoke(command) != true || action.Execute is not { } execute)
                 return string.Format(localization.GetString("Str.CodeEditor.QuickFix.UnsupportedCommand"), command.CommandName);
             try { await execute(command, ct); }
@@ -2348,7 +2348,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         try
         {
-            if (!await TryRunClientCommandAsync(command, lspClient.IsClaimedCodeLensCommand(command)))
+            if (!await TryRunClientCommandAsync(command))
                 await lspClient.ExecuteCodeLensCommandAsync(command);
         }
         catch (HexIDE.Addins.AddinCommandException ex)
@@ -2357,10 +2357,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }
     }
 
-    private async Task<bool> TryRunClientCommandAsync(Command command, bool claimed)
+    private async Task<bool> TryRunClientCommandAsync(Command command)
     {
-        if (claimed && command.CommandName is "rdcore.rename" or "rdcore.showReferences") return false;
-        if (command.CommandName is "rdcore.rename" or "editor.action.rename")
+        if (command.CommandName is "editor.action.rename")
         {
             try
             {
@@ -2377,7 +2376,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 return false;
             }
         }
-        if (command.CommandName is "rdcore.showReferences" or "editor.action.showReferences")
+        if (command.CommandName is "editor.action.showReferences")
         {
             if (command.Arguments is not { Length: >= 3 } arguments
                 || arguments[2].ValueKind != System.Text.Json.JsonValueKind.Array) return true;

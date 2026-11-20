@@ -117,11 +117,39 @@ An `ItemData` entry's text is the value in decimal, and it reads as a Long. An e
 ### Not measured
 
 - **What VB6 writes in the ignored field.** `group.frx` has 9 in its List record, the length of its one item, and 3 in its ItemData record.
-- **Text outside ASCII** in a saved item.
+- **Text outside ASCII** in a saved item. Since measured for code page 1252: see the last section.
 - **A `Sorted` list saved in an order it wouldn't keep,** which VB6's designer doesn't produce: it sorts items as they're entered.
-- **Records whose counts disagree.**
+- **Records whose counts disagree.** Since measured: see the last section.
 
 ### In HexIDE (main `49f735cfd`, read from the code)
 
 - **`NewIndex` and a run-time `ItemData(i)` don't exist.** Nothing in `IDE/HexIDE.Runtime` names `NewIndex`. `ItemData` is a saved property only. That's #5106.
 - **Saved items aren't loaded.** Both records are kept verbatim for saving, and the list starts empty at run time. That's #5114.
+
+### Records that disagree, run short or long, or hold odd text (2026-11-20, #5127, SP6)
+
+Each probe was a form whose one ListBox, `G`, cited records written by hand, as above, built with `/make` as native code and as p-code. The two logged the same lines in every probe. Unless a row says otherwise, the List record held `ab`, `cde`, `fghi`.
+
+| ItemData record, or what changed | VB6 |
+|---|---|
+| 2 entries, `5` `6`, for 3 items | loads: 5, 6, **0** |
+| 4 entries, `5` `6` `7` `8`, for 3 items | loads: 5, 6, 7; the fourth is ignored |
+| `abc` `6` `7` | **0**, 6, 7 |
+| an empty entry, then `6` `7` | **0**, 6, 7 |
+| `" 5"` `6x` `&H10` | **5**, **6**, **0**: a leading space is skipped, reading stops at the first character that isn't a digit, and `&H` isn't read |
+| `3000000000` `-1` `1.5` | **-1294967296**, -1, **1**: past a Long it wraps, as 3000000000 - 2^32; a decimal point stops the reading |
+| a byte after the 3 entries, before the List record | loads: 5, 6, 7 |
+| the List record's count says 3, but only `ab` and `cde` follow, at the end of the file | **the form doesn't load**: "Property List in G could not be set" |
+| 2 bytes, `zz`, after the List record's 3 items, at the end of the file | loads all 3 items |
+| List items `61 81 62`, `E9`, `8D 8F 90 9D` | `AscW` reads 97 129 98, 233, and 141 143 144 157 |
+
+**What these show:**
+- **Items come from the List record alone.** The ItemData record's values are taken by position: any it doesn't reach read 0, and any beyond the items are dropped.
+- **An ItemData entry reads as its leading decimal digits.**
+  - Before them: spaces, then a sign.
+  - Nothing readable gives 0.
+  - Past a Long, the value wraps around the 32 bits.
+- **Only a List record cut short stops the form loading.** Bytes after the entries that a record needs are ignored.
+- **On code page 1252,** the five bytes the code page doesn't define read as the characters of the same number (U+0081, U+008D, U+008F, U+0090, U+009D). `E9` is `é`, as the code page says.
+
+**Not measured:** a plus sign, a tab or other characters before an ItemData entry's digits, and text in any code page other than 1252.

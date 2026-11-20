@@ -32,9 +32,9 @@ public class CodeLensTests
     [InlineData("drawing")]
     [InlineData("text")]
     [InlineData("viewport")]
-    [InlineData("click")]
     [InlineData("click-editor")]
     [InlineData("click-server")]
+    [InlineData("click-unclaimed-rdcore")]
     [InlineData("keyboard")]
     [InlineData("keyboard-multiple")]
     [InlineData("toggle")]
@@ -74,7 +74,7 @@ public class CodeLensTests
         var location = new Location(vm.GetDocumentUriPublic(), new HexIDE.Lsp.Messages.Range(new Position(line, 4), new Position(line, 9)));
         var args = System.Text.Json.JsonSerializer.SerializeToElement(new object[] { location.Uri, location.Range.Start, new[] { location } });
         var command = new Command("1 reference", check == "click-server" ? "server.run"
-            : check == "click-editor" ? "editor.action.showReferences" : "rdcore.showReferences", args.EnumerateArray().ToArray());
+            : check == "click-unclaimed-rdcore" ? "rdcore.showReferences" : "editor.action.showReferences", args.EnumerateArray().ToArray());
         client.RequestCodeLensesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(check == "viewport"
             ? Enumerable.Range(0, 50).Select(i => new CodeLens(new HexIDE.Lsp.Messages.Range(
                 new Position(line + i * 2, 4), new Position(line + i * 2, 9)))).ToArray()
@@ -250,6 +250,11 @@ public class CodeLensTests
                 window.MouseUp(point, MouseButton.Left);
                 if (check == "click-server")
                     client.Received(1).ExecuteCodeLensCommandAsync(Arg.Is<Command>(c => c.CommandName == "server.run"), Arg.Any<CancellationToken>());
+                else if (check == "click-unclaimed-rdcore")
+                {
+                    results.Rows.Should().NotContain(r => r.Location != null);
+                    client.Received(1).ExecuteCodeLensCommandAsync(Arg.Is<Command>(c => c.CommandName == "rdcore.showReferences"), Arg.Any<CancellationToken>());
+                }
                 else
                     results.Rows.Should().Contain(r => r.Location == location);
                 client.DidNotReceive().FindReferencesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
