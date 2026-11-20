@@ -4,6 +4,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 
 namespace HexIDE.Runtime.BuiltinControls;
@@ -119,6 +120,7 @@ internal static class FormNativeMenu
             }
             else
                 Item = new NativeMenuItemSeparator();
+            CopyId();
             source.PropertyChanged += Changed;
         }
 
@@ -133,8 +135,13 @@ internal static class FormNativeMenu
             }
         }
 
+        // The menu's code name rides on the native item as Avalonia's own AutomationId, so automation reads it from the
+        // NativeMenu model alone, with no runtime type: the seam #3411's provider contracts need (#5102 review).
+        private void CopyId() => Item.SetValue(AutomationProperties.AutomationIdProperty, AutomationProperties.GetAutomationId(source));
+
         private void Changed(object? sender, AvaloniaPropertyChangedEventArgs args)
         {
+            if (args.Property == AutomationProperties.AutomationIdProperty) CopyId();
             Update();
             if (source is VBMenuSeparator && args.Property == Control.IsVisibleProperty) sync();
         }
