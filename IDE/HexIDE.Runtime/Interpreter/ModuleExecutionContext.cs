@@ -62,8 +62,22 @@ public class ModuleExecutionContext
     }
 
     // Scalar slots and array elements enforce the same object type (measured, #1482).
-    internal static void CheckObjectStore(Vb6Value value, string? declaredClass, ParserRuleContext? ctx = null)
+    internal static void CheckObjectStore(Vb6Value value, string? declaredClass, ParserRuleContext? ctx = null, bool builtinUdtField = false)
     {
+        // #3924: built-in Type fields retain their kind, separately from project classes of the same name.
+        if (builtinUdtField && value.Value is not null && declaredClass is not null)
+        {
+            var accepted = declaredClass.ToLowerInvariant() switch
+            {
+                "stdfont" => value.Value is AvaloniaInterop.ControlFont,
+                "stdpicture" => value.Value is PanelPicture or ImageListPictureObject,
+                "textbox" => value.Value is BuiltinControls.VBTextBox,
+                "control" => value.Value is Avalonia.Controls.Control,
+                "form" => value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form },
+                _ => true,
+            };
+            if (!accepted) throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        }
         // #1563: inspect the object itself, even through Object/Variant, before replacing the old reference.
         // ControlTypeName also distinguishes the two scroll bars. UserControl TypeName remains unmeasured (#1631).
         if (declaredClass is not null && value.Value is Avalonia.Controls.Control control

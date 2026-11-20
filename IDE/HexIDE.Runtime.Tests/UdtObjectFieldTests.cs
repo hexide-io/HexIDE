@@ -5,14 +5,53 @@ namespace HexIDE.Runtime.Tests;
 public class UdtObjectFieldTests : BaseVBTestFixture
 {
     [Theory]
-    [InlineData("TextBox")]
-    [InlineData("StdFont")]
     [InlineData("ADODB.Connection")]
     public async Task Other_recognised_object_fields_refuse_without_guessing_their_behaviour(string type)
     {
         // HexIDE's measured-only refusal policy, not a VB6 error expectation.
         var run = () => Run($"Private Type T\nObj As {type}\nEnd Type\nDim u As T\n");
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*not implemented (#3924)*");
+    }
+
+    [Theory]
+    [InlineData("StdFont")]
+    [InlineData("TextBox")]
+    public async Task Project_class_fields_keep_the_variables_existing_name_precedence(string name)
+    {
+        // HexIDE storage regression guard, not a claim about unmeasured VB6 name shadowing.
+        await RunClasses($"Private Type T\nObj As {name}\nEnd Type\nDim u As T\nDim original As {name}\nSet original = New {name}\nSet u.Obj = original\n",
+            (name, "Public Value As Long\n"));
+        context.TryInspectVariable(rootEnv, "original", out var original).Should().BeTrue();
+        original.Value.Should().BeOfType<VbObject>();
+        context.TryInspectVariable(rootEnv, "u", out var stored).Should().BeTrue();
+        stored.Value.Should().BeOfType<VbUdt>().Which.TryGet("Obj", out var field).Should().BeTrue();
+        field.Value.Should().BeSameAs(original.Value);
+    }
+
+    // vb6.exe SP6 native/p-code, #3924, 2026-11-20, A.
+    [Fact]
+    public async Task Put_refuses_a_Type_containing_a_font_reference()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.IO.Path.GetRandomFileName());
+        try
+        {
+            var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
+                $"Private Type T\nf As StdFont\nEnd Type\nDim u As T\nOpen \"{path}\" For Binary As #1\nPut #1, 1, u\n");
+            try
+            {
+                var run = () => vb.Execute();
+                (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().EndWith(VbRecordFormat.ObjectRefused);
+            }
+            finally { vb.BuiltIns.Files.CloseAll(); }
+        }
+        finally { System.IO.File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task Undeclared_field_type_still_raises_a_compile_error()
+    {
+        var run = () => Run("Private Type T\nf As Foo\nEnd Type\nDim u As T\n");
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*User-defined type not defined");
     }
 
     [Theory]
