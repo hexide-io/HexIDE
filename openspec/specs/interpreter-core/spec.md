@@ -2594,6 +2594,46 @@ Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in
 - **WHEN** a declaration is Private, Dim, or in a standard module
 - **THEN** this refusal does not apply and its existing implementation or refusal is retained
 
+### Requirement: Saved ListBox checks and columns
+
+A ListBox SHALL read saved Style and Columns at runtime (part of #4209, measured in
+[the oracle](../../../docs/vb6-fidelity-oracle/a-listboxs-page-up-checkboxes-and-columns.md)).
+For Style 1 without MultiSelect, Selected(i) SHALL read check state, and Space SHALL toggle
+that state with Click then ItemCheck(Item As Integer). Selected(i) = True on an unchecked item SHALL check,
+select and scroll the item into view, raising ItemCheck then Click without Scroll. Unmeasured
+Selected False writes on unchecked items SHALL refuse as not implemented. SelCount SHALL count checked
+items. Repeated Selected(i) = True SHALL do nothing without events. Selected(i) = False on a checked
+item SHALL uncheck it, leave ListIndex and Text in place, and raise ItemCheck then Click without Scroll.
+ListIndex assignments SHALL raise Click when the position changes without changing checks.
+AddItem and RemoveItem SHALL keep ListIndex as a position, with checks moving with their items.
+Adding to an empty checkbox list SHALL set ListIndex to 0; appending to a nonempty list with ListIndex -1
+SHALL retain -1. Removing the item at ListIndex SHALL move the position to the previous item, or 0
+while items remain, or -1 when empty. Clear SHALL empty the list and checks and set ListIndex to -1.
+The measured saved Sorted insertions SHALL keep the position and move checks with their items.
+AddItem, RemoveItem and Clear SHALL raise no events. These rules are measured in
+[#4209's round 2 comment](https://github.com/hexide-io/HexIDE/issues/4209), SP6 native and p-code, 2026-11-20.
+Checkbox fonts beyond the measured default SHALL retain their existing row heights.
+Columns above zero SHALL arrange items down each column then across. TopIndex SHALL snap
+to a column start and clamp to the last page. Measured navigation SHALL raise Click then
+Scroll when the top changes; code selection SHALL scroll without Scroll.
+Unmeasured mouse checkbox toggling, Style 1 with MultiSelect, runtime Style/Columns
+assignments, horizontal-bar dragging and designer drawing retain their existing behaviour.
+
+#### Scenario: Unchecking preserves the current position
+- **WHEN** items 1 and 3 are checked, ListIndex is 3, and code sets Selected(1) = False
+- **THEN** SelCount is 1, ListIndex stays 3 and Text is the text of item 3
+- **AND** ItemCheck(1) precedes Click with ListIndex 3, without Scroll
+
+#### Scenario: Inserting before a checked item
+- **WHEN** a checkbox list contains i0, i1, checked i2 and checked i3, with ListIndex 2, and code adds z at 0
+- **THEN** ListIndex stays 2, Text is i1, and items 3 and 4 are checked
+- **AND** no event is raised
+
+#### Scenario: Two columns of nine rows
+- **WHEN** a 60-item Columns 2 list showing nine rows per column receives TopIndex = 25 then TopIndex = 59
+- **THEN** the resulting top items are 18 and 45, each with one Scroll
+- **AND** ListIndex = 50 from TopIndex 0 scrolls to TopIndex 36 with Click only
+
 ### Requirement: ListBox TopIndex assignments report a changed top row
 
 A populated ListBox with measurable rows SHALL expose TopIndex and coerce assignments through the standard Integer store
