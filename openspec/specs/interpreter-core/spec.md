@@ -3131,8 +3131,9 @@ and SHALL put an item on the next row when it would leave fewer than 7 pixels sp
 The first item on a row SHALL remain there even when wider than the client. The bar SHALL draw those same
 rows and item widths, with a height of 19n + 1 pixels for n rows, before Form_Load.
 A Width assignment SHALL re-wrap inside the statement, preserving Height and raising one Resize with the
-new ScaleHeight. Menu edits that change between nonzero row counts, or make a wrapped bar appear or disappear,
-SHALL remain explicitly unimplemented under #4946. Measured rules: [#4978](https://github.com/hexide-io/HexIDE/issues/4978),
+new ScaleHeight. A change to the top-level menus that changes the row count SHALL take effect at the next
+message, as the bar's coming or going does, with one Resize, and none when the count is unchanged by then
+([oracle PR #5001](https://github.com/hexide-io/HexIDE/pull/5001)). Measured rules: [#4978](https://github.com/hexide-io/HexIDE/issues/4978),
 oracle PRs [#4977](https://github.com/hexide-io/HexIDE/pull/4977) and [#4985](https://github.com/hexide-io/HexIDE/pull/4985).
 Where an item breaks follows the host font, as VB6's follows the desktop font.
 
@@ -3141,6 +3142,18 @@ Where an item breaks follows the host font, as VB6's follows the desktop font.
 - **WHEN** Width increases by 3000 twips
 - **THEN** ScaleHeight reads 3705 and Height remains 4440 inside the statement and its one Resize
 - **AND** narrowing it by 3000 restores ScaleHeight 3420 and two drawn rows
+
+#### Scenario: Hiding a menu unwraps the bar at the next message
+- **GIVEN** measured Form3 at 196 pixels wide with Foxtrot hidden and two menu rows
+- **WHEN** Echo is hidden
+- **THEN** ScaleHeight remains 3420 until DoEvents, then reads 3705 with one Resize
+- **AND** Height remains 4440 and the drawn bar has one row
+
+#### Scenario: Reversing a row change before delivery
+- **GIVEN** measured Form3 at 196 pixels wide with Foxtrot hidden and two menu rows
+- **WHEN** Echo is hidden and shown again before DoEvents
+- **THEN** ScaleHeight remains 3420, Height remains 4440, and no Resize is raised
+- **AND** the drawn bar still has two rows after delivery
 
 ### Requirement: Type arrays and array fields execute the measured remaining cases
 
