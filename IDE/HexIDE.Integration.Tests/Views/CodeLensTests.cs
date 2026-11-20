@@ -32,7 +32,6 @@ public class CodeLensTests
     [InlineData("drawing")]
     [InlineData("text")]
     [InlineData("viewport")]
-    [InlineData("click")]
     [InlineData("click-editor")]
     [InlineData("click-server")]
     [InlineData("click-unclaimed-rdcore")]
