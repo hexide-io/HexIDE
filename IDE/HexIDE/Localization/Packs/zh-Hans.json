@@ -624,6 +624,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "要求变量声明",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "自动列出成员",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "键入时列出成员",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "联动编辑（键入时重命名变量的其他引用）",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "自动快速信息",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "自动缩进",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "保存时格式化",

@@ -83,6 +83,7 @@ public partial class CodeEditorView : UserControl
             ? view._languageFeatures?.OpenPopups ?? []
             : Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<RelatedDocumentEditorView>(editor)?.OpenLanguagePopups ?? [];
     private DocumentHighlightRenderer? _highlightRenderer;
+    private LinkedEditingController? _linkedEditing;
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
@@ -550,6 +551,8 @@ public partial class CodeEditorView : UserControl
             _highlightRenderer = new DocumentHighlightRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _highlightRenderer);
             TextEditor.TextArea.Caret.PositionChanged += OnCaretMovedForHighlight;
+            _linkedEditing = new LinkedEditingController(TextEditor, vm.Settings, () => IsActivePane && vm.CanLinkedEdit,
+                vm.RequestLinkedEditingRangesAsync, (offset, length) => vm.IsReadOnly || vm.IsReadOnlyRegion(offset, length));
 
             // Code folding. The header's fold and each member's attribute run's are the window's own and are in
             // place before anything is drawn; a server's folds join them when the server answers, if one ever does.
@@ -932,6 +935,8 @@ public partial class CodeEditorView : UserControl
         _languageFeatures?.Dispose();
         _languageFeatures = null;
 
+        _linkedEditing?.Dispose();
+        _linkedEditing = null;
         if (_highlightRenderer is not null)
         {
             TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_highlightRenderer);

@@ -625,6 +625,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Wymagaj deklaracji zmiennych",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatyczna lista składowych",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Pokazuj składowe podczas pisania",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edycja powiązana (zmiana nazwy w pozostałych użyciach zmiennej podczas pisania)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatyczne szybkie informacje",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatyczne wcięcia",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatuj przy zapisie",

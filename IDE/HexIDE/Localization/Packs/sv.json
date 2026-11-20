@@ -591,6 +591,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Kräv variabeldeklaration",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Lista medlemmar automatiskt",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Lista medlemmar medan du skriver",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Länkad redigering (byt namn på andra användningar av en variabel medan du skriver)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatisk snabbinfo",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatiskt indrag",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatera vid spara",

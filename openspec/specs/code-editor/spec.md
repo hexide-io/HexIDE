@@ -906,3 +906,37 @@ For snippets, adjustment SHALL precede variable resolution so multiline variable
 - **WHEN** a multiline completion with two nested indentation levels is accepted at an indented caret
 - **THEN** each later line retains its indentation after the caret line's prefix
 - **AND** the innermost placeholder remains selected and editable
+
+### Requirement: Server-provided linked editing is opt-in
+
+The code window SHALL offer Linked editing beside the completion settings, defaulting to off and
+configurable through profiles as `linkedEditing`. It SHALL flush pending document changes before each
+request. When enabled and served, it SHALL debounce
+`textDocument/linkedEditingRange` requests after caret moves and edits in words. Disabled linked editing
+SHALL send no requests or mirror edits.
+
+#### Scenario: A profile enables linked editing
+- **GIVEN** a profile sets `linkedEditing` to true and the user has not overridden it
+- **WHEN** the caret rests in a word served by a linked-editing provider
+- **THEN** the code window requests linked ranges
+
+#### Scenario: An edit is still reaching the server
+- **GIVEN** a document change is still being sent
+- **WHEN** the caret rests in a word after typing
+- **THEN** the linked-range request waits for that send to complete
+
+### Requirement: Linked edits SHALL stay bounded and undo together
+
+The editor SHALL accept only sets of at least two non-overlapping, writable ranges containing identical
+text and including the caret's range. It SHALL mark them lightly and mirror an edit wholly inside the current
+range to all the others as one undo step. It SHALL end linking on Escape, leaving the ranges, an outside
+document change, or text failing a supplied `wordPattern`, retaining edits already made.
+
+#### Scenario: Rename while typing
+- **GIVEN** linked editing is enabled and the server returns three occurrences of a variable
+- **WHEN** the developer types within one occurrence
+- **THEN** all three change and one Undo restores all three
+
+#### Scenario: Stop linking
+- **WHEN** the developer presses Escape or moves outside the linked ranges
+- **THEN** later typing changes only the edited occurrence

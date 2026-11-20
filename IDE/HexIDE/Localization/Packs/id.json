@@ -625,6 +625,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Wajibkan Deklarasi Variabel",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Daftar Anggota Otomatis",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Tampilkan anggota saat mengetik",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Pengeditan tertaut (ubah nama penggunaan variabel lainnya saat mengetik)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Info Cepat Otomatis",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Inden Otomatis",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Format saat Menyimpan",

@@ -625,6 +625,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Krev variabeldeklarasjon",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "List medlemmer automatisk",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "List medlemmer mens du skriver",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Koblet redigering (gi andre bruk av en variabel nytt navn mens du skriver)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatisk hurtiginfo",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatisk innrykk",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formater ved lagring",

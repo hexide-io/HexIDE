@@ -35,6 +35,7 @@ public interface ISettingsService : INotifyPropertyChanged
 
     /// <summary>Allow a typed letter to open a completion list.</summary>
     bool ListMembersAsYouType { get; set; }
+    bool LinkedEditing { get; set; }
 
     /// <summary>
     /// Show hover / Quick Info tooltips automatically.

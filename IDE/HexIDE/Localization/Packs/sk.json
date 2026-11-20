@@ -595,6 +595,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Vyžadovať deklaráciu premenných",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automaticky zobrazovať zoznam členov",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Zobrazovať členy počas písania",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Prepojené úpravy (pri písaní premenovať aj ostatné výskyty premennej)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automaticky zobrazovať rýchle informácie",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatické odsadenie",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formátovať pri ukladaní",

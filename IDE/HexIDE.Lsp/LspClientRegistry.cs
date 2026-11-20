@@ -744,6 +744,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDeclarationAsync(uri, position, ct), ct);
 
+    public Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(string uri, Position position, CancellationToken ct = default) =>
+        FirstAnswerAsync(uri, c => c.RequestLinkedEditingRangesAsync(uri, position, ct), ct);
+
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDocumentHighlightAsync(uri, position, ct), ct);
 

@@ -662,6 +662,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Zahtijevaj deklaraciju varijabli",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatski popis članova",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Prikazuj članove tijekom pisanja",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Povezano uređivanje (preimenovanje drugih upotreba varijable tijekom pisanja)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Automatske brze informacije",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Automatsko uvlačenje",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Oblikuj pri spremanju",

@@ -78,6 +78,24 @@ public class OptionsViewModelTests
         => Flatten(sut.RootNodes).Select(n => n.Page).OfType<AddinOptionsPageViewModel>().First(p => p.Title == title);
 
     [AvaloniaFact]
+    public void LinkedEditingLoadsAppliesAndResets()
+    {
+        _settings.LinkedEditing.Returns(true);
+        var page = new EditorGeneralPageViewModel(_settings);
+        page.LinkedEditing.Should().BeTrue();
+        page.LinkedEditing = false;
+        _settings.LinkedEditing.Should().BeTrue();
+        page.SaveToSettings();
+        _settings.Received().LinkedEditing = false;
+        _settings.LinkedEditing.Returns(false);
+        page.LoadFromSettings();
+        page.LinkedEditing.Should().BeFalse();
+        page.LinkedEditing = true;
+        page.RestoreDefaults();
+        page.LinkedEditing.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
     public void ListMembersAsYouTypeLoadsAppliesAndResets()
     {
         var sut = CreateSut();

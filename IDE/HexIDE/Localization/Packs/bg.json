@@ -628,6 +628,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Изискване за деклариране на променливите",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Автоматичен списък с членове",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Показване на членовете при въвеждане",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Свързано редактиране (преименуване на другите употреби на променлива при въвеждане)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Автоматична кратка информация",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Автоматичен отстъп",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Форматиране при записване",
