@@ -281,8 +281,10 @@ constants, `Targets=RDCore` SHALL switch on the run-time additions of the next r
 | `Targets=RDCore` | Linux | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
 | VBA7 64-bit | macOS | 0 | 0 | 1 | 1 | undefined | undefined | 1 | 1 |
 
-For `Targets=RDCore`, `[HexIDE] Win64OnlySetOnWindows=1` SHALL change only macOS's `Win64` to 0.
-Absent or `0` SHALL mean false. The key SHALL have no effect without that target.
+For `Targets=RDCore`, the IDE-wide `RDCoreWin64OnlySetOnWindows` setting SHALL change only macOS's `Win64` to 0
+when true ([#5036](https://github.com/hexide-io/HexIDE/issues/5036)). It SHALL default to false and be profile-settable.
+The setting SHALL have no effect without that target. Each run SHALL capture its value at startup;
+a settings change SHALL apply to the next run. The legacy project key SHALL be ignored.
 `Linux64` SHALL be undefined unless the project or module defines it.
 
 #### Scenario: Default targets and unmeasured hosts
@@ -297,10 +299,10 @@ Absent or `0` SHALL mean false. The key SHALL have no effect without that target
 - **AND** the project's run offers are unchanged
 
 #### Scenario: A portable pause avoids a Windows Declare
-- **WHEN** a project selects `Targets=RDCore` on macOS with `Win64OnlySetOnWindows=1`, or on Linux with either key value, and tests `#If Win32 Or Win64 Then`
+- **WHEN** a project selects `Targets=RDCore` on macOS with `RDCoreWin64OnlySetOnWindows` enabled, or on Linux with either setting value, and tests `#If Win32 Or Win64 Then`
 - **THEN** execution and default editor greying select its `#Else` Timer loop
 - **AND** on macOS the default RDCore table, or `VbaBitness=64` with no target key, selects its Windows Declare branch
-- **AND** on Windows either key value selects the Windows Declare branch
+- **AND** on Windows either setting value selects the Windows Declare branch
 
 #### Scenario: Program definitions override the selected target
 - **WHEN** a project argument defines `Mac=0` for the external backend target on macOS

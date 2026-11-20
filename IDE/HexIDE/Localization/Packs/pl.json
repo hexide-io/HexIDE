@@ -814,6 +814,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Anuluj",
     "Str.Options.Environment.FileHandling.Header": "Obsługa plików",
     "Str.Options.Environment.ReloadExternalChanges": "Wczytaj ponownie pliki zmienione poza środowiskiem IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projekty RDCore: ustawiaj Win64 tylko w systemie Windows",
     "Str.StatusBar.FileReloaded": "Wczytano ponownie {0}",
     "Str.Dialog.TrustChain.Title": "Łańcuch podpisu",
     "Str.Dialog.TrustChain.RevokedBanner": "Ten dodatek został odwołany i nie zostanie załadowany.",

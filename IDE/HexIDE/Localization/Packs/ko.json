@@ -814,6 +814,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "취소",
     "Str.Options.Environment.FileHandling.Header": "파일 처리",
     "Str.Options.Environment.ReloadExternalChanges": "IDE 외부에서 변경된 파일 다시 불러오기",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore 프로젝트: Windows에서만 Win64 설정",
     "Str.StatusBar.FileReloaded": "{0} 다시 불러옴",
     "Str.Dialog.TrustChain.Title": "서명 체인",
     "Str.Dialog.TrustChain.RevokedBanner": "이 추가 기능은 해지되어 로드되지 않습니다.",

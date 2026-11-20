@@ -555,6 +555,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Klausti projekto",
     "Str.Options.Environment.FileHandling.Header": "Failų tvarkymas",
     "Str.Options.Environment.ReloadExternalChanges": "Iš naujo įkelti už IDE ribų pakeistus failus",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore projektai: nustatyti Win64 tik sistemoje Windows",
     "Str.Options.Theme.GroupHeader": "IDE apipavidalinimas",
     "Str.Theme.HighContrastLight": "Didelis kontrastas šviesus",
     "Str.Theme.HighContrastDark": "Didelis kontrastas tamsus",

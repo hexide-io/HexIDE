@@ -555,6 +555,7 @@
     "Str.Options.Environment.WhenStarts.PromptForProject": "Jautāt par projektu",
     "Str.Options.Environment.FileHandling.Header": "Failu apstrāde",
     "Str.Options.Environment.ReloadExternalChanges": "Pārlādēt ārpus IDE mainītos failus",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore projekti: iestatīt Win64 tikai sistēmā Windows",
     "Str.Options.Theme.GroupHeader": "IDE motīvs",
     "Str.Theme.HighContrastLight": "Augsts kontrasts gaišs",
     "Str.Theme.HighContrastDark": "Augsts kontrasts tumšs",

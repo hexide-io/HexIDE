@@ -780,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Annuller",
     "Str.Options.Environment.FileHandling.Header": "Filhåndtering",
     "Str.Options.Environment.ReloadExternalChanges": "Genindlæs filer ændret uden for IDE'et",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projekter: angiv kun Win64 på Windows",
     "Str.StatusBar.FileReloaded": "Genindlæste {0}",
     "Str.Dialog.TrustChain.Title": "Signeringskæde",
     "Str.Dialog.TrustChain.RevokedBanner": "Dette tilføjelsesprogram er blevet tilbagekaldt og indlæses ikke.",

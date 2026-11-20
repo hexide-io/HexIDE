@@ -69,8 +69,10 @@ public sealed class CompilationConstants
     /// <summary>A project's CondComp and its target's predefined constants (#4821), and the target itself (#4967).</summary>
     public static CompilationConstants ForProject(ProjectDefinition project) => ForProject(project, null);
 
-    internal static CompilationConstants ForProject(ProjectDefinition project, OSPlatform? host) =>
-        new(CompilationArguments.ForProject(project), BuiltInsFor(project.Target, project.VbaBitness, host, project.Win64OnlySetOnWindows))
+    internal static CompilationConstants ForProject(ProjectDefinition project, bool win64OnlySetOnWindows) => ForProject(project, null, win64OnlySetOnWindows);
+
+    internal static CompilationConstants ForProject(ProjectDefinition project, OSPlatform? host, bool win64OnlySetOnWindows = false) =>
+        new(CompilationArguments.ForProject(project), BuiltInsFor(project.Target, project.VbaBitness, host, win64OnlySetOnWindows))
         { VbaBitness = project.VbaBitness, Target = project.Target };
 
     /// <summary>The predefined constants shared by interpreter runs and editor previews, on the current or specified host.</summary>

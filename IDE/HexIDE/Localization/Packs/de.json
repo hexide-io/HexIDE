@@ -813,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Abbrechen",
     "Str.Options.Environment.FileHandling.Header": "Dateiverwaltung",
     "Str.Options.Environment.ReloadExternalChanges": "Außerhalb der IDE geänderte Dateien neu laden",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-Projekte: Win64 nur unter Windows setzen",
     "Str.StatusBar.FileReloaded": "{0} neu geladen",
     "Str.Dialog.TrustChain.Title": "Signaturkette",
     "Str.Dialog.TrustChain.RevokedBanner": "Dieses Add-In wurde widerrufen und wird nicht geladen.",

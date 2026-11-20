@@ -14,6 +14,6 @@ internal static class TestRunners
         ArchiveProjectService? archives = null, DebugLaunchService? debugLaunches = null, IRunChoiceStore? runChoices = null,
         IStatusBarService? statusBar = null) =>
         new(eventBus, projectManager, localization, debugController, breakpointService, watchService, runScope,
-            new InterpreterRunEngine(new ProgramHost(windowManager, localization), debugController), externalDebugger, archives, debugLaunches,
+            new InterpreterRunEngine(new ProgramHost(windowManager, localization), debugController, Substitute.For<ISettingsService>()), externalDebugger, archives, debugLaunches,
             runChoices, statusBar);
 }

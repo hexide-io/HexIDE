@@ -780,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Peruuta",
     "Str.Options.Environment.FileHandling.Header": "Tiedostojen käsittely",
     "Str.Options.Environment.ReloadExternalChanges": "Lataa IDE:n ulkopuolella muutetut tiedostot uudelleen",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projektit: aseta Win64 vain Windowsissa",
     "Str.StatusBar.FileReloaded": "Ladattu uudelleen {0}",
     "Str.Dialog.TrustChain.Title": "Allekirjoitusketju",
     "Str.Dialog.TrustChain.RevokedBanner": "Tämä lisäosa on peruutettu eikä sitä ladata.",

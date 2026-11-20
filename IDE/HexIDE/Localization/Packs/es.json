@@ -813,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Cancelar",
     "Str.Options.Environment.FileHandling.Header": "Gestión de archivos",
     "Str.Options.Environment.ReloadExternalChanges": "Volver a cargar los archivos modificados fuera del IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Proyectos RDCore: definir Win64 solo en Windows",
     "Str.StatusBar.FileReloaded": "{0} recargado",
     "Str.Dialog.TrustChain.Title": "Cadena de firma",
     "Str.Dialog.TrustChain.RevokedBanner": "Este complemento ha sido revocado y no se cargará.",

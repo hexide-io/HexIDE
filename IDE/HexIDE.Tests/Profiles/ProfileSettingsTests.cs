@@ -21,6 +21,19 @@ public sealed class ProfileSettingsTests : IDisposable
         return new SettingsService(SettingsPath, profile);
     }
 
+    // #5036: white-label defaults may select the installation's RDCore behaviour.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RDCoreWin64ProfileDefaultAndSavedOverride(bool savedOverride)
+    {
+        if (savedOverride) File.WriteAllText(SettingsPath, """{"rdcoreWin64OnlySetOnWindows":false}""");
+        var settings = Create("""{"rdcoreWin64OnlySetOnWindows":true}""");
+        var setting = typeof(SettingsService).GetProperty("RDCoreWin64OnlySetOnWindows");
+        setting.Should().NotBeNull();
+        setting!.GetValue(settings).Should().Be(!savedOverride);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

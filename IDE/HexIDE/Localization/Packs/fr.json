@@ -813,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "A_nnuler",
     "Str.Options.Environment.FileHandling.Header": "Gestion des fichiers",
     "Str.Options.Environment.ReloadExternalChanges": "Recharger les fichiers modifiés en dehors de l'EDI",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Projets RDCore : définir Win64 uniquement sous Windows",
     "Str.StatusBar.FileReloaded": "{0} rechargé",
     "Str.Dialog.TrustChain.Title": "Chaîne de signature",
     "Str.Dialog.TrustChain.RevokedBanner": "Ce complément a été révoqué et ne sera pas chargé.",

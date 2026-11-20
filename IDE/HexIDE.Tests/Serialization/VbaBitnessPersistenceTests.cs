@@ -164,21 +164,23 @@ public class VbaBitnessPersistenceTests : IDisposable
         File.ReadAllBytes(path).Should().Equal(bytes);
     }
 
-    // HexIDE metadata and SDK default, #4890; unknown values must retain their position and spelling.
+    // #5036: the legacy key is ignored; all values retain their position and spelling.
     [Theory]
-    [InlineData("1", true)]
-    [InlineData("0", false)]
-    [InlineData("future", false)]
-    [InlineData("utf-8", false)]
-    [InlineData("", false)]
-    public async Task Win64_option_round_trips_in_place(string value, bool enabled)
+    [InlineData("1")]
+    [InlineData("0")]
+    [InlineData("future")]
+    [InlineData("utf-8")]
+    [InlineData("")]
+    public async Task Win64_option_round_trips_in_place(string value)
     {
         var path = Path.Join(directory, "Test.vbp");
         var original = new ProjectSerializer().Serialize(new ProjectDefinition(VBProjectType.EXE, "Test"), path) +
             $"\r\n[Other]\r\nWin64OnlySetOnWindows=1\r\n[HexIDE]\r\n' before\r\nWin64OnlySetOnWindows = {value}  \r\n' after\r\nTargets=RDCore\r\n";
         File.WriteAllText(path, original);
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
-        read.Win64OnlySetOnWindows.Should().Be(enabled);
+        HexIDE.Runtime.Interpreter.ConditionalCompilation.CompilationConstants.ForProject(read,
+            System.Runtime.InteropServices.OSPlatform.OSX).BuiltIns["Win64"].Value.Should().Be(1,
+                "#5036: the legacy project key is ignored");
         new ProjectSerializer().Serialize(read, path).Should().Be(original);
     }
 
@@ -192,24 +194,23 @@ public class VbaBitnessPersistenceTests : IDisposable
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
         new ProjectSerializer().Serialize(read, path).Should().Be(original);
         var tail = "[HexIDE]\r\nTargets=RDCore\r\nMain.bas=utf-8\r\n' before\r\nWin64OnlySetOnWindows=1\r\n' after\r\n";
-        ProjectEncodingRecords.Write(tail, ["Main.bas"], VbaBitness.None, ProjectTarget.RDCore, true).Should().Be(tail);
+        ProjectEncodingRecords.Write(tail, ["Main.bas"], VbaBitness.None, ProjectTarget.RDCore).Should().Be(tail);
     }
 
+    // #5036: only the installation flag selects the macOS RDCore Win64 row.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Setting_Win64_option_survives_fresh_open_without_a_target(bool enabled)
+    public async Task Legacy_project_line_is_ignored_by_the_installation_flag(bool enabled)
     {
         var path = Path.Join(directory, "Test.vbp");
-        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Win64OnlySetOnWindows = enabled };
-        File.WriteAllText(path, new ProjectSerializer().Serialize(project, path));
+        var original = new ProjectSerializer().Serialize(new ProjectDefinition(VBProjectType.EXE, "Test"), path) +
+            "\r\n[HexIDE]\r\nTargets=RDCore\r\nWin64OnlySetOnWindows=1\r\n";
+        File.WriteAllText(path, original);
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
-        read.Win64OnlySetOnWindows.Should().Be(enabled);
-        read.Target.Should().Be(ProjectTarget.None);
-        read.Win64OnlySetOnWindows = !enabled;
-        File.WriteAllText(path, new ProjectSerializer().Serialize(read, path));
-        var changed = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
-        changed.Win64OnlySetOnWindows.Should().Be(!enabled);
+        HexIDE.Runtime.Interpreter.ConditionalCompilation.CompilationConstants.ForProject(read,
+            System.Runtime.InteropServices.OSPlatform.OSX, enabled).BuiltIns["Win64"].Value.Should().Be(enabled ? 0 : 1);
+        new ProjectSerializer().Serialize(read, path).Should().Be(original);
     }
 
 }

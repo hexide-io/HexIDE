@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Linq;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
@@ -99,7 +100,13 @@ public sealed class VBProgram : IFormProgram
     /// </param>
     public VBProgram(FormDefinition startup, VBWindowContext startupContext, Debugging.IDebugGate? debugController,
         Func<FormDefinition, IFormView>? openForm)
-        : this(startup.Owner, startup, startupContext, debugController, openForm)
+        : this(startup, startupContext, debugController, openForm, false)
+    {
+    }
+
+    public VBProgram(FormDefinition startup, VBWindowContext startupContext, Debugging.IDebugGate? debugController,
+        Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host = null)
+        : this(startup.Owner, startup, startupContext, debugController, openForm, win64OnlySetOnWindows, host)
     {
     }
 
@@ -112,12 +119,18 @@ public sealed class VBProgram : IFormProgram
     /// <param name="openForm">How the host makes a window for a form, or null in a host that shows none.</param>
     public VBProgram(ProjectDefinition project, VBWindowContext rootContext, Debugging.IDebugGate? debugController,
         Func<FormDefinition, IFormView>? openForm)
-        : this(project, startup: null, rootContext, debugController, openForm)
+        : this(project, rootContext, debugController, openForm, false)
+    {
+    }
+
+    public VBProgram(ProjectDefinition project, VBWindowContext rootContext, Debugging.IDebugGate? debugController,
+        Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host = null)
+        : this(project, startup: null, rootContext, debugController, openForm, win64OnlySetOnWindows, host)
     {
     }
 
     private VBProgram(ProjectDefinition? project, FormDefinition? startup, VBWindowContext rootContext,
-        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm)
+        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host)
     {
         this.openForm = openForm;
         if (project is not null)
@@ -153,7 +166,7 @@ public sealed class VBProgram : IFormProgram
 
         ExecutionContext = rootContext.ExecutionContext;
         // The project's Conditional Compilation Arguments, or vb6.exe's refusal of them before anything runs (#1112).
-        var compilation = project is null ? null : CompilationConstants.ForProject(project);
+        var compilation = project is null ? null : CompilationConstants.ForProject(project, host, win64OnlySetOnWindows);
         interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
             primaryCode, primaryName, additional, classModules.Concat(project?.Modules
                 .Where(m => m.Kind == ModuleKind.UserControl && m.FormPart is not null)

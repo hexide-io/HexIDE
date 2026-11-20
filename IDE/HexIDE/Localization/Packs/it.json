@@ -814,6 +814,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Annulla",
     "Str.Options.Environment.FileHandling.Header": "Gestione dei file",
     "Str.Options.Environment.ReloadExternalChanges": "Ricarica i file modificati all'esterno dell'IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Progetti RDCore: impostare Win64 solo su Windows",
     "Str.StatusBar.FileReloaded": "{0} ricaricato",
     "Str.Dialog.TrustChain.Title": "Catena di firma",
     "Str.Dialog.TrustChain.RevokedBanner": "Questo add-in è stato revocato e non verrà caricato.",

@@ -67,30 +67,6 @@ internal static class ProjectEncodingRecords
     }
 
     private const string TargetsKey = "Targets";
-    private const string Win64OnlyKey = "Win64OnlySetOnWindows";
-
-    public static bool ReadWin64OnlySetOnWindows(string? tail)
-    {
-        var inSection = false;
-        using var reader = new StringReader(tail ?? "");
-        while (reader.ReadLine() is { } line)
-        {
-            if (line.StartsWith('['))
-                inSection = line.Equals("[HexIDE]", StringComparison.OrdinalIgnoreCase);
-            else if (inSection && KnownWin64Only(line) is { } enabled)
-                return enabled;
-        }
-        return false;
-    }
-
-    private static bool? KnownWin64Only(string line)
-    {
-        var separator = line.IndexOf('=');
-        if (separator < 0 || !line[..separator].Trim().Equals(Win64OnlyKey, StringComparison.OrdinalIgnoreCase))
-            return null;
-        return line[(separator + 1)..].Trim() switch { "1" => true, "0" => false, _ => null };
-    }
-
     public static Vb6TextEncoding? Read(string? tail, string memberPath)
     {
         var inSection = false;
@@ -113,13 +89,12 @@ internal static class ProjectEncodingRecords
         return path.Length > 0 && line[(separator + 1)..].Trim().Equals("utf-8", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static string Write(string? tail, IReadOnlyList<string> paths, VbaBitness bitness, ProjectTarget target, bool win64OnlySetOnWindows)
+    public static string Write(string? tail, IReadOnlyList<string> paths, VbaBitness bitness, ProjectTarget target)
     {
         // Keep other tools' sections verbatim, and unknown keys even in our own section.
         var result = new StringBuilder();
         var inSection = false;
         var sectionBody = new StringBuilder();
-        var wroteWin64Only = false;
         var wroteBitness = false;
         var wroteTarget = false;
         var keptRecords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -130,13 +105,6 @@ internal static class ProjectEncodingRecords
                 inSection = text.Equals("[HexIDE]", StringComparison.OrdinalIgnoreCase);
             if (!inSection)
                 result.Append(line);
-            else if (KnownWin64Only(text) is { } enabled)
-            {
-                // Keep the option where it was, including spelling and whitespace when unchanged (#4890).
-                sectionBody.Append(enabled == win64OnlySetOnWindows ? line :
-                    text[..(text.IndexOf('=') + 1)] + (win64OnlySetOnWindows ? "1" : "0") + line[text.Length..]);
-                wroteWin64Only = true;
-            }
             else if (KnownBitness(text) is not null)
             {
                 if (bitness != VbaBitness.None)
@@ -154,14 +122,14 @@ internal static class ProjectEncodingRecords
                 var record = TryRecord(text, out var path);
                 // Unknown option values remain verbatim, even when they also name a member's encoding record.
                 if (record && !text[..text.IndexOf('=')].Trim().Equals(TargetsKey, StringComparison.OrdinalIgnoreCase) &&
-                    !text[..text.IndexOf('=')].Trim().Equals(Win64OnlyKey, StringComparison.OrdinalIgnoreCase) &&
+                    !text[..text.IndexOf('=')].Trim().Equals("Win64OnlySetOnWindows", StringComparison.OrdinalIgnoreCase) &&
                     !paths.Contains(path, StringComparer.OrdinalIgnoreCase))
                     continue;
                 sectionBody.Append(line);
                 if (record) keptRecords.Add(path);
             }
         }
-        if (paths.Count > 0 || sectionBody.Length > 0 || bitness != VbaBitness.None || target != ProjectTarget.None || win64OnlySetOnWindows)
+        if (paths.Count > 0 || sectionBody.Length > 0 || bitness != VbaBitness.None || target != ProjectTarget.None)
         {
             if (result.Length > 0 && result[^1] != '\n') result.Append("\r\n");
             result.Append("[HexIDE]\r\n").Append(sectionBody);
@@ -170,8 +138,6 @@ internal static class ProjectEncodingRecords
                 result.Append("VbaBitness=").Append((int)bitness).Append("\r\n");
             if (target == ProjectTarget.RDCore && !wroteTarget)
                 result.Append(TargetsKey).Append("=RDCore\r\n");
-            if (win64OnlySetOnWindows && !wroteWin64Only)
-                result.Append(Win64OnlyKey).Append("=1\r\n");
             foreach (var path in paths)
                 if (!keptRecords.Contains(path))
                     result.Append(path).Append("=utf-8\r\n");

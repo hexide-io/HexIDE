@@ -780,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Hủy",
     "Str.Options.Environment.FileHandling.Header": "Xử lý tệp",
     "Str.Options.Environment.ReloadExternalChanges": "Nạp lại các tệp bị thay đổi bên ngoài IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Dự án RDCore: chỉ đặt Win64 trên Windows",
     "Str.StatusBar.FileReloaded": "Đã nạp lại {0}",
     "Str.Dialog.TrustChain.Title": "Chuỗi chữ ký",
     "Str.Dialog.TrustChain.RevokedBanner": "Add-in này đã bị thu hồi và sẽ không được nạp.",

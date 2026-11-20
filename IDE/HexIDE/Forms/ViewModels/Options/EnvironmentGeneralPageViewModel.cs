@@ -17,22 +17,26 @@ public partial class EnvironmentGeneralPageViewModel : ObservableObject, IOption
     public string Title => "General";
 
     [ObservableProperty] private bool _promptForProjectOnStartup;
+    [ObservableProperty] private bool _rDCoreWin64OnlySetOnWindows;
     [ObservableProperty] private bool _reloadFilesChangedOutsideIde;
 
     public void LoadFromSettings()
     {
+        RDCoreWin64OnlySetOnWindows = _settings.RDCoreWin64OnlySetOnWindows;
         PromptForProjectOnStartup = _settings.PromptForProjectOnStartup;
         ReloadFilesChangedOutsideIde = _settings.ReloadFilesChangedOutsideIde;
     }
 
     public void SaveToSettings()
     {
+        _settings.RDCoreWin64OnlySetOnWindows = RDCoreWin64OnlySetOnWindows;
         _settings.PromptForProjectOnStartup = PromptForProjectOnStartup;
         _settings.ReloadFilesChangedOutsideIde = ReloadFilesChangedOutsideIde;
     }
 
     public void RestoreDefaults()
     {
+        RDCoreWin64OnlySetOnWindows = SettingsDefaults.RDCoreWin64OnlySetOnWindows;
         PromptForProjectOnStartup = SettingsDefaults.PromptForProjectOnStartup;
         ReloadFilesChangedOutsideIde = SettingsDefaults.ReloadFilesChangedOutsideIde;
     }

@@ -124,6 +124,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _isFormEditorToolbarVisible = SettingsDefaults.IsFormEditorToolbarVisible;
 
     // ── Editor extras defaults ──────────────────────────────────
+    private bool _rdcoreWin64OnlySetOnWindows = SettingsDefaults.RDCoreWin64OnlySetOnWindows;
     private bool _showInlayHints = SettingsDefaults.ShowInlayHints;
     private bool _showCodeLenses = SettingsDefaults.ShowCodeLenses;
     private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
@@ -342,6 +343,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set { if (SetProperty(ref _showCodeLenses, value)) Save(); }
     }
 
+    public bool RDCoreWin64OnlySetOnWindows
+    {
+        get => _rdcoreWin64OnlySetOnWindows;
+        set { if (SetProperty(ref _rdcoreWin64OnlySetOnWindows, value)) Save(); }
+    }
+
     public bool ShowInlayHints
     {
         get => _showInlayHints;
@@ -406,7 +413,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         if (!_loading && e.PropertyName is { } name)
-            lock (_settingsGate) _changedProperties.Add(JsonNamingPolicy.CamelCase.ConvertName(name));
+            lock (_settingsGate) _changedProperties.Add(name == nameof(RDCoreWin64OnlySetOnWindows)
+                ? "rdcoreWin64OnlySetOnWindows" : JsonNamingPolicy.CamelCase.ConvertName(name));
         base.OnPropertyChanged(e);
     }
 
@@ -454,6 +462,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
                 ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
+                RDCoreWin64OnlySetOnWindows = _rdcoreWin64OnlySetOnWindows,
                 ShowInlayHints = _showInlayHints,
                 ShowCodeLenses = _showCodeLenses,
                 ColorBracketsByDepth = _colorBracketsByDepth,
@@ -567,6 +576,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
             ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
+            _rdcoreWin64OnlySetOnWindows = data.RDCoreWin64OnlySetOnWindows;
             _showInlayHints = data.ShowInlayHints;
             _showCodeLenses = data.ShowCodeLenses;
             _colorBracketsByDepth = data.ColorBracketsByDepth;
@@ -678,6 +688,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("showCodeLenses")]
         public bool ShowCodeLenses { get; set; } = SettingsDefaults.ShowCodeLenses;
+
+        [JsonPropertyName("rdcoreWin64OnlySetOnWindows")]
+        public bool RDCoreWin64OnlySetOnWindows { get; set; } = SettingsDefaults.RDCoreWin64OnlySetOnWindows;
 
         [JsonPropertyName("showInlayHints")]
         public bool ShowInlayHints { get; set; } = SettingsDefaults.ShowInlayHints;

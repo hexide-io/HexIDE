@@ -780,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "Скасувати",
     "Str.Options.Environment.FileHandling.Header": "Робота з файлами",
     "Str.Options.Environment.ReloadExternalChanges": "Перезавантажувати файли, змінені за межами IDE",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "Проєкти RDCore: установлювати Win64 лише у Windows",
     "Str.StatusBar.FileReloaded": "Перезавантажено {0}",
     "Str.Dialog.TrustChain.Title": "Ланцюжок підписів",
     "Str.Dialog.TrustChain.RevokedBanner": "Це доповнення було відкликано та не буде завантажено.",

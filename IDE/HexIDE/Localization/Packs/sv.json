@@ -780,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Avbryt",
     "Str.Options.Environment.FileHandling.Header": "Filhantering",
     "Str.Options.Environment.ReloadExternalChanges": "Läs in filer som ändrats utanför IDE:t på nytt",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-projekt: ange Win64 endast på Windows",
     "Str.StatusBar.FileReloaded": "Läste in {0} på nytt",
     "Str.Dialog.TrustChain.Title": "Signeringskedja",
     "Str.Dialog.TrustChain.RevokedBanner": "Det här tillägget har återkallats och kommer inte att läsas in.",

@@ -814,6 +814,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "_Avbryt",
     "Str.Options.Environment.FileHandling.Header": "Filhåndtering",
     "Str.Options.Environment.ReloadExternalChanges": "Last inn filer som er endret utenfor IDE-en på nytt",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore-prosjekter: sett Win64 bare på Windows",
     "Str.StatusBar.FileReloaded": "Lastet inn {0} på nytt",
     "Str.Dialog.TrustChain.Title": "Signeringskjede",
     "Str.Dialog.TrustChain.RevokedBanner": "Dette tillegget er tilbakekalt og vil ikke lastes inn.",

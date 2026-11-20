@@ -847,6 +847,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "ביטול",
     "Str.Options.Environment.FileHandling.Header": "טיפול בקבצים",
     "Str.Options.Environment.ReloadExternalChanges": "טען מחדש קבצים ששונו מחוץ לסביבת הפיתוח",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "פרויקטי RDCore: הגדרת Win64 רק ב־Windows",
     "Str.StatusBar.FileReloaded": "{0} נטען מחדש",
     "Str.Dialog.TrustChain.Title": "שרשרת חתימה",
     "Str.Dialog.TrustChain.RevokedBanner": "תוסף זה בוטל ולא ייטען.",

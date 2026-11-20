@@ -813,6 +813,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "إلغاء",
     "Str.Options.Environment.FileHandling.Header": "معالجة الملفات",
     "Str.Options.Environment.ReloadExternalChanges": "إعادة تحميل الملفات المُغيّرة خارج بيئة التطوير",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "مشاريع RDCore: تعيين Win64 على Windows فقط",
     "Str.StatusBar.FileReloaded": "تمت إعادة تحميل {0}",
     "Str.Dialog.TrustChain.Title": "سلسلة التوقيع",
     "Str.Dialog.TrustChain.RevokedBanner": "تم إبطال هذه الإضافة ولن يتم تحميلها.",

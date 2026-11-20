@@ -780,6 +780,7 @@
     "Str.Dialog.FileConflict.Button.Cancel": "İp_tal",
     "Str.Options.Environment.FileHandling.Header": "Dosya işleme",
     "Str.Options.Environment.ReloadExternalChanges": "IDE dışında değiştirilen dosyaları yeniden yükle",
+    "Str.Options.Environment.RDCoreWin64OnlySetOnWindows": "RDCore projeleri: Win64 yalnızca Windows üzerinde ayarlansın",
     "Str.StatusBar.FileReloaded": "{0} yeniden yüklendi",
     "Str.Dialog.TrustChain.Title": "İmzalama zinciri",
     "Str.Dialog.TrustChain.RevokedBanner": "Bu eklenti iptal edildi ve yüklenmeyecek.",
