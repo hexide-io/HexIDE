@@ -74,14 +74,14 @@ public class ParameterizedDefaultMemberTests : BaseVBTestFixture
         error.Error.ErrNo.Should().Be(91);
     }
 
-    // Unmeasured: Nothing in an As Object Type field, given arguments, stays refused for a Let and a read alike (#4725).
+    // vb6.exe SP6 native/p-code measurements: hexide-io/HexIDE#4925, case 7.
     [Theory]
-    [InlineData("t.o(\"k\") = 1")]
-    [InlineData("Dim x As Variant\nx = t.o(\"k\")")]
-    public async Task Type_field_As_Object_Nothing_stays_refused(string statement)
+    [InlineData("t.o(1) = 9")]
+    [InlineData("Dim x As Variant\nx = t.o(1)")]
+    public async Task Type_field_As_Object_Nothing_raises_91(string statement)
     {
         var run = () => Probe("Private Type TO\n    o As Object\nEnd Type\nDim t As TO\n" + statement);
-        await run.Should().ThrowAsync<NotImplementedException>();
+        (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(91);
     }
 
     [Theory]

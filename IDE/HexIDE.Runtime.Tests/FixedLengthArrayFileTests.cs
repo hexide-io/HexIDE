@@ -135,12 +135,12 @@ public class FixedLengthArrayFileTests : BaseVBTestFixture, IDisposable
     }
 
     [Fact]
-    public async Task Type_with_fixed_String_array_field_keeps_4925_refusal()
+    public async Task Type_with_fixed_String_array_field_writes_measured_bytes()
     {
+        // #179's measured row, repeated in hexide-io/HexIDE#4925.
         var path = PathOf("type.dat");
-        var run = () => Execute($"Type T\ni As Integer\na(1) As String * 3\nEnd Type\nDim u As T\nu.i = 1\nu.a(0) = \"ab\"\nOpen \"{path}\" For Binary As #1\nPut #1, 1, u");
-        (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .Be("Get/Put of a Type containing an array field is not implemented (#4925)");
+        await Execute($"Type T\ni As Integer\na(1) As String * 3\nEnd Type\nDim u As T\nu.i = 1\nu.a(0) = \"ab\"\nOpen \"{path}\" For Binary As #1\nPut #1, 1, u\nClose #1");
+        File.ReadAllBytes(path).Should().Equal(Convert.FromHexString("0100616220000000"));
     }
 
     [Fact]

@@ -88,10 +88,17 @@ public partial class StatementExecutor
                     // the file has moved on (measured).
                     var bounds = VbRecordFormat.ReadDescriptor(read);
                     var element = array.ElementType ?? Vb6Value.ValueType.EmptyVariant;
-                    if (element == Vb6Value.ValueType.UserDefinedType)
-                        throw new NotImplementedException("Get of a Random file's record into a dynamic array of a user-defined Type is not implemented (#4925)");
                     VBArray replaced;
-                    if (bounds.Count == 0)
+                    if (element == Vb6Value.ValueType.UserDefinedType)
+                    {
+                        // #4925: bounds are installed before a short record raises 59.
+                        if (array.IsLocked)
+                            throw new NotImplementedException("Get into a locked dynamic Type array is unmeasured (#4925)");
+                        replaced = array.NewWithBounds(bounds.Count == 0 ? null : bounds);
+                        StoreRecordValue(arg, current.WithArray(replaced));
+                        VbRecordFormat.ReadElementsInto(read, replaced);
+                    }
+                    else if (bounds.Count == 0)
                     {
                         replaced = array.FixedStringWidth is { } width ? FixedLengthString.Array(width, null)
                             : new VBArray(element, [(0, 0)]) { DeclaredClass = array.DeclaredClass };
