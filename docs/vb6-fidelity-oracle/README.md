@@ -496,6 +496,7 @@ added afterwards.
 - [Assigning to a control property (2026-10-12, #768)](assigning-to-a-control-property.md#assigning-to-a-control-property-2026-10-12-768)
 - [A list's members: ListCount, List(i), AddItem's index and RemoveItem (2026-10-22, #821)](a-lists-members-listcount-list.md#a-lists-members-listcount-listi-additems-index-and-removeitem-2026-10-22-821)
 - [The order a Sorted ListBox or ComboBox keeps (2026-11-20, #5059, SP6)](the-order-a-sorted-listbox-or-combobox-keeps.md#the-order-a-sorted-listbox-or-combobox-keeps-2026-11-20-5059-sp6)
+- [A list's NewIndex and ItemData, and the List and ItemData records a form saves (2026-11-20, #5106, #5114, SP6)](a-lists-newindex-itemdata-and-saved-records.md#a-lists-newindex-and-itemdata-and-the-list-and-itemdata-records-a-form-saves-2026-11-20-5106-5114-sp6)
 - [A ComboBox's Text, at each Style, from code (2026-10-22, #926)](a-comboboxs-text-at-each-style-from-code.md#a-comboboxs-text-at-each-style-from-code-2026-10-22-926)
 - [A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)](a-comboboxs-click-change-and-dropdown-with-real-input.md#a-comboboxs-click-change-and-dropdown-with-real-input-2026-10-22-1429)
 - [A Simple Combo's list, drawn and clicked (2026-10-23, #1603)](a-simple-combos-list-drawn-and-clicked.md#a-simple-combos-list-drawn-and-clicked-2026-10-23-1603)
