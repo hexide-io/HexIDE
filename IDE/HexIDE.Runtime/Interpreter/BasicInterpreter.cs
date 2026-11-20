@@ -2230,6 +2230,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : proc.ReturnUdtTypeName is { } className && ProjectClassFor(className) is { } declaredClass
                         ? returned.ViewedAs(declaredClass.Name)
                     : proc.ReturnsVariant ? returned.AsVariant()
+                    : returned.ReadFromControlSlot ? returned.ViewedAs(returned.DeclaredAs)
                     : returned;
             foreach (var (slot, target) in fixedStringCopies)
                 target.Write(ExecutionContext.State[slot]);

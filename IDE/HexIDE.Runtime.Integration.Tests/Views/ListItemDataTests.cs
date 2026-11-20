@@ -39,6 +39,43 @@ public class ListItemDataTests
                 yield return [type, style, sorted];
     }
 
+    public static IEnumerable<object[]> LateBoundErrors()
+    {
+        foreach (var (type, style) in new[] { ("ListBox", 0), ("ComboBox", 2), ("ComboBox", 0) })
+            foreach (var binding in new[] { "Object", "Control", "VB.Control", "Variant", "Object parameter" })
+            {
+                yield return [type, style, binding, "c.List(-2) = \"v\"", "Err.Description, Items1.ListCount", "7|Out of memory|3"];
+                yield return [type, style, binding, "c.ItemData(0) = v", "Items1.ItemData(0)", "13|77"];
+                yield return [type, style, binding, "c.NewIndex = 0", "Items1.NewIndex", "383|2"];
+                yield return [type, style, binding, "v = c.ItemData", "", "385"];
+            }
+    }
+
+    // #5117, SP6 native and p-code (oracle PRs #5118 and #5125).
+    [AvaloniaTheory]
+    [MemberData(nameof(LateBoundErrors))]
+    public Task Late_bound_list_members_report_the_measured_runtime_errors(
+        string type, int style, string binding, string statement, string readBack, string expected)
+    {
+        var probe = $"""
+            Dim v As Variant
+            v = Null
+            On Error Resume Next
+            {statement}
+            Debug.Print Err.Number{(readBack.Length == 0 ? "" : ", " + readBack)}
+            """;
+        var call = binding == "Object parameter"
+            ? $"Probe Items1\nSub Probe(c As Object)\n{probe}\nEnd Sub"
+            : $"Dim c As {binding}\nSet c = Items1\n{probe}";
+        return Check(type, style, false, """
+            Items1.AddItem "c"
+            Items1.AddItem "a"
+            Items1.AddItem "b"
+            Items1.ListIndex = 1
+            Items1.ItemData(0) = 77
+            """ + "\n" + call, expected.Split('|'));
+    }
+
     [AvaloniaTheory]
     [MemberData(nameof(Lists))]
     public async Task NewIndex_tracks_insertions_replacements_failures_removals_and_Clear(string type, int style, bool sorted)
@@ -177,6 +214,51 @@ public class ListItemDataTests
             Debug.Print Items1.ItemData(0)
             """, "70001", "Long", "140000", "-1");
 
+    // Typed variables have the same answers as direct calls in #5117.
+    [AvaloniaTheory]
+    [InlineData("ListBox", 0)]
+    [InlineData("ComboBox", 2)]
+    [InlineData("ComboBox", 0)]
+    public Task Typed_list_writes_keep_the_direct_runtime_errors(string type, int style) =>
+        Check(type, style, false, $$"""
+            Dim c As {{type}}
+            Set c = Items1
+            c.AddItem "a"
+            c.ItemData(0) = 77
+            Dim v As Variant
+            v = Null
+            On Error Resume Next
+            c.List(-2) = "v"
+            Debug.Print Err.Number, Err.Description
+            Err.Clear
+            c.ItemData(0) = v
+            Debug.Print Err.Number, c.ItemData(0)
+            """, "-2147024882", "Out of memory", "94", "77");
+
+    // Unmeasured: these receivers keep today's direct-call answer until vb6.exe is asked (#5135). They are probably late-bound.
+    [AvaloniaTheory]
+    [InlineData("v = controls.Item(1).ItemData")]
+    [InlineData("v = GetList().ItemData")]
+    [InlineData("v = GetControl().ItemData")]
+    [InlineData("v = CallByName(Items1, \"ItemData\", VbGet)")]
+    public async Task Other_receiver_paths_keep_the_missing_index_error(string statement)
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form("ListBox", 0, false));
+        var code = $"""
+            Dim controls As New Collection
+            controls.Add Items1
+            {statement}
+            Function GetList() As Object
+                Set GetList = Items1
+            End Function
+            Function GetControl() As Control
+                Set GetControl = Items1
+            End Function
+            """;
+        Func<Task> act = () => ContainerRuntimeHarness.Run(ctx, env, code.ReplaceLineEndings("\r\n"));
+        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*Argument not optional");
+    }
+
     [AvaloniaTheory]
     [InlineData("Items1.NewIndex = 0", "Can't assign to read-only property")]
     [InlineData("v = Items1.ItemData", "Argument not optional")]
@@ -186,6 +268,11 @@ public class ListItemDataTests
         {
             var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form((string)list[0], (int)list[1], (bool)list[2]));
             Func<Task> act = () => ContainerRuntimeHarness.Run(ctx, env, code);
+            await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*" + message);
+
+            (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form((string)list[0], (int)list[1], (bool)list[2]));
+            var typedCode = $"Dim c As {list[0]}\r\nSet c = Items1\r\n" + code.Replace("Items1.", "c.");
+            act = () => ContainerRuntimeHarness.Run(ctx, env, typedCode);
             await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*" + message);
         }
     }
