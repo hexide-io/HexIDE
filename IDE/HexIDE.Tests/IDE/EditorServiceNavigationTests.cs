@@ -58,6 +58,82 @@ public class EditorServiceNavigationTests
         return project;
     }
 
+    [Theory]
+    [InlineData("module")]
+    [InlineData("form")]
+    [InlineData("carried")]
+    public void Linked_sources_navigate_only_to_the_named_file(string kind)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-navigation-" + Guid.NewGuid());
+        var real = Path.Combine(directory, "real");
+        var link = Path.Combine(directory, "link");
+        Directory.CreateDirectory(real);
+        try
+        {
+            Directory.CreateSymbolicLink(link, real);
+            var project = ProjectWith();
+            var path = Path.Combine(link, "Source.bas");
+            switch (kind)
+            {
+                case "module":
+                    project.AddModule(new ModuleDefinition(project, "Source", ModuleKind.StandardModule) { AbsolutePath = path });
+                    break;
+                case "form":
+                    project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Source") { AbsolutePath = path });
+                    break;
+                case "carried":
+                    project.AddRelatedDocument(new RelatedDocumentDefinition(project, "Source.bas", path));
+                    _dock.TryActivate(Arg.Any<Func<RelatedDocumentEditorViewModel, bool>>()).Returns(true);
+                    break;
+            }
+            Sut().NavigateTo(new Uri(Path.Combine(real, "Source.bas")).AbsoluteUri, 1, 1).Should().BeTrue();
+            Sut().NavigateTo(new Uri(Path.Combine(real, "Other.bas")).AbsoluteUri, 1, 1).Should().BeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(link)) Directory.Delete(link);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Exact_navigation_matches_win_even_in_a_later_project()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-navigation-priority-" + Guid.NewGuid());
+        var real = Path.Combine(directory, "real");
+        var link = Path.Combine(directory, "link");
+        Directory.CreateDirectory(real);
+        try
+        {
+            Directory.CreateSymbolicLink(link, real);
+            var first = ProjectWith(moduleName: "Linked", modulePath: Path.Combine(link, "Source.bas"));
+            var second = ProjectWith(moduleName: "Exact", modulePath: Path.Combine(real, "Source.bas"));
+            _projects.LoadedProjects.Returns([first, second]);
+            CodeEditorViewModel Editor(ModuleDefinition module) => new CodeEditorViewModel(
+                Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
+                Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), Substitute.For<HexIDE.Lsp.ILspClient>(),
+                Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+                Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
+                Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+                Substitute.For<IRunScope>(), Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(module);
+            using var editor = Editor(second.Modules.Single());
+            using var linkedEditor = Editor(first.Modules.Single());
+            Func<CodeEditorViewModel, bool>? selected = null;
+            _dock.TryActivate(Arg.Do<Func<CodeEditorViewModel, bool>>(predicate => selected = predicate)).Returns(true);
+
+            Sut().NavigateTo(new Uri(Path.Combine(real, "Source.bas")).AbsoluteUri, 1, 1).Should().BeTrue();
+
+            selected.Should().NotBeNull();
+            selected!(editor).Should().BeTrue("the exact match must beat the earlier linked spelling");
+            selected(linkedEditor).Should().BeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(link)) Directory.Delete(link);
+            Directory.Delete(directory, true);
+        }
+    }
+
     [AvaloniaFact]
     public void ACarriedDiagnosticOpensItsFileAndPlacesTheCaret()
     {
@@ -113,6 +189,56 @@ public class EditorServiceNavigationTests
         Sut().ShowDocument(new("untitled:P/Missing.bas")).Should().BeFalse();
         _dock.DidNotReceive().TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>(), Arg.Any<bool>());
         _dock.DidNotReceive().OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>());
+    }
+
+    // NavigateTo opens a module reached through a link (#5111), so the selection has to find the same editor: the
+    // exact spelling first, as NavigateTo chose it, and only then the linked one.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ShowDocumentSelectsTheRangeInAModuleReachedThroughALink(bool exactSpellingAlsoOpen)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-show-linked-" + Guid.NewGuid());
+        var real = Path.Combine(directory, "real");
+        var link = Path.Combine(directory, "link");
+        Directory.CreateDirectory(real);
+        try
+        {
+            Directory.CreateSymbolicLink(link, real);
+            var linkedProject = ProjectWith(moduleName: "Module1", modulePath: Path.Combine(link, "Module1.bas"));
+            var exactProject = ProjectWith(moduleName: "Module1", modulePath: Path.Combine(real, "Module1.bas"));
+            _projects.LoadedProjects.Returns(exactSpellingAlsoOpen ? [linkedProject, exactProject] : [linkedProject]);
+            CodeEditorViewModel Editor(ModuleDefinition module)
+            {
+                module.UpdateCode("Sub Example()\n    Debug.Print 1\nEnd Sub");
+                return new CodeEditorViewModel(
+                    Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
+                    Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), Substitute.For<HexIDE.Lsp.ILspClient>(),
+                    Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+                    Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
+                    Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+                    Substitute.For<IRunScope>(), Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(module);
+            }
+            using var linked = Editor(linkedProject.Modules.Single());
+            using var exact = Editor(exactProject.Modules.Single());
+            _dock.TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>(), Arg.Any<bool>()).Returns(true);
+            _dock.OpenDocuments.Returns(exactSpellingAlsoOpen ? [linked, exact] : [linked]);
+            var line = linked.Document.Lines.First(l => linked.Document.GetText(l).Contains("Debug.Print"));
+            var range = new HexIDE.Lsp.Messages.Range(new(line.LineNumber - 1, 4), new(line.LineNumber - 1, 9));
+
+            Sut().ShowDocument(new(new Uri(Path.Combine(real, "Module1.bas")).AbsoluteUri, Selection: range))
+                .Should().BeTrue();
+
+            var selected = exactSpellingAlsoOpen ? exact : linked;
+            selected.SelectionStart.Should().Be(line.Offset + 4);
+            selected.SelectionLength.Should().Be(5);
+            if (exactSpellingAlsoOpen) linked.SelectionLength.Should().Be(0, "the exact spelling wins, as NavigateTo chose it");
+        }
+        finally
+        {
+            if (Directory.Exists(link)) Directory.Delete(link);
+            Directory.Delete(directory, true);
+        }
     }
 
     [Theory]

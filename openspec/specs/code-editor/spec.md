@@ -39,6 +39,7 @@ an external session SHALL send the selected frame's own DAP id and line (#5049).
 - **AND** expressions use DAP watch evaluation, never REPL evaluation; refusals and expired frames show no label
 - **AND** changes to the stop, selected frame id or variables list instance request fresh values, while unrelated adapter changes do not
 - **AND** an inactive session or a stop that is absent or expired clears the labels
+- **AND** a frame whose file reaches this document through a linked folder counts as in it, as for the stopped-line marker (#5111)
 
 #### Scenario: Display lifetime
 - **WHEN** a new stop, a server inline-value refresh or a viewport scroll occurs while paused
