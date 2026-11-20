@@ -315,12 +315,18 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public bool PredeclaredId { get; private set; }
+    private bool Exposed { get; set; }
 
     public override object? VisitModuleAttributes(VB6Parser.ModuleAttributesContext context)
     {
         foreach (var attribute in context.attributeStmt())
-            if (attribute.implicitCallStmt_InStmt().GetText().Equals("VB_PredeclaredId", StringComparison.OrdinalIgnoreCase))
+        {
+            var name = attribute.implicitCallStmt_InStmt().GetText();
+            if (name.Equals("VB_PredeclaredId", StringComparison.OrdinalIgnoreCase))
                 PredeclaredId = attribute.signedLiteral(0).GetText().Equals("True", StringComparison.OrdinalIgnoreCase);
+            else if (name.Equals("VB_Exposed", StringComparison.OrdinalIgnoreCase))
+                Exposed = attribute.signedLiteral(0).GetText().Equals("True", StringComparison.OrdinalIgnoreCase);
+        }
         return base.VisitModuleAttributes(context);
     }
 
@@ -961,6 +967,10 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitTypeStmt(VB6Parser.TypeStmtContext context)
     {
+        var visibility = context.visibility();
+        if (ObjectModule && !Exposed && (visibility is null || visibility.PUBLIC() != null))
+            throw new VBCompileErrorException("Cannot define a Public user-defined type within a private object module");
+
         declared = true;
         // A `Type … End Type` definition: parse each field to a scalar ValueType or a nested-type NAME (resolved
         // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array bounds and fixed-string
