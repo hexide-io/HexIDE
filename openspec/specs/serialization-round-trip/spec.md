@@ -1253,11 +1253,13 @@ repeated property has an unreadable value, the reader SHALL keep the readable va
 line precedes the failed line in the same component, names compared without regard to case, the reader
 SHALL recover with `LoadedWithErrors` when the raw value is quoted on a non-string property, starts
 with a letter and was returned unrecognised as text by the parser on a non-string property, or starts
-with `&` on a Single/Double property. It SHALL retain the invalid-value diagnostic, omit the recovered
-property's raw lines, and require Save As while keeping the form editable. Other unreadable duplicates
-SHALL mark the form unfaithful to save with a cause naming the property; recovery SHALL NOT clear an
-earlier hold. This scoped rule follows [#4317](https://github.com/hexide-io/HexIDE/issues/4317) and
-[the refused-text measurements in oracle PR #4987](https://github.com/hexide-io/HexIDE/pull/4987).
+with `&` on a Single/Double property. For this recovery it SHALL retain the invalid-value diagnostic,
+omit the recovered property's raw lines, and require Save As while keeping the form editable. Other
+unreadable duplicates SHALL mark the form unfaithful to save with a cause naming the property;
+recovery SHALL NOT clear an earlier hold. Non-finite numeric words such as `NaN` and `Infinity` SHALL
+retain the unreadable-duplicate hold because VB6 recovery for those duplicates is unmeasured
+([#4988](https://github.com/hexide-io/HexIDE/issues/4988)). The recovery rule follows
+[#4317](https://github.com/hexide-io/HexIDE/issues/4317) and [the refused-text measurements in oracle PR #4987](https://github.com/hexide-io/HexIDE/pull/4987).
 Applying the measured shapes across properties and extending the measured words are reasoned
 generalisations. Client-size pixel snapping remains unchanged.
 

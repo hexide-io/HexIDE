@@ -51,6 +51,16 @@ public class DamagedFormPropertyTests
         Stable(form, "ClientHeight", "4000");
     }
 
+    // #4988 / oracle PR #4987: a decimal colour after a readable line is accepted.
+    [Fact]
+    public void ReadableDuplicate_BackColor_LastWins()
+    {
+        var form = Load("BackColor = &H8000000F&\r\nBackColor = 255\r\n", true);
+        form.Components[1].GetPropertyOrDefault(VBProperties.BackColorProperty).Should().Be(VBColor.FromOle(255));
+        form.UnfaithfulSaveCauses.Should().NotHaveFlag(UnfaithfulSaveCause.UnreadableDuplicateProperty);
+        Stable(form, "BackColor", "&H000000FF&");
+    }
+
     [Theory]
     [InlineData("Caption")]
     [InlineData("caption")]
@@ -117,7 +127,6 @@ public class DamagedFormPropertyTests
 
     [Theory]
     [InlineData("BackColor", "&H8000000F&", "&H02C0C0C0&")]
-    [InlineData("BackColor", "&H8000000F&", "255")]
     [InlineData("TabIndex", "1", "&H3")]
     [InlineData("Height", "375", "--5")]
     [InlineData("Height", "375", "1.5.2")]
