@@ -64,47 +64,62 @@ public class CashFlowIntrinsicTests : BaseVBTestFixture
         BitConverter.DoubleToUInt64Bits((double)debug[1].Value!).ToString("X16").Should().Be(bits);
     }
 
+    private const string EdgeArrays = """
+        Dim a(4) As Double, matrix(1, 1) As Double
+        a(0) = -10000: a(1) = 3000: a(2) = 4200: a(3) = 6800: a(4) = 1000
+        Dim neg(2) As Double, zeros(2) As Double, mixed(2) As Double, z() As Double
+        neg(0) = -100: neg(1) = -200: neg(2) = -300
+        mixed(0) = 100: mixed(1) = 200
+        """;
+
     [Theory]
-    [InlineData("IRR(a, 0)")] // Equal secant residuals: unmeasured nonconvergence.
-    [InlineData("IRR(neg)")]
-    [InlineData("IRR(zeros)")]
-    [InlineData("IRR(mixed)")]
-    [InlineData("IRR(z)")]
-    [InlineData("IRR(matrix)")]
-    [InlineData("IRR(Array(-1, 2))")]
-    [InlineData("IRR(42)")]
-    [InlineData("IRR(a, Null)")]
-    [InlineData("IRR(a, \"0.1\")")]
-    [InlineData("MIRR(a, 0.1, -1)")]
-    [InlineData("MIRR(a, 0.1, -2)")]
-    [InlineData("MIRR(neg, 0.1, 0.12)")]
-    [InlineData("MIRR(zeros, 0.1, 0.12)")]
-    [InlineData("MIRR(mixed, 0.1, 0.12)")]
-    [InlineData("MIRR(z, 0.1, 0.12)")]
-    [InlineData("MIRR(matrix, 0.1, 0.12)")]
-    [InlineData("MIRR(Array(-1, 2), 0.1, 0.12)")]
-    [InlineData("MIRR(42, 0.1, 0.12)")]
-    [InlineData("MIRR(a, Null, 0.12)")]
-    [InlineData("MIRR(a, 0.1, \"0.12\")")]
-    [InlineData("NPV(0.1)")]
-    [InlineData("NPV(Null, a)")]
-    [InlineData("NPV(\"0.1\", a)")]
-    [InlineData("NPV(0.1, Array(1, 2))")]
-    [InlineData("NPV(0.1, 42)")]
-    [InlineData("NPV(0.1, matrix)")]
-    public async Task Unsupported_cash_flow_calls_refuse(string expression)
+    [InlineData("IRR(neg)", 5)]
+    [InlineData("IRR(zeros)", 5)]
+    [InlineData("IRR(mixed)", 5)]
+    [InlineData("IRR(z)", 5)]
+    [InlineData("IRR(matrix)", 5)]
+    [InlineData("IRR(Array(-1, 2))", 13)]
+    [InlineData("IRR(42)", 13)]
+    [InlineData("IRR(a, Null)", 94)]
+    [InlineData("MIRR(a, 0.1, -1)", 5)]
+    [InlineData("MIRR(zeros, 0.1, 0.12)", 11)]
+    [InlineData("MIRR(mixed, 0.1, 0.12)", 11)]
+    [InlineData("MIRR(z, 0.1, 0.12)", 5)]
+    [InlineData("MIRR(matrix, 0.1, 0.12)", 5)]
+    [InlineData("MIRR(Array(-1, 2), 0.1, 0.12)", 13)]
+    [InlineData("MIRR(42, 0.1, 0.12)", 13)]
+    [InlineData("MIRR(a, Null, 0.12)", 94)]
+    [InlineData("NPV(0.1)", 449)]
+    [InlineData("NPV(Null, a)", 94)]
+    [InlineData("NPV(0.1, Array(1, 2))", 13)]
+    [InlineData("NPV(0.1, 42)", 13)]
+    [InlineData("NPV(0.1, matrix)", 5)]
+    public async Task Former_refusals_raise_measured_error(string expression, int error)
     {
-        var run = () => Run($"""
-            Dim a(4) As Double, b(5) As Double, cs(2) As Double, matrix(1, 1) As Double
-            a(0) = -10000: a(1) = 3000: a(2) = 4200: a(3) = 6800: a(4) = 1000
-            b(0) = -70000: b(1) = 12000: b(2) = 15000: b(3) = 18000: b(4) = 21000: b(5) = 26000
-            cs(0) = 100: cs(1) = 200: cs(2) = 300
-            Dim neg(2) As Double, zeros(2) As Double, mixed(2) As Double, z() As Double
-            neg(0) = -100: neg(1) = -200: neg(2) = -300
-            mixed(0) = 100: mixed(1) = 200
-            Dim answer
-            answer = {expression}
-            """);
+        // Argument/array rules and sign domains: #4883, latest measurement comment.
+        await Run($"{EdgeArrays}\nOn Error Resume Next\nx = {expression}\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value((long)error)]);
+    }
+
+    [Theory]
+    [InlineData("IRR(a, \"0.1\")", "IRR(a, 0.1)")]
+    [InlineData("MIRR(a, 0.1, \"0.12\")", "MIRR(a, 0.1, 0.12)")]
+    [InlineData("NPV(\"0.1\", a)", "NPV(0.1, a)")]
+    [InlineData("MIRR(neg, 0.1, 0.12)", "-1#")]
+    public async Task Former_refusals_match_measured_conversion_or_sign_rule(string expression, string equivalent)
+    {
+        // #4883 measures conversions against numeric twins and all-negative MIRR as -1.
+        await Run($"{EdgeArrays}\nDebug.Print {expression}\nDebug.Print {equivalent}\n");
+        debug.Should().HaveCount(2);
+        debug[0].Should().Be(debug[1]);
+    }
+
+    [Theory]
+    [InlineData("IRR(a, 0)")] // Zero guess/nonconvergence is not measured by #4883.
+    [InlineData("MIRR(a, 0.1, -2)")] // This five-flow negative root is not the measured three-flow row.
+    public async Task Unmeasured_cash_flow_domains_stay_refused(string expression)
+    {
+        var run = () => Run($"{EdgeArrays}\nx = {expression}\n");
         await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4883*");
     }
 }

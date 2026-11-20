@@ -880,11 +880,11 @@ Unmeasured names SHALL remain unimplemented. Name binding SHALL preserve existin
 
 The interpreter SHALL implement positional `SLN` and `SYD` calls with Double results matching
 all measured rows in [#2524](https://github.com/hexide-io/HexIDE/issues/2524) bit for bit.
-It SHALL accept their measured named parameters (#4145) and refuse unmeasured positional argument counts as not implemented.
+It SHALL accept their measured named parameters (#4145) and the argument/error rules measured in #4883.
 `DDB` SHALL use #2524's approved closest model: exact rate, a Double spill at
 `1 - rate`, financial-number power and exact book value and amount, returning the nearest Double
 to the smaller of amount and book value minus salvage. It SHALL default Factor to 2, raise error 5
-for zero life or period outside 1 to life, and refuse unmeasured argument counts and power domains.
+for zero life, zero factor, period outside 1 to life or the measured overflowing cost-minus-salvage case (#4883). It SHALL refuse unmeasured DDB power domains and non-finite inputs.
 It SHALL take the named arguments `Cost`, `Salvage`, `Life`, `Period` and `Factor`, as measured on SP6.
 
 #### Scenario: Approved DDB rounding divergence
@@ -1858,9 +1858,9 @@ and unmeasured HelpContext conversions SHALL be refused as not implemented.
 The interpreter SHALL execute the measured positional `Pmt`, `FV` and `PV` calls from
 [#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving their exact Double bits and
 measured errors. It SHALL round the base `1 + rate` to Double before retaining higher-precision
-intermediates. Named calls SHALL use the measured names, including Due (#4145). Unmeasured positional
-argument errors and unsupported calculation domains SHALL
-fail clearly as unimplemented, rather than supply an invented VB6 result.
+intermediates. Named calls SHALL use the measured names, including Due (#4145).
+The argument and p-code domain rows measured in #4883 SHALL execute with their recorded bits and errors.
+Non-finite inputs and powers beyond the measured 20,000-period range SHALL refuse as unimplemented.
 
 #### Scenario: Ordinary loan payment retains intermediate precision
 - **WHEN** a program evaluates `Pmt(0.08 / 12, 120, 10000)`
@@ -1874,13 +1874,52 @@ fail clearly as unimplemented, rather than supply an invented VB6 result.
 - **WHEN** a program calls `Pmt(0.1, 0, 1000)` or `Pmt(Null, 10, 1000)`
 - **THEN** it raises error 5 or 94 respectively
 
+### Requirement: Financial argument conversions and p-code errors
+
+The thirteen financial intrinsics SHALL follow the Variant conversions, argument counts,
+array errors and p-code arithmetic rows measured on SP6 in [#4883](https://github.com/hexide-io/HexIDE/issues/4883).
+They SHALL preserve the recorded bits and errors, except in the explicitly refused model domains
+and accepted #2524/#2525 precision differences below. Non-finite inputs SHALL remain refused.
+
+#### Scenario: Variant scalar conversions
+- **WHEN** a financial numeric argument is a numeric String, Date, Boolean, Empty, Currency or Decimal
+- **THEN** it converts as CDbl does
+- **WHEN** it is Null, a nonnumeric or empty String, an array, an Error value, Nothing or a Collection without an index
+- **THEN** it raises 94, 13, 13, 13, 91 or 450 respectively
+
+#### Scenario: Optional omission and excess arguments
+- **WHEN** a missing Optional Variant is forwarded to an optional financial position
+- **THEN** that position takes its default
+- **WHEN** a call supplies too many arguments
+- **THEN** it raises 450 at execution time
+
+#### Scenario: Required omission differs from forwarded Missing
+- **WHEN** Pmt is called with a required blank slot or too few arguments
+- **THEN** execution raises 449
+- **WHEN** a missing Optional Variant is forwarded as Pmt's required rate
+- **THEN** execution raises 13
+
+#### Scenario: Financial cash-flow array shape
+- **WHEN** NPV, IRR or MIRR receives an undefined or multidimensional Double array
+- **THEN** it raises 5
+- **WHEN** NPV or IRR receives a Long array, Variant array, Variant holding a Double array or scalar
+- **THEN** it raises 13
+- **WHEN** NPV receives rate 0.1 and a Double array from 1 to 3 containing -100, 50, 60
+- **THEN** the Double result has bits `C012081400C4F3E8`
+
 ### Requirement: Measured periods, interest, principal and rate calculations
 
 The interpreter SHALL execute every measured positional NPer, IPmt, PPmt and Rate row in
 [#2523](https://github.com/hexide-io/HexIDE/issues/2523), preserving exact Double bits and errors.
-It SHALL use the fitted per-function spills described in
-[Financial precision](../../../docs/financial-precision-2523.md). Unmeasured argument conversions,
-and unsupported domains SHALL refuse as unimplemented. Named calls SHALL use the measured names, including Due (#4145).
+It SHALL use the fitted per-function spills in [Financial precision](../../../docs/financial-precision-2523.md)
+and #4883's measured conversions and p-code errors. Named calls SHALL accept the measured names (#4145).
+The remaining precision/unmeasured domains below SHALL refuse.
+
+#### Scenario: Remaining interest and principal precision domains
+- **WHEN** an IPmt/PPmt powered principal exceeds Double range
+- **THEN** execution refuses with #4883, because the fitted model misses the measured 1E+308 rows by one ULP
+- **WHEN** rate -1 is used at a period other than 2, or a financial power exceeds 20,000 periods
+- **THEN** execution remains refused with #4883 because that domain remains unmeasured
 
 #### Scenario: Beginning-period interest and zero-rate interest
 - **WHEN** the program evaluates the measured first-period beginning payment or zero-rate IPmt call
@@ -2561,12 +2600,15 @@ exact result bits and measured error numbers. It SHALL retain the base and sum w
 each cumulative discount power to Double as described in
 [Cash-flow precision](../../../docs/financial-precision-2525.md).
 Named NPV calls SHALL accept Rate and ValueArray (#4145).
-Unmeasured conversions, empty/multidimensional arrays and unsupported arithmetic
-domains SHALL refuse as unimplemented. IRR and MIRR SHALL execute the closest 64-bit models
+The conversions, array shape errors and arithmetic errors measured in #4883 SHALL execute.
+Non-finite arguments SHALL refuse as unimplemented. IRR and MIRR SHALL execute the closest 64-bit models
 recorded in the precision note (Horner masks 9 and 84), authorized by Jen’s 2026-11-17 decision
 in #2525, preserving their documented computed bits and measured error numbers. Their
-unmeasured conversions, argument shapes, nonconvergence, other flows without a sign change,
-ReinvestRate -1 and unsupported power domains SHALL refuse as unimplemented.
+measured argument conversions, sign domains, nonconvergence and ReinvestRate -1 cases in #4883
+SHALL execute with the measured error numbers. A zero IRR guess and negative MIRR radicands
+SHALL remain refused as unmeasured. The new leading-zero IRR and loss/10,001-flow MIRR rows
+SHALL use those same closest models under the standing precision exception, retaining the
+computed bits documented in the precision note. Their accepted #2525 results SHALL remain unchanged.
 
 #### Scenario: Every cash flow is discounted
 - **WHEN** NPV is called with rate 0.1 and the measured five-element Double array a
@@ -2585,9 +2627,16 @@ ReinvestRate -1 and unsupported power domains SHALL refuse as unimplemented.
 - **WHEN** IRR(cs), MIRR(cs, 0.1, 0.12), or MIRR(b, -1, 0.12) is called
 - **THEN** the error number is 5, 11, or 5, respectively
 
-#### Scenario: Unmeasured cash-flow domain
-- **WHEN** IRR does not converge or MIRR is called with ReinvestRate -1
-- **THEN** execution stops with HexIDE's not-implemented error naming #2525
+#### Scenario: Measured cash-flow domains and remaining precision gaps
+- **WHEN** IRR has the measured nonconvergence or MIRR has ReinvestRate -1 in #4883
+- **THEN** it raises error 5
+- **WHEN** IRR has a zero guess or MIRR has a negative radicand, or a power exceeds 20,000 periods
+- **THEN** execution stops with HexIDE's not-implemented error naming #4883
+
+#### Scenario: Additional authorized closest-model cash flows
+- **WHEN** IRR receives {0, -100, 110}, or MIRR receives {-1000, 1, 1} or -1000 followed by 10,000 ones at rates 0.01
+- **THEN** the computed Double bits are `3FB9999999999994`, `BFEE90BA55C3468C` or `3F8400F70D38208B` respectively
+- **AND** the #4883 measured bits and small differences remain documented in the precision note
 
 ### Requirement: Windows program dates use Windows locale data
 On Windows, for a locale whose default calendar is Gregorian, the interpreter SHALL take

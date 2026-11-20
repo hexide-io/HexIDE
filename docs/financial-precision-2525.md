@@ -27,9 +27,10 @@ seven ULPs from `409C45757D31FA2E`. Horner's nearest candidate produces
 The implementation uses the shared `FinancialNumber` for retained intermediates and Double
 spills for the cumulative powers. It matches the three exact Double results and both error-5
 rows (rate -1 and an unallocated Double array). Matching these rows does not prove a unique
-model for every input. Named calls use the measured parameter names (#4145). Other array element types, scalar/Null/String/Date conversions, empty
-or multidimensional arrays, argument-count/missing-argument errors and extreme
-arithmetic domains remain explicitly unimplemented.
+model for every input. Named calls use the measured parameter names (#4145).
+The argument conversions, array shape errors and p-code arithmetic errors measured in
+[#4883](https://github.com/hexide-io/HexIDE/issues/4883) now run with exact NPV bits and error numbers.
+Non-finite inputs remain refused.
 
 ## IRR
 
@@ -50,9 +51,11 @@ is 45 (base, term, sum, iterate spills), producing `3FC875EFF17028DC`,
 `3FC875EFF170444E`, `3FB62D7220A36D0C` respectively at either precision.
 IRR now ships the 64-bit Horner mask-9 model by
 [Jen’s decision, 2026-11-17](https://github.com/hexide-io/HexIDE/issues/2525#issuecomment-6954533411).
-The all-positive error-5 row matches. Equal residuals or exhaustion of 40 iterations,
-other flows without a sign change, unsupported NPV argument shapes and arithmetic domains
-refuse as unimplemented (#2525).
+The all-positive error-5 row matches. #4883’s sign failures, invalid guesses and measured
+nonconvergence now raise 5; the model checks the undiscounted residual too, so discounting
+at an enormous rate cannot masquerade as convergence. A zero guess remains unmeasured and
+refused. The leading-zero row uses the same authorized closest model; the new measured and
+computed patterns appear below.
 
 ## MIRR
 
@@ -73,9 +76,25 @@ MIRR now ships the 64-bit Horner mask-84 model by the same decision. The first r
 misses by nine ULPs. Its measured error-11 and error-5 rows match. The root uses the exact
 reciprocal exponent, expanded to 180 binary places with 160-bit retained square roots before
 rounding to 64 bits; using the Double nearest 1/5 changes the six-flow row.
-ReinvestRate -1, other flows without a sign change, unsupported NPV argument shapes and
-powers outside the supported positive-base domain refuse as unimplemented (#2525).
+#4883’s ReinvestRate -1, sign domains, single-flow and overflow cases now execute with their
+measured results/errors, including the measured negative-rate calls. Negative radicands
+remain unmeasured and refused. The loss and 10,001-flow rows use the same authorized closest
+model; their patterns appear below. Non-finite inputs and powers beyond 20,000 periods remain
+refused. All remaining domains cite #4883.
 Better models may replace these; this search is not proof that no matching model exists.
+
+## Additional closest-model rows (#4883)
+
+The standing #2525 exception permits IRR/MIRR to differ in their last printed digits.
+The new Double-array rows in [#4883](https://github.com/hexide-io/HexIDE/issues/4883) keep the
+unchanged models, with these measured versus computed bits. These are model regression
+expectations, not claims that the computed bits are VB6’s measured answers.
+
+| Call (Double-array elements in braces) | Measured in #4883 | Computed |
+|---|---|---|
+| IRR({0, -100, 110}) | `3FB999999999999C` | `3FB9999999999994` |
+| MIRR({-1000, 1, 1}, 0.01, 0.01) | `BFEE90BA55C3468B` | `BFEE90BA55C3468C` |
+| MIRR(-1000 then 10,000 ones, 0.01, 0.01) | `3F8400F70D382091` | `3F8400F70D38208B` |
 
 ## Verification
 
