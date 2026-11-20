@@ -98,4 +98,15 @@ What it still does not do:
 
 Everything else measured in both ways agreed: `ItemData`'s other conversions and index rows, and `List(-1) = x` zeroing every item's `ItemData`. Those rows are on the page for #5106 and #5114, `a-lists-newindex-itemdata-and-saved-records.md`.
 
-So the "Out of memory" in the table above is the direct call's. Reasoned, not checked: an `As Object` call goes through `IDispatch`, which hands the control's failure back as VB's own error 7, where the direct call surfaces the control's raw `HRESULT`. Not measured: `As Control` for the other three rows, and a list held in a Variant.
+So the "Out of memory" in the table above is the direct call's. Reasoned, not checked: an `As Object` call goes through `IDispatch`, which hands the control's failure back as VB's own error 7, where the direct call surfaces the control's raw `HRESULT`. Not measured in this probe: `As Control` for the other three rows, and a list held in a Variant. The next probe measured both.
+
+**`As Control` and `As Variant` answer as `As Object` does** (2026-11-20, a second probe, native code and p-code agreeing). The three lists were reached through `Dim c As Control`, `Dim c As Variant` and `Dim c As Object`, each given `Set c = Form1.List1` (or `Combo2`, `Combo0`). Each was seeded `c a b` with `ListIndex = 1` and `ItemData(0) = 77`. All nine combinations logged the same four answers:
+
+| Statement | Through `As Control`, `As Variant` or `As Object` |
+|---|---|
+| `c.List(-2) = "v"` | 7; `ListCount` stays 3 |
+| `c.ItemData(0) = v`, `v` Null | 13, and 77 stays |
+| `c.NewIndex = 0` | 383, and `NewIndex` stays 2 |
+| `v = c.ItemData` | 385 |
+
+**After the failed `List(-2)`,** each ComboBox's `ListIndex` read 2, and the ListBox's stayed 1. That's the ComboBox-only move in the first table above, here through every late-bound way in.
