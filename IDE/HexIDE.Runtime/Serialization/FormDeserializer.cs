@@ -528,7 +528,14 @@ public class FormDeserializer
                     if (val is int i)
                         instance.SetUntypedProperty(propertyClass, i);
                     else if (val is double d)
+                    {
+                        if (double.IsFinite(d) && d != Math.Truncate(d))
+                        {
+                            InvalidValue();
+                            continue;
+                        }
                         instance.SetUntypedProperty(propertyClass, (int)d);
+                    }
                     else
                     {
                         InvalidValue();
@@ -568,7 +575,14 @@ public class FormDeserializer
                     if (val is int i)
                         instance.SetUntypedProperty(propertyClass, Enum.ToObject(propertyClass.PropertyType, i));
                     else if (val is double d)
+                    {
+                        if (double.IsFinite(d) && d != Math.Truncate(d))
+                        {
+                            InvalidValue();
+                            continue;
+                        }
                         instance.SetUntypedProperty(propertyClass, Enum.ToObject(propertyClass.PropertyType, (int)d));
+                    }
                     else
                         InvalidValue();
                 }
