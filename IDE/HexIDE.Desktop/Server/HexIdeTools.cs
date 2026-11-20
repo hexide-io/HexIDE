@@ -4103,9 +4103,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (path == "MenuBar" || path.StartsWith("MenuBar/", StringComparison.Ordinal))
             return (null, NativeMenuBar.WindowPathError);
         var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-        return main is null
+        var (control, error) = main is null
             ? UiAutomationDriver.Resolve(active, path)
             : HexIDE.IDE.ForegroundWindow.Resolve(path, scope, active, main, DescribeWindow(active));
+        if (control is null && error is not null && NativeMenuBar.WindowPathHint(active, DescribeWindow(active), error) is { } hint)
+            error += (error.EndsWith('.') ? " " : ". ") + hint;
+        return (control, error);
     }
 
     /// <summary>

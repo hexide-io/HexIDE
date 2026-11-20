@@ -238,8 +238,7 @@ public class RunningFormNamesTests
                 control.Should().BeSameAs(game);
             else
             {
-                // The menu is in the window's NativeMenu, which window "menubar" reaches by caption, as
-                // MenuBar/MenuItem[Game] (#5066). The reply doesn't yet say so: #5102.
+                // The tools' replies carry the menubar hint; FormMenuBarPathTests pins that route (#5102).
                 control.Should().BeNull();
                 error.Should().Be("no child matching '#mnuGame' under 'Window'");
                 NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Select(i => i.Header).Should().Equal("Game");
