@@ -503,7 +503,10 @@ public class FormDeserializer
                 }
                 if (propertyClass.PropertyType == typeof(string))
                 {
-                    if (val is not string)
+                    var rawText = assignmentIndex < serializedComponent.PropertyValueTexts.Count
+                        ? serializedComponent.PropertyValueTexts[assignmentIndex] : null;
+                    if (val is not string || propertyClass == VBProperties.CaptionProperty
+                        && (string.IsNullOrEmpty(rawText) || rawText[0] != '"'))
                     {
                         InvalidValue();
                         continue;

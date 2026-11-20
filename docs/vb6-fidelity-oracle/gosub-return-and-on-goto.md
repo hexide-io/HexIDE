@@ -213,8 +213,11 @@ reviewed, native and p-code agreeing line for line. Each row is a Sub called und
 **Not measured:** a selector held in a typed variable rather than a Variant; and stepping over a GoSub in VB6's
 debugger (D37 in `docs/debugger-vb6-divergences.md`).
 
-**In HexIDE (#4880),** read from the code on main at d5c6dc78d:
-- **A selector that overflows Integer** is refused as not implemented, even under `On Error Resume Next`
-  (`StatementExecutor.cs:3676`).
-- **A `Resume` in a routine reached from an active handler,** with no error in the routine's own pass, is refused as
-  not implemented (`StatementExecutor.cs:6189`).
+**In HexIDE (#4880),** built in #4994, on main at 1bec9d018:
+- **A selector that overflows Integer raises 6,** and one outside 0 to 255 raises 5, under `On Error Resume Next` too.
+  This is pinned by `GoSubTests.MeasuredSelector`, over the selector rows above.
+- **A `Resume` in a routine reached from an active handler** resumes the handler's error, as the R rows show. This is
+  pinned by `GoSubTests.MeasuredHandlerResume`.
+- **A fault left behind by a routine** behaves as Q1 to Q4: a handler that leaves by `Return` keeps its error
+  resumable, and an error that On Error Resume Next went past leaves nothing to resume. This is pinned by
+  `GoSubTests.MeasuredLeftoverFault`.

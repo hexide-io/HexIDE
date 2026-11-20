@@ -399,6 +399,22 @@ public class FontMembersTests
         }).Should().Equal("True", "Arial 9.75 True");
     }
 
+    // #4741's review: before this, an unread StdFont made bold through the control it shares was written to a
+    // PropertyBag as the untouched font, weight 0. Whether sharing realizes it is unmeasured, so the write refuses.
+    [AvaloniaFact]
+    public void An_unread_StdFont_shared_with_a_control_is_not_written_to_a_PropertyBag()
+    {
+        Run("""
+                Dim f As New StdFont, p As New PropertyBag
+                Set Text1.Font = f
+                Text1.FontBold = True
+                Debug.Print "before"
+                p.WriteProperty "F", f
+                Debug.Print "written"
+
+            """).Should().Equal("before");
+    }
+
     [AvaloniaFact]
     public void Font_is_an_object_with_the_measured_members_and_types()
     {

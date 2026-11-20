@@ -51,6 +51,42 @@ deep merging or persisting unedited defaults.
 - **THEN** that server resolves the profile's whole default object
 - **AND** overrides for other server ids and the profile's files remain untouched
 
+### Requirement: Every setting has an explicit profile-default policy
+The profile loader SHALL accept only the approved `settingsDefaults` members with their validated
+types and editor limits. It SHALL refuse excluded or unknown settings with `DisallowedSetting` and
+invalid allowed values with `InvalidType`. Every settable `ISettingsService` property MUST be allowed
+or explicitly excluded with a reason next to the loader's allowlist.
+
+#### Scenario: Approved starting settings
+- **WHEN** a profile supplies starting settings
+- **THEN** it may set only the following members with the specified types and limits:
+
+- the integers `tabWidth`, `gridWidth` and `gridHeight`;
+- the names `activeTheme`, `activeKeymap` and `activeLanguage`, and the non-blank string `editorFontFamily`;
+- the number `editorFontSize` (6–72) and the integer `stickyScrollDepth` (1–10), matching Options;
+- `true` or `false` for `requireVariableDeclaration`, `autoListMembers`, `listMembersAsYouType`, `autoQuickInfo`, `autoIndent`,
+  `formatOnSave`, `showGrid`, `alignToGrid`, `promptForProjectOnStartup`, `isStandardToolbarVisible`,
+  `isEditToolbarVisible`, `isDebugToolbarVisible`, `isFormEditorToolbarVisible`, `isMinimapVisible`,
+  `showInlayHints`, `showCodeLenses`, `colorBracketsByDepth`, `showIndentGuides` and `isStickyScrollEnabled`;
+- `languageServerSettings`, an object keyed by server id whose values are JSON objects.
+
+#### Scenario: Settings reserved for user choices or other payloads
+- **WHEN** a profile supplies any of the following settings
+- **THEN** loading fails with `DisallowedSetting` for the given reason:
+
+- `loadUnsignedAddins`: security; profiles must not weaken add-in signature checks.
+- `revocationListUrl`: security; profiles must not redirect or disable revocation updates.
+- `reloadFilesChangedOutsideIde`: replacing open documents with disk changes stays the user's choice (#2504).
+- `editorColorOverrides`: per-theme user edits; profiles supply colours through their theme payload.
+- `serverChatTools`: the user's consent for each server's AI Chat tools, never a profile's decision.
+- `window`: the user's window position, size and state, not a portable starting setting.
+
+#### Scenario: A new setting is added
+- **WHEN** a settable property is added to `ISettingsService`
+- **THEN** a reflection test maps it to the JSON name used by settings persistence
+- **AND** the test fails naming the property unless it is allowed or explicitly excluded with a reason
+- **AND** the failure explains that it must join the profile list or the exclusion list with a reason
+
 ### Requirement: Settings defaults preserve explicit user choices
 The settings reader SHALL accept defaults from a validated profile snapshot, layering host defaults,
 explicitly present profile defaults and explicitly present saved user properties in that order. It

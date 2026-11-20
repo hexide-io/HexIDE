@@ -79,6 +79,173 @@ public class IdeDialogOwnershipTests
         }
     }
 
+    // Owner selection for the Linux stacking regression measured in #5003.
+    [AvaloniaTheory]
+    [InlineData("modal")]
+    [InlineData("modeless")]
+    [InlineData("program")]
+    public async Task Message_box_uses_active_ide_dialog_or_visible_main_window(string kind)
+    {
+        var ide = new Window();
+        Window active = kind == "program" ? new Window() : new DialogWindow();
+        var desktop = Substitute.For<IClassicDesktopStyleApplicationLifetime>();
+        desktop.MainWindow.Returns(ide);
+        desktop.Windows.Returns(new[] { ide, active });
+        var manager = new WindowManager(Substitute.For<ILocalizationService>());
+        var previousLifetime = Application.Current!.ApplicationLifetime;
+        var lifetimeField = typeof(Application).GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(field => field.FieldType == typeof(IApplicationLifetime));
+        lifetimeField.SetValue(Application.Current, desktop);
+        try
+        {
+            ide.Show();
+            if (kind == "modal") _ = active.ShowDialog<bool>(ide);
+            else active.Show();
+            Activate(active);
+            var pending = manager.MessageBox("IDE message", null, MessageBoxButtons.Ok, MessageBoxIcon.None, null);
+            Dispatcher.UIThread.RunJobs();
+            var box = ide.OwnedWindows.Concat(active.OwnedWindows).Single(window => window != active);
+            box.Owner.Should().BeSameAs(kind == "program" ? ide : active);
+            // A box over the modeless Find window holds the IDE too; elsewhere the box's owner is the IDE or modal over it.
+            ide.IsEnabled.Should().Be(kind != "modeless");
+            box.Close();
+            (await pending).Should().Be(MessageBoxResult.None);
+            ide.IsEnabled.Should().BeTrue();
+        }
+        finally
+        {
+            foreach (var box in active.OwnedWindows.Concat(ide.OwnedWindows).Where(window => window != active).ToArray()) box.Close();
+            active.Close();
+            ide.Close();
+            lifetimeField.SetValue(Application.Current, previousLifetime);
+        }
+    }
+
+    // Native Wayland keeps the main window as owner until AvaloniaUI/Avalonia#22318 ships: a dialog disabled while a key
+    // is down repeats that key into the box it raised, and Enter on Discard answered Yes by itself (#5021).
+    [AvaloniaFact]
+    public async Task Message_box_keeps_main_window_owner_on_native_wayland()
+    {
+        var ide = new Window();
+        var active = new DialogWindow();
+        var desktop = Substitute.For<IClassicDesktopStyleApplicationLifetime>();
+        desktop.MainWindow.Returns(ide);
+        desktop.Windows.Returns(new Window[] { ide, active });
+        var manager = new WindowManager(Substitute.For<ILocalizationService>());
+        var previousLifetime = Application.Current!.ApplicationLifetime;
+        var lifetimeField = typeof(Application).GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(field => field.FieldType == typeof(IApplicationLifetime));
+        lifetimeField.SetValue(Application.Current, desktop);
+        NativeWayland.ForTest = _ => true;
+        try
+        {
+            ide.Show();
+            _ = active.ShowDialog<bool>(ide);
+            Activate(active);
+            var pending = manager.MessageBox("IDE message", null, MessageBoxButtons.Ok, MessageBoxIcon.None, null);
+            Dispatcher.UIThread.RunJobs();
+            var box = ide.OwnedWindows.Concat(active.OwnedWindows).Single(window => window != active);
+            box.Owner.Should().BeSameAs(ide);
+            box.Close();
+            (await pending).Should().Be(MessageBoxResult.None);
+        }
+        finally
+        {
+            NativeWayland.ForTest = null;
+            foreach (var box in active.OwnedWindows.Concat(ide.OwnedWindows).Where(window => window != active).ToArray()) box.Close();
+            active.Close();
+            ide.Close();
+            lifetimeField.SetValue(Application.Current, previousLifetime);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("modal")]
+    [InlineData("modeless")]
+    public async Task Ide_dialog_uses_active_ide_dialog(string kind)
+    {
+        var ide = new Window();
+        var active = new DialogWindow();
+        var desktop = Substitute.For<IClassicDesktopStyleApplicationLifetime>();
+        desktop.MainWindow.Returns(ide);
+        desktop.Windows.Returns(new Window[] { ide, active });
+        var manager = new WindowManager(Substitute.For<ILocalizationService>());
+        try
+        {
+            ide.Show();
+            if (kind == "modal") _ = active.ShowDialog<bool>(ide);
+            else active.Show(ide);
+            Activate(active);
+            var dialog = Substitute.For<IDialog>();
+            dialog.Title.Returns("Nested IDE dialog");
+            var pending = manager.ShowDialog(desktop, dialog);
+            Dispatcher.UIThread.RunJobs();
+            var shown = ide.OwnedWindows.Concat(active.OwnedWindows).Single(window => window != active);
+            shown.Owner.Should().BeSameAs(active);
+            ide.IsEnabled.Should().Be(kind == "modal");
+            shown.Close(true);
+            (await pending).Should().BeTrue();
+            ide.IsEnabled.Should().BeTrue();
+        }
+        finally
+        {
+            foreach (var dialog in active.OwnedWindows.Concat(ide.OwnedWindows).Where(window => window != active).ToArray()) dialog.Close();
+            active.Close();
+            ide.Close();
+        }
+    }
+
+    // The Find window is shown modeless. Owned by the IDE, it stays above it, and so does a box it raises (#5003).
+    // Avalonia refuses a hidden owner, so with the IDE hidden and nothing active it opens unowned rather than throwing.
+    [AvaloniaTheory]
+    [InlineData("visible")]
+    [InlineData("hidden")]
+    public async Task Modeless_ide_window_is_owned_by_visible_main_window(string state)
+    {
+        var ide = new Window();
+        var desktop = Substitute.For<IClassicDesktopStyleApplicationLifetime>();
+        desktop.MainWindow.Returns(ide);
+        desktop.Windows.Returns(new[] { ide });
+        var manager = new WindowManager(Substitute.For<ILocalizationService>());
+        var previousLifetime = Application.Current!.ApplicationLifetime;
+        var lifetimeField = typeof(Application).GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(field => field.FieldType == typeof(IApplicationLifetime));
+        lifetimeField.SetValue(Application.Current, desktop);
+        try
+        {
+            if (state == "visible")
+            {
+                ide.Show();
+                Activate(ide);
+            }
+            var dialog = Substitute.For<IDialog>();
+            dialog.Title.Returns("Find");
+            var pending = manager.ShowWindow(dialog);
+            Dispatcher.UIThread.RunJobs();
+            pending.IsFaulted.Should().BeFalse();
+            if (state == "visible")
+            {
+                var shown = ide.OwnedWindows.Should().ContainSingle().Which;
+                shown.Should().BeOfType<DialogWindow>();
+                shown.Owner.Should().BeSameAs(ide);
+                ide.IsEnabled.Should().BeTrue();
+            }
+            else
+            {
+                ide.OwnedWindows.Should().BeEmpty();
+            }
+            dialog.CloseRequested += Raise.Event<Action<bool>>(true);
+            Dispatcher.UIThread.RunJobs();
+            await pending.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            foreach (var window in ide.OwnedWindows.ToArray()) window.Close();
+            ide.Close();
+            lifetimeField.SetValue(Application.Current, previousLifetime);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("visible")]
     [InlineData("hidden")]

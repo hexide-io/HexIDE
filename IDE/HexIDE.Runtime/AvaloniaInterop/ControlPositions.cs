@@ -71,7 +71,8 @@ internal static class ControlPositions
         // A form's outer size: the window takes the client area that is left inside the frame, and keeps a menu bar above
         // it (#1072, #1127).
         if (control is Window form && IsSize(property))
-            return FormFrame.ClientFor(form, IsVertical(property), twips) + (IsVertical(property) ? MenuBarHeight(form) : 0);
+            return FormFrame.RememberWindowSize(form, IsVertical(property),
+                FormFrame.ClientFor(form, IsVertical(property), twips) + (IsVertical(property) ? MenuBarHeight(form) : 0));
         if (control is VBFlatScrollBar && IsSize(property) && twips == 0)
             twips = 30;
         if (IsSize(property))
@@ -183,7 +184,7 @@ internal static class ControlPositions
     /// <summary>A form's client area across or down, in whole pixels: the window less the menu bar it holds.</summary>
     public static double ClientPixels(Window form, bool vertical)
     {
-        var pixels = vertical ? form.Height : form.Width;
+        var pixels = FormFrame.WindowSize(form, vertical);
         if (double.IsNaN(pixels))
             pixels = vertical ? form.ClientSize.Height : form.ClientSize.Width;
         // The window holds the bar here, above the canvas, so the client area is what is left below it. The bar is

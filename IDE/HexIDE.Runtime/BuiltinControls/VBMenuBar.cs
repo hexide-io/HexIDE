@@ -90,6 +90,8 @@ internal sealed class VBMenuBar : Menu
         var extra = bar.IsVisible ? bar.Height - VBLoader.MenuBarHeight : 0;
         if (host is Window window) FormFrame.ChangeMenuHeight(window, extra);
         host.Height += extra;
+        // The window's size is HexIDE's, and stays so through Windows' rounding of it (#4995).
+        if (host is Window sized) FormFrame.RememberWindowSize(sized, true, host.Height);
         host.PropertyChanged += (_, change) =>
         {
             if (change.Property != WidthProperty) return;

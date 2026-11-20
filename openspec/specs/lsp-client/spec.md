@@ -3363,8 +3363,8 @@ and cancel its predecessor on the connection.
 - **AND** a connection without that capability retains its existing close-clearing behaviour
 ### Requirement: Claimed commands can request shared code-window actions
 
-The host SHALL expose StartRenameAsync and ShowReferencesAsync only within a running claimed handler
-on that connection, marshalled to the UI thread through core's shared actions. Outside that window both
+The host SHALL expose StartRenameAsync, ShowReferencesAsync and GoToLocationAsync only within a running claimed handler
+on that connection, marshalled to the UI thread through core's shared actions. Outside that window all three
 SHALL throw InvalidOperationException and show nothing. An offering connection's claim SHALL precede
 core's rdcore.rename and rdcore.showReferences cases; editor.action.rename and
 editor.action.showReferences SHALL remain core's.
@@ -3387,6 +3387,15 @@ editor.action.showReferences SHALL remain core's.
 - **WHEN** a running claimed handler calls ShowReferencesAsync
 - **THEN** the supplied locations populate Find References
 
+#### Scenario: A claimed lens navigates to a range
+- **WHEN** a running claimed handler calls GoToLocationAsync with an available document and valid zero-based LSP range
+- **THEN** the host SHALL open or activate that document's code window and select the range from start to end
+- **AND** it SHALL return true
+
+#### Scenario: A navigation target is unavailable
+- **WHEN** a running claimed handler calls GoToLocationAsync with an unavailable document, an endpoint outside the text, or a reversed range
+- **THEN** the host SHALL return false without changing the selection
+
 #### Scenario: A host call outlives its authorization
-- **WHEN** the add-in calls either action without a running claimed handler on its connection
+- **WHEN** the add-in calls any action without a running claimed handler on its connection
 - **THEN** InvalidOperationException is thrown and no UI is shown

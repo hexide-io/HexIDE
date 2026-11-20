@@ -107,7 +107,10 @@ entry point used by `HexIDE.Standalone.App`, in an isolated Avalonia headless wo
 `ProjectSmokeRunner.StartupSeconds` constant bounds startup at **3 seconds**, including synchronous
 loops. A project whose startup is a form is watched from when that form's window opens, which a slow build or
 `Form_Load` can delay past the 3 seconds; a `Load` that never ends is given up on after `ShowSeconds`, 30 seconds.
-A Timer that startup sets going, as the demos' `Form_Load`s do, is then watched until one of its events has
+A Sub Main project is watched from entry to Main, after parsing, the pre-pass and module declarations;
+if Main has not started within `ShowSeconds`, the run reaches its time limit and says so
+([#4863](https://github.com/hexide-io/HexIDE/issues/4863)). The worker can insert a test-only delay after
+`.ready` to check that preparation does not spend this window. A Timer that startup sets going, as the demos' `Form_Load`s do, is then watched until one of its events has
 finished, up to `TimerSeconds`, 30 seconds from the form showing, so an error in its handler fails the run
 whenever its first tick comes (#4774). Worker preparation has a separate 60-second watchdog starting when the worker writes its entry
 marker. The test host has up to 300 seconds to enter the worker, so its own startup does not spend the
