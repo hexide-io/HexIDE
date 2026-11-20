@@ -29,7 +29,10 @@ internal static class FormNativeMenu
         void Closed(object? sender, EventArgs args)
         {
             window.Closed -= Closed;
-            NativeMenu.SetMenu(window, null);
+            // Not NativeMenu.SetMenu(window, null): by Closed the native window is gone, and on macOS Avalonia.Native's
+            // exporter then throws "The menu being updated does not match", which ended the IDE whenever a run stopped
+            // (#5065 review, Kronos). The bar then shows whichever window becomes active: #5011's probe closed a window with
+            // its menu still set and the bar went back to the app menu. Only the mirror's subscriptions need releasing.
             mirror.Dispose();
         }
     }
