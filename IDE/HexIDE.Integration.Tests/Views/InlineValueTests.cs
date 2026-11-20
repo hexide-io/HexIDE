@@ -110,15 +110,20 @@ public class InlineValueTests
     [InlineData("other-document")]
     [InlineData("refresh")]
     [InlineData("stale")]
+    [InlineData("linked")]
     public async Task ExternalInlineValuesUseTheSelectedStoppedFrame(string check)
     {
         var token = TestContext.Current.CancellationToken;
         var directory = Path.Combine(Path.GetTempPath(), "hexide-inline-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
-        // The fixture adapter names its frames' sources from its working directory, which macOS reports with /var's
-        // link resolved (/private/var). The code window matches a frame to its document by exact path, as its
-        // stopped-line marker does, so the module's path has to be the one the adapter will report.
-        directory = ResolvePath(directory);
+        // The fixture adapter names its frames' sources from its working directory, the launch file's. The linked row
+        // opens the module through a link to that directory, as every row does on macOS, where /var is a link (#5111).
+        var moduleDirectory = directory;
+        if (check == "linked")
+        {
+            moduleDirectory = directory + "-link";
+            Directory.CreateSymbolicLink(moduleDirectory, directory);
+        }
         await using var log = new HexIDE.Conversations.ConversationLog(armEveryConnection: true);
         var external = new HexIDE.Debugging.ExternalDebugService(log);
         var settings = Substitute.For<ISettingsService>();
@@ -130,7 +135,7 @@ public class InlineValueTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(), Substitute.For<IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(), new LocalizationService(), external);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Caller", ModuleKind.StandardModule)
-        { AbsolutePath = Path.Combine(directory, "Caller.bas") };
+        { AbsolutePath = Path.Combine(moduleDirectory, "Caller.bas") };
         module.UpdateCode(string.Join("\n", Enumerable.Repeat("callerValue", 20)));
         vm.Initialize(module);
         var contexts = new List<InlineValueContext>();
@@ -177,7 +182,7 @@ public class InlineValueTests
                 await Until(() => contexts.Count > 0);
                 contexts.Last().Should().Be(new InlineValueContext(7, new(new(11, 0), new(11, 11))));
             }
-            else if (check == "lookup")
+            else if (check is "lookup" or "linked")
             {
                 await Until(() => shown.Any(h => h.Label.GetString()!.Contains("CALLERVALUE = 42")));
                 shown.Single().Label.GetString().Should().Be("literal, CALLERVALUE = 42, value + 1 = frame:7:value + 1");
@@ -233,20 +238,9 @@ public class InlineValueTests
         {
             await external.StopAsync();
             await run.WaitAsync(TimeSpan.FromSeconds(20), token);
+            if (moduleDirectory != directory) Directory.Delete(moduleDirectory);
             Directory.Delete(directory, true);
         }
-    }
-
-    // Resolves links in every directory of the path, parents first; the temp folder itself is no link on macOS, /var is.
-    private static string ResolvePath(string path)
-    {
-        var full = Path.GetFullPath(path);
-        var parent = Path.GetDirectoryName(full);
-        if (parent is null) return full;
-        var resolved = Path.Combine(ResolvePath(parent), Path.GetFileName(full));
-        FileSystemInfo info = Directory.Exists(resolved) ? new DirectoryInfo(resolved) : new FileInfo(resolved);
-        var target = info.Exists ? info.ResolveLinkTarget(true) : null;
-        return target is null ? resolved : ResolvePath(target.FullName);
     }
 
     private static InlineObjectElement[] Elements(TextEditor editor)

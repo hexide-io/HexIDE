@@ -77,8 +77,7 @@ public partial class CodeEditorViewModel
         if (!Settings.ShowInlineValues || ExternalDebugger is not { IsActive: true, Stop: { } stop } external
             || !external.IsCurrent(stop) || external.SelectedFrame is not { } frame
             || external.SelectedLocation is not { } location || LiveDocumentUri is not { } uri
-            || !string.Equals(location.Uri, uri,
-                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+            || !HexIDE.Debugging.SourcePaths.SameSourcePath(new Uri(location.Uri), new Uri(uri))
             || location.Line > Document.LineCount) return [];
         var frameId = frame.GetProperty("id").GetInt32();
         var locals = external.Variables;
