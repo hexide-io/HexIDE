@@ -118,6 +118,32 @@ public class NetcoredbgStartupWaitTests
     }
 
     [Fact]
+    public void A_retry_is_reported_as_a_warning_annotation_in_the_foreign_server_report()
+    {
+        var report = Path.Combine(Path.GetTempPath(), $"foreign-report-{Guid.NewGuid():N}.txt");
+        try
+        {
+            File.WriteAllText(report, "rumdl: pinned download; version=0.2.64" + Environment.NewLine);
+            ForeignAdapterTests.ReportRetry("netcoredbg's 5 s startup wait ran out (#4509); the session runs once more", report);
+
+            File.ReadAllLines(report).Should().Equal(
+                "rumdl: pinned download; version=0.2.64",
+                "::warning title=netcoredbg startup wait (#4509)::Netcoredbg_runs_a_complete_session: "
+                + "netcoredbg's 5 s startup wait ran out (#4509); the session runs once more");
+        }
+        finally { File.Delete(report); }
+    }
+
+    [Fact]
+    public void Without_a_report_the_retry_writes_no_file()
+    {
+        var report = Path.Combine(Path.GetTempPath(), $"foreign-report-{Guid.NewGuid():N}.txt");
+        ForeignAdapterTests.ReportRetry("netcoredbg's 5 s startup wait ran out (#4509); the session runs once more", null);
+        ForeignAdapterTests.ReportRetry("netcoredbg's 5 s startup wait ran out (#4509); the session runs once more", "");
+        File.Exists(report).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task A_successful_session_runs_only_once()
     {
         var attempts = 0;

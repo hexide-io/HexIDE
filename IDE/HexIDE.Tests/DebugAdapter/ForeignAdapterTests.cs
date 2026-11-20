@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using HexIDE.Conversations;
 using HexIDE.Dap;
+using HexIDE.Tests.LspClient;
 
 namespace HexIDE.Tests.DebugAdapter;
 
@@ -44,7 +45,17 @@ public class ForeignAdapterTests
 
     [ForeignAdapterFact("netcoredbg")]
     public Task Netcoredbg_runs_a_complete_session() => RunWithStartupWaitRetry(
-        () => Run("netcoredbg"), message => TestContext.Current.TestOutputHelper?.WriteLine(message));
+        () => Run("netcoredbg"), message => ReportRetry(message, Environment.GetEnvironmentVariable(ForeignServerReport.ReportVariable)));
+
+    // A retry that then passes leaves the run green, and a green run's test results are discarded. So each one also
+    // goes into the foreign-server report, which CI prints on every run, as a warning annotation (#4509).
+    internal static void ReportRetry(string message, string? reportPath)
+    {
+        TestContext.Current.TestOutputHelper?.WriteLine(message);
+        if (reportPath is { Length: > 0 })
+            File.AppendAllText(reportPath,
+                $"::warning title=netcoredbg startup wait (#4509)::Netcoredbg_runs_a_complete_session: {message}{Environment.NewLine}");
+    }
 
     internal static async Task RunWithStartupWaitRetry(Func<Task> run, Action<string> output)
     {

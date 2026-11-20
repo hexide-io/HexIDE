@@ -85,7 +85,10 @@ it does not prove the cause. See [#4509](https://github.com/hexide-io/HexIDE/iss
 `Netcoredbg_runs_a_complete_session` treats a `configurationDone` failure carrying `0x80004005`, with no
 `process` event and a log that was read and names no failing call, as that wait running out on a loaded
 runner. It says so in the test output and runs the session once more; a second failure reports both
-attempts. This is a mitigation: the wait is a constant in netcoredbg, so a runner too slow twice still fails.
+attempts. A retry that then passes would leave no trace in a green run, so it also appends a `::warning`
+line to the foreign-server report (`HEXIDE_FOREIGN_LSP_REPORT`), which CI's "Report resolved foreign
+servers" step prints on every run; the hit then shows as an annotation on the run and the pull request.
+This is a mitigation: the wait is a constant in netcoredbg, so a runner too slow twice still fails.
 A real-adapter negative test launches a nonexistent program and requires the native failing-call
 line in the resulting exception message.
 
