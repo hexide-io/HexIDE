@@ -18,6 +18,17 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
     private readonly List<WeakReference<Control>> owners = new();
     private VBFont font;
     private bool standalone;
+    private bool propertiesRead;
+    private PropertyBagFont? requested = PropertyBagFont.Fresh;
+
+    internal PropertyBagFont Persistence => standalone
+        ? propertiesRead ? PropertyBagFont.FromDescriptor(font) : requested ?? throw PropertyBagFont.Unmeasured()
+        : throw PropertyBagFont.Unmeasured();
+
+    internal static ControlFont FromPersistence(PropertyBagFont stream) =>
+        new(stream.Realized()) { standalone = true, requested = stream };
+
+    internal ControlFont CopyForPropertyBag() => FromPersistence(Persistence);
 
     private ControlFont(VBFont font) => this.font = font;
 
@@ -65,6 +76,10 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
 
     private void Attach(Control control, bool notify = true)
     {
+        // Whether a control realizes a StdFont it shares, or a change made through the control, is unmeasured, so
+        // an unread font stops being written from its request once it is shared (#4741's review).
+        if (standalone && !propertiesRead)
+            requested = null;
         if (fonts.TryGetValue(control, out var previous))
         {
             if (ReferenceEquals(previous, this))
@@ -127,10 +142,18 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
         }
     }
 
-    internal Vb6Value DefaultValue => new(font.FontFamilyName);
+    internal Vb6Value DefaultValue
+    {
+        get
+        {
+            propertiesRead = true;
+            return new(font.FontFamilyName);
+        }
+    }
 
     public bool TryGetProperty(string name, out Vb6Value value)
     {
+        propertiesRead = true;
         value = name.ToLowerInvariant() switch
         {
             "name" => DefaultValue,
@@ -150,6 +173,7 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
     {
         if (standalone && TrySetStandalone(name, value))
         {
+            if (!propertiesRead) requested = requested?.Assigned(name, value);
             Publish();
             return true;
         }
