@@ -31,23 +31,34 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     // The guest's locale, which its dates were printed and read in: CDate("1/2/2003") is 1 February.
     private static readonly CultureInfo EnGb = CultureInfo.GetCultureInfo("en-GB");
 
-    // The UDT record layout is unmeasured: hexide-io/HexIDE#4925.
-    [Fact]
-    public async Task Random_Get_into_dynamic_UDT_array_keeps_refusal()
+    // vb6.exe SP6 native/p-code measurements: hexide-io/HexIDE#4925, case 3.
+    [Theory]
+    [InlineData("", false)]
+    [InlineData("ReDim u(4)", false)]
+    [InlineData("", true)]
+    [InlineData("ReDim u(4)", true)]
+    public async Task Random_Get_into_dynamic_UDT_array_takes_descriptor_bounds(string allocate, bool variableString)
     {
-        Func<Task> run = () => Run(Probe1 + """
+        await Run(Probe1 + $"""
 
             Private Type T
-                n As Long
+                i As Integer
+                s As String {(variableString ? "" : "* 2")}
             End Type
-            Dim a() As Long, u() As T
-            ReDim a(0 To 1)
+            Dim a() As T, u() As T
+            ReDim a(1)
+            a(0).i = 1: a(0).s = "ab"
+            a(1).i = 2
+            {(variableString ? "" : "a(1).s = \"cd\"")}
+            {allocate}
             Open P("udt.dat") For Random As #1 Len = 32
             Put #1, 1, a
             Get #1, 1, u
+            Debug.Print LBound(u) & " " & UBound(u)
+            Debug.Print u(0).i & u(0).s & u(1).i & u(1).s
+            Close #1
             """);
-        (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .EndWith("(#4925)");
+        AssertDebugLog(["0 1", variableString ? "1ab2" : "1ab2cd"]);
     }
 
     // The Types and helpers of the probes for Binary_Put_writes_each_type_as_vb6_exe_did.

@@ -2722,7 +2722,7 @@ The interpreter SHALL implement the Binary and Random fixed String array Get/Put
 and p-code in [#179](https://github.com/hexide-io/HexIDE/issues/179), recorded in the
 [fixed String oracle](../../../docs/vb6-fidelity-oracle/fixed-length-strings.md#arrays-of-fixed-length-strings-the-width-and-parameters-2026-11-19-179).
 Double-byte array code pages and Random Get into a fixed String array SHALL remain explicitly not
-implemented pending measurements. Types containing array fields SHALL retain the #4925 refusal.
+implemented pending measurements. Types containing array fields SHALL use the packed record layout measured in [#4925](https://github.com/hexide-io/HexIDE/issues/4925), including fixed String array fields without length prefixes.
 
 #### Scenario: Put writes fixed-width elements
 - **WHEN** Put writes a fixed String array to a Binary or Random file
@@ -2949,3 +2949,34 @@ elevated (deliberate divergence from VB6). Measurements: #4681 and
 - **WHEN** a class default member returns a Date, including through an As Object variable
 - **THEN** the member is read and the statement raises error 70
 - **AND** an object with no default member or a default returning anything other than Date or String explicitly refuses as not implemented, citing #4733, pending measurement
+
+### Requirement: Type arrays and array fields execute the measured remaining cases
+
+The interpreter SHALL read and write Type arrays and Type array fields in the packed order measured
+in [#4925](https://github.com/hexide-io/HexIDE/issues/4925), native and p-code agreeing. Dynamic array
+fields SHALL carry a descriptor in Binary and Random files. A Random Get into a dynamic Type array
+SHALL install descriptor bounds before reading its elements, including when a short record raises 59.
+
+#### Scenario: Array fields round-trip
+- **WHEN** a Type containing fixed or dynamic array fields is written and read
+- **THEN** its elements retain their measured values and dynamic fields take descriptor bounds
+- **AND** Binary reads past EOF zero-fill, while a Random Put exceeding the record raises 59 without writing
+- **AND** object array fields report the object-reference compile error
+
+#### Scenario: Lazy Collection array fields
+- **WHEN** a Type has a fixed or dynamic Collection array field declared As New
+- **THEN** reading an untouched element creates its instance and reading after Set Nothing creates a fresh instance
+- **AND** copying the Type shares created instances while untouched elements remain independent
+- **AND** ReDim Preserve keeps surviving instances and Erase frees a dynamic field
+
+#### Scenario: Field bounds and object element constraints
+- **WHEN** a Type array field has inverted literal or Const-resolved bounds
+- **THEN** it reports "Range has no values"
+- **AND** StdFont, TextBox and Control array fields start Nothing and check the measured Set constraints
+- **AND** an undeclared array field type reports "User-defined type not defined"
+
+#### Scenario: Arguments on Type fields
+- **WHEN** Integer or String fields receive arguments
+- **THEN** they report "Expected array"
+- **AND** Variant fields holding arrays support successive index groups
+- **AND** indexed Lets on the measured Variant/Object fields report 13, 91, 438, 451 or 344 as applicable

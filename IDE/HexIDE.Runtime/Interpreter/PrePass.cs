@@ -987,7 +987,7 @@ public class PrePass : VB6BaseVisitor<object?>
                         break;
                     }
                     if (upper < lower)
-                        throw new NotImplementedException($"An inverted array bound inside Type '{name}' is not implemented (#4925)");
+                        throw new VBCompileErrorException("Range has no values");
                     bounds.Add((lower, upper));
                 }
             }
@@ -1002,9 +1002,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 throw new NotImplementedException("fieldLength as type not implemented");
             if (asType.NEW() != null)
             {
-                if (isArray)
-                    throw new NotImplementedException($"An array field As New inside Type '{name}' is not implemented (#4925)");
-                fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
+                fields.Add(new UdtField(fieldName, null, isArray ? asType.type().GetText() : null,
+                    asType.type().GetText(), IsArray: isArray, Bounds: bounds));
                 continue;
             }
             if (BaseTypeMapper.VbaType(asType.type().GetText(), VbaBitness) is { } wide)

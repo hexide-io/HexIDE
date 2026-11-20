@@ -2261,7 +2261,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var current = root;
         foreach (var m in members)
         {
-            if (current.Value is not VbUdt && (current.Type == Vb6Value.ValueType.Object || current.Value is VbCollection))
+            if (current.Value is not VbUdt && (current.Type == Vb6Value.ValueType.Object || current.Value is VbCollection or ControlFont or Control))
             {
                 current = await ResolveMemberIndexed(current, m, ctx);
                 continue;
@@ -2272,17 +2272,29 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             current = await interpreter.Loading((Bag: bag, Name: fieldName, Context: ctx),
                 static s => s.Bag.TryGet(s.Name, out var value) ? value
                     : throw new VBRunTimeException(s.Context, VBStandardError.MethodOrDataMemberNotFound, s.Name));
-            if (MemberArgs(m) is { } args)
+            if (m.iCS_S_ProcedureOrArrayCall() is { } indexed)
             {
-                var indices = await EvaluateCallArgs(args);
-                // A project-class Type field holding Nothing raises 91 (#4725); other Nothing indexing is unmeasured.
-                if (bag.IsObjectField(fieldName) && current.Type == Vb6Value.ValueType.Object && current.Value is null
-                    && interpreter.ProjectClassFor(current.DeclaredAs ?? "") is not null)
-                    throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-                current = await IndexResult(current, indices, ctx);
+                var groups = ParenGroups(indexed);
+                if (MemberArgs(m) is { } first)
+                    current = await IndexUdtField(current, await EvaluateCallArgs(first), ctx);
+                // Empty groups have no new measurement here; retain the existing first-group read for them.
+                if (groups.All(group => group is not null))
+                    foreach (var args in groups.Skip(1))
+                        current = await IndexUdtField(current, await EvaluateCallArgs(args), ctx);
             }
         }
         return current;
+    }
+
+    // #4925: field arguments distinguish a typed scalar (Expected array), a Variant (13), and Nothing (91).
+    internal Task<Vb6Value> IndexUdtField(Vb6Value value, IReadOnlyList<Vb6Value> args, Antlr4.Runtime.ParserRuleContext ctx)
+    {
+        if (value.Value is null && (value.Type == Vb6Value.ValueType.Object || value.Type == Vb6Value.ValueType.Nothing))
+            throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (value.Value is not VBArray && value.HasFixedType
+            && (value.Type == Vb6Value.ValueType.Integer || value.Type == Vb6Value.ValueType.String))
+            throw new VBCompileErrorException("Expected array");
+        return IndexResult(value, args, ctx);
     }
 
     // The identifier of a member-call segment (`.Foo` or `.Foo(args)`). A ProcedureOrArrayCall head can be a
