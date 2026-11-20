@@ -531,7 +531,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         var typeName = def.Name;
         // EnsureTypeBounds runs the owner's declarations where possible; the allocation's executor resolves its own
-        // Private Type ahead (#4734). Other unresolved allocation orders keep this refusal pending measurement.
+        // Private Types (#4734) and Public Types in standard modules (#4907) ahead.
         if (def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
             throw new NotImplementedException($"Array bounds inside Type '{typeName}' before its declaration are not implemented (#4907)");
         if (depth > 64)
