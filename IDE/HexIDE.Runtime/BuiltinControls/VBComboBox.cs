@@ -40,6 +40,8 @@ public class VBComboBox : ComboBox
 {
     protected override Type StyleKeyOverride => typeof(ComboBox);
 
+    internal bool Sorted { get; init; }
+
     // Avalonia's editable combo selects the first item its Text matches, without regard to case, whether code or typing
     // put the Text there. VB6's selects none. So every item reads as this, which no Text can be, and none matches; but not
     // while Avalonia puts the selected item's own text in the box.

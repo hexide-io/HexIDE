@@ -13,6 +13,11 @@ internal static partial class WindowsLocaleCompare
         if (count == 0)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
         var locale = new string(name, 0, count - 1);
+        return Compare(first, second, locale);
+    }
+
+    public static int Compare(string first, string second, string locale)
+    {
         // NORM_IGNORECASE, with the default word sort (the measured co-op/coop row).
         int result = CompareStringEx(locale, 0x00000001, first, first.Length, second, second.Length,
             IntPtr.Zero, IntPtr.Zero, 0);

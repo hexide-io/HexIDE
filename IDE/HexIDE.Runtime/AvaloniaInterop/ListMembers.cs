@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -238,27 +239,19 @@ internal static class ListMembers
         return index;
     }
 
-    /// <summary><c>AddItem item[, index]</c>: appends, or inserts at 0 to ListCount.</summary>
+    /// <summary><c>AddItem item[, index]</c>: sorts or appends, unless an explicit index wins.</summary>
     public static void AddItem(ItemsControl list, IReadOnlyList<Vb6Value> args)
     {
         // AddItem's Item is a String, so the list holds CStr's text of it: `List1.AddItem 1 / 3` lists 0.333333333333333.
         var text = Text(args[0]);
         if (args.Count < 2 || args[1].IsMissing)
         {
+            var at = list is VBListBox { Sorted: true } or VBComboBox { Sorted: true }
+                ? SortedIndex(list, text) : list.ItemCount;
             if (list is VBListBox { HasChecks: true } checkbox)
-            {
-                var at = list.ItemCount;
-                if (checkbox.SortedChecks)
-                    for (var i = 0; i < list.ItemCount; i++)
-                        if (string.Compare(text, list.Items[i] as string, StringComparison.CurrentCultureIgnoreCase) < 0)
-                        {
-                            at = i;
-                            break;
-                        }
                 checkbox.InsertCheckboxItem(at, text);
-            }
             else
-                list.Items.Add(text);
+                list.Items.Insert(at, text);
             return;
         }
         // A Null index is 13, where a Null item is 94 (measured).
@@ -271,6 +264,39 @@ internal static class ListMembers
             checkboxList.InsertCheckboxItem(index, text);
         else
             list.Items.Insert(index, text);
+    }
+
+    // #5059, oracle: the-order-a-sorted-listbox-or-combobox-keeps.md. The lower midpoint and
+    // inserting before the first equal item probed both matter for the measured ties.
+    private static int SortedIndex(ItemsControl list, string text)
+    {
+        var min = 0;
+        var max = list.ItemCount;
+        while (min != max)
+        {
+            var probe = (min + max - 1) / 2;
+            var order = CompareSorted(text, list.Items[probe] as string ?? "");
+            if (order == 0)
+                return probe;
+            if (order < 0)
+                max = probe;
+            else
+                min = probe + 1;
+        }
+        return max;
+    }
+
+    private static int CompareSorted(string first, string second)
+    {
+        // A leading '[' goes last: a list's own rule, separate from Windows' comparison.
+        var firstBracket = first.StartsWith('[');
+        var secondBracket = second.StartsWith('[');
+        if (firstBracket != secondBracket)
+            return firstBracket ? 1 : -1;
+        var culture = VbLocale.Current;
+        return OperatingSystem.IsWindows()
+            ? WindowsLocaleCompare.Compare(first, second, culture.Name)
+            : culture.CompareInfo.Compare(first, second, CompareOptions.IgnoreCase);
     }
 
     /// <summary><c>RemoveItem index</c>: 0 to ListCount - 1; the selection follows its item, or empties with it.</summary>

@@ -2672,6 +2672,31 @@ assignments, horizontal-bar dragging and designer drawing retain their existing 
 - **THEN** the resulting top items are 18 and 45, each with one Scroll
 - **AND** ListIndex = 50 from TopIndex 0 scrolls to TopIndex 36 with Click only
 
+### Requirement: Saved Sorted list insertion
+
+ListBoxes, including checkbox lists, and ComboBoxes saved Sorted SHALL order index-free AddItem
+using the [measured binary insertion](../../../docs/vb6-fidelity-oracle/the-order-a-sorted-listbox-or-combobox-keeps.md)
+(#5059). Explicit indices SHALL retain precedence over sorting; unsorted lists SHALL append.
+Runtime Sorted access, sorted List writes and saved List item loading retain their existing behaviour.
+
+#### Scenario: An equal item is inserted before the item probed
+- **WHEN** an index-free AddItem is inserted into a sorted list
+- **THEN** the search probes `(min + max - 1) / 2` and inserts before the first equal item probed
+- **AND** b then B added to a sorted plain or checkbox ListBox keeps B then b
+
+#### Scenario: A leading bracket follows ordinary text
+- **WHEN** [a, z and a are added without indices to a sorted ListBox
+- **THEN** its items are a, z and [a
+- **AND** two leading-bracket strings compare normally
+
+#### Scenario: Comparison follows the program locale on each host
+- **WHEN** a sorted list compares two strings
+- **THEN** Windows uses CompareStringEx with NORM_IGNORECASE in the program locale
+- **AND** Linux/macOS use the host's case-insensitive comparison in the program culture, which can differ
+  for hyphens, apostrophes and some symbols (#5105), by the Team Desk decision recorded in
+  [#5059](https://github.com/hexide-io/HexIDE/issues/5059)
+- **AND** ComboBox Style 1 uses the same rules as Styles 0/2, reasoned, not measured
+
 ### Requirement: ListBox TopIndex assignments report a changed top row
 
 A populated ListBox with measurable rows SHALL expose TopIndex and coerce assignments through the standard Integer store
