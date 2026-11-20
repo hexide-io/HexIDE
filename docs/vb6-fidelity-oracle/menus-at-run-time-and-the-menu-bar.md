@@ -139,9 +139,9 @@ its menu when the array has gaps, and whether it copies a Shortcut.
 
 **In HexIDE:**
 - **The bar** is above the client area, 20 pixels high as on the console (#1140), and ScaleHeight is the area below it, on a form with a visible
-  top-level menu; a form whose top-level menus are all hidden has no bar (#1127). The bar is one line high however many
-  menus it holds, where VB6's wraps onto a second line on a form too narrow for them, measured since in *Changing the bar twice
-  before it lands, and a bar that wraps*, below.
+  top-level menu; a form whose top-level menus are all hidden has no bar (#1127). On a form too narrow for its menus
+  the bar wraps onto more rows, as VB6's does (#4978), measured in *Changing the bar twice before it lands, and a bar
+  that wraps*, below.
 - **Menus from code** work as the tables above say (#1126): each menu has its name, a menu array is a control array
   with Count, LBound, UBound and an Index on its Click, and Caption, Checked, Enabled, Visible and Tag read and write
   with the 387 and 395 refusals. Load copies the first element as it stands, Visible included, and places the new one
@@ -294,12 +294,14 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
 **Not measured:** an MDI child's menu bar, so a change to it isn't either; and the bar's rows, rather than its break,
 on the BorderStyles other than Fixed Single.
 
-**In HexIDE (#4946),** from main at 7383762e3:
-- **A change reversed before it lands** is refused as not implemented, from `MenuMembers.cs:121-122`, read from the
-  code.
-- **The bar is always one row of 20 px** (`VBLoader.MenuBarHeight`, `VBLoader.cs:428` and `:436`), read from the
-  code. So it's one row whatever its menus' widths. Run headless, Form3 read `3420 4155` loaded, shown, after
-  `Width = Width + 3000` and after `Width = Width - 3000`. VB6 on the console read `3420 4440`, `3705 4440` and
-  `3420 4440`.
-- **A change to a bar that HexIDE sees as wrapped** is refused as not implemented, from `MenuMembers.cs:182`, read from
-  the code.
+**In HexIDE (#4946),** on main at 1bec9d018:
+- **A change reversed before it lands** changes nothing and raises no Resize (#4983). This is pinned by
+  `FormOuterSizeTests.Pending_menu_bar_changes_apply_the_final_target`.
+- **The bar wraps** onto rows counted from the host's menu font, and a Width change re-wraps it (#4978, PR #4999).
+  - Headless at scaling 1, `FormOuterSizeTests.Wrapped_bar_counts_in_outer_and_client_sizes` reads Form3 as the
+    console does: `3420 4440`, then `3705 4440` after `Width = Width + 3000`, and `3420 4440` after
+    `Width = Width - 3000`.
+  - Live on Windows at 150%, the window lost a pixel after a Width change, reading `3690 4425`. #4995 (PR #5028) fixes
+    that.
+- **A change that changes a wrapped bar's row count** is still refused as not implemented, by `CheckRows`
+  (`MenuMembers.cs:185-192`), until #4946's build lands. It was measured in the rows above.
