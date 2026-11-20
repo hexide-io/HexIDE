@@ -5,6 +5,7 @@ namespace HexIDE.Runtime.Tests;
 
 // #179: vb6.exe SP6 native/p-code rows in docs/vb6-fidelity-oracle/fixed-length-strings.md,
 // "Arrays of fixed-length Strings, the width and parameters" (Put/Get and code-page-1252 tables).
+[Collection<AnsiCodePageCollection>]
 public class FixedLengthArrayFileTests : BaseVBTestFixture, IDisposable
 {
     private readonly string dir = Directory.CreateTempSubdirectory("hexide-fixed-array-records-").FullName;
