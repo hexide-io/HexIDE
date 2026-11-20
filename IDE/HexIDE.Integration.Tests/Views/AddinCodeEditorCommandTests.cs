@@ -35,7 +35,7 @@ public class AddinCodeEditorCommandTests
     [InlineData(true, "rdcore.showReferences", true)]
     [InlineData(true, "editor.action.rename", false)]
     [InlineData(false, "rdcore.goToLocation", true)]
-    public async Task CommandsUseTheirOfferingConnectionsClaimBeforeCore(bool claimed, string command, bool lens)
+    public async Task VendorCommandsUseTheirOfferingConnectionAndEditorCommandsStayInCore(bool claimed, string command, bool lens)
     {
         await using var fixture = new Fixture();
         var calls = 0;
@@ -56,9 +56,9 @@ public class AddinCodeEditorCommandTests
         var owned = claimed && command.StartsWith("rdcore.", StringComparison.Ordinal);
         calls.Should().Be(owned ? 1 : 0);
         if (command.EndsWith("rename", StringComparison.Ordinal))
-            await fixture.Messages.Received(owned ? 0 : 1).InputBox(Arg.Any<string>(), Arg.Any<string>(), "Greet");
-        fixture.Results.Rows.Where(row => row.Location is not null).Should().HaveCount(lens && !owned && command == "rdcore.showReferences" ? 1 : 0);
-        fixture.Peer.Executions.Should().Be(0);
+            await fixture.Messages.Received(command == "editor.action.rename" ? 1 : 0).InputBox(Arg.Any<string>(), Arg.Any<string>(), "Greet");
+        fixture.Results.Rows.Where(row => row.Location is not null).Should().HaveCount(0);
+        fixture.Peer.Executions.Should().Be(!claimed && command is "rdcore.rename" or "rdcore.showReferences" ? 1 : 0);
     }
 
     [AvaloniaTheory]

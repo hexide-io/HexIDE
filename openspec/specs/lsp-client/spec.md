@@ -1365,8 +1365,8 @@ independently of other servers.
 The client SHALL route offered actions and lenses to their producing connection, sending declared commands
 to the server before considering an add-in claim. Otherwise a claimed handler SHALL run on the thread pool
 with the original arguments and cancellation on contribution removal or client stop. Core client commands
-SHALL retain precedence except for rdcore.rename and rdcore.showReferences when the offering connection
-claims them (#4259). Handler failures SHALL be logged in full but displayed with their message only.
+SHALL retain precedence. Vendor commands SHALL use the producing connection
+without core compatibility handlers (#4259). Handler failures SHALL be logged in full but displayed with their message only.
 
 A connection SHALL expose checked edit application only while its claimed handler task remains incomplete.
 It SHALL share the server edit applier and command-window tracking, using the snapshot at handler start
@@ -3200,9 +3200,9 @@ Selection and current-line highlighting SHALL leave lens rows on the editor back
 SHALL supply its visible lines to the lens session on scrolling and suspend new work on detach.
 The document SHALL own the session until disposal, retaining pending requests and completed answers
 across reattachment. Re-docking alone SHALL NOT rediscover lenses; edits SHALL refetch after debounce.
-Clicking a lens SHALL execute a server-declared command through the command router. The commands
-`rdcore.showReferences` and `editor.action.showReferences` SHALL instead fill the existing Find References
-pane from their third argument without sending a references request. Unknown commands SHALL do nothing
+Clicking a lens SHALL execute a server-declared command through the command router. The command
+`editor.action.showReferences` SHALL instead fill the existing Find References
+pane from its third argument without sending a references request. Unknown commands SHALL do nothing
 and be logged once per command.
 
 #### Scenario: Lens space follows the editor font metrics
@@ -3410,14 +3410,14 @@ and cancel its predecessor on the connection.
 
 The host SHALL expose StartRenameAsync, ShowReferencesAsync and GoToLocationAsync only within a running claimed handler
 on that connection, marshalled to the UI thread through core's shared actions. Outside that window all three
-SHALL throw InvalidOperationException and show nothing. An offering connection's claim SHALL precede
-core's rdcore.rename and rdcore.showReferences cases; editor.action.rename and
-editor.action.showReferences SHALL remain core's.
+SHALL throw InvalidOperationException and show nothing. Vendor commands SHALL route through their
+offering connection; editor.action.rename and editor.action.showReferences SHALL remain core's.
 
-#### Scenario: An add-in takes over a compatibility command
-- **GIVEN** a server's add-in claims rdcore.rename or rdcore.showReferences
+#### Scenario: An add-in handles its own command
+- **GIVEN** a server's add-in claims a command under its registered `<prefix>.*` namespace
 - **WHEN** the user runs that server's action or lens carrying the command
-- **THEN** the command routes through that connection and core's compatibility case does not run
+- **THEN** the command routes through that connection to its claimed handler, unless the server declares the command
+- **AND** core does not handle the vendor command
 
 #### Scenario: A handler requests a rename in another document
 - **WHEN** a running claimed handler calls StartRenameAsync with an available document and valid position
