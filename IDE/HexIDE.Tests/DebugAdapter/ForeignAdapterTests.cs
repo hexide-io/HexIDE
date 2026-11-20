@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using HexIDE.Conversations;
 using HexIDE.Dap;
 
@@ -42,7 +43,32 @@ public class ForeignAdapterTests
     public Task Debugpy_runs_a_complete_session() => Run("debugpy");
 
     [ForeignAdapterFact("netcoredbg")]
-    public Task Netcoredbg_runs_a_complete_session() => Run("netcoredbg");
+    public Task Netcoredbg_runs_a_complete_session() => RunWithStartupWaitRetry(
+        () => Run("netcoredbg"), message => TestContext.Current.TestOutputHelper?.WriteLine(message));
+
+    internal static async Task RunWithStartupWaitRetry(Func<Task> run, Action<string> output)
+    {
+        try { await run(); }
+        catch (IOException first) when (first.Data["NetcoredbgStartupWait"] is true)
+        {
+            output("netcoredbg's 5 s startup wait ran out (#4509); the session runs once more");
+            try { await run(); }
+            catch (Exception second)
+            {
+                throw new IOException($"First attempt: {first.Message}\nSecond attempt: {second.Message}",
+                    new AggregateException(first, second));
+            }
+        }
+    }
+
+    // A log that couldn't be read, or holds nothing, can't show the absence of an IfFailRet line, so it never matches.
+    internal static bool IsNetcoredbgStartupWait(Exception error, IEnumerable<ConversationEnvelope> conversation, string? nativeLog) =>
+        nativeLog is { Length: > 0 } &&
+        error is DapRequestException { Response.Command: "configurationDone" } &&
+        error.Message.Contains("0x80004005", StringComparison.Ordinal) &&
+        !conversation.Any(entry => entry.Direction == ConversationDirection.Received &&
+            entry.Kind == ConversationEntryKind.Notification && entry.Method == "process") &&
+        !Regex.IsMatch(nativeLog, @" : 0x[0-9a-fA-F]{8}");
 
     [ForeignAdapterFact("netcoredbg")]
     public async Task Netcoredbg_launch_failure_includes_the_native_call_log()
@@ -162,19 +188,24 @@ public class ForeignAdapterTests
                     TestContext.Current.TestOutputHelper?.WriteLine(System.Text.Encoding.UTF8.GetString(reply.Head));
             }
             var diagnostics = "";
+            var startupWait = false;
             if (nativeLog is not null)
             {
                 string contents;
-                try { contents = File.Exists(nativeLog) ? await File.ReadAllTextAsync(nativeLog, Token) : "(missing)"; }
+                string? readLog = null;
+                try { contents = File.Exists(nativeLog) ? readLog = await File.ReadAllTextAsync(nativeLog, Token) : "(missing)"; }
                 catch (Exception readError) when (readError is IOException or UnauthorizedAccessException)
                 { contents = $"(unreadable: {readError.Message})"; }
                 if (contents.Length == 0) contents = "(empty)";
+                startupWait = IsNetcoredbgStartupWait(error, log.Snapshot(adapter), readLog);
                 TestContext.Current.TestOutputHelper?.WriteLine($"netcoredbg log:\n{contents}");
                 diagnostics = $"\nnetcoredbg log:\n{string.Join("\n", contents.ReplaceLineEndings("\n").Split('\n').TakeLast(40))}";
             }
             var stderr = adapterEnded is { IsCompletedSuccessfully: true } ended
                 ? $"exit code {ended.Result.ExitCode}: {ended.Result.StandardErrorTail}" : "(unavailable)";
-            throw new IOException($"{adapter}: {error.Message}{diagnostics}\nAdapter stderr tail: {stderr}", error);
+            var failure = new IOException($"{adapter}: {error.Message}{diagnostics}\nAdapter stderr tail: {stderr}", error);
+            if (startupWait) failure.Data["NetcoredbgStartupWait"] = true;
+            throw failure;
         }
         finally { DeleteWhenReleased(directory); }
     }
