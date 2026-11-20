@@ -1647,22 +1647,29 @@ navigation, commands and hint text edits are not supported or advertised.
 
 The client declares `textDocument.inlineValue.dynamicRegistration: false` and
 `workspace.inlineValue.refreshSupport: true`. It requests `textDocument/inlineValue` only when the server
-advertises `inlineValueProvider` (a flag or options object), the debugger is paused in the document's
-module, and **Show inline values while debugging** is enabled in Options → Editor → General (on by
-default; profiles can set `showInlineValues`). This is an optional modern display, absent from VB6.
+advertises `inlineValueProvider` (a flag or options object), the interpreter is paused in the document's
+module or the external debug adapter's selected stopped frame is in the document, and **Show inline
+values while debugging** is enabled in Options → Editor → General (on by default; profiles can set
+`showInlineValues`). This is an optional modern display, absent from VB6.
 The first nonempty answer in server priority order supplies each pane's visible lines. The request
-includes the stopped statement's line as `context.stoppedLocation` and `frameId: 0`: the debugger seam
-has no DAP frame id. RDCore's measured variable-lookup reply is recorded in [#5014](https://github.com/hexide-io/HexIDE/issues/5014).
+includes the stopped statement's line as `context.stoppedLocation`. The interpreter sends `frameId: 0`
+because its debugger seam has no DAP frame id; an external session sends the selected frame's own DAP id
+and line, including when a caller is selected in the Call Stack (#5049). RDCore's measured
+variable-lookup reply is recorded in [#5014](https://github.com/hexide-io/HexIDE/issues/5014).
 
 Literal text is displayed as supplied. Variable lookups use the provided name or text in the reported
 range, search Locals with the requested case sensitivity, and reuse its formatted value. Expressions
 use the provided expression or range text and `EvaluateWatchAsync`, never the Immediate statement
-executor. Only successful evaluations appear; missing locals and unsuccessful evaluations are omitted.
+executor. External lookups use the selected frame’s non-expensive scope variables, and expressions send
+DAP `evaluate` with `context: "watch"`, never `"repl"`. Only successful evaluations appear;
+missing locals and unsuccessful evaluations are omitted.
 Entries on a line are joined with `, ` after its text in the inlay-hint style. They add no document
 characters, saved text, copied text or caret columns.
 
 New stops, scrolling while paused, and `workspace/inlineValue/refresh` request fresh values (refresh
-answers null). Continuing or ending the session clears them; disabling the setting stops requests.
+answers null). External sessions also refresh when the selected frame or its variables list changes;
+unrelated adapter changes do not request values again. Continuing or ending the session clears them;
+disabling the setting stops requests.
 Obsolete replies cannot restore cleared values. The bundled server offers no inline values.
 
 ## Custom methods
