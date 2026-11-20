@@ -159,6 +159,23 @@ FFFF00001100040064B10EE4180000006200790074006500070000000E000300
 - **`Set g = p2.ReadProperty("F")`** gives a new Font (`g Is f` False) whose Name, Size, Bold, Italic, Underline, Strikethrough, Weight and Charset all read as the written font's did, in every row.
 - **`v = p2.ReadProperty("F")` without `Set`** gives a String, the font's Name: its default member.
 
+**A font read back and written again (measured 2026-11-20, #4741's review).** vb6.exe SP6, `/make`, native code and
+p-code logging the same bytes in all six rows. Each row made a `New StdFont`, did what the row names, wrote it to bag
+`p`, copied `p.Contents` into a second bag, read `Set g = p2.ReadProperty("F")` back and wrote `g` to a third bag.
+
+| The font before its first write | `g` before its write | `g`'s stream (version, charset, flags, weight, size, name) |
+|---|---|---|
+| untouched | unread | `01 0100 00 0000 80380100 00`, as loaded |
+| Size set to 10 | unread | `01 0100 00 0000 A0860100 00`, as loaded |
+| Name read | unread | `01 0000 00 9001 44420100 0D` "MS Sans Serif", as loaded |
+| Bold set to True | unread | `01 0100 00 BC02 80380100 00`, as loaded |
+| Size set to 10 | its Name read | `01 0000 00 9001 DC7C0100 0D` "MS Sans Serif": realized, 9.75 |
+
+- **A font read back writes the stream it was loaded from** until one of its properties is read. Then it writes its
+  realized values, as a `New StdFont` does.
+- **A bag keeps what was written:** an untouched font written to `p`, then read (`x = f.Name`), leaves `p.Contents`
+  as the untouched stream. The font is saved when it's written, not when `Contents` is read.
+
 **Two fonts that look the same are not:** the font in this page's first dump above was written without any of its properties being read. Its stream is `01 0100 00 0000 80380100 00`: charset 1, weight 0, size 8.0, and an empty name. A `New StdFont` whose properties have been read writes MS Sans Serif, 8.25, weight 400, charset 0. **No rule I would defend** for when a font takes its realized values. Reading them is enough to make it, and these rows don't separate the properties.
 
 **Not measured:**
