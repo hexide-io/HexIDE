@@ -9,6 +9,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
+using HexIDE.Automation;
 using HexIDE.Controls;
 using HexIDE.Dialogs;
 using HexIDE.Forms.ViewModels;
@@ -62,9 +63,19 @@ public class WindowManager : IWindowManager
         return lifetime.MainWindow ?? throw new Exception("No main window and trying to open a window, fatal error");
     }
 
+    // The active IDE dialog owns what it raises, so a window manager stacks it above that dialog (#5003). A running
+    // program's window never does: an IDE dialog then belongs to the IDE (#1297).
+    // Not on native Wayland until AvaloniaUI/Avalonia#22318 ships. A window disabled while a key is down goes on
+    // repeating that key into the box it raised: Enter on Recover's Discard answered the confirmation Yes by itself
+    // (measured on 12.1.6, #5021). The main window, as owner, kept boxes above the dialog there (#868).
     private Window GetIdeDialogOwner(IClassicDesktopStyleApplicationLifetime desktop)
-        => desktop.MainWindow is { IsVisible: true, WindowState: not WindowState.Minimized } main
+    {
+        if (desktop.Windows.OfType<DialogWindow>()
+                .FirstOrDefault(window => window.IsActive && window.IsVisible && !NativeWayland.Hosts(window)) is { } dialog)
+            return dialog;
+        return desktop.MainWindow is { IsVisible: true, WindowState: not WindowState.Minimized } main
             ? main : GetTopWindow(desktop);
+    }
 
     public Task ShowManagedWindow(MDIWindow window) => ShowManagedWindow(window, blockBehind: true);
 
@@ -136,7 +147,11 @@ public class WindowManager : IWindowManager
             var lifetime = new TaskCompletionSource();
             void OnWindowClosed(object? sender, EventArgs e) => lifetime.SetResult();
             window.Closed += OnWindowClosed;
-            window.Show();
+            // Owned by the IDE, the Find window stays above it, and so does a box it raises (#5003). Avalonia refuses a
+            // hidden owner, so with the IDE hidden and nothing active it opens unowned, as it used to.
+            var owner = GetIdeDialogOwner(desktop);
+            if (owner.IsVisible) window.Show(owner);
+            else window.Show();
             await lifetime.Task;
             window.Closed -= OnWindowClosed;
         }
@@ -276,7 +291,9 @@ public class WindowManager : IWindowManager
         {
             // A person's close answers as Windows' does, or is refused where the box has none, and a box hidden with
             // its owner keeps waiting (see ShowAndWait).
-            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner ?? GetIdeDialogOwner(desktop), layout);
+            var boxOwner = owner ?? GetIdeDialogOwner(desktop);
+            return await HoldIdeUnder(desktop, boxOwner,
+                () => ShowDesktopMessageBox(desktop, text, caption, buttons, icon, boxOwner, layout));
         }
         else
             throw new NotImplementedException();
@@ -489,8 +506,13 @@ public class WindowManager : IWindowManager
             if (!result && runtimeError.CanDebug(null)) desktop.MainWindow?.Activate();
             return result;
         }
-        return await window.ShowDialog<bool>(owner);
+        return await HoldIdeUnder(desktop, owner, () => window.ShowDialog<bool>(owner));
     }
+
+    // A modal window owned by a modeless IDE window, such as the Find window, holds the IDE as one the IDE owns does.
+    // Disabling only the Find window left the IDE taking keys under the box (#5003).
+    private static Task<T> HoldIdeUnder<T>(IClassicDesktopStyleApplicationLifetime desktop, Window owner, Func<Task<T>> show)
+        => owner is DialogWindow { IsDialog: false } ? HoldDesktopWindows(desktop, show) : show();
 
     internal Window MakeDialogWindow(string title, Control content)
     {
