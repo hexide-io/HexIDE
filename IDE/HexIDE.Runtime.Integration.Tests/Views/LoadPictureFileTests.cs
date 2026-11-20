@@ -333,6 +333,110 @@ public class LoadPictureFileTests : WindowTestFixture
         values.Select(v => v.Value).Should().Equal((long)number, "fallback colour");
     }
 
+    // VB6 SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/5010, comments 7027366913/7027394526.
+    private const string SizedImageForm = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Begin VB.Image Image1
+              Width = 330
+              Height = 330
+              Stretch = 0
+              BorderStyle = 0
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    [AvaloniaTheory]
+    [InlineData("small", 210, 150)]
+    [InlineData("large", 600, 450)]
+    [InlineData("icon", 480, 480)]
+    [InlineData("border", 270, 210)]
+    [InlineData("stretch", 330, 330)]
+    [InlineData("hidden", 210, 150)]
+    [InlineData("let", 210, 150)]
+    public async Task RuntimeImagePictureTakesMeasuredSize(string row, int width, int height)
+    {
+        using var files = new Pictures();
+        var path = files.Write("picture.dat", row == "icon" ? Icon("32:32")
+            : SizedBitmap(row == "large" ? 40 : 14, row == "large" ? 30 : 10));
+        var form = SizedImageForm;
+        if (row == "border") form = form.Replace("BorderStyle = 0", "BorderStyle = 1");
+        if (row == "stretch") form = form.Replace("Stretch = 0", "Stretch = -1");
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(form);
+        var values = await ContainerRuntimeHarness.Run(ctx, env, $"""
+            On Error Resume Next
+            {(row == "hidden" ? "Image1.Visible = False" : "")}
+            {(row == "let" ? "" : "Set ")}Image1.Picture = LoadPicture({Literal(path)})
+            Debug.Print Err.Number
+            Debug.Print Image1.Width
+            Debug.Print Image1.Height
+            """);
+        values.Select(v => v.Value).Should().Equal(0L, (float)width, (float)height);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Image1.Width = 600: Image1.Height = 600", 600, 600)]
+    [InlineData("Image1.Width = 600: Image1.Height = 600\nImage1.Stretch = True", 600, 600)]
+    [InlineData("Image1.Width = 600: Image1.Height = 600\nImage1.Stretch = True\nImage1.Stretch = False", 210, 150)]
+    [InlineData("Set Image1.Picture = LoadPicture()", 210, 150)]
+    [InlineData("Set Image1.Picture = Nothing", 210, 150)]
+    public async Task RuntimeImageKeepsOrRestoresMeasuredSize(string statements, int width, int height)
+    {
+        using var files = new Pictures();
+        var path = files.Write("small.bmp", SizedBitmap(14, 10));
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(SizedImageForm);
+        var values = await ContainerRuntimeHarness.Run(ctx, env, $"""
+            On Error Resume Next
+            Set Image1.Picture = LoadPicture({Literal(path)})
+            {statements}
+            Debug.Print Err.Number
+            Debug.Print Image1.Width
+            Debug.Print Image1.Height
+            """);
+        values.Select(v => v.Value).Should().Equal(0L, (float)width, (float)height);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RuntimeImageStretchReadsBack(bool stretch)
+    {
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(SizedImageForm);
+        var values = await ContainerRuntimeHarness.Run(ctx, env, $"""
+            On Error Resume Next
+            Image1.Stretch = {stretch}
+            Debug.Print Image1.Stretch
+            Debug.Print Err.Number
+            """);
+        values.Select(v => v.Value).Should().Equal(stretch, 0L);
+    }
+
+    [AvaloniaFact]
+    public async Task SavedImagePictureKeepsFormFileDimensions()
+    {
+        var form = SizedImageForm.Replace("Stretch = 0", "Stretch = 0\n      Picture = \"Form1.frx\":0000");
+        var bytes = SizedBitmap(14, 10);
+        var record = BitConverter.GetBytes(bytes.Length).Concat(bytes).ToArray();
+        var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(form,
+            new System.Collections.Generic.Dictionary<int, byte[]> { [0] = record });
+        ((VBImage)ContainerRuntimeHarness.Child(canvas, "Image1")).Picture.Should().Equal(record);
+        var values = await ContainerRuntimeHarness.Run(ctx, env, "Debug.Print Image1.Width: Debug.Print Image1.Height");
+        values.Select(v => v.Value).Should().Equal(330F, 330F);
+    }
+
+    private static byte[] SizedBitmap(int width, int height)
+    {
+        var stride = (width * 3 + 3) / 4 * 4;
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write((ushort)0x4d42); writer.Write(54 + stride * height); writer.Write(0); writer.Write(54);
+        writer.Write(40); writer.Write(width); writer.Write(height); writer.Write((ushort)1); writer.Write((ushort)24);
+        writer.Write(new byte[24]);
+        writer.Write(new byte[stride * height]);
+        return stream.ToArray();
+    }
+
     [AvaloniaFact]
     public async Task JpegAssignedToImageDecodesAtItsPixelSize()
     {
