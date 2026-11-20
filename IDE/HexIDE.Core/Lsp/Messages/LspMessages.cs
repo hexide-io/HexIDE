@@ -314,7 +314,12 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("callHierarchy")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? CallHierarchy = null,
     [property: JsonPropertyName("rangeFormatting")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null)
+{
+    [JsonPropertyName("linkedEditingRange")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LinkedEditingRangeClientCapabilities? LinkedEditingRange { get; init; }
+}
 
 public record NavigationClientCapabilities([property: JsonPropertyName("linkSupport")] bool LinkSupport = true);
 
@@ -1508,3 +1513,11 @@ public record WorkspaceDiagnosticParams(
     [property: JsonPropertyName("identifier")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Identifier,
     [property: JsonPropertyName("previousResultIds")] PreviousResultId[] PreviousResultIds);
+
+public record LinkedEditingRanges(
+    [property: JsonPropertyName("ranges")] Range[] Ranges,
+    [property: JsonPropertyName("wordPattern")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? WordPattern = null);
+
+/// <summary>Declared without dynamic registration, which this client offers only for watched files (#5015).</summary>
+public record LinkedEditingRangeClientCapabilities();

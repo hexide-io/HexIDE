@@ -146,6 +146,7 @@ public sealed class LanguageServerContributions(
                 ? token => WithinAsync(gate, server.BeforeLaunchTimeout, origin, id, token)
                 : null,
             Origin = origin,
+            AddinId = originId,
             // The user's object, then the profile's default, then what the add-in's own entry carries (#4255).
             Settings = settings.GetLanguageServerSettings(id) ?? made.Settings,
             CreateClient = claimed.Count == 0 && commands.Count == 0 && afterStart is null ? made.CreateClient : () =>

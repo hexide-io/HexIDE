@@ -353,9 +353,12 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   assignments copy every field deeply, and ReDim/Preserve/Erase and ByRef element locks follow the measurements.
   Array fields have indexed reads/writes and whole-array store checks. Constant-expression Type-field bounds
   resolve in declaration order ([#4595, measured](https://github.com/hexide-io/HexIDE/issues/4595));
-  private Types allocated above their declaration in their own module or class resolve from Consts above the Type,
+  Private Types allocated above their declaration in their own module or class resolve from Consts above the Type,
   including Consts below the variable and chains of preceding Consts ([#4734, measured](https://github.com/hexide-io/HexIDE/issues/4734), oracle PR #4800).
-  Public Types and allocation from another module retain their existing behaviour ([#4907](https://github.com/hexide-io/HexIDE/issues/4907)); inverted Type-field bounds report "Range has no values". Get/Put of Type arrays and array fields use their packed layout,
+  A Public Type in a standard module follows the same rule, and a variable in another module or a class gets the Type's bounds
+  in the measured allocation orders ([#4907, measured](https://github.com/hexide-io/HexIDE/issues/4907), [oracle PR #5023](https://github.com/hexide-io/HexIDE/pull/5023)).
+  Allocating a Public Type above its declaration in its own class remains explicitly not implemented (#4907).
+  Inverted Type-field bounds report "Range has no values". Get/Put of Type arrays and array fields use their packed layout,
   with descriptors for dynamic fields even in Binary files ([#4925, measured native and p-code](https://github.com/hexide-io/HexIDE/issues/4925)).
   Collection array fields As New instantiate on first read and recreate after Nothing; copies share only created instances.
   Object array fields start Nothing, check incoming types and share references on copy. Variant fields support successive

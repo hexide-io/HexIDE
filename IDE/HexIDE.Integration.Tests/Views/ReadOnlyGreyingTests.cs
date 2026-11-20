@@ -309,6 +309,31 @@ public class ReadOnlyGreyingTests : IDisposable
         }
     }
 
+    // #5036: a live settings notification must reach the real dispatcher debounce.
+    [AvaloniaFact]
+    public async Task RDCore_setting_change_re_evaluates_open_code_windows()
+    {
+        var themes = new ThemeService();
+        using var scope = TheIdesThemes(themes);
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P") { Target = ProjectTarget.RDCore },
+            "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("#If Win64 Then\nDebug.Print 1\n#Else\nDebug.Print 0\n#End If\n");
+        var vm = MakeViewModel().Initialize(module);
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        await WaitForConditionalEvaluation(view);
+        vm.Settings.RDCoreWin64OnlySetOnWindows.Returns(true);
+        vm.Settings.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(vm.Settings,
+            new PropertyChangedEventArgs(nameof(ISettingsService.RDCoreWin64OnlySetOnWindows)));
+        view.IsConditionalCompilationPending.Should().BeTrue();
+        await WaitForConditionalEvaluation(view);
+        // This host's recorded row is unchanged on Windows/Linux; macOS changes the rendered branch.
+        var windowsBranch = OperatingSystem.IsWindows();
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, windowsBranch ? "Debug.Print 0" : "Debug.Print 1"))
+            .Should().OnlyContain(c => c == grey);
+    }
+
     // #4821/#4890: use the real selector, debounce and rendered line transformer on this host.
     [AvaloniaTheory]
     [InlineData(nameof(ProjectTarget.RDCore), false)]
@@ -320,10 +345,11 @@ public class ReadOnlyGreyingTests : IDisposable
         var target = Enum.Parse<ProjectTarget>(targetName);
         var themes = new ThemeService();
         using var scope = TheIdesThemes(themes);
-        var project = new ProjectDefinition(VBProjectType.EXE, "NavalBattle") { Target = target, VbaBitness = VbaBitness.Bit64, Win64OnlySetOnWindows = windowsOnly };
+        var project = new ProjectDefinition(VBProjectType.EXE, "NavalBattle") { Target = target, VbaBitness = VbaBitness.Bit64 };
         var module = new ModuleDefinition(project, "Pause", ModuleKind.StandardModule);
         module.UpdateCode("#If Win32 Or Win64 Then\nDebug.Print \"Declare\"\n#Else\nDebug.Print \"Timer\"\n#End If\n");
         var vm = MakeViewModel().Initialize(module);
+        vm.Settings.RDCoreWin64OnlySetOnWindows.Returns(windowsOnly);
         var editor = Show(vm);
         var view = (CodeEditorView)windows.Last().Content!;
         var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
@@ -340,7 +366,7 @@ public class ReadOnlyGreyingTests : IDisposable
             .Should().OnlyContain(c => c == grey);
         ColoursOn(editor, LineOf(editor, windowsBranch ? "Debug.Print \"Declare\"" : "Debug.Print \"Timer\""))
             .Should().Contain(c => c != grey);
-        ConditionalCompiler.Preprocess(vm.BufferBody, CompilationConstants.ForProject(project)).InactiveLines
+        ConditionalCompiler.Preprocess(vm.BufferBody, CompilationConstants.ForProject(project, windowsOnly)).InactiveLines
             .Should().Equal(windowsBranch ? new LineRange(4, 4) : new LineRange(2, 2));
     }
 

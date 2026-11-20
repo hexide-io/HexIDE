@@ -112,7 +112,7 @@ public class SyntaxErrorAtStartTests
         if (statement == "x += 2")
             message.Should().Be("Compile error:\n\n+= isn't part of VB6, VBA or VBScript, so this interpreter doesn't run it.");
         else
-            message.Should().Be($"Compile error:\n\nno viable alternative at input 'x = =' in {(kind == "frm" ? "Form1" : "Broken")}, line {line}:8\nOffending symbol: =");
+            message.Should().Be($"Compile error:\n\nSyntax error\nParser: no viable alternative at input 'x = =' in {(kind == "frm" ? "Form1" : "Broken")}, line {line}:8\nOffending symbol: =");
         seen.Should().Be(new ErrorLocation(kind == "frm" ? "Form1" : "Broken", line));
         h.Runner.FailureLocation.Should().BeNull("only available while reporting");
     }

@@ -5,6 +5,7 @@ using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Tests;
 
+// #5036 installation flag; recorded table from #4890.
 // #4821: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.11-alpha (#4890), and Excel for Mac 16.115 measurements.
 // https://github.com/hexide-io/HexIDE/issues/4821
 public class HostPredefinedConstantsTests : BaseVBTestFixture
@@ -22,7 +23,7 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     {
         var target = Enum.Parse<ProjectTarget>(targetName);
         Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test")
-            { Target = target, VbaBitness = VbaBitness.Bit64, Win64OnlySetOnWindows = windowsOnly }, OSPlatform.Create(host));
+            { Target = target, VbaBitness = VbaBitness.Bit64 }, OSPlatform.Create(host), windowsOnly);
         var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7" };
         var values = row.Split(',');
         for (var i = 0; i < names.Length; i++)
@@ -81,7 +82,7 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     {
         var target = Enum.Parse<ProjectTarget>(targetName);
         Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "NavalBattle")
-            { Target = target, VbaBitness = VbaBitness.Bit64, Win64OnlySetOnWindows = windowsOnly }, OSPlatform.Create(host));
+            { Target = target, VbaBitness = VbaBitness.Bit64 }, OSPlatform.Create(host), windowsOnly);
         await Run("""
             #If Win32 Or Win64 Then
             Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal milliseconds As Long)
@@ -137,8 +138,8 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
             VbaBitness.Bit64 => CompilationConstants.Vba64BuiltIns,
             _ => CompilationConstants.Vb6BuiltIns,
         };
-        CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test") { VbaBitness = bitness, Win64OnlySetOnWindows = true },
-            OSPlatform.Create(host)).BuiltIns.Should().BeSameAs(expected);
+        CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test") { VbaBitness = bitness },
+            OSPlatform.Create(host), true).BuiltIns.Should().BeSameAs(expected);
     }
 
     [Fact]

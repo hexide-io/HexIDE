@@ -361,7 +361,7 @@ public class CodeEditorViewModelTests : IDisposable
     {
         var module = TestHelpers.CreateModule();
         module.Owner.Target = ProjectTarget.RDCore;
-        module.Owner.Win64OnlySetOnWindows = windowsOnly;
+        _settingsService.RDCoreWin64OnlySetOnWindows.Returns(windowsOnly);
         var vm = CreateSut().Initialize(module);
         var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None,
             System.Runtime.InteropServices.OSPlatform.Create(host), vm.ConditionalWin64OnlySetOnWindows);
@@ -393,11 +393,11 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Mac_editor_pause_preview_follows_the_project_key(bool windowsOnly)
+    public void Mac_editor_pause_preview_follows_the_installation_setting(bool windowsOnly)
     {
         var form = TestHelpers.CreateForm();
         form.Owner.Target = ProjectTarget.RDCore;
-        form.Owner.Win64OnlySetOnWindows = windowsOnly;
+        _settingsService.RDCoreWin64OnlySetOnWindows.Returns(windowsOnly);
         var vm = CreateSut().Initialize(form);
         var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None,
             System.Runtime.InteropServices.OSPlatform.OSX, vm.ConditionalWin64OnlySetOnWindows);

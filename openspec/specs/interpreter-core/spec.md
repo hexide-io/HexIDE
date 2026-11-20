@@ -281,8 +281,10 @@ constants, `Targets=RDCore` SHALL switch on the run-time additions of the next r
 | `Targets=RDCore` | Linux | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
 | VBA7 64-bit | macOS | 0 | 0 | 1 | 1 | undefined | undefined | 1 | 1 |
 
-For `Targets=RDCore`, `[HexIDE] Win64OnlySetOnWindows=1` SHALL change only macOS's `Win64` to 0.
-Absent or `0` SHALL mean false. The key SHALL have no effect without that target.
+For `Targets=RDCore`, the IDE-wide `RDCoreWin64OnlySetOnWindows` setting SHALL change only macOS's `Win64` to 0
+when true ([#5036](https://github.com/hexide-io/HexIDE/issues/5036)). It SHALL default to false and be profile-settable.
+The setting SHALL have no effect without that target. Each run SHALL capture its value at startup;
+a settings change SHALL apply to the next run. The legacy project key SHALL be ignored.
 `Linux64` SHALL be undefined unless the project or module defines it.
 
 #### Scenario: Default targets and unmeasured hosts
@@ -297,10 +299,10 @@ Absent or `0` SHALL mean false. The key SHALL have no effect without that target
 - **AND** the project's run offers are unchanged
 
 #### Scenario: A portable pause avoids a Windows Declare
-- **WHEN** a project selects `Targets=RDCore` on macOS with `Win64OnlySetOnWindows=1`, or on Linux with either key value, and tests `#If Win32 Or Win64 Then`
+- **WHEN** a project selects `Targets=RDCore` on macOS with `RDCoreWin64OnlySetOnWindows` enabled, or on Linux with either setting value, and tests `#If Win32 Or Win64 Then`
 - **THEN** execution and default editor greying select its `#Else` Timer loop
 - **AND** on macOS the default RDCore table, or `VbaBitness=64` with no target key, selects its Windows Declare branch
-- **AND** on Windows either key value selects the Windows Declare branch
+- **AND** on Windows either setting value selects the Windows Declare branch
 
 #### Scenario: Program definitions override the selected target
 - **WHEN** a project argument defines `Mac=0` for the external backend target on macOS
@@ -1101,13 +1103,26 @@ program that never fails.
 ### Requirement: Parse-time compile errors carry their file location
 A compile error leaving `BasicInterpreter.Parse` with a `Line` SHALL carry an `ErrorLocation` with the module
 being parsed and that line, counted from the top of the whole file as the code window numbers it (#3960).
-The exception type and message SHALL remain unchanged. A compile error without a line SHALL remain unlocated.
+The exception type SHALL remain unchanged. A compile error without a line SHALL remain unlocated.
 
 #### Scenario: A project fails to start while parsing
 - **WHEN** a syntax error or classic-dialect refusal is found while parsing a standard module, class or form
 - **THEN** the failed start exposes that module and whole-file line through `FailureLocation` while reporting
 - **AND** `get_last_runtime_error` returns them in its `module` and `line` fields
 - **AND** the compile-error dialog still offers only End
+
+### Requirement: Parse failures retain parser detail below the VB6 message
+The interpreter and syntax checker SHALL lead parse failures with the VB6 message measured in
+[#4415](https://github.com/hexide-io/HexIDE/issues/4415), or `Syntax error` for unmeasured inputs.
+The next line SHALL start `Parser: ` and retain the previous parser detail and position. Pairing SHALL
+use block keywords within each procedure and ignore single-line If. Language-server diagnostics and
+non-parse compile errors SHALL remain unchanged.
+
+#### Scenario: An unclosed block If
+- **WHEN** parsing fails for a block If without End If
+- **THEN** the first diagnostic line is `Block If without End If`
+- **AND** the reported line is the procedure's End Function
+- **AND** the next diagnostic line retains the parser's own explanation and position
 
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
@@ -3116,8 +3131,9 @@ and SHALL put an item on the next row when it would leave fewer than 7 pixels sp
 The first item on a row SHALL remain there even when wider than the client. The bar SHALL draw those same
 rows and item widths, with a height of 19n + 1 pixels for n rows, before Form_Load.
 A Width assignment SHALL re-wrap inside the statement, preserving Height and raising one Resize with the
-new ScaleHeight. Menu edits that change between nonzero row counts, or make a wrapped bar appear or disappear,
-SHALL remain explicitly unimplemented under #4946. Measured rules: [#4978](https://github.com/hexide-io/HexIDE/issues/4978),
+new ScaleHeight. A change to the top-level menus that changes the row count SHALL take effect at the next
+message, as the bar's coming or going does, with one Resize, and none when the count is unchanged by then
+([oracle PR #5001](https://github.com/hexide-io/HexIDE/pull/5001)). Measured rules: [#4978](https://github.com/hexide-io/HexIDE/issues/4978),
 oracle PRs [#4977](https://github.com/hexide-io/HexIDE/pull/4977) and [#4985](https://github.com/hexide-io/HexIDE/pull/4985).
 Where an item breaks follows the host font, as VB6's follows the desktop font.
 
@@ -3126,6 +3142,18 @@ Where an item breaks follows the host font, as VB6's follows the desktop font.
 - **WHEN** Width increases by 3000 twips
 - **THEN** ScaleHeight reads 3705 and Height remains 4440 inside the statement and its one Resize
 - **AND** narrowing it by 3000 restores ScaleHeight 3420 and two drawn rows
+
+#### Scenario: Hiding a menu unwraps the bar at the next message
+- **GIVEN** measured Form3 at 196 pixels wide with Foxtrot hidden and two menu rows
+- **WHEN** Echo is hidden
+- **THEN** ScaleHeight remains 3420 until DoEvents, then reads 3705 with one Resize
+- **AND** Height remains 4440 and the drawn bar has one row
+
+#### Scenario: Reversing a row change before delivery
+- **GIVEN** measured Form3 at 196 pixels wide with Foxtrot hidden and two menu rows
+- **WHEN** Echo is hidden and shown again before DoEvents
+- **THEN** ScaleHeight remains 3420, Height remains 4440, and no Resize is raised
+- **AND** the drawn bar still has two rows after delivery
 
 ### Requirement: Type arrays and array fields execute the measured remaining cases
 

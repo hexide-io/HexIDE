@@ -5506,7 +5506,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     private async Task ResolveOwnTypeBoundsAhead(UdtTypeDef def, VB6Parser.VariableSubStmtContext variable)
     {
-        if (!def.IsPrivate || !currentModule.PrePass.Types.Values.Contains(def)
+        if ((!def.IsPrivate && currentModule.Kind != InterpreterModuleKind.Standard)
+            || !currentModule.PrePass.Types.Values.Contains(def)
             || !def.Fields.Any(f => f.BoundSyntax != null && f.ResolvedBounds is null))
             return;
         var type = currentModule.PrePass.DeclarationItems.OfType<VB6Parser.TypeStmtContext>()

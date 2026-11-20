@@ -34,6 +34,61 @@ public class RunEngineSeamTests
         _runner.RunStarting += () => _runStarts++;
     }
 
+    // #5036: capture installation scope at Prepare; table recorded in #4890.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RDCore_run_captures_the_setting_until_the_next_start(bool enabled)
+    {
+        var settings = Substitute.For<ISettingsService>();
+        settings.RDCoreWin64OnlySetOnWindows.Returns(enabled);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), new DebugController(), settings)
+        { Host = System.Runtime.InteropServices.OSPlatform.OSX };
+        var project = new ProjectDefinition(VBProjectType.EXE, "P") { StartsAtSubMain = true, Target = ProjectTarget.RDCore };
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("Sub Main()\n#If Win64 Then\nError 5\n#Else\nError 6\n#End If\nEnd Sub\n");
+        project.AddModule(module);
+        var first = engine.Prepare(project);
+        first.Failure.Should().BeNull();
+        settings.RDCoreWin64OnlySetOnWindows.Returns(!enabled);
+        (await first.Run!.RunToEndAsync())!.Text.Should().Contain(enabled ? "'6'" : "'5'");
+        var second = engine.Prepare(project);
+        second.Failure.Should().BeNull();
+        (await second.Run!.RunToEndAsync())!.Text.Should().Contain(enabled ? "'5'" : "'6'");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RDCore_form_start_uses_the_installation_setting(bool enabled)
+    {
+        var settings = Substitute.For<ISettingsService>();
+        settings.RDCoreWin64OnlySetOnWindows.Returns(enabled);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), new DebugController(), settings)
+        { Host = System.Runtime.InteropServices.OSPlatform.OSX };
+        var project = TestHelpers.CreateProjectWithForm();
+        project.Target = ProjectTarget.RDCore;
+        project.VbaBitness = VbaBitness.Bit64;
+        project.StartupForm = project.Forms.Single();
+        // HexIDE's existing PtrSafe refusal tests the selected branch during real form construction (#4245).
+        project.StartupForm.UpdateCode("#If Win64 Then\nPrivate Declare Function Tick Lib \"kernel32\" () As Long\n#End If\n");
+        var start = engine.Prepare(project);
+        try
+        {
+            if (enabled)
+            {
+                start.Failure.Should().BeNull();
+                start.Run.Should().NotBeNull();
+            }
+            else
+            {
+                start.Run.Should().BeNull();
+                start.Failure!.Text.Should().Contain("requires PtrSafe");
+            }
+        }
+        finally { start.Run?.End(); }
+    }
+
     [AvaloniaFact]
     public void A_project_the_engine_does_not_run_is_not_started_and_F5_cannot_start_it()
     {
@@ -178,7 +233,7 @@ public class RunEngineSeamTests
     [AvaloniaFact]
     public void The_interpreter_runs_what_the_type_offers_to_run_whoever_opened_it()
     {
-        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), _debugger);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), _debugger, Substitute.For<ISettingsService>());
 
         engine.Runs(_project).Should().BeTrue();
         engine.Runs(new ProjectDefinition(VBProjectType.EXE, "Theirs") { ContributedBy = "com.example.addin" }).Should().BeTrue();
@@ -189,7 +244,7 @@ public class RunEngineSeamTests
     [AvaloniaFact]
     public void The_interpreter_refuses_a_project_with_no_startup_object_before_it_is_claimed()
     {
-        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), _debugger);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), _debugger, Substitute.For<ISettingsService>());
 
         engine.RefusesToStart(_project).Should().NotBeNullOrEmpty("the test project has no startup form");
     }
@@ -223,7 +278,7 @@ public class RunEngineSeamTests
     public void The_interpreter_halts_only_while_it_has_a_host_to_ask()
     {
         var controller = new DebugController();
-        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), controller);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), controller, Substitute.For<ISettingsService>());
 
         controller.CanHalt.Should().BeFalse("with nobody to ask, the error unwinds to be reported");
         engine.HaltHost = _ => Task.FromResult(true);
@@ -236,7 +291,7 @@ public class RunEngineSeamTests
     public async Task The_interpreter_asks_its_host_in_the_words_of_the_dialog_and_passes_on_the_answer()
     {
         var controller = new DebugController();
-        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), controller);
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), controller, Substitute.For<ISettingsService>());
         var asked = new List<RunFailure>();
         engine.HaltHost = failure =>
         {
@@ -273,7 +328,7 @@ public class RunEngineSeamTests
 
     private static List<RunFailure> ErrorsMetRunning(string body)
     {
-        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), new DebugController());
+        var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), new DebugController(), Substitute.For<ISettingsService>());
         var met = new List<RunFailure>();
         engine.ErrorMet += met.Add;
         var form = new VBWindowContext(Substitute.For<IBasicStandardLibrary>());

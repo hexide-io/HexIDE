@@ -823,11 +823,10 @@ needs no second key. A value naming exactly one known target SHALL select it; a 
 value, and the singular key `Target` SHALL read as no target and SHALL be preserved verbatim on save. Existing VB6
 content outside the owned metadata SHALL retain its bytes, and encoding records SHALL remain intact.
 
-The section SHALL also store `Win64OnlySetOnWindows` beside `Targets`
-([#4890](https://github.com/hexide-io/HexIDE/issues/4890)). `1` SHALL set it; absent or `0` SHALL
-mean false. Other values SHALL be ignored and preserved verbatim. Saving SHALL retain the key's position,
-comments and surrounding order. The option SHALL survive a fresh open even without `Targets=RDCore`,
-but SHALL affect constants only with that target.
+The section SHALL NOT store a `Win64OnlySetOnWindows` setting
+([#5036](https://github.com/hexide-io/HexIDE/issues/5036)). An existing line SHALL be ignored and
+preserved verbatim as an unknown key, including its position, comments and surrounding order.
+Constants SHALL follow the IDE-wide setting instead.
 
 #### Scenario: A predefined constants target survives a fresh open
 - **WHEN** a project with `Targets=RDCore` is saved and freshly opened

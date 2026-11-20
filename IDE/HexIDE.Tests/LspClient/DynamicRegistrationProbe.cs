@@ -38,6 +38,16 @@ public class DynamicRegistrationProbe : IAsyncDisposable
 
     private sealed class RegisteringServer
     {
+        public bool OffersLinkedEditing;
+        public JsonElement LinkedPosition;
+
+        [JsonRpcMethod("textDocument/linkedEditingRange", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Linked(JsonElement p)
+        {
+            LinkedPosition = p.Clone();
+            return JsonDocument.Parse("""{"ranges":[{"start":{"line":1,"character":0},"end":{"line":1,"character":1}},{"start":{"line":3,"character":7},"end":{"line":3,"character":8}}],"wordPattern":"[a-z]+"}""").RootElement.Clone();
+        }
+
         public JsonRpc? Rpc;
         public JsonElement ClientCapabilities;
         public readonly System.Collections.Concurrent.ConcurrentQueue<JsonElement> Changes = new();
@@ -67,7 +77,9 @@ public class DynamicRegistrationProbe : IAsyncDisposable
                 ? caps.Clone()
                 : default;
             // Watched files have no static capability; the server registers them dynamically.
-            return JsonDocument.Parse("""{"capabilities":{"textDocumentSync":1,"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}}}}""").RootElement.Clone();
+            var linked = OffersLinkedEditing ? ",\"linkedEditingRangeProvider\":{}" : "";
+            return JsonDocument.Parse("{\"capabilities\":{\"textDocumentSync\":1" + linked
+                + ",\"workspace\":{\"workspaceFolders\":{\"supported\":true,\"changeNotifications\":true}}}}").RootElement.Clone();
         }
 
         [JsonRpcMethod("initialized")]
@@ -105,9 +117,9 @@ public class DynamicRegistrationProbe : IAsyncDisposable
     }
 
     private async Task<(VBLspClient Client, RegisteringServer Server)> ConnectedAsync(
-        ILogger<VBLspClient>? logger = null, string? root = null, ILspWorkspace? workspace = null)
+        ILogger<VBLspClient>? logger = null, string? root = null, ILspWorkspace? workspace = null, bool linkedEditing = false)
     {
-        var server = new RegisteringServer();
+        var server = new RegisteringServer { OffersLinkedEditing = linkedEditing };
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
         var serverRpc = new JsonRpc(
@@ -144,6 +156,31 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         files.GetProperty("dynamicRegistration").GetBoolean().Should().BeTrue();
         files.GetProperty("relativePatternSupport").GetBoolean().Should().BeTrue();
         System.Text.RegularExpressions.Regex.Matches(caps.GetRawText(), "dynamicRegistration").Count.Should().Be(1);
+    }
+
+    [Fact]
+    [Trait("Issue", "5015")]
+    public async Task LinkedEditingIsDeclaredStaticallyAndAskedOnlyWhenTheServerOffersIt()
+    {
+        // HexIDE offers dynamic registration only for watched files, so a server that serves linked editing
+        // declares linkedEditingRangeProvider in its initialize result (RDCore does, measured on 6fd4c80a).
+        var (offered, server) = await ConnectedAsync(linkedEditing: true);
+        var declared = server.ClientCapabilities.GetProperty("textDocument").GetProperty("linkedEditingRange");
+        declared.TryGetProperty("dynamicRegistration", out _).Should().BeFalse();
+        offered.SupportsCapability("file:///test.bas", "linkedEditingRangeProvider").Should().BeTrue();
+        var result = await offered.RequestLinkedEditingRangesAsync("file:///test.bas",
+            new HexIDE.Lsp.Messages.Position(3, 7), TestContext.Current.CancellationToken);
+        result!.Ranges.Should().HaveCount(2);
+        result.WordPattern.Should().Be("[a-z]+");
+        server.LinkedPosition.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///test.bas");
+        server.LinkedPosition.GetProperty("position").GetProperty("line").GetInt32().Should().Be(3);
+        server.LinkedPosition.GetProperty("position").GetProperty("character").GetInt32().Should().Be(7);
+
+        var (notOffered, silent) = await ConnectedAsync();
+        notOffered.SupportsCapability("file:///test.bas", "linkedEditingRangeProvider").Should().BeFalse();
+        (await notOffered.RequestLinkedEditingRangesAsync("file:///test.bas",
+            new HexIDE.Lsp.Messages.Position(3, 7), TestContext.Current.CancellationToken)).Should().BeNull();
+        silent.LinkedPosition.ValueKind.Should().Be(JsonValueKind.Undefined, "nothing is asked of a server that doesn't offer it");
     }
 
     [Fact]

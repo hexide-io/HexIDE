@@ -162,9 +162,8 @@ public class LongLongTests : BaseVBTestFixture
     [InlineData("Dim x As LongPtr", "User-defined type not defined*")]
     [InlineData("Debug.Print CLngLng(5)", "Sub or Function not defined*")]
     [InlineData("Debug.Print CLngPtr(5)", "Sub or Function not defined*")]
-    // VB6 says "Syntax error"; HexIDE words a parse failure in the parser's own terms everywhere (#4415), so the
-    // row pins the compile error, not its text.
-    [InlineData("Debug.Print 5^", "")]
+    // Parse failures now retain parser detail beneath Syntax error (#4415).
+    [InlineData("Debug.Print 5^", "Syntax error*")]
     [InlineData("DefLngLng A-Z", "Invalid outside procedure*")]
     public async Task Vb6Refusal(string code, string message)
     {
@@ -300,8 +299,9 @@ public class LongLongTests : BaseVBTestFixture
     {
         Use64BitProject();
         var act = () => Run($"Dim x As LongLong\nx = 3\nv = {expression}\n");
-        // VBA's "Syntax error" (#4383); HexIDE's parse-failure text is the parser's own (#4415), so pin the compile error.
-        await act.Should().ThrowAsync<VBCompileErrorException>();
+        // VBA's "Syntax error" (#4383); parser detail is retained beneath it (#4415).
+        var error = (await act.Should().ThrowAsync<VBCompileErrorException>()).Which;
+        error.Message.ReplaceLineEndings("\n").Should().StartWith("Compile error:\n\nSyntax error\nParser: ");
     }
 
     [Theory]

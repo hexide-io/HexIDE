@@ -18,6 +18,7 @@ public static class SettingsDefaults
     public const bool RequireVariableDeclaration = false;
     public const bool AutoListMembers = true;
     public const bool ListMembersAsYouType = true;
+    public const bool LinkedEditing = false;
     public const bool AutoQuickInfo = true;
     public const bool AutoIndent = true;
     public const int TabWidth = 4;
@@ -25,6 +26,7 @@ public static class SettingsDefaults
     public const bool ShowIndentGuides = true;
 
     public const bool IsMinimapVisible = true;
+    public const bool RDCoreWin64OnlySetOnWindows = false;
     public const bool ShowInlayHints = true;
     public const bool ShowCodeLenses = true;
     public const bool ColorBracketsByDepth = true;
