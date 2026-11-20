@@ -18,6 +18,7 @@ public static class SettingsDefaults
     public const bool RequireVariableDeclaration = false;
     public const bool AutoListMembers = true;
     public const bool ListMembersAsYouType = true;
+    public const bool LinkedEditing = false;
     public const bool AutoQuickInfo = true;
     public const bool AutoIndent = true;
     public const int TabWidth = 4;

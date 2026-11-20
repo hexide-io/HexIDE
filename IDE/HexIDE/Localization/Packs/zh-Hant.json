@@ -624,6 +624,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "要求變數宣告",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "自動列出成員",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "輸入時列出成員",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "連動編輯（輸入時重新命名變數的其他參照）",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "自動快速諮詢",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "自動縮排",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "儲存時格式化",

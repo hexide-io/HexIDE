@@ -595,6 +595,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Eskatu aldagaien deklarazioa",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Zerrendatu kideak automatikoki",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Zerrendatu kideak idatzi ahala",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Lotutako edizioa (aldagaiaren beste erabilerak berrizendatu idatzi ahala)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Informazio azkar automatikoa",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Koskatu automatikoki",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Eman formatua gordetzean",

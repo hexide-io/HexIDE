@@ -624,6 +624,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Requerir declaración de variables",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Lista automática de miembros",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar miembros al escribir",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edición vinculada (cambiar el nombre de los demás usos de una variable al escribir)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Información rápida automática",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Sangría automática",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatear al guardar",

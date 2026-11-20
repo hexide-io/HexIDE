@@ -595,6 +595,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "กำหนดให้ต้องประกาศตัวแปร",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "แสดงรายการสมาชิกอัตโนมัติ",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "แสดงรายการสมาชิกขณะพิมพ์",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "การแก้ไขแบบเชื่อมโยง (เปลี่ยนชื่อการใช้ตัวแปรในตำแหน่งอื่นขณะพิมพ์)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "แสดงข้อมูลด่วนอัตโนมัติ",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "เยื้องอัตโนมัติ",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "จัดรูปแบบเมื่อบันทึก",

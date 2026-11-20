@@ -192,6 +192,19 @@ The client SHALL advertise dynamic registration only for `workspace/didChangeWat
 - **THEN** it produces no further file events
 
 
+### Requirement: Server-provided linked editing ranges
+
+The client SHALL declare `textDocument.linkedEditingRange` without dynamic registration, and SHALL ask
+only a server whose `initialize` result offers `linkedEditingRangeProvider`. Requests SHALL carry the
+document URI and caret position; replies SHALL expose `ranges` and optional `wordPattern`, or null. The
+editor's opt-in and mirroring rules belong to code-editor.
+
+#### Scenario: A server offers linked editing at initialize
+- **WHEN** a server's `initialize` result includes `linkedEditingRangeProvider`
+- **THEN** the client can request linked ranges at the caret's position
+- **AND** a server that doesn't offer it is never asked
+
+
 ### Requirement: Failed initialize handshakes are visible
 
 When an initialize handshake fails, the client SHALL log a giving-up Warning including the reason,

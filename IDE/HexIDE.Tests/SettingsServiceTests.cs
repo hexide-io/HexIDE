@@ -29,6 +29,23 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void LinkedEditingDefaultsOffAndRoundTrips()
+    {
+        var settings = CreateSut();
+        settings.LinkedEditing.Should().BeFalse();
+        File.WriteAllText(SettingsPath, "{}");
+        CreateSut().LinkedEditing.Should().BeFalse();
+        settings.LinkedEditing = true;
+        settings.Save();
+        using var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+        saved.RootElement.GetProperty("linkedEditing").GetBoolean().Should().BeTrue();
+        CreateSut().LinkedEditing.Should().BeTrue();
+        settings.LinkedEditing = false;
+        settings.Save();
+        CreateSut().LinkedEditing.Should().BeFalse();
+    }
+
+    [Fact]
     public void ListMembersAsYouTypeDefaultsAndRoundTrips()
     {
         var settings = CreateSut();

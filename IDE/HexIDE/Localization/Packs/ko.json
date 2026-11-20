@@ -625,6 +625,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "변수 선언 요구",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "자동 멤버 목록",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "입력하는 동안 멤버 목록 표시",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "연결 편집 (입력할 때 변수의 다른 사용 위치도 이름 변경)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "자동 빠른 정보",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "자동 들여쓰기",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "저장 시 서식 지정",

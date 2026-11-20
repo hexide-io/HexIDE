@@ -624,6 +624,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Exiger la déclaration des variables",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Liste automatique des membres",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Lister les membres pendant la saisie",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Modification liée (renommer les autres occurrences d’une variable pendant la saisie)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Info rapide automatique",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Indentation automatique",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Mettre en forme à l'enregistrement",

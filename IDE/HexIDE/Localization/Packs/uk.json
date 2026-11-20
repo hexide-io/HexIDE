@@ -591,6 +591,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Вимагати оголошення змінних",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Автоматичний список членів",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Показувати список членів під час введення",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Пов’язане редагування (перейменування інших використань змінної під час введення)",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "Автоматичні короткі відомості",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "Автоматичний відступ",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Форматувати під час збереження",

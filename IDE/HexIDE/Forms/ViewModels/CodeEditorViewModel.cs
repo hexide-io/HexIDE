@@ -2459,6 +2459,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<Location[]?> RequestDeclarationAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDeclarationAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
 
+    internal bool CanLinkedEdit => LiveDocumentUri is { } uri && lspClient.SupportsCapability(uri, "linkedEditingRangeProvider");
+
+    internal async Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(Position position, CancellationToken ct)
+    {
+        await FlushDocumentAsync(ct);
+        ct.ThrowIfCancellationRequested();
+        return LiveDocumentUri is { } uri ? await lspClient.RequestLinkedEditingRangesAsync(uri, position, ct) : null;
+    }
+
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDocumentHighlightAsync(uri, position, ct) : Task.FromResult<DocumentHighlight[]?>(null);
 

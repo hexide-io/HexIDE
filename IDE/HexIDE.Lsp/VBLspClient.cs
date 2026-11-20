@@ -770,7 +770,10 @@ public sealed class VBLspClient : ILspClient
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
                          "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
                         ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
-                         "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
+                         "async", "modification", "documentation", "defaultLibrary"], ["relative"]))
+                {
+                    LinkedEditingRange = new LinkedEditingRangeClientCapabilities(),
+                },
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     ApplyEdit: true,
@@ -2114,6 +2117,22 @@ public sealed class VBLspClient : ILspClient
         return new Location(uri.GetString()!, plain);
     }
 
+    public async Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("linkedEditingRangeProvider")) return null;
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            return await InvokeRequestAsync<LinkedEditingRanges?>(_rpc,
+                "textDocument/linkedEditingRange", p, cancellationToken, documentUri: uri);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/linkedEditingRange", ex, cancellationToken);
+            return null;
+        }
+    }
+
     public async Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("documentHighlightProvider")) return null;
@@ -3242,6 +3261,7 @@ public sealed class VBLspClient : ILspClient
         "documentOnTypeFormattingProvider",
         "documentRangeFormattingProvider",
         "documentHighlightProvider",
+        "linkedEditingRangeProvider",
         "documentSymbolProvider",
         // Read by the command-routing reader rather than a gate: a command is routed to the server that
         // named it, so the question is never "does any server offer this" but "which one declared it".

@@ -337,6 +337,8 @@ public interface ILspClient : IAsyncDisposable
     /// cannot reach the other one at all.
     /// </remarks>
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
+    Task<LinkedEditingRanges?> RequestLinkedEditingRangesAsync(string uri, Position position, CancellationToken cancellationToken = default) => Task.FromResult<LinkedEditingRanges?>(null);
+
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>Requests server fixes on demand, retaining their origin for resolution and execution.</summary>

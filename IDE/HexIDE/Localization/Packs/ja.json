@@ -658,6 +658,7 @@
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "変数の宣言を強制する",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "メンバーを自動的に一覧表示",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "入力中にメンバーを一覧表示",
+    "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "連動編集（入力中に変数の他の使用箇所の名前も変更する）",
     "Str.Options.EditorGeneral.CodeSettings.AutoQuickInfo": "クイックヒントを自動的に表示",
     "Str.Options.EditorGeneral.CodeSettings.AutoIndent": "自動インデント",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "保存時に整形",

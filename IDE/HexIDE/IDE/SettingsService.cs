@@ -88,6 +88,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _requireVariableDeclaration = SettingsDefaults.RequireVariableDeclaration;
     private bool _autoListMembers = SettingsDefaults.AutoListMembers;
     private bool _listMembersAsYouType = SettingsDefaults.ListMembersAsYouType;
+    private bool _linkedEditing = SettingsDefaults.LinkedEditing;
     private bool _autoQuickInfo = SettingsDefaults.AutoQuickInfo;
     private bool _autoIndent = SettingsDefaults.AutoIndent;
     private string _editorFontFamily = SettingsDefaults.EditorFontFamily;
@@ -179,6 +180,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
     {
         get => _listMembersAsYouType;
         set => SetProperty(ref _listMembersAsYouType, value);
+    }
+
+    public bool LinkedEditing
+    {
+        get => _linkedEditing;
+        set => SetProperty(ref _linkedEditing, value);
     }
 
     public bool AutoQuickInfo
@@ -421,6 +428,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 RequireVariableDeclaration = _requireVariableDeclaration,
                 AutoListMembers = _autoListMembers,
                 ListMembersAsYouType = _listMembersAsYouType,
+                LinkedEditing = _linkedEditing,
                 AutoQuickInfo = _autoQuickInfo,
                 AutoIndent = _autoIndent,
                 TabWidth = _tabWidth,
@@ -533,6 +541,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             RequireVariableDeclaration = data.RequireVariableDeclaration;
             AutoListMembers = data.AutoListMembers;
             ListMembersAsYouType = data.ListMembersAsYouType;
+            LinkedEditing = data.LinkedEditing;
             AutoQuickInfo = data.AutoQuickInfo;
             AutoIndent = data.AutoIndent;
             TabWidth = data.TabWidth;
@@ -594,6 +603,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("listMembersAsYouType")]
         public bool ListMembersAsYouType { get; set; } = SettingsDefaults.ListMembersAsYouType;
+
+        [JsonPropertyName("linkedEditing")]
+        public bool LinkedEditing { get; set; } = SettingsDefaults.LinkedEditing;
 
         [JsonPropertyName("autoQuickInfo")]
         public bool AutoQuickInfo { get; set; } = SettingsDefaults.AutoQuickInfo;
