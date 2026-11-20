@@ -199,29 +199,34 @@ public partial class EditorService : IEditorService
         if (!NavigateTo(request.Uri, (start?.Line ?? 0) + 1, (start?.Character ?? 0) + 1, request.TakeFocus))
             return false;
         if (request.Selection is not { } range) return true;
-        foreach (var open in documentDockService.OpenDocuments)
+        // The editor NavigateTo opened: an exact spelling first, then one reached through a link (#5111).
+        for (var pass = 0; pass < 2; pass++)
         {
-            var matches = open switch
+            if (pass == 1 && !IsFileUri(request.Uri)) break;
+            foreach (var open in documentDockService.OpenDocuments)
             {
-                CodeEditorViewModel code => code.OpenDocument is { } identity
-                    && Names(request.Uri, identity, identity.AbsolutePath),
-                RelatedDocumentEditorViewModel related => related.RelatedDocument is { } document
-                    && Names(request.Uri, null, document.AbsolutePath),
-                _ => false
-            };
-            if (!matches || open is not ISearchableDocument editor) continue;
-            int Offset(Position position)
-            {
-                var line = editor.Document.GetLineByNumber(Math.Clamp(position.Line, 0, editor.Document.LineCount - 1) + 1);
-                return line.Offset + Math.Clamp(position.Character, 0, line.Length);
+                var matches = open switch
+                {
+                    CodeEditorViewModel code => code.OpenDocument is { } identity
+                        && Matches(pass, request.Uri, identity, identity.AbsolutePath),
+                    RelatedDocumentEditorViewModel related => related.RelatedDocument is { } document
+                        && Matches(pass, request.Uri, null, document.AbsolutePath),
+                    _ => false
+                };
+                if (!matches || open is not ISearchableDocument editor) continue;
+                int Offset(Position position)
+                {
+                    var line = editor.Document.GetLineByNumber(Math.Clamp(position.Line, 0, editor.Document.LineCount - 1) + 1);
+                    return line.Offset + Math.Clamp(position.Character, 0, line.Length);
+                }
+                var from = Offset(range.Start);
+                var to = Math.Max(from, Offset(range.End));
+                editor.SelectionLength = 0;
+                editor.CaretOffset = from;
+                editor.SelectionStart = from;
+                editor.SelectionLength = to - from;
+                return true;
             }
-            var from = Offset(range.Start);
-            var to = Math.Max(from, Offset(range.End));
-            editor.SelectionLength = 0;
-            editor.CaretOffset = from;
-            editor.SelectionStart = from;
-            editor.SelectionLength = to - from;
-            break;
         }
         return true;
     }
@@ -233,10 +238,7 @@ public partial class EditorService : IEditorService
         // Exact matches across all projects take priority over any linked spelling.
         for (var pass = 0; pass < 2; pass++)
         {
-            if (pass == 1 && (!Uri.TryCreate(uri, UriKind.Absolute, out var source) || !source.IsFile)) break;
-            bool Matches(DocumentIdentity? document, string? absolutePath) => pass == 0
-                ? Names(uri, document, absolutePath)
-                : !string.IsNullOrEmpty(absolutePath) && HexIDE.Debugging.SourcePaths.SameSourcePath(uri, absolutePath);
+            if (pass == 1 && !IsFileUri(uri)) break;
 
             // Every loaded project, not just the startup one. A group's members live in different directories
             // and a definition can perfectly well be in a sibling project — see hexide-io/HexIDE#261.
@@ -244,7 +246,7 @@ public partial class EditorService : IEditorService
             {
                 foreach (var module in project.Modules)
                 {
-                    if (!Matches(DocumentIdentity.For(module), module.AbsolutePath)) continue;
+                    if (!Matches(pass, uri, DocumentIdentity.For(module), module.AbsolutePath)) continue;
                     EditCode(module, takeFocus);
                     PlaceCaret(vm => vm.ModuleDefinition == module, line, column);
                     return true;
@@ -252,7 +254,7 @@ public partial class EditorService : IEditorService
 
                 foreach (var form in project.Forms)
                 {
-                    if (!Matches(DocumentIdentity.For(form), form.AbsolutePath)) continue;
+                    if (!Matches(pass, uri, DocumentIdentity.For(form), form.AbsolutePath)) continue;
                     EditCode(form, takeFocus);
                     // EditCode(form) redirects a UserControl or PropertyPage to its module, so the editor that
                     // opened may be keyed on the module rather than the form. Accept either.
@@ -263,7 +265,7 @@ public partial class EditorService : IEditorService
 
                 foreach (var carried in project.RelatedDocuments)
                 {
-                    if (!Matches(null, carried.AbsolutePath)) continue;
+                    if (!Matches(pass, uri, null, carried.AbsolutePath)) continue;
                     EditRelatedDocument(carried, takeFocus);
                     foreach (var open in documentDockService.OpenDocuments)
                     {
@@ -281,6 +283,13 @@ public partial class EditorService : IEditorService
         Log.Debug("EditorService: NavigateTo — nothing loaded answers to {Uri}", uri);
         return false;
     }
+
+    // Pass 0 is the exact spelling. Pass 1, for a file: URI only, also matches through links (#5111).
+    private static bool Matches(int pass, string uri, DocumentIdentity? document, string? absolutePath) => pass == 0
+        ? Names(uri, document, absolutePath)
+        : !string.IsNullOrEmpty(absolutePath) && HexIDE.Debugging.SourcePaths.SameSourcePath(uri, absolutePath);
+
+    private static bool IsFileUri(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out var source) && source.IsFile;
 
     /// <summary>
     /// Whether a URI names this document, by either of the two spellings the IDE uses.

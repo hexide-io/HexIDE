@@ -191,6 +191,56 @@ public class EditorServiceNavigationTests
         _dock.DidNotReceive().OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>());
     }
 
+    // NavigateTo opens a module reached through a link (#5111), so the selection has to find the same editor: the
+    // exact spelling first, as NavigateTo chose it, and only then the linked one.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ShowDocumentSelectsTheRangeInAModuleReachedThroughALink(bool exactSpellingAlsoOpen)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-show-linked-" + Guid.NewGuid());
+        var real = Path.Combine(directory, "real");
+        var link = Path.Combine(directory, "link");
+        Directory.CreateDirectory(real);
+        try
+        {
+            Directory.CreateSymbolicLink(link, real);
+            var linkedProject = ProjectWith(moduleName: "Module1", modulePath: Path.Combine(link, "Module1.bas"));
+            var exactProject = ProjectWith(moduleName: "Module1", modulePath: Path.Combine(real, "Module1.bas"));
+            _projects.LoadedProjects.Returns(exactSpellingAlsoOpen ? [linkedProject, exactProject] : [linkedProject]);
+            CodeEditorViewModel Editor(ModuleDefinition module)
+            {
+                module.UpdateCode("Sub Example()\n    Debug.Print 1\nEnd Sub");
+                return new CodeEditorViewModel(
+                    Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
+                    Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), Substitute.For<HexIDE.Lsp.ILspClient>(),
+                    Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+                    Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
+                    Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+                    Substitute.For<IRunScope>(), Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(module);
+            }
+            using var linked = Editor(linkedProject.Modules.Single());
+            using var exact = Editor(exactProject.Modules.Single());
+            _dock.TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>(), Arg.Any<bool>()).Returns(true);
+            _dock.OpenDocuments.Returns(exactSpellingAlsoOpen ? [linked, exact] : [linked]);
+            var line = linked.Document.Lines.First(l => linked.Document.GetText(l).Contains("Debug.Print"));
+            var range = new HexIDE.Lsp.Messages.Range(new(line.LineNumber - 1, 4), new(line.LineNumber - 1, 9));
+
+            Sut().ShowDocument(new(new Uri(Path.Combine(real, "Module1.bas")).AbsoluteUri, Selection: range))
+                .Should().BeTrue();
+
+            var selected = exactSpellingAlsoOpen ? exact : linked;
+            selected.SelectionStart.Should().Be(line.Offset + 4);
+            selected.SelectionLength.Should().Be(5);
+            if (exactSpellingAlsoOpen) linked.SelectionLength.Should().Be(0, "the exact spelling wins, as NavigateTo chose it");
+        }
+        finally
+        {
+            if (Directory.Exists(link)) Directory.Delete(link);
+            Directory.Delete(directory, true);
+        }
+    }
+
     [Theory]
     [InlineData("untitled:P/Module1.bas", "Module1")]
     [InlineData("untitled:P/Form1.frm", "Form1")]
