@@ -241,6 +241,13 @@ Nothing is on the list now. A parse failure takes the entire module down — not
 cannot open it usefully — so however obscure each construct below looked, it had a blast radius of a file rather
 than a statement. That is why each was fixed ahead of far more commonly used constructs that merely throw.
 
+Parse failures use VB6's measured message first and keep the previous diagnostic, including its position,
+on the next line prefixed `Parser: ` ([#4415](https://github.com/hexide-io/HexIDE/issues/4415),
+vb6.exe SP6 native/p-code measurements). Unmeasured failures say `Syntax error`. Block pairing is
+syntax-only; mixed malformed-statement/block-error precedence is unmeasured. A module-level
+`x = 1` and a bare `Exit` still run here, where vb6.exe gives a compile error ([#5064](https://github.com/hexide-io/HexIDE/issues/5064)).
+This changes diagnostics, not the coverage counts.
+
 **`Function` declared with a type character used to be here** ([#740](https://github.com/hexide-io/HexIDE/issues/740)). `Function GetName$()` did not parse, so its module never loaded: the interpreter's `functionStmt` had no `typeHint?` after the name, though the LSP server's had one. All six characters were measured on vb6.exe, native and p-code, and the rule ported across. Both rows are Partial again, as they were before the character was measured, since the body may assign the return through it too ([#739](https://github.com/hexide-io/HexIDE/issues/739)).
 
 **A line number or label on a block's closing line used to be here** ([#2529](https://github.com/hexide-io/HexIDE/issues/2529)),

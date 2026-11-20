@@ -67,9 +67,9 @@ public class VbaBitness32Tests : BaseVBTestFixture
     [Theory]
     [InlineData("T2", "Dim x As LongLong", "User-defined type not defined*")]
     [InlineData("C6", "Debug.Print CLngLng(5)", "Sub or Function not defined*")]
-    // Parse diagnostics retain HexIDE's existing wording (#4415); VBA reports Syntax error.
-    [InlineData("K1", "v = 5^", "*")]
-    [InlineData("K5", "Dim z^", "*")]
+    // Parse diagnostics retain parser detail beneath Syntax error (#4415).
+    [InlineData("K1", "v = 5^", "Syntax error*")]
+    [InlineData("K5", "Dim z^", "Syntax error*")]
     // D1's text was not read in Excel: preserve the VB6 path, reasoned rather than measured.
     [InlineData("D1", "DefLngLng A-Z", "Invalid outside procedure*")]
     public async Task Refusal(string row, string code, string message)

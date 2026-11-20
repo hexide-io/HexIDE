@@ -2778,13 +2778,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
-            { Line = line };
+        var diagnostic = ParseFailureMessage.Classify(recognizer, line);
+        throw new VBCompileErrorException($"{diagnostic.Message}\nParser: {SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
+            { Line = diagnostic.Line };
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}") { Line = line };
+        var diagnostic = ParseFailureMessage.Classify(recognizer, line);
+        throw new VBCompileErrorException($"{diagnostic.Message}\nParser: {SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}") { Line = diagnostic.Line };
     }
 }
