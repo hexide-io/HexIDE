@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Intet indhold blev sendt, så intet blev ændret.",
     "Str.AIChat.ProjectCannotStart": "Kan ikke starte projektet (intet indlæst eller kører allerede)",
     "Str.AIChat.ProjectNotRunning": "Intet projekt kører i øjeblikket",
-    "Str.SessionEnd.UnsavedWork": "Ikke-gemte ændringer i {0}"
+    "Str.SessionEnd.UnsavedWork": "Ikke-gemte ændringer i {0}",
+    "Str.Options.Addin.ReportedFailure": "Et problem blev rapporteret {0}: {1}"
   }
 }

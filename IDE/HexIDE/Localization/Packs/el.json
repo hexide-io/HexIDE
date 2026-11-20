@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Δεν στάλθηκε περιεχόμενο, οπότε δεν άλλαξε τίποτα.",
     "Str.AIChat.ProjectCannotStart": "Δεν είναι δυνατή η εκκίνηση του έργου (δεν έχει φορτωθεί κανένα ή εκτελείται ήδη)",
     "Str.AIChat.ProjectNotRunning": "Δεν εκτελείται κανένα έργο αυτή τη στιγμή",
-    "Str.SessionEnd.UnsavedWork": "Μη αποθηκευμένες αλλαγές: {0}"
+    "Str.SessionEnd.UnsavedWork": "Μη αποθηκευμένες αλλαγές: {0}",
+    "Str.Options.Addin.ReportedFailure": "Αναφέρθηκε πρόβλημα στις {0}: {1}"
   }
 }

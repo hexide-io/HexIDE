@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Inget innehåll skickades, så ingenting ändrades.",
     "Str.AIChat.ProjectCannotStart": "Kan inte starta projektet (inget inläst eller redan igång)",
     "Str.AIChat.ProjectNotRunning": "Inget projekt körs för närvarande",
-    "Str.SessionEnd.UnsavedWork": "Osparade ändringar i {0}"
+    "Str.SessionEnd.UnsavedWork": "Osparade ändringar i {0}",
+    "Str.Options.Addin.ReportedFailure": "Ett problem rapporterades {0}: {1}"
   }
 }

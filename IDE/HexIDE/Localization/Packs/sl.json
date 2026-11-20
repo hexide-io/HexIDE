@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Vsebina ni bila poslana, zato ni bilo nič spremenjeno.",
     "Str.AIChat.ProjectCannotStart": "Projekta ni mogoče zagnati (noben ni naložen ali se že izvaja)",
     "Str.AIChat.ProjectNotRunning": "Trenutno se ne izvaja noben projekt",
-    "Str.SessionEnd.UnsavedWork": "Neshranjene spremembe: {0}"
+    "Str.SessionEnd.UnsavedWork": "Neshranjene spremembe: {0}",
+    "Str.Options.Addin.ReportedFailure": "Težava prijavljena ob {0}: {1}"
   }
 }

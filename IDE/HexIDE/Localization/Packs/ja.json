@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "内容が送信されなかったため、何も変更されませんでした。",
     "Str.AIChat.ProjectCannotStart": "プロジェクトを開始できません（読み込まれていないか、既に実行中です）",
     "Str.AIChat.ProjectNotRunning": "現在実行中のプロジェクトはありません",
-    "Str.SessionEnd.UnsavedWork": "{0} に保存されていない変更があります"
+    "Str.SessionEnd.UnsavedWork": "{0} に保存されていない変更があります",
+    "Str.Options.Addin.ReportedFailure": "{0} に問題が報告されました: {1}"
   }
 }

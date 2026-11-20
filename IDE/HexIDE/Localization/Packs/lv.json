@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Saturs netika nosūtīts, tāpēc nekas netika mainīts.",
     "Str.AIChat.ProjectCannotStart": "Nevar palaist projektu (neviens nav ielādēts vai jau darbojas)",
     "Str.AIChat.ProjectNotRunning": "Pašlaik neviens projekts nedarbojas",
-    "Str.SessionEnd.UnsavedWork": "Nesaglabātas izmaiņas: {0}"
+    "Str.SessionEnd.UnsavedWork": "Nesaglabātas izmaiņas: {0}",
+    "Str.Options.Addin.ReportedFailure": "Par problēmu ziņots {0}: {1}"
   }
 }

@@ -7,6 +7,9 @@ namespace HexIDE.Addins;
 /// </summary>
 public interface IHexIdeHost
 {
+    /// <summary>Reports a failure after the add-in has loaded which the user should see in Options → Add-ins.</summary>
+    void ReportFailure(string message, Exception? exception = null) { }
+
     IMenuContributor Menus { get; }
     IToolWindowContributor ToolWindows { get; }
     IAddinEvents Events { get; }

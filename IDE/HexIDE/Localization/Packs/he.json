@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "לא נשלח תוכן, ולכן דבר לא השתנה.",
     "Str.AIChat.ProjectCannotStart": "לא ניתן להפעיל את הפרויקט (לא נטען פרויקט או שהוא כבר פועל)",
     "Str.AIChat.ProjectNotRunning": "אין כרגע פרויקט פועל",
-    "Str.SessionEnd.UnsavedWork": "שינויים שלא נשמרו ב-{0}"
+    "Str.SessionEnd.UnsavedWork": "שינויים שלא נשמרו ב-{0}",
+    "Str.Options.Addin.ReportedFailure": "דווחה בעיה ב־{0}: {1}"
   }
 }

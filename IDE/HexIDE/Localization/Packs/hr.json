@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Nije poslan sadržaj pa ništa nije promijenjeno.",
     "Str.AIChat.ProjectCannotStart": "Nije moguće pokrenuti projekt (nijedan nije učitan ili je već pokrenut)",
     "Str.AIChat.ProjectNotRunning": "Trenutačno nije pokrenut nijedan projekt",
-    "Str.SessionEnd.UnsavedWork": "Nespremljene promjene: {0}"
+    "Str.SessionEnd.UnsavedWork": "Nespremljene promjene: {0}",
+    "Str.Options.Addin.ReportedFailure": "Problem prijavljen u {0}: {1}"
   }
 }

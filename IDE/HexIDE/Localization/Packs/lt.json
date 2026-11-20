@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Turinys neišsiųstas, todėl niekas nepakeista.",
     "Str.AIChat.ProjectCannotStart": "Nepavyksta paleisti projekto (nė vienas neįkeltas arba jau veikia)",
     "Str.AIChat.ProjectNotRunning": "Šiuo metu joks projektas neveikia",
-    "Str.SessionEnd.UnsavedWork": "Neįrašyti pakeitimai: {0}"
+    "Str.SessionEnd.UnsavedWork": "Neįrašyti pakeitimai: {0}",
+    "Str.Options.Addin.ReportedFailure": "Apie problemą pranešta {0}: {1}"
   }
 }

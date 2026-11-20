@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Содержимое не отправлено, поэтому ничего не изменено.",
     "Str.AIChat.ProjectCannotStart": "Невозможно запустить проект (ни один не загружен или уже выполняется)",
     "Str.AIChat.ProjectNotRunning": "Сейчас ни один проект не выполняется",
-    "Str.SessionEnd.UnsavedWork": "Несохранённые изменения: {0}"
+    "Str.SessionEnd.UnsavedWork": "Несохранённые изменения: {0}",
+    "Str.Options.Addin.ReportedFailure": "Сообщение о проблеме в {0}: {1}"
   }
 }

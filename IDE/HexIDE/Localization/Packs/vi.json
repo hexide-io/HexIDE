@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Không có nội dung được gửi nên không có gì thay đổi.",
     "Str.AIChat.ProjectCannotStart": "Không thể khởi chạy dự án (chưa tải dự án nào hoặc đã chạy)",
     "Str.AIChat.ProjectNotRunning": "Hiện không có dự án nào đang chạy",
-    "Str.SessionEnd.UnsavedWork": "Thay đổi chưa lưu trong {0}"
+    "Str.SessionEnd.UnsavedWork": "Thay đổi chưa lưu trong {0}",
+    "Str.Options.Addin.ReportedFailure": "Đã báo cáo sự cố lúc {0}: {1}"
   }
 }

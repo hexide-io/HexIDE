@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Ingenting ble endret fordi det ikke ble sendt noe innhold.",
     "Str.AIChat.ProjectCannotStart": "Kan ikke starte prosjektet (ingen lastet inn eller kjører allerede)",
     "Str.AIChat.ProjectNotRunning": "Ingen prosjekter kjører for øyeblikket",
-    "Str.SessionEnd.UnsavedWork": "Ulagrede endringer i {0}"
+    "Str.SessionEnd.UnsavedWork": "Ulagrede endringer i {0}",
+    "Str.Options.Addin.ReportedFailure": "Rapporterte et problem {0}: {1}"
   }
 }

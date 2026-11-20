@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "未傳送內容，因此未作任何變更。",
     "Str.AIChat.ProjectCannotStart": "無法啟動專案（未載入專案或專案已在執行）",
     "Str.AIChat.ProjectNotRunning": "目前沒有正在執行的專案",
-    "Str.SessionEnd.UnsavedWork": "{0} 中有未儲存的變更"
+    "Str.SessionEnd.UnsavedWork": "{0} 中有未儲存的變更",
+    "Str.Options.Addin.ReportedFailure": "於 {0} 回報了問題：{1}"
   }
 }

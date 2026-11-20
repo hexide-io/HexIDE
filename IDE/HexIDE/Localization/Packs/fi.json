@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Sisältöä ei lähetetty, joten mitään ei muutettu.",
     "Str.AIChat.ProjectCannotStart": "Projektia ei voi käynnistää (yhtään ei ole ladattu tai se on jo käynnissä)",
     "Str.AIChat.ProjectNotRunning": "Yhtään projektia ei ole tällä hetkellä käynnissä",
-    "Str.SessionEnd.UnsavedWork": "Tallentamattomia muutoksia: {0}"
+    "Str.SessionEnd.UnsavedWork": "Tallentamattomia muutoksia: {0}",
+    "Str.Options.Addin.ReportedFailure": "Ongelma ilmoitettu {0}: {1}"
   }
 }

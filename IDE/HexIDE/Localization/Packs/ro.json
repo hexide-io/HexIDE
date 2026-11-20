@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "Nu s-a trimis conținut, așa că nu s-a modificat nimic.",
     "Str.AIChat.ProjectCannotStart": "Proiectul nu poate fi pornit (niciunul încărcat sau rulează deja)",
     "Str.AIChat.ProjectNotRunning": "Niciun proiect nu rulează în prezent",
-    "Str.SessionEnd.UnsavedWork": "Modificări nesalvate în {0}"
+    "Str.SessionEnd.UnsavedWork": "Modificări nesalvate în {0}",
+    "Str.Options.Addin.ReportedFailure": "Problemă raportată la {0}: {1}"
   }
 }

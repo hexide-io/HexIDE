@@ -1481,6 +1481,7 @@
     "Str.AIChat.EditContentMissing": "내용이 전송되지 않아 아무것도 변경되지 않았습니다.",
     "Str.AIChat.ProjectCannotStart": "프로젝트를 시작할 수 없습니다(로드된 프로젝트가 없거나 이미 실행 중)",
     "Str.AIChat.ProjectNotRunning": "현재 실행 중인 프로젝트가 없습니다",
-    "Str.SessionEnd.UnsavedWork": "{0}에 저장되지 않은 변경 내용이 있습니다"
+    "Str.SessionEnd.UnsavedWork": "{0}에 저장되지 않은 변경 내용이 있습니다",
+    "Str.Options.Addin.ReportedFailure": "{0}에 문제 보고됨: {1}"
   }
 }
