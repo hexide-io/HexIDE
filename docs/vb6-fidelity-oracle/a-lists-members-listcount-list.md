@@ -81,3 +81,21 @@ What it still does not do:
 - **`Sorted`,** which HexIDE has no property for.
 - **`ListCount = 5`** is the compile error's text, raised when the statement runs, not before the program does.
 
+### Called directly, or through As Object (2026-11-20, #5117, SP6)
+
+**The error a list member raises can depend on how the list is reached.** In the probes, a list called directly as `Form1.List1`, and one held in `Dim t As ListBox` (or `As ComboBox`), gave one answer. A list passed as `c As Object` gave another, in four rows. Every probe ran on vb6.exe SP6 with `/make`, native code and p-code, under `On Error Resume Next`, and the two builds logged the same lines.
+
+| Statement | Direct, or a typed variable | Through `As Object` |
+|---|---|---|
+| `List(-2) = "v"` | -2147024882 "Out of memory", as the table above | **7**. `As Control` gives 7 too |
+| `ItemData(0) = v`, `v` Null | 94 | **13** |
+| `NewIndex = 0` | compile error "Can't assign to read-only property" | run-time **383** |
+| `v = ItemData`, no index | compile error "Argument not optional" | run-time **385** |
+
+**The lists, row by row:**
+- **`List(-2)`** was measured three ways, on a ListBox, a `Style = 2` ComboBox and a `Style = 0` ComboBox, each seeded `c a b` with `ListIndex = 1`. The rows were taken before and after `Form1.Show`, with the same answer; `Form1.Visible` read False after the `Show`, so that isn't a check of a visible form. Five more lists gave 7 through `As Object` in another probe.
+- **The `ItemData` and `NewIndex` rows** were measured directly on the ListBox and the `Style = 2` ComboBox, and through `As Object` on eight lists (four ListBox and four ComboBox kinds).
+
+Everything else measured in both ways agreed: `ItemData`'s other conversions and index rows, and `List(-1) = x` zeroing every item's `ItemData`. Those rows are on the page for #5106 and #5114, `a-lists-newindex-itemdata-and-saved-records.md`.
+
+So the "Out of memory" in the table above is the direct call's. Reasoned, not checked: an `As Object` call goes through `IDispatch`, which hands the control's failure back as VB's own error 7, where the direct call surfaces the control's raw `HRESULT`. Not measured: `As Control` for the other three rows, and a list held in a Variant.
