@@ -927,6 +927,7 @@ added afterwards.
 - [The `Date` and `Time` statements: the other value types, an object, and the date range (2026-11-18, #4733)](the-date-and-time-statements.md#the-other-value-types-an-object-and-the-date-range-2026-11-18-4733)
 - [A StdFont in a PropertyBag (2026-11-18, #4741)](a-propertybag-at-run-time.md#a-stdfont-in-a-bag-2026-11-18-4741)
 - [When a StdFont takes its realized values (2026-11-20, #4741)](a-propertybag-at-run-time.md#when-a-stdfont-takes-its-realized-values-2026-11-20-4741)
+- [Errors, defaults, argument counts, names, `Contents` and unpaired UTF-16 in a PropertyBag (2026-11-20, #4741)](a-propertybag-at-run-time.md#errors-defaults-argument-counts-names-contents-and-unpaired-utf-16-2026-11-20-4741)
 - [`Set` of a control into a variable of another class (2026-11-18, #1563)](a-forms-controls-collection-and-typeof-on-a-control.md#set-of-a-control-into-a-variable-of-another-class-2026-11-18-1563)
 - [A free-standing StdFont's assignments (2026-11-18)](a-controls-font-object.md#a-free-standing-stdfonts-assignments-2026-11-18)
 - [Complete Word, a bare word, and the selected item (2026-11-19, #3613, design-time, IDE, SP6)](complete-word-a-bare-word-and-the-selected-item.md#complete-word-a-bare-word-and-the-selected-item-2026-11-19-3613-design-time-ide-sp6)
