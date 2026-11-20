@@ -1024,7 +1024,8 @@ public sealed class VBLspClient : ILspClient
     /// directly (the tests, and the single-server path) must accept the same call.
     /// </summary>
     public Task OpenDocumentAsync(
-        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default) =>
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
+        string? ownerAddinId = null) =>
         OpenDocumentAsync(uri, text, cancellationToken);
 
     public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)

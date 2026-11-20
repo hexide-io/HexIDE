@@ -166,7 +166,7 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>
     /// Opens a document at <see cref="LspDocumentVersion.Opening"/>, stating whether it belongs to a VB6
-    /// project.
+    /// project and, where applicable, the manifest id of the add-in whose project type opened it.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -189,7 +189,8 @@ public interface ILspClient : IAsyncDisposable
     /// </para>
     /// </remarks>
     Task OpenDocumentAsync(
-        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default);
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
+        string? ownerAddinId = null);
 
     /// <summary>
     /// Sends a document's whole new text. <paramref name="version"/> must be later than the version of the

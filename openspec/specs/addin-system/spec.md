@@ -135,6 +135,9 @@ server launches and a message channel of the add-in's own on the server's connec
 registration SHALL return a handle that stops the server and removes it when disposed, and SHALL be accepted after
 start-up, since an add-in whose first run waits for consent initialises after the window opens.
 
+A server registered by an add-in SHALL exclusively claim matching documents of projects opened by that same
+add-in's project type, as the project-owner routing requirement in `lsp-client` specifies.
+
 An add-in exists to make a server one thing to install rather than an entry to write by hand (#457), and it cannot
 do that if the server it brings has to be written into the user's configuration behind their back. The capability
 design maps this member to `languageServer.contribute`; the member checks no declaration today, since that design's

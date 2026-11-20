@@ -64,7 +64,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// <summary>What is known about a document that is open.</summary>
     /// <param name="IsProjectMember">
     /// Whether it belongs to a VB6 project. Stated by the caller rather than worked out here: see
-    /// <see cref="OpenDocumentAsync(string, string, bool, CancellationToken)"/>.
+    /// <see cref="OpenDocumentAsync(string, string, bool, CancellationToken, string)"/>.
     /// </param>
     /// <param name="Text">
     /// The latest text this registry has been given for it. Kept because a workspace move replaces every
@@ -74,7 +74,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// document with the text from before that change and silently undo it.
     /// </param>
     /// <param name="HasVb6ClassHeader">The content claim at open, retained through edits.</param>
-    private sealed record OpenDocument(bool IsProjectMember, string Text, bool HasVb6ClassHeader);
+    private sealed record OpenDocument(bool IsProjectMember, string Text, bool HasVb6ClassHeader, string? OwnerAddinId);
 
     /// <summary>
     /// Serialises workspace-move handling. Without it two opens can both pass the
@@ -323,7 +323,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         OpenDocumentAsync(uri, text, isProjectMember: false, cancellationToken);
 
     public async Task OpenDocumentAsync(
-        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default)
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
+        string? ownerAddinId = null)
     {
         _diagnosticLifecycle.Open(uri);
         // Recorded before routing, so change, close and save answer the same question this open did. The
@@ -336,7 +337,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // the old servers has a record to land in. No connection can hold it then, and the open at the end
         // sends what this records (#719).
         _open[uri] = new OpenDocument(isProjectMember, text,
-            !isProjectMember && DocumentLanguage.ExtensionOf(uri) == ".cls" && HasVb6ClassHeader(text));
+            !isProjectMember && DocumentLanguage.ExtensionOf(uri) == ".cls" && HasVb6ClassHeader(text), ownerAddinId);
 
         // Also before the first await: from here until each claimant has been opened on the document, a request
         // about it waits rather than reaching a server that has not been told it is open (#2909). A code window
@@ -1134,8 +1135,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         if (DocumentLanguage.ExtensionOf(uri) is not { } extension) return [];
 
-        return _entries
+        var matching = _entries
             .Where(e => e.Registration.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        if (isProjectMember && uri is not null && _open.TryGetValue(uri, out var opened)
+            && opened.OwnerAddinId is { } owner)
+        {
+            var owned = matching.Where(e => string.Equals(e.Registration.AddinId, owner, StringComparison.Ordinal)).ToList();
+            if (owned.Count > 0) return owned;
+        }
+
+        return matching
             // A carried class keeps its opening content claim through edits and server restarts (#279).
             .Where(e => isProjectMember || extension != ".cls"
                         || !DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId)
