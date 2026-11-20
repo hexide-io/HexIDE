@@ -115,6 +115,10 @@ public class InlineValueTests
         var token = TestContext.Current.CancellationToken;
         var directory = Path.Combine(Path.GetTempPath(), "hexide-inline-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
+        // The fixture adapter names its frames' sources from its working directory, which macOS reports with /var's
+        // link resolved (/private/var). The code window matches a frame to its document by exact path, as its
+        // stopped-line marker does, so the module's path has to be the one the adapter will report.
+        directory = ResolvePath(directory);
         await using var log = new HexIDE.Conversations.ConversationLog(armEveryConnection: true);
         var external = new HexIDE.Debugging.ExternalDebugService(log);
         var settings = Substitute.For<ISettingsService>();
@@ -231,6 +235,18 @@ public class InlineValueTests
             await run.WaitAsync(TimeSpan.FromSeconds(20), token);
             Directory.Delete(directory, true);
         }
+    }
+
+    // Resolves links in every directory of the path, parents first; the temp folder itself is no link on macOS, /var is.
+    private static string ResolvePath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var parent = Path.GetDirectoryName(full);
+        if (parent is null) return full;
+        var resolved = Path.Combine(ResolvePath(parent), Path.GetFileName(full));
+        FileSystemInfo info = Directory.Exists(resolved) ? new DirectoryInfo(resolved) : new FileInfo(resolved);
+        var target = info.Exists ? info.ResolveLinkTarget(true) : null;
+        return target is null ? resolved : ResolvePath(target.FullName);
     }
 
     private static InlineObjectElement[] Elements(TextEditor editor)
