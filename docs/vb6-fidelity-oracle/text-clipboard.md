@@ -85,13 +85,21 @@ Function KeepFormats() As String
 End Function
 ```
 
-**HexIDE's supported slice:** the Clipboard object, Clear, default/vbCFText GetText and SetText, and GetFormat(vbCFText).
+**HexIDE's supported slice, before #4955:** the Clipboard object, Clear, default/vbCFText GetText and SetText, and GetFormat(vbCFText).
 Its methods await the host under the event pump's suspension boundary. The desktop and IDE hosts use Avalonia's
 window clipboard. RTF, Link, image/data methods and other format queries are explicitly refused, not reported absent.
 The host snapshots readable non-text formats before replacing text and writes them back with the new text (#1246).
 If a format cannot be read, it refuses before writing. Clear removes all formats, as the Notepad demo requires.
 The measurement above covers program-supplied RTF; preservation of external HTML and Windows-synthesized text
 formats has not been measured against VB6.
+
+**Since #4955** (PR #5098, 2026-11-20; read from the code, and checked live on Windows for the text, RTF and
+#5078 rows): `GetText` and `SetText` with `vbCFRTF` read and write
+RTF beside the text, in the ANSI code page with a closing NUL. `GetFormat` answers 1, 7, 13 and 16 from the text and
+`vbCFRTF` from the RTF. Other formats read False while the clipboard holds only text and RTF, and are refused while
+another application's formats are there (#5075). `GetText(vbCFLink)` is `""` on the same terms, and `SetText` with
+`vbCFLink` raises 294. Replacing text no longer keeps Windows' ANSI, OEM and locale copies of the old text (#5078).
+Image and data methods are still refused (#4682).
 
 **Live Windows follow-up, 2026-10-18:** built the PR's desktop application at `905e3506` and launched it with an
 isolated user-data directory and copies of the unmodified Notepad demo forms. HexIDE MCP was now available.
