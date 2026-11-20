@@ -1409,6 +1409,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     /// <summary>
+    /// Sub Main is about to run, after module declarations. Only the corpus smoke run listens, to start its window (#4863).
+    /// </summary>
+    internal static event Action? StartupSubMainStarted;
+
+    /// <summary>
     /// Run the project's <c>Sub Main</c> — the startup object a code-only Standard EXE begins at, which is
     /// what <c>Startup="Sub Main"</c> in the .vbp selects.
     /// </summary>
@@ -1459,6 +1464,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // beyond seeding values.
             await RunModuleDeclarations();
 
+            StartupSubMainStarted?.Invoke();
             await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>(), isEntry: true);
             StartupMainReturned = true;
         }
