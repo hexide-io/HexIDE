@@ -2521,6 +2521,52 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return false;
     }
 
+    // These panel puts have their own conversion rules, before the general Let-value coercion (#4882).
+    private async Task<bool> TryStorePanelLet(VB6Parser.LetStmtContext context, Vb6Value value)
+    {
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is not { } call)
+            return false;
+        var members = call.iCS_S_MemberCall();
+        if (members.Length == 0 || MemberHasArgs(members[^1]))
+            return false;
+        var name = UdtFieldName(members[^1]).ToLowerInvariant();
+        if (name is not ("picture" or "tag" or "style" or "alignment" or "bevel" or "autosize" or "width" or "minwidth"))
+            return false;
+        Vb6Value target;
+        if (call.iCS_S_VariableOrProcedureCall() is { } lead)
+        {
+            if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, lead.GetText(), out target))
+                return false;
+        }
+        else if (call.iCS_S_ProcedureOrArrayCall() is { } indexed)
+        {
+            if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, indexed.ambiguousIdentifier().CachedText(), out var holder)
+                || holder.Value is not StatusBarPanels)
+                return false;
+            target = (Vb6Value)(await expressionExecutor.EvaluateProcedureOrArrayCall(indexed))!;
+        }
+        else if (withTargets.Count != 0)
+            target = withTargets.Peek();
+        else
+            return false;
+        if (target.Value is not (VBStatusBar or StatusBarPanels or StatusBarPanel))
+            return false;
+        if (members.Length > 1)
+            target = await expressionExecutor.ResolveMemberChain(target, members[..^1], 0, context);
+        if (target.Value is not StatusBarPanel panel)
+            return false;
+        if (name == "tag" && value.Value is VBStatusBar)
+            throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        if (name == "tag" || name != "picture" && value.Value is not null
+            && (value.Type == Vb6Value.ValueType.Object || value.Type == Vb6Value.ValueType.Control
+                || value.Type == Vb6Value.ValueType.CSharpProxyObject))
+            value = await LetValue(context, evaluated: value);
+        value.RefuseOddBytes("Property assignment " + UdtFieldName(members[^1]));
+        if (name != "tag") return panel.TrySetProperty(name, value);
+        await panel.SetTag(interpreter, value);
+        return true;
+    }
+
     // The value a Let stores, with the refusals every Let makes of it.
     private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context, bool intoArray = false, Vb6Value? evaluated = null)
     {
@@ -2868,6 +2914,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var value = await expressionExecutor.EvaluateValueFast(context.valueStmt());
         if (context.PLUS_EQ() is null && context.MINUS_EQ() is null)
         {
+            if (await TryStorePanelLet(context, value))
+                return default;
             if (await TryStoreBareModuleProperty(context.implicitCallStmt_InStmt(), value, false, context))
                 return default;
             if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } propertyTarget
@@ -4510,6 +4558,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var parts = membersCall.iCS_S_MemberCall();
                 if (parts.Length > 1) target = await expressionExecutor.ResolveMemberChain(target, parts[..^1], 0, context);
                 var name = UdtFieldName(parts[^1]);
+                if (target.Value is StatusBarPanel panel && name.Equals("Tag", StringComparison.OrdinalIgnoreCase))
+                {
+                    await panel.SetTag(interpreter, value);
+                    return default;
+                }
                 if (target.Value is ICSharpPropertyBag bag && bag.TrySetProperty(name, value)) return default;
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
                 throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#4882)");
@@ -4572,7 +4625,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     return default;
                 }
-                if (!udtBag.IsObjectField(name))
+                if (!udtBag.IsObjectField(name) && !udtBag.IsVariantField(name))
                     throw new NotImplementedException("Set on this Type field is not implemented (#3924)");
                 if (!udtBag.TryInspect(name, out var old))
                     throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, name);
@@ -5488,7 +5541,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await ModuleLevelBounds.CheckTypeField(interpreter, currentModule, currentEnv, syntax, type, field.Name);
             var bounds = (await ExtractDimensions(syntax))!;
             if (bounds.Any(b => b.Item2 < b.Item1))
-                throw new NotImplementedException($"An inverted array bound inside Type '{def.Name}' is not implemented (#4925)");
+                throw new VBCompileErrorException("Range has no values");
             field.ResolvedBounds = bounds;
         }
     }
@@ -5620,34 +5673,60 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(ctx, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             if (MemberHasArgs(member))
             {
-                // A project-class field holding Nothing raises 91 (#4725, measured); Nothing in an As Object field is
-                // unmeasured, so it keeps the refusal below, as the read does.
-                if (i == members.Length - 1 && bag.IsObjectField(fieldName)
-                    && field.Value is not VBArray && member.iCS_S_ProcedureOrArrayCall().argsCall().Length == 1
-                    && (field.Value is not null || interpreter.ProjectClassFor(field.DeclaredAs ?? "") is not null))
-                {
-                    await interpreter.LetDefaultMember(field,
-                        await expressionExecutor.ResolveCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)),
-                        value, ctx, stmtFrames, expressionExecutor);
-                    return;
-                }
-                if (field.Value is not VBArray array || member.iCS_S_ProcedureOrArrayCall().argsCall().Length != 1)
+                var groups = member.iCS_S_ProcedureOrArrayCall().argsCall();
+                if (groups.Length == 0)
                     throw new NotImplementedException("Only a single array index group on a UDT field is implemented (#4925)");
-                var indices = await expressionExecutor.ResolveSubscripts(await expressionExecutor.EvaluateCallArgs(member.iCS_S_ProcedureOrArrayCall().argsCall(0)));
-                try
+                var target = field;
+                for (var group = 0; group < groups.Length; group++)
                 {
-                    current = array.GetValue(indices);
-                    if (i == members.Length - 1)
+                    var last = group == groups.Length - 1;
+                    if (last && i == members.Length - 1 && bag.IsObjectField(fieldName) && target.Value is not VBArray)
                     {
-                        array.SetValue(indices, interpreter.CopyForStore(value));
-                        await interpreter.ReleaseRef(current);
+                        var callArgs = await expressionExecutor.ResolveCallArgs(groups[group]);
+                        if (string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (target.Value is VbCollection or ControlFont)
+                                throw new VBRunTimeException(ctx, VBStandardError.ObjectNotACollection);
+                            if (target.Value is Control)
+                                throw new VBRunTimeException(ctx, new VBStandardError(344, "Must specify index for object array"));
+                        }
+                        await interpreter.LetDefaultMember(target, callArgs, value, ctx, stmtFrames, expressionExecutor);
                         return;
                     }
+                    var args = await expressionExecutor.EvaluateCallArgs(groups[group]);
+                    if (!last || i != members.Length - 1)
+                    {
+                        target = await expressionExecutor.IndexUdtField(target, args, ctx);
+                        continue;
+                    }
+                    if (target.Value is VBArray array)
+                    {
+                        var indices = await expressionExecutor.ResolveSubscripts(args);
+                        try
+                        {
+                            var previous = array.GetValue(indices);
+                            array.SetValue(indices, interpreter.CopyForStore(value));
+                            await interpreter.ReleaseRef(previous);
+                        }
+                        catch (IndexOutOfRangeException)
+                        {
+                            throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
+                        }
+                        return;
+                    }
+                    if (target.Value is VbCollection && target.HeldAsVariant)
+                        throw new VBRunTimeException(ctx, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+                    if (target.HasFixedType)
+                    {
+                        if (target.Type == Vb6Value.ValueType.Integer || target.Type == Vb6Value.ValueType.String)
+                            throw new VBCompileErrorException("Expected array");
+                        throw new NotImplementedException("Arguments on this scalar Type field are unmeasured (#4925)");
+                    }
+                    if (target.Type == Vb6Value.ValueType.EmptyVariant || target.Type == Vb6Value.ValueType.String)
+                        throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+                    throw new NotImplementedException("Let with arguments on this Type field value is unmeasured (#4925)");
                 }
-                catch (IndexOutOfRangeException)
-                {
-                    throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
-                }
+                current = target;
             }
             else if (i == members.Length - 1)
             {

@@ -160,6 +160,71 @@ public class FormInstanceTests
         run.Printed.Should().Equal(error.ToString(System.Globalization.CultureInfo.InvariantCulture), "True");
     }
 
+    // vb6.exe SP6 native/p-code: hexide-io/HexIDE#4925, cases 6–7.
+    [AvaloniaTheory]
+    [InlineData("TextBox")]
+    [InlineData("Control")]
+    public void Type_array_field_accepts_a_control_and_record_copy_shares_it(string type)
+    {
+        var run = RunFormLoad("Probe", ("Module1", ModuleKind.StandardModule, $"""
+            Private Type T
+                a(1) As {type}
+            End Type
+            Public Sub Probe()
+                Dim u As T, w As T
+                Set u.a(0) = Form1.Text1
+                u.a(0).Text = "x"
+                Debug.Print Form1.Text1.Text
+                Debug.Print TypeName(u.a(0))
+                w = u
+                Debug.Print w.a(0) Is u.a(0)
+            End Sub
+            """));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("x", "TextBox", "True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("TextBox")]
+    [InlineData("Control")]
+    public void Type_array_field_rejects_a_form(string type)
+    {
+        var run = RunFormLoad("Probe", ("Module1", ModuleKind.StandardModule, $"""
+            Private Type T
+                a(1) As {type}
+            End Type
+            Public Sub Probe()
+                Dim u As T
+                On Error Resume Next
+                Set u.a(0) = Form1
+                Debug.Print CStr(Err.Number)
+            End Sub
+            """));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("13");
+    }
+
+    [AvaloniaFact]
+    public void Indexed_Let_on_an_Object_field_holding_a_TextBox_raises_344()
+    {
+        var run = RunFormLoad("Probe", ("Module1", ModuleKind.StandardModule, """
+            Private Type T
+                o As Object
+            End Type
+            Public Sub Probe()
+                Dim u As T
+                Set u.o = Form1.Text1
+                On Error Resume Next
+                u.o(1) = 9
+                Debug.Print CStr(Err.Number)
+                Debug.Print Err.Description
+                Debug.Print Form1.Text1.Text
+            End Sub
+            """));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("344", "Must specify index for object array", "t1");
+    }
+
     // A form's module-level variable, a standard module's Public variable and a class's Public field declared As Control
     // check the same way. VB6 SP6 native/p-code: https://github.com/hexide-io/HexIDE/issues/4864 (oracle PR #4866).
     [AvaloniaTheory]

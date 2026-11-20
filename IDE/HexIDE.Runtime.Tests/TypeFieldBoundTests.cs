@@ -136,26 +136,22 @@ public class TypeFieldBoundTests : BaseVBTestFixture
             .EndWith("Constant expression required");
     }
 
-    // These are HexIDE's unmeasured refusals, tracked by hexide-io/HexIDE#4925.
+    // vb6.exe SP6 native and p-code measurements: hexide-io/HexIDE#4925, case 4.
     [Theory]
-    [InlineData("a(3 To 1) As Long", "")]
-    [InlineData("a(1 To 2) As New Collection", "")]
-    [InlineData("a(1 To 2) As StdFont", "Dim u As T")]
-    [InlineData("n As Long", "Dim u As T\nu.n(1) = 5")]
-    [InlineData("a(1 To 2) As Long", "Dim u As T\nu.a(1)(1) = 5")]
-    public async Task Unmeasured_type_field_keeps_refusal(string field, string body)
+    [InlineData("", "a(5 To 1) As Integer")]
+    [InlineData("Const L = 5\nConst H = 1\n", "a(L To H) As Integer")]
+    public async Task Inverted_field_bound_is_a_compile_error(string constants, string field)
     {
-        Func<Task> run = () => RunModules($"Private Type T\n{field}\nEnd Type\n{body}");
-        (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .EndWith("(#4925)");
+        Func<Task> run = () => RunModules($"{constants}Private Type T\n{field}\nEnd Type");
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should()
+            .EndWith("Range has no values");
     }
 
     [Fact]
-    public async Task Resolved_inverted_bound_keeps_refusal()
+    public async Task Equal_field_bounds_allocate_one_element()
     {
-        Func<Task> run = () => RunModules("Const N = 0\nPrivate Type T\na(1 To N) As Long\nEnd Type");
-        (await run.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .Be("An inverted array bound inside Type 'T' is not implemented (#4925)");
+        await RunModules("Private Type T\na(3 To 3) As Integer\nEnd Type\nDim u As T\nDebug.Print LBound(u.a) & \" \" & UBound(u.a)");
+        AssertDebugLog(["3 3"]);
     }
 
     [Fact]

@@ -560,6 +560,8 @@ public class VBArray
         var result = newBounds is null ? Unallocated(elementType ?? Vb6Value.ValueType.EmptyVariant, elementDefault)
             : new VBArray(elementType ?? Vb6Value.ValueType.EmptyVariant, newBounds, elementDefault);
         result.FixedStringWidth = FixedStringWidth;
+        result.DeclaredClass = DeclaredClass;
+        result.AutoNew = AutoNew;
         return result;
     }
 
@@ -749,6 +751,16 @@ public class VBArray
 
         if (FixedStringWidth is { } width)
             val = FixedLengthString.Store(val, width);
+        // #4925: Type array fields retain the declared object constraint at Set.
+        if (DeclaredClass is { } declared && val.Value is not null
+            && !(val.Value is VbObject incoming && VbInterface.IsAssignableTo(incoming, declared))
+            && (declared.Equals("Control", StringComparison.OrdinalIgnoreCase)
+                && val.Value is not Avalonia.Controls.Control
+                || (declared.Equals("StdFont", StringComparison.OrdinalIgnoreCase)
+                    || declared.Equals("stdole.StdFont", StringComparison.OrdinalIgnoreCase))
+                    && val.Value is not AvaloniaInterop.ControlFont
+                || ControlObjectType.IsIntrinsic(declared) && val.Value is AvaloniaInterop.ControlFont))
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         ModuleExecutionContext.CheckObjectStore(val, DeclaredClass);
 
         ((object[])arr)[index[^1] - bounds[^1].lbound] = val;

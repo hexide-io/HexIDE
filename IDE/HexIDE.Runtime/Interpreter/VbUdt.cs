@@ -192,6 +192,7 @@ public sealed class VbUdt
     private static Vb6Value CloneArray(Vb6Value value, VBArray array)
     {
         var copy = array.CopyForLet(CloneValue);
+        copy.AutoNew = array.AutoNew;
         copy.IsDynamic = array.IsDynamic;
         return value.WithArray(copy);
     }

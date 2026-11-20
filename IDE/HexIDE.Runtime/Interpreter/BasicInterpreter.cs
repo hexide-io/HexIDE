@@ -558,19 +558,27 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 else if (f.UdtTypeName is { } objectType && !Enums.ContainsKey(objectType)
                     && (ProjectClassFor(objectType) is not null
                         || objectType.Equals("Object", StringComparison.OrdinalIgnoreCase)
-                        || ExpressionExecutor.IsCollectionType(objectType)))
+                        || ExpressionExecutor.IsCollectionType(objectType)
+                        || IsUdtObjectArrayType(objectType)))
                 {
                     var arrayType = new Vb6Value.ValueType(Vb6Value.ValueType.Object, true);
                     fields[f.Name] = bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, bounds);
                     var array = (VBArray)fields[f.Name].Value!;
                     array.IsDynamic = bounds is null;
                     array.DeclaredClass = ProjectClassFor(objectType)?.Name
-                        ?? (ExpressionExecutor.IsCollectionType(objectType) ? "Collection" : null);
+                        ?? (ExpressionExecutor.IsCollectionType(objectType) ? "Collection"
+                            : objectType.Equals("Object", StringComparison.OrdinalIgnoreCase) ? null : objectType);
+                    if (f.AutoNewClass is { } arrayNew)
+                        array.AutoNew = new AutoNew(arrayNew, f.Name);
                 }
                 else
                 {
+                    if (f.UdtTypeName is { } alias && !Enums.ContainsKey(alias)
+                        && IsObjectTypeWithoutClass(alias.Contains('.') ? alias[..alias.LastIndexOf('.')] : null,
+                            alias[(alias.LastIndexOf('.') + 1)..], out var aliasScalar) && aliasScalar is not null)
+                        throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#4925)");
                     var elementType = f.ScalarType ?? (f.UdtTypeName is { } enumType && Enums.ContainsKey(enumType)
-                        ? Vb6Value.ValueType.Long : throw new NotImplementedException($"Array field '{f.Name}' has an unsupported element type (#4925)"));
+                        ? Vb6Value.ValueType.Long : throw new VBCompileErrorException("User-defined type not defined: " + f.UdtTypeName));
                     var arrayType = new Vb6Value.ValueType(elementType, true);
                     fields[f.Name] = bounds is null ? new Vb6Value(arrayType) : new Vb6Value(arrayType, bounds);
                     if (fixedWidth is { } width)
@@ -581,7 +589,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             }
             if (f.AutoNewClass is { } made)
             {
-                if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class || classModule.HostedControl)
+                if (!ExpressionExecutor.IsCollectionType(made)
+                    && (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class || classModule.HostedControl))
                     throw new NotImplementedException($"Field '{f.Name}' declared As New inside Type '{typeName}' is not implemented (#1488)");
                 fields[f.Name] = Vb6Value.Nothing;
                 autoNewFields[f.Name] = new AutoNew(made, f.Name);
@@ -632,6 +641,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 fields[f.Name] = Vb6Value.Variant;
         }
         return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields, objectFields, fixedStringWidths);
+    }
+
+    private bool IsUdtObjectArrayType(string typeName)
+    {
+        var dot = typeName.LastIndexOf('.');
+        return IsObjectTypeWithoutClass(dot < 0 ? null : typeName[..dot], typeName[(dot + 1)..], out var scalar)
+            && scalar is null;
     }
 
     /// <summary>
@@ -799,8 +815,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // built, NewObject holds it, so a method Class_Initialize calls on it cannot take it to 0. Class_Initialize's
     // own Me is not counted either (a lifecycle hook — see RunProcedure).
 
-    /// <summary>Increment the reference count if <paramref name="v"/> is a live class instance (no-op for
-    /// Nothing / controls / proxies / value types). Callers do AddRef(new) BEFORE Release(old) at every store, so
+    /// <summary>Increment the count for references the interpreter tracks. Callers do AddRef(new) BEFORE
+    /// Release(old) at every store, so
     /// <c>Set x = x</c> and aliased assignment can't transiently hit zero and self-terminate.</summary>
     public void AddRef(Vb6Value v)
     {
@@ -810,6 +826,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             o.RefCount++;
         else if (v.Value is VbCollection c)
             c.RefCount++;
+        else if (v.Value is StatusBarPanel panel)
+            panel.References++;
     }
 
     /// <summary>A new Collection (#1471), with no references yet: <c>New Collection</c> hands it back as <c>New</c> hands
@@ -853,6 +871,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // A Collection whose last reference goes releases what it holds, first to last (measured, #1471).
         else if (v.Value is VbCollection c && --c.RefCount <= 0)
             await c.ReleaseItems();
+        else if (v.Value is StatusBarPanel panel && --panel.References == 0)
+            await panel.ReleaseTagIfUnowned();
     }
 
     /// <summary>Run the instance's <c>Private Sub Class_Terminate</c> (if any), one-shot. Sets <see
