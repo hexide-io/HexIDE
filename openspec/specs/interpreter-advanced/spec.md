@@ -186,6 +186,7 @@ code.
 - **AND** preceding Consts, Enum members and expressions of them size the fields as measured in [#4595](https://github.com/hexide-io/HexIDE/issues/4595)
 - **AND** a later Const or a variable raises "Constant expression required"
 - **AND** allocation of an unresolved Type first runs its standard module's declarations if they have neither run nor started
+- **AND** an allocation before its own module's Type declaration resolves the bounds using Consts above the Type for Private Types and for Public Types in standard modules ([#4734](https://github.com/hexide-io/HexIDE/issues/4734), [#4907](https://github.com/hexide-io/HexIDE/issues/4907))
 - **AND** otherwise unresolved allocation refuses explicitly with #4907 rather than using placeholder values
 
 #### Scenario: Object array fields in a record
