@@ -621,6 +621,7 @@ added afterwards.
 - [A quote inside a .frm string (2026-10-22, #218)](a-quote-inside-a-frm-string.md#a-quote-inside-a-frm-string-2026-10-22-218)
 - [A property named twice, and a measurement VB6 can't set, in a .frm (2026-11-16, #4096, design-time, IDE, SP6)](a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm.md#a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm-2026-11-16-4096-design-time-ide-sp6)
 - [Which values a .frm line can hold, by the property's type (2026-11-19, #4317, `/make`, SP6)](a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm.md#which-values-a-frm-line-can-hold-by-the-propertys-type-2026-11-19-4317-make-sp6)
+- [What an accepted text reads as, and more texts by type (2026-11-20, #4988, `/make`, SP6)](a-property-named-twice-and-a-measurement-vb6-cant-set-in-a-frm.md#what-an-accepted-text-reads-as-and-more-texts-by-type-2026-11-20-4988-make-sp6)
 - [ToolTipText: which controls have it (2026-10-23, #1403)](tooltiptext-which-controls-have-it.md#tooltiptext-which-controls-have-it-2026-10-23-1403)
 - [What Save Project As does to the paths in a project file (2026-10-22, #1406)](what-save-project-as-does-to-the-paths-in-a-project-file.md#what-save-project-as-does-to-the-paths-in-a-project-file-2026-10-22-1406)
 - [Where and how VB6 writes a project's description (2026-10-22, #42)](where-and-how-vb6-writes-a-projects-description.md#where-and-how-vb6-writes-a-projects-description-2026-10-22-42)
