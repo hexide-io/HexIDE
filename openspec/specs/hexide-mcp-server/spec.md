@@ -2382,3 +2382,67 @@ SHALL refuse without pressing and name the clipping ancestor (#4558).
 - **WHEN** another control covers an in-view target's press point
 - **THEN** the click retains its existing success reply naming the cover it pressed
 - **AND** this change leaves drag release targets, `wheel`, `hover`, `double_click` and non-pointer verbs unchanged
+
+### Requirement: Native menu bar automation
+
+The automation tools SHALL expose Avalonia's NativeMenu model through the reserved, case-insensitive
+`window: "menubar"` scope in `dump_visual_tree`, `inspect_element` and `interact`, on every platform
+including headless. Native paths, window selection, state, event order and refusals SHALL follow the
+scenarios below. `invoke_menu_item` SHALL also reach the application menu by its title.
+
+#### Scenario: Choose the bar window
+
+- **WHEN** a tool reads the native menu bar
+- **THEN** it lists the application menu first, titled with Application.Name or `Application` when empty
+- **AND** it adds the single visible active window's NativeMenu items, or uses ForegroundWindow's `auto` choice when zero or several visible windows read active, falling back to the main window
+- **AND** the reply names the selected window and the rule that selected it
+
+#### Scenario: Address and inspect native items
+
+- **WHEN** a caller dumps or inspects the menubar scope
+- **THEN** paths start at `MenuBar` and use `MenuItem[header]` with access-key markers removed, or `MenuItem[#n]` for duplicate names, indexed from zero among that type
+- **AND** root, maxDepth, interactiveOnly and match work as on windows
+- **AND** nodes report their own enabled state, and hidden state for invisible items and top-level items without submenus
+- **AND** inspection reports checked state for checkable items
+- **AND** separators have class NativeMenuItemSeparator, type Separator and no providers, and are omitted under interactiveOnly
+
+#### Scenario: Invoke a running form's native menu
+
+- **WHEN** Form1 is the bar window and exposes File › Open in its NativeMenu
+- **THEN** a menubar dump includes `MenuBar/MenuItem[File]/MenuItem[Open]` after the app menu
+- **AND** invoking that path opens ancestor submenus outermost first, raising NeedsUpdate then Opening, followed by Open's Click once through Avalonia's exporter bridge
+- **AND** the application's root menu is opened on its path, while the window's root menu is not
+- **AND** invoke raises no Closed; collapse raises Closed on the target's submenu
+
+#### Scenario: A no-menu dialog is the bar window
+
+- **WHEN** the selected bar window is a modal dialog without a NativeMenu
+- **THEN** only the application's menu is contributed, without inheriting its owner's menus
+
+#### Scenario: A submenu cannot be clicked
+
+- **WHEN** invoke addresses a native item with a submenu, even an empty one
+- **THEN** it refuses, names expand, and raises no Click
+- **AND** expand opens ancestor menus then raises NeedsUpdate and Opening on the item's submenu, without clicking
+
+#### Scenario: Native refusals explain the applicable action
+
+- **WHEN** an item is disabled or hidden, or the requested verb does not apply
+- **THEN** interaction refuses, naming the state or the applicable verbs
+- **AND** a Window path under menubar, or a MenuBar path under a window, refuses and explains the scope to use
+
+#### Scenario: Invoke the application menu by title
+
+- **WHEN** invoke_menu_item's first segment names the app menu title
+- **THEN** it resolves in that menu with the same invocation and refusal rules
+- **AND** the main window's in-window route remains unchanged, including its no-menu-bar refusal
+- **AND** an unknown first segment lists in-window menus followed by the app menu title
+- **AND** running forms' native menus are reached through interact's menubar scope
+
+#### Scenario: Explain the menu bar's limits
+
+- **WHEN** the model is empty
+- **THEN** the reply explains that HexIDE puts menus in the macOS bar only on macOS and names the windows
+- **AND** a dump including the app menu explains that macOS supplies Services, Hide and Quit outside the NativeMenu model
+- **AND** hidden top-level leaves explain that macOS does not draw top-level items without submenus
+- **AND** snapshot, typing, hover and key tools refuse the menubar scope, explaining that macOS draws it outside the windows and naming the three tools that reach it
