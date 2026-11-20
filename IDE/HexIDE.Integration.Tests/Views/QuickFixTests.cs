@@ -182,7 +182,6 @@ public class QuickFixTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData("rdcore.rename")]
     [InlineData("editor.action.rename")]
     public async Task RenameClientCommandOpensTheExistingRenamePromptAtItsPosition(string command)
     {
@@ -198,6 +197,17 @@ public class QuickFixTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task UnclaimedRdcoreRenameDoesNotOpenTheRenamePrompt()
+    {
+        var offset = editor.CaretOffset;
+        var args = new[] { JsonSerializer.SerializeToElement(uri), JsonSerializer.SerializeToElement(edit.Range.Start) };
+        (await vm.ApplyCodeActionAsync(Action(command: new("Rename", "rdcore.rename", args)), ct))
+            .Should().Be("HexIDE cannot run this fix's command: rdcore.rename.");
+        await messages.DidNotReceive().InputBox(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+        editor.CaretOffset.Should().Be(offset);
+    }
+
+    [AvaloniaFact]
     public async Task RenameCodeActionPreparesBeforeOpeningThePrompt()
     {
         var position = edit.Range.Start;
@@ -207,7 +217,7 @@ public class QuickFixTests : IDisposable
         messages.InputBox(Arg.Any<string>(), Arg.Any<string>(), "ServerName")
             .Returns(_ => { order.Add("prompt"); return Task.FromResult<string?>(null); });
         var args = new[] { JsonSerializer.SerializeToElement(uri), JsonSerializer.SerializeToElement(position) };
-        (await vm.ApplyCodeActionAsync(Action(command: new("Rename", "rdcore.rename", args)), ct)).Should().BeNull();
+        (await vm.ApplyCodeActionAsync(Action(command: new("Rename", "editor.action.rename", args)), ct)).Should().BeNull();
         order.Should().Equal("prepare", "prompt");
     }
 
@@ -226,7 +236,7 @@ public class QuickFixTests : IDisposable
         editors.OpenCodeForUri(otherUri).Returns(target);
         var args = new[] { JsonSerializer.SerializeToElement(otherUri), JsonSerializer.SerializeToElement(new { line = location.Line - 1, character = location.Column - 1 }) };
         messages.InputBox(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult<string?>(null));
-        (await vm.ApplyCodeActionAsync(Action(command: new("Rename", "rdcore.rename", args)), ct)).Should().BeNull();
+        (await vm.ApplyCodeActionAsync(Action(command: new("Rename", "editor.action.rename", args)), ct)).Should().BeNull();
         await messages.Received(1).InputBox(Arg.Any<string>(), Arg.Any<string>(), "OtherName");
         target.CaretOffset.Should().Be(offset);
     }
