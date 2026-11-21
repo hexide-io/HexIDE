@@ -11,8 +11,8 @@ edit, an Undo and a paste?
   F9. Then make the row's edit in design mode, and press F5.
 - **The keys** went through `SendKeys`. No code was typed, so no syntax check or completion list could take a key.
 - **What was recorded:**
-  - the caret's line after the F9, which was `L "two"` in every row;
-  - a screenshot before and after the edit;
+  - the caret's line just before the F9, which was `L "two"` in every row;
+  - a screenshot after the F9 and after the edit;
   - the IDE's title, the caret's line and the log after F5.
 - **Builds:** this is IDE behaviour, so there is no native or p-code build to compare.
 - **The program:** a Standard EXE whose startup is `Sub Main`. `L` appends a line to a log.
@@ -44,8 +44,9 @@ matters for the rows marked †, whose edits started there.
 | Its own line deleted: Home †, Shift+Down, Delete | **no break.** The run ended | `one`, `three`, `four` |
 | Home † on `L "one"`, Shift+Down, Delete. This takes `L "one"`, its line end and `L "two"`'s indent, so it joins `L "two"` onto `L "one"`'s line | **no break.** The run ended | `two`, `three`, `four` |
 
-In the screenshots, the breakpoint's dark red highlight sat on `L "two"` after the paste, one line lower than before.
-After the last row's edit, the margin showed no breakpoint at all.
+The screenshots taken after each edit show it landed as described. In the first six rows the breakpoint's dark red
+highlight is still on `L "two"`, a line higher or lower when the edit moved it. After the last two rows' edits there is
+none. For those two rows, the screenshot taken after the F9 shows the breakpoint set on `L "two"` before the edit.
 
 **Readings:**
 - **A VB6 breakpoint belongs to its statement, not to a line number.** It moved with the statement when a line above was
