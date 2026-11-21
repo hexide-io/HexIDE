@@ -955,6 +955,7 @@ added afterwards.
 - [The drawing methods: Line, PSet, Circle, Cls and Point (2026-11-18, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#the-drawing-methods-line-pset-circle-cls-and-point-2026-11-18-988-sp6)
 - [DrawMode, DrawStyle, FillStyle, where Point reads -1, and late-bound drawing (2026-11-21, #988, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#drawmode-drawstyle-fillstyle-where-point-reads--1-and-late-bound-drawing-2026-11-21-988-sp6)
 - [Circles, arcs, sectors and thick pens, pixel by pixel (2026-11-18, #988, SP6)](circles-arcs-sectors-and-thick-pens-pixel-by-pixel.md#circles-arcs-sectors-and-thick-pens-pixel-by-pixel-2026-11-18-988-sp6)
+- [A rounded Shape's corners (2026-11-21, #916, SP6)](a-rounded-shapes-corners.md#a-rounded-shapes-corners-2026-11-21-916-sp6)
 - [A nonnumeric constant, or a member a container lacks, in an Enum (2026-11-18, #4745)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-nonnumeric-constant-or-a-member-a-container-lacks-2026-11-18-4745)
 - [More arcs and sectors, and their fills, pixel by pixel (2026-11-19, #4771, SP6)](more-arcs-and-sectors-and-their-fills-pixel-by-pixel.md#more-arcs-and-sectors-and-their-fills-pixel-by-pixel-2026-11-19-4771-sp6)
 - [What an Enum member's value and a Type's array bounds may name (2026-11-18, #4594, #4595, SP6)](what-an-enum-members-value-and-a-types-bounds-may-name.md#what-an-enum-members-value-and-a-types-array-bounds-may-name-2026-11-18-4594-4595-sp6)
