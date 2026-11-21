@@ -503,6 +503,7 @@ added afterwards.
 - [A ComboBox's Text, at each Style, from code (2026-10-22, #926)](a-comboboxs-text-at-each-style-from-code.md#a-comboboxs-text-at-each-style-from-code-2026-10-22-926)
 - [A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)](a-comboboxs-click-change-and-dropdown-with-real-input.md#a-comboboxs-click-change-and-dropdown-with-real-input-2026-10-22-1429)
 - [A Simple Combo's list, drawn and clicked (2026-10-23, #1603)](a-simple-combos-list-drawn-and-clicked.md#a-simple-combos-list-drawn-and-clicked-2026-10-23-1603)
+- [A Simple Combo's Height, by font, at load and from code (2026-11-21, #1655, `/make`, SP6)](a-simple-combos-height-by-font.md#a-simple-combos-height-by-font-at-load-and-from-code-2026-11-21-1655-make-sp6)
 - [Out of stack space — Error 28 (2026-08-22, #80)](out-of-stack-space--error-28.md#out-of-stack-space--error-28-2026-08-22-80)
 - [Infinity, NaN, and division by zero (2026-08-22)](infinity-nan-and-division-by-zero.md#infinity-nan-and-division-by-zero-2026-08-22)
 - [Declared type, Variant subtype, and overflow promotion (2026-08-22)](declared-type-variant-subtype-and-overflow-promotion.md#declared-type-variant-subtype-and-overflow-promotion-2026-08-22)
