@@ -97,3 +97,69 @@ That VB6 calls this comparison at load is reasoned from the match, not seen. No 
 - **What the `Columns = 2` designer row shows,** beyond the picture above.
 - **Whether VB6's designer ever writes a `Sorted` list out of order** from items entered by hand, for example by setting `Sorted` after entering them. These rows began from a file written by hand.
 - **The load order of strings outside these 41,** in any locale but en-GB.
+
+## A Columns ListBox in VB6's designer and in a run (2026-11-21, #5133, SP6)
+
+**The question.** The section above saw VB6's designer draw a `Columns = 2` ListBox with `c1` at the left, a `c` cut
+off at the right edge, and a horizontal scroll bar, where a run drew `c1` and `c2` side by side. What decides the
+designer's column width, and which item is the cut-off `c`?
+
+**The probe.** Two forms of ListBoxes, each saved with items `c1`, `c2`, … in its `.frx`, were built with `/make`, run on
+the guest's console, then opened in VB6's designer (VB6.EXE 6.00.9782, SP6, 96 dpi). Screens came through the host's
+framebuffer. For each list, the table gives the x of each column's first ink pixel, counted from the list's top-left
+inner border pixel. A list holding the focus draws a dotted rectangle round its first item, which hides where the
+second column starts, so its run is not read.
+
+| List | Font | Columns | Width | Height | Items | Designer | Run |
+|---|---|---|---|---|---|---|---|
+| L1 | MS Sans Serif 8.25 | 2 | 1935 | 645 | 6 | 2, 122 | the focus |
+| L2 | MS Sans Serif 8.25 | 2 | 2500 | 645 | 6 | 2, 122 | 2, 84 |
+| L3 | MS Sans Serif 8.25 | 2 | 3000 | 645 | 6 | 2, 122 | 2, 100 |
+| L4 | MS Sans Serif 8.25 | 3 | 2500 | 645 | 9 | 2, 122 | 2, 56, 110 |
+| L5 | MS Sans Serif 8.25 | 2 | 1935 | 645 | 4 | 2, 122 | 2, 65 |
+| L6 | MS Sans Serif 8.25 | 1 | 1935 | 645 | 6 | 2, 122 | 2 |
+| L7 | MS Sans Serif 8.25 | 2 | 1935 | 645 | 12 | 2, 122 | 2, 65 |
+| L8 | MS Sans Serif 8.25 | 4 | 3000 | 645 | 8 | 2, 122 | 2, 51, 100, 149 |
+| A1 | Arial 12 | 2 | 2500 | 900 | 6 | 2, 122 | the focus |
+| A2 | Times New Roman 14.25 | 2 | 3000 | 900 | 6 | 2, 122 | 2, 100 |
+| A3 | Courier New 9.75 | 3 | 3000 | 900 | 9 | 2, 122 | 2, 67, 132 |
+| A4 | MS Sans Serif 8.25 | 2 | 2500 | 1500 | 12 | 2, 122 | 2, 84 |
+| A5 | Arial 8.25 | 2 | 1935 | 645 | 6 | 2, 122 | 2, 65 |
+| LC1 | MS Sans Serif 8.25 | 4 | 2970 | 645 | 8 | 2, 122 | 2, 50, 98, 146 |
+| LC2 | MS Sans Serif 8.25 | 4 | 3030 | 645 | 8 | 2, 122 | 2, 51, 100, 149 |
+
+LC1 and LC2 came from a third form, with a TextBox holding the focus. They were added to tell apart the rules that fit
+the first two forms.
+
+- **The designer draws its columns 120 pixels apart in every list.** That holds for every width, font, item count and
+  Columns value, 1 included: L6, with `Columns = 1`, draws a second column in the designer too.
+- **Items run down a column, then on to the next, the same way in both places.** A1 shows `c1` and `c2` in its first
+  column and `c3` and `c4` in its second. A4 shows `c1` to `c5`, then `c6` to `c10`.
+- **So the cut-off `c` is `c2`.** At Height 645 one row shows above the scroll bar. The second column starts 120
+  pixels in, and the list is 129 pixels wide, so one letter of `c2` fits.
+- **A run spaces its columns by `(width − 3) \ Columns` pixels,** truncated. The pitches are:
+  - 63 for 129 pixels across 2 columns;
+  - 82 for 167 across 2, and 54 for 167 across 3;
+  - 98 for 200 across 2, 65 for 200 across 3, and 49 for 200 across 4;
+  - 48 for 198 across 4, and 49 for 202 across 4.
+
+  All eight fit. The widths are the twips over 15, rounded half up, as [a control's size](a-controls-minimum-size.md)
+  is. What the 3 pixels stand for wasn't established.
+- **L6 runs with one column the full width of the list,** so only `c1` shows.
+
+**What was overturned.** The first two forms' six pitches also fit "(width − 4) / Columns, rounded half up". That was
+hexide-frm's own first rule. LC1 and LC2 were added because the two rules part there: it gives 49 for 198 pixels and
+50 for 202, and the run drew 48 and 49. Rounding half to even fails on 202 (50) and on 129 (62).
+
+**What resisted explanation.** Why the designer uses 120 pixels wasn't found. It doesn't follow the font or the width,
+so the designer seems not to apply Columns' width at all. Whether 120 is a list box's own default column width wasn't
+checked.
+
+### Not measured
+
+- **The designer at a DPI other than 96.**
+- **A `Style = 1` (checkbox) list with Columns.**
+- **IntegralHeight False,** and a Height that leaves part of a row.
+- **Columns changed in the Properties window** rather than loaded from the file.
+- **Both builds of one form.** The first two forms were built as p-code (`CompilationType=-1`) and the third as native
+  code. The drawing is the runtime's either way.
