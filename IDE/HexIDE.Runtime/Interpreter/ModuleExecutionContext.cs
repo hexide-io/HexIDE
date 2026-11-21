@@ -168,7 +168,7 @@ public class ModuleExecutionContext
                 : value.AsVariantSubtype();
             // And the NAME the slot was declared with, for a class-typed or Object slot — set and cleared by the same
             // rule and for the same reason. This is what an `As IFoo` read carries into member dispatch.
-            value = value.ViewedAs(state.DeclaredViewOf(loc));
+            value = value.ViewedFromSlot(state.DeclaredViewOf(loc));
             return true;
         }
         value = default;

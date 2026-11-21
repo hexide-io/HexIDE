@@ -1,8 +1,8 @@
 # external-project-container Specification
 
 ## Purpose
-Provide read-only access to the contents of a supported external backend's project container before
-integrating its documents with the IDE. This capability covers the reader API, not opening projects in UI.
+Read and write supported external backend project containers through streams. The IDE's project
+open and save workflows are outside this capability.
 
 ## Requirements
 
@@ -43,3 +43,24 @@ entries and during revision trailers. Invalid policy values MUST be refused befo
 #### Scenario: A caller cancels
 - **WHEN** cancellation is observed before or between read/parse steps
 - **THEN** reading ends with a cancellation exception and leaves the caller's stream open
+
+### Requirement: Write a supported container losslessly
+
+The writer MUST emit a version 1 container from its immutable tree, preserving entry order, names,
+opaque content and metadata. It MUST write from the caller's stream position, support non-seekable
+output and leave the stream open. It MUST validate the entire tree against the reader's format and
+the supplied or default reader limits before emitting any bytes.
+
+#### Scenario: Write an unchanged project or package
+- **WHEN** the caller writes a snapshot returned by the reader
+- **THEN** the container bytes match the input byte for byte
+
+#### Scenario: Replace one file's content
+- **WHEN** the caller writes a snapshot with only one file's content replaced
+- **THEN** only that file's content and its encoded content length can change
+
+#### Scenario: Refuse a snapshot before writing
+- **WHEN** the snapshot has an unsupported version or entry type, an uninitialised array,
+  an invalid UTF-16 name, or exceeds a reader limit
+- **THEN** a format error identifies the entry path
+- **AND** the writer leaves the output open and untouched
