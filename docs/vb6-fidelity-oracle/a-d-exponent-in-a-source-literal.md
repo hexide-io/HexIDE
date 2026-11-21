@@ -59,3 +59,44 @@ Not measured: what the IDE's pretty-lister rewrites `1D3` to when it loads a fil
   - `Const KS! = 2.5D2` stops as the module loads, since a `Const` with a type character is not implemented (#1614);
   - `1D`, `1.5D`, `1D-` and `1 D3` are refused in the parser's words, not as "Syntax error".
 
+## A signed exponent, and a lowercase e (2026-11-21, #482, SP6)
+
+**The question.** Does vb6.exe compile an exponent with a sign on a mantissa with no decimal point, as in `1E+30`? If
+so, what type does it get? The bundled language server reports `1E+30` as a syntax error (#482). Its lexer takes a sign
+in an exponent only after a decimal point. The rows above had `1D+3`, but no `E` form with a sign, and no suffix after
+a signed exponent.
+
+**The probe.** One `/make` project per literal, the same shape as above: a `.bas` written outside the IDE whose
+`Sub Main` assigns the literal to a Variant and logs `TypeName` and `CStr` of it. Each was built native and p-code with
+VB6.EXE 6.00.9782 (SP6) and run on MSVBVM60 6.00.9848, en-GB, on a clone of the oracle guest. 25 projects. Native and
+p-code agreed on every row.
+
+| Literal | vb6.exe |
+|---|---|
+| `1E+30`, `1e+30`, `1D+30`, `1d+30` | Double, 1E+30 |
+| `-1E+30` | Double, -1E+30 |
+| `1E+30#` | Double, 1E+30 |
+| `1E+30!` | Single, 1E+30 |
+| `1E-30`, `1e-3` | Double: 1E-30, 0.001 |
+| `1E+3`, `12E+2` | Double: 1000, 1200 |
+| `1E+38!` | Single, 1E+38 |
+| `1E+308` | Double, 1E+308 |
+| `1E-400`, `0E+0` | Double, 0 |
+| `Const K = 1E+30`, then `K` | Double, 1E+30 |
+| `Const K! = 1E+30`, then `K` | Single, 1E+30 |
+| `#Const K = 1E+3`, then `#If K = 1000` | true |
+
+**Refused, each "Syntax error" on the literal's line:**
+- a value beyond its type: `1E+30@` for a Currency, `1E+39!` for a Single and `1E+309` for a Double;
+- an Integer or Long suffix: `1E+3%` and `1E+3&`;
+- a sign with no digits after it: `1E+`;
+- two exponents: `1E+30E+2`.
+
+**Readings:**
+- **The sign changes nothing.** Each row gives what the unsigned rows above give. `E` or `D`, in either case, makes a
+  Double unless a `!` or `@` suffix makes it a Single or a Currency. A bare `E` doesn't make a Single.
+- **Every refusal with a sign matches one without:** `1E3%`, `1E400`, `1E39!`, `1E20@`, `1D2D2` and `1D-` above.
+
+**In HexIDE.** The language server's `INTEGERLITERAL`
+(`LspServer/HexIDE.VbLspServer/Grammar/VisualBasic6Lexer.g4:541` on main `3f3ad5742`, read, not run) takes
+`('E' | 'D') INTEGERLITERAL`, which has no sign. So `1E+30` is still its syntax error. #482 tracks the fix.
