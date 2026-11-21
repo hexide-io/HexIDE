@@ -194,3 +194,35 @@ Every message box was titled "Microsoft Visual Basic", with the critical (red) i
 - **A menu name that a control on the form already has,** and one that is a keyword, such as `If`.
 - **A duplicate where only one item has an Index.**
 - **Help.**
+
+### A form's designer while a run is paused (2026-11-21, #870, IDE, SP6)
+
+**The question.** Can a control be added to a form, or a property changed in the designer, while a run is paused in
+break mode? #870 needs the answer to choose how HexIDE treats a designer change during a run.
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console. A one-form Standard EXE:
+Form1 held one CommandButton, and its `Form_Load` was `Stop` followed by `Debug.Print Me.Controls.Count`. F5 stopped
+on the `Stop`, which is break mode, with the title bar reading `[break]`.
+1. **Started with no designer open.**
+2. **Started again with Form1's designer open,** after Run > End.
+
+**In break mode:**
+- **The Toolbox, the Properties window and the Form Layout window were gone from the screen.** They came back at Run >
+  End.
+- **The View menu** had Object (Shift+F7), Properties Window, Form Layout Window, Property Pages and Toolbox greyed.
+  Code, the Immediate, Locals and Watch windows, the Call Stack and the Project Explorer were enabled.
+- **Shift+F7** with Form1 selected in the Project Explorer opened nothing.
+- **The Project Explorer's context menu on Form1** had View Object, Properties, Save, Save As, Remove and Print greyed.
+  View Code was enabled. Add was not greyed; its submenu wasn't opened.
+- **A designer open when the run started was closed.** The Window menu listed only `Pbrk - Form1 (Code)`. At Run >
+  End the designer came back, behind the code window.
+
+So VB6 offers no way to reach a form's designer while a run is paused. No control can be added or moved and no
+design-time property set until the run ends.
+
+### Not measured
+
+- **The same while the program runs** rather than paused. The Toolbox and Properties window were seen only in break
+  mode.
+- **A UserControl's designer** during a run of a project that uses it.
+- **Project > Add Form, or Add's submenu,** in break mode.
