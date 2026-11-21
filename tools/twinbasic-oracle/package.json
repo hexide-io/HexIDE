@@ -1,0 +1,10 @@
+{
+  "name": "twinbasic-oracle",
+  "private": true,
+  "type": "module",
+  "description": "Drives the stock twinBASIC IDE to save a project after one known change (#5139).",
+  "license": "MIT",
+  "dependencies": {
+    "playwright-core": "1.65.0"
+  }
+}

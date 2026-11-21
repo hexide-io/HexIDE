@@ -1,4 +1,6 @@
-# Published container fixtures
+# Container fixtures
+
+## Published containers
 
 Both binary files are unmodified downloads from `twinbasic/documentation`, commit
 `7b8f46be210e857a11e15a0d68ee71e2aced4878`, retrieved 2026-10-18:
@@ -31,3 +33,36 @@ node IDE/HexIDE.TwinBasic.Tests/Fixtures/generate-manifest.mjs artifacts/twinbas
 The helper only reads the fixture and writes its adjacent JSON. The pinned tool's `export` command was
 also run on the impexp project (11 files, 5 folders). High-bit UInt64 revisions and non-zero revision
 trailers have additional synthetic tests, since these fixtures do not establish those edge cases.
+
+## Saved by the twinBASIC IDE (#5139)
+
+The `tb1044-*.twinproj` files were saved by the twinBASIC IDE itself, BETA 1044, from its Standard EXE template at
+its default options. Each one is byte for byte what the IDE wrote. The template's own icon
+(`Resources/ICON/twinBASIC.ico`) is part of every one, as decided on the Team Desk (q-5139-fixture-icon).
+
+**How they were made.** `tools/twinbasic-oracle/` drove the IDE's front end in a Hyper-V VM on 2026-11-20: Windows
+11 Pro 26300, WebView2 157.0.4341.60, the zip's SHA-256 matching the release's digest. The twinBASIC compiler was
+launch-and-watch only: nothing read, hooked or instrumented it. The IDE serves as an oracle by the maintainer's
+decision of 2026-11-20, with its author's agreement (#5138).
+
+**How to read them.** Every save after the first comes from a session the harness opened on an earlier file, and
+the saves in one session follow each other. So a file differs from the one it was made from by its change, plus,
+for a session's first save, what reopening does: on BETA 1044, every file's revision rises by 2 and every folder
+writes its children in reverse order. #5140 has the measurements.
+
+| File | Made from | Change, then save |
+|---|---|---|
+| `tb1044-01-new-project.twinproj` | the template | A new Standard EXE named `NewProject`, saved where the Save dialog offered. In the harness's own new-project run, a second save straight after the first was byte-identical to it |
+| `tb1044-02-reopened.twinproj` | 01, reopened | No change |
+| `tb1044-03-reopened-twice.twinproj` | 02, reopened | No change |
+| `tb1044-04-one-character.twinproj` | 01, reopened, then saved | `Form1.twin`'s `[Description("")]` became `[Description("x")]` |
+| `tb1044-05-module-added.twinproj` | 02, in its session | Sources > Add > Add Module (.TWIN), keeping `MyModule.twin` |
+| `tb1044-06-module-renamed.twinproj` | 05, in its session | `MyModule.twin` renamed `Helpers.twin` |
+| `tb1044-07-folder-added.twinproj` | 06, in its session, after `Helpers.twin` was deleted, which saved bytes identical to 02 | Sources > Add > Add Folder, keeping `MyFolder` |
+| `tb1044-08-form-added.twinproj` | 07, in its session | Sources > Add > Add Windows Form, keeping `MyForm` |
+| `tb1044-09-setting-applied.twinproj` | 01, reopened, then saved | Project Settings: "Use Project ID for type library ID" set to Yes and applied, which saved the project itself |
+| `tb1044-10-setting-then-saved.twinproj` | 09, in its session, after the compiler restarted from the file | No change |
+
+Every file except 01 and 08 was made a second time by the harness and matched byte for byte. 01 and 08 can't be:
+a new project gets a fresh `project.id`, and a new form a fresh `FormDesignerId`. The harness's own new-project run
+differed from 01 only in those two GUIDs.
