@@ -164,11 +164,35 @@ driven by hand, its steps were replayed from the console agent's log.
 | *Where VB6's designer puts a control's block* (#1481) | the same: every control block |
 | *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
 
+**#1675's interpreter rows, rebuilt from their sections' tables (2026-11-21).** Each project was built with `/make` as native code and as p-code, and run in vb6.exe's IDE with `/runexit`, all on the guest's console. All three modes logged the same lines in every project.
+- **_Unload Me_ (#973): all five IDE probes give their table's answer.** They are:
+  - `Unload Me` and the statements after it;
+  - a WM_CLOSE, refused and then allowed;
+  - `Unload Me` in the startup form's Load;
+  - the 364 at `Form2.Show`, with `Forms.Count` 1;
+  - a refusal in Load.
+
+  The refusal in Load also raised Paint after Resize and Activate. The console draws the form, where session 0 doesn't.
+- **_Several forms_ (#822): the modal probes 6a and 6b and section 7's run's-end probes give their table's answer,** with the Terminate order as #2496 corrected it.
+  - The modal probes: Form1's Timer ticked under the modal form, 4 to 6 times in each mode, with `Form1.Enabled` False. The statement after `Show vbModal` ran after the handler that unloaded or hid Form2 had returned.
+  - The run's-end probes: Sub Main showing a form, loading one hidden, and showing one modally; and the last visible form unloading while another stays loaded.
+  - **The Terminates at the run's end come in the order the project file lists the forms, not the order they were created,** as #2496 and #2497 found on 2026-10-28. This is now confirmed in the IDE too.
+    - Forms created as Form3, Form1, Form2, in a project listing Form1, Form2, Form3, terminated Form1, Form2, Form3.
+    - Created as Form1, Form3, Form2, in a project listing Form3, Form2, Form1, they terminated Form3, Form2, Form1.
+    - The section's first wording, creation order, came from probes that made their forms in the project's order, so they couldn't tell the two apart.
+- **_The App object_ (#136): its F5 column holds in the IDE.**
+  - `App.Title` is `TitleKey`, with no closing quote, as #1483 found.
+  - `App.EXEName` is the `.vbp`'s name (`Project1`), not `ExeName32` or `Name`.
+  - `App.Path` is the project's folder.
+  - `App.ProductName` is empty.
+  - `App.PrevInstance` is False.
+  - The version is 1.0.0, and the four version strings are empty.
+
 **Not measured again:**
 - *The reset prompt*'s rows with *Notify Before State Loss* changed, since setting that option changes the IDE for
   everyone using the guest;
-- the IDE rows of sections whose probes were not kept, beyond the spot check above, *Several forms* (#822) and
-  *Unload Me* (#973) among them, and what the IDE writes for member attributes (#273).
+- what the IDE writes for member attributes (#273), and the IDE rows of other sections whose probes were not kept,
+  beyond the spot check and #1675's interpreter rows above.
 
 Both are #1675.
 
