@@ -690,6 +690,7 @@ added afterwards.
 - [Make Project Group (2026-10-23, #746, design-time, IDE, release build)](make-project-group.md#make-project-group-2026-10-23-746-design-time-ide-release-build)
 - [A project group's file, as VB6 writes it (2026-11-14, #579, design-time, IDE, SP6)](a-project-groups-file-as-vb6-writes-it.md#a-project-groups-file-as-vb6-writes-it-2026-11-14-579-design-time-ide-sp6)
 - [A project group naming a file that isn't a .vbp (2026-11-16, #4051, design-time, IDE, SP6)](a-project-group-naming-a-file-that-isnt-a-vbp.md#a-project-group-naming-a-file-that-isnt-a-vbp-2026-11-16-4051-design-time-ide-sp6)
+- [Which lines a .vbg and a .vbp can hold, through /make (2026-11-21, #2757, `/make`, SP6)](a-project-group-naming-a-file-that-isnt-a-vbp.md#which-lines-a-vbg-and-a-vbp-can-hold-through-make-2026-11-21-2757-make-sp6)
 - [A project's reference to another project of its group (2026-11-19, #4899, design-time and run, IDE, SP6)](a-projects-reference-to-another-project-of-its-group.md#a-projects-reference-to-another-project-of-its-group-2026-11-19-4899-design-time-and-run-ide-sp6)
 - [How a running form stacks its controls (2026-10-23, #1497, IDE, release build)](how-a-running-form-stacks-its-controls.md#how-a-running-form-stacks-its-controls-2026-10-23-1497-ide-release-build)
 - [Too few arguments to an intrinsic (2026-10-23, #1512)](too-few-arguments-to-an-intrinsic.md#too-few-arguments-to-an-intrinsic-2026-10-23-1512)
