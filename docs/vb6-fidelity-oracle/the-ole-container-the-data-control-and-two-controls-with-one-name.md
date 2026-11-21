@@ -148,11 +148,8 @@ repository holds another VB6-saved `VB.Data` form.
 
 ### Not measured
 
-- **What `/make` waits on for a same-type pair (P1).** Run it in the guest's console session, as in the README's
-  "Reaching the VB6 *IDE*", and capture the screen if it again produces nothing. Don't call it a hang or a prompt until
-  it has been seen.
-- **Whether the empty container's save writes a `.frx`.** Repeat E's empty save in a fresh directory and list the
-  directory.
+- **What `/make` waits on for a same-type pair (P1),** and **whether the empty container's save writes a `.frx`.** Both
+  were measured on 2026-11-21, in the last section below.
 - **Which of P3's four properties** (DataChanged, DataText, FileNumber, Format) are refused.
 - **p-code builds** of any row.
 
@@ -342,3 +339,32 @@ Refresh err=0 Text1=Jacobs, Russell
 Data2.Recordset.Type=1 err=0
 end
 ```
+
+## The rows that were owed: a same-type pair under `/make`, and the empty container's save (2026-11-21, #856, SP6)
+
+**Which VB6.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven through the guest's console session, with
+screens taken from the host's framebuffer. Both projects were the hand-written `.vbp` described under P1 above, with no
+`CompilationType` line, so native code.
+
+**P1 under `/make`, in the console session.** It is the same two-CommandButton form, both `Cmd1` with no Index. It was
+started from the console's Run box as `VB6.EXE /make … /out …`.
+- **Form1.log** read `Line 20: Did not find an index property and control Cmd1 already exists.`, as before.
+- **The `/out` file** read `Errors during load. Refer to '…\Form1.log' for details` 15 seconds in and again 75 seconds
+  in, with no build-result line. No exe was written.
+- **The console showed nothing.** No dialog and no window appeared. Between the pictures at 15 and 75 seconds, the only
+  pixels that changed were the taskbar clock's.
+- **VB6 was busy.** It reported itself responding, with two threads, and had used 118.9 seconds of processor time in
+  119 seconds; over one 10-second window it used 10.1. It was stopped by its process id at 119 seconds.
+
+So `/make` on a same-type pair writes the log line and the load message, then spins one processor and shows nothing.
+The mixed-type pairs above, by contrast, went on to build. What it is doing wasn't established.
+
+**E's empty container, saved in a fresh folder.** The folder held only `Form1.frm` (909 bytes) and `Probe.vbp`. E's form
+was opened in VB6's IDE, its designer shown, and the form saved with Ctrl+S.
+- **No `.frx` was written.** The folder afterwards held `Form1.frm` (911 bytes) and the unchanged `Probe.vbp`.
+- **The two bytes are trailing spaces.** The file differed only in `Begin VB.Form Form1` and `Begin VB.OLE OLE1`, which
+  gained one each.
+- **The designer drew the empty container as a white box of the control's size** (145 × 89 pixels for 2175 × 1335
+  twips). It has the sunken two-pixel edge a 3-D TextBox has:
+  `A0A0A0` and `696969` on the top and left, and `E3E3E3` and white on the bottom and right, read through RGB565.
+  Nothing was inside it.

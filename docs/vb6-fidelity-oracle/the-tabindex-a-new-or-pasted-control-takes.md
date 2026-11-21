@@ -73,3 +73,48 @@ The same two forms also fit "renumber every control in file order". Which is it,
   - the designer's own load: these rows are a made exe's, and the SSTab re-save is the only IDE row;
   - controls inside containers;
   - classes other than TextBox.
+
+## Renaming a control to a name in use, and pasting a copied control (2026-11-21, #1397, #1480, design-time, IDE, SP6)
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console through Hyper-V's synthetic
+keyboard and mouse, with the screen read from the host's framebuffer.
+- **The form:** five CommandButtons, Command1 to Command5, none with an Index; Frame1 holding Check1; and Text1.
+- **A rename:** select a control, click the `(Name)` value in the Properties window, type the name, press Return.
+- **A paste:** Ctrl+C on a control, select a container, Ctrl+V.
+
+Each result was read from the saved `.frm`.
+
+**A rename to a name in use (#1397).** Renaming Command2 to `Command1` showed a message box:
+- titled "Microsoft Visual Basic", with the exclamation icon;
+- reading `You already have a control named 'Command1'.  Do you want to create a control array?`, with two spaces after
+  the first full stop;
+- with the buttons Yes, which is the default, No and Help.
+
+| What was done | What VB6 did |
+|---|---|
+| Answered Yes | The original Command1 got `Index = 0`, and the renamed button became `Command1` with `Index = 1`, keeping its caption `Command2`. Positions and TabIndex didn't change. |
+| Renamed Command3 to `Command1`, now an array | **No message.** It became `Command1(2)`, `Index = 2`. |
+| Renamed Command5 to `Command4`, and answered No | The rename was undone: the control stayed `Command5`, and no other message followed. |
+
+**A paste (#1480).** Command4 was copied, then pasted three times. Each paste showed the same message box, naming
+`Command4`.
+
+| Selected before Ctrl+V | Answer | Where the copy landed | Name |
+|---|---|---|---|
+| Frame1 | No | **inside Frame1**, at Left 0, Top 0 | `Command2`, TabIndex 8 |
+| the form, a second paste of the same copy | No | the form, at 0, 0 | `Command3`, TabIndex 9 |
+| the form, a third paste | Yes | the form, at 0, 0 | `Command4`, `Index = 1`, TabIndex 10; the original became `Index = 0` |
+
+- **A paste lands at the top-left of the selected container.** That holds whether the container is a Frame or the
+  form. The second and third pastes, both onto the form, landed at 0, 0, one on top of the other.
+- **Answering No gives the copy the lowest free default name.** That was `Command2` and then `Command3`, both free by
+  then. The caption stays `Command4`.
+- **The next TabIndex** goes to each copy.
+- **Each pasted block is written first in its container.** The save listed `Command4(1)`, then `Command3`, before the
+  original controls, and `Command2` before Check1 inside Frame1.
+
+### Not measured
+
+- **Help** in the message box.
+- **A paste while a control that isn't a container is selected.**
+- **A rename by typing in the code window,** or to a name that isn't a control's.

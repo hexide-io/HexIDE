@@ -122,3 +122,109 @@ So **Shift selects from the anchor to the item and clears the rest.** The anchor
 
 **`MultiSelect` itself.** `List1.MultiSelect` reads 1, an Integer, and `List2.MultiSelect` 2. Assigning it, `List1.MultiSelect = 0`, is the compile error "Can't assign to read-only property", built as p-code. A form re-saved by the VB6 IDE, with hexide-frm's #120 recipe (bare values, the code dirtied, then Ctrl+S), writes `MultiSelect     =   1  'Simple` and `MultiSelect     =   2  'Extended`, after `Left` and before `TabIndex`. A list given `MultiSelect = 0` has the line dropped.
 
+### More keys, Shift with a drag, Ctrl+Shift+click, Selected() from code, and items added or removed around the focus (2026-11-21, #1424, SP6)
+
+**The question.** #1424 listed what the rows above left unmeasured on a list with MultiSelect 1 or 2:
+- Home, End, PageUp, PageDown and a letter key;
+- Shift with a drag;
+- Ctrl+Shift+click with other items selected;
+- `Selected(i) = True` from code;
+- `AddItem` and `RemoveItem` around the focused item;
+- `List(i) =` on a selected item.
+
+**The probe:**
+- **The program drives itself on the guest's console,** as the second probe above was driven: `keybd_event`, `SetCursorPos` and `mouse_event`, at the centre of each item's rectangle (`LB_GETITEMRECT`).
+- **The lists:**
+  - an Extended and a Simple list of 20 items showing 6 rows, `alpha` to `tango` with `mango` at 15;
+  - an Extended, a Simple and a MultiSelect 0 list of 12 items, `a1 b1 c1 a2 b2 c2 d1 e1 f1 d2 e2 f2`, all showing.
+- **After each step** it logged:
+  - the selected indexes;
+  - `ListIndex`;
+  - Windows' own focus (caret) index and anchor index, read with `LB_GETCARETINDEX` and `LB_GETANCHORINDEX`;
+  - `TopIndex`.
+- **The form** was the foreground window throughout.
+- **The builds:** `/make` on vb6.exe SP6, as native code and as p-code. The two logged the same lines.
+
+**The keys, from a click on item 2 of the 20-item lists.** Each row follows the one before:
+
+| Key | Extended: selected, focus, anchor | Simple: selected, focus |
+|---|---|---|
+| Home | 0 alone; 0; 0 | 2, unchanged; 0 |
+| End | 19 alone; 19; 19, scrolled to top 14 | 2; 19 |
+| PageUp | 14 alone: the top row | 2; 14 |
+| PageUp again | 9 alone: a page is five rows, one less than shown | 2; 9 |
+| PageDown | 14 alone: the bottom row | 2; 14 |
+| M | 15, `mango`: the next item starting with M after the focus | 2; 15 |
+| M again | 12, `mike`: the search wraps | 2; 12 |
+| D | 3, `delta` | 2; 3 |
+| Shift+Home | 0 to 3; focus 0; **anchor stays 3** | 2; 0 |
+| Shift+End | 3 to 19; focus 19 | 2; 19 |
+| Shift+PageUp | 3 to 14; focus 14 | 2; 14 |
+| Ctrl+Home, Ctrl+End, Ctrl+PageUp | 0, 19 and 14 alone, as without Ctrl | 2; the focus moves |
+| Space | unchanged | **2 and 14**: Space toggles the focused item, and the anchor becomes 14 |
+| Shift+K | **10 to 14**, `kilo` to the anchor | 2 and 14; focus 10 |
+
+- **On an Extended list every one of these keys selects the item it reaches alone,** as Up and Down do. With Shift, it selects from the anchor to that item, and the anchor stays. Shift with a letter extends too.
+- **On a Simple list they move only the focus.**
+
+**Shift with a drag,** on the 12-item lists:
+
+| Input | Selected after | Focus | Anchor |
+|---|---|---|---|
+| Extended: click 1, then Shift+press 3, drag to 6, release | 1 to 6 | 6 | 1 |
+| Extended: click 1, then Shift+drag from 6 to 3 | 1 to 3 | 3 | 1 |
+| Extended: click 1, Ctrl+click 3, then Shift+drag from 5 to 8 | 3 to 8: 1 is cleared | 8 | 3 |
+| Simple: click 1, then Shift+drag from 3 to 6 | 1 and 3: 3 toggled at the press, as without Shift | 6 | 3 |
+
+**On an Extended list a Shift+drag selects from the anchor to the item released over.** The item pressed doesn't matter. On a Simple list Shift changes nothing.
+
+**Ctrl+Shift+click,** on the Extended list:
+
+| Before | Then | Selected after | Focus, anchor |
+|---|---|---|---|
+| click 0, Ctrl+click 8, Ctrl+click 5: 0, 5 and 8 | Ctrl+Shift+click 3 | **0, 3, 4, 5 and 8** | 3, 5 |
+| the same | Shift+click 3 | 3, 4 and 5 | 3, 5 |
+| click 0, Ctrl+click 2, Ctrl+click 6: 0, 2 and 6 | Ctrl+Shift+click 8 | **0, 2, 6, 7 and 8** | 8, 6 |
+| click 6, Ctrl+click 1, Ctrl+click 6: only 1, and the anchor 6 not selected | Ctrl+Shift+click 9 | **1**, unchanged | 9, 6 |
+
+**Ctrl+Shift+click adds the range from the anchor to the item, and keeps what was selected outside it.** Shift+click alone clears the rest. When the anchor isn't selected, the range takes the anchor's state: nothing was added. The obvious guess, that Ctrl+Shift+click gives the range alone as Shift+click does, is wrong.
+
+The last row of "The anchor" above fits the same rule. There, the items the previous Shift+click had added beyond the anchor were cleared at the press. That's reasoned from the two probes, not measured as one sequence.
+
+**`Selected(i)` from code,** on the Extended list:
+
+| Steps | Selected after | Focus | Anchor |
+|---|---|---|---|
+| click 1, then `Selected(5) = True` | 1 and 5 | **5** | **5** |
+| then Shift+Down | 5 and 6 | 6 | 5 |
+| click 1, `Selected(5) = True`, then Shift+click 8 | 5 to 8 | 8 | 5 |
+| click 1, then `Selected(1) = False` | none | 1 | 1 |
+| then Shift+click 4 | **2 to 4**: the deselected anchor isn't in the range | 4 | 1 |
+| click 3, then `Selected(7) = True` and `Selected(9) = True` | 3, 7 and 9 | 9 | 9 |
+| then Down | 10 alone | 10 | 10 |
+
+**`Selected(i) = True` moves the focus and the anchor to item i,** and `ListIndex` reads i. A following Shift key or Shift+click ranges from there. `Selected(i) = False` on the anchor leaves the anchor there, deselected.
+
+**`AddItem` and `RemoveItem` around the focus,** on the 12-item lists, each from a click on item 4:
+
+| Step | Simple and Extended: selected, focus, anchor | MultiSelect 0: selected and `ListIndex` |
+|---|---|---|
+| `AddItem "zz", 1` | **5**, the same item; focus **4**, the index kept; anchor 4 | 5; ListIndex **5**: it follows the item |
+| then `RemoveItem 0` | 4; 4; anchor **-1** | 4; 4 |
+| then `AddItem "yy"`, at the end | unchanged | unchanged |
+| `RemoveItem 4`, the focused item | none; focus 3 | none; ListIndex **-1**, focus 3 |
+| from a click on 11, the last: `RemoveItem 11` | none; focus 10, the new last | none; ListIndex -1, focus 10 |
+
+- **The selection follows its items.**
+- **On a multi list the focus keeps its index,** so it lands on another item when one is added or removed before it.
+- **Removing the focused item moves the focus to the one before it.**
+- **Each `RemoveItem` reset the anchor to -1:** one before it, the anchor itself, and the last item. An `AddItem` before it left the anchor's index at 4, now on another item.
+- **On a MultiSelect 0 list `ListIndex` follows its item, and becomes -1 when that item is removed.**
+
+**`List(i) =` on a selected item:**
+- After a click on 4, `List(4) = "new"` left 4 selected, with the focus on 4, on all three lists.
+- With 2 and 4 selected and the focus on 4, `List(2) = "new2"` left both selected **and moved the focus and the anchor to 2**, on the Simple and the Extended list.
+
+**Not measured:**
+- **The focus rectangle's drawing.** The focus index above says which item has it.
+- **A list scrolled away from its top during a drag.**
