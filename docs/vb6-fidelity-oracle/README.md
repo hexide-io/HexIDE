@@ -671,6 +671,7 @@ added afterwards.
 - [The intrinsics #1465 left unmeasured, and the type library's names (2026-11-16, #4145)](named-arguments.md#the-intrinsics-1465-left-unmeasured-and-the-type-librarys-names-2026-11-16-4145)
 - [DDB's names (2026-11-17, #2524)](named-arguments.md#ddbs-names-2026-11-17-2524)
 - [The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)](the-tabindex-a-new-or-pasted-control-takes.md#the-tabindex-a-new-or-pasted-control-takes-2026-10-22-925-design-time)
+- [Renaming a control to a name in use, and pasting a copied control (2026-11-21, #1397, #1480, design-time, IDE, SP6)](the-tabindex-a-new-or-pasted-control-takes.md#renaming-a-control-to-a-name-in-use-and-pasting-a-copied-control-2026-11-21-1397-1480-design-time-ide-sp6)
 - [Drawing a control into a Frame or PictureBox (2026-10-26, #2039, design-time)](drawing-a-control-into-a-frame-or-picturebox.md#drawing-a-control-into-a-frame-or-picturebox-2026-10-26-2039-design-time)
 - [Collection (2026-10-22, #1471)](collection.md#collection-2026-10-22-1471)
 - [As New (2026-10-22 and 23, #435)](as-new.md#as-new-2026-10-22-and-23-435)
