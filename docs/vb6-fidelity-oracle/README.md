@@ -566,6 +566,7 @@ added afterwards.
 - [With Windows' keyboard cues off (2026-11-21, #919, SP6)](a-captions-access-key.md#with-windows-keyboard-cues-off-2026-11-21-919-sp6)
 - [MousePointer's names and pointers (2026-10-22, #120)](mousepointers-names-and-pointers.md#mousepointers-names-and-pointers-2026-10-22-120)
 - [RGB, QBColor and MsgBox's style (2026-10-12)](rgb-qbcolor-and-msgboxs-style.md#rgb-qbcolor-and-msgboxs-style-2026-10-12)
+- [A message box is modal to the whole program (2026-11-21, #834, SP6)](rgb-qbcolor-and-msgboxs-style.md#a-message-box-is-modal-to-the-whole-program-2026-11-21-834-sp6)
 - [vbMsgBoxRight and vbMsgBoxRtlReading: the box's layout (2026-11-14, #3014)](rgb-qbcolor-and-msgboxs-style.md#vbmsgboxright-and-vbmsgboxrtlreading-the-boxs-layout-2026-11-14-3014)
 - [Enter, Escape and the default-button bits (2026-11-21, #827, SP6)](rgb-qbcolor-and-msgboxs-style.md#enter-escape-and-the-default-button-bits-2026-11-21-827-sp6)
 - [Identifier case (2026-10-12, #811)](identifier-case.md#identifier-case-2026-10-12-811)
