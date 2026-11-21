@@ -697,6 +697,7 @@ added afterwards.
 - [Loading an element of a UserControl array (2026-11-16, #4337, SP6)](loading-an-element-of-a-usercontrol-array.md#loading-an-element-of-a-usercontrol-array-2026-11-16-4337-sp6)
 - [Write # and Input # (2026-10-23, #1521)](write--and-input.md#write--and-input--2026-10-23-1521)
 - [Make Project Group (2026-10-23, #746, design-time, IDE, release build)](make-project-group.md#make-project-group-2026-10-23-746-design-time-ide-release-build)
+- [What Make Project Group's Build writes (2026-11-21, #1515, IDE, SP6)](make-project-group.md#what-make-project-groups-build-writes-2026-11-21-1515-ide-sp6)
 - [A project group's file, as VB6 writes it (2026-11-14, #579, design-time, IDE, SP6)](a-project-groups-file-as-vb6-writes-it.md#a-project-groups-file-as-vb6-writes-it-2026-11-14-579-design-time-ide-sp6)
 - [A project group naming a file that isn't a .vbp (2026-11-16, #4051, design-time, IDE, SP6)](a-project-group-naming-a-file-that-isnt-a-vbp.md#a-project-group-naming-a-file-that-isnt-a-vbp-2026-11-16-4051-design-time-ide-sp6)
 - [Which lines a .vbg and a .vbp can hold, through /make (2026-11-21, #2757, `/make`, SP6)](a-project-group-naming-a-file-that-isnt-a-vbp.md#which-lines-a-vbg-and-a-vbp-can-hold-through-make-2026-11-21-2757-make-sp6)
