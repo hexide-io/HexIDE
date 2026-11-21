@@ -662,6 +662,7 @@ added afterwards.
 - [SetFocus (2026-10-15, #1061)](setfocus.md#setfocus-2026-10-15-1061)
 - [The Line control (2026-10-15, #163)](the-line-control.md#the-line-control-2026-10-15-163)
 - [The filesystem controls in VB6's designer (2026-11-21, #164, SP6)](the-filesystem-controls-in-vb6s-designer.md#the-filesystem-controls-in-vb6s-designer-2026-11-21-164-sp6)
+- [The designer's FileListBox lists files (2026-11-21, #164, SP6)](the-filesystem-controls-in-vb6s-designer.md#the-designers-filelistbox-lists-files-2026-11-21-164-sp6)
 - [What VB6's designer saves for a Line (2026-11-21, #163, SP6)](the-line-control.md#what-vb6s-designer-saves-for-a-line-2026-11-21-163-sp6)
 - [Sequential files (2026-10-17, #1145)](sequential-files.md#sequential-files-2026-10-17-1145)
 - [The CommonDialog control (2026-10-17, #1084)](the-commondialog-control.md#the-commondialog-control-2026-10-17-1084)
