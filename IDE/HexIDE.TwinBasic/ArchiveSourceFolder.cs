@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -12,6 +13,8 @@ public sealed class ArchiveSourceFolder
     private const int Limit = 64 * 1024 * 1024;
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
     internal Action<string>? Checkpoint { get; set; }
+    internal DistributionIdentity Identity { get; init; } = Distribution.Current;
+    internal string? ChosenRoot { get; set; }
 
     public ArchiveFolderResult Synchronize(string containerPath, CancellationToken cancellationToken = default)
     {
@@ -28,7 +31,8 @@ public sealed class ArchiveSourceFolder
         var manifest = CreateManifest(snapshot, Hash(bytes));
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, Json);
         if (manifestBytes.Length > Limit) throw new IOException("The folder manifest exceeds the synchronization byte limit.");
-        var paths = new Locations(source);
+        var root = ProjectLocalState.Resolve(source, folder: true, ChosenRoot, Identity);
+        var paths = new Locations(source, root);
         CheckAncestors(paths.Control);
         CheckAncestors(paths.Target);
         CheckAncestors(paths.Manifest);
@@ -53,10 +57,12 @@ public sealed class ArchiveSourceFolder
         }
         else
         {
+            ProjectLocalState.WriteFolderMarker(root);
             Directory.CreateDirectory(paths.Control);
             WriteNew(owner, Encoding.UTF8.GetBytes(ownership));
         }
         CheckAncestors(paths.Control);
+        ProjectLocalState.WriteFolderMarker(root);
         var lockPath = Path.Combine(paths.Control, "lock");
         CheckAncestors(lockPath);
         using var lease = new FileStream(lockPath, FileMode.OpenOrCreate,
@@ -399,10 +405,9 @@ public sealed class ArchiveSourceFolder
     private sealed record Journal(string Transaction, string NewHash, string? OldHash);
     private sealed class Locations
     {
-        public Locations(string source)
+        public Locations(string source, string root)
         {
             var name = Path.GetFileName(source);
-            var root = Path.Combine(Path.GetDirectoryName(source)!, ".hexide");
             Target = Path.Combine(root, ".twinproj", name);
             Manifest = Path.Combine(root, ".twinproj", ".manifests", name + ".json");
             Control = Path.Combine(root, ".twinproj-sync", name);

@@ -81,10 +81,14 @@ Exact block rendering and localization-key
 split require acceptance and later running-IDE verification.
 
 Keep assembly/resource URIs, schema ids, tool ids, LSP/DAP vocabulary, session headers and environment
-names stable. Branding changes presentation, not client compatibility. Project-local `.user.hexproj`
-and archive working markers need an explicit sharing/namespacing review; a data-root redirect cannot
-isolate them. No indiscriminate renaming or speculative protocol identity is prescribed. The existing
-surface table identifies those remaining consumer reviews rather than claiming a measured wire value.
+names stable. Branding changes presentation, not client compatibility. Project-local folder and sidecar
+names may be configured by `projectFolder` and `userSidecar` (#5149,
+superseding this part of #3420). State stays shared: Core discovers grammar-valid sibling names by
+stable markers, with own and stock names recognized without markers. Links are refused. One found
+is used; none uses the opening distribution's name; several require a session-only choice before
+loading or writing. Recovery copies are excluded by the suffix grammar. A data-root redirect cannot
+isolate project-local state. No indiscriminate renaming or speculative protocol identity is prescribed.
+The existing surface table identifies those remaining consumer reviews rather than claiming a measured wire value.
 
 ## Repack tool and distribution trust
 

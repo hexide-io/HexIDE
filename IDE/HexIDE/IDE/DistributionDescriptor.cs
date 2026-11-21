@@ -43,7 +43,7 @@ public static partial class DistributionDescriptor
     private const int MaximumLogoDimension = 1024;
 
     private static readonly string[] Members =
-        ["schemaVersion", "id", "name", "tagline", "copyright", "credits", "links", "logo", "defaultProfile"];
+        ["schemaVersion", "id", "name", "tagline", "copyright", "credits", "links", "logo", "defaultProfile", "projectFolder", "userSidecar"];
 
     private static readonly string[] LinkRoles = ["home", "support", "repository"];
 
@@ -150,9 +150,17 @@ public static partial class DistributionDescriptor
             var logo = ReadLogo(root, file, readAsset);
             var defaultProfile = ReadDefaultProfile(root, file);
 
+            var projectFolder = OptionalString(root, "projectFolder", file) ?? ProjectLocalState.StockFolder;
+            var userSidecar = OptionalString(root, "userSidecar", file) ?? ProjectLocalState.StockSidecar;
+            foreach (var (member, value, valid) in new[] {
+                ("projectFolder", projectFolder, ProjectLocalState.ValidFolder(projectFolder)),
+                ("userSidecar", userSidecar, ProjectLocalState.ValidSidecar(userSidecar)) })
+                if (!valid) throw Refuse(file, $"'{member}' is not a valid project-local state name: '{value}'",
+                    "Str.Startup.Descriptor.ProjectLocalName", member, value);
+
             return new DistributionIdentity(id, name, tagline?.Text, copyright, null,
                 links.GetValueOrDefault("home"), links.GetValueOrDefault("support"), links.GetValueOrDefault("repository"),
-                logo, defaultProfile, tagline, credits);
+                logo, defaultProfile, tagline, credits) { ProjectFolder = projectFolder, UserSidecar = userSidecar };
         }
     }
 

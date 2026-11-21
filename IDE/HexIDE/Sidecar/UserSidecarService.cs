@@ -16,7 +16,7 @@ using Serilog;
 namespace HexIDE.Sidecar;
 
 /// <summary>
-/// Keeps each project's bookmarks and breakpoints in its per-user sidecar, <c>&lt;project&gt;.user.hexproj</c> beside
+/// Keeps each project's bookmarks and breakpoints in its discovered per-user sidecar beside
 /// the .vbp, which the user chooses to commit or ignore.
 /// </summary>
 /// <remarks>
@@ -62,6 +62,7 @@ public partial class UserSidecarService : IUserSidecarService
     // By instance, not by name or path: a .vbg can hold two projects called the same thing, and a project not yet
     // saved has no path.
     private readonly Dictionary<ProjectDefinition, ProjectState> projects = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<string, string> sessionChoices = new(HexIDE.IO.HostFilePath.Comparer);
 
     // Projects whose stores this service is filling or emptying, so the change events are its own and save nothing.
     private readonly HashSet<ProjectDefinition> quiet = new(ReferenceEqualityComparer.Instance);
@@ -105,10 +106,16 @@ public partial class UserSidecarService : IUserSidecarService
     /// <remarks>Replaced by tests, which hold the read open to close or change projects meanwhile.</remarks>
     internal Func<string, Task<string>> ReadText { get; init; } = path => File.ReadAllTextAsync(path);
 
+    internal DistributionIdentity Identity { get; init; } = Distribution.Current;
+    internal Func<IReadOnlyList<string>, Task<string?>>? Choose { get; init; }
+
     private sealed class ProjectState
     {
         /// <summary>The sidecar path this state describes: where it was read, or last written.</summary>
         public string? ReadFrom;
+        public string? ProjectPath;
+        public string? ChosenPath;
+        public string? ResolvedPath;
 
         /// <summary>
         /// The sidecar as last read or written at <see cref="ReadFrom"/>, or carried there from where the project
@@ -222,17 +229,43 @@ public partial class UserSidecarService : IUserSidecarService
 
     public async Task LoadAsync(ProjectDefinition project)
     {
-        var path = SidecarPath(project);
-        if (path == null) return;
-
-        // Registered before the read, even when there is no file: a sidecar that appears there later is this
-        // project's own, and a project closed while its file is read can be told apart once the read completes.
-        // The names it owns are taken now, while the project is as it opened, for the same reason.
-        var owned = OwnedAtOpen(project);
-        var state = new ProjectState { ReadFrom = path, Loading = File.Exists(path), Owned = owned };
+        if (project.AbsolutePath == null) return;
+        var state = new ProjectState { Loading = true, Owned = OwnedAtOpen(project), ProjectPath = project.AbsolutePath };
         lock (gate)
+        {
             projects[project] = state;
-
+            state.ChosenPath = sessionChoices.GetValueOrDefault(Path.GetFullPath(project.AbsolutePath));
+        }
+        IReadOnlyList<string> found;
+        try { found = ProjectLocalState.Find(project.AbsolutePath, folder: false, Identity); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning(ex, "Could not discover project-local sidecars for {Path}", project.AbsolutePath);
+            return;
+        }
+        if (state.ChosenPath != null && !found.Any(p => HexIDE.IO.HostFilePath.Equals(p, state.ChosenPath)))
+            state.ChosenPath = null;
+        if (found.Count > 1 && state.ChosenPath == null)
+        {
+            var choice = Choose == null ? null : await Choose(found);
+            lock (gate)
+            {
+                if (!projects.TryGetValue(project, out var current) || !ReferenceEquals(current, state)) return;
+                if (choice == null) return;
+                state.ChosenPath = choice;
+                sessionChoices[Path.GetFullPath(state.ProjectPath!)] = choice;
+            }
+        }
+        string? path;
+        lock (gate)
+        {
+            if (!projects.TryGetValue(project, out var current) || !ReferenceEquals(current, state)) return;
+            path = SidecarPath(project);
+            if (path == null) return;
+            state.ReadFrom = path;
+            state.Loading = File.Exists(path);
+        }
+        var owned = state.Owned!;
         if (!state.Loading) return;
 
         UserSidecarData? data = null;
@@ -820,6 +853,7 @@ public partial class UserSidecarService : IUserSidecarService
                 .Concat(source?.CollectedModuleHeaders ?? []).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             var data = new UserSidecarData
             {
+                Kind = ProjectLocalState.SidecarKind,
                 Version = version,
                 CollectedModuleHeaders = collected.Count > 0 ? collected : null,
                 CodeBookmarks = bookmarks.Count > 0 ? bookmarks : null,
@@ -840,6 +874,7 @@ public partial class UserSidecarService : IUserSidecarService
             var json = JsonSerializer.Serialize(data, s_jsonOptions);
             if (json != onDisk)
             {
+                ProjectLocalState.EnsureRegularPath(path);
                 AtomicFileWriter.WriteRecoverableText(path, json);
                 Log.Debug("UserSidecarService: Saved sidecar to {Path}", path);
             }
@@ -1040,18 +1075,37 @@ public partial class UserSidecarService : IUserSidecarService
         }
     }
 
-    private static string? SidecarPath(ProjectDefinition project)
+    private string? SidecarPath(ProjectDefinition project)
     {
         if (project.AbsolutePath == null) return null;
-        var dir = Path.GetDirectoryName(project.AbsolutePath)!;
-        var stem = Path.GetFileNameWithoutExtension(project.AbsolutePath);
-        return Path.Combine(dir, stem + ".user.hexproj");
+        var state = StateOf(project);
+        if (state.ProjectPath == null || !HexIDE.IO.HostFilePath.Equals(state.ProjectPath, project.AbsolutePath))
+        {
+            state.ProjectPath = project.AbsolutePath;
+            state.ChosenPath = sessionChoices.GetValueOrDefault(Path.GetFullPath(project.AbsolutePath));
+            state.ResolvedPath = null;
+        }
+        try
+        {
+            state.ResolvedPath ??= ProjectLocalState.Resolve(project.AbsolutePath, folder: false, state.ChosenPath, Identity);
+            ProjectLocalState.EnsureRegularPath(state.ResolvedPath);
+            return state.ResolvedPath;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning(ex, "Project-local sidecar is unavailable for {Path}", project.AbsolutePath);
+            return null;
+        }
     }
+
 }
 
 /// <summary>A project's sidecar as it is written: three formats' marks, its version, and whatever else it holds.</summary>
 internal class UserSidecarData
 {
+    [JsonPropertyName("kind")]
+    public string? Kind { get; set; }
+
     /// <summary>
     /// The highest format anything in this sidecar is written in. 1, or no version, counts from the old code
     /// window; 2 from the file's top; 3 from the header's end for code and the file's top for header marks.

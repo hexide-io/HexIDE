@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Không thể khởi chạy dự án (chưa tải dự án nào hoặc đã chạy)",
     "Str.AIChat.ProjectNotRunning": "Hiện không có dự án nào đang chạy",
     "Str.SessionEnd.UnsavedWork": "Thay đổi chưa lưu trong {0}",
-    "Str.Options.Addin.ReportedFailure": "Đã báo cáo sự cố lúc {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Đã báo cáo sự cố lúc {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Tên trạng thái cục bộ của dự án không hợp lệ trong '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Tìm thấy nhiều vị trí trạng thái cục bộ của dự án. Mỗi vị trí có thể chứa trạng thái đã lưu khác nhau. Sẽ không ghi gì cho đến khi bạn chọn một vị trí cho phiên này. Nhập số của vị trí hoặc hủy:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} là liên kết hoặc điểm nối, hoặc không còn ở vị trí đã tìm thấy, nên không có dữ liệu nào được đọc hoặc ghi tại đó."
   }
 }

@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="HexIDE.TwinBasic.Tests" />
+    <InternalsVisibleTo Include="HexIDE" />
   </ItemGroup>
   <ItemGroup>
     <!-- For ChildProcessJob only: HexIDE.Core has no dependencies of its own (#1689). -->

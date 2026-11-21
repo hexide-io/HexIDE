@@ -6,8 +6,8 @@ namespace HexIDE.IDE;
 /// </summary>
 /// <remarks>
 /// <b>Compatibility identities are not in here on purpose.</b> Assembly names, protocol ids, session headers,
-/// environment variable names and project vocabulary stay HexIDE's in every distribution, so existing clients
-/// and projects keep working. What changes is what a person reads.
+/// environment variable names and serialized project vocabulary stay HexIDE's in every distribution. The two
+/// project-local state names may be branded; discovery keeps existing projects shared across distributions.
 /// </remarks>
 public sealed class DistributionIdentity
 {
@@ -61,6 +61,9 @@ public sealed class DistributionIdentity
     /// installation. A profile changes preferences only, so this never affects <see cref="Id"/> or any path.
     /// </summary>
     public string? DefaultProfile { get; }
+
+    internal string ProjectFolder { get; init; } = ProjectLocalState.StockFolder;
+    internal string UserSidecar { get; init; } = ProjectLocalState.StockSidecar;
 
     public bool IsStock => Id == StockId;
 

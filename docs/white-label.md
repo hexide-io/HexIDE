@@ -36,6 +36,8 @@ The design is in [`design/white-label.md`](design/white-label.md).
 | `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, written with `/`, for About, New Project and the window icon. |
 | `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. Home and support appear in Help under your product's name when supplied; the home entry is labeled “Home Page”, distinct from the existing repository web entry. Without `repository`, that web entry keeps HexIDE's name and opens HexIDE's repository. |
 | `defaultProfile` | No | The profile used when the command line names none: a profile's name, or a folder inside the installation written with `/`, such as `branding/profile`. A profile sets your theme, keymap and defaults, and never your identity. `--profile`, including `--profile none`, still wins. [Your default profile](#your-default-profile) says what the folder holds. |
+| `projectFolder` | No | Project-local state folder; defaults to `.hexide`. A dot, then a lower-case letter or digit, then up to 31 lower-case letters, digits, dots, underscores or hyphens (33 characters total). No trailing or consecutive dots, `.hexide-` prefix, `.git`, `.svn`, `.hg` or `.bzr`. |
+| `userSidecar` | No | Project-local sidecar suffix; defaults to `.user.hexproj`. `.user.` followed by 1–32 lower-case letters, digits or hyphens (38 characters total). |
 
 A member that isn't in this table stops the IDE from starting. So does anything else wrong with the file: the IDE
 reports the file and the problem, and doesn't fall back to being HexIDE, because that would open HexIDE's settings
@@ -55,6 +57,27 @@ no `Icon` line uses the runner's neutral `form.ico` at F5, with or without a bra
 made EXE (#4187). This is HexIDE's choice: the default is big only; a form's own icon and `Icon = (None)`
 keep their existing behaviour. The IDE keeps its own or the brand's icon. The measured VB6 behaviour is in
 [the form-icon oracle](vb6-fidelity-oracle/a-forms-window-icon-no-icon-line.md).
+
+## Shared project-local state
+
+Project-local state stays shared across stock and branded distributions (#5149, superseding that part
+of #3420). Per-user settings, logs and recovery still follow the distribution id. A brand may name the
+project-local folder and sidecar, but opening a project in another distribution does not create a second copy.
+The archive layout inside the folder is unchanged.
+
+Discovery checks beside the saved project file. The opening distribution's names and stock's names
+count without a marker, preserving existing state. Other folder names must fit the `projectFolder`
+grammar and contain `project-state.json` with `{"kind":"hexide.project-state","version":1}`. Other
+sidecars must be named exactly the project's stem plus a suffix fitting the `userSidecar` grammar,
+contain JSON with `"kind":"hexide.user-sidecar"`, and be at most 4 MiB. Recovery copies do not fit that
+grammar and are kept without being adopted. Symbolic links, junctions and other reparse points are
+never adopted or written through. Folder writes and sidecar saves add the appropriate marker.
+
+One discovered location is used regardless of which distribution named it. With none, the opening
+distribution's name is used. With two or more, no location is loaded or written until the person
+chooses: the prompt lists the paths, explains that they may contain different saved state, and asks
+for a number. Cancel leaves all copies untouched. A choice lasts only for this session and is never
+saved in another file. Sidecar saves continue preserving unknown data and recovery copies.
 
 ## Translating your tagline and credits
 

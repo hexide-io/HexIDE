@@ -974,7 +974,7 @@ public sealed class SidecarMigrationTests : IDisposable
         await opened.Sidecar.SaveAsync(opened.Project);
 
         var written = ReadJson(SidecarPath);
-        written.Select(p => p.Key).Should().BeEquivalentTo("version", "codeBookmarks", "codeBreakpoints");
+        written.Select(p => p.Key).Should().BeEquivalentTo("kind", "version", "codeBookmarks", "codeBreakpoints");
         written["codeBookmarks"]!.AsObject().Select(p => p.Key).Should().Equal("Ledger");
         written["codeBreakpoints"]!.AsObject().Select(p => p.Key).Should().Equal("Utils");
     }

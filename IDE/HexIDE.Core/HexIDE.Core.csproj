@@ -23,6 +23,8 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="HexIDE.Tests" />
+        <InternalsVisibleTo Include="HexIDE.TwinBasic" />
+        <InternalsVisibleTo Include="HexIDE.TwinBasic.Tests" />
         <InternalsVisibleTo Include="HexIDE.Integration.Tests" />
         <InternalsVisibleTo Include="HexIDE.Runtime.Integration.Tests" />
         <!-- A project's target is first-party only until an add-in needs it: one vendor's name and a single value

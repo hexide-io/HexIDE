@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Proje başlatılamıyor (yüklü proje yok veya zaten çalışıyor)",
     "Str.AIChat.ProjectNotRunning": "Şu anda çalışan bir proje yok",
     "Str.SessionEnd.UnsavedWork": "Kaydedilmemiş değişiklikler: {0}",
-    "Str.Options.Addin.ReportedFailure": "{0} tarihinde bir sorun bildirildi: {1}"
+    "Str.Options.Addin.ReportedFailure": "{0} tarihinde bir sorun bildirildi: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: '{1}' içinde geçersiz proje yerel durum adı: '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Birden fazla proje yerel durum konumu bulundu. Her biri farklı bir kayıtlı durum içerebilir. Bu oturum için birini seçene kadar hiçbir şey yazılmayacak. Numarasını girin veya iptal edin:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} bir bağlantı veya birleşim noktası ya da artık bulunduğu konumda değil; bu nedenle buradan hiçbir şey okunmaz veya buraya hiçbir şey yazılmaz."
   }
 }
