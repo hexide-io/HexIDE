@@ -234,3 +234,46 @@ Save Project, other non-canonical orders, placement of newly added items, and pr
 Standard EXE remain unmeasured. HexIDE's slot retention for other recognised keys is its round-trip
 contract, not an additional VB6 measurement.
 
+## A copy of a `.vbp` built elsewhere: which relative paths it needs (2026-11-21, #749, SP6)
+
+**The question.** #749 would have Make with VB6 build from a copy of the project in a temporary folder, as Make
+Project does. Before relying on that, what do the `.vbp`'s relative paths resolve against? And what does `/make` do
+when a copy's relative path names something that isn't beside the copy: a module, a resource file, a related document
+or a reference?
+
+**The probe.** Seven `/make` builds with VB6.EXE 6.00.9782 (SP6), p-code, on a clone of the oracle guest. Each case was
+a folder holding `proj\Probe.vbp` and, where the target was present, a sibling `shared\` folder. Where it was missing,
+the `shared` folder didn't exist at all, as for a copy made somewhere else. vb6.exe ran with its own install folder as
+the working directory, so a path that resolved against the working directory would have failed every case. Each build
+that succeeded was run, and its program wrote its line.
+
+| `.vbp` line under test | `shared\` | `/make`, quoting the `/out` log |
+|---|---|---|
+| `Module=Module1; ..\shared\Module1.bas` | present | builds, and runs |
+| the same | absent | fails: `Path not found: '<case>\shared\Module1.bas'` |
+| `ResFile32="..\shared\R.res"` | present | builds, and runs |
+| the same | absent | fails: `Path not found: '..\shared\R.res'`, then `One or more of the properties in '<case>\proj\Probe.vbp' was bad.  Some or all of the properties might not be set correctly.` |
+| `RelatedDoc=..\shared\notes.txt` | present | builds, and runs |
+| the same | absent | fails: `Path not found: '<case>\shared\notes.txt'` |
+| stdole's `Reference=` with its path changed to `..\nowhere\stdole2.tlb` | not used | builds, and runs |
+
+`<case>` stands for the case's absolute folder, which the log spells out. The `.res` was the 32-byte empty entry every
+`.res` begins with, and nothing else. The other lines of each `.vbp` were a `Module=` beside it in `proj\`, stdole's
+usual `Reference=`, `Startup="Sub Main"`, `ExeName32` and `Name`.
+
+### Readings
+
+- **A relative path resolves against the `.vbp`'s folder,** not the working directory: each present case built.
+- **A module, a resource file and a related document are each needed at build time.** A copy that leaves one behind
+  doesn't build. The log names a module or a related document by its resolved absolute path, but the resource file by
+  the path as written, followed by a second line about the project's properties.
+- **A reference to a registered library builds whatever its path says.** The `Reference=` line's path wasn't used here,
+  where stdole's GUID is registered. An unregistered library wasn't tried.
+- **"Path not found", not "File not found",** because the whole `shared\` folder was absent. The `RelatedDoc=nosuch.md`
+  row above, whose folder existed, gave "File not found".
+
+**Not measured:** an unregistered reference or an `Object=` line with a wrong path; a `ResFile32=` that is absolute;
+the IDE's File > Make, rather than `/make`.
+
+**In HexIDE.** #749 tracks building from what the IDE shows. A copy elsewhere would need each relative module,
+resource and related-document path rewritten, or the files copied with it.

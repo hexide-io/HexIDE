@@ -531,6 +531,7 @@ added afterwards.
 - [String literals: `""` is the only escape (2026-09-04)](string-literals--is-the-only-escape.md#string-literals--is-the-only-escape-2026-09-04)
 - [`Sub Main` as a startup object (2026-09-04, #210)](sub-main-as-a-startup-object.md#sub-main-as-a-startup-object-2026-09-04-210)
 - [What a `.vbp` tolerates, and the one key for a non-code file (2026-09-04)](what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md#what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file-2026-09-04)
+- [A copy of a `.vbp` built elsewhere: which relative paths it needs (2026-11-21, #749, SP6)](what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md#a-copy-of-a-vbp-built-elsewhere-which-relative-paths-it-needs-2026-11-21-749-sp6)
 - [Serialization / file-format fidelity (2026-08-11)](serialization--file-format-fidelity.md#serialization--file-format-fidelity-2026-08-11)
 - [Unsuffixed float literals, and comparing Double with Single (2026-09-03)](unsuffixed-float-literals-and-comparing-double-with-single.md#unsuffixed-float-literals-and-comparing-double-with-single-2026-09-03)
 - [Numeric type pairs — five arithmetic tables, and comparison is a sixth (2026-09-03)](numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth.md#numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth-2026-09-03)
