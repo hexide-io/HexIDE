@@ -182,3 +182,37 @@ the program loads or unloads elements during the walk?
   Reassigning it inside the body doesn't disturb the walk.
 
 **Not measured:** a CommonDialog array of more than one element (#4148).
+
+### Which run-time values `Load` copies (2026-11-21, #807, SP6)
+
+**The question.** "Later measurement, 2026-10-12" above found a loaded element taking the template's changed `Caption` and `BackColor`. #807 asked whether that holds for the rest of the element's properties, or only for those two.
+
+**The probe.** A form with a Label array `Arr`, whose `Arr(0)` was saved with `BackColor = &H00C0C0C0&`, `Caption = "t0"`, `Tag = "g0"`, `Left = 120` and `Width = 900`. Beside it was a TextBox array `Tx`, with `Tx(0)` saved with `Text = "x0"`. The form was loaded and not shown, and each change was made at run time before the `Load`. Built with `/make` on vb6.exe SP6 as native code and as p-code, the two logged the same lines.
+
+| Changed on element 0 before `Load` | Element 1 after `Load Arr(1)` |
+|---|---|
+| `BackColor = vbRed` | `&HFF`, red |
+| `Caption = "changed"` | `changed` |
+| `Left = 999`, `Top = 4800` | 999, 4800 |
+| `Width = 1111` | 1111 |
+| `Tag = "g1"` | `g1` |
+| `ForeColor = vbBlue` | `&HFF0000`, blue |
+| `Enabled = False` | False |
+| `FontBold = True`, `FontSize = 14` | True, 13.5 |
+| `Alignment = 2` | 2 |
+| nothing (TabIndex) | 17 |
+
+| Changed on `Tx(0)` before `Load Tx(1)` | `Tx(1)` |
+|---|---|
+| `Text = "typed"` | `typed` |
+| `MaxLength = 7` | 7 |
+| `Locked = True` | True |
+
+**What it shows.** **Every changed property measured was copied from the template's run-time state**, not from the `.frm`: colours, text, position, size, `Tag`, `Enabled`, font and alignment on a Label, and `Text`, `MaxLength` and `Locked` on a TextBox. A later `Load Arr(2)` still copied `Caption = "changed"`.
+
+**Not evidence here:**
+- **`Visible`.** Every loaded element read False, including after the template itself was hidden. The form wasn't shown, and #4768's console re-run above is the measurement for `Visible`.
+- **`FontSize`.** 13.5 is the nearest size the font has to 14. That's reasoned, not checked: the template's own size wasn't read back.
+- **`TabIndex`.** `Arr(0)`'s own `TabIndex` wasn't read, so 17 isn't explained.
+
+**Not measured:** a control whose run-time change has no `.frm` property, such as a TextBox's `SelStart`. A loaded element of an array whose lowest index isn't 0.
