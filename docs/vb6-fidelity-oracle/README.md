@@ -714,6 +714,7 @@ added afterwards.
 - [The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)](the-tabindex-a-new-or-pasted-control-takes.md#the-tabindex-a-new-or-pasted-control-takes-2026-10-22-925-design-time)
 - [Renaming a control to a name in use, and pasting a copied control (2026-11-21, #1397, #1480, design-time, IDE, SP6)](the-tabindex-a-new-or-pasted-control-takes.md#renaming-a-control-to-a-name-in-use-and-pasting-a-copied-control-2026-11-21-1397-1480-design-time-ide-sp6)
 - [Pasting a container whose OCX control's name is taken (2026-11-21, #1458, design-time, IDE, SP6)](the-tabindex-a-new-or-pasted-control-takes.md#pasting-a-container-whose-ocx-controls-name-is-taken-2026-11-21-1458-design-time-ide-sp6)
+- [Mixed answers to the control-array questions (2026-11-21, #1458, design-time, IDE, SP6)](the-tabindex-a-new-or-pasted-control-takes.md#mixed-answers-to-the-control-array-questions-2026-11-21-1458-design-time-ide-sp6)
 - [Drawing a control into a Frame or PictureBox (2026-10-26, #2039, design-time)](drawing-a-control-into-a-frame-or-picturebox.md#drawing-a-control-into-a-frame-or-picturebox-2026-10-26-2039-design-time)
 - [Collection (2026-10-22, #1471)](collection.md#collection-2026-10-22-1471)
 - [As New (2026-10-22 and 23, #435)](as-new.md#as-new-2026-10-22-and-23-435)
