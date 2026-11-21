@@ -301,3 +301,44 @@ HexIDE read every one of these as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` w
 - Still not honoured by the dialog: the default-button, help-button, modality and right-to-left bits, and Escape
   and Enter (#827). Its buttons are in English whatever the language (#828).
 
+### Enter, Escape and the default-button bits (2026-11-21, #827, SP6)
+
+**The question.** HexIDE's message box takes neither Enter nor Escape, and ignores `MsgBox`'s default-button bits (256, 512 and 768). #827 asked what each key answers for each button set and default button, before both are built.
+
+**The probe.** It used this page's Timer method. For each call, a form Timer found the open box by its title and read which control had the focus (`GetFocus`, then `GetDlgCtrlID`). It then posted `WM_KEYDOWN` and `WM_KEYUP` for Enter (13) or Escape (27) to that control. If the box was still open two seconds later, the Timer ended it with `EndDialog(h, 99)`, from the same thread, and the row says "ignored". Built with `/make` on vb6.exe SP6 as native code and as p-code, the two logged the same lines.
+
+| Buttons | Default bits | Focus on | Enter answers | Escape answers |
+|---|---|---|---|---|
+| `vbOKOnly` | any of 0, 256, 512, 768 | the OK button (ID 2) | 1, vbOK | 1, vbOK |
+| `vbOKCancel` | 0 | OK | 1, vbOK | 2, vbCancel |
+| | 256 | Cancel | 2, vbCancel | |
+| | 512, 768 | OK | 1, vbOK | 2, vbCancel (512) |
+| `vbAbortRetryIgnore` | 0 | Abort | 3, vbAbort | **ignored** |
+| | 256 | Retry | 4, vbRetry | |
+| | 512 | Ignore | 5, vbIgnore | **ignored** |
+| | 768 | Abort | 3, vbAbort | |
+| `vbYesNoCancel` | 0 | Yes | 6, vbYes | 2, vbCancel |
+| | 256 | No | 7, vbNo | |
+| | 512 | Cancel | 2, vbCancel | 2, vbCancel |
+| | 768 | Yes | 6, vbYes | |
+| `vbYesNo` | 0 | Yes | 6, vbYes | **ignored** |
+| | 256 | No | 7, vbNo | |
+| | 512, 768 | Yes | 6, vbYes | **ignored** (512) |
+| `vbRetryCancel` | 0 | Retry | 4, vbRetry | 2, vbCancel |
+| | 256 | Cancel | 2, vbCancel | |
+| | 512, 768 | Retry | 4, vbRetry | 2, vbCancel (512) |
+
+Escape was tried with the bits 0 and 512 only.
+
+**What it shows.**
+- **The default-button bits pick the button that has the focus,** and Enter answers that button.
+- **A default naming a button the box doesn't have falls back to the first:** 512 on a two-button box, and 768 (`vbDefaultButton4`) on any box.
+- **Escape answers as closing the box does** (the close rows above):
+  - vbCancel where there's a Cancel button, whichever button has the focus;
+  - vbOK on an OK-only box;
+  - nothing on Yes/No and Abort/Retry/Ignore, which stay open.
+- **This confirms #827's guess for Escape,** and now measures it.
+
+**Not evidence here:**
+- **Where it ran:** session 0, where the box isn't displayed. The keys were posted messages, not typed. The close rows above, the same Timer method, gave the same answers on the console (#4768).
+- **The box with `vbDefaultButton4` and a Help button** (16384) wasn't run.
