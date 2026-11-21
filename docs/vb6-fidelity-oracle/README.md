@@ -164,6 +164,7 @@ driven by hand, its steps were replayed from the console agent's log.
 | *Where VB6's designer puts a control's block* (#1481) | the same: every control block |
 | *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
 | *Member attributes: where VB6 attaches them, and what its IDE writes* (#273) | the same: 22 of the hand-written shapes, and every save in *Which saves write a module*, two files to the release build's hash; the Procedure Attributes dialog's rows not run again ([on SP6](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#on-sp6-the-load-and-save-shapes-and-which-saves-write-a-module-2026-11-21-1675-ide-sp6)) |
+- [A local of the stale name changes nothing (2026-11-21, #1013, IDE, SP6)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#a-local-of-the-stale-name-changes-nothing-2026-11-21-1013-ide-sp6)
 
 **#1675's interpreter rows, rebuilt from their sections' tables (2026-11-21).** Each project was built with `/make` as native code and as p-code, and run in vb6.exe's IDE with `/runexit`, all on the guest's console. All three modes logged the same lines in every project.
 - **_Unload Me_ (#973): all five IDE probes give their table's answer.** They are:
@@ -710,6 +711,7 @@ added afterwards.
 - [DDB's names (2026-11-17, #2524)](named-arguments.md#ddbs-names-2026-11-17-2524)
 - [The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)](the-tabindex-a-new-or-pasted-control-takes.md#the-tabindex-a-new-or-pasted-control-takes-2026-10-22-925-design-time)
 - [Renaming a control to a name in use, and pasting a copied control (2026-11-21, #1397, #1480, design-time, IDE, SP6)](the-tabindex-a-new-or-pasted-control-takes.md#renaming-a-control-to-a-name-in-use-and-pasting-a-copied-control-2026-11-21-1397-1480-design-time-ide-sp6)
+- [Pasting a container whose OCX control's name is taken (2026-11-21, #1458, design-time, IDE, SP6)](the-tabindex-a-new-or-pasted-control-takes.md#pasting-a-container-whose-ocx-controls-name-is-taken-2026-11-21-1458-design-time-ide-sp6)
 - [Drawing a control into a Frame or PictureBox (2026-10-26, #2039, design-time)](drawing-a-control-into-a-frame-or-picturebox.md#drawing-a-control-into-a-frame-or-picturebox-2026-10-26-2039-design-time)
 - [Collection (2026-10-22, #1471)](collection.md#collection-2026-10-22-1471)
 - [As New (2026-10-22 and 23, #435)](as-new.md#as-new-2026-10-22-and-23-435)

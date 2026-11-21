@@ -118,3 +118,53 @@ Each result was read from the saved `.frm`.
 - **Help** in the message box.
 - **A paste while a control that isn't a container is selected.**
 - **A rename by typing in the code window,** or to a name that isn't a control's.
+
+## Pasting a container whose OCX control's name is taken (2026-11-21, #1458, design-time, IDE, SP6)
+
+**The question.** A pasted control whose name is already on the form gets the control-array question (above). Does a
+control from an OCX, pasted inside its container, get the same treatment as an intrinsic one, or does VB6 rename it,
+refuse it, or ask something else?
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, started elevated and driven on its console.
+- **The project:** a Standard EXE referencing `MSCOMCTL.OCX` 2.0.
+- **Its one form:** `Picture1`, a PictureBox holding a Label `lbl` and an `MSComctlLib.ImageList` named `imlIcons`.
+- **The steps:** Picture1 selected with a click on its empty area, Ctrl+C, a click on the form, Ctrl+V. The project was
+  run twice from the same file, answering every question No the first time and Yes the second. Each was saved with
+  Ctrl+S.
+
+**What VB6 asked.** Three questions, one after another, each `You already have a control named '<name>'.  Do you want
+to create a control array?`, with the warning icon and Yes, No and Help:
+1. for `Picture1`;
+2. for `imlIcons`;
+3. for `lbl`.
+
+The ImageList got the same question as the intrinsic controls. Nothing was renamed or refused before the question was
+answered.
+
+**What a save wrote.** The pasted copy went to the form's top-left, `Left = 0` and `Top = 0`, with the next two
+TabIndexes, 2 and 3.
+
+| Answer | The pasted PictureBox | Its ImageList | Its Label |
+|---|---|---|---|
+| No to all | `Picture2` | `ImageList1` | `Label1`, Caption still `"lbl"` |
+| Yes to all | `Picture1`, `Index = 1` | `imlIcons`, `Index = 1` | `lbl`, `Index = 1` |
+
+- **With No,** each control takes the next default name for its class: `Picture2`, since `Picture1` was taken, and
+  `ImageList1` and `Label1`. The ImageList is treated like the others.
+- **With Yes,** each original gains `Index = 0` and each copy `Index = 1`.
+- **Where `Index` goes differs:**
+  - in the intrinsic controls' blocks, in its alphabetical place (`Height`, `Index`, `Left`);
+  - in the ImageList's, first, before `Left` and `Top` and the ImageList's own properties.
+- **The ImageList's block came before the Label's** in both containers. The hand-written file had the Label first, and
+  VB6 also rewrote the original's order. That's the order the questions came in.
+
+**What this doesn't answer.** VB6 had the ImageList's OCX loaded, so this doesn't show what a paste does with a control VB6
+can't load. VB6 draws such a control as an empty box from the moment the form loads
+([A control VB6 cannot load renders as an empty box](a-control-vb6-cannot-load-renders-as-an-empty-box.md)), and pasting
+one wasn't tried.
+
+### Not measured
+
+- **A mixed answer,** such as Yes for the container and No for what it holds.
+- **Cut and paste into another form,** #1458's second case.
+- **The release build.**
