@@ -387,3 +387,35 @@ section's known misses, and no rule is defended for them.
 
 **Not measured:** what the IDE writes when a UserControl is saved in pixels; `ScaleY` with five arguments, and either
 with more than five.
+
+### A PictureBox's scale after it's resized (2026-11-21, #4693, SP6)
+
+**The question.** #4693 left one PictureBox case unmeasured: what its scale becomes when the box is resized after the scale was set.
+
+**The probe.** A 9600 × 7200 twip form held two PictureBoxes, each 3000 × 2000 twips: `Picture1` with the default border, and `Picture2` with `BorderStyle = 0`. For each case the box was first moved back to 3000 × 2000 and given its scale, and the scale was read. The box was then resized and the scale read again. Built with `/make` on vb6.exe SP6 as native code and as p-code, the two logged the same lines.
+
+**The scales:** ScaleMode 1, 3, 7 and 2; `Scale (0, 0)-(100, 50)`; `Scale (10, 20)-(110, 70)`; the flipped `Scale (100, 50)-(0, 0)`; `ScaleWidth = 200` alone; and `ScaleHeight = 100` with `ScaleLeft = 5`.
+
+**The resizes:** `Width = 4500: Height = 3000`; `Width = 1500: Height = 1000`; `Move` to 4500 × 3000; and `Width = 4500` alone.
+
+The bordered `Picture1` gives a 2940 × 1935 twip inside at 3000 × 2000, 4440 × 2940 at 4500 × 3000 and 1440 × 945 at 1500 × 1000. Each is read as ScaleMode, ScaleLeft, ScaleTop, ScaleWidth and ScaleHeight:
+
+| Scale set at 3000 × 2000 | Before | After 4500 × 3000 | After 1500 × 1000 | After `Width = 4500` alone |
+|---|---|---|---|---|
+| ScaleMode 1 | 1, 0, 0, 2940, 1935 | 1, 0, 0, 4440, 2940 | 1, 0, 0, 1440, 945 | 1, 0, 0, 4440, 1935 |
+| ScaleMode 3 | 3, 0, 0, 196, 129 | 3, 0, 0, 296, 196 | 3, 0, 0, 96, 63 | 3, 0, 0, 296, 129 |
+| ScaleMode 7 | 7, 0, 0, 5.185839, 3.413128 | 7, 0, 0, 7.831675, 5.185839 | 7, 0, 0, 2.540003, 1.666877 | 7, 0, 0, 7.831675, 3.413128 |
+| ScaleMode 2 | 2, 0, 0, 147, 96.75 | 2, 0, 0, 222, 147 | 2, 0, 0, 72, 47.25 | 2, 0, 0, 222, 96.75 |
+| `Scale (0, 0)-(100, 50)` | 0, 0, 0, 100, 50 | 0, 0, 0, 151.0204, 75.96899 | 0, 0, 0, 48.97959, 24.4186 | 0, 0, 0, 151.0204, 50 |
+| `Scale (10, 20)-(110, 70)` | 0, 10, 20, 100, 50 | 0, 10, 20, 151.0204, 75.96899 | 0, 10, 20, 48.97959, 24.4186 | 0, 10, 20, 151.0204, 50 |
+| `Scale (100, 50)-(0, 0)` | 0, 100, 50, -100, -50 | 0, 100, 50, -151.0204, -75.96899 | 0, 100, 50, -48.97959, -24.4186 | 0, 100, 50, -151.0204, -50 |
+| `ScaleWidth = 200` | 0, 0, 0, 200, 1935 | 0, 0, 0, 302.0408, 2940 | 0, 0, 0, 97.95918, 945 | 0, 0, 0, 302.0408, 1935 |
+| `ScaleHeight = 100`, `ScaleLeft = 5` | 0, 5, 0, 2940, 100 | 0, 5, 0, 4440, 151.938 | 0, 5, 0, 1440, 48.83721 | 0, 5, 0, 4440, 100 |
+
+`Move` to 4500 × 3000 gave the same as `Width` and `Height`, in every row. The borderless `Picture2` went from 3000 × 1995 inside to 4500 × 3000, and followed the same rule: `Scale (0, 0)-(100, 50)` became 150 × 75.18797.
+
+**What it shows.** **A resize keeps the scale's origin and its units per twip on each axis.** ScaleLeft and ScaleTop don't change. ScaleWidth and ScaleHeight become the new inside in the same units, so `Scale (0, 0)-(100, 50)` over 2940 twips reads 100 × 4440 / 2940 = 151.0204 after the resize. A flipped scale stays flipped, with its extents negative. An axis set on its own keeps its own units, and an axis left alone keeps twips. A dimension that isn't resized keeps its extent. User scales follow the same rule as the standard modes, where ScaleWidth and ScaleHeight are always the inside in that mode's units.
+
+**Not evidence here.** The inside's height comes out a whole number of pixels, 1935 for a saved 1940 and 1995 for 2000. That's the case #5162 measures, in oracle PR #5175.
+
+**Not measured:** a form's scale after a resize, which needs a shown form, on the console; a PictureBox resized by its container's own resize.
