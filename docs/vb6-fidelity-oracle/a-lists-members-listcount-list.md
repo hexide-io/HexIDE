@@ -132,5 +132,21 @@ So the "Out of memory" in the table above is the direct call's. Reasoned, not ch
 
 **Not measured:**
 - a ListBox with its first item selected;
-- the late-bound path's other starting points. #5117's probe measured only 1 to 2 there.
+- the late-bound path's other starting points. #5117's probe measured only 1 to 2 there. Since measured, in the next section.
 - `MultiSelect`.
+
+### A late-bound failed `List(-2) = x` and the selection (2026-11-21, #5134, SP6)
+
+**The probe.** The ComboBox was reached through `Dim c As Object`, `Dim c As Control` or `Dim c As Variant`, set with `Set c = Form1.Controls(name)`. It was given `c`, `d` and `e`, its `ListIndex` was set, then `c.List(-2) = "v"` was written under `On Error Resume Next`. Click and Change handlers counted events. It was built with `/make` as native code and as p-code, and the two logged the same lines in all 15 cases.
+
+| Selected before | Through `As Object` (Style 2 and Style 0; a Sorted Style 2 from `c` only) | Through `As Control` / `As Variant` |
+|---|---|---|
+| none (-1) | -1 | not measured |
+| `c` (0) | **1**, `Text` `d` | **1**, `Text` `d` (Style 2 and Style 0) |
+| `e` (2), the last | 2 | 2 (`As Variant`, Style 2 and Style 0) |
+| the only item (0 of 1) | 0 | not measured |
+
+- **Every write** raised **7** "Out of memory", and `ListCount` stayed 3.
+- **No events:** no Click came, and on Style 0 no Change.
+
+**What these show:** reached late-bound, a ComboBox's selection moves exactly as it does when the list is called directly or through a typed reference, in the section above. Only the error number differs, 7 against -2147024882, as #5117's section records.
