@@ -948,3 +948,67 @@ cannot tell the two apart from the text, which is all it reads. Unlike an orphan
 protected and folded with the run, so it cannot be seen or removed by hand until the Procedure Attributes dialog
 exists (#62), and a save keeps it, as settled in `design.md`; VB6 reads the first at its next load either way.
 
+
+### On SP6: the load-and-save shapes and which saves write a module (2026-11-21, #1675, IDE, SP6)
+
+**Why again.** The sessions above ran on the release build, 6.00.8176, and their projects weren't kept. These rows were
+measured on SP6 (VB6.EXE 6.00.9782) in a clone of the oracle VM, driven on its console through Hyper-V's synthetic
+keyboard and mouse. Each file was read in the guest over PowerShell Direct, with its length, SHA-256 and timestamp.
+
+**The load-and-save shapes.** One Standard EXE held 22 modules, one shape each, built from the table *What a save drops,
+moves and rewrites from a hand-written file* above. Each was CRLF, ASCII and without a BOM, carrying a `' p4 marker`
+comment.
+- **The edit:** a Replace All of `p4 marker` with `p4 marker2` over Current Project. VB6 reported "The specified region
+  has been searched. 22 replacements were made."
+- **The save:** File > Save Project, which wrote all 22 modules and the project file.
+
+| Shape | After SP6's save | The same as the release build |
+|---|---|---|
+| `BlankGap`, `CommentGap`, `InBody` | the line dropped | yes |
+| `SplitRun` | the first kept, the line after the blank dropped | yes |
+| `DoubleDesc` | `"first"` kept, `"second"` dropped | yes |
+| `NamesNothing`, `NamesOther` | kept, re-qualified `Attribute Total.` | yes |
+| `LowerCase` | re-cased `Attribute Total.` | yes |
+| `DeclShapes` | the indented and spaced lines written at column 1 with single spaces; the runs under a `Private Declare`, a `Private Sub`, a `Friend Function`, a `Public Static Function` and a declaration with a trailing comment kept; the `VB_VarDescription` under `Public Const K As Long = 1` in the class dropped | yes |
+| `Dotless` | moved into the header, after `VB_Exposed`, before `Option Explicit` | yes |
+| `VarAway` | both moved, each directly under its declaration | yes |
+| `LetFirst` | unchanged, under the Let | yes |
+| `BothRuns`, the Get first | both kept | yes |
+| `ModRuns` (a `.bas`: a variable's and a `Sub`'s run) | both kept | yes |
+| `ConstV` | kept | yes |
+| `ConstAway` | moved under `Public Const Far = 1` | yes |
+| `ConstD`, `EnumD`, `EnumMem` | dropped | yes |
+| `VarModPriv` | kept | yes |
+| `BareWithEvents`, a `Public` and a `Private` `WithEvents` with no line | `Attribute <name>.VB_VarHelpID = -1` added under each | yes |
+
+Every module came back CRLF, with a final CRLF and no BOM. Not rebuilt: `ConstTyped`, `ConstPriv`, `ConstClsPriv`,
+`ConstMulti`, `ConstClsPub`, `EnumV`, `TypeD`, `TypeV`, `EnumCls`, `VarClsPriv` and `BothRunsGetFirst`.
+
+**Which saves write a module.** These rows used the third session's `S.vbp` set:
+- `Touched.bas` and `Untouched.bas` exactly as given above, 91 and 439 bytes, the sizes that session recorded;
+- `UntouchedC.cls`, the same body under the class header, 782 bytes, as there;
+- `NamesNothing.cls`, 522 bytes.
+
+| Probe | Step | SP6 wrote |
+|---|---|---|
+| Q1 | `Touched` edited (a line typed at its end), then File > Save Project | `Touched.bas`, 91 bytes to 104, and the project file; nothing else |
+| Q2 | `Untouched` selected; the File menu read `Save Untouched.bas  Ctrl+S`, enabled; Alt+F, **S** | `Untouched.bas`, 439 bytes to 368, with **the same diff, line for line,** as the release build's above |
+| | VB6 closed | no prompt |
+| Q2, again | relaunched; `UntouchedC` selected and saved the same way | `UntouchedC.cls`, 782 bytes to 711, SHA-256 `E9BCDC45…`, **the hash the release build's save had** |
+| Q3 | `UntouchedC`, then `NamesNothing`, each saved with File > Save … As | `UntouchedCAs.cls`, 711 bytes, `E9BCDC45…`, the same as its Save; `NamesNothingAs.cls`, 523 bytes, `1F48BA4F…`, **the release build's hash** |
+| | File > Exit | `Save changes to the following files?` listing the project file alone; with No, the project file still named the original files, and the `.vbw` was written at exit |
+
+So on SP6:
+- **Save Project writes only the modules VB6 holds as changed,** with the project file.
+- **A module's own Save or Save As writes it whatever its state,** with its runs written afresh.
+- **The Save As dialog opened in the user's profile folder, not the project's,** so its full path was typed.
+
+Two files' bytes are the release build's to the hash.
+
+The project file came back longer in Q1, because the hand-written one held only the lines a load needs, and VB6 wrote
+its full option set.
+
+### Not measured on SP6
+
+- **The Procedure Attributes dialog's rows:** the first and second sessions' A, C, D, E and V1 to V6.
+- **The eleven shapes not rebuilt,** listed above.
