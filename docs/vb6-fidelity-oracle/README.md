@@ -826,6 +826,7 @@ added afterwards.
 - [In-box controls: the DTPicker (2026-10-27, #1094)](in-box-controls-the-dtpicker.md#in-box-controls-the-dtpicker-2026-10-27-1094)
 - [What a Timer has at run time (2026-10-27, #801)](what-a-timer-has-at-run-time.md#what-a-timer-has-at-run-time-2026-10-27-801)
 - [A watch and its context, in the IDE's Watches window (2026-10-27, #2290)](a-watch-and-its-context.md#a-watch-and-its-context-in-the-ides-watches-window-2026-10-27-2290)
+- [View > Last Position (2026-11-21, #69, design-time, IDE, SP6)](view-last-position.md#view--last-position-2026-11-21-69-design-time-ide-sp6)
 - [Add Watch's Module and Procedure lists, for a property (2026-11-17, #4401)](a-watch-and-its-context.md#add-watchs-module-and-procedure-lists-for-a-property-2026-11-17-4401)
 - [A watch scoped to one accessor, and a watch on (All Modules) (2026-11-17, #4401, #4452)](a-watch-and-its-context.md#a-watch-scoped-to-one-accessor-and-a-watch-on-all-modules-2026-11-17-4401-4452)
 - [A watch scoped to another module, and the Watches window's row order (2026-11-17, #4481)](a-watch-and-its-context.md#a-watch-scoped-to-another-module-and-the-watches-windows-row-order-2026-11-17-4481)
