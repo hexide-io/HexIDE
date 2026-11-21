@@ -203,6 +203,48 @@ In order, in pixels:
 So turning AutoRedraw off keeps the picture it held, and the window repaints from it. What's drawn while it's off is
 lost at the next repaint.
 
+### Image, and Picture = Image (2026-11-21, #991, SP6)
+
+**The question.** #991 owed three things:
+- `TypeName(Me.Image)`;
+- whether `Picture1.Picture = Picture1.Image` copies the drawing;
+- every moment Paint is raised.
+
+**The probe.** A form, 320 by 240 pixels in `ScaleMode` 3, held a borderless PictureBox. It ran in session 0, built with `/make` on vb6.exe SP6 as native code and as p-code, and the two logged the same lines.
+
+**`Image` is a bitmap Picture.** On the form and on the PictureBox, with AutoRedraw True or False:
+- `TypeName(o.Image)` is `Picture`;
+- `o.Image.Type` is 1;
+- its Handle isn't 0.
+
+**A form's Image is the screen's size, whatever the form's.** It read 1024 by 768 pixels (27093 by 20320 HIMETRIC) on a 1024 by 768 screen, for forms with insides of:
+- 192 by 140;
+- 320 by 247;
+- 392 by 306.
+
+That held with AutoRedraw True and False. It's the size the form's AutoRedraw surface has when `Point` is searched for its -1 edge (#988).
+
+**A PictureBox's Image grows with the box and doesn't shrink.** In order, in pixels:
+
+| AutoRedraw | Box inside | Image |
+|---|---|---|
+| False | 900 by 900 | 900 by 900 |
+| False | 1800 by 1200 | 1800 by 1200 |
+| False | 2100 by 1200 | 2100 by 1200 |
+| False | 3000 by 1500 | 3000 by 1500 |
+| False | 1500 by 1200 | **3000 by 1500** |
+| True | 900 by 900, then 1800 by 1200, 2100 by 1200, 3000 by 1500 and 1500 by 1200 | 3000 by 1500 each time |
+
+**`Picture = Image` copies the drawing,** by a Let or a Set, on the form and on the PictureBox, with AutoRedraw True. After `PSet (5, 5), vbRed`, `o.Picture = o.Image` and then `Cls`:
+- (5, 5) read red again, and (6, 6) the background;
+- `Picture.Type` was 1.
+
+`Cls` clears to the Picture, and the Picture now holds the drawing.
+
+**Not evidence here:**
+- **With AutoRedraw False, `Point` read -1 at every pixel in session 0,** so those `Picture = Image` rows say nothing.
+- **No Paint was raised at all in session 0,** for the form or the PictureBox. It wasn't raised on Show, `Refresh`, `Cls`, Hide and Show again, a resize, a minimize and restore, or a change of AutoRedraw. "AutoRedraw and Paint" above has Paint on Show and on `Refresh`, so session 0 can't measure when Paint is raised. #991's list of those moments is still open for the console.
+
 ### Where a drawing sits among the controls
 
 Two diagonal 5-pixel lines across a form holding a TextBox, a Label with an opaque yellow back, and a Shape with an
