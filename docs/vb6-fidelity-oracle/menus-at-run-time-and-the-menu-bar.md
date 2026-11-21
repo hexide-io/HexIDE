@@ -291,7 +291,7 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
 - **The window stopped narrowing** at 56 px wide in session 0 and 60 on the console, however far Width went below
   that. Not explored further.
 
-**Not measured:** an MDI child's menu bar, so a change to it isn't either; and the bar's rows, rather than its break,
+**Not measured:** an MDI child's menu bar, so a change to it isn't either (since measured: *An MDI child's menu bar*, below); and the bar's rows, rather than its break,
 on the BorderStyles other than Fixed Single.
 
 **In HexIDE (#4946),** on main at 1bec9d018:
@@ -305,3 +305,53 @@ on the BorderStyles other than Fixed Single.
     that.
 - **A change that changes a wrapped bar's row count** is still refused as not implemented, by `CheckRows`
   (`MenuMembers.cs:185-192`), until #4946's build lands. It was measured in the rows above.
+
+## An MDI child's menu bar (2026-11-21, #4946, SP6)
+
+**The question.** The section above left an MDI child's menu bar unmeasured. #4946 refuses a change to one as not implemented.
+
+**The probe.** Two projects, each built with `/make` on vb6.exe SP6 as native code and as p-code, and run on the guest's console. All four logged the same lines.
+- **The MDI form** was 7500 by 4500 twips of client area.
+  - In project **a** it has a File menu of its own.
+  - In project **b** it has no menu.
+- **The children:**
+  - `Form1`, an MDI child, has a visible Game menu with one item.
+  - `Form2`, another, has a Tools menu hidden in its `.frm`.
+- **Sub Main** shows the MDI form, then works through the steps below under an error trap.
+- **Each read** is the MDI form's `ScaleHeight` and `Height`, `Form1`'s, each form's count of Resize events, and the items of the menu bar Windows actually holds, from `GetMenu` and `GetMenuString` on the MDI form.
+
+| Step | Project a: the bar, MDI `ScaleHeight` | Project b: the bar, MDI `ScaleHeight` |
+|---|---|---|
+| the MDI form shown, no child | File, `4140` | **no items, `4440`**: no bar |
+| `Form1` shown | **Game**, `4140` | Game, `4140`: the bar appears, with one Resize |
+| `Form1.mnuGame.Visible = False`, read at once | **no items**, still `4140` | no items, still `4140` |
+| after `DoEvents` | no items, **`4440`**, one Resize | no items, `4440`, one Resize |
+| `Form1.mnuGame.Visible = True`, at once | Game, still `4440` | Game, still `4440` |
+| after `DoEvents` | Game, `4140`, one Resize | Game, `4140`, one Resize |
+| `MDIForm1.mnuFile.Visible = False`, then `True`, with `Form1` active | Game, `4140`, no Resize, both times | |
+| hiding the Game menu's only item | **387**, "'Visible' property can't be set on this control" | the same 387 |
+| `Form2` shown, so it's active, with its only menu hidden | **no items, `4440`** | no items, `4440` |
+| `Form2.mnuGame.Visible = True`, at once, then after `DoEvents` | Tools, `4440`, then `4140` | the same |
+| `= False` again, after `DoEvents` | no items, `4440` | the same |
+| `Form2` unloaded, so `Form1` is active again | Game, `4140` | the same |
+| `Form1.WindowState = 2` | the child's icon, Game, and three window buttons; `4140` | the same |
+| `Form1.mnuGame.Visible = False`, maximized, then after `DoEvents` | the icon and the three buttons; **`4140`, no Resize** | the same |
+| `Form1.Hide`, so no child is active | **File**, `4140` | no items, `4440` |
+| `Form1` unloaded | File, `4140` | no items, `4440` |
+
+**`Form1`'s own size and Resize count didn't change with any menu step.** Read 2385 by 2970 in project a and 2685 by 3270 in b, it changed only when it was maximized and restored. Its default size followed the MDI form's client area when it was created, which was 300 twips taller in b. `MDIForm1.Height` was 5085 throughout.
+
+**What it shows:**
+- **The active child's menus replace the MDI form's on the MDI form's bar.**
+- **A child with menus, all of them hidden, still replaces them, with nothing.** The bar is then empty and goes away: when `Form1`'s Game menu was hidden, and whenever `Form2` was active. The MDI form's own File menu came back only once no child was active.
+- **The bar going or coming moves the MDI form's `ScaleHeight` by 300 twips, the bar, and keeps its `Height`.** That's the same as on an ordinary form (above).
+  - The bar's items change at once.
+  - `ScaleHeight` changes at the next message, with one Resize, again as above.
+- **A maximized child keeps the bar** for its icon and window buttons. Hiding its last menu then changes nothing else.
+- **The MDI form's own menus can be hidden and shown while a child's are on the bar,** with no visible effect.
+- **The last visible item under a menu can't be hidden** in an MDI child either: 387, as on an ordinary form (above).
+
+**Not measured:**
+- a child whose bar wraps;
+- `NegotiateMenus` and an MDI form's `WindowList` menu;
+- a change that lands while the child is being activated.
