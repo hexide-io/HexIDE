@@ -31,6 +31,9 @@ it break once when the value becomes true, or at every statement while it stays 
   - the Watches window's row, copied with Ctrl+C. A watch break leaves the focus there, and the row gives the value and
     its type;
   - the next statement: Debug > Show Next Statement, then the caret's line.
+- **The IDE's options:** as installed, with Error Trapping at its default (no value in the registry). Six rows (`" 5 "`,
+  `"&H10"`, `"0"`, `Empty`, the Date and the Integer `0`) first ran while another probe had left Error Trapping on
+  *Break on Unhandled Errors*. They were run again at the default, with the same results, and those are the rows shown.
 - **Builds:** this is IDE behaviour, so there is no native or p-code build to compare.
 
 **The first break came at the statement after the assignment that made the watch true,** before that statement ran.
@@ -53,7 +56,8 @@ The "next statement" column says where each break was.
 | `True` | 1 | `n = 2` | `True`, `Variant/Boolean` |
 | `#1/2/2000#` | 1 | `n = 2` | `02/01/2000`, `Variant/Date` |
 
-`"0"` was run twice, and both runs broke three times.
+`"0"` was run four times, and every run broke three times. In one of them only F5 was pressed between the breaks,
+with nothing read in between, so the readout's keys don't cause the repeat.
 
 **Two more runs** put a call to a Sub in the same module, `Helper`, straight after the assignment:
 
@@ -75,8 +79,8 @@ how often, except for `"0"`:
 - **Strings that `CBool` reads as True break:** `"True"`, `"1"`, `" 5 "`, `"&H10"`. `"False"` doesn't.
 - **Strings that `CBool` can't convert break too:** `"abc"` and `""`. The Watches window shows `<Type mismatch>`. So a
   failed conversion counts as a break, not as "doesn't hold". **This overturns the rule #869 proposed.**
-- **`"0"` breaks, and goes on breaking after every statement while it holds.** That's measured twice. Yet `CBool("0")`
-  is False, and the Integer `0` doesn't break.
+- **`"0"` breaks, and goes on breaking after every statement while it holds.** That's measured four times. Yet
+  `CBool("0")` is False, and the Integer `0` doesn't break.
   - **No rule I would defend.** A guess is that VB6 tests "is true" one way and remembers "was true" another, so a
     `"0"` never counts as already true. That is a guess, not a measurement.
   - **Across a call,** the `"0"` breaks stopped after the watch was read out of context, as the second table shows.
