@@ -780,6 +780,7 @@ added afterwards.
 - [InStr and InStrRev at the ends (2026-10-23, #1567)](instr-and-instrrev-at-the-ends.md#instr-and-instrrev-at-the-ends-2026-10-23-1567)
 - [Option Compare Text, and VB6's text compare (2026-10-23, #1567)](option-compare-text-and-vb6s-text-compare.md#option-compare-text-and-vb6s-text-compare-2026-10-23-1567)
 - [The Text order in 44 user locales (2026-11-21, #5105, SP6)](the-text-order-in-44-user-locales.md#the-text-order-in-44-user-locales-2026-11-21-5105-sp6)
+- [The Text order: each locale's own script, in 21 locales (2026-11-21, #5105, SP6)](the-text-order-in-44-user-locales.md#each-locales-own-script-2026-11-21-5105-sp6)
 - [A compare of 2 or more: StrComp and InStr with a locale ID (2026-11-16, #4151)](option-compare-text-and-vb6s-text-compare.md#a-compare-of-2-or-more-strcomp-and-instr-with-a-locale-id-2026-11-16-4151)
 - [The Text order under other user locales (2026-11-21, #1573, SP6)](option-compare-text-and-vb6s-text-compare.md#the-text-order-under-other-user-locales-2026-11-21-1573-sp6)
 - [`Like` in `#If` and `#Const`, and a directive's text order (2026-10-23, #1598)](like-in-if-and-const-and-a-directives-text-order.md#like-in-if-and-const-and-a-directives-text-order-2026-10-23-1598)
