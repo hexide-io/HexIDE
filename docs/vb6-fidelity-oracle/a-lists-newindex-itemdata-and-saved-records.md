@@ -117,6 +117,7 @@ An `ItemData` entry's text is the value in decimal, and it reads as a Long. An e
 ### Not measured
 
 - **What VB6 writes in the ignored field.** `group.frx` has 9 in its List record, the length of its one item, and 3 in its ItemData record.
+  - **Since measured for the List record** (2026-11-21, #845, SP6): VB6 writes the longest item's length in bytes. A record saved with 9 there came back from an IDE save with 3, for items of 2, 3 and 3 bytes. At code page 65001, where the first item grew to 4 bytes, it came back with 4 for items of 4, 3 and 3. So it isn't the last item's length. The ItemData record's field, saved as 3 for three items of `0`, came back as 3. The saves are in oracle PR #5227, on its new page for code page 65001.
 - **Text outside ASCII** in a saved item. Since measured for code page 1252: see the last section.
 - **A `Sorted` list saved in an order it wouldn't keep,** which VB6's designer doesn't produce: it sorts items as they're entered.
 - **Records whose counts disagree.** Since measured: see the last section.
