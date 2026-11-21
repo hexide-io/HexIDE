@@ -645,3 +645,72 @@ Each step follows the one before it, with Hot and Disabled behaving alike:
 - **The button's Image is untouched** by any of these.
 - **What resisted a rule:** none. The one surprise is the PictureBox row, which both raises and clears.
 - **Not measured:** how a Hot or Disabled list with fewer images draws a button whose image it lacks.
+
+### List bindings by value type, alternate-list geometry, a button's Image by type, and saved references (2026-11-21, #4407, SP6)
+
+**The question.** #4407 collected the image cases #4147 left refused:
+- a saved ImageList reference that's missing, ambiguous or of the wrong type;
+- binding value types not yet measured;
+- alternate lists whose geometry isn't the measured 16 px.
+
+**The probe.** It used the corpus's saved Toolbar form (`corpus/inbox-controls/saved/toolbar/`), whose `Toolbar1` is saved bound to `ImageList1`, a 16 × 16 list of three images. Added to it were an empty `ImageList2` and a `TextBox`. At run time, `ImageList2` was given 32 × 32 and two images from `Form1.Icon`.
+
+Before each binding row, the bar was reset: `ImageList1` bound, both alternate lists `Nothing`, and button 1's `Image` set to 1. Each binding went through `Dim t As Object` to reach its run-time answer. The early-bound forms ran in projects of their own, since some don't compile. Built with `/make` on vb6.exe SP6 with MSCOMCTL.OCX, as native code and as p-code, every project logged the same lines both ways. A second project started each Let and Variant row from an unbound bar, set the bound list again, bound each alternate list before refusing it, and tried halves for Image.
+
+**Binding the lists, late-bound:**
+
+| Assigned | `ImageList` | `HotImageList`, `DisabledImageList` |
+|---|---|---|
+| `Set t.X = Text1`, `= Toolbar2`, `= New Collection` | **35610**, and ImageList becomes **Nothing**; button 1's Image stays 1 | **35610**; the list stays Nothing |
+| `t.X = 5`, `= Empty`, `= Null` | **13**; the list is unchanged | **13** |
+| `t.X = ImageList1`, a Let of the list | no error: from unbound, it binds as a Set does | no error: bound |
+| `Set t.X = v`, `v` a Variant holding ImageList1 | from unbound, bound | bound |
+| `Set t.X = ImageList1`, the list already bound | no error; button 1's Image **stays 1** | not run |
+| `Set t.X = ImageList2`, the 32 px list | bound; button 1's Image becomes 0 | **380**; the list stays Nothing |
+| `Set t.X = Nothing` | unbound; button 1's Image becomes 0 | unbound |
+
+**Mixed geometry, the other way round:** with ImageList2 (32 px) bound as the ImageList, `Set HotImageList = ImageList1` (16 px) raised **380** too. So an alternate list has to match the bound list's size, either way round.
+
+**Refusing an alternate list that's already bound:** with HotImageList or DisabledImageList bound to ImageList1, `Set` to `Text1` raised 35610 and **cleared it to Nothing**, as ImageList is cleared. `= 5` (13) and `Set` to the 32 px list (380) left it bound to ImageList1.
+
+**Early-bound:**
+- `Toolbar1.ImageList = 5` and `Toolbar1.HotImageList = 5` are **compile errors**, "Type mismatch".
+- `Toolbar1.ImageList = Empty` and `= Null` compile, and raise **424**, not the 13 they raise late-bound.
+- `Toolbar1.ImageList = ImageList1`, a Let, binds from unbound.
+
+**A button's `Image`, by the type assigned** (ImageList1 bound, 3 images):
+
+| Assigned | Err | Image reads |
+|---|---|---|
+| `False` | 0 | 0 |
+| `True` | **35600** | 1, unchanged |
+| `#1/2/1900#`, a Date of 3 | 0 | 3 |
+| `2@`, `2!`, `CByte(2)`, `CDec(2)` | 0 | 2 |
+| `0.5`, `1.5`, `2.5`, `2.6`, `3.4` | 0 | 0, 2, 2, 3, 3: halves go to even |
+| `CSng(2.5)`, `CCur(2.5)` | 0 | 2 |
+| `"2"` | **35601**: a String is a key, even when it looks like a number | 1 |
+| `Empty` | 0 | 0 |
+
+Image always read back as an Integer. Early-bound, `Image = False` gave the same as late-bound.
+
+**A saved reference that doesn't resolve loads without an error, and reading it raises 430.** Each case edited only the bar's `ImageList = "ImageList1"` line:
+
+| Saved | Loading | `Toolbar1.ImageList` | Button 1's Image |
+|---|---|---|---|
+| `"ImageList1"`, as saved | no error | ImageList1 | 1 |
+| `"imagelist1"` | no error | ImageList1: the name's case doesn't matter | 1 |
+| `"NoSuchList"` | no error | **430** "Class does not support Automation or does not support expected interface" | 1 |
+| `"Text1"` | no error | **430** | 1 |
+| `"Toolbar2"` | no error | **430** | 1 |
+| `"ImageList1"`, with the list saved as a control array element (`Index = 0`) | no error | **430** | 1 |
+
+The saved button images keep their indexes even when the list doesn't resolve.
+
+**What it shows:**
+- **A non-list object is 35610 for all three lists, and clears the list it was assigned to.** That's the PictureBox row above, now seen for every non-list object and for the alternate lists. A number, Empty or Null is 13 late-bound and leaves the list as it was.
+- **A Let of a list binds,** late or early.
+- **Setting the bound list again keeps every button's Image.** Binding a different list resets them to 0 (above).
+- **A list of another size is refused as an alternate,** 380, and leaves the alternate as it was.
+- **A button's Image takes any number,** rounded as `CInt` rounds, halves to even. True is -1 and raises 35600.
+
+**Not measured:** drawing, which needs the console. The disabled and hot rendering with no alternate list, or with mixed geometry, is still open.
