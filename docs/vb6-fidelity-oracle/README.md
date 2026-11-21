@@ -489,6 +489,7 @@ added afterwards.
 - [Control arrays (2026-08-10)](control-arrays.md#control-arrays-2026-08-10)
 - [Event procedures for an array element, in VB6's IDE (2026-11-16, #4205)](control-arrays.md#event-procedures-for-an-array-element-in-vb6s-ide-2026-11-16-4205)
 - [For Each over a control array (2026-11-18, #4716)](control-arrays.md#for-each-over-a-control-array-2026-11-18-4716)
+- [Which run-time values Load copies (2026-11-21, #807, SP6)](control-arrays.md#which-run-time-values-load-copies-2026-11-21-807-sp6)
 - [Option buttons — `Value` is a Boolean, and the group can be empty (2026-08-22, #95)](option-buttons--value-is-a-boolean-and-the-group-can-be-empty.md#option-buttons--value-is-a-boolean-and-the-group-can-be-empty-2026-08-22-95)
 - [Two controls of one name (2026-10-12, #854)](two-controls-of-one-name.md#two-controls-of-one-name-2026-10-12-854)
 - [A form-based game's runtime surface (2026-10-12)](a-form-based-games-runtime-surface.md#a-form-based-games-runtime-surface-2026-10-12)
