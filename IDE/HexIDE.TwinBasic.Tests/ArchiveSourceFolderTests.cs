@@ -33,7 +33,10 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         {
             Identity = new HexIDE.IDE.DistributionIdentity("rdcore", "RDCore") { ProjectFolder = ".rdcore" }
         };
-        engine.Synchronize(Source, Token).Directory.Should().Be(Target);
+        // The result names the project's directory with its links resolved, so on macOS it starts /private/var where
+        // the temporary directory starts /var. Check where it ends and that the folder is there.
+        engine.Synchronize(Source, Token).Directory.Should().EndWith(Path.Combine(".hexide", ".twinproj", "project.twinproj"));
+        Directory.Exists(Target).Should().BeTrue();
         Directory.Exists(Path.Combine(directory, ".rdcore")).Should().BeFalse();
     }
 
@@ -45,7 +48,9 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         {
             Identity = new HexIDE.IDE.DistributionIdentity("rdcore", "RDCore") { ProjectFolder = ".rdcore" }
         };
-        engine.Synchronize(Source, Token).Directory.Should().Be(Path.Combine(directory, ".rdcore", ".twinproj", "project.twinproj"));
+        // Links resolved in the result, as above.
+        engine.Synchronize(Source, Token).Directory.Should().EndWith(Path.Combine(".rdcore", ".twinproj", "project.twinproj"));
+        Directory.Exists(Path.Combine(directory, ".rdcore", ".twinproj", "project.twinproj")).Should().BeTrue();
         File.Exists(Path.Combine(directory, ".rdcore", "project-state.json")).Should().BeTrue();
         Directory.Exists(Path.Combine(directory, ".hexide")).Should().BeFalse();
     }
