@@ -597,6 +597,7 @@ added afterwards.
 - [Enter, Escape and the default-button bits (2026-11-21, #827, SP6)](rgb-qbcolor-and-msgboxs-style.md#enter-escape-and-the-default-button-bits-2026-11-21-827-sp6)
 - [Identifier case (2026-10-12, #811)](identifier-case.md#identifier-case-2026-10-12-811)
 - [Member attributes: where VB6 attaches them, and what its IDE writes (2026-10-13, #273)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#member-attributes-where-vb6-attaches-them-and-what-its-ide-writes-2026-10-13-273)
+- [On SP6: the load-and-save shapes and which saves write a module (2026-11-21, #1675, IDE, SP6)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#on-sp6-the-load-and-save-shapes-and-which-saves-write-a-module-2026-11-21-1675-ide-sp6)
 - [Resume Next into a block (2026-10-12, #839)](resume-next-into-a-block.md#resume-next-into-a-block-2026-10-12-839)
 - [A typed selector and a Variant one (2026-10-13, #839 review round two)](a-typed-selector-and-a-variant-one.md#a-typed-selector-and-a-variant-one-2026-10-13-839-review-round-two)
 - [The rest of the intrinsics, and a test for Doubles (2026-11-21, #985, SP6)](a-typed-selector-and-a-variant-one.md#the-rest-of-the-intrinsics-and-a-test-for-doubles-2026-11-21-985-sp6)
