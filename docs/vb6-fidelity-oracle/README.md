@@ -685,6 +685,7 @@ added afterwards.
 - [A UserControl's and a PropertyPage's own events (2026-10-24, #1632, design-time, IDE, release build and SP6)](a-usercontrols-and-a-propertypages-own-events.md#a-usercontrols-and-a-propertypages-own-events-2026-10-24-1632-design-time-ide-release-build-and-sp6)
 - [The procedure a designer double-click writes for each control (2026-11-17, #4411, design-time, IDE, SP6)](the-procedure-a-designer-double-click-writes-for-each-control.md#the-procedure-a-designer-double-click-writes-for-each-control-2026-11-17-4411-design-time-ide-sp6)
 - [The Procedure box's entries for a property's accessors (2026-11-18, #4783, design-time, IDE, SP6)](the-procedure-boxs-entries-for-a-propertys-accessors.md#the-procedure-boxs-entries-for-a-propertys-accessors-2026-11-18-4783-design-time-ide-sp6)
+- [The code window's Object and Procedure boxes follow the caret (2026-11-21, #936, design-time, IDE, SP6)](the-object-and-procedure-boxes-follow-the-caret.md#the-code-windows-object-and-procedure-boxes-follow-the-caret-2026-11-21-936-design-time-ide-sp6)
 - [Loading an element of a UserControl array (2026-11-16, #4337, SP6)](loading-an-element-of-a-usercontrol-array.md#loading-an-element-of-a-usercontrol-array-2026-11-16-4337-sp6)
 - [Write # and Input # (2026-10-23, #1521)](write--and-input.md#write--and-input--2026-10-23-1521)
 - [Make Project Group (2026-10-23, #746, design-time, IDE, release build)](make-project-group.md#make-project-group-2026-10-23-746-design-time-ide-release-build)
