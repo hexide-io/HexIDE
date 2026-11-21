@@ -45,6 +45,16 @@ The guest's user locale was set with `Set-Culture` before each run, and the prog
 - **Most locales share en-GB's order** across code page 1252's characters, Russian, Greek and Chinese among them. Their own scripts' letters weren't in these strings.
 - **An alternate sort wasn't reached.** `Set-Culture de-DE_phoneb` and `es-ES_tradnl` set the base cultures, LCIDs 1031 and 3082, with no sort identifier. So German phone book and traditional Spanish order are still unmeasured.
 
+  **Since reached (2026-11-21, #5105).** Writing the sort LCID straight into the guest account's `HKCU\Control Panel\International` reached both: `Locale` `00010407` with `LocaleName` `de-DE_phoneb`, then `0000040A` with `es-ES_tradnl`. The program read `GetUserDefaultLCID` back as 66567 (0x10407) and 1034 (0x40A). #1573's probe, unchanged, was built native and as p-code under each, and the two orders were identical:
+
+  | Sort (LCID) | Groups | What moves, against en-GB |
+  |---|---|---|
+  | German phone book (66567) | 231 | `Ä = ä = Æ = æ = "ae" = "AE" = "Ae"` after "a-b"<br>`Ö = ö = Œ = œ = "oe" = "OE" = "Oe"` after `Ø = ø`<br>newly equal: `Ä` and `ä` with `Æ`, `æ`, `"ae"`, `"AE"` and `"Ae"`; `Ö` and `ö` with `Œ`, `œ`, `"oe"`, `"OE"` and `"Oe"`; `Ü` and `ü` with `"ue"`, `"Ue"` and `"UE"` |
+  | traditional Spanish (1034) | 234 | `"ch"` after "cop"<br>`"nj"` after `N = n`, as in modern Spanish (3082) |
+
+  - **The phone book sorts each umlaut as its two-letter spelling:** `ä` as "ae", `ö` as "oe", `ü` as "ue". The plain de-DE sort (1031) keeps en-GB's order.
+  - **Traditional Spanish sorts "ch" as a letter of its own, after "c".** These strings put nothing else between "c" and "d" to show exactly where.
+
 **Not measured:**
 - characters outside code page 1252, which is every locale's own script beyond Latin;
 - the held-out set and the expansion sweep;
