@@ -646,6 +646,7 @@ added afterwards.
 - [What Save Project As does to the paths in a project file (2026-10-22, #1406)](what-save-project-as-does-to-the-paths-in-a-project-file.md#what-save-project-as-does-to-the-paths-in-a-project-file-2026-10-22-1406)
 - [Where and how VB6 writes a project's description (2026-10-22, #42)](where-and-how-vb6-writes-a-projects-description.md#where-and-how-vb6-writes-a-projects-description-2026-10-22-42)
 - [A control's Name and Index, at run time (2026-10-22, #1431)](a-controls-name-and-index-at-run-time.md#a-controls-name-and-index-at-run-time-2026-10-22-1431)
+- [Each intrinsic control's members, from VB6.OLB (2026-11-21, #1433)](a-controls-name-and-index-at-run-time.md#each-intrinsic-controls-members-from-vb6olb-2026-11-21-1433)
 - [A lone CR or LF in VB6 source (2026-10-22, #1020)](a-lone-cr-or-lf-in-vb6-source.md#a-lone-cr-or-lf-in-vb6-source-2026-10-22-1020)
 - [A member indexed through its object, and a `?` line in the Immediate window (2026-10-22, #1386)](a-member-indexed-through-its-object-and-a--line-in-the-immediate-window.md#a-member-indexed-through-its-object-and-a--line-in-the-immediate-window-2026-10-22-1386)
 - [Another module's Enum members, bare (2026-10-22, #889)](another-modules-enum-members-bare.md#another-modules-enum-members-bare-2026-10-22-889)

@@ -88,3 +88,56 @@ time of measuring, for comparison: the reads were that compile error, which `On 
 - **Not measured:** a UserControl's Name, which VB6 is recalled to give through its Extender. A control added at run time
   with `Controls.Add` reads the name Add gave it, and has no Index (343): "Controls.Add and Controls.Remove" (#1556).
 
+### Each intrinsic control's members, from VB6.OLB (2026-11-21, #1433)
+
+**What #1433 needs.** It needs to tell a name VB6's control lacks, which raises 438 late-bound, from one VB6 has and HexIDE doesn't implement. That takes each control's real member list. HexIDE's own component metadata only says what HexIDE implements, and `vb6-form-members.json` covers only Form.
+
+**Where the list is.** `corpus/inbox-controls/typelib/VB6-members.jsonl` holds the members of the 21 intrinsic controls. `scripts/dump-typelib-members.ps1` read them from VB6.OLB (SP6) on the oracle VM, in its 32-bit PowerShell, run as its own example shows:
+
+```powershell
+dump-typelib-members.ps1 -Path '<VB98>\VB6.OLB' -Class 'PictureBox,Label,TextBox,Frame,CommandButton,CheckBox,OptionButton,ComboBox,ListBox,HScrollBar,VScrollBar,Timer,DriveListBox,DirListBox,FileListBox,Menu,Shape,Line,Image,Data,OLE'
+```
+
+It has the same row shapes as the OCX dumps beside it: a `CLASS` row per interface, and a `MEMBER` or `EVENT` row per member, with `invoke`, `params`, `type`, `hidden` and `restricted`.
+
+**Checked against a second reader.** A `/make` probe walked the same library with TLI (`TypeLibInfoFromFile`). For each class it listed every member of the default interface, built as native code and as p-code. The number of distinct member names matched the dump in all 21 classes:
+
+| Control | Members | Events |
+|---|---|---|
+| PictureBox | 89 | 26 |
+| Label | 60 | 18 |
+| TextBox | 71 | 24 |
+| Frame | 45 | 13 |
+| CommandButton | 54 | 17 |
+| CheckBox | 59 | 18 |
+| OptionButton | 54 | 19 |
+| ComboBox | 65 | 19 |
+| ListBox | 65 | 21 |
+| HScrollBar, VScrollBar | 37 each | 10 each |
+| Timer | 10 | 1 |
+| DriveListBox | 49 | 16 |
+| DirListBox | 50 | 20 |
+| FileListBox | 59 | 22 |
+| Menu | 11 | 1 |
+| Shape | 27 | 0 |
+| Line | 21 | 0 |
+| Image | 38 | 13 |
+| Data | 53 | 15 |
+| OLE | 79 | 16 |
+
+A property's get, let and set count as one member name here.
+
+**Worth knowing before building on it:**
+- **`Name`, `Index`, `Parent` and `Tag` are in all 21 controls' own interfaces.** The other extender-style names vary:
+  - `Container`: all but the Timer, the Menu and the Data control.
+  - `Left`: all but the Timer, the Menu and the Line.
+  - `Visible`: all but the Timer.
+  - `Enabled`: all but the Shape and the Line.
+  - `TabIndex`: not on the Timer, the Menu, the Shape, the Line, the Image or the Data control.
+  - `hWnd`: not on those six, nor on the Label.
+- **Fifteen controls have hidden `AddItem`, `RemoveItem` and `Clear` methods,** a Timer and a TextBox included. The Shape and the Line also have a hidden `Drag`. Late-bound, these names exist, so they won't raise 438 for being missing. What calling one does wasn't measured.
+- **No Timer, HScrollBar or VScrollBar has `BackColor`**, which is #801's case from the other side.
+- **`Print` isn't in the library.** VB6 compiles it as its own syntax on a PictureBox, as on a Form.
+- **Every control's member at ID 0 is `_Default`.** Which property it stands for is in "Each intrinsic control's default member" (#790), on `a-control-where-a-value-is-wanted-is-its-default-member.md`.
+
+**Not measured:** whether `GetIDsOfNames` on a running control accepts exactly these names and no others. The 438 rows above were measured for `Foo` only.
