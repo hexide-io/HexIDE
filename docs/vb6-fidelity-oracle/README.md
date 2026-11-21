@@ -659,6 +659,7 @@ added afterwards.
 - [What VB6 writes for a menu in a .frm (2026-11-16, #4141, IDE)](what-vb6-writes-for-a-menu-in-a-frm.md#what-vb6-writes-for-a-menu-in-a-frm-2026-11-16-4141-ide)
 - [SetFocus (2026-10-15, #1061)](setfocus.md#setfocus-2026-10-15-1061)
 - [The Line control (2026-10-15, #163)](the-line-control.md#the-line-control-2026-10-15-163)
+- [The filesystem controls in VB6's designer (2026-11-21, #164, SP6)](the-filesystem-controls-in-vb6s-designer.md#the-filesystem-controls-in-vb6s-designer-2026-11-21-164-sp6)
 - [Sequential files (2026-10-17, #1145)](sequential-files.md#sequential-files-2026-10-17-1145)
 - [The CommonDialog control (2026-10-17, #1084)](the-commondialog-control.md#the-commondialog-control-2026-10-17-1084)
 - [A font's size, and the default font (2026-10-22, #910)](a-fonts-size-and-the-default-font.md#a-fonts-size-and-the-default-font-2026-10-22-910)
