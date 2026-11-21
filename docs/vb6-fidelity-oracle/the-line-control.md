@@ -100,3 +100,111 @@ Three probes, each compiled native and as p-code. Every line of output was the s
 - **Refused:** a Line on a form whose ScaleLeft or ScaleTop is not 0, such as a y-up graph's, since HexIDE
   applies no origin; and a Line in a PictureBox with a user scale.
 
+
+## What VB6's designer saves for a Line (2026-11-21, #163, SP6)
+
+**The question.** The probes above read a Line from code. #163 also asks what the designer offers and what a save
+writes: the property set, its order, and which values are left out.
+
+**The rig.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console through Hyper-V's synthetic
+keyboard and mouse. Files were read in the guest over PowerShell Direct. Each project was a one-form Standard EXE, the
+form in twips. Each hand-written form was dirtied by a Replace All of a comment in its code, then saved with Ctrl+S.
+VB6 loaded each one with no message and no `.log`.
+
+**The Properties window** lists twelve rows for a Line, with these defaults:
+
+| Property | Default shown |
+|---|---|
+| `(Name)` | |
+| BorderColor | `&H80000008&` |
+| BorderStyle | `1 - Solid` |
+| BorderWidth | `1` |
+| DrawMode | `13 - Copy Pen` |
+| Index | empty |
+| Tag | empty |
+| Visible | `True` |
+| X1, X2, Y1, Y2 | the endpoints |
+
+**What a save writes.**
+- **A Line added with a double-click on its toolbox button,** on a 6000-by-4500 client, was saved as `X1 = 2400`,
+  `X2 = 3600`, `Y1 = 2010`, `Y2 = 2490`, and nothing else. That is a diagonal across a 1200-by-480 box.
+- **A Line drawn with the mouse** was saved with its four endpoints only.
+- **Properties at their defaults are left out,** even when the file names them. A Line whose file gave
+  `BorderColor = &H80000008&`, `BorderStyle = 1  'Solid`, `BorderWidth = 1`, `DrawMode = 13  'Copy Pen` and
+  `Visible = -1  'True` was saved with its four endpoints only.
+- **The order is alphabetical,** whatever order the file gave. The hand-written lines were in reverse order, and VB6
+  saved them like this:
+
+```
+   Begin VB.Line LineA 
+      BorderColor     =   &H000000FF&
+      BorderStyle     =   2  'Dash
+      DrawMode        =   7  'Invert
+      Tag             =   "tag"
+      Visible         =   0   'False
+      X1              =   300
+      X2              =   3000
+      Y1              =   300
+      Y2              =   900
+   End
+   Begin VB.Line LineB 
+      BorderWidth     =   3
+      ...
+   End
+   Begin VB.Line LineC 
+      Index           =   2
+      X1              =   300
+      ...
+```
+
+- **`Index` came before the endpoints** on a Line with nothing else set (LineC). A Line with `Index` and other
+  properties together wasn't tried.
+
+**BorderStyle's comments** are the Properties window's names:
+
+| Value | Saved as |
+|---|---|
+| 0 | `0  'Transparent` |
+| 1 | left out |
+| 2 | `2  'Dash` |
+| 3 | `3  'Dot` |
+| 4 | `4  'Dash-Dot` |
+| 5 | `5  'Dash-Dot-Dot` |
+| 6 | `6  'Inside Solid` |
+
+**DrawMode's comments are one name behind the value.** The obvious guess is that a saved `DrawMode = 7` reads
+`'Xor Pen`, the name VB6's Properties window gives 7. It doesn't: the file says `'Invert`, the name of 6.
+
+Sixteen Lines, with DrawMode 1 to 16 in the file and no comment, were saved as:
+
+| Value | Saved comment | The Properties window's name |
+|---|---|---|
+| 1 | `'Blackness` | Blackness |
+| 2 | `'Blackness` | Not Merge Pen |
+| 3 | `'Not Merge Pen` | Mask Not Pen |
+| 4 | `'Mask Not Pen` | Not Copy Pen |
+| 5 | `'Not Copy Pen` | Mask Pen Not |
+| 6 | `'Mask Pen Not` | Invert |
+| 7 | `'Invert` | Xor Pen |
+| 8 | `'Xor Pen` | Not Mask Pen |
+| 9 | `'Not Mask Pen` | Mask Pen |
+| 10 | `'Mask Pen` | Not Xor Pen |
+| 11 | `'Not Xor Pen` | Nop |
+| 12 | `'Nop` | Merge Not Pen |
+| 13 | left out | Copy Pen |
+| 14 | `'Copy Pen` | Merge Pen Not |
+| 15 | `'Merge Pen Not` | Merge Pen |
+| 16 | `'Merge Pen` | Whiteness |
+
+- **The Properties window's names are right:** its drop-down reads `6 - Invert`, `7 - Xor Pen`, `8 - Not Mask Pen`,
+  matching the `vb` constants.
+- **The shift isn't the Line's own.** A form's `DrawMode = 7` and a Shape's were saved as `7  'Invert` too.
+- **No value is saved as `'Whiteness`,** and `'Blackness` is written twice.
+- **The comment is only a comment.** The value before it is what VB6 reads back, so the files load as saved.
+- **The spacing is two spaces before the `'`** for one digit and two alike (`7  'Invert`, `10  'Mask Pen`).
+  `Visible = 0   'False` has three.
+
+### Not measured on SP6
+
+- **The release build's comments,** so whether the DrawMode shift is SP6's or VB6's from the start.
+- **A Line inside a container,** whose endpoints are in the container's scale (above).
