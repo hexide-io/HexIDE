@@ -395,3 +395,24 @@ add zero Increment clicks without Change, stored-and-ignored Acceleration, and s
 through Label Caption (including its default member) and TextBox Tag. Other runtime buddy properties remain refused. Part C loads saved properties and buddy bindings without moving controls, preserves the file blocks
 verbatim, and offers the measured toolbox default. Loaded blocks remain read-only in the designer;
 unmeasured saved BuddyProperty DISPIDs refuse explicitly.
+
+### The buddy's Change comes first wherever Value is assigned (2026-11-21, #2458, SP6)
+
+**The question.** "The buddy" above found the buddy's Change before the UpDown's, from a Sub Main on a form already loaded. HexIDE gave the opposite order inside `Form_Load`, and #2458 asked which is VB6's.
+
+**The probe.** A form with a TextBox, a Label, a CommandButton and two UpDowns. Each event handler appended to a log in a standard module. The form was unloaded and loaded again for each case, and a module variable chose what `Form_Load` did. The buddy was bound with `Set UpDown1.BuddyControl = Text1` and `SyncBuddy = True`, `Min` 0 and `Max` 10. Built with `/make` on vb6.exe SP6 as native code and as p-code, with MSCOMCT2.OCX, the two logged the same lines.
+
+| Where `Value` was assigned | Logged |
+|---|---|
+| In `Form_Load`, after binding: `Value = 4` | `T[4]`, then `U4` |
+| In `Form_Load`: `Value = 4`, then binding, then `Value = 6` | `U4`, then `T[6]`, `U6` |
+| In `Form_Load`, a Label buddy (`BuddyControl = "Label1"`): `Value = 4` | `L[4]`, then the UpDown's Change |
+| In `Form_Activate`, after `Form1.Show`: `Value = 7` | `T[7]`, then `U7` |
+| In `Command1_Click`, raised by `Command1.Value = True`: `Value = 10` | `T[10]`, then `U10` |
+| From a standard module: `Form1.UpDown1.Value = 9` | `T[9]`, then `U9` |
+
+`T[n]` is Text1's Change with its text, `L[n]` Label1's, and `Un` the UpDown's Change with its Value.
+
+**What it shows.** **SyncBuddy writes the buddy, and the buddy's Change comes first, wherever Value is assigned:** in `Form_Load`, in `Form_Activate`, in an event handler and from plain code, for a TextBox buddy and for a Label. Before a buddy is bound, the UpDown's Change comes alone. So HexIDE's order in `Form_Load`, the UpDown's Change first, is the one #2458 suspected was the defect.
+
+**Not evidence here:** `Form1.Visible` read False after the `Show`, as it does in the session these probes run in. `Form_Activate` was raised all the same.
