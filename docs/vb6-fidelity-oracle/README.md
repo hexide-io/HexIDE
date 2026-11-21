@@ -767,6 +767,7 @@ added afterwards.
 - [InputB on an Append file, and a file changed while it is open (2026-11-19, #4927, SP6)](a-file-changed-while-it-is-open.md#inputb-on-an-append-file-and-a-file-changed-while-it-is-open-2026-11-19-4927-sp6)
 - [A form's Move (2026-10-26, #1569)](a-forms-move.md#a-forms-move-2026-10-26-1569)
 - [A date's fraction of a second (2026-10-26, #783)](a-dates-fraction-of-a-second.md#a-dates-fraction-of-a-second-2026-10-26-783)
+- [Floating-point intermediates keep the x87's precision until stored (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#floating-point-intermediates-keep-the-x87s-precision-until-stored-2026-11-21-1214-sp6)
 - [Rnd and Randomize (2026-10-26, #2117)](rnd-and-randomize.md#rnd-and-randomize-2026-10-26-2117)
 - [Format's AMPM token (2026-10-26, #2040)](formats-ampm-token.md#formats-ampm-token-2026-10-26-2040)
 - [Format of a number beyond Decimal's range (2026-10-26, #2118)](format-of-a-number-beyond-decimals-range.md#format-of-a-number-beyond-decimals-range-2026-10-26-2118)
