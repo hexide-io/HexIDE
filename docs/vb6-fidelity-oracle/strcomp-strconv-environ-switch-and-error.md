@@ -458,6 +458,34 @@ Ten calls on characters beyond those letters settle the rule:
 
 It is the rule VbLike's text fold was measured to follow (#1547). HexIDE's UCase and LCase used .NET's invariant casing, which maps all six.
 
+### The case of a character under Turkish and three other user locales (2026-11-21, #797, SP6)
+
+**The question.** Do UCase, LCase, `Format`'s `>` and `<`, `StrConv` and text comparison follow the user's locale? #797 asked about Turkish, where `i` uppercases to `İ` and `I` lowercases to `ı`.
+
+**The probe.** The guest's user locale was set with `Set-Culture` before each run, and a new process read it back. The program itself read `GetUserDefaultLCID` as 2057 (en-GB), 1055 (tr-TR), 1053 (sv-SE), 1030 (da-DK) and 1031 (de-DE). Results were logged as `AscW` codes, so nothing depended on the log's code page. Built with `/make` on vb6.exe SP6 as native code and as p-code, the two agreed in every locale.
+
+**All five locales gave the same answers:**
+
+| Expression | Every locale |
+|---|---|
+| `UCase("i")`, `UCase$("i")`, `Format("i", ">")`, `StrConv("i", vbUpperCase)` | `I` (73) |
+| `LCase("I")`, `LCase$("I")`, `Format("I", "<")`, `StrConv("I", vbLowerCase)` | `i` (105) |
+| `UCase(ChrW(305))`, dotless `ı` | `ı` (305), unchanged |
+| `LCase(ChrW(304))`, dotted `İ` | `İ` (304), unchanged |
+| `StrConv("ii ii", vbProperCase)` | `Ii Ii` |
+| `StrComp("i", "I", vbTextCompare)` | 0 |
+| `StrComp("i", ChrW(304), vbTextCompare)` | -1 |
+| `StrComp(ChrW(305), "I", vbTextCompare)`, and against `"i"` | 1, and 1 |
+| `InStr(1, "XIX", "i", vbTextCompare)` | 2 |
+| Under `Option Compare Text`: `"i" = "I"`; `"i" = ChrW(304)`; `ChrW(305) = "I"`; `"i" Like "I"` | True; False; False; True |
+| `Asc(ChrW(304))` | 73, the `I` that the ANSI conversion gives |
+
+**What it shows.** **The case of a character doesn't follow the user's locale.** Turkish's pairs aren't applied, and the rule in "The case of a character" above holds in all five locales. So all four of #797's rows follow one rule, and it's the locale-independent one.
+
+**The locale does reach the Text order for other letters.** Under tr-TR, Ç, Ö and Ü sort as letters of their own ("The Text order under other user locales", #1573). Even so, `i` and `I` stay equal there.
+
+**What HexIDE does wasn't checked here.**
+
 ### Named arguments
 
 Measured as #1465 measured the rest, one project per spelling:
