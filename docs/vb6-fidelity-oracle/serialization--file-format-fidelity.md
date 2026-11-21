@@ -266,3 +266,43 @@ the scope, because a fixture only exercises what its author thought to include. 
 second cause on its first run. Prefer running the corpus over reasoning from a minimal repro when the
 question is *how much* rather than *why*.
 
+
+### An OCX-bearing form, saved by HexIDE and opened by vb6.exe (2026-11-21, #160, SP6)
+
+**The question.** The corpus round-trip compares HexIDE's output with HexIDE's input. Does vb6.exe still open the
+result for a form carrying ActiveX controls, whose `.frx` holds blobs HexIDE passes through? The corpus case is VB98's
+`Template\Forms\Web Browser.frm`. It holds an `MSComctlLib.Toolbar`, an `MSComctlLib.ImageList` whose images are in
+`Web Browser.frx`, and an `SHDocVwCtl.WebBrowser`.
+
+**HexIDE's half.** The corpus round-trip, `Forms_and_controls_round_trip_byte_for_byte` in `HexIDE.Runtime.Tests`, was
+run at upstream/main 0f2748334 against the VB98 template folder. Its report listed `OK  Forms/Web Browser.frm` among 67
+form and control files. `OK` there means the `.frm` text and the `.frx` bytes both came back identical. So the file
+HexIDE writes is the file VB6 wrote, and the vb6.exe half below opens those exact bytes.
+
+**vb6.exe's half.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM. The project held the form, its `.frx`, the
+stdole2 reference, and `Object` lines for `mscomctl.ocx` 2.0 and `shdocvw.dll` 1.1.
+- **`/make`,** run from PowerShell Direct as an administrator, built `wb.exe` with no load log.
+- **The IDE, started elevated on the console,** loaded the project with no message and no log. The designer showed every
+  control: the toolbar with the ImageList's images on its buttons, the Address combo, the timer, and a live WebBrowser
+  showing "Can't reach this page".
+- **The IDE started unelevated** first said "Error accessing the system registry", then "Continue Loading Project?". After
+  Yes, it logged `Line 62: Class SHDocVwCtl.WebBrowser of control brwWebBrowser was not a loaded control class.` That is
+  the session lacking rights, not the file: the same bytes loaded elevated, and the form was closed unsaved.
+
+**VB6's own save of it isn't byte-identical.** Closing the elevated IDE with nothing edited asked "Save changes to the
+following files?", naming `wb.vbp` and `Web Browser.frm`. With Yes, the `.frx` came back identical (4428 bytes), but the
+`.frm` grew from 8474 bytes to 8710:
+- the `Object` lines became `{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCTL.OCX"` and
+  `{EAB22AC0-30C1-11CF-A7EB-0000C05BAE0B}#1.1#0"; "ieframe.dll"`: the GUID's `d2` upper-cased, and the file names
+  rewritten;
+- the WebBrowser's block gained six lines, `NoWebView`, `HideFileNames`, `SingleClick`, `SingleSelection`, `NoFolders`
+  and `Transparent`, each `0 'False`;
+- its `Location = ""` became `"http:///"`.
+
+So on Windows 10, VB6 rewrites this template from the installed controls. HexIDE's save, which changes nothing, is the
+more conservative of the two.
+
+### Not measured
+
+- **A form HexIDE has edited,** such as one with a control moved: only an untouched round-trip was opened.
+- **The other OCX forms in the corpus.**
