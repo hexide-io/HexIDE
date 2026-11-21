@@ -361,7 +361,7 @@ Q4, Q9, Q10 and Q14 to Q16, from the list above.
 only. Does vb6.exe still open the form once HexIDE has edited it?
 
 **HexIDE's half.**
-- **The input:** HexIDE, built from main at e2af37f7e plus docs, opened a project holding VB98's `Web Browser.frm` and
+- **The input:** HexIDE, built from main at ef65c5d96 with one docs-only commit on top, opened a project holding VB98's `Web Browser.frm` and
   its `.frx`. It said the WebBrowser is not a supported control class and is preserved as unknown.
 - **The edit:** `timTimer`, a modelled Timer, was moved in the designer from 412, 100 to 380, 120 pixels.
 - **The save:** File > Save Pwb.
