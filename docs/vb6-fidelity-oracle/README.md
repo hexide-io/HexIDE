@@ -649,6 +649,7 @@ added afterwards.
 - [GoSub, Return, and On … GoTo and On … GoSub (2026-11-18, #4726)](gosub-return-and-on-goto.md#gosub-return-and-on--goto-and-on--gosub-2026-11-18-4726)
 - [A selector beyond Integer, and Resume from a routine a handler called (2026-11-19, #4880)](gosub-return-and-on-goto.md#a-selector-beyond-integer-and-resume-from-a-routine-a-handler-called-2026-11-19-4880)
 - [The References dialog's fixed rows (2026-10-22, #1026, design-time)](the-references-dialogs-fixed-rows.md#the-references-dialogs-fixed-rows-2026-10-22-1026-design-time)
+- [The References dialog's Language line follows the library's LCID (2026-11-21, #1468, IDE, SP6)](the-references-dialogs-fixed-rows.md#the-references-dialogs-language-line-follows-the-librarys-lcid-2026-11-21-1468-ide-sp6)
 - [A form's StartUpPosition when its file has no line (2026-10-13, #932)](a-forms-startupposition-when-its-file-has-no-line.md#a-forms-startupposition-when-its-file-has-no-line-2026-10-13-932)
 - [A form's Attribute block, and a form without one (2026-10-22, #516, #931)](a-forms-attribute-block-and-a-form-without-one.md#a-forms-attribute-block-and-a-form-without-one-2026-10-22-516-931)
 - [VB_Ext_KEY on a form survives VB6's save (2026-10-26, #1117, design-time)](vb-ext-key-on-a-form-survives-vb6s-save.md#vb_ext_key-on-a-form-survives-vb6s-save-2026-10-26-1117-design-time)
