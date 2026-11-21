@@ -98,3 +98,78 @@ drawn and maximizes. Nor does Avalonia have a tool window's caption, or a captio
   ([#1596](https://github.com/hexide-io/HexIDE/issues/1596)).
 - A Caption or ControlBox changed at run time. HexIDE keeps the window the file gave it, as it keeps the frame.
 
+
+## What VB6's designer changes when a form's BorderStyle changes (2026-11-21, #1596, design-time, IDE, SP6)
+
+**The question.** The section above measured what vb6.exe does with each combination once it is in the file. Does VB6's
+designer change MinButton, MaxButton, ControlBox or ShowInTaskbar when BorderStyle is changed in the Properties
+window? And does a value set by hand survive a later change of style?
+
+**The probe.** Form1 from a hand-written `.frm` that sets only the Sizable defaults, opened in VB6's designer on the
+guest's console (VB6.EXE 6.00.9782, SP6). Each step clicked the BorderStyle row's value cell in the Properties window,
+typed the value's number, pressed Return, then saved with Ctrl+S, and the saved `.frm` was read back. Caption, the
+client size, LinkTopic, the Scale lines and StartUpPosition never changed, and are left out below. A line VB6 left out
+is the default, True.
+
+**From Sizable, to each style and back:**
+
+| Changed to | Lines the save wrote |
+|---|---|
+| 3 Fixed Dialog | `BorderStyle = 3`, `ClientLeft = -15`, `ClientTop = 270`, `MaxButton = 0`, `MinButton = 0`, `ShowInTaskbar = 0` |
+| 1 Fixed Single | `BorderStyle = 1`, `ClientLeft = -15`, `ClientTop = 270`, `MaxButton = 0`, `MinButton = 0` |
+| 0 None | `BorderStyle = 0`, `ClientLeft = -60`, `ClientTop = -120`, `ShowInTaskbar = 0` |
+| 4 Fixed ToolWindow | `BorderStyle = 4`, `ClientLeft = -15`, `ClientTop = 270`, `MaxButton = 0`, `MinButton = 0`, `ShowInTaskbar = 0` |
+| 5 Sizable ToolWindow | `BorderStyle = 5`, `ClientLeft = 60`, `ClientTop = 345`, `MaxButton = 0`, `MinButton = 0`, `ShowInTaskbar = 0` |
+| 2 Sizable, from each of these | `ClientLeft = 60`, `ClientTop = 345`, and nothing else |
+
+**With values set by hand first:**
+
+| Before | Set by hand | Then chose | Saved |
+|---|---|---|---|
+| Sizable | ControlBox, MinButton and ShowInTaskbar False | Fixed Single | `ControlBox = 0`, `MaxButton = 0`, `MinButton = 0`; ShowInTaskbar back to True |
+| that | | Sizable | `ControlBox = 0` only; MinButton back to True |
+| Fixed Dialog | MaxButton True, which drops its line | Fixed Single | `MaxButton = 0` again |
+| Fixed Dialog, with ControlBox False | | None | `MaxButton = 0`, `MinButton = 0`, `ShowInTaskbar = 0` |
+| Sizable | MinButton False | None | `MinButton = 0`, `ShowInTaskbar = 0`; MaxButton stays True |
+| Sizable | MinButton False | Sizable again | `MinButton = 0`, kept |
+| Fixed Single | ShowInTaskbar False | Fixed Single again | `ShowInTaskbar = 0`, kept |
+
+ControlBox, set False by hand at the start, stayed False through every change. The Properties window showed what the
+file said wherever it was looked at: MaxButton False at Fixed Dialog, and True once set by hand.
+
+**So choosing a different BorderStyle sets three properties to fixed values for the new style, whatever they were
+before:**
+
+| BorderStyle | MinButton | MaxButton | ShowInTaskbar |
+|---|---|---|---|
+| 0 None | unchanged | unchanged | False |
+| 1 Fixed Single | False | False | True |
+| 2 Sizable | True | True | True |
+| 3 Fixed Dialog | False | False | False |
+| 4 Fixed ToolWindow | False | False | False |
+| 5 Sizable ToolWindow | False | False | False |
+
+- **ControlBox is never changed.**
+- **Choosing the style the form already has changes nothing,** so a value set by hand survives that.
+- **A value set by hand doesn't survive a change to another style.** Each of the three is written again from this
+  table, except None's buttons.
+- **None leaves MinButton and MaxButton alone.** It was measured from both buttons False (after Fixed Dialog) and from
+  MinButton False with MaxButton True.
+- **ClientLeft and ClientTop change with the style too.** The client size stays, and the saved client origin moves:
+  -15, 270 for Fixed Single, Fixed Dialog and Fixed ToolWindow; -60, -120 for None; 60, 345 for Sizable and Sizable
+  ToolWindow. These are the values measured, not a rule for other frames.
+
+**What was overturned.** #1596 gave the common account: Fixed Dialog sets MinButton, MaxButton and ShowInTaskbar
+False, and the tool-window styles set ShowInTaskbar False. That much is right, but it's incomplete:
+- Fixed Single sets both buttons False as well.
+- None sets ShowInTaskbar False.
+- The tool windows set the buttons False too.
+- Sizable sets all three back to True, and Fixed Single sets ShowInTaskbar back to True.
+
+So a form that goes to Fixed Dialog and back comes back as it started, and a value changed by hand in between is lost.
+
+### Not measured
+
+- **The Properties window at every step.** Only the MaxButton rows above were looked at; the rest is the saved file.
+- **A form that is an MDI child,** or one with a menu.
+- **The designer at a DPI other than 96,** which would move the ClientLeft and ClientTop values.
