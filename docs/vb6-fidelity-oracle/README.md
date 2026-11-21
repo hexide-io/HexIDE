@@ -163,6 +163,7 @@ driven by hand, its steps were replayed from the console agent's log.
 | *The TabIndex a new or pasted control takes* (#925) | the same: the save is byte-identical |
 | *Where VB6's designer puts a control's block* (#1481) | the same: every control block |
 | *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
+| *Member attributes: where VB6 attaches them, and what its IDE writes* (#273) | the same: 22 of the hand-written shapes, and every save in *Which saves write a module*, two files to the release build's hash; the Procedure Attributes dialog's rows not run again ([on SP6](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#on-sp6-the-load-and-save-shapes-and-which-saves-write-a-module-2026-11-21-1675-ide-sp6)) |
 
 **#1675's interpreter rows, rebuilt from their sections' tables (2026-11-21).** Each project was built with `/make` as native code and as p-code, and run in vb6.exe's IDE with `/runexit`, all on the guest's console. All three modes logged the same lines in every project.
 - **_Unload Me_ (#973): all five IDE probes give their table's answer.** They are:
@@ -188,13 +189,11 @@ driven by hand, its steps were replayed from the console agent's log.
   - `App.PrevInstance` is False.
   - The version is 1.0.0, and the four version strings are empty.
 
-**Not measured again:**
-- *The reset prompt*'s rows with *Notify Before State Loss* changed, since setting that option changes the IDE for
-  everyone using the guest;
-- what the IDE writes for member attributes (#273), and the IDE rows of other sections whose probes were not kept,
-  beyond the spot check and #1675's interpreter rows above.
+**Measured, with nothing to find:**
+- *The reset prompt*'s rows with *Notify Before State Loss* changed: there are none. VB6 has no such option, on SP6 as on the release build. Its six Options pages were read on 2026-11-21 (#1675). The option belongs to the Office VBA editor.
 
-Both are #1675.
+**Not measured again** (#1675): the IDE rows of other sections whose probes were not kept, beyond the spot check,
+#1675's interpreter rows above, and #273's save rows in the table; and #273's Procedure Attributes dialog rows.
 
 ### Reaching the VB6 *IDE*, not just the compiler (2026-09-20)
 
