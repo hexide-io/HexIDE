@@ -984,3 +984,4 @@ added afterwards.
 - [What a form's saved TabIndexes become when it loads (2026-11-19, #4843, SP6, run time)](the-tabindex-a-new-or-pasted-control-takes.md#what-a-forms-saved-tabindexes-become-when-it-loads-2026-11-19-4843-sp6-run-time)
 - [A Public Type, and a variable in another module (2026-11-20, #4907)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-public-type-and-a-variable-in-another-module-2026-11-20-4907)
 - [Format presence and RTF text (2026-11-20, #4955, SP6)](text-clipboard.md#format-presence-and-rtf-text-2026-11-20-4955-sp6)
+- [Clipboard: another application's data, by GetFormat, GetText and GetData (2026-11-21, #5075, SP6)](text-clipboard.md#another-applications-data-getformat-gettext-and-getdata-2026-11-21-5075-sp6)
