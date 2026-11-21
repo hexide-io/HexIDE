@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Controls;
 using HexIDE.IDE;
@@ -223,6 +224,7 @@ public class DesignerInstantiationFailureTests
         {
             window.Show();
             window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
         }
         return (form, original, view, window);
     }
