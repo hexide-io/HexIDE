@@ -562,6 +562,7 @@ added afterwards.
 - [Member attributes: where VB6 attaches them, and what its IDE writes (2026-10-13, #273)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#member-attributes-where-vb6-attaches-them-and-what-its-ide-writes-2026-10-13-273)
 - [Resume Next into a block (2026-10-12, #839)](resume-next-into-a-block.md#resume-next-into-a-block-2026-10-12-839)
 - [A typed selector and a Variant one (2026-10-13, #839 review round two)](a-typed-selector-and-a-variant-one.md#a-typed-selector-and-a-variant-one-2026-10-13-839-review-round-two)
+- [The rest of the intrinsics, and a test for Doubles (2026-11-21, #985, SP6)](a-typed-selector-and-a-variant-one.md#the-rest-of-the-intrinsics-and-a-test-for-doubles-2026-11-21-985-sp6)
 - [Attribute lines inside a procedure (2026-10-12, #832)](attribute-lines-inside-a-procedure.md#attribute-lines-inside-a-procedure-2026-10-12-832)
 - [What a condition is (2026-10-12, #847)](what-a-condition-is.md#what-a-condition-is-2026-10-12-847)
 - [A typed parameter given a value of another type (2026-10-13, #874)](a-typed-parameter-given-a-value-of-another-type.md#a-typed-parameter-given-a-value-of-another-type-2026-10-13-874)
