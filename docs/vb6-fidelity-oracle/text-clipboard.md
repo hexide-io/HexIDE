@@ -228,3 +228,84 @@ Every value read back was a **String**. No `GetFormat` call raised an error, and
 - **Not measured:**
   - **another application's data on the clipboard,** such as a picture, files, HTML, or Excel's Link format: whether `GetFormat` reports each standard format it holds, and what `GetText(vbCFLink)` reads then;
   - the console session's own clipboard, for these rows.
+
+### Another application's data: GetFormat, GetText and GetData (2026-11-21, #5075, SP6)
+
+**The question.** "Format presence and RTF text" above left open what VB6 reports when another application put the data on the clipboard.
+
+**The probe.** It was built as that one was, with `/make` as native code and as p-code, and run in session 0 of a clone of the oracle guest. For each row, the program cleared the clipboard, then ran a 32-bit PowerShell child and waited for it. The child opened the clipboard with a window of its own, emptied it, and wrote one kind of data with `SetClipboardData`, as another application would. Then the program logged:
+- the formats Windows held, from `EnumClipboardFormats`, with registered formats by name;
+- which of 0 to 17, -1, 32767, `vbCFRTF` and `vbCFLink` `GetFormat` reported True;
+- `GetText` with no argument, and with 1, 2, 7, 13, `vbCFRTF` and `vbCFLink`;
+- `GetData` with no argument, and with 1, 2, 3, 8, 9, 14 and 15, by the picture's `Type` and HIMETRIC size.
+
+The two builds logged the same lines.
+
+**What's held, and what `GetFormat` reports:**
+
+| Row | What the child wrote | Windows held | `GetFormat` True for |
+|---|---|---|---|
+| bitmap | `CF_BITMAP`, 8 × 8 pixels | 2, 8, 17 | 2, 8, 17 |
+| dib | `CF_DIB`, 4 × 4 pixels, 24-bit | 8, 2, 17 | 2, 8, 17 |
+| emf | `CF_ENHMETAFILE` | 14, 3 | 3, 14 |
+| wmf | `CF_METAFILEPICT`, 1000 × 600 | 3, 14 | 3, 14 |
+| palette | `CF_PALETTE`, two entries | 9 | 9 |
+| files | `CF_HDROP`, two paths | 15 | 15 |
+| html | `HTML Format` and `CF_UNICODETEXT` | `HTML Format`, 13, 16, 1, 7 | 1, 7, 13, 16 |
+| rtf | `Rich Text Format` and `CF_UNICODETEXT` | `Rich Text Format`, 13, 16, 1, 7 | 1, 7, 13, 16, `vbCFRTF` |
+| rtfonly | `Rich Text Format` alone | `Rich Text Format` | `vbCFRTF` |
+| link | `Link` laid out as Excel writes it (`Excel`, `[Book1]Sheet1` and `R1C1:R2C2`, each ended by a null, then a final null), and `CF_TEXT` | `Link`, 1, 16, 7, 13 | 1, 7, 13, 16, `vbCFLink` |
+| objectlink | `ObjectLink`, the same bytes, and `CF_TEXT` | `ObjectLink`, 1, 16, 7, 13 | 1, 7, 13, 16 |
+| ownerlink | `OwnerLink`, the same bytes, and `CF_TEXT` | `OwnerLink`, 1, 16, 7, 13 | 1, 7, 13, 16 |
+| unicode | `CF_UNICODETEXT` alone | 13, 16, 1, 7 | 1, 7, 13, 16 |
+| oem | `CF_OEMTEXT` alone: `caf` and the byte &H82 | 7, 16, 1, 13 | 1, 7, 13, 16 |
+| sylk | `CF_SYLK`, `CF_DIF` and `CF_TEXT` | 4, 5, 1, 16, 7, 13 | 1, 4, 5, 7, 13, 16 |
+| private | a registered format of its own | that format | none |
+| empty | nothing | none | none |
+
+**`GetFormat` is True for exactly the standard formats Windows holds,** including the ones Windows synthesizes: 17 (`CF_DIBV5`) beside a bitmap, 3 beside an enhanced metafile, and 14 beside a Windows metafile.
+- **`vbCFRTF` is the registered `Rich Text Format`,** and **`vbCFLink` is the registered `Link`.**
+- **No other registered format is reported** under any number asked: not `ObjectLink`, not `OwnerLink`, not `HTML Format`, and not a private one.
+
+**What `GetText` reads:**
+
+| Row | `GetText` and `GetText(1)` | `GetText(vbCFRTF)` | `GetText(vbCFLink)` |
+|---|---|---|---|
+| html | `Hello HTML` | `""` | `""` |
+| rtf | `Hello RTF` | `{\rtf1\ansi Hello \b RTF\b0}` | `""` |
+| rtfonly | `""` | `{\rtf1\ansi Only}` | `""` |
+| link | `1`, Tab, `2`, CR LF, `3`, Tab, `4`, CR LF | `""` | **`Excel\|[Book1]Sheet1!R1C1:R2C2`**, 29 characters |
+| objectlink, ownerlink | `1` and CR LF | `""` | `""` |
+| unicode: `A`, U+03A9, U+4E2D, `é`, `B` | `AO?éB`. Ω best-fits to `O`, and 中 has no form in code page 1252 | `""` | `""` |
+| oem | `café`: Windows converted &H82 from code page 437 | `""` | `""` |
+| the picture rows, files, private and empty | `""` | `""` | `""` |
+
+Every value read was a String. `GetText(2)`, `GetText(7)` and `GetText(13)` raised **460**, "Invalid Clipboard format", in every row, whether or not that format was held.
+
+**`GetText(vbCFLink)` rewrites a Link's three null-ended parts as `app|topic!item`.** That's the form a DDE `LinkTopic` and `LinkItem` use. The obvious guess was that it reads the Link's bytes as they are.
+
+**What `GetData` reads,** by picture Type, with the size in HIMETRIC:
+
+| Row | `GetData()` | `GetData(2)` | `GetData(3)` | `GetData(8)` | `GetData(9)` | `GetData(14)` |
+|---|---|---|---|---|---|---|
+| bitmap, 8 pixels | 1, 212 × 212 | 1 | none | 1 | none | none |
+| dib, 4 pixels | 1, 106 × 106 | 1 | none | 1 | none | none |
+| emf | **4**, 1297 × 767 | none | 2, 1296 × 767 | none | none | 4, 1297 × 767 |
+| wmf | **2**, 1000 × 600 | none | 2 | none | none | 4, 1000 × 600 |
+| palette | 1, 26 × 26 | none | none | none | 1, 26 × 26 | none |
+| every other row | none | none | none | none | none | none |
+
+"None" is a picture of Type 0 with a Handle of 0. It isn't Nothing and isn't an error. `GetData(1)` and `GetData(15)` raised **460** in every row.
+
+**What it shows:**
+- **`GetData()` with no argument takes the picture in its own format:**
+  - Type 4 for an enhanced metafile;
+  - Type 2 for a Windows metafile;
+  - Type 1 for a bitmap or a DIB.
+- **Asked for a format Windows synthesized, it converts.** `GetData(3)` on an enhanced metafile gives a Type 2 picture. `GetData(14)` on a Windows metafile gives a Type 4.
+- **`GetData(vbCFPalette)` with a palette alone gives a Type 1 picture** of 26 HIMETRIC, one pixel square.
+- **A file list is reported by `GetFormat(vbCFFiles)`, and `GetData(15)` raises 460.** `GetText(15)` wasn't asked.
+
+**Not evidence here:**
+- **No real application wrote the data.** Paint, Explorer, a browser, WordPad and Excel weren't run. The child wrote the formats each is known to write, and only those. A real application adds formats of its own, such as Explorer's `Shell IDList Array` or Excel's `Biff8`. The private row suggests none of them would be reported, but that's reasoned, not checked.
+- **The console session's own clipboard** wasn't used.
