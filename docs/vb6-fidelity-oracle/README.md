@@ -809,6 +809,7 @@ added afterwards.
 - [A form's Move (2026-10-26, #1569)](a-forms-move.md#a-forms-move-2026-10-26-1569)
 - [A date's fraction of a second (2026-10-26, #783)](a-dates-fraction-of-a-second.md#a-dates-fraction-of-a-second-2026-10-26-783)
 - [Where a floating-point intermediate is narrowed: comparisons, conversions and calls (2026-11-21, #1214, SP6)](where-a-floating-point-intermediate-is-narrowed.md#where-a-floating-point-intermediate-is-narrowed-comparisons-conversions-and-calls-2026-11-21-1214-sp6)
+- [The rest of the narrowing points: `\`, Mod, a For limit, a subscript, a Single, Sgn, Log, Exp and Sin (2026-11-21, #1214, SP6)](where-a-floating-point-intermediate-is-narrowed.md#the-rest--mod-a-for-limit-a-subscript-a-single-sgn-log-exp-and-sin-2026-11-21-1214-sp6)
 - [Floating-point intermediates keep the x87's precision until stored (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#floating-point-intermediates-keep-the-x87s-precision-until-stored-2026-11-21-1214-sp6)
 - [A single floating-point operation is rounded twice, to 64 bits and then to a double (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#a-single-operation-is-rounded-twice-2026-11-21-1214-sp6)
 - [Rnd and Randomize (2026-10-26, #2117)](rnd-and-randomize.md#rnd-and-randomize-2026-10-26-2117)
