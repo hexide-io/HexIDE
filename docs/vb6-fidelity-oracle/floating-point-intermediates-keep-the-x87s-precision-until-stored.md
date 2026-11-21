@@ -92,3 +92,86 @@ The two differ when the first rounding lands exactly halfway between two doubles
 **Overturned:**
 - **The obvious guess was that a single operation, stored at once, gives what IEEE doubles give.** It doesn't, whenever the x87's first rounding lands on a tie.
 - **The rows above left "at least 64 bits" open.** It's exactly 64.
+
+### Sin, Cos, Tan and Atn are the x87's, reduced by a 66-bit π (2026-11-21, #1214, SP6)
+
+**The question.** If VB6 computes on the x87, its trigonometric functions are the x87's `FSIN`, `FCOS`, `FPTAN` and `FPATAN`. Those are known to reduce their argument with an approximation of π, not π itself. Do VB6's `Sin`, `Cos`, `Tan`, `Atn`, `Exp`, `Log` and `Sqr` give what .NET's `Math` gives?
+
+**The probe:**
+- **The arguments:** 100 doubles, set from their bytes:
+  - 20 in [0, 1), 20 in [1, 10) and 20 in [-100, 100], from a seeded generator;
+  - π, 2π … 10π;
+  - π/2, 3π/2 … 19π/2;
+  - 10 between 1E+5 and 1E+9, and 10 between 1E-10 and 1E-5.
+
+  `Log` and `Sqr` took the absolute value, and `Exp` divided anything beyond ±700 by 1E+7.
+- **Each function** was called on each argument, and the result logged as its bytes.
+- **The build:** `/make` on vb6.exe SP6, as native code and as p-code. All 700 results were identical in both.
+- **The comparison:** .NET 10's `Math.Sin`, `Math.Cos`, `Math.Tan`, `Math.Atan`, `Math.Exp`, `Math.Log` and `Math.Sqrt` on the same 100 arguments, on Windows x64.
+
+| Function | Same as .NET | Different | Where |
+|---|---|---|---|
+| `Sin` | 80 | 20 | every multiple of π, and every argument from 1E+5 up |
+| `Cos` | 77 | 23 | every odd multiple of π/2, every argument from 1E+5 up, and 3 others by 1 ulp |
+| `Tan` | 68 | 32 | every multiple of π/2, every argument from 1E+5 up, and 2 others by 1 ulp |
+| `Atn` | 95 | 5 | all by 1 ulp |
+| `Exp`, `Log`, `Sqr` | 100 each | 0 | |
+
+Some of the differences:
+
+| Expression | vb6.exe | .NET |
+|---|---|---|
+| `Sin(3.141592653589793)`, π as a double | `1.2246063538223773E-16` | `1.2246467991473532E-16` |
+| `Cos(1.5707963267948966)`, π/2 | `6.123031769111886E-17` | `6.123233995736766E-17` |
+| `Tan(1.5707963267948966)` | `16331778728383844` | `16331239353195370` |
+| `Sin(239079492.32006082)` | `-0.03368087852362818` | `-0.033680878523935795`, 44,332 ulp apart |
+| `Atn(0.7355520504968515)` | `0.6341901164466984` | `0.6341901164466985`, 1 ulp |
+
+The first four differ within the 15 digits `Print` shows. `Atn(1)` gave π/4 as a double, so `Print Sin(4 * Atn(1))` would print `1.22460635382238E-16`, where .NET's value prints `1.22464679914735E-16` (reasoned from the bytes, not printed).
+
+**A model that reproduces every one of the 400 trigonometric results, bit for bit:**
+1. Take π rounded to a 66-bit significand.
+2. Reduce the argument by multiples of half of it, keeping the quadrant.
+3. Compute the sine or cosine of the remainder exactly. Their ratio is the tangent.
+4. Round the result to the x87's 64-bit significand, then to a double.
+
+`Atn` is step 4 alone, applied to the exact arctangent.
+
+Rounding to 66 or 68 bits gives the same constant here, so the rows don't tell those apart. With π itself in step 1, the model gets 80, 80 and 70 of `Sin`, `Cos` and `Tan` right, and misses exactly the multiples of π and π/2 and the large arguments.
+
+So:
+- **The large differences come from the reduction.** Near a multiple of π or π/2, the result is mostly the difference between π and the x87's π. For a large argument, that difference times the number of turns shifts the angle.
+- **The 1-ulp differences come from rounding twice,** as a single multiplication does in the section above.
+- **`Exp`, `Log` and `Sqr` matched .NET on all 100,** but `Sqr` rounds twice too, which shows only near a tie:
+
+**`Sqr` at a tie.** A search with the same model, over random doubles in [1, 4), found 6 whose square root rounds differently twice than once: 6 in 15,002 tries. vb6.exe, native and p-code alike, gave the twice-rounded result for all 6, from `Sqr(a)` and from `a ^ 0.5`. .NET's `Math.Sqrt` gives the once-rounded one.
+
+| `a` | vb6.exe `Sqr(a)` and `a ^ 0.5` | Rounded once, as .NET |
+|---|---|---|
+| `400CE9014CDAA2A1` | `3FFE6A76FB2263BA` | `3FFE6A76FB2263B9` |
+| `3FF975DE35D20EBC` | `3FF42EEE9E585BEA` | `3FF42EEE9E585BE9` |
+| `400BB28DDE283846` | `3FFDC567C6235F26` | `3FFDC567C6235F25` |
+| `4006C04435758C94` | `3FFAFB6A66B66F4E` | `3FFAFB6A66B66F4F` |
+| `400C93FD5B9232FE` | `3FFE3D9D2F9E28CA` | `3FFE3D9D2F9E28CB` |
+| `3FFCBB64481FA6DE` | `3FF570DE80631134` | `3FF570DE80631135` |
+
+So `Sqr` is the exact square root rounded to 64 bits and then to a double, and it differs from .NET's by 1 ulp at about one argument in 2,500.
+
+**Each of these narrows its argument to a double first.** Each row computed `f(a + b)`, with `a + b` held wide, and `f(c)` after `c = a + b` was stored. `b` is below `a`'s double ulp, and each `f` magnifies it past its result's ulp. So the two would differ if `f` read the wide sum. Native code and p-code agreed.
+
+| Function | `a` | `b` | `f(a + b)` | `f(c)` |
+|---|---|---|---|---|
+| `Sqr` | 1 + 2^-52 | 2^-60 | `3FF0000000000000` | the same |
+| `Exp` | 700 | 2^-45 | `7F0D945DF4F8EC8E` | the same |
+| `Sin` | π as a double | 2^-60 | `3CA1A60000000000` | the same |
+| `Cos` | π/2 as a double | 2^-61 | `3C91A60000000000` | the same |
+| `Tan` | π/2 as a double | 2^-62 | `434D02D546D3EAB2` | the same |
+
+`Log` was shown to narrow its argument in *Where a floating-point intermediate is narrowed*. `Atn` was run the same way with `a = 1` as a control, where the sum can't show.
+**HexIDE,** read from the code and not run: `Sin`, `Cos`, `Tan` and `Atn` call `Math.Sin`, `Math.Cos`, `Math.Tan` and `Math.Atan` (`VB6BuiltIns.Math.cs:21-24`). So they give the .NET column above.
+
+**Not measured:**
+- `Exp` and `Log` near ties, where rounding twice would show;
+- arguments beyond 2^63, where the x87 doesn't reduce at all;
+- `Single` arguments;
+- the x87's own accuracy beyond these 100 arguments. The model is fitted to them, not derived from Intel's documentation.

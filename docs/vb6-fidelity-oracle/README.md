@@ -163,6 +163,7 @@ driven by hand, its steps were replayed from the console agent's log.
 | *The TabIndex a new or pasted control takes* (#925) | the same: the save is byte-identical |
 | *Where VB6's designer puts a control's block* (#1481) | the same: every control block |
 | *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
+| *Member attributes: where VB6 attaches them, and what its IDE writes* (#273) | the same: 22 of the hand-written shapes, and every save in *Which saves write a module*, two files to the release build's hash; the Procedure Attributes dialog's rows not run again ([on SP6](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#on-sp6-the-load-and-save-shapes-and-which-saves-write-a-module-2026-11-21-1675-ide-sp6)) |
 
 **#1675's interpreter rows, rebuilt from their sections' tables (2026-11-21).** Each project was built with `/make` as native code and as p-code, and run in vb6.exe's IDE with `/runexit`, all on the guest's console. All three modes logged the same lines in every project.
 - **_Unload Me_ (#973): all five IDE probes give their table's answer.** They are:
@@ -188,13 +189,11 @@ driven by hand, its steps were replayed from the console agent's log.
   - `App.PrevInstance` is False.
   - The version is 1.0.0, and the four version strings are empty.
 
-**Not measured again:**
-- *The reset prompt*'s rows with *Notify Before State Loss* changed, since setting that option changes the IDE for
-  everyone using the guest;
-- what the IDE writes for member attributes (#273), and the IDE rows of other sections whose probes were not kept,
-  beyond the spot check and #1675's interpreter rows above.
+**Measured, with nothing to find:**
+- *The reset prompt*'s rows with *Notify Before State Loss* changed: there are none. VB6 has no such option, on SP6 as on the release build. Its six Options pages were read on 2026-11-21 (#1675). The option belongs to the Office VBA editor.
 
-Both are #1675.
+**Not measured again** (#1675): the IDE rows of other sections whose probes were not kept, beyond the spot check,
+#1675's interpreter rows above, and #273's save rows in the table; and #273's Procedure Attributes dialog rows.
 
 ### Reaching the VB6 *IDE*, not just the compiler (2026-09-20)
 
@@ -597,6 +596,7 @@ added afterwards.
 - [Enter, Escape and the default-button bits (2026-11-21, #827, SP6)](rgb-qbcolor-and-msgboxs-style.md#enter-escape-and-the-default-button-bits-2026-11-21-827-sp6)
 - [Identifier case (2026-10-12, #811)](identifier-case.md#identifier-case-2026-10-12-811)
 - [Member attributes: where VB6 attaches them, and what its IDE writes (2026-10-13, #273)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#member-attributes-where-vb6-attaches-them-and-what-its-ide-writes-2026-10-13-273)
+- [On SP6: the load-and-save shapes and which saves write a module (2026-11-21, #1675, IDE, SP6)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#on-sp6-the-load-and-save-shapes-and-which-saves-write-a-module-2026-11-21-1675-ide-sp6)
 - [Resume Next into a block (2026-10-12, #839)](resume-next-into-a-block.md#resume-next-into-a-block-2026-10-12-839)
 - [A typed selector and a Variant one (2026-10-13, #839 review round two)](a-typed-selector-and-a-variant-one.md#a-typed-selector-and-a-variant-one-2026-10-13-839-review-round-two)
 - [The rest of the intrinsics, and a test for Doubles (2026-11-21, #985, SP6)](a-typed-selector-and-a-variant-one.md#the-rest-of-the-intrinsics-and-a-test-for-doubles-2026-11-21-985-sp6)
@@ -659,6 +659,7 @@ added afterwards.
 - [What VB6 writes for a menu in a .frm (2026-11-16, #4141, IDE)](what-vb6-writes-for-a-menu-in-a-frm.md#what-vb6-writes-for-a-menu-in-a-frm-2026-11-16-4141-ide)
 - [SetFocus (2026-10-15, #1061)](setfocus.md#setfocus-2026-10-15-1061)
 - [The Line control (2026-10-15, #163)](the-line-control.md#the-line-control-2026-10-15-163)
+- [The filesystem controls in VB6's designer (2026-11-21, #164, SP6)](the-filesystem-controls-in-vb6s-designer.md#the-filesystem-controls-in-vb6s-designer-2026-11-21-164-sp6)
 - [Sequential files (2026-10-17, #1145)](sequential-files.md#sequential-files-2026-10-17-1145)
 - [The CommonDialog control (2026-10-17, #1084)](the-commondialog-control.md#the-commondialog-control-2026-10-17-1084)
 - [A font's size, and the default font (2026-10-22, #910)](a-fonts-size-and-the-default-font.md#a-fonts-size-and-the-default-font-2026-10-22-910)
@@ -841,6 +842,7 @@ added afterwards.
 - [The rest of the narrowing points: `\`, Mod, a For limit, a subscript, a Single, Sgn, Log, Exp and Sin (2026-11-21, #1214, SP6)](where-a-floating-point-intermediate-is-narrowed.md#the-rest--mod-a-for-limit-a-subscript-a-single-sgn-log-exp-and-sin-2026-11-21-1214-sp6)
 - [Floating-point intermediates keep the x87's precision until stored (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#floating-point-intermediates-keep-the-x87s-precision-until-stored-2026-11-21-1214-sp6)
 - [A single floating-point operation is rounded twice, to 64 bits and then to a double (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#a-single-operation-is-rounded-twice-2026-11-21-1214-sp6)
+- [Sin, Cos, Tan and Atn are the x87's, reduced by a 66-bit π (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#sin-cos-tan-and-atn-are-the-x87s-reduced-by-a-66-bit-π-2026-11-21-1214-sp6)
 - [Rnd and Randomize (2026-10-26, #2117)](rnd-and-randomize.md#rnd-and-randomize-2026-10-26-2117)
 - [Format's AMPM token (2026-10-26, #2040)](formats-ampm-token.md#formats-ampm-token-2026-10-26-2040)
 - [Format of a number beyond Decimal's range (2026-10-26, #2118)](format-of-a-number-beyond-decimals-range.md#format-of-a-number-beyond-decimals-range-2026-10-26-2118)
