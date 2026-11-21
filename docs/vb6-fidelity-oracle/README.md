@@ -845,6 +845,7 @@ added afterwards.
 - [Toolbar: A button's Image from other types, keys by case, and the Hot and Disabled lists (2026-11-16, #4147)](in-box-controls-the-toolbar.md#a-buttons-image-from-other-types-keys-by-case-and-the-hot-and-disabled-lists-2026-11-16-4147)
 - [Toolbar: list bindings by value type, alternate-list geometry, a button's Image by type, and saved references (2026-11-21, #4407, SP6)](in-box-controls-the-toolbar.md#list-bindings-by-value-type-alternate-list-geometry-a-buttons-image-by-type-and-saved-references-2026-11-21-4407-sp6)
 - [In-box controls: the ListView (2026-10-26, #1085)](in-box-controls-the-listview.md#in-box-controls-the-listview-2026-10-26-1085)
+- [The ListView's font: items, sub-items, headers and the label editor (2026-11-21, #2895, SP6)](in-box-controls-the-listview.md#the-font-items-sub-items-headers-and-the-label-editor-2026-11-21-2895-sp6)
 - [In-box controls: the TreeView (2026-10-27, #1086)](in-box-controls-the-treeview.md#in-box-controls-the-treeview-2026-10-27-1086)
 - [In-box controls: the CommonDialog (2026-10-27, #1084)](in-box-controls-the-commondialog.md#in-box-controls-the-commondialog-2026-10-27-1084)
 - [In-box controls: the SSTab (2026-10-27, #1090)](in-box-controls-the-sstab.md#in-box-controls-the-sstab-2026-10-27-1090)
