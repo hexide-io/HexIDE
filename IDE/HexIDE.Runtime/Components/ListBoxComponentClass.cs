@@ -76,13 +76,14 @@ public class ListBoxComponentClass : ComponentBaseClass
         return control;
     }
 
-    // These properties stay carried verbatim; designer drawing is outside #4209's measurements.
+    // Checks and columns keep the plain preview pending their designer measurements (#5133).
     public override Control InstantiateForDesigner(ComponentInstance instance)
     {
         var list = (VBListBox)Instantiate(instance);
         list.UsePlainDesignerLayout();
-        // The preview drew saved items as a garbled glyph, so it stays empty, as it was before they loaded (#5121).
-        list.Items.Clear();
+        // Only the designer shows the name when there are no saved items (measured, #5121).
+        if (list.ItemCount == 0)
+            list.Items.Add(instance.GetPropertyOrDefault(NameProperty));
         return list;
     }
 

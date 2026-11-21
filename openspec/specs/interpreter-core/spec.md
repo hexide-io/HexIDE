@@ -2750,7 +2750,28 @@ The runtime SHALL decode List and ItemData records using
 strings and decimal Long data. Loading SHALL retain saved order, including on Sorted controls,
 and set NewIndex/ListIndex to -1. Original bytes SHALL remain verbatim for saving. Undecodable
 records or disagreeing counts SHALL refuse before population with NotImplementedException naming
-#5114. The designer's preview of a ListBox SHALL stay empty until it can draw saved items (#5121).
+#5114. The designer SHALL draw saved ListBox and Simple ComboBox items in file order, including
+Sorted lists, using the runtime font, row height and text insets, with no selection or focus rectangle
+([#5121's designer measurements](https://github.com/hexide-io/HexIDE/issues/5121), oracle PR #5131).
+An empty ListBox SHALL show its current Name on the first row only in the designer. Overflowing
+ListBoxes SHALL show a vertical scroll bar. Simple ComboBoxes SHALL show Text above the list.
+Checkbox and column designer layouts remain plain pending #5133; Styles 0 and 2 ComboBox drawing
+is unchanged.
+
+#### Scenario: Saved items appear in the designer picture
+- **WHEN** the designer draws a ListBox saved with s2, s1, s3
+- **THEN** all three appear from the top in saved order without selection or focus
+- **AND** each row’s text has the same top, bottom and horizontal insets as a run
+- **AND** row heights match a run: 13 pixels at MS Sans Serif 8 and 18 at Arial 12 at 96 dpi
+- **WHEN** it draws a 645-twip ListBox saved with item1 through item12
+- **THEN** item1 through item3 and a vertical scroll bar are visible
+- **WHEN** it draws a 1215-twip Simple ComboBox saved with p, q, r
+- **THEN** its Text appears in the edit box and all three items appear below it
+
+#### Scenario: The empty ListBox name belongs to the designer
+- **WHEN** a ListBox named List2 has no saved List line
+- **THEN** the designer draws List2 on the first row
+- **AND** the running control remains empty
 
 #### Scenario: Counted records load with no initial selection
 - **WHEN** a ListBox loads s2, s1, s3 with ItemData 20, 10, 30
