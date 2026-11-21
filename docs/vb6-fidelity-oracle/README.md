@@ -564,6 +564,7 @@ added afterwards.
 - [MousePointer's names and pointers (2026-10-22, #120)](mousepointers-names-and-pointers.md#mousepointers-names-and-pointers-2026-10-22-120)
 - [RGB, QBColor and MsgBox's style (2026-10-12)](rgb-qbcolor-and-msgboxs-style.md#rgb-qbcolor-and-msgboxs-style-2026-10-12)
 - [vbMsgBoxRight and vbMsgBoxRtlReading: the box's layout (2026-11-14, #3014)](rgb-qbcolor-and-msgboxs-style.md#vbmsgboxright-and-vbmsgboxrtlreading-the-boxs-layout-2026-11-14-3014)
+- [Enter, Escape and the default-button bits (2026-11-21, #827, SP6)](rgb-qbcolor-and-msgboxs-style.md#enter-escape-and-the-default-button-bits-2026-11-21-827-sp6)
 - [Identifier case (2026-10-12, #811)](identifier-case.md#identifier-case-2026-10-12-811)
 - [Member attributes: where VB6 attaches them, and what its IDE writes (2026-10-13, #273)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#member-attributes-where-vb6-attaches-them-and-what-its-ide-writes-2026-10-13-273)
 - [Resume Next into a block (2026-10-12, #839)](resume-next-into-a-block.md#resume-next-into-a-block-2026-10-12-839)
