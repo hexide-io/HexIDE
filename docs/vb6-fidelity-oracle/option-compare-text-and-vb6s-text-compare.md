@@ -625,3 +625,29 @@ Czech expands ß but not Æ. I'd not generalise past these rows.
   - InStr, InStrRev, Replace, Split and Filter with a compare of 1.
 - There is no ICU anywhere in it, so every host gives the same answers.
 
+### The Text order under other user locales (2026-11-21, #1573, SP6)
+
+**The question.** "The whole Text order" above was measured under en-GB, and HexIDE applies it in every locale. Does vb6.exe's text compare follow the user's locale?
+
+**The probe.** It used the same 321 strings, with every single character `Chr(0)` to `Chr(255)`, the empty string and the 64 longer ones. They were taken from the measured order in the test suite (`TextCompareMeasurements.FullOrder`) and built with `ChrW`, so the source's code page didn't matter. They were sorted the same way, by a stable insertion sort with `StrComp(a, b, vbTextCompare)`, and logged as groups of equals.
+
+The guest's user locale was set with `Set-Culture` before each run, and the program read `GetUserDefaultLCID` back. Built with `/make` on vb6.exe SP6 as native code and as p-code, the two orders were identical in every locale.
+
+| User locale | Against the en-GB order above |
+|---|---|
+| en-GB (2057) | **identical**, all 234 groups: the order above, measured again |
+| de-DE (1031) | **identical** |
+| tr-TR (1055) | Ç sorts after every `c` string, before D. Ö sorts after the `OE` group, before P. Ü sorts after the `UE` group, before V. Each case pair stays equal |
+| sv-SE (1053) | Ü (and ü) sorts with Ÿ, before Z. Å, Ä, Ö and Ø move to the end, after Ž, in that order |
+| da-DK (1030) | Ü sorts with Ÿ, before Z. Æ, Ä, Ø, Ö, Å and `"aa"` move to the end, after Ž, in that order. Æ no longer equals `"ae"`, which makes 235 groups |
+
+**What it shows.**
+- **vb6.exe's text compare follows the user's locale.** Swedish, Danish and Turkish tailor it as Windows sorts those languages: `"aa"` sorts as Å in Danish. The table above is en-GB's, and de-DE shares it.
+- **Not all of the tailoring is applied.** Under tr-TR, `i` and `I` stay equal ("The case of a character under Turkish and three other user locales", #797).
+
+**HexIDE,** per #1573's own account: it applies the en-GB table in every locale. So under sv-SE, da-DK or tr-TR, `Option Compare Text`, `Select Case`, Collection keys and `StrComp(..., 1)` give en-GB's answers where these differ. Mapping the locales is #5105.
+
+**Not measured:**
+- the held-out set and the expansion sweep under these locales;
+- any locale beyond these five;
+- characters outside code page 1252.

@@ -720,6 +720,7 @@ added afterwards.
 - [InStr and InStrRev at the ends (2026-10-23, #1567)](instr-and-instrrev-at-the-ends.md#instr-and-instrrev-at-the-ends-2026-10-23-1567)
 - [Option Compare Text, and VB6's text compare (2026-10-23, #1567)](option-compare-text-and-vb6s-text-compare.md#option-compare-text-and-vb6s-text-compare-2026-10-23-1567)
 - [A compare of 2 or more: StrComp and InStr with a locale ID (2026-11-16, #4151)](option-compare-text-and-vb6s-text-compare.md#a-compare-of-2-or-more-strcomp-and-instr-with-a-locale-id-2026-11-16-4151)
+- [The Text order under other user locales (2026-11-21, #1573, SP6)](option-compare-text-and-vb6s-text-compare.md#the-text-order-under-other-user-locales-2026-11-21-1573-sp6)
 - [`Like` in `#If` and `#Const`, and a directive's text order (2026-10-23, #1598)](like-in-if-and-const-and-a-directives-text-order.md#like-in-if-and-const-and-a-directives-text-order-2026-10-23-1598)
 - [A Let into an array variable (2026-10-23, #998, #1588)](a-let-into-an-array-variable.md#a-let-into-an-array-variable-2026-10-23-998-1588)
 - [StrComp, StrConv, Environ, Switch and Error(), and the case of a character (2026-10-23, #1560)](strcomp-strconv-environ-switch-and-error.md#strcomp-strconv-environ-switch-and-error-and-the-case-of-a-character-2026-10-23-1560)
