@@ -853,6 +853,7 @@ added afterwards.
 - [Add Watch's Module and Procedure lists, for a property (2026-11-17, #4401)](a-watch-and-its-context.md#add-watchs-module-and-procedure-lists-for-a-property-2026-11-17-4401)
 - [A watch scoped to one accessor, and a watch on (All Modules) (2026-11-17, #4401, #4452)](a-watch-and-its-context.md#a-watch-scoped-to-one-accessor-and-a-watch-on-all-modules-2026-11-17-4401-4452)
 - [A watch scoped to another module, and the Watches window's row order (2026-11-17, #4481)](a-watch-and-its-context.md#a-watch-scoped-to-another-module-and-the-watches-windows-row-order-2026-11-17-4481)
+- [Break When Value Is True, for each kind of value (2026-11-21, #869, IDE, SP6)](break-when-value-is-true.md#break-when-value-is-true-for-each-kind-of-value-2026-11-21-869-ide-sp6)
 - [In-box controls: the MonthView (2026-10-27, #1095)](in-box-controls-the-monthview.md#in-box-controls-the-monthview-2026-10-27-1095)
 - [Key events: KeyDown, KeyPress and KeyUp (2026-10-27, #2325)](key-events-keydown-keypress-and-keyup.md#key-events-keydown-keypress-and-keyup-2026-10-27-2325)
 - [An open list with one dialog button (2026-11-17, #4418)](key-events-keydown-keypress-and-keyup.md#an-open-list-with-one-dialog-button-2026-11-17-4418)
