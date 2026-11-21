@@ -609,6 +609,7 @@ added afterwards.
 - [Who owns a modal form, and what F5 brings back (2026-11-18, #4618, SP6, IDE)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#who-owns-a-modal-form-and-what-f5-brings-back-2026-11-18-4618-sp6-ide)
 - [A form displayed, and a form behind a modal one, re-measured on the console (2026-11-18, #4744, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#a-form-displayed-and-a-form-behind-a-modal-one-re-measured-on-the-console-2026-11-18-4744-sp6)
 - [An unhandled run-time error (2026-10-14, #1011)](an-unhandled-run-time-error.md#an-unhandled-run-time-error-2026-10-14-1011)
+- [Closing the run-time error dialog without End or Debug (2026-11-21, #607, IDE, SP6)](closing-the-run-time-error-dialog.md#closing-the-run-time-error-dialog-without-end-or-debug-2026-11-21-607-ide-sp6)
 - [Operator precedence (2026-10-15, #1074)](operator-precedence.md#operator-precedence-2026-10-15-1074)
 - [The library's `$` forms (2026-10-15, #742, #1071)](the-librarys--forms.md#the-librarys--forms-2026-10-15-742-1071)
 - [Move, ScaleWidth and ScaleHeight (2026-10-15, #1071)](move-scalewidth-and-scaleheight.md#move-scalewidth-and-scaleheight-2026-10-15-1071)
