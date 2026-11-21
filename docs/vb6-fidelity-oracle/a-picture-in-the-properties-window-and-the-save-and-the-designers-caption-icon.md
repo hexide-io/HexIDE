@@ -71,3 +71,52 @@ own.
 - **The bitmap's record,** and an icon file holding several images.
 
 What a running form's window shows for each Icon is in [A form's window icon](a-forms-window-icon-no-icon-line.md).
+
+### A bitmap's record, and a copied picture saved twice (2026-11-21, #21, design-time, IDE, SP6)
+
+**The questions.** The section above didn't read a bitmap's record. #21's findings list asks two more questions:
+- Q10: whether `6C 74 00 00` is a fixed signature or varies with the picture's kind;
+- Q14: whether a PictureBox copied and pasted with its picture leaves the picture in the `.frx` once or twice.
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console. A one-form Standard EXE held
+`Picture1`, a PictureBox. Each picture was made on the guest and loaded through the Picture row's `...` button, and
+each save was Ctrl+S:
+- a 16-by-16 red bitmap, `red.bmp`, 1078 bytes;
+- then a 16-by-16 blue JPEG, GIF, icon and EMF.
+
+**The bitmap's record** has the same shape as the other kinds:
+
+| Picture | Record length | Payload | Payload begins |
+|---|---|---|---|
+| the bitmap | `0x43E` | `0x436` (1078) | `42 4D`, `BM` |
+
+**Q10, the signature.** With the copy below holding a picture of each kind in turn, every record began the same way: a
+length, `6C 74 00 00`, the payload length, then the file's bytes.
+
+| Picture | Record begins |
+|---|---|
+| JPEG, 633 bytes | `81 02 00 00 6C 74 00 00 79 02 00 00 FF D8 FF E0` |
+| GIF, 832 bytes | `48 03 00 00 6C 74 00 00 40 03 00 00 47 49 46 38` |
+| icon, 446 bytes | `C6 01 00 00 6C 74 00 00 BE 01 00 00 00 00 01 00` |
+| EMF, 568 bytes | `40 02 00 00 6C 74 00 00 38 02 00 00 01 00 00 00` |
+
+- **The signature is fixed.** The record length is the payload's plus 8 in every row, the payload length is the file's
+  own size, and there is no class id.
+- **The EMF's payload was compared with its file:** byte for byte the same.
+- **An SSTab's `TabPicture` record does carry StdPicture's class id**
+  ([An SSTab, drawn fresh](in-box-controls-the-sstab.md)), so that shape belongs to a control's property bag, not to a
+  form's own `Picture` lines.
+
+**Q14, a copied picture.**
+- **The copy:** Picture1, holding the bitmap, was copied and pasted on the form, with No to the control-array question.
+- **The save:** `Form1.frx` went from 1090 bytes to 2180, twice the size.
+- **The `.frm`** gave the pasted `Picture2` `"Form1.frx":0000` and `Picture1` `"Form1.frx":0442`.
+- **The two records were identical,** byte for byte.
+
+So VB6 keeps one copy of the picture per control and shares nothing between them. The pasted control's block comes
+first in the `.frm`, so its record does too, and the original's record moved to after it.
+
+### Not measured
+
+- **A WMF or a cursor file,** and an icon file holding several images.
+- **Two controls given the same picture file separately,** rather than by copying.
