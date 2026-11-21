@@ -383,3 +383,56 @@ source nobody has measured cannot flip:
 - **Left as main, by design:** every intrinsic not run here, and the reference itself where a class or Collection
   declares it: its members are early-bound and read as they are declared.
 
+### The rest of the intrinsics, and a test for Doubles (2026-11-21, #985, SP6)
+
+**The question.** "Which intrinsics are typed" above left two kinds of row open:
+- intrinsics it didn't run;
+- four Double results (`Int(5.7)`, `Fix(5.7)`, `Round(5.2)` and `Val("5")`), because a Double gives the same answer to both of its tests whether typed or a Variant.
+
+**The probes,** three projects, each row its own function under `On Error Resume Next`, built with `/make` on vb6.exe SP6 as native code and as p-code. Native code and p-code logged the same lines everywhere, except where the value was the clock (`Now`, `Timer`). Each test was first checked on a typed variable and on `CVar` of it, for Integer, Long, Single, Double, Currency, Boolean, Date and String.
+
+**Tests that work, and the cases where they don't:**
+
+| Test | A typed result | A Variant | Separates |
+|---|---|---|---|
+| `Case Is < N.4`, from above | Else | Case | Integer, Long, Boolean (`Case Is < 0.5`) |
+| Times a multiplier past the ceiling | Overflow (6) | widens | Integer, Long, Boolean (`* 20000 * 2`), Single (`* sBig * sBig`, `sBig = 1E+30`), Date (`+ 2958465.5`) |
+| A String `Case` value where text and number order disagree: `Case Is < "10"` for 5 | Case: compared as numbers | **Else: compared as text** | every numeric type, Currency and Double included |
+| `Case Is > 9` against `"10"`, from above, or `Case Is > 10` against `"5"` | text order | number order | strings that look like numbers |
+
+**Two tests don't separate:**
+- **Currency's** typed and Variant forms gave the same answers to `Case Is < 5.00004` and to a Currency product past its ceiling. Both took Else, and both raised 6.
+- **A Double's** gave the same answer to a product past its ceiling: both raised 6. Only the String `Case` test below separates them.
+
+**What the third test shows.** A **Variant number compared with a String `Case` value is compared as text.** `CVar(10)` is not `> "9"`, but is `> "-1"`, and `CVar(5)` is not `< "10"`. The controls for all five numeric types behaved this way, and each typed form compared as numbers. Overturned: the second probe's `Case Is > "-1"` was meant as the Double test and separated nothing, because `"5" > "-1"` as text too.
+
+**Typed, by the tests above:**
+
+| Result | Typed |
+|---|---|
+| Single | `CSng(5.2)`, `CSng(v)`; `Rnd(1)`; `Timer`; `Abs` and `Fix` of a typed Single |
+| Double | `CDbl(5)`, `CDbl(v)`; `Val("5")`; `Int(5.7)` and `Fix(5.7)`; `Int` and `Abs` of a typed Double; `Sqr(4)` and `Sqr(v)`; `Sin`, `Cos`, `Tan`, `Atn`, `Exp`, `Log`; `Pmt`, `FV`, `NPer` |
+| Currency | `CCur(5)`, `CCur(v)`; `Int`, `Fix` and `Abs` of a typed Currency |
+| Boolean | `CBool(5)`, `CBool(v)`; `IsNumeric`, `IsDate`, `IsEmpty`, `IsNull`, `IsArray`, `IsObject`, `IsError` |
+| Date | `CDate(5)`, `CDate(v)`; `Int` of a typed Date |
+| Integer | `AscW("A")`; `FreeFile()`; `Sgn` of a Currency |
+| Byte | `AscB("A")`, whose `TypeName` is `Byte` |
+| Long | `LenB("abcde")`; `InStrRev("abcd5", "5")`; `RGB(5, 0, 0)`; `QBColor(1)`; **`VarType(5)`, a Long** |
+| String | `FormatNumber(10, 0)`; `FormatPercent(0.1, 0)`; `FormatDateTime(#1/10/2000#, vbShortDate)`; `Join(Array("1", "0"), "")` |
+
+**A Variant, by the same tests:**
+
+| Result | A Variant |
+|---|---|
+| numbers | `Round` of anything (`Round(5.2)`, of a Variant, of a typed Integer, Double or Currency); `Int` and `Fix` of a Variant; `DateDiff` (Long); `DatePart` (Integer); `CDec` (Decimal); `CVar` |
+| dates | `DateSerial`, `DateAdd`, `TimeSerial`, `Now` and `Date` |
+| strings | `RTrim`, `Str`, `StrConv`, `MidB`, `Space`, `Command`, `ChrW` |
+
+**Not separated:**
+- **`MonthName`, `WeekdayName` and `Error`.** Their text sorts above `"9"` and above any number, so every test gave both forms the same answer.
+- **`ChrB(53)`,** a one-byte string, took Else as a Variant would. How a one-byte string compares as text wasn't checked, so it isn't counted.
+
+**Overturned guesses:**
+- **`VarType` returns a Long,** typed. It's usually documented as an Integer.
+- **`Round` is never typed,** even of a typed Integer, a Double or a Currency. `Int`, `Fix` and `Abs` keep their argument's type, as `Len`, `InStr` and `Abs` did above.
+- **The `Format...` functions with no `$` form return a typed String,** where `Format` returns a Variant.
