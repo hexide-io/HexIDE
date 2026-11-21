@@ -1012,3 +1012,63 @@ its full option set.
 
 - **The Procedure Attributes dialog's rows:** the first and second sessions' A, C, D, E and V1 to V6.
 - **The eleven shapes not rebuilt,** listed above.
+
+### A local of the stale name changes nothing (2026-11-21, #1013, IDE, SP6)
+
+**The question.** Q2 above found that a `VB_Var` line naming a name declared nowhere, under a line declaring one other
+variable, is dropped at the module's next write. V1 found that a rename VB6 saw being made carries the line to the new
+name. Does either change when a procedure declares a **local** of the stale name? HexIDE's reader counts a procedure's
+`Dim`, `Static` or `Const` as declaring the name (#1013), so the two answers decide whether that reading matches VB6.
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console. One Standard EXE held six
+standard modules, each CRLF, ASCII and without a BOM, with `' p4 marker` as their third line:
+
+```vb
+Public Tally As Long
+Attribute Count.VB_VarDescription = "Running total."
+
+Public Sub Reset()
+    Dim Count As Long          ' the line that varies
+    Tally = 0
+End Sub
+```
+
+| Module | Its module-level line | Its local |
+|---|---|---|
+| L0 | `Public Tally As Long` | none |
+| L1 | `Public Tally As Long` | `Dim Count As Long` |
+| L2 | `Public Tally As Long` | `Static Count As Long` |
+| L3 | `Public Tally As Long` | `Const Count = 1` |
+| V1L | `Public Count As Long` | `Dim Count As Long`, and `Count = 0` in the body |
+| V1N | `Public Count As Long` | none, and `Count = 0` in the body |
+
+1. **The rename:** a Replace All of `Public Count As Long` with `Public Tally As Long` over Current Project. VB6
+   reported 2 replacements, one each in V1L and V1N. V1 was measured with a retype; this used Replace All, as C3 did for
+   a procedure.
+2. **The dirtying:** a Replace All of `p4 marker` with `p4 marker2`, 6 replacements.
+3. **The save:** File > Save Project, which wrote all six modules.
+
+**What VB6 wrote:**
+
+| Module | After the save |
+|---|---|
+| L0 | `Attribute Count.VB_VarDescription` **dropped**, as Q2 found |
+| L1, L2, L3 | **dropped** the same way |
+| V1L | carried and re-qualified: `Public Tally As Long` / `Attribute Tally.VB_VarDescription = "Running total."` |
+| V1N | the same |
+
+Apart from those lines and the marker, no byte changed in any module.
+
+**So a local declaration of the stale name makes no difference to VB6, either way.**
+- **A loaded line naming no module-level member is dropped,** whether or not a procedure declares that name, by `Dim`,
+  `Static` or `Const`.
+- **A rename VB6 saw carries the line,** whether or not a procedure declares the old name.
+
+A procedure's locals aren't among the names VB6 matches a `VB_Var` line against. HexIDE's reader counts them, which
+is where #1013's three findings come from.
+
+### Not measured
+
+- **A retype in the code window** with the local present. The rename here was a Replace All.
+- **A class module.** Every module here was a `.bas`.
+- **A procedure's parameter** of the stale name.
