@@ -753,6 +753,7 @@ added afterwards.
 - [Like (2026-10-23, #1547)](like.md#like-2026-10-23-1547)
 - [InStr and InStrRev at the ends (2026-10-23, #1567)](instr-and-instrrev-at-the-ends.md#instr-and-instrrev-at-the-ends-2026-10-23-1567)
 - [Option Compare Text, and VB6's text compare (2026-10-23, #1567)](option-compare-text-and-vb6s-text-compare.md#option-compare-text-and-vb6s-text-compare-2026-10-23-1567)
+- [Text compare beyond Latin-1: width, kana and the double-byte locales (2026-11-21, #5105, SP6)](text-compare-beyond-latin-1-width-kana-and-the-double-byte-locales.md#text-compare-beyond-latin-1-width-kana-and-the-double-byte-locales-2026-11-21-5105-sp6)
 - [The Text order in 44 user locales (2026-11-21, #5105, SP6)](the-text-order-in-44-user-locales.md#the-text-order-in-44-user-locales-2026-11-21-5105-sp6)
 - [A compare of 2 or more: StrComp and InStr with a locale ID (2026-11-16, #4151)](option-compare-text-and-vb6s-text-compare.md#a-compare-of-2-or-more-strcomp-and-instr-with-a-locale-id-2026-11-16-4151)
 - [The Text order under other user locales (2026-11-21, #1573, SP6)](option-compare-text-and-vb6s-text-compare.md#the-text-order-under-other-user-locales-2026-11-21-1573-sp6)
