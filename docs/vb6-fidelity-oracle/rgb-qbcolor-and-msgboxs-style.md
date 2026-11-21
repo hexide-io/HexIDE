@@ -240,6 +240,41 @@ faulted and stopped the new run. HexIDE keeps it waiting too, but shows the box 
 answered, and closes it unanswered if the owner closes. Avalonia hid the box and finished the dialog with no answer,
 which answered Cancel for OK/Cancel and stopped a Yes/No handler in silence.
 
+### A message box is modal to the whole program (2026-11-21, #834, SP6)
+
+**The question.** #834 asked what a program's other windows do while its message box waits:
+- whether a click on another visible form of the program raises its Click event;
+- the same for the box's own form, after that form is hidden and shown again while the box waits;
+- whether a Timer still fires.
+
+**The probe:**
+- **The program** showed two forms, side by side. `Form1` opened `MsgBox "case n", vbOKCancel` from its own code. `Form2` held a Timer that drove each case while the box waited:
+  1. it read which windows were enabled (`IsWindowEnabled`) and which was in the foreground;
+  2. it pressed and released the left button inside a form's client area (`SetCursorPos` and `mouse_event`);
+  3. it closed the box with `EndDialog(box, 2)`.
+- **Each form counted its MouseDown and Click events.** `Form1` also had its own Timer counting ticks.
+- **The control case,** with no box open, gave the same clicks to both forms. Each raised MouseDown and Click once.
+- **The builds:** `/make` on vb6.exe SP6, as native code and as p-code, run on the guest's console. The two logged the same lines.
+
+| While the box waits | Form1 and Form2 enabled | Events on the clicked form | Foreground |
+|---|---|---|---|
+| a click on Form2 | **both disabled** | **none:** no MouseDown, no Click | the box |
+| a click on Form1, the box's form | both disabled | none | the box |
+| Form1 hidden, shown again, then clicked | still both disabled | none | the box |
+| Form1 hidden, then Form2 clicked, then Form1 shown again | Form2 disabled while Form1 was hidden | none | Form1, the box still open |
+
+In every case the box was still open when the driver closed it, and `MsgBox` returned 2, vbCancel. Form1's Timer ticked 12 times while the box waited, and Form2's drove the case.
+
+**What it shows:**
+- **A message box disables every form of the program while it waits,** not only its own.
+- **Neither form takes a click, so no MouseDown or Click runs.** Hiding and showing the box's own form again doesn't re-enable it.
+- **Timers keep firing on every form,** as earlier probes assumed.
+- **In the last row, showing Form1 again made it the foreground window,** disabled, with the box still open behind it.
+
+**Not measured:**
+- the keyboard reaching another form while the box waits;
+- a form shown for the first time while the box waits.
+
 ### An argument that is not a number
 
 Through `CInt`, `CLng`, `RGB`, `QBColor` and `MsgBox`'s style alike, with `o` an object variable holding
