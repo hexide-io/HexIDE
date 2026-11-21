@@ -38,7 +38,7 @@
 **What these show:**
 - **Every row matches the x87 model, and 14 of the 20 modelled rows differ from IEEE.** In the six where the two models agree, vb6.exe agrees with both.
 - **The range is the x87's.** An intermediate past a double's range doesn't overflow (`over_mul_div`, `over_308`), and one below it doesn't underflow (`under_mul_div`).
-- **A store narrows, a comparison doesn't.** The value narrows to a double when it's stored in a variable (`mul_sub_stored`, `div_mul_stored`, `sum10_loop`). A comparison reads the wide value (`mul_sub_cmp`, `div_mul_eq`), and so does `CLng`.
+- **A store narrows, a comparison doesn't.** The value narrows to a double when it's stored in a variable (`mul_sub_stored`, `div_mul_stored`, `sum10_loop`). A comparison reads the wide value (`mul_sub_cmp`, `div_mul_eq`), and so does `CLng`. **Since overturned for comparisons:** those two rows can't tell, and rows built to tell show that a comparison narrows both sides to doubles first. `CLng` does read the wide value. See [Where a floating-point intermediate is narrowed](where-a-floating-point-intermediate-is-narrowed.md).
 - **An argument narrows only the finished expression.** `mul_sub_arg` kept `a * b` wide until the whole of `a * b - c` was passed.
 - **Single arithmetic is wide too.** `16777216 + 1 - 16777216` in Singles gives 1, where Single arithmetic gives 0. `0.1! * 3!` stored into a Double keeps bits a Single product wouldn't have.
 - **Variant arithmetic is not wide.** Three Variants overflowed where three Doubles didn't. Reasoned, not checked: Variant operators go through the runtime's per-operation routines, which round each result to a double.
