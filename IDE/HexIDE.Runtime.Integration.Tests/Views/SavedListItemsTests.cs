@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using HexIDE.IDE;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -159,24 +160,85 @@ public class SavedListItemsTests
         records.Should().ContainSingle(record => record.SequenceEqual(data));
     }
 
+    // Part of #5127: SP6 native and p-code measurements, oracle PRs #5130 and #5155.
+    public static IEnumerable<object[]> MeasuredRecords()
+    {
+        var list = Record(0, "ab", "cde", "fghi");
+        yield return [list, Record(0, "5", "6"), new[] { "ab=5", "cde=6", "fghi=0" }];
+        yield return [list, Record(0, "5", "6", "7", "8"), new[] { "ab=5", "cde=6", "fghi=7" }];
+        yield return [list, Record(0, "abc", "6", "7"), new[] { "ab=0", "cde=6", "fghi=7" }];
+        yield return [list, Record(0, "", "6", "7"), new[] { "ab=0", "cde=6", "fghi=7" }];
+        yield return [list, Record(0, " 5", "6x", "&H10"), new[] { "ab=5", "cde=6", "fghi=0" }];
+        yield return [list, Record(0, "3000000000", "-1", "1.5"), new[] { "ab=-1294967296", "cde=-1", "fghi=1" }];
+        yield return [list, Record(0, "5", "6", "7").Append((byte)42).ToArray(), new[] { "ab=5", "cde=6", "fghi=7" }];
+        yield return [list.Concat(new byte[] { 122, 122 }).ToArray(), Record(0, "5", "6", "7"), new[] { "ab=5", "cde=6", "fghi=7" }];
+        yield return [list, Record(0, "+5", "\t6", "x5"), new[] { "ab=5", "cde=6", "fghi=0" }];
+        yield return [list, Record(0, "\r7", "+ 8", "- 9"), new[] { "ab=7", "cde=0", "fghi=0" }];
+        yield return [list, Record(0, "+-7", "\n8", "--9"), new[] { "ab=0", "cde=8", "fghi=0" }];
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(MeasuredRecords))]
+    public async Task Measured_saved_records_load_as_VB6_reads_them(byte[] list, byte[] data, string[] expected) =>
+        (await Run(Load("ListBox", 0, false, list, data,
+            "For i = 0 To Items1.ListCount - 1\nDebug.Print Items1.List(i) & \"=\" & Items1.ItemData(i)\nNext")))
+            .Should().Equal(expected);
+
+    [AvaloniaFact]
+    public async Task Saved_1252_text_keeps_undefined_bytes_as_same_number_characters()
+    {
+        var oldPage = Vb6TextEncoding.Ansi.CodePage;
+        try
+        {
+            Vb6TextEncoding.SimulateHostCodePage(1252);
+            byte[] list = [3, 0, 0, 0, 3, 0, 0x61, 0x81, 0x62, 1, 0, 0xE9, 4, 0, 0x8D, 0x8F, 0x90, 0x9D];
+            (await Run(Load("ListBox", 0, false, list, null, """
+                For i = 0 To Items1.ListCount - 1
+                    For j = 1 To Len(Items1.List(i))
+                        Debug.Print AscW(Mid$(Items1.List(i), j, 1))
+                    Next
+                Next
+                """))).Should().Equal("97", "129", "98", "233", "141", "143", "144", "157");
+        }
+        finally
+        {
+            Vb6TextEncoding.SimulateHostCodePage(oldPage);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Dropdown_list_without_ItemData_keeps_every_item_deliberately(bool sorted) =>
+        (await Run(Load("ComboBox", 0, sorted, Record(0, "b", "a", "c"), null,
+            "For i = 0 To Items1.ListCount - 1\nDebug.Print Items1.List(i)\nNext"))).Should().Equal("b", "a", "c");
+
+    [AvaloniaFact]
+    public async Task A_truncated_List_stops_loading_with_the_measured_property_error()
+    {
+        var list = Record(0, "ab", "cde");
+        list[0] = 3;
+        Func<Task> act = () => Run(Load("ListBox", 0, false, list, Record(0, "5", "6", "7")));
+        await act.Should().ThrowAsync<Exception>().WithMessage("Property List in Items1 could not be set");
+    }
+
     public static IEnumerable<object[]> InvalidRecords()
     {
-        yield return [new byte[] { 3 }, Record(0, "1", "2", "3")];
-        yield return [new byte[] { 3, 0, 2, 0, 97, 98, 3, 0, 99, 100, 101, 4, 0, 102, 103, 104, 105 }, Record(0, "1", "2", "3")];
-        yield return [Record(0, "a", "b", "c"), new byte[] { 3, 0, 0, 0, 5, 0, 0, 0, 249, 255, 255, 255, 112, 17, 1, 0 }];
-        yield return [Record(0, "a", "b", "c"), Record(0, "1", "2")];
-        yield return [Record(0, "a", "b", "c"), Record(0, "1", "x", "3")];
+        yield return [new byte[] { 3 }];
+        yield return [new byte[] { 1, 0, 0, 0, 5, 0, 97 }];
+        yield return [Record(0, "\v5", "6", "7")];
+        yield return [Record(0, " \f5", "6", "7")];
     }
 
     [AvaloniaTheory]
     [MemberData(nameof(InvalidRecords))]
-    public async Task Undecodable_records_refuse_before_showing_a_partial_list(byte[] list, byte[] data)
+    public async Task Unmeasured_ItemData_records_still_refuse(byte[] data)
     {
         foreach (var type in new[] { "ListBox", "ComboBox" })
         {
-            var form = Load(type, 0, false, list, data);
+            var form = Load(type, 0, false, Record(0, "a", "b", "c"), data);
             Func<Task> act = () => Run(form);
-            await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#5114*");
+            await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*#5127*");
         }
     }
 }
