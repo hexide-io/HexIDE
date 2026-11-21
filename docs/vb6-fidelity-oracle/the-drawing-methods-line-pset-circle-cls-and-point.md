@@ -210,6 +210,58 @@ opaque green back, from console screenshots:
 - **AutoRedraw True,** drawn in a Timer: the lines pass **under** all three.
 - **AutoRedraw False,** drawn in a Timer after the form showed: **under the TextBox, over the Label and the Shape.**
 
+### When Paint is raised, on the console (2026-11-21, #991, SP6)
+
+**The question.** #991 owed every moment Paint is raised, with AutoRedraw False and True. Session 0 raises none, so this was run on the console.
+
+**The probe:**
+- **The form:** 320 by 240 pixels in `ScaleMode` 3, holding a borderless PictureBox. It logged `P` in `Form_Paint`, `R` in `Form_Resize`, `A` in `Form_Activate`, `p` in `Picture1_Paint` and `r` in `Picture1_Resize`.
+- **Each step:** DoEvents twenty times, clear the log, make the change, and read the log at once. Then DoEvents twenty times more and read it again.
+- **The builds:** `/make` on vb6.exe SP6, as native code and as p-code, run on the guest's console session by its agent. The two logged the same lines.
+
+**With AutoRedraw False on both,** in order:
+
+| Step | At once | After DoEvents |
+|---|---|---|
+| `Show`, the first time | R | R, A, **P, p** |
+| `Width` 600 twips narrower | R | R: **no Paint** |
+| `Width` 600 wider | R | R, **P** |
+| `Height` 600 shorter | R | R: no Paint |
+| `Height` 600 taller | R | R, P |
+| `Move` 300 to the right | nothing | nothing |
+| narrower and then wider in one step | R, R | R, R, P |
+| `Hide` | nothing | nothing |
+| `Show` again | nothing | **P, p** |
+| `Refresh` | **P** | P |
+| `Cls`, `PSet`, `Print`, `Caption =`, `BackColor =` | nothing | nothing |
+| `WindowState = 1`, minimized | R | R |
+| `WindowState = 0`, restored | R | R, P, p |
+| `Picture1.Refresh` | **p** | p |
+| `Picture1.Cls`, `Picture1.BackColor =` | nothing | nothing |
+| `Picture1.Width` 300 pixels wider | r | r, p |
+| `Picture1.Visible = False` | nothing | P |
+| `Picture1.Visible = True` | nothing | p |
+
+**With AutoRedraw True on both,** the same steps raised Resize as above and **no Paint at all**: not on a resize, `Show`, `Refresh`, a restore or anything else. Turning AutoRedraw on, and later off again for the form and then the PictureBox, raised nothing.
+
+**What it shows:**
+- **Paint follows the area Windows asks to be redrawn.** A resize that only shrinks the client area raises Resize and no Paint. One that grows it raises both. Showing, restoring, and hiding a control on top all raise Paint for what becomes visible.
+- **`Refresh` raises Paint at once,** before the next statement, for the form or the PictureBox it's called on, and only for that one.
+- **Drawing and changing properties don't,** `BackColor` included.
+- **With AutoRedraw True, no Paint is raised at all.**
+
+**What resisted explanation.** Here, `AutoRedraw = False` raised no Paint. "AutoRedraw and Paint" above has Paint at once for it. The two sequences differ:
+- there, a `PSet` with AutoRedraw True came just before;
+- here, a `BackColor` change, a minimize and a restore came between.
+
+They weren't separated.
+
+**`Picture = Image` with AutoRedraw False copies the persistent picture, not the screen.** After `PSet (5, 5), vbRed` with AutoRedraw False, `Point(5, 5)` read red. But after `o.Picture = o.Image` and `Cls`, (5, 5) read the background, by a Let or a Set and on the form or the PictureBox. With AutoRedraw True the same steps kept the red, as in session 0. On the console the form's Image read 50800 by 31750 HIMETRIC, 1920 by 1200 pixels: the console's screen.
+
+**Not evidence here:**
+- **Activate after the second `Show`.** None was logged, but whether the form could become the foreground window there wasn't checked.
+- **A `Picture1.Width` 300 pixels narrower** raised 380, since the box was narrower than that. It isn't a row.
+
 ### At compile time
 
 | Code | `/make` |
