@@ -536,6 +536,7 @@ added afterwards.
 - [A copy of a `.vbp` built elsewhere: which relative paths it needs (2026-11-21, #749, SP6)](what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md#a-copy-of-a-vbp-built-elsewhere-which-relative-paths-it-needs-2026-11-21-749-sp6)
 - [Serialization / file-format fidelity (2026-08-11)](serialization--file-format-fidelity.md#serialization--file-format-fidelity-2026-08-11)
 - [The OLE container, the Data control, and two controls with one name (2026-10-12, #856, `/make` and IDE, SP6)](the-ole-container-the-data-control-and-two-controls-with-one-name.md#the-ole-container-the-data-control-and-two-controls-with-one-name-2026-10-12-856-make-and-ide-sp6)
+- [The rows that were owed: a same-type pair under `/make`, and the empty container's save (2026-11-21, #856, SP6)](the-ole-container-the-data-control-and-two-controls-with-one-name.md#the-rows-that-were-owed-a-same-type-pair-under-make-and-the-empty-containers-save-2026-11-21-856-sp6)
 - [Unsuffixed float literals, and comparing Double with Single (2026-09-03)](unsuffixed-float-literals-and-comparing-double-with-single.md#unsuffixed-float-literals-and-comparing-double-with-single-2026-09-03)
 - [Numeric type pairs — five arithmetic tables, and comparison is a sixth (2026-09-03)](numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth.md#numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth-2026-09-03)
 - [A String compared with a number (2026-11-14, #211)](a-string-compared-with-a-number.md#a-string-compared-with-a-number-2026-11-14-211)
