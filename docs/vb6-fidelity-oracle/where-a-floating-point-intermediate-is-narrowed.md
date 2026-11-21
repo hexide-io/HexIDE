@@ -52,10 +52,43 @@
 
 **Reasoned, not checked:** the five that read wide are the ones a compiler can do with a single x87 instruction (`FRNDINT`, `FISTP`, `FABS`). The ones that narrow go through a runtime call, or keep the value in memory. No disassembly was read.
 
-**Not measured:**
+**Not measured** (most since measured, in the next section):
 - the other intrinsics (`Sgn`, `Exp`, `Log`, `Sin` and the rest);
 - `\` and `Mod`;
 - `CSng`;
 - a `For` loop's bounds and step;
 - an array subscript;
 - `Currency` inside a `Double` expression.
+
+### The rest: `\`, `Mod`, a `For` limit, a subscript, a Single, `Sgn`, `Log`, `Exp` and `Sin` (2026-11-21, #1214, SP6)
+
+**The question.** The table above left these unmeasured.
+
+**The probe** was the same harness. Two more setups:
+- **Setup D:** `a = 1 + 2^-24`, set from its bytes, and `b = 2^-60`. `a + b` is 1 + 2^-24 + 2^-60 wide. Rounded straight to a Single that's `1.0000001` (`3F800001`). As a double first, it's exactly the tie 1 + 2^-24, which then rounds to `1` (`3F800000`).
+- **Setup E:** `a = b = 1E-200`. `a * b` is 1E-400 wide, and 0 as a double.
+
+| Statement | Setup | If it reads the wide value | If it narrows first | vb6.exe |
+|---|---|---|---|---|
+| `r = (a - b) \ 1` | C | 1 | 2 | **1** |
+| `r = (a - b) Mod 3` | C | 1 | 2 | **1** |
+| `For ii = 0 To a - b`, a Long counter: the iterations | C | 2 | 3 | **2** |
+| `r = xs(a - b)`, where `xs(n)` holds `n * 10` | C | 10 | 20 | **10** |
+| `ss = CSng(a + b)`, a Single | D | `3F800001` | `3F800000` | **`3F800001`** |
+| `ss = a + b`, a Single | D | `3F800001` | `3F800000` | **`3F800001`** |
+| `r = Log(a - b)` | A | -2^-60 | 0 | **0** |
+| `r = Exp(a - b) - Exp(1#)` | A | about -2.4E-18 | 0 | **0** |
+| `r = Sin(a - b) - Sin(1#)` | A | about -4.7E-19 | 0 | **0** |
+| `r = Sgn(a * b)` | E | 1 | 0 | **0 native, 1 as p-code** |
+
+**What it shows:**
+- **Every conversion to an integer reads the wide value:** `\`, `Mod`, a `For` limit and a subscript, with `Int`, `Fix`, `CLng` and `CInt` above.
+- **A Single is rounded from the wide value once, not through a double.** That's true of `CSng`, and of a store into a Single variable. So the x87 model's "narrow at a store" means narrow to the variable's own type, in one rounding.
+- **`Log` narrows its argument.** If the argument had stayed wide, the result, -2^-60, would have survived as a double.
+- **`Exp` and `Sin` narrow their argument or their result.** These rows can't tell which.
+- **`Sgn` of a value below a double's range is the one native/p-code split here.** Native code gave 0, as if the value were narrowed first. P-code gave 1, reading it wide. HexIDE matches p-code, so its answer is 1.
+
+**Not measured:**
+- `Atn`, `Cos`, `Tan` and `Sqr` with a result that tells argument from result;
+- `CCur` and `CDec`, and Currency inside a Double expression;
+- a `For` loop's step, and a Double counter.
