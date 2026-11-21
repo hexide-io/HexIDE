@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Projekt kann nicht gestartet werden (keines geladen oder bereits ausgeführt)",
     "Str.AIChat.ProjectNotRunning": "Derzeit wird kein Projekt ausgeführt",
     "Str.SessionEnd.UnsavedWork": "Nicht gespeicherte Änderungen in {0}",
-    "Str.Options.Addin.ReportedFailure": "Problem gemeldet am {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Problem gemeldet am {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ungültiger Name für den lokalen Projektzustand in '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Mehrere Speicherorte für den lokalen Projektzustand wurden gefunden. Jeder kann einen anderen gespeicherten Zustand enthalten. Bis Sie einen für diese Sitzung auswählen, wird nichts geschrieben. Geben Sie die Nummer ein oder brechen Sie ab:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} ist ein Link oder eine Verzeichnisverbindung oder befindet sich nicht mehr am gefundenen Ort. Daher wird dort nichts gelesen oder geschrieben."
   }
 }

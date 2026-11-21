@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Proiectul nu poate fi pornit (niciunul încărcat sau rulează deja)",
     "Str.AIChat.ProjectNotRunning": "Niciun proiect nu rulează în prezent",
     "Str.SessionEnd.UnsavedWork": "Modificări nesalvate în {0}",
-    "Str.Options.Addin.ReportedFailure": "Problemă raportată la {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Problemă raportată la {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nume nevalid pentru starea locală a proiectului în '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "S-au găsit mai multe locații pentru starea locală a proiectului. Fiecare poate conține o stare salvată diferită. Nu se va scrie nimic până nu alegeți una pentru această sesiune. Introduceți numărul sau anulați:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} este o legătură sau o joncțiune ori nu se mai află unde a fost găsit, așa că nu se citește și nu se scrie nimic în acea locație."
   }
 }

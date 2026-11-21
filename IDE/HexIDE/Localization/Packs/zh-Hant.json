@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "無法啟動專案（未載入專案或專案已在執行）",
     "Str.AIChat.ProjectNotRunning": "目前沒有正在執行的專案",
     "Str.SessionEnd.UnsavedWork": "{0} 中有未儲存的變更",
-    "Str.Options.Addin.ReportedFailure": "於 {0} 回報了問題：{1}"
+    "Str.Options.Addin.ReportedFailure": "於 {0} 回報了問題：{1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: 「{1}」中的專案本機狀態名稱無效：「{2}」。",
+    "Str.ProjectLocalState.ChooseFormat": "找到多個專案本機狀態位置。每個位置可能包含不同的已儲存狀態。在您為本次工作階段選擇一個位置之前，不會寫入任何內容。請輸入編號，或取消：\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} 是連結或接合點，或已不在找到時的位置，因此不會從中讀取或向其寫入任何內容。"
   }
 }

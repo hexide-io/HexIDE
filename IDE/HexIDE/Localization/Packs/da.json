@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Kan ikke starte projektet (intet indlæst eller kører allerede)",
     "Str.AIChat.ProjectNotRunning": "Intet projekt kører i øjeblikket",
     "Str.SessionEnd.UnsavedWork": "Ikke-gemte ændringer i {0}",
-    "Str.Options.Addin.ReportedFailure": "Et problem blev rapporteret {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Et problem blev rapporteret {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ugyldigt navn på projektets lokale tilstand i '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Der blev fundet flere placeringer til projektets lokale tilstand. De kan indeholde forskellig gemt tilstand. Intet skrives, før du vælger en til denne session. Indtast nummeret, eller annuller:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} er et link eller et forbindelsespunkt, eller findes ikke længere der, hvor det blev fundet, så der hverken læses fra eller skrives til det."
   }
 }

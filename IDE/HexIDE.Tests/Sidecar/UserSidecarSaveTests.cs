@@ -18,6 +18,138 @@ namespace HexIDE.Tests.Sidecar;
 /// </remarks>
 public sealed class UserSidecarSaveTests : IDisposable
 {
+    [Fact]
+    public async Task A_marked_brand_sidecar_is_loaded_and_saved_by_stock_without_a_second_file()
+    {
+        var project = Project();
+        var path = SidecarOf(project).Replace(".user.hexproj", ".user.rdproj");
+        File.WriteAllText(path, """{"kind":"hexide.user-sidecar","version":3,"codeBookmarks":{"Module1":[3]},"future":42}""");
+        var bookmarks = new BookmarkService();
+        var service = Service(bookmarks);
+        await service.LoadAsync(project);
+        bookmarks.GetBookmarks(Module1(project)).Should().Equal(4);
+        bookmarks.SetBookmarks(Module1(project), [5]);
+        await service.SaveAsync(project);
+        File.Exists(SidecarOf(project)).Should().BeFalse();
+        Read(path)["kind"]!.GetValue<string>().Should().Be("hexide.user-sidecar");
+        Read(path)["future"]!.GetValue<int>().Should().Be(42);
+        Lines(Read(path), "codeBookmarks", "Module1").Should().Equal(4);
+    }
+
+    [Fact]
+    public async Task Saves_add_the_cross_distribution_marker_and_recovery_copies_remain_distinct()
+    {
+        var project = Project();
+        var bookmarks = new BookmarkService();
+        var service = Service(bookmarks);
+        await service.LoadAsync(project);
+        bookmarks.SetBookmarks(Module1(project), [3]);
+        await service.SaveAsync(project);
+        bookmarks.SetBookmarks(Module1(project), [4]);
+        await service.SaveAsync(project);
+        Read(SidecarOf(project))["kind"]!.GetValue<string>().Should().Be("hexide.user-sidecar");
+        Directory.GetFiles(Path.GetDirectoryName(project.AbsolutePath)!, "*.recovery").Should().NotBeEmpty();
+        var reopened = Service(new BookmarkService());
+        await reopened.LoadAsync(project);
+        await reopened.SaveAsync(project);
+        Read(SidecarOf(project))["kind"]!.GetValue<string>().Should().Be("hexide.user-sidecar");
+    }
+
+    [Fact]
+    public async Task A_brand_reuses_the_stock_sidecar_without_creating_its_own()
+    {
+        var project = Project();
+        File.WriteAllText(SidecarOf(project), """{"version":3,"codeBookmarks":{"Module1":[3]}}""");
+        var bookmarks = new BookmarkService();
+        var service = new UserSidecarService(bookmarks, new BreakpointService(), projectManager)
+        {
+            Identity = new HexIDE.IDE.DistributionIdentity("rdcore", "RDCore") { UserSidecar = ".user.rdproj" },
+            Debounce = debounce.Wait
+        };
+        await service.LoadAsync(project);
+        bookmarks.GetBookmarks(Module1(project)).Should().Equal(4);
+        bookmarks.SetBookmarks(Module1(project), [5]);
+        await service.SaveAsync(project);
+        Lines(Read(SidecarOf(project)), "codeBookmarks", "Module1").Should().Equal(4);
+        File.Exists(SidecarOf(project).Replace(".user.hexproj", ".user.rdproj")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Two_sidecars_load_and_write_nothing_until_the_session_choice_completes()
+    {
+        var project = Project();
+        var stock = SidecarOf(project);
+        var brand = stock.Replace(".user.hexproj", ".user.rdproj");
+        const string json = """{"kind":"hexide.user-sidecar","version":3,"codeBookmarks":{"Module1":[3]}}""";
+        File.WriteAllText(stock, json);
+        File.WriteAllText(brand, json);
+        var bookmarks = new BookmarkService();
+        var answer = new TaskCompletionSource<string?>();
+        var prompts = 0;
+        var service = new UserSidecarService(bookmarks, new BreakpointService(), projectManager)
+        {
+            Debounce = debounce.Wait,
+            Choose = paths =>
+            {
+                prompts++;
+                paths.Should().BeEquivalentTo(stock, brand);
+                return answer.Task;
+            }
+        };
+        var loading = service.LoadAsync(project);
+        bookmarks.GetBookmarks(Module1(project)).Should().BeEmpty();
+        bookmarks.SetBookmarks(Module1(project), [5]);
+        await service.SaveAsync(project);
+        File.ReadAllText(stock).Should().Be(json);
+        File.ReadAllText(brand).Should().Be(json);
+        answer.SetResult(brand);
+        await loading;
+        await service.SaveAsync(project);
+        File.ReadAllText(stock).Should().Be(json);
+        File.ReadAllText(brand).Should().NotBe(json);
+        Directory.GetFiles(Path.GetDirectoryName(stock)!, "*.user.*").Where(p => !p.EndsWith(".recovery", StringComparison.Ordinal))
+            .Should().BeEquivalentTo(stock, brand);
+        Close(project);
+        await service.LoadAsync(project);
+        prompts.Should().Be(1, "the choice lasts for the session, including reopening the project");
+    }
+
+    [Fact]
+    public async Task An_adopted_sidecar_stays_the_destination_when_its_marker_is_removed_externally()
+    {
+        var project = Project();
+        var brand = SidecarOf(project).Replace(".user.hexproj", ".user.rdproj");
+        File.WriteAllText(brand, """{"kind":"hexide.user-sidecar","version":3}""");
+        var bookmarks = new BookmarkService();
+        var service = Service(bookmarks);
+        await service.LoadAsync(project);
+        File.WriteAllText(brand, """{"version":3,"future":42}""");
+        bookmarks.SetBookmarks(Module1(project), [5]);
+        await service.SaveAsync(project);
+        File.Exists(SidecarOf(project)).Should().BeFalse();
+        Read(brand)["future"]!.GetValue<int>().Should().Be(42);
+        Read(brand)["kind"]!.GetValue<string>().Should().Be("hexide.user-sidecar");
+    }
+
+    [Fact]
+    public async Task A_brand_creates_only_its_own_marked_sidecar_when_none_exists()
+    {
+        var project = Project();
+        var bookmarks = new BookmarkService();
+        var service = new UserSidecarService(bookmarks, new BreakpointService(), projectManager)
+        {
+            Identity = new HexIDE.IDE.DistributionIdentity("rdcore", "RDCore") { UserSidecar = ".user.rdproj" },
+            Debounce = debounce.Wait
+        };
+        await service.LoadAsync(project);
+        bookmarks.SetBookmarks(Module1(project), [5]);
+        await service.SaveAsync(project);
+        File.Exists(SidecarOf(project)).Should().BeFalse();
+        var brand = SidecarOf(project).Replace(".user.hexproj", ".user.rdproj");
+        Read(brand)["kind"]!.GetValue<string>().Should().Be("hexide.user-sidecar");
+        Lines(Read(brand), "codeBookmarks", "Module1").Should().Equal(4);
+    }
+
     private readonly string _root = Path.Combine(
         Path.GetTempPath(), "HexIDE.Tests.Sidecar", Guid.NewGuid().ToString("N"));
 
@@ -351,7 +483,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         bookmarks.SetBookmarks(Form1(project), []);
         await sidecar.SaveAsync(project);
 
-        Read(SidecarOf(project)).Select(p => p.Key).Should().BeEquivalentTo("version", "watches");
+        Read(SidecarOf(project)).Select(p => p.Key).Should().BeEquivalentTo("kind", "version", "watches");
     }
 
     [Fact]
@@ -366,7 +498,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         bookmarks.SetBookmarks(Form1(project), []);
         await sidecar.SaveAsync(project);
 
-        Read(SidecarOf(project)).Select(p => p.Key).Should().BeEquivalentTo("version");
+        Read(SidecarOf(project)).Select(p => p.Key).Should().BeEquivalentTo("kind", "version");
     }
 
     [Fact]
@@ -519,7 +651,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
 
         var written = Read(SidecarOf(project));
-        written.Select(p => p.Key).Should().BeEquivalentTo("version", "codeBookmarks");
+        written.Select(p => p.Key).Should().BeEquivalentTo("kind", "version", "codeBookmarks");
         written["version"]!.GetValue<int>().Should().Be(3);
     }
 
@@ -611,7 +743,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
 
         var written = Read(SidecarOf(project));
-        written.Select(p => p.Key).Should().BeEquivalentTo("version", "codeBreakpoints");
+        written.Select(p => p.Key).Should().BeEquivalentTo("kind", "version", "codeBreakpoints");
         written["version"]!.GetValue<int>().Should().Be(3);
         Lines(written, "codeBreakpoints", "Module1").Should().Equal(1);
         bookmarks.GetBookmarks(Form1(project)).Should().BeEmpty();

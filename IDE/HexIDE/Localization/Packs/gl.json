@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Non se pode iniciar o proxecto (non hai ningún cargado ou xa se está a executar)",
     "Str.AIChat.ProjectNotRunning": "Non hai ningún proxecto en execución",
     "Str.SessionEnd.UnsavedWork": "Cambios sen gardar en {0}",
-    "Str.Options.Addin.ReportedFailure": "Informouse dun problema ás {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Informouse dun problema ás {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nome de estado local do proxecto non válido en '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Atopáronse varias localizacións do estado local do proxecto. Cada unha pode conter un estado gardado diferente. Non se escribirá nada ata que escolla unha para esta sesión. Introduza o seu número ou cancele:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} é unha ligazón ou unha unión, ou xa non está onde se atopou, polo que non se le nin se escribe nada nesa localización."
   }
 }

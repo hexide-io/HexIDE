@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Impossible de démarrer le projet (aucun projet chargé ou déjà en cours d’exécution)",
     "Str.AIChat.ProjectNotRunning": "Aucun projet n’est actuellement en cours d’exécution",
     "Str.SessionEnd.UnsavedWork": "Modifications non enregistrées dans {0}",
-    "Str.Options.Addin.ReportedFailure": "Problème signalé à {0} : {1}"
+    "Str.Options.Addin.ReportedFailure": "Problème signalé à {0} : {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nom d’état local du projet non valide dans « {1} » : « {2} ».",
+    "Str.ProjectLocalState.ChooseFormat": "Plusieurs emplacements d’état local du projet ont été trouvés. Chacun peut contenir un état enregistré différent. Rien ne sera écrit avant que vous en choisissiez un pour cette session. Saisissez son numéro ou annulez :\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} est un lien ou une jonction, ou ne se trouve plus à l’emplacement où il a été trouvé ; aucune donnée n’y est donc lue ni écrite."
   }
 }

@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Projekta ni mogoče zagnati (noben ni naložen ali se že izvaja)",
     "Str.AIChat.ProjectNotRunning": "Trenutno se ne izvaja noben projekt",
     "Str.SessionEnd.UnsavedWork": "Neshranjene spremembe: {0}",
-    "Str.Options.Addin.ReportedFailure": "Težava prijavljena ob {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Težava prijavljena ob {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Neveljavno ime lokalnega stanja projekta v '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Najdenih je več mest lokalnega stanja projekta. Vsako lahko vsebuje drugačno shranjeno stanje. Nič ne bo zapisano, dokler ne izberete enega za to sejo. Vnesite njegovo številko ali prekličite:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} je povezava ali stičišče ali pa ni več tam, kjer je bilo najdeno, zato se iz njega nič ne bere in vanj nič ne zapisuje."
   }
 }

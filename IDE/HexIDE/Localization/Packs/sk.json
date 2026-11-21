@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Projekt nemožno spustiť (žiadny nie je načítaný alebo už beží)",
     "Str.AIChat.ProjectNotRunning": "Momentálne nebeží žiadny projekt",
     "Str.SessionEnd.UnsavedWork": "Neuložené zmeny: {0}",
-    "Str.Options.Addin.ReportedFailure": "Problém nahlásený o {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Problém nahlásený o {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Neplatný názov miestneho stavu projektu v '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Našlo sa viacero umiestnení miestneho stavu projektu. Každé môže obsahovať iný uložený stav. Nič sa nezapíše, kým nevyberiete jedno pre túto reláciu. Zadajte jeho číslo alebo zrušte:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} je odkaz alebo spojenie priečinkov, alebo už nie je na mieste, kde bolo nájdené, preto sa z neho nič nečíta ani sa doň nič nezapisuje."
   }
 }

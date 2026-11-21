@@ -214,6 +214,8 @@
     "Str.AIChat.ProjectNotRunning": "Nenhum projeto está em execução no momento",
     "Str.FilePicker.ReplaceExisting": "{0} já existe. Deseja substituí-lo?",
     "Str.SessionEnd.UnsavedWork": "Alterações não salvas em {0}",
-    "Str.Options.Addin.ReportedFailure": "Foi relatado um problema às {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Foi relatado um problema às {0}: {1}",
+    "Str.ProjectLocalState.ChooseFormat": "Foram encontrados vários locais de estado local do projeto. Cada um pode conter um estado salvo diferente. Nada será escrito até você escolher um para esta sessão. Digite o número ou cancele:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} é um link ou uma junção, ou não está mais onde foi encontrado, portanto nenhum dado é lido ou gravado nesse local."
   }
 }

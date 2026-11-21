@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Kan project niet starten (geen geladen of al actief)",
     "Str.AIChat.ProjectNotRunning": "Er wordt momenteel geen project uitgevoerd",
     "Str.SessionEnd.UnsavedWork": "Niet-opgeslagen wijzigingen in {0}",
-    "Str.Options.Addin.ReportedFailure": "Probleem gemeld op {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Probleem gemeld op {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ongeldige naam voor lokale projectstatus in '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Er zijn meerdere locaties voor lokale projectstatus gevonden. Elke locatie kan een andere opgeslagen status bevatten. Er wordt niets geschreven totdat u er een voor deze sessie kiest. Voer het nummer in of annuleer:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} is een koppeling of knooppunt, of staat niet meer op de gevonden locatie. Daarom wordt daar niets gelezen of geschreven."
   }
 }
