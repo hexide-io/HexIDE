@@ -977,6 +977,7 @@ added afterwards.
 - [Indent, Outdent and Ctrl+Tab in the code window (2026-11-21, #709, design-time, IDE, SP6)](indent-outdent-and-ctrl-tab-in-the-code-window.md#indent-outdent-and-ctrltab-in-the-code-window-2026-11-21-709-design-time-ide-sp6)
 - [Which window an IDE dialog belongs to while a program runs (2026-11-16, #1297, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#which-window-an-ide-dialog-belongs-to-while-a-program-runs-2026-11-16-1297-ide-sp6)
 - [A form's designer while a run is paused (2026-11-21, #870, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#a-forms-designer-while-a-run-is-paused-2026-11-21-870-ide-sp6)
+- [The same while the program runs (2026-11-21, #870, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#the-same-while-the-program-runs-2026-11-21-870-ide-sp6)
 - [Tab in the form designer: every control, in TabIndex order, and from a multiple selection (2026-11-16, #4211, design-time, IDE, SP6)](tab-in-the-form-designer-every-control.md#tab-in-the-form-designer-every-control-in-tabindex-order-and-from-a-multiple-selection-2026-11-16-4211-design-time-ide-sp6)
 - [Long lines, line continuations and long expressions (2026-11-06, #3202)](long-lines-line-continuations-and-long-expressions.md#long-lines-line-continuations-and-long-expressions-2026-11-06-3202)
 - [Nested `If` blocks (2026-11-06, #3210)](long-lines-line-continuations-and-long-expressions.md#nested-if-blocks-2026-11-06-3210)
