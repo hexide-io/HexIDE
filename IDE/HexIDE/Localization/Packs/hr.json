@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Nije moguće pokrenuti projekt (nijedan nije učitan ili je već pokrenut)",
     "Str.AIChat.ProjectNotRunning": "Trenutačno nije pokrenut nijedan projekt",
     "Str.SessionEnd.UnsavedWork": "Nespremljene promjene: {0}",
-    "Str.Options.Addin.ReportedFailure": "Problem prijavljen u {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Problem prijavljen u {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nevaljan naziv lokalnog stanja projekta u '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Pronađeno je više mjesta lokalnog stanja projekta. Svako može sadržavati drukčije spremljeno stanje. Ništa se neće zapisati dok ne odaberete jedno za ovu sesiju. Unesite njegov broj ili odustanite:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} je poveznica ili spoj direktorija ili više nije na mjestu na kojem je pronađeno, pa se iz njega ništa ne čita niti se u njega piše."
   }
 }

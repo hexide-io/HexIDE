@@ -25,6 +25,58 @@ public sealed class ArchiveSourceFolderTests : IDisposable
     private ArchiveFolderResult Sync() => new ArchiveSourceFolder().Synchronize(Source, Token);
 
     [Fact]
+    public void A_brand_syncs_into_existing_stock_state_without_a_second_folder()
+    {
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "impexp.twinproj"), Source);
+        Directory.CreateDirectory(Path.Combine(directory, ".hexide"));
+        var engine = new ArchiveSourceFolder
+        {
+            Identity = new HexIDE.IDE.DistributionIdentity("rdcore", "RDCore") { ProjectFolder = ".rdcore" }
+        };
+        engine.Synchronize(Source, Token).Directory.Should().Be(Target);
+        Directory.Exists(Path.Combine(directory, ".rdcore")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_brand_creates_its_own_marked_folder_when_no_state_exists()
+    {
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "impexp.twinproj"), Source);
+        var engine = new ArchiveSourceFolder
+        {
+            Identity = new HexIDE.IDE.DistributionIdentity("rdcore", "RDCore") { ProjectFolder = ".rdcore" }
+        };
+        engine.Synchronize(Source, Token).Directory.Should().Be(Path.Combine(directory, ".rdcore", ".twinproj", "project.twinproj"));
+        File.Exists(Path.Combine(directory, ".rdcore", "project-state.json")).Should().BeTrue();
+        Directory.Exists(Path.Combine(directory, ".hexide")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Synchronization_writes_the_cross_distribution_folder_marker()
+    {
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "impexp.twinproj"), Source);
+        Sync();
+        var marker = Path.Combine(directory, ".hexide", "project-state.json");
+        File.Exists(marker).Should().BeTrue();
+        var json = JsonNode.Parse(File.ReadAllText(marker))!;
+        json["kind"]!.GetValue<string>().Should().Be("hexide.project-state");
+        json["version"]!.GetValue<int>().Should().Be(1);
+    }
+
+    [Fact]
+    public void Two_marked_folders_refuse_to_write_and_name_both()
+    {
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "impexp.twinproj"), Source);
+        Directory.CreateDirectory(Path.Combine(directory, ".hexide"));
+        var brand = Path.Combine(directory, ".rdcore");
+        Directory.CreateDirectory(brand);
+        File.WriteAllText(Path.Combine(brand, "project-state.json"), """{"kind":"hexide.project-state","version":1}""");
+        var sync = () => Sync();
+        sync.Should().Throw<IOException>().WithMessage("*.hexide*.rdcore*");
+        Directory.GetFileSystemEntries(Path.Combine(directory, ".hexide")).Should().BeEmpty();
+        Directory.GetFileSystemEntries(brand).Should().HaveCount(1);
+    }
+
+    [Fact]
     public void Published_fixture_preserves_every_file_and_all_entry_metadata()
     {
         File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "impexp.twinproj"), Source);

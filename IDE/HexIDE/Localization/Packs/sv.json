@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Kan inte starta projektet (inget inläst eller redan igång)",
     "Str.AIChat.ProjectNotRunning": "Inget projekt körs för närvarande",
     "Str.SessionEnd.UnsavedWork": "Osparade ändringar i {0}",
-    "Str.Options.Addin.ReportedFailure": "Ett problem rapporterades {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Ett problem rapporterades {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ogiltigt namn på projektets lokala tillstånd i '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Flera platser för projektets lokala tillstånd hittades. Varje plats kan innehålla olika sparade tillstånd. Inget skrivs förrän du väljer en för den här sessionen. Ange numret eller avbryt:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} är en länk eller kopplingspunkt, eller finns inte längre där den hittades, så ingenting läses från eller skrivs till den."
   }
 }

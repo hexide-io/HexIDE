@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "לא ניתן להפעיל את הפרויקט (לא נטען פרויקט או שהוא כבר פועל)",
     "Str.AIChat.ProjectNotRunning": "אין כרגע פרויקט פועל",
     "Str.SessionEnd.UnsavedWork": "שינויים שלא נשמרו ב-{0}",
-    "Str.Options.Addin.ReportedFailure": "דווחה בעיה ב־{0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "דווחה בעיה ב־{0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: שם לא תקין למצב המקומי של הפרויקט ב־'{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "נמצאו כמה מיקומים למצב המקומי של הפרויקט. כל אחד עשוי להכיל מצב שמור שונה. דבר לא ייכתב עד לבחירת אחד להפעלה זו. יש להזין את מספרו או לבטל:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} הוא קישור או צומת, או שאינו נמצא עוד במקום שבו נמצא, ולכן לא מתבצעת בו קריאה או כתיבה."
   }
 }

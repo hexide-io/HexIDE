@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Não é possível iniciar o projeto (nenhum carregado ou já em execução)",
     "Str.AIChat.ProjectNotRunning": "Não há nenhum projeto em execução",
     "Str.SessionEnd.UnsavedWork": "Alterações não guardadas em {0}",
-    "Str.Options.Addin.ReportedFailure": "Foi comunicado um problema às {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Foi comunicado um problema às {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nome do estado local do projeto inválido em '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Foram encontradas várias localizações do estado local do projeto. Cada uma pode conter um estado guardado diferente. Nada será escrito até escolher uma para esta sessão. Introduza o respetivo número ou cancele:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} é uma ligação ou junção, ou já não se encontra onde foi encontrado, pelo que não é lido nem escrito qualquer dado nessa localização."
   }
 }

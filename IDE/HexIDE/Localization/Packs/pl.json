@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "Nie można uruchomić projektu (żaden nie jest załadowany lub już działa)",
     "Str.AIChat.ProjectNotRunning": "Obecnie żaden projekt nie jest uruchomiony",
     "Str.SessionEnd.UnsavedWork": "Niezapisane zmiany: {0}",
-    "Str.Options.Addin.ReportedFailure": "Zgłoszono problem o {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "Zgłoszono problem o {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nieprawidłowa nazwa lokalnego stanu projektu w '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "Znaleziono kilka lokalizacji lokalnego stanu projektu. Każda może zawierać inny zapisany stan. Nic nie zostanie zapisane, dopóki nie wybierzesz jednej dla tej sesji. Wpisz jej numer lub anuluj:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} jest łączem lub skrzyżowaniem katalogów albo nie znajduje się już tam, gdzie zostało znalezione, więc żadne dane nie są stamtąd odczytywane ani tam zapisywane."
   }
 }

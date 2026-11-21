@@ -321,7 +321,12 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Debugging.IBreakpointService>(out var breakpoints);
                 ctx.Inject<IProjectManager>(out var projectManager);
                 ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
-                return new UserSidecarService(bookmarks, breakpoints, projectManager, runChoices);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ILocalizationService>(out var localization);
+                return new UserSidecarService(bookmarks, breakpoints, projectManager, runChoices)
+                {
+                    Choose = candidates => ProjectLocalStateChoice.Ask(windows, localization, candidates)
+                };
             })
             .Bind<IFindReplaceService>().As(Singleton).To<FindReplaceService>()
             .Bind().As(Singleton).To(ctx =>
