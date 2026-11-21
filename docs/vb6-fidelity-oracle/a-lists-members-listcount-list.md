@@ -111,6 +111,36 @@ So the "Out of memory" in the table above is the direct call's. Reasoned, not ch
 
 **After the failed `List(-2)`,** each ComboBox's `ListIndex` read 2, and the ListBox's stayed 1. That's the ComboBox-only move in the first table above, here through every late-bound way in.
 
+### Other ways in: a Collection item, a function's result and CallByName (2026-11-21, #5135, SP6)
+
+**Every other late-bound way in answers as `As Object` does.** The probe seeded three lists, a ListBox, a `Style = 0` ComboBox and a `Style = 2` ComboBox, with `c a b`, `ListIndex = 1` and `ItemData(0) = 77`. It then reached each list one of the ways below, one statement per function under `On Error Resume Next`, and read `ListCount`, `ListIndex`, `NewIndex` and `ItemData(0)` directly afterwards. Built with `/make` on vb6.exe SP6 as native code and as p-code, all 54 cases logged the same lines in both.
+
+| Reached through, or written as | Err, all three lists |
+|---|---|
+| A Collection item: `col(1).List(-2) = "v"` | 7 |
+| `col(1).ItemData(0) = v`, `v` Null | 13 |
+| `col(1).NewIndex = 0` | 383 |
+| `v = col(1).ItemData` | 385 |
+| A function's result, `v = GetO("List1").ItemData`, `GetO` returning `As Object`, or `GetC` returning `As Control` | 385, either way |
+| `GetO("List1").List(-2) = "v"`, or through `GetC` | 7, either way |
+| `v = CallByName(list, "ItemData", VbGet)` | 385 |
+| `CallByName list, "List", VbLet, -2, "v"` | 7 |
+| `CallByName list, "NewIndex", VbLet, 0` | 383 |
+| `Dim c As Object`: `v = c.List`, no index | 385 |
+| `c.ListCount = 1` | 383 |
+| `c.ItemData = 5`, no index | 385 |
+| `v = c.ItemData()` | 385 |
+| `c.List(-3) = "v"` | **7** |
+| `Dim c As Control`: `v = c.List`, and `c.ListCount = 1` | 385, and 383 |
+
+**What stayed and what moved:**
+- **Stayed, in every row:** `ListCount` 3, `NewIndex` 2 and `ItemData(0)` 77.
+- **Moved:** after each failed `List(-2)` or `List(-3)` write, each ComboBox's `ListIndex` read 2. The ListBox's stayed 1, as in #5134's table below.
+
+**One row widens #5117's.** `c.List(-3) = "v"` through `As Object` raises 7, where a direct `List(-3)` raises -2147024882 (#5134's section below). #5117 measured 7 at -2 only. Reasoned, not checked: other indexes below -1 do the same.
+
+**The guess this settles.** #5135 reasoned that a Collection item and a function result are Variants, and that `CallByName` always binds late, so 385, 383 and 7 were likely. All three held.
+
 ### Where a failed `List(i) = x` leaves the selection (2026-11-21, #5134, SP6)
 
 **The probe.** Each list was cleared and given three items, `c`, `d` and `e`. Its `ListIndex` was set, then `List(i) = "v"` was written under `On Error Resume Next`. The list was reached through a typed parameter, `c As ComboBox` or `c As ListBox`. Click and Change handlers counted events from just before the write. It was built with `/make` as native code and as p-code, and the two logged the same lines.
