@@ -813,6 +813,7 @@ added afterwards.
 - [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
 - [A compile error met while a program runs, with Compile On Demand on and off (2026-11-21, #833, IDE, SP6)](a-compile-error-met-while-a-program-runs.md#a-compile-error-met-while-a-program-runs-with-compile-on-demand-on-and-off-2026-11-21-833-ide-sp6)
 - [What `/make` says for a syntax error or an unbalanced block (2026-11-20, #4415, SP6)](what-make-says-for-a-syntax-error-or-an-unbalanced-block.md#what-make-says-for-a-syntax-error-or-an-unbalanced-block-2026-11-20-4415-sp6)
+- [Syntax errors at F5, and typed into the code window (2026-11-21, #830, SP6)](what-make-says-for-a-syntax-error-or-an-unbalanced-block.md#the-same-mistakes-at-f5-and-typed-into-the-code-window-2026-11-21-830-sp6)
 
 - [A UserControl's containers, drawing and events](usercontrol-containers-drawing-and-events.md) (#1631, part C).
 - [A UserControl instance's saved properties](usercontrol-files.md) (#1631, group 2A file-save subset).
