@@ -71,3 +71,46 @@ The losses, against the table:
 - Alt+O on `&One &Wide` and Alt+Q on `&Quick &Yak` do nothing.
 - A menu underlines its first marked letter where VB6 underlines its last.
 
+
+## With Windows' keyboard cues off (2026-11-21, #919, SP6)
+
+**The question.** The section above switched keyboard cues on before it looked. What do a CommandButton and a Label
+draw with the guest's own setting, which is off?
+
+**The probe.** Two forms, each with Command1 captioned `&OK` and Label1 captioned `Centred &label` (Alignment 2,
+BorderStyle 1). Both were built with `/make` as native code, run on the guest's console (VB6.EXE 6.00.9782, SP6), and
+opened in VB6's designer. Each was captured through the host's framebuffer twice: at rest, and with Alt held down
+through Hyper-V's synthetic keyboard.
+- **The guest's setting was off.** The `UserPreferencesMask` was `9E 1E 07 80 12 00 00 00`, whose keyboard-cues bit
+  (`0x20` of the first byte) is clear. That is Windows' "Underline access keys" off, and `Keyboard Preference\On` was 0.
+- **The first form was reached by keyboard.** The program was started from the Run box with Return, and the designer
+  was opened with Shift+F7.
+- **The second was reached by the mouse alone.** The program was started from a desktop shortcut, by right-clicking it
+  and clicking Open. Its project was opened the same way, and the designer by double-clicking Form1 in the Project
+  window. No key was pressed between the clicks and the first picture.
+  - **The cues really were hidden for mouse input.** The shell's context menu, opened by the right-click in that same
+    session, drew no underlines.
+
+**What was drawn.**
+
+| | Reached by | At rest | Alt held |
+|---|---|---|---|
+| Command1 `&OK`, run | keyboard | `O` underlined | the same |
+| Label1 `Centred &label`, run | keyboard | `l` underlined | the same |
+| Command1 and Label1, designer | keyboard | both underlined | the same |
+| Command1 `&OK`, run | mouse alone | `O` underlined | the same |
+| Label1 `Centred &label`, run | mouse alone | `l` underlined | the same |
+| Command1 and Label1, designer | mouse alone | both underlined | not taken |
+
+- **A VB6 form draws its access-key underlines whatever the cues setting and however it was reached,** in a run and in
+  the designer. Holding Alt changes nothing. In the mouse-alone run, the only pixels that differed between the two
+  pictures were the TextBox's caret, which blinks.
+- **The CommandButton too,** though it is a real BUTTON window. Why it ignores the cues wasn't established.
+
+**What was overturned.** #919 guessed that the two would differ: the windowless Label always underlined, and the BUTTON
+window hiding it until Alt with the setting off. Both underline in every case measured.
+
+### Not measured
+
+- **A form shown from code after the program has started,** such as a second form, or a MsgBox.
+- **A DPI other than 96.**

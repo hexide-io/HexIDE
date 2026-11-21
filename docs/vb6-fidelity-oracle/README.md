@@ -563,6 +563,7 @@ added afterwards.
 - [A Label's BorderStyle at run time (2026-11-18, #4647, SP6)](a-labels-border.md#a-labels-borderstyle-at-run-time-2026-11-18-4647-sp6)
 - [A Label's Alignment at run time (2026-11-18, #4604, SP6)](a-labels-alignment-at-run-time.md#a-labels-alignment-at-run-time-2026-11-18-4604-sp6)
 - [A caption's access key (2026-10-22, #920)](a-captions-access-key.md#a-captions-access-key-2026-10-22-920)
+- [With Windows' keyboard cues off (2026-11-21, #919, SP6)](a-captions-access-key.md#with-windows-keyboard-cues-off-2026-11-21-919-sp6)
 - [MousePointer's names and pointers (2026-10-22, #120)](mousepointers-names-and-pointers.md#mousepointers-names-and-pointers-2026-10-22-120)
 - [RGB, QBColor and MsgBox's style (2026-10-12)](rgb-qbcolor-and-msgboxs-style.md#rgb-qbcolor-and-msgboxs-style-2026-10-12)
 - [vbMsgBoxRight and vbMsgBoxRtlReading: the box's layout (2026-11-14, #3014)](rgb-qbcolor-and-msgboxs-style.md#vbmsgboxright-and-vbmsgboxrtlreading-the-boxs-layout-2026-11-14-3014)
