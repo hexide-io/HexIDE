@@ -598,6 +598,7 @@ added afterwards.
 - [A form's name as a type: New, As New, an Object and an interface (2026-11-18, #4598, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#a-forms-name-as-a-type-new-as-new-an-object-and-an-interface-2026-11-18-4598-sp6)
 - [As New on a form: Is Nothing, Unload, Set Nothing, and a module's As New (2026-11-18, #4640, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#as-new-on-a-form-is-nothing-unload-set-nothing-and-a-modules-as-new-2026-11-18-4640-sp6)
 - [Who owns a modal form, and what F5 brings back (2026-11-18, #4618, SP6, IDE)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#who-owns-a-modal-form-and-what-f5-brings-back-2026-11-18-4618-sp6-ide)
+- [What F5 runs again after Debug: an ElseIf, a Loop Until, a single-line If's tail and a Case (2026-11-21, #1079, IDE, SP6)](what-f5-runs-again-after-debug.md#what-f5-runs-again-after-debug-an-elseif-a-loop-until-a-single-line-ifs-tail-and-a-case-2026-11-21-1079-ide-sp6)
 - [A form displayed, and a form behind a modal one, re-measured on the console (2026-11-18, #4744, SP6)](several-forms-load-show-hide-modal-and-when-the-run-ends.md#a-form-displayed-and-a-form-behind-a-modal-one-re-measured-on-the-console-2026-11-18-4744-sp6)
 - [An unhandled run-time error (2026-10-14, #1011)](an-unhandled-run-time-error.md#an-unhandled-run-time-error-2026-10-14-1011)
 - [Operator precedence (2026-10-15, #1074)](operator-precedence.md#operator-precedence-2026-10-15-1074)
