@@ -541,3 +541,29 @@ builds differ:
 
 **In RDCore.** `950a394d` printed what vb6.exe printed on all 39 programs, compiled and interpreted, apart from those four
 (the two rows above, through each declaration), where it gives native code's answer.
+
+### A String or Boolean counter, and a Variant one, with the header raising (2026-11-21, #984, SP6)
+
+**The question.** Review round one above measured a raised header for the numeric and Date counters. #984 asked what a String or a Boolean counter does there.
+
+**The probe.** One project per counter type, so that a compile error in one couldn't hide another. Each project held two functions under `On Error Resume Next`, with the counter set to `"7"` (or `True`) first:
+- `For c = 1 To Boom()`, where `Boom` raises 5;
+- `For c = 1 To 3`.
+
+Each body logged `c` and was guarded to six passes. Built with `/make` on vb6.exe SP6 as native code and as p-code.
+
+| Counter | vb6.exe |
+|---|---|
+| `Dim c As String` | **compile error "Type mismatch"**, on the `For` line, native and p-code |
+| `Dim c As Boolean` | **compile error "Type mismatch"**, the same |
+| `Dim c As Variant`, holding `"7"` | raised: the body ran once with `c` `"7"`, a String, then `Next` raised **92** "For loop not initialized", and `c` stayed `"7"`. Plain: 1 2 3, then `c` is Integer 4 |
+| `Dim c As Integer`, from 7 | raised: the body ran once with 7; `c` ended 7 natively and 8 in p-code, which is review round one's row. Plain: 1 2 3, then 4 |
+
+**So #984's question doesn't arise.** VB6 refuses a String or Boolean `For` counter when it compiles the program, so a raised header never meets one. #984's refusal, "measured for numeric and Date counters only", can become the compile error VB6 gives. Following *An error VB6 reports before running*, that's the same error number at run time.
+
+**Not measured:**
+- whether that run-time number is 13 (the compile error's message is "Type mismatch");
+- a Variant counter holding a number, or `Empty`, with the header raising;
+- a `Step` that raises with a Variant counter.
+
+The Variant row is one probe from one start value.
