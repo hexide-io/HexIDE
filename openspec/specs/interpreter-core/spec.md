@@ -2743,6 +2743,19 @@ measured runtime errors in [#5117](https://github.com/hexide-io/HexIDE/issues/51
 - **WHEN** code reads ItemData without an index
 - **THEN** it raises error 385
 
+### Requirement: Failed ComboBox List writes move the selection silently
+
+The runtime SHALL apply silent selection movement before a failed ComboBox List write below -1,
+following [#5134](https://github.com/hexide-io/HexIDE/issues/5134) (SP6 native/p-code, oracle PR #5159).
+A late-bound reference SHALL move the selection the same way, raising 7 (measured from every starting
+selection: oracle PR #5125 and #5134's comments).
+
+#### Scenario: A failed ComboBox List write silently advances the selection
+- **WHEN** a ComboBox with a selected item before its last receives a List write below -1
+- **THEN** ListIndex advances to the next item and Text follows, without Click or Change, before the existing error
+- **AND** no selection, the last item and the only item remain unchanged
+- **AND** a ListBox starting at -1, 1 or 2 retains its selection, as does either control after a write past ListCount
+
 ### Requirement: Saved list records populate the running control
 
 The runtime SHALL decode List and ItemData records using

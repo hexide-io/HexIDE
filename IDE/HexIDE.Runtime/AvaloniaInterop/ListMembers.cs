@@ -200,7 +200,12 @@ internal static class ListMembers
         if (index > list.ItemCount)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyArrayIndex);
         if (index < -1)
+        {
+            // #5134: a failed ComboBox write advances its selection silently before raising the error.
+            if (list is VBComboBox && list.SelectedIndex >= 0 && list.SelectedIndex < list.ItemCount - 1)
+                list.SelectedIndex++;
             throw new VBRunTimeException(lateBound && index == -2 ? VBStandardError.OutOfMemory : OutOfMemoryHResult);
+        }
         if (index == -1 || index == list.ItemCount)
         {
             var state = ListItemState.For(list);
