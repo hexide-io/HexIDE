@@ -771,6 +771,7 @@ added afterwards.
 - [A compare argument, and when it is checked (2026-10-27, #881)](a-compare-argument-and-when-it-is-checked.md#a-compare-argument-and-when-it-is-checked-2026-10-27-881)
 - [A standard module's Property procedures (2026-10-27, #977)](a-standard-modules-property-procedures.md#a-standard-modules-property-procedures-2026-10-27-977)
 - [A control's Font object (2026-10-27, #934)](a-controls-font-object.md#a-controls-font-object-2026-10-27-934)
+- [The design-time Font dialog: its Script list, its sizes, and the Charset it writes (2026-11-21, #4338, design-time, IDE, SP6)](the-design-time-font-dialog-its-script-list-its-sizes-and-the-charset-it-writes.md#the-design-time-font-dialog-its-script-list-its-sizes-and-the-charset-it-writes-2026-11-21-4338-design-time-ide-sp6)
 - [A free-standing StdFont: Bold, Weight 400 and 700, and one assignment after another (2026-11-19, #4807)](a-free-standing-stdfonts-bold-and-weight.md)
 - [A free-standing StdFont: values of every type, and the font a Size, Charset or Name reads (2026-11-19, #4926, SP6)](a-free-standing-stdfonts-values-of-every-type.md)
 - [AutoSize on a Label and a PictureBox (2026-10-27, #922)](autosize-on-a-label-and-a-picturebox.md#autosize-on-a-label-and-a-picturebox-2026-10-27-922)
