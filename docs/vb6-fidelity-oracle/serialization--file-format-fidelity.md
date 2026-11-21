@@ -282,12 +282,16 @@ HexIDE writes is the file VB6 wrote, and the vb6.exe half below opens those exac
 **vb6.exe's half.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM. The project held the form, its `.frx`, the
 stdole2 reference, and `Object` lines for `mscomctl.ocx` 2.0 and `shdocvw.dll` 1.1.
 - **`/make`,** run from PowerShell Direct as an administrator, built `wb.exe` with no load log.
-- **The IDE, started elevated on the console,** loaded the project with no message and no log. The designer showed every
-  control: the toolbar with the ImageList's images on its buttons, the Address combo, the timer, and a live WebBrowser
-  showing "Can't reach this page".
-- **The IDE started unelevated** first said "Error accessing the system registry", then "Continue Loading Project?". After
-  Yes, it logged `Line 62: Class SHDocVwCtl.WebBrowser of control brwWebBrowser was not a loaded control class.` That is
-  the session lacking rights, not the file: the same bytes loaded elevated, and the form was closed unsaved.
+- **The IDE, first started unelevated on the console,** said "Error accessing the system registry", then "Continue
+  Loading Project?". After Yes, it logged `Line 62: Class SHDocVwCtl.WebBrowser of control brwWebBrowser was not a loaded
+  control class.` The form was closed unsaved.
+- **Started again, elevated,** the IDE loaded the project with no message and no log. The designer showed every control:
+  the toolbar with the ImageList's images on its buttons, the Address combo, the timer, and a live WebBrowser showing
+  "Can't reach this page".
+- **Which of the two cleared the error isn't settled:** the elevation, or that it was the second load.
+  [A control VB6 knows and HexIDE carries](a-control-vb6-knows-and-hexide-carries-stacks-with-the-rest.md) records the
+  same error on the first load after the control caches change, and clean loads after it. Either way it is the guest's
+  state, not the file: the same bytes loaded.
 
 **VB6's own save of it isn't byte-identical.** Closing the elevated IDE with nothing edited asked "Save changes to the
 following files?", naming `wb.vbp` and `Web Browser.frm`. With Yes, the `.frx` came back identical (4428 bytes), but the
