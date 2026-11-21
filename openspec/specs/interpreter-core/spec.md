@@ -2748,9 +2748,19 @@ measured runtime errors in [#5117](https://github.com/hexide-io/HexIDE/issues/51
 The runtime SHALL decode List and ItemData records using
 [#5106 / #5114's measurements](https://github.com/hexide-io/HexIDE/issues/5106): counted ANSI
 strings and decimal Long data. Loading SHALL retain saved order, including on Sorted controls,
-and set NewIndex/ListIndex to -1. Original bytes SHALL remain verbatim for saving. Undecodable
-records or disagreeing counts SHALL refuse before population with NotImplementedException naming
-#5114. The designer SHALL draw saved ListBox and Simple ComboBox items in file order, including
+and set NewIndex/ListIndex to -1. Original bytes SHALL remain verbatim for saving. Per
+[the #5127 measurements](https://github.com/hexide-io/HexIDE/issues/5127) (oracle PRs #5130 and #5155), List
+alone SHALL determine the items, with positional ItemData defaulting missing values to zero and
+ignoring extras. ItemData SHALL skip spaces, tabs, CRs and LFs, accept one plus or minus sign that
+the digits follow directly, and read decimal digits with 32-bit wrapping; anything else SHALL yield zero. Trailing record
+bytes SHALL be ignored.
+Code page 1252 SHALL decode undefined bytes as same-number characters. Truncated ItemData,
+a vertical tab or form feed before an entry's digits, and undecodable bytes on other
+code pages SHALL refuse before population with NotImplementedException naming #5127. Truncated List SHALL stop loading with
+`Property List in <control name> could not be set`. A Style 2 ComboBox without ItemData SHALL keep
+all saved items. That is a deliberate divergence: vb6.exe drops the first saved item there (measured,
+oracle PR #5131), which is a defect, and the Fidelity Principle keeps HexIDE from reproducing it.
+The designer SHALL draw saved ListBox and Simple ComboBox items in file order, including
 Sorted lists, using the runtime font, row height and text insets, with no selection or focus rectangle
 ([#5121's designer measurements](https://github.com/hexide-io/HexIDE/issues/5121), oracle PR #5131).
 An empty ListBox SHALL show its current Name on the first row only in the designer. Overflowing
@@ -2783,7 +2793,7 @@ is unchanged.
 #### Scenario: The measured loading scope
 - **WHEN** saved items are loaded
 - **THEN** Properties-window list/data editing, record writing and CallByName remain outside this change
-- **AND** non-ASCII saved-text fidelity remains unmeasured
+- **AND** non-ASCII saved-text fidelity outside code page 1252 remains unmeasured
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
 

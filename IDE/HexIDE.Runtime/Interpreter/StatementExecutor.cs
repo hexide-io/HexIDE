@@ -502,7 +502,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // take the suspended handler for one still running and start the next event inside it (#766).
     private ValueTask DebugGate(Debugging.IDebugGate dbg)
     {
-        var gate = dbg.OnStatementAsync(currentLine, currentModule.Name, this);
+        var gate = interpreter.ObserveDebugGate(dbg.OnStatementAsync(currentLine, currentModule.Name, this));
         return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
     }
 
@@ -510,7 +510,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         // Show is already executing, so Set Next Statement cannot repoint its suspended call.
         _suspendedAtTopLevel = false;
-        var gate = dbg.OnModalPauseAsync(currentLine, currentModule.Name, this);
+        var gate = interpreter.ObserveDebugGate(dbg.OnModalPauseAsync(currentLine, currentModule.Name, this));
         return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
     }
 
@@ -4791,7 +4791,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // (here: no debugging host) it ends the program. Either way, no longer a NotImplementedException.
         currentLine = context.Start.Line;
         if (interpreter.DebugController is { CanBreak: true } dbg)
-            await dbg.EnterBreakFromStopStatementAsync(currentLine, currentModule.Name, this);
+            await interpreter.ObserveDebugGate(dbg.EnterBreakFromStopStatementAsync(currentLine, currentModule.Name, this));
         else
             throw new Debugging.StopExecutionSignal();
         return ControlFlow.Nothing;
@@ -5967,7 +5967,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!await ConditionHolds(condition.valueStmt(), context))
             {
                 currentLine = context.Start.Line;
-                await dbg.EnterBreakFromAssertionAsync(currentLine, currentModule.Name, this);
+                await interpreter.ObserveDebugGate(dbg.EnterBreakFromAssertionAsync(currentLine, currentModule.Name, this));
             }
             return default;
         }
@@ -6106,7 +6106,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         _suspendedAtTopLevel = false;
         var gate = stepEntry ? dbg.OnStatementAsync(line, currentModule.Name, this)
             : entry ? dbg.OnProcedureEntryAsync(line, currentModule.Name, this)
-            : breakpointOnly ? dbg.OnBreakpointPositionAsync(line, currentModule.Name, this) : DebugGate(dbg);
+            : breakpointOnly ? dbg.OnBreakpointPositionAsync(line, currentModule.Name, this)
+            : DebugGate(dbg);
+        if (stepEntry || entry || breakpointOnly)
+            gate = interpreter.ObserveDebugGate(gate);
         if (breakpointOnly && interpreter.Events is { } events)
             await events.WhileSuspended(gate);
         else
@@ -6462,7 +6465,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         currentLine = line;
         ErrorLocation.Note(error, currentModule.Name, line);
-        var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
+        var halt = interpreter.ObserveDebugGate(
+            interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this)).AsTask();
         return interpreter.Events is { } events ? await events.WhileWaitingOnWindow(halt) : await halt;
     }
 
