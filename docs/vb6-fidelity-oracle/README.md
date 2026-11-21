@@ -588,6 +588,7 @@ added afterwards.
 - [A checkbox list's SelCount, Selected and ListIndex through AddItem and RemoveItem (2026-11-20, #4209's review)](a-listboxs-page-up-checkboxes-and-columns.md#a-checkbox-lists-selcount-selected-and-listindex-through-additem-and-removeitem-2026-11-20-4209s-review)
 - [Selected on a MultiSelect ListBox scrolls the item into view (2026-11-16, #4229, SP6 native and p-code)](selected-on-a-multiselect-listbox-scrolls-the-item-into-view.md#selected-on-a-multiselect-listbox-scrolls-the-item-into-view-2026-11-16-4229-sp6-native-and-p-code)
 - [A list member's error called directly or through As Object (2026-11-20, #5117, SP6)](a-lists-members-listcount-list.md#called-directly-or-through-as-object-2026-11-20-5117-sp6)
+- [Where a failed List(i) = x leaves the selection (2026-11-21, #5134, SP6)](a-lists-members-listcount-list.md#where-a-failed-listi--x-leaves-the-selection-2026-11-21-5134-sp6)
 - [One handler at a time (2026-10-14, #766)](one-handler-at-a-time.md#one-handler-at-a-time-2026-10-14-766)
 - [Unload Me (2026-10-14, #973)](unload-me.md#unload-me-2026-10-14-973)
 - [Overflow edges (2026-10-14, #234)](overflow-edges.md#overflow-edges-2026-10-14-234)

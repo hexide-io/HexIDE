@@ -110,3 +110,27 @@ So the "Out of memory" in the table above is the direct call's. Reasoned, not ch
 | `v = c.ItemData` | 385 |
 
 **After the failed `List(-2)`,** each ComboBox's `ListIndex` read 2, and the ListBox's stayed 1. That's the ComboBox-only move in the first table above, here through every late-bound way in.
+
+### Where a failed `List(i) = x` leaves the selection (2026-11-21, #5134, SP6)
+
+**The probe.** Each list was cleared and given three items, `c`, `d` and `e`. Its `ListIndex` was set, then `List(i) = "v"` was written under `On Error Resume Next`. The list was reached through a typed parameter, `c As ComboBox` or `c As ListBox`. Click and Change handlers counted events from just before the write. It was built with `/make` as native code and as p-code, and the two logged the same lines.
+
+| Selected before | `List(-2) = "v"` on a ComboBox (Style 0, 1, 2, and Style 2 `Sorted`) | On a ListBox |
+|---|---|---|
+| none (`ListIndex` -1) | -1 | -1 |
+| `c` (0) | **1**, `Text` `d` | not measured |
+| `d` (1) | **2**, `Text` `e` | 1 |
+| `e` (2), the last | 2 | 2 |
+| the only item (0 of 1) | 0 | not measured |
+
+- **The error:** every write raised -2147024882 "Out of memory", and `ListCount` stayed 3.
+- **No events:** no Click came, and on Style 0 no Change, although the selection and `Text` moved.
+- **Below -2:** `List(-3) = "v"` with `d` selected moved it to `e`, as `-2` did.
+- **Past `ListCount`:** `List(5) = "v"` and `List(4) = "v"`, with 3 items and `d` selected, raised 381 and left `ListIndex` 1, on a ComboBox and a ListBox alike.
+
+**What these show:** on a ComboBox, a write below -1 that fails with "Out of memory" moves a selection to the next item if there is one, and leaves it alone otherwise. The move raises no event. A ListBox's selection doesn't move. Neither does a ComboBox's when the write fails with 381.
+
+**Not measured:**
+- a ListBox with its first item selected;
+- the late-bound path's other starting points. #5117's probe measured only 1 to 2 there.
+- `MultiSelect`.
