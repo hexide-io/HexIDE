@@ -48,3 +48,47 @@
 **Resisted explanation:** after the failed store in `over_stored`, `t` read as infinity. Whether the store wrote infinity before the error was raised, or `t` held infinity some other way, the probe can't tell.
 
 **HexIDE,** read from the code and not run: each operator returns its result as a value of its own (`ExpressionExecutor.MultiplyOrDivide` returns a `Vb6Value` from `VbNumeric.Mul`), so a Double expression is rounded at every step. That is the IEEE column, and `sum10`, `div_mul_eq` and `clng_mul_sub` would give different answers there.
+
+### A single operation is rounded twice (2026-11-21, #1214, SP6)
+
+**The question.** The rows above match the x87 model, but they don't single it out. Two other models also match all 20:
+- intermediates held wider, as IEEE binary128 holds them, with a 113-bit significand;
+- intermediates held exactly, as rationals.
+
+Each was computed from the same operands, with a store rounding to a double. All three agree on every row above, so those rows say only that the intermediate is *at least* the x87's width.
+
+**A single operation tells them apart:**
+- **The x87 model rounds twice:** the result to a 64-bit significand, then again to a double at the store.
+- **A wider or exact intermediate rounds once,** as .NET does.
+
+The two differ when the first rounding lands exactly halfway between two doubles. Then the second rounding breaks the tie to the even one, where rounding once would have gone the other way.
+
+**The probe:**
+- **Operands** were set from their bytes with `RtlMoveMemory`, so no literal parsing is involved.
+- **Each row was one statement** under `On Error Resume Next`, and the result was logged as its bytes.
+- **The Variant rows** copied the same Doubles into Variants first.
+- **The builds:** `/make` on vb6.exe SP6, as native code and as p-code. All 8 rows logged the same lines in both.
+
+| Row | Statement | `a` | `b` | vb6.exe | x87 model | Rounded once |
+|---|---|---|---|---|---|---|
+| dr_add | `r = a + b` | 1 | 2^-53 + 2^-80, `3CA0000002000000` | `3FF0000000000000` | `3FF0000000000000` | `3FF0000000000001` |
+| dr_sub | `r = a - b` | 1 | 2^-54 + 2^-81, `3C90000002000000` | `3FF0000000000000` | `3FF0000000000000` | `3FEFFFFFFFFFFFFF` |
+| dr_mul1 | `r = a * b` | `3FF854CF44A8391C` | `3FF0D6956A336D6F` | `3FF99B20D028C45C` | `3FF99B20D028C45C` | `3FF99B20D028C45D` |
+| dr_mul2 | `r = a * b` | `3FFE000719E04ADF` | `3FF300B8A360CC8E` | `4001D0B150B0E544` | `4001D0B150B0E544` | `4001D0B150B0E545` |
+| dr_add_cbl | `r = CDbl(a + b)` | as dr_add | | `3FF0000000000000` | `3FF0000000000000` | `3FF0000000000001` |
+| v_dr_add | `vr = va + vb`, Variants | as dr_add | | `3FF0000000000000`, a Double | `3FF0000000000000` | `3FF0000000000001` |
+| v_dr_mul1 | `vr = va * vb`, Variants | as dr_mul1 | | `3FF99B20D028C45C`, a Double | `3FF99B20D028C45C` | `3FF99B20D028C45D` |
+| v_dr_mul2 | `vr = va * vb`, Variants | as dr_mul2 | | `4001D0B150B0E544`, a Double | `4001D0B150B0E544` | `4001D0B150B0E545` |
+
+- **The multiply operands** were found by searching random doubles in [1, 2) with the model for pairs whose two roundings differ. dr_mul1 and dr_mul2 are the first two found.
+- **The same search over divisions `p / q`,** with `p` below 60 and `q` below 2000, found none. That's computed with the model, not measured.
+
+**What it shows:**
+- **vb6.exe matches the x87 model in all 8 rows, and rounding once in none.** So an intermediate holds exactly the x87's 64-bit significand: not more, as the earlier rows allowed.
+- **Even a lone `a + b` or `a * b` stored at once can differ from .NET's answer in the last bit,** for operands like these.
+- **`CDbl` adds nothing.** It narrows to a double, as the store does.
+- **Variant arithmetic is rounded the same way, one operation at a time:** to 64 bits, then to a double. The rows above found that a Variant operation overflows as a double does (`over_variant`). Together the two fit a Variant operator computed on the x87 and stored into the Variant at once (reasoned from the two, not measured as one).
+
+**Overturned:**
+- **The obvious guess was that a single operation, stored at once, gives what IEEE doubles give.** It doesn't, whenever the x87's first rounding lands on a tie.
+- **The rows above left "at least 64 bits" open.** It's exactly 64.
