@@ -610,6 +610,7 @@ added afterwards.
 - [A default member's value compared with a String (2026-11-14, #174's review)](an-object-used-as-a-value.md#a-default-members-value-compared-with-a-string-2026-11-14-174s-review)
 - [Through an `As Object` variable (2026-11-16, #174's review)](an-object-used-as-a-value.md#through-an-as-object-variable-2026-11-16-174s-review)
 - [The native build's hidden switches, and where `VB6.EXE` finds C2 and LINK (2026-10-13)](the-native-builds-hidden-switches-and-where-vb6exe-finds-c2-and-link.md#the-native-builds-hidden-switches-and-where-vb6exe-finds-c2-and-link-2026-10-13)
+- [The command lines VB6 gives C2 and LINK, and where the switches go (2026-11-21, #978, `/make`, SP6)](the-native-builds-hidden-switches-and-where-vb6exe-finds-c2-and-link.md#the-command-lines-vb6-gives-c2-and-link-and-where-the-switches-go-2026-11-21-978-make-sp6)
 - [A Function that returns an array (2026-10-13, #975)](a-function-that-returns-an-array.md#a-function-that-returns-an-array-2026-10-13-975)
 - [Arrays copy wherever VB6 stores one (2026-10-14, #970)](arrays-copy-wherever-vb6-stores-one.md#arrays-copy-wherever-vb6-stores-one-2026-10-14-970)
 - [What a store into a Const is (2026-10-14, #1003)](what-a-store-into-a-const-is.md#what-a-store-into-a-const-is-2026-10-14-1003)
