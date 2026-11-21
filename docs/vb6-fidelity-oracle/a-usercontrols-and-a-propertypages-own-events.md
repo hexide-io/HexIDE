@@ -75,3 +75,26 @@ both builds. The UserControl's kept `False`. That is #1661.
 - None of these events is raised yet. HexIDE has no UserControl run time: `docs/MISSING_LANGUAGE.md` records
   `UserControl` and `Ambient` as undefined names.
 
+
+## A PropertyPage's VB_Exposed, saved without an edit (2026-11-21, #1661, design-time, IDE, SP6)
+
+**The question.** The section above found a PropertyPage's save rewriting `VB_Exposed = False` as `True` after a
+double-click had added a procedure. Is the edit needed?
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, on its console. A project, `Type=Control` with the
+stdole2 reference and `Startup="(None)"`, held only `PropertyPage1.pag`, written by hand with
+`Attribute VB_Exposed = False`. The steps:
+1. Open the project, select the page in the Project window, and open its designer with Shift+F7.
+2. Press Ctrl+S with nothing changed. The `.pag` was 473 bytes, and it read `Attribute VB_Exposed = True`.
+3. Double-click the page. That added `Private Sub PropertyPage_SelectionChanged()`.
+4. Press Ctrl+S. The `.pag` was 529 bytes, still `VB_Exposed = True`.
+
+The other four `Attribute` lines (`VB_Name`, `VB_GlobalNameSpace = False`, `VB_Creatable = True` and
+`VB_PredeclaredId = False`) were as written both times.
+
+**So the edit isn't needed.** Any save of a PropertyPage in a Control project writes `VB_Exposed = True`.
+
+### Not measured
+
+- **A PropertyPage in another project type,** such as an ActiveX DLL.
+- **A page that was never opened in its designer,** saved through File > Save Project.
