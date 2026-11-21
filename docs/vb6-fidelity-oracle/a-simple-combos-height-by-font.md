@@ -16,6 +16,7 @@ fixed at the font's height, as was said?
 - **What it wrote:** each control's Height from `Form_Load`. Then, on the MS Sans Serif 8.25 and Arial 12 Simple Combos,
   `Height = n` for 1000, 1100, 1200, 1500, 2000, 300 and 0, with each read back.
 - **The builds:** native and p-code wrote the same 44 lines.
+- **Where it ran:** each EXE ran in the guest's session 0, through PowerShell Direct, where no form is shown. Every value was read in `Form_Load`, before a form would show anyway, from control windows that Windows creates hidden. That the values don't depend on display is reasoned, not checked on the console.
 
 **A Simple Combo at load,** each Height read in twips:
 
