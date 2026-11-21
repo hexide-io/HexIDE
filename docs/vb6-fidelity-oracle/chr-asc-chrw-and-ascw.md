@@ -74,3 +74,75 @@ table's own fallbacks, best fit among them. Both take the code page from `Vb6Tex
 `ExpressionExecutor`'s typed list gains `AscW`, its Variant list `ChrW` and `Str`, and its list of `$` forms that do not
 compile gains `AscW`. `DollarResult` now marks its String typed.
 
+### Chr and Asc under code page 932 (2026-11-21, #1509, SP6)
+
+**The question.** The section above was measured on a code page 1252 machine. VB6's documentation gives `Chr` a range of -32768 to 65535 under a double-byte code page, with a code above 255 read as a lead and a trail byte, and has `Asc` return such a pair as one Integer. HexIDE refuses both beyond ASCII under a double-byte code page until they're measured.
+
+**The probe.** Each row was its own function under `On Error Resume Next`, with results logged as `AscW` codes in hex, so nothing depended on the log's code page. It ran three times on a clone of the oracle VM, which was restored afterwards:
+- **as it stands:** system locale en-US (ANSI code page 1252), user locale en-GB;
+- **after `Set-WinSystemLocale ja-JP` and a restart:** code page 932 (`GetACP`), user locale still en-GB;
+- **then with `Set-Culture ja-JP` too:** user locale 1041.
+
+Built with `/make` on vb6.exe SP6 as native code and as p-code, the two logged the same lines in every run.
+
+| Expression | Code page 1252, user en-GB | 932, user en-GB | 932, user ja-JP |
+|---|---|---|---|
+| `Chr(&H8140&)` | **5** | **5** | U+3000 |
+| `Chr(-32448)`, the same pair as an Integer | **5** | **5** | U+3000 |
+| `Chr(&H81)`, a lead byte alone | U+0081 | U+30FB | U+30FB |
+| `Chr(&H82A0&)` | **5** | **5** | U+3042 |
+| `Chr(&H889F&)` | **5** | **5** | U+4E9C |
+| `Chr(&HB1)`, a half-width katakana byte | U+00B1 | U+FF71 | U+FF71 |
+| `Chr(&HA0)` | U+00A0 | U+F8F0 | U+F8F0 |
+| `Chr(&H80)` | U+20AC | U+0080 | U+0080 |
+| `Chr(&HFF)` | U+00FF | U+F8F3 | U+F8F3 |
+| `Chr(256)` | **5** | **5** | U+0001 |
+| `Chr(&H8100&)`, a lead byte and 0 | **5** | **5** | U+30FB |
+| `Chr(&H80FF&)`, no valid pair | **5** | **5** | U+0080 |
+| `Chr(&H7FFF)` | **5** | **5** | U+007F |
+| `Chr(&HFFFF&)` | **5** | **5** | U+F8F3 |
+| `Chr(65536)` | **5** | **5** | **5** |
+| `Chr(-1)` | **5** | **5** | U+F8F3 |
+| `Chr(-32768)` | **5** | **5** | U+0080 |
+| `Chr(-32769)` | **5** | **5** | **5** |
+| `Chr$(&H8140&)` | **5** | **5** | U+3000 |
+| `ChrB(&H81)` | 1 byte, `Len` 0 | 1 byte, `Len` 0 | 1 byte, `Len` 0 |
+| `Asc(ChrW(&H3042))`, あ | `63` | `-32096` | `-32096` |
+| `Asc(ChrW(&HFF71))`, half-width ｱ | `63` | `177` | `177` |
+| `Asc(ChrW(&H3000))`, the ideographic space | `32` | `-32448` | `-32448` |
+| `Asc(ChrW(&H4E00))`, 一 | `63` | `-30486` | `-30486` |
+| `Asc(ChrW(&HE9))`, é | `233` | `101` | `101` |
+| `Asc(ChrW(&H20AC))`, € | `128` | `63` | `63` |
+| `Asc(ChrW(&HA5))`, ¥ | `165` | `92` | `92` |
+| `Asc("\")` | `92` | `92` | `92` |
+| `Asc("A")` | `65` | `65` | `65` |
+| `Asc("")` | **5** | **5** | **5** |
+| `Asc(ChrW(&H3042) & "A")` | `63` | `-32096` | `-32096` |
+| `Asc(ChrW(&HD800))`, a lone surrogate | `63` | `63` | `63` |
+| `AscB(ChrW(&H3042))` | `66` | `66` | `66` |
+| `TypeName(Asc(ChrW(&H3042)))` | `Integer` | `Integer` | `Integer` |
+| `Hex(AscW(Chr(Asc(ChrW(&H3042)))))` | `3F` | **5** | `3042` |
+| `StrConv(ChrW(&H3042), vbFromUnicode)` | 1 byte, `Len` 0 | 1 byte, `Len` 0 | U+A082 |
+| `LenB(StrConv(ChrW(&H3042) & "A", vbFromUnicode))` | `2` | `2` | `3` |
+
+`U+` is the character the result holds. A bold number is the error raised.
+
+**What it shows:**
+- **`Chr`'s double-byte range needs both settings.** With code page 932 and a Japanese user locale, `Chr` takes -32768 to 65535 and reads a code above 255 as a lead byte and a trail byte. The pair `&H8140` is U+3000, and `&H82A0` is あ. With code page 932 but an en-GB user locale, `Chr` still raised 5 above 255, as on code page 1252.
+- **A code that isn't a valid pair** gives what code page 932 decodes from its first byte:
+  - `&H8100` and a lone lead byte give `・`, U+30FB;
+  - `&H80FF` gives U+0080, from its first byte;
+  - `&H7FFF` gives U+007F;
+  - `256`, bytes 1 and 0, gives U+0001.
+- **Codes past the documented range raise 5:** 65536 and -32769.
+- **A negative code is the same pair as its unsigned twin:** `-1` and `&HFFFF` gave U+F8F3, and `-32768` gave U+0080.
+- **`Asc` used code page 932 under both user locales.** It returns a double-byte character as one Integer, negative from `&H8000` up (あ is -32096, `&H82A0`). A character code page 932 has no bytes for gives 63, `?`, or a best fit: é gives 101, `e`, and ¥ gives 92, `\`. A half-width katakana gives its one byte, 177.
+- **`StrConv(..., vbFromUnicode)` followed the user locale,** not code page 932. Under en-GB it gave あ as one byte, `?`. Under ja-JP it gave あ's two bytes, `&H82 &HA0`.
+
+**Overturned:** the documentation's double-byte `Chr` assumes a double-byte system, and doesn't say that the user locale matters as well. A program on a Japanese code page with a Western user locale gets the single-byte `Chr` and the double-byte `Asc`.
+
+**Not measured:**
+- code pages 936, 949 and 950;
+- a Japanese user locale on code page 1252;
+- `ChrB` and `AscB` of double-byte strings beyond the rows above;
+- what HexIDE's `--ansi-code-page 932` should take as the user locale.

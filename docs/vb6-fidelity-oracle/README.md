@@ -689,6 +689,7 @@ added afterwards.
 - [What the toolbox's tooltips read (2026-11-18, #2751, SP6, IDE)](the-size-of-a-control-added-from-the-toolbox.md#what-the-toolboxs-tooltips-read-2026-11-18-2751-sp6-ide)
 - [An undeclared variable passed ByRef (2026-10-23, #1505)](an-undeclared-variable-passed-byref.md#an-undeclared-variable-passed-byref-2026-10-23-1505)
 - [Chr, Asc, ChrW and AscW (2026-10-23, #1134)](chr-asc-chrw-and-ascw.md#chr-asc-chrw-and-ascw-2026-10-23-1134)
+- [Chr and Asc under code page 932 (2026-11-21, #1509, SP6)](chr-asc-chrw-and-ascw.md#chr-and-asc-under-code-page-932-2026-11-21-1509-sp6)
 - [The name VB6's designer gives a new control (2026-10-23, #540, design-time, IDE, release build)](the-name-vb6s-designer-gives-a-new-control.md#the-name-vb6s-designer-gives-a-new-control-2026-10-23-540-design-time-ide-release-build)
 - [Debug.Assert (2026-10-23, #1467)](debugassert.md#debugassert-2026-10-23-1467)
 - [Indexing a call's result (2026-10-23, #1476)](indexing-a-calls-result.md#indexing-a-calls-result-2026-10-23-1476)
