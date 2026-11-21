@@ -495,6 +495,7 @@ added afterwards.
 - [A form-based game's runtime surface (2026-10-12)](a-form-based-games-runtime-surface.md#a-form-based-games-runtime-surface-2026-10-12)
 - [A form as an object: its names, its lifecycle and its predeclared instance (2026-10-14, #822)](a-form-as-an-object-its-names-its-lifecycle-and-its-predeclared-instance.md#a-form-as-an-object-its-names-its-lifecycle-and-its-predeclared-instance-2026-10-14-822)
 - [Assigning to a control property (2026-10-12, #768)](assigning-to-a-control-property.md#assigning-to-a-control-property-2026-10-12-768)
+- [What a palette colour paints as (2026-11-21, #786, SP6)](assigning-to-a-control-property.md#what-a-palette-colour-paints-as-2026-11-21-786-sp6)
 - [A list's members: ListCount, List(i), AddItem's index and RemoveItem (2026-10-22, #821)](a-lists-members-listcount-list.md#a-lists-members-listcount-listi-additems-index-and-removeitem-2026-10-22-821)
 - [The order a Sorted ListBox or ComboBox keeps (2026-11-20, #5059, SP6)](the-order-a-sorted-listbox-or-combobox-keeps.md#the-order-a-sorted-listbox-or-combobox-keeps-2026-11-20-5059-sp6)
 - [A list's NewIndex and ItemData, and the List and ItemData records a form saves (2026-11-20, #5106, #5114, SP6)](a-lists-newindex-itemdata-and-saved-records.md#a-lists-newindex-and-itemdata-and-the-list-and-itemdata-records-a-form-saves-2026-11-20-5106-5114-sp6)
