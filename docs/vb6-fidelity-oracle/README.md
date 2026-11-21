@@ -694,6 +694,7 @@ added afterwards.
 - [How a running form stacks its controls (2026-10-23, #1497, IDE, release build)](how-a-running-form-stacks-its-controls.md#how-a-running-form-stacks-its-controls-2026-10-23-1497-ide-release-build)
 - [Too few arguments to an intrinsic (2026-10-23, #1512)](too-few-arguments-to-an-intrinsic.md#too-few-arguments-to-an-intrinsic-2026-10-23-1512)
 - [Print # and the ANSI best fit (2026-10-23, #1511)](print--and-the-ansi-best-fit.md#print--and-the-ansi-best-fit-2026-10-23-1511)
+- [Print on a form and a PictureBox: zones, columns, CurrentX and CurrentY, TextWidth and TextHeight (2026-11-21, #989, SP6)](print-on-a-form-zones-columns-currentx-and-textwidth.md)
 - [CVar (2026-10-23, #1466)](cvar.md#cvar-2026-10-23-1466)
 - [Filesystem (#1561) — vb6.exe 6.00.8176 (original release), MSVBVM60 6.00.9848 (SP6-level)](filesystem.md#filesystem-1561--vb6exe-6008176-original-release-msvbvm60-6009848-sp6-level)
 - [What ZOrder does at run time (2026-10-23, #1503, p-code, IDE, release build)](what-zorder-does-at-run-time.md#what-zorder-does-at-run-time-2026-10-23-1503-p-code-ide-release-build)
