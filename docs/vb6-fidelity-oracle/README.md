@@ -774,6 +774,7 @@ added afterwards.
 - [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
 - [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
+- [A compile error met while a program runs, with Compile On Demand on and off (2026-11-21, #833, IDE, SP6)](a-compile-error-met-while-a-program-runs.md#a-compile-error-met-while-a-program-runs-with-compile-on-demand-on-and-off-2026-11-21-833-ide-sp6)
 - [What `/make` says for a syntax error or an unbalanced block (2026-11-20, #4415, SP6)](what-make-says-for-a-syntax-error-or-an-unbalanced-block.md#what-make-says-for-a-syntax-error-or-an-unbalanced-block-2026-11-20-4415-sp6)
 
 - [A UserControl's containers, drawing and events](usercontrol-containers-drawing-and-events.md) (#1631, part C).
