@@ -14,7 +14,7 @@ single-line `If`'s tail, or a `Case`'s expression?
   - the IDE's title;
   - the log;
   - a screenshot;
-  - the caret's line at the break.
+  - the caret's line at the break, and in the screenshot, the statement highlighted as the current one.
 - **No Immediate window.** The divisor comes from `Dz`, which counts its calls and returns 0 on the first and 1 after.
   So the retry succeeds without editing anything, and every call is in the log. Each function logs its own name.
 - **Builds:** this is IDE behaviour, so there is no native or p-code build to compare.
@@ -75,13 +75,13 @@ Sub Main()
 End Sub
 ```
 
-**What happened.** Each fault raised "Run-time error '11': Division by zero", and Debug broke on the line shown:
+**What happened.** Each fault raised "Run-time error '11': Division by zero". Debug broke with the highlight shown:
 
 | Case | The break, on Debug | Logged before the fault | Logged after F5, before the next case |
 |---|---|---|---|
 | `ElseIf` | `ElseIf 1 \ Dz() > 0 Then` | `case1`, `Fx`, `Dz 1` | `Dz 2`, `elseif1` |
 | `Loop Until` | `Loop Until 1 \ Dz() > 0` | `case2`, `body 1`, `Dz 1` | `Dz 2` |
-| Single-line `If`'s tail | `If True Then n = n + 1: L "tail " & (1 \ Dz())` | `case3`, `Dz 1` | `Dz 2`, `tail 1`, `n3 1` |
+| Single-line `If`'s tail | **`L "tail " & (1 \ Dz())` alone**, highlighted from its colon. The rest of the line wasn't | `case3`, `Dz 1` | `Dz 2`, `tail 1`, `n3 1` |
 | `Case` | `Case Is > 1 \ Dz()` | `case4`, `Tx`, `E1`, `Dz 1` | `Dz 2`, `case4 second` |
 
 The run then logged `end` and returned to design mode.
@@ -90,7 +90,7 @@ The run then logged `end` and returned to design mode.
 - **`ElseIf`:** F5 ran the `ElseIf`'s condition again, alone. `Fx`, the `If`'s own condition, wasn't called again.
 - **`Loop Until`:** F5 ran the condition again, alone. The body didn't run a second time: there's no `body 2`.
 - **A single-line `If`'s tail:** F5 ran the faulting tail statement again, alone. `n = n + 1` didn't run again, so
-  `n3 1`. The break highlights the whole line, but the retry isn't the whole line.
+  `n3 1`. The break's highlight agrees: it covers the tail statement only.
 - **`Case`:** F5 ran the faulting `Case`'s expression again, alone. `Tx`, the test expression, and `E1`, the earlier
   `Case`'s expression, weren't called again.
 - **Across all four,** nothing that ran before the fault in the same construct ran again.
