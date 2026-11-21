@@ -694,6 +694,7 @@ added afterwards.
 - [Chr and Asc under code page 932 (2026-11-21, #1509, SP6)](chr-asc-chrw-and-ascw.md#chr-and-asc-under-code-page-932-2026-11-21-1509-sp6)
 - [The name VB6's designer gives a new control (2026-10-23, #540, design-time, IDE, release build)](the-name-vb6s-designer-gives-a-new-control.md#the-name-vb6s-designer-gives-a-new-control-2026-10-23-540-design-time-ide-release-build)
 - [Debug.Assert (2026-10-23, #1467)](debugassert.md#debugassert-2026-10-23-1467)
+- [The Error Trapping option: where each setting breaks, and what F5 does from the break (2026-11-21, #1070, IDE, SP6)](the-error-trapping-option.md#the-error-trapping-option-where-each-setting-breaks-and-what-f5-does-from-the-break-2026-11-21-1070-ide-sp6)
 - [Indexing a call's result (2026-10-23, #1476)](indexing-a-calls-result.md#indexing-a-calls-result-2026-10-23-1476)
 - [What VB6's Add Form saves (2026-10-23, #1532, design-time, IDE, release build)](what-vb6s-add-form-saves.md#what-vb6s-add-form-saves-2026-10-23-1532-design-time-ide-release-build)
 - [What VB6's Properties window lists for a UserControl and a PropertyPage (2026-10-23, #1585, design-time, IDE)](what-vb6s-properties-window-lists-for-a-usercontrol-and-a-propertypage.md#what-vb6s-properties-window-lists-for-a-usercontrol-and-a-propertypage-2026-10-23-1585-design-time-ide)
