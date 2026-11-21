@@ -895,6 +895,7 @@ added afterwards.
 - [SaveSetting from an IDE run, read by the made EXE, and back (2026-11-16, #4070)](savesetting-from-an-ide-run-read-by-the-made-exe.md#savesetting-from-an-ide-run-read-by-the-made-exe-and-back-2026-11-16-4070)
 - [The Properties window's Font dialog: its controls, typed sizes and effects (2026-11-16, #4153, design-time, IDE, SP6)](the-properties-windows-font-dialog.md#the-properties-windows-font-dialog-its-controls-typed-sizes-and-effects-2026-11-16-4153-design-time-ide-sp6)
 - [The Object Browser's library list: its order (2026-11-16, #4113, design-time, IDE, SP6)](the-object-browsers-library-list.md#the-object-browsers-library-list-its-order-2026-11-16-4113-design-time-ide-sp6)
+- [A form's members in the Object Browser (2026-11-21, #1968, design-time, IDE, SP6)](the-object-browsers-library-list.md#a-forms-members-in-the-object-browser-2026-11-21-1968-design-time-ide-sp6)
 - [Default and Cancel buttons (2026-11-17, #4371)](default-and-cancel-buttons.md#default-and-cancel-buttons-2026-11-17-4371)
 - [The default border's pixels (2026-11-18, #4391)](default-and-cancel-buttons.md#the-default-borders-pixels-2026-11-18-4391)
 - [A CommandButton's caption: where it sits, where it's clipped, and how it draws disabled (2026-11-20, #4551, #4586, SP6)](a-commandbuttons-caption-where-it-sits-and-how-it-draws-disabled.md#a-commandbuttons-caption-where-it-sits-where-its-clipped-and-how-it-draws-disabled-2026-11-20-4551-4586-sp6)
