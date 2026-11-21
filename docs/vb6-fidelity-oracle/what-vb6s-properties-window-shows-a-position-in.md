@@ -99,3 +99,58 @@ with a menu:
 - **Not followed: the menu form's Left and Top.** HexIDE shows the rule's −60 and −315.
 - **Not followed: the toolbar's position and size readout**, which still shows pixels. VB6's wasn't measured (#1641).
 
+
+## The designer's arrow keys, and the toolbar's position readout (2026-11-21, #6, #1641, design-time, IDE, SP6)
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console through Hyper-V's
+synthetic keyboard and mouse, with the screen read from the host's framebuffer. The toolbar's readout is drawn on a
+command bar, not held as window text, so it was read from the captures.
+- **The twips form:** Command1 at 240, 240, 1215 × 495 among other buttons, with the default grid (120 twips) and
+  Align Controls to Grid on. Command1 was clicked to select it, then each key was pressed once.
+- **The second form:** ScaleMode 3 (Pixel), holding Command1 at 255, 255 twips, 1215 × 495, and Text1 at 247, 964
+  twips, 1215 × 383. A `.frm` holds positions in twips whatever the ScaleMode.
+
+**The arrow keys (#6), with Command1 selected:**
+
+| Key | Readout after it | So |
+|---|---|---|
+| (clicked) | `240, 240` and `1215 x 495` | |
+| Ctrl+Right | `255, 240` | moved 15 twips, one pixel |
+| Ctrl+Right | `270, 240` | |
+| Ctrl+Down | `270, 255` | |
+| Ctrl+Left | `255, 255` | |
+| Shift+Right | `1230 x 495` | one pixel wider |
+| Shift+Down | `1230 x 510` | one pixel taller |
+| Right | `1680, 240`, Command2 | selected the control to the right |
+| Down | `1680, 960`, Command5 | selected the control below |
+| Tab | Frame1 | the next control in TabIndex order |
+
+The save afterwards read Command1 at Left 255, Top 255, Width 1230 and Height 510.
+- **Ctrl+arrow moves the selection by one pixel,** not by the grid, although Align Controls to Grid was on.
+- **Shift+arrow resizes it by one pixel.**
+- **A plain arrow moves no control.** It selects the nearest control in that direction.
+
+**The readout (#1641):**
+
+| Selected | Readout |
+|---|---|
+| Command1, on the twips form | `240, 240` and `1215 x 495` |
+| Command1, on the ScaleMode 3 form | `17, 17` and `81 x 33` |
+| Text1, on the ScaleMode 3 form | `16.467, 64.267` and `81 x 25.53` |
+| The form itself, either form | `-60, -120` and `6840 x 4785` |
+
+- **A control's readout is in its container's ScaleMode,** as the Properties window is (see above).
+- **A value that isn't whole shows its decimals.** The Properties window showed Text1's Left as 16.467 and Height as
+  25.533, while the readout showed the height as `25.53`. Why the readout drops a digit there wasn't established.
+- **A form's readout is its outer size in twips.** Both forms had a 6600 × 4200 client area, and the readout showed
+  `6840 x 4785`, the frame included, on the pixel form too. Why its position reads `-60, -120` wasn't established.
+
+**What was overturned.** #6 described VB6's keyboard nudge as moving the selection one grid step with the arrow keys.
+In VB6 the plain arrows select another control, and Ctrl+arrow moves one pixel.
+
+### Not measured
+
+- **Several controls selected,** for both the arrow keys and the readout.
+- **Ctrl+arrow with Align Controls to Grid off,** or with a grid of another size.
+- **A container other than the form,** such as a control in a Frame.
+- **A DPI other than 96.**
