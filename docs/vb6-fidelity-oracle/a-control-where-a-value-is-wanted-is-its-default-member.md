@@ -34,3 +34,41 @@ are unaffected. `Label1 = "x"` is still a compile error ("Method or data member 
 Err.Number, `s = App` raises 438, and `Debug` and a control array used as values are compile errors. The #790
 refusal now covers controls only.
 
+### Each intrinsic control's default member (2026-11-21, #790, SP6)
+
+**The question.** The rows above covered a TextBox, a Label, a CommandButton and a CheckBox. Building default members needs every intrinsic control's.
+
+**Where the default is.** In VB6.OLB every intrinsic control has a member named `_Default` at member ID 0, the one a value context uses. The library doesn't say which property it duplicates, so each one was read and written at run time to find out. The library's dump is `corpus/inbox-controls/typelib/VB6-members.jsonl` (#1433), which a TLI walk of VB6.OLB matched.
+
+**The probes.** A form holding one of each intrinsic control, with the Data control and the OLE container in a project of their own. Each statement ran under `On Error Resume Next`. A read was `v = ctl` into a Variant, directly and through `As Object`, and `CallByName(ctl, "_Default", VbGet)`. A write was `ctl = x`, then the candidate properties were read back. Built with `/make` on vb6.exe SP6 as native code and as p-code, the two agreed except where the value was a picture handle.
+
+| Control | `_Default` in VB6.OLB | Stands for | Read as a value | Written, and read back |
+|---|---|---|---|---|
+| TextBox | get, let; `BSTR` | `Text` | `"T1"`, String | `= "y"`: `Text` is `y` |
+| Label | get, let; `BSTR` | `Caption` | `"L1"`, String | `= "x"`: `Caption` is `x` |
+| Frame | get, let; `BSTR` | `Caption` | `"F1"`, String | `= "f"`: `Caption` is `f` |
+| CommandButton | get, let; `BOOL` | `Value` | False, Boolean | `= True`: `Value` reads False again. `Default`, `Cancel` and `UseMaskColor`, the other False Booleans, stayed False |
+| CheckBox | get, let; `I2` | `Value` | 0, Integer | `= 1`: `Value` is 1 |
+| OptionButton | get, let; `BOOL` | `Value` | False, Boolean | `= True`: `Value` is True |
+| ListBox | get, let; `BSTR` | `Text` | `""` with nothing selected | `= "b"`, over `a` and `b`: `ListIndex` 1, `Text` `b` |
+| ComboBox | get, let; `BSTR` | `Text` | `"B1"` (Style 0), `""` (Style 2) | `= "z"` (Style 0): `Text` is `z` |
+| HScrollBar, VScrollBar | get, let; `I2` | `Value` | 0, Integer | `= 5` (HScrollBar): `Value` is 5 |
+| PictureBox | get, let, set; `VARIANT` | `Picture` | a Long, the picture's `Handle`: 0 when empty, the icon's handle once `Form1.Icon` was assigned | `CallByName(..., "_Default", VbSet, Form1.Icon)`: `Picture.Handle` is the icon's |
+| Image | get, let, set; `VARIANT` | `Picture` | as the PictureBox | `Image1 = Form1.Icon`, a Let and not a Set: `Picture.Handle` is the icon's |
+| Shape | get, let; `I2` | `Shape` | 0, Integer | `= 3` through `As Object`: `Shape` 3; `BackStyle` 0 and `FillStyle` 1 unchanged |
+| Line | get, let; `BOOL` | `Visible` | True, Boolean | `= False` through `As Object`: `Visible` False; `BorderStyle` unchanged |
+| Timer | get, let; `BOOL` | `Enabled` | True, Boolean | `= False`: `Enabled` False; `Interval` still 0 |
+| DriveListBox | get, let; `BSTR` | `Drive` | `"c:"` | `= "c:"`: `Drive` is `c:` |
+| DirListBox | get, let; `BSTR` | `Path` | the current folder | `= "C:\"`: `Path` is `C:\` |
+| FileListBox | get, let; `BSTR` | `FileName` | `""` | `= "*.txt"`: `FileName` stays `""` and `Pattern` becomes `*.txt`, as a pattern given to `FileName` does |
+| Menu | get, let; `BOOL` | `Enabled` | True, Boolean | `= False`: `Enabled` False; `Checked` False and `Visible` True unchanged. `= True` changed nothing |
+| Data | get, let; `BSTR` | `Caption` | `"D1"` | `= "D2"`: `Caption` `D2`; `DatabaseName` and `RecordSource` stayed empty |
+| OLE | let only; `I2` | not run | **394** "Property is write-only" | not run: an OLE container's writes are actions, which can open a dialog |
+
+**The form classes are different.** Form's `_Default` is a get returning an object, with no parameters, and so are MDIForm's, UserControl's, PropertyPage's and UserDocument's. `v = Form1` and `CallByName(Form1, "_Default", VbGet)` both raised **450**. That's reasoned, not checked: the object it returns has a default that needs an argument. The other four classes weren't run.
+
+**Overturned:**
+- **A PictureBox's default isn't read as an object.** Its `_Default` is typed `VARIANT` with a get, a let and a set, but read as a value it gave a Long, the picture's handle, never the picture.
+- **`Image1 = Form1.Icon` assigns the picture without `Set`.**
+
+**Not measured:** `Option1 = False` on a selected button; a ListBox write of text that matches no item; MDIForm and the other form classes.
