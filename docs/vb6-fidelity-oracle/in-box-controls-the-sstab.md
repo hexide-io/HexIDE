@@ -1801,3 +1801,74 @@ So there's still no rule here I'd defend. The data is below, so a later fit need
 </details>
 
 **Not measured:** a display other than 15 twips a pixel; a TabHeight that doesn't fit the control.
+
+## What VB6's save writes for an SSTab drawn in the designer (2026-11-21, #2696, design-time, IDE, SP6)
+
+**The question.** The corpus SSTab was saved by VB6 from a real form, so it doesn't say what a freshly drawn SSTab
+gets. Which tabs get a `TabPicture(n)` line, and which get `Tab(n).ControlEnabled`?
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console. A project held one empty
+form, the stdole2 reference and `Object={BDC217C8-ED16-11CD-956C-0000C04E4C0A}#1.1#0; TABCTL32.OCX`. In the designer:
+1. A double-click on the toolbox's SSTab added SSTab1, 1845 × 750 at the form's centre, with three tabs. The form was
+   saved.
+2. Tab 1's header was clicked, a CommandButton was drawn on that tab, and the form was saved with Tab 1 showing.
+3. Tab 0's header was clicked, and the form was saved.
+4. Tab 2's header was clicked, then Tab 0's, and the form was saved.
+
+**Save 1, as drawn:**
+
+```
+   Begin TabDlg.SSTab SSTab1 
+      Height          =   750
+      Left            =   2250
+      TabIndex        =   0
+      Top             =   1875
+      Width           =   1845
+      _ExtentX        =   3254
+      _ExtentY        =   1323
+      _Version        =   393216
+      TabHeight       =   520
+      TabCaption(0)   =   "Tab 0"
+      TabPicture(0)   =   "Form1.frx":0000
+      Tab(0).ControlEnabled=   -1  'True
+      Tab(0).ControlCount=   0
+      TabCaption(1)   =   "Tab 1"
+      Tab(1).ControlEnabled=   0   'False
+      Tab(1).ControlCount=   0
+      TabCaption(2)   =   "Tab 2"
+      Tab(2).ControlEnabled=   0   'False
+      Tab(2).ControlCount=   0
+   End
+```
+
+**Saves 2 to 4:**
+
+| Save | Lines that changed |
+|---|---|
+| 2, Tab 1 showing | `Tab = 1` after `Width`; `TabPicture(1) = "Form1.frx":001C` added; Tab(0)'s ControlEnabled 0 and Tab(1)'s -1; Tab(1) gained `Tab(1).Control(0)= "Command1"` and `Tab(1).Control(0).Enabled= 0 'False`, and its ControlCount became 1; Command1 at Left 255 |
+| 3, Tab 0 showing | no `Tab` line; Tab(0)'s ControlEnabled -1 and Tab(1)'s 0; Command1 at **Left -74745** |
+| 4, after Tab 2 had been shown | `TabPicture(2) = "Form1.frx":0038` added |
+
+- **A tab gets its `TabPicture(n)` line once it has been shown in the designer.** A fresh SSTab has one for Tab 0 only,
+  and Tab 2 got one only after its header was clicked.
+- **Every tab gets `Tab(n).ControlEnabled`.** It is -1 for the tab showing when the form is saved and 0 for the rest,
+  so it follows the selection, not the contents.
+- **`Tab` is written when the showing tab isn't 0.**
+- **A control on a tab that isn't showing is saved 75000 twips to the left** (255 became -74745).
+- **`Tab(n).Control(0).Enabled` read 0 in both saves,** with Tab 1 showing and with it hidden. Command1 has no
+  `Enabled` line of its own. What this line records wasn't established.
+
+**The `.frx` records.** Each `TabPicture` record is 28 bytes, and all three were the same:
+
+```
+18 00 00 00  04 52 E3 0B 91 8F CE 11 9D E3 00 AA 00 4B B8 51  6C 74 00 00  00 00 00 00
+```
+
+That is a length of 24, then {0BE35204-8F91-11CE-9DE3-00AA004BB851} (StdPicture's class id), then `lt`, then a
+payload length of 0: an empty picture. A form's or a PictureBox's picture record has no class id.
+
+### Not measured
+
+- **A form reopened from a file that has `TabPicture` lines for unshown tabs:** whether the save keeps them.
+- **A Tabs value other than 3,** and an SSTab drawn by dragging rather than by a double-click.
+- **What `Tab(n).Control(i).Enabled` holds** for a disabled control.

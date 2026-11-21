@@ -849,6 +849,7 @@ added afterwards.
 - [The SSTab: TabPicture at run time (2026-11-16, #3426, SP6)](in-box-controls-the-sstab.md#tabpicture-at-run-time-2026-11-16-3426-sp6)
 - [The SSTab: saved TabHeight and TabMaxWidth, and reading them in each ScaleMode (2026-11-19, #4953, SP6)](in-box-controls-the-sstab.md#saved-tabheight-and-tabmaxwidth-and-reading-them-in-each-scalemode-2026-11-19-4953-sp6)
 - [SSTab: assigning in every ScaleMode, the edges, a flipped scale, and 1,100 reads (2026-11-21, #4970, SP6)](in-box-controls-the-sstab.md#assigning-in-every-scalemode-the-edges-a-flipped-scale-and-1100-reads-2026-11-21-4970-sp6)
+- [What VB6's save writes for an SSTab drawn in the designer (2026-11-21, #2696, design-time, IDE, SP6)](in-box-controls-the-sstab.md#what-vb6s-save-writes-for-an-sstab-drawn-in-the-designer-2026-11-21-2696-design-time-ide-sp6)
 - [A control assigned to an SSTab's TabPicture (2026-11-16, #3426, SP6 native and p-code)](a-control-assigned-to-an-sstabs-tabpicture.md#a-control-assigned-to-an-sstabs-tabpicture-2026-11-16-3426-sp6-native-and-p-code)
 - [A control's Enabled inside a disabled container (2026-10-27)](a-controls-enabled-inside-a-disabled-container.md#a-controls-enabled-inside-a-disabled-container-2026-10-27)
 - [In-box controls: the MSFlexGrid (2026-10-27, #1099)](in-box-controls-the-msflexgrid.md#in-box-controls-the-msflexgrid-2026-10-27-1099)
