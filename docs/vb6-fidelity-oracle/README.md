@@ -164,11 +164,35 @@ driven by hand, its steps were replayed from the console agent's log.
 | *Where VB6's designer puts a control's block* (#1481) | the same: every control block |
 | *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
 
+**#1675's interpreter rows, rebuilt from their sections' tables (2026-11-21).** Each project was built with `/make` as native code and as p-code, and run in vb6.exe's IDE with `/runexit`, all on the guest's console. All three modes logged the same lines in every project.
+- **_Unload Me_ (#973): all five IDE probes give their table's answer.** They are:
+  - `Unload Me` and the statements after it;
+  - a WM_CLOSE, refused and then allowed;
+  - `Unload Me` in the startup form's Load;
+  - the 364 at `Form2.Show`, with `Forms.Count` 1;
+  - a refusal in Load.
+
+  The refusal in Load also raised Paint after Resize and Activate. The console draws the form, where session 0 doesn't.
+- **_Several forms_ (#822): the modal probes 6a and 6b and section 7's run's-end probes give their table's answer,** with the Terminate order as #2496 corrected it.
+  - The modal probes: Form1's Timer ticked under the modal form, 4 to 6 times in each mode, with `Form1.Enabled` False. The statement after `Show vbModal` ran after the handler that unloaded or hid Form2 had returned.
+  - The run's-end probes: Sub Main showing a form, loading one hidden, and showing one modally; and the last visible form unloading while another stays loaded.
+  - **The Terminates at the run's end come in the order the project file lists the forms, not the order they were created,** as #2496 and #2497 found on 2026-10-28. This is now confirmed in the IDE too.
+    - Forms created as Form3, Form1, Form2, in a project listing Form1, Form2, Form3, terminated Form1, Form2, Form3.
+    - Created as Form1, Form3, Form2, in a project listing Form3, Form2, Form1, they terminated Form3, Form2, Form1.
+    - The section's first wording, creation order, came from probes that made their forms in the project's order, so they couldn't tell the two apart.
+- **_The App object_ (#136): its F5 column holds in the IDE.**
+  - `App.Title` is `TitleKey`, with no closing quote, as #1483 found.
+  - `App.EXEName` is the `.vbp`'s name (`Project1`), not `ExeName32` or `Name`.
+  - `App.Path` is the project's folder.
+  - `App.ProductName` is empty.
+  - `App.PrevInstance` is False.
+  - The version is 1.0.0, and the four version strings are empty.
+
 **Not measured again:**
 - *The reset prompt*'s rows with *Notify Before State Loss* changed, since setting that option changes the IDE for
   everyone using the guest;
-- the IDE rows of sections whose probes were not kept, beyond the spot check above, *Several forms* (#822) and
-  *Unload Me* (#973) among them, and what the IDE writes for member attributes (#273).
+- what the IDE writes for member attributes (#273), and the IDE rows of other sections whose probes were not kept,
+  beyond the spot check and #1675's interpreter rows above.
 
 Both are #1675.
 
@@ -537,6 +561,7 @@ added afterwards.
 - [What a `.vbp` tolerates, and the one key for a non-code file (2026-09-04)](what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md#what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file-2026-09-04)
 - [A copy of a `.vbp` built elsewhere: which relative paths it needs (2026-11-21, #749, SP6)](what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md#a-copy-of-a-vbp-built-elsewhere-which-relative-paths-it-needs-2026-11-21-749-sp6)
 - [Serialization / file-format fidelity (2026-08-11)](serialization--file-format-fidelity.md#serialization--file-format-fidelity-2026-08-11)
+- [An OCX-bearing form, saved by HexIDE and opened by vb6.exe (2026-11-21, #160, SP6)](serialization--file-format-fidelity.md#an-ocx-bearing-form-saved-by-hexide-and-opened-by-vb6exe-2026-11-21-160-sp6)
 - [The OLE container, the Data control, and two controls with one name (2026-10-12, #856, `/make` and IDE, SP6)](the-ole-container-the-data-control-and-two-controls-with-one-name.md#the-ole-container-the-data-control-and-two-controls-with-one-name-2026-10-12-856-make-and-ide-sp6)
 - [The rows that were owed: a same-type pair under `/make`, and the empty container's save (2026-11-21, #856, SP6)](the-ole-container-the-data-control-and-two-controls-with-one-name.md#the-rows-that-were-owed-a-same-type-pair-under-make-and-the-empty-containers-save-2026-11-21-856-sp6)
 - [Unsuffixed float literals, and comparing Double with Single (2026-09-03)](unsuffixed-float-literals-and-comparing-double-with-single.md#unsuffixed-float-literals-and-comparing-double-with-single-2026-09-03)
@@ -710,6 +735,7 @@ added afterwards.
 - [The designer's arrow keys, and the toolbar's position readout (2026-11-21, #6, #1641, design-time, IDE, SP6)](what-vb6s-properties-window-shows-a-position-in.md#the-designers-arrow-keys-and-the-toolbars-position-readout-2026-11-21-6-1641-design-time-ide-sp6)
 - [What the Properties window's object box lists, and in what order (2026-11-18, #1520, design-time, IDE, SP6)](what-the-properties-windows-object-box-lists.md#what-the-properties-windows-object-box-lists-and-in-what-order-2026-11-18-1520-design-time-ide-sp6)
 - [A UserControl's and a PropertyPage's own events (2026-10-24, #1632, design-time, IDE, release build and SP6)](a-usercontrols-and-a-propertypages-own-events.md#a-usercontrols-and-a-propertypages-own-events-2026-10-24-1632-design-time-ide-release-build-and-sp6)
+- [A PropertyPage's VB_Exposed, saved without an edit (2026-11-21, #1661, design-time, IDE, SP6)](a-usercontrols-and-a-propertypages-own-events.md#a-propertypages-vb_exposed-saved-without-an-edit-2026-11-21-1661-design-time-ide-sp6)
 - [The procedure a designer double-click writes for each control (2026-11-17, #4411, design-time, IDE, SP6)](the-procedure-a-designer-double-click-writes-for-each-control.md#the-procedure-a-designer-double-click-writes-for-each-control-2026-11-17-4411-design-time-ide-sp6)
 - [The Procedure box's entries for a property's accessors (2026-11-18, #4783, design-time, IDE, SP6)](the-procedure-boxs-entries-for-a-propertys-accessors.md#the-procedure-boxs-entries-for-a-propertys-accessors-2026-11-18-4783-design-time-ide-sp6)
 - [The code window's Object and Procedure boxes follow the caret (2026-11-21, #936, design-time, IDE, SP6)](the-object-and-procedure-boxes-follow-the-caret.md#the-code-windows-object-and-procedure-boxes-follow-the-caret-2026-11-21-936-design-time-ide-sp6)
@@ -772,6 +798,7 @@ added afterwards.
 - [A compare argument, and when it is checked (2026-10-27, #881)](a-compare-argument-and-when-it-is-checked.md#a-compare-argument-and-when-it-is-checked-2026-10-27-881)
 - [A standard module's Property procedures (2026-10-27, #977)](a-standard-modules-property-procedures.md#a-standard-modules-property-procedures-2026-10-27-977)
 - [A control's Font object (2026-10-27, #934)](a-controls-font-object.md#a-controls-font-object-2026-10-27-934)
+- [The design-time Font dialog: its Script list, its sizes, and the Charset it writes (2026-11-21, #4338, design-time, IDE, SP6)](the-design-time-font-dialog-its-script-list-its-sizes-and-the-charset-it-writes.md#the-design-time-font-dialog-its-script-list-its-sizes-and-the-charset-it-writes-2026-11-21-4338-design-time-ide-sp6)
 - [A free-standing StdFont: Bold, Weight 400 and 700, and one assignment after another (2026-11-19, #4807)](a-free-standing-stdfonts-bold-and-weight.md)
 - [A free-standing StdFont: values of every type, and the font a Size, Charset or Name reads (2026-11-19, #4926, SP6)](a-free-standing-stdfonts-values-of-every-type.md)
 - [AutoSize on a Label and a PictureBox (2026-10-27, #922)](autosize-on-a-label-and-a-picturebox.md#autosize-on-a-label-and-a-picturebox-2026-10-27-922)
@@ -853,6 +880,7 @@ added afterwards.
 - [The SSTab: TabPicture at run time (2026-11-16, #3426, SP6)](in-box-controls-the-sstab.md#tabpicture-at-run-time-2026-11-16-3426-sp6)
 - [The SSTab: saved TabHeight and TabMaxWidth, and reading them in each ScaleMode (2026-11-19, #4953, SP6)](in-box-controls-the-sstab.md#saved-tabheight-and-tabmaxwidth-and-reading-them-in-each-scalemode-2026-11-19-4953-sp6)
 - [SSTab: assigning in every ScaleMode, the edges, a flipped scale, and 1,100 reads (2026-11-21, #4970, SP6)](in-box-controls-the-sstab.md#assigning-in-every-scalemode-the-edges-a-flipped-scale-and-1100-reads-2026-11-21-4970-sp6)
+- [What VB6's save writes for an SSTab drawn in the designer (2026-11-21, #2696, design-time, IDE, SP6)](in-box-controls-the-sstab.md#what-vb6s-save-writes-for-an-sstab-drawn-in-the-designer-2026-11-21-2696-design-time-ide-sp6)
 - [A control assigned to an SSTab's TabPicture (2026-11-16, #3426, SP6 native and p-code)](a-control-assigned-to-an-sstabs-tabpicture.md#a-control-assigned-to-an-sstabs-tabpicture-2026-11-16-3426-sp6-native-and-p-code)
 - [A control's Enabled inside a disabled container (2026-10-27)](a-controls-enabled-inside-a-disabled-container.md#a-controls-enabled-inside-a-disabled-container-2026-10-27)
 - [In-box controls: the MSFlexGrid (2026-10-27, #1099)](in-box-controls-the-msflexgrid.md#in-box-controls-the-msflexgrid-2026-10-27-1099)
@@ -932,6 +960,7 @@ added afterwards.
 - [Find and Replace: their access keys (2026-11-16, #2738, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#find-and-replace-their-access-keys-2026-11-16-2738-ide-sp6)
 - [The References dialog's title (2026-11-16, #1468, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#the-references-dialogs-title-2026-11-16-1468-ide-sp6)
 - [The Menu Editor: its blank item, Next and the Shortcut list (2026-11-16, #4141, design-time, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#the-menu-editor-its-blank-item-next-and-the-shortcut-list-2026-11-16-4141-design-time-ide-sp6)
+- [The Menu Editor's checks on a Name (2026-11-21, #853, design-time, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#the-menu-editors-checks-on-a-name-2026-11-21-853-design-time-ide-sp6)
 - [The Menu Editor's access keys and Tab order (2026-11-16, #4142, design-time, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#the-menu-editors-access-keys-and-tab-order-2026-11-16-4142-design-time-ide-sp6)
 - [Indent, Outdent and Ctrl+Tab in the code window (2026-11-21, #709, design-time, IDE, SP6)](indent-outdent-and-ctrl-tab-in-the-code-window.md#indent-outdent-and-ctrltab-in-the-code-window-2026-11-21-709-design-time-ide-sp6)
 - [Which window an IDE dialog belongs to while a program runs (2026-11-16, #1297, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#which-window-an-ide-dialog-belongs-to-while-a-program-runs-2026-11-16-1297-ide-sp6)
