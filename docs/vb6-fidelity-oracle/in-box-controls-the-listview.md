@@ -503,6 +503,41 @@ inside AfterLabelEdit too. It changed only after AfterLabelEdit returned.
 
 **List view, View 2:** one column of 17-pixel rows, each 157 pixels wide.
 
+### The font: items, sub-items, headers and the label editor (2026-11-21, #2895, SP6)
+
+**The question.** #2895 asked which parts of a running ListView VB6 draws in its `Font`, and whether the column headers follow it.
+
+**The probe:**
+- **The form held two report-view ListViews,** each with two columns and two items with a sub-item each.
+  - The first was saved with Courier New 14.25, bold, italic, underlined and struck through.
+  - The second had the default MS Sans Serif 8.25. While running, it was changed to Times New Roman 18, bold, then given a third item and a third column.
+- **The program read each window's font with `WM_GETFONT` and `GetObject`:**
+  - the list itself;
+  - its header (`LVM_GETHEADER`);
+  - the label editor's edit box (`LVM_GETEDITCONTROL`), after `StartLabelEdit` on the first item.
+- **It also read the row height** (`LVM_GETITEMRECT`), and saved a picture of the form with `PrintWindow`.
+- **The builds:** `/make` on vb6.exe SP6, as native code and as p-code, run on the guest's console. The two logged the same lines.
+
+| ListView | List | Header | Label editor | Row height |
+|---|---|---|---|---|
+| saved Courier New 14.25, bold, italic, underline, strikethrough | Courier New, height -19, weight 700, italic, underline, strikeout | **the same** | **the same** | 23 pixels |
+| default MS Sans Serif 8.25 | MS Sans Serif, height -11, weight 400 | the same | the same | 14 pixels |
+| changed while running to Times New Roman 18, bold | Times New Roman, height -24, weight 700 | **the same** | **the same** | **27 pixels** |
+| then given an item and a column | unchanged | unchanged | unchanged | 27 pixels |
+
+**In the pictures:**
+- **The saved ListView drew everything in its font:** its column headers, its items' labels and its sub-items all came out in Courier New, bold, italic, underlined and struck through.
+- **The changed one redrew all of them in Times New Roman bold,** the headers included. The row height grew, and a label too long for its column was cut short with `...`.
+- **The item and column added afterwards** drew in the same font.
+
+**What it shows:**
+- **One font serves the whole control:** items, sub-items, column headers and the label editor, with every attribute (name, size, weight, italic, underline, strikethrough).
+- **A change at run time reaches all of them at once,** and the row height follows the font.
+
+**Not measured:**
+- an item's or sub-item's own `Bold`, which "Drawing" above covers;
+- icon, small-icon and list views. Only report view was drawn here.
+
 ### The saved files
 
 **The programs.**
