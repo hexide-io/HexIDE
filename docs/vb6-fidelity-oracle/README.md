@@ -533,6 +533,7 @@ added afterwards.
 - [String literals: `""` is the only escape (2026-09-04)](string-literals--is-the-only-escape.md#string-literals--is-the-only-escape-2026-09-04)
 - [`Sub Main` as a startup object (2026-09-04, #210)](sub-main-as-a-startup-object.md#sub-main-as-a-startup-object-2026-09-04-210)
 - [What a `.vbp` tolerates, and the one key for a non-code file (2026-09-04)](what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md#what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file-2026-09-04)
+- [A copy of a `.vbp` built elsewhere: which relative paths it needs (2026-11-21, #749, SP6)](what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md#a-copy-of-a-vbp-built-elsewhere-which-relative-paths-it-needs-2026-11-21-749-sp6)
 - [Serialization / file-format fidelity (2026-08-11)](serialization--file-format-fidelity.md#serialization--file-format-fidelity-2026-08-11)
 - [The OLE container, the Data control, and two controls with one name (2026-10-12, #856, `/make` and IDE, SP6)](the-ole-container-the-data-control-and-two-controls-with-one-name.md#the-ole-container-the-data-control-and-two-controls-with-one-name-2026-10-12-856-make-and-ide-sp6)
 - [Unsuffixed float literals, and comparing Double with Single (2026-09-03)](unsuffixed-float-literals-and-comparing-double-with-single.md#unsuffixed-float-literals-and-comparing-double-with-single-2026-09-03)
