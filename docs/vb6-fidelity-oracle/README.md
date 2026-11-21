@@ -739,6 +739,7 @@ added afterwards.
 - [A free-standing StdFont: values of every type, and the font a Size, Charset or Name reads (2026-11-19, #4926, SP6)](a-free-standing-stdfonts-values-of-every-type.md)
 - [AutoSize on a Label and a PictureBox (2026-10-27, #922)](autosize-on-a-label-and-a-picturebox.md#autosize-on-a-label-and-a-picturebox-2026-10-27-922)
 - [What an AutoSize Label measures its caption by, and which edge stays (2026-11-19, #922, SP6)](autosize-on-a-label-and-a-picturebox.md#what-an-autosize-label-measures-its-caption-by-and-which-edge-stays-2026-11-19-922-sp6)
+- [An empty ListBox, an empty Image and a Label narrower than its caption, in VB6's designer and a run (2026-11-21, #927, #860, #921, SP6)](an-empty-listbox-an-empty-image-and-a-label-narrower-than-its-caption.md#an-empty-listbox-an-empty-image-and-a-label-narrower-than-its-caption-in-vb6s-designer-and-a-run-2026-11-21-927-860-921-sp6)
 - [An icon picture's size, and the image it draws (2026-11-14, #2626)](an-icon-pictures-size-and-the-image-it-draws.md#an-icon-pictures-size-and-the-image-it-draws-2026-11-14-2626)
 - [An Image's size when its Picture is set at run time (2026-11-20, #5010, SP6)](an-images-size-when-its-picture-is-set.md#an-images-size-when-its-picture-is-set-at-run-time-2026-11-20-5010-sp6)
 - [The Screen object (2026-10-28, #2431)](the-screen-object.md#the-screen-object-2026-10-28-2431)
