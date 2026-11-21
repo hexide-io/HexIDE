@@ -98,6 +98,22 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public ModuleRegistry Modules { get; } = new();
 
     private Debugging.IDebugGate? debugController;
+    private long debugSuspensions;
+
+    // Count suspensions, including gates supplied by another host. Synchronous gates leave the count alone.
+    internal ValueTask ObserveDebugGate(ValueTask gate)
+    {
+        if (!gate.IsCompleted)
+            debugSuspensions++;
+        return gate;
+    }
+
+    internal ValueTask<T> ObserveDebugGate<T>(ValueTask<T> gate)
+    {
+        if (!gate.IsCompleted)
+            debugSuspensions++;
+        return gate;
+    }
 
     /// <summary>The debug session driving step-through, or null for a non-debugged / headless run (tests, the
     /// Standalone runner). Set by the IDE right after construction (the shared per-session controller); read by the
@@ -2126,6 +2142,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var fixedStringCopies = new List<(int Slot, IByRefTarget Target)>();
         Vb6Value? ret = null;
         bool completed = false;
+        var suspensionsAtEntry = debugSuspensions;
         bool holdsMe = false;
         bool hasReturnSlot = false;
         var walk = Events?.Current;
@@ -2234,6 +2251,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var (slot, target) in fixedStringCopies)
                 target.Write(ExecutionContext.State[slot]);
             completed = true;
+            // A suspended walk's waiting callers otherwise resume inline inside one another on normal return (#5152).
+            // A synchronous call must not pay a dispatcher round trip merely because it sits at this depth.
+            if (debugSuspensions != suspensionsAtEntry && DebugController is not null
+                && SynchronizationContext.Current is not null
+                && activationStack.Count is > 0 and var below && below % UnwindYieldEvery == 0)
+                await Task.Yield();
         }
         catch (Exception signal) when (signal is VBRunTimeException or VBCompileErrorException or Debugging.StopExecutionSignal)
         {
