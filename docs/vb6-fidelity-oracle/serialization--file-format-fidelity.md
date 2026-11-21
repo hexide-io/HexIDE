@@ -310,3 +310,47 @@ more conservative of the two.
 
 - **A form HexIDE has edited,** such as one with a control moved: only an untouched round-trip was opened.
 - **The other OCX forms in the corpus.**
+
+### Four of the open questions answered: Q6, Q8, Q11 and Q13 (2026-11-21, #21, IDE, SP6)
+
+**The rig.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, started elevated and driven on its console.
+
+**The project.** One Standard EXE referencing `MSCOMCTL.OCX`, holding:
+- `F8.frm`, a plain form;
+- `F11.frm`, the same form with `VERSION 4.00` as its first line;
+- `F13.frm`, a form holding an `MSComctlLib.ImageList`, whose `Object =` line came **before** `VERSION 5.00`;
+- `Main.bas`, holding `Sub Main`.
+
+Its `.vbp` read `Startup=Sub Main`, with no quotes. Every file was CRLF and ASCII, with a `' q21 marker` comment. A
+Replace All of that marker over Current Project dirtied the modules, and File > Save Project saved them.
+
+**Q11: a `VERSION 4.00` form.** VB6 upgrades it, and says so first.
+- **At load,** it showed the file's path and `This file was saved in a previous version of Visual Basic.  When saved,
+  it will be saved in the Visual Basic 6.0 format.`, with OK and Ok For All.
+- **The save** wrote `VERSION 5.00`, and added one property the file didn't have: `PaletteMode = 1 'UseZOrder`, in
+  its alphabetical place.
+- **Nothing else changed** apart from the marker. `F8.frm`, the same form at `VERSION 5.00`, gained no `PaletteMode`.
+
+So echoing a `VERSION 4.00` header is not what VB6 does. Its save writes 5.00, plus a `PaletteMode` the file left at
+its VB4 meaning.
+
+**Q13: an `Object =` line above `VERSION`.** VB6 can't load the form.
+- **Its log, `F13.log`:** `'0' could not be loaded` and `Line 0: The file <path>\F13.frm could not be loaded.`
+- **The messages:** `Errors during load. Refer to '<path>\F13.log' for details`, then `'<path>\F13.frm' could not be
+  loaded--Continue Loading Project?`.
+- **With Yes,** the project loaded without the form. The next Save Project wrote a `.vbp` with no `Form=F13.frm` line.
+  `F13.frm` itself was left as it was.
+
+So the order matters: `VERSION` must come first. A form written the other way is dropped from its project at the next
+save.
+
+**Q6: `Startup=Sub Main` without quotes.** VB6 reads it. Project Properties showed `Sub Main` as the Startup Object,
+and the save wrote `Startup="Sub Main"`, quoted.
+
+**Q8: Lock Controls on, then off.** Each toggle is a change: Ctrl+S wrote the form each time.
+- **Locked:** the save wrote `LockControls = -1 'True`.
+- **Unlocked again:** the save removed the line. It doesn't write `LockControls = 0`.
+
+### Still open
+
+Q4, Q9, Q10 and Q14 to Q16, from the list above.
