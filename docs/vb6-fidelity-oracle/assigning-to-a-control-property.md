@@ -295,4 +295,37 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 - **Not measured:** `Label1.Caption = o` with `o` set to `Nothing` never reaches the conversion in HexIDE; what
   VB6 raises there is unmeasured.
 
+### What a palette colour paints as (2026-11-21, #786, SP6)
 
+**The question.** "A palette colour is kept as given" above measured the read-back and left the painting open. #786 needs both before HexIDE can keep such a colour.
+
+**The probe.** A form and a PictureBox, each with `AutoRedraw = True`. Each colour was assigned to `BackColor`, then `Cls` painted it, and `Point(30, 30)` read the pixel back from the persistent image. Every colour ran once with the form loaded and not shown, and again after `Form1.Show`. A second project saved palette colours in the `.frm`: the form's `BackColor &H01000005&`, a Label's `BackColor &H02FFFFFF&` and `ForeColor &H01000001&`, and a PictureBox's `BackColor &H02808080&`. Built with `/make` on vb6.exe SP6 as native code and as p-code, the two logged the same lines, and the form and the PictureBox agreed in every row.
+
+| Assigned | Reads back | `Point` |
+|---|---|---|
+| `&HFF` | `&HFF` | `&HFF` |
+| `&H1000000` | `&H1000000` | `&H0` |
+| `&H1000001` | `&H1000001` | `&H1` |
+| `&H1000007` | `&H1000007` | `&H7` |
+| `&H100000F` | `&H100000F` | `&HF` |
+| `&H10000FF` | `&H10000FF` | `&HFF` |
+| `&H2000001` | `&H2000001` | `&H1` |
+| `&H20000FF` | `&H20000FF` | `&HFF` |
+| `&H2808080` | `&H2808080` | `&H808080` |
+| `&H2FFFFFF` | `&H2FFFFFF` | `&HFFFFFF` |
+| `&H8000000F` | `&H8000000F` | `&HF0F0F0`, this guest's button face |
+
+| Saved in the `.frm` | Reads back after `Load` | `Point` after `Cls` |
+|---|---|---|
+| Form `BackColor &H01000005&` | `&H1000005` | `&H5` |
+| PictureBox `BackColor &H02808080&` | `&H2808080` | `&H808080` |
+| Label `BackColor &H02FFFFFF&`, `ForeColor &H01000001&` | `&H2FFFFFF`, `&H1000001` | not drawn |
+
+**What it shows.** **A palette colour paints as the RGB of its low three bytes,** whether its high byte is `&H01` or `&H02`, assigned at run time or saved in the `.frm`. The property keeps the Long it was given in every case.
+
+**Overturned:** `&H1000001` is index 1 of a palette, and the default palette's entry 1 is a dark red. It painted as `&H1`, almost black, so no palette was consulted.
+
+**Not measured:**
+- the display's colour depth. The guest's display wasn't read, and a 256-colour display may well resolve indexes against a palette. That's reasoned, not checked.
+- a Label's painting, because `Point` reads a form or PictureBox;
+- `PaletteMode` and `Palette`.
