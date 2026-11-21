@@ -498,6 +498,7 @@ added afterwards.
 - [The order a Sorted ListBox or ComboBox keeps (2026-11-20, #5059, SP6)](the-order-a-sorted-listbox-or-combobox-keeps.md#the-order-a-sorted-listbox-or-combobox-keeps-2026-11-20-5059-sp6)
 - [A list's NewIndex and ItemData, and the List and ItemData records a form saves (2026-11-20, #5106, #5114, SP6)](a-lists-newindex-itemdata-and-saved-records.md#a-lists-newindex-and-itemdata-and-the-list-and-itemdata-records-a-form-saves-2026-11-20-5106-5114-sp6)
 - [List and ItemData records that disagree, run short or long, or hold odd text (2026-11-20, #5127, SP6)](a-lists-newindex-itemdata-and-saved-records.md#records-that-disagree-run-short-or-long-or-hold-odd-text-2026-11-20-5127-sp6)
+- [Signs and whitespace before an ItemData entry's digits (2026-11-20, #5127, SP6)](a-lists-newindex-itemdata-and-saved-records.md#signs-and-whitespace-before-an-itemdata-entrys-digits-2026-11-20-5127-sp6)
 - [A list's saved items in VB6's designer, and the order and ItemData they load with (2026-11-20, #5121, SP6)](a-lists-saved-items-in-the-designer-and-at-load.md#a-lists-saved-items-in-vb6s-designer-and-the-order-and-itemdata-they-load-with-2026-11-20-5121-sp6)
 - [A ComboBox's Text, at each Style, from code (2026-10-22, #926)](a-comboboxs-text-at-each-style-from-code.md#a-comboboxs-text-at-each-style-from-code-2026-10-22-926)
 - [A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)](a-comboboxs-click-change-and-dropdown-with-real-input.md#a-comboboxs-click-change-and-dropdown-with-real-input-2026-10-22-1429)
