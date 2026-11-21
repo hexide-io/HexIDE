@@ -164,3 +164,33 @@ key once (#2738). The rest is new rather than overturned:
 - the Menu Editor keeps one trailing blank row, and Next wraps from it;
 - Esc does nothing in the Menu Editor;
 - a run-time error's dialog belongs to the running form, not the IDE.
+
+### The Menu Editor's checks on a Name (2026-11-21, #853, design-time, IDE, SP6)
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, on its console, with a form that had no menus.
+1. Ctrl+E, then Caption `&File`, Name `mnuFile`, Next.
+2. Caption `Open`, given each Name below in turn, then OK.
+
+Every message box was titled "Microsoft Visual Basic", with the critical (red) icon and the buttons OK and Help.
+
+| The second item's Name | Next | OK |
+|---|---|---|
+| `mnuFile`, neither item with an Index | **no message** | `Menu control array element must have an index`; the editor stays open, with the first item selected |
+| `1abc` | | `Not a legal object name: '1abc'` |
+| `a b` | | `Not a legal object name: 'a b'` |
+| empty | | `Menu control must have a name` |
+| `Print` | | **accepted**: the editor closed, and the save wrote `Begin VB.Menu Print` |
+| `mnuFile`, with Index 0 on the first and 1 on the second | | accepted: two `Begin VB.Menu mnuFile` blocks, with `Index = 0` and `Index = 1` |
+
+- **The Menu Editor checks names when OK is pressed, not on Next.**
+- **A duplicate name is read as a control array,** so the complaint is a missing Index, not the duplicate itself. Both
+  items with an Index is a menu array.
+- **The name check is the designer's own.** The Properties window gives the same `Not a legal object name: '…'` text,
+  for example for a form renamed `0`.
+- **A name that is also a method's, `Print`, is accepted.** Whether such a project compiles wasn't checked.
+
+### Not measured
+
+- **A menu name that a control on the form already has,** and one that is a keyword, such as `If`.
+- **A duplicate where only one item has an Index.**
+- **Help.**
