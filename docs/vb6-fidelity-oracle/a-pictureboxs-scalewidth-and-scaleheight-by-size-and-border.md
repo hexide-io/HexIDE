@@ -14,6 +14,7 @@ whether the size is a whole number of pixels?
   Then it assigned Width to a 3D box (3100, 3105, 3110, 3090, 3000) and to a borderless one (3105, 3110), reading each
   back.
 - **The builds:** native and p-code wrote the same 19 lines.
+- **Where it ran:** each EXE ran in the guest's session 0, through PowerShell Direct, where no form is shown. Every value was read in `Form_Load`, before a form would show anyway, from control windows that Windows creates hidden. That the values don't depend on display is reasoned, not checked on the console.
 
 **At load**, ScaleWidth and ScaleHeight in twips, with pixels in brackets. Width and Height read back as saved in
 every row.
