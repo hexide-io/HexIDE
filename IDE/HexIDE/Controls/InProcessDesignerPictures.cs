@@ -36,6 +36,8 @@ internal sealed class InProcessDesignerPictures(IDesignerDrawingHost host) : IDe
             visual.Arrange(new Rect(0, 0, target.PixelSize.Width, target.PixelSize.Height));
 
             host.UpdateLayout();
+            // LayoutUpdated can change row padding; lay that out before capturing the picture (#5121).
+            visual.UpdateLayout();
 
             TextOptions.SetTextRenderingMode(visual, TextRenderingMode.Antialias);
             target.Render(visual);

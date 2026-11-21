@@ -147,6 +147,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/RuntimeMenuTests.cs` | split |
 | `Views/SSTabDesignerTests.cs` | split |
 | `Views/SaveChangesViewIntegrationTests.cs` | split |
+| `Views/SavedListDesignerPictureTests.cs` | split |
 | `Views/SingleViewFormsTests.cs` | split |
 | `Views/SliderFileTests.cs` | provider |
 | `Views/SliderInputTests.cs` | provider |

@@ -135,6 +135,8 @@ public class CarriedBoxStackingTests
         Dispatcher.UIThread.RunJobs();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
+        // Deferred designer pictures are installed after layout; render them before testing the hit tree.
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
     }
 
     private static Visual Box(Designed d, string name) =>

@@ -121,14 +121,14 @@ public class SavedListItemsTests
         (await Run(Load(type, 0, false, Record(0, "ab", "cde", "fghi"), Record(99, "5", "-7", "70000"),
             "For i = 0 To 2\nDebug.Print Items1.ItemData(i)\nNext"))).Should().Equal("5", "-7", "70000");
 
-    // The designer's preview stays empty until it can draw saved items: it drew them as a garbled glyph (#5121).
+    // VB6 designer measurement in #5121's supervisor comment (oracle PR #5131).
     [AvaloniaFact]
-    public void The_designer_preview_of_a_saved_ListBox_stays_empty()
+    public void The_designer_preview_keeps_saved_ListBox_items_in_file_order()
     {
         var form = Load("ListBox", 2, false, Record(2, "s2", "s1"), Record(2, "20", "10"));
         var list = form.Components.First(c => c.BaseClass is ListBoxComponentClass);
         ListBoxComponentClass.Instance.InstantiateForDesigner(list).Should().BeAssignableTo<ItemsControl>()
-            .Which.ItemCount.Should().Be(0);
+            .Which.Items.Should().Equal("s2", "s1");
     }
 
     // Measured on a ListBox only: a List record cited with no ItemData line loads, and every value reads 0.

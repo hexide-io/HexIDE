@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
@@ -103,7 +104,23 @@ public class ControlRenderer : Decorator, IDesignerDrawingHost
         ToolTip.SetShowOnDisabled(this, true);
     }
 
+    private bool updatePending;
+
     private void UpdateContent()
+    {
+        if (updatePending)
+            return;
+        updatePending = true;
+        // Bounds changes arrive inside layout. Drawing there prevents the nested layout update from
+        // delivering a virtualizing list's viewport, leaving only its first, clipped row (#5121).
+        Dispatcher.UIThread.Post(() =>
+        {
+            updatePending = false;
+            DrawContent();
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void DrawContent()
     {
         Child = null;
         ToolTip.SetTip(this, null);
