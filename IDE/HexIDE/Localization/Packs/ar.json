@@ -1485,6 +1485,9 @@
     "Str.AIChat.ProjectCannotStart": "يتعذر بدء المشروع (لم يُحمّل أي مشروع أو أنه قيد التشغيل بالفعل)",
     "Str.AIChat.ProjectNotRunning": "لا يوجد مشروع قيد التشغيل حاليًا",
     "Str.SessionEnd.UnsavedWork": "تغييرات غير محفوظة في {0}",
-    "Str.Options.Addin.ReportedFailure": "تم الإبلاغ عن مشكلة في {0}: {1}"
+    "Str.Options.Addin.ReportedFailure": "تم الإبلاغ عن مشكلة في {0}: {1}",
+    "Str.Startup.Descriptor.ProjectLocalName": "{0}: اسم حالة المشروع المحلية غير صالح في '{1}': '{2}'.",
+    "Str.ProjectLocalState.ChooseFormat": "عُثر على مواقع متعددة لحالة المشروع المحلية. قد يحتوي كل منها على حالة محفوظة مختلفة. لن تتم الكتابة حتى تختار واحدًا لهذه الجلسة. أدخل رقمه أو ألغِ:\n{0}",
+    "Str.ProjectLocalState.UnavailableFormat": "{0} رابط أو نقطة وصل، أو لم يعد في الموقع الذي عُثر عليه فيه، لذلك لا تتم قراءة أي شيء منه أو الكتابة إليه."
   }
 }

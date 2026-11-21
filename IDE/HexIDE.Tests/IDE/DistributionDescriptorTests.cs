@@ -13,6 +13,66 @@ public sealed class DistributionDescriptorTests
 {
     private const string Minimal = """{"schemaVersion":1,"id":"acme-ide","name":"Acme IDE"}""";
 
+    [Theory]
+    [InlineData(".a")]
+    [InlineData(".rdcore")]
+    [InlineData(".r-d_c.ore")]
+    [InlineData(".hexide")]
+    [InlineData(".aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public void Project_folder_names_are_accepted_at_the_decided_limits(string name)
+    {
+        var identity = Parse(Minimal.Replace("}", ",\"projectFolder\":\"" + name + "\"}"));
+        identity.ProjectFolder.Should().Be(name);
+    }
+
+    [Theory]
+    [InlineData(".")]
+    [InlineData("..")]
+    [InlineData("...")]
+    [InlineData(".-")]
+    [InlineData("._x")]
+    [InlineData(".a..b")]
+    [InlineData(".rdcore.")]
+    [InlineData(".HEXIDE-x")]
+    [InlineData(".hexide-x")]
+    [InlineData(".git")]
+    [InlineData(".GIT")]
+    [InlineData(".svn")]
+    [InlineData(".hg")]
+    [InlineData(".bzr")]
+    [InlineData(".a/b")]
+    [InlineData(".a\\b")]
+    [InlineData(".aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public void Unsafe_project_folder_names_refuse_startup_with_the_localized_reason(string name)
+    {
+        var json = Minimal.Replace("}", ",\"projectFolder\":" + System.Text.Json.JsonSerializer.Serialize(name) + "}");
+        var parse = () => Parse(json);
+        parse.Should().Throw<DistributionDescriptorException>().Which.LocalizationKey
+            .Should().Be("Str.Startup.Descriptor.ProjectLocalName");
+    }
+
+    [Theory]
+    [InlineData(".user.a")]
+    [InlineData(".user.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public void Sidecar_suffixes_are_accepted_at_the_decided_limits(string suffix)
+    {
+        var identity = Parse(Minimal.Replace("}", ",\"userSidecar\":\"" + suffix + "\"}"));
+        identity.UserSidecar.Should().Be(suffix);
+    }
+
+    [Theory]
+    [InlineData(".user.")]
+    [InlineData(".user.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [InlineData(".user.A")]
+    [InlineData(".user.a.recovery")]
+    [InlineData("../other")]
+    public void Unsafe_sidecar_suffixes_refuse_startup_with_the_localized_reason(string suffix)
+    {
+        var parse = () => Parse(Minimal.Replace("}", ",\"userSidecar\":\"" + suffix + "\"}"));
+        parse.Should().Throw<DistributionDescriptorException>().Which.LocalizationKey
+            .Should().Be("Str.Startup.Descriptor.ProjectLocalName");
+    }
+
     private static byte[] Png(uint width = 1, uint height = 1)
     {
         var bytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=");

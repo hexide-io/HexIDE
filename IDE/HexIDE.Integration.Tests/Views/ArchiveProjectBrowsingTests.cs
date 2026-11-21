@@ -2,6 +2,7 @@ using BrowserFolder = HexIDE.Projects.ContainerFolder;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -55,6 +56,89 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root.Parent != null && !Directory.Exists(Path.Combine(root.FullName, "corpus"))) root = root.Parent;
         return Path.Combine(root.FullName, "corpus", "office", "m365-x64", name);
+    }
+
+    [AvaloniaFact]
+    public async Task Ambiguous_folder_sync_prompts_with_both_names_and_cancellation_writes_nothing()
+    {
+        var path = Write("choice.twinproj", "Module Main");
+        var stock = Path.Combine(directory, ".hexide");
+        var brand = Path.Combine(directory, ".rdcore");
+        Directory.CreateDirectory(stock);
+        Directory.CreateDirectory(brand);
+        File.WriteAllText(Path.Combine(brand, "project-state.json"), """{"kind":"hexide.project-state","version":1}""");
+        localization.GetString("Str.ProjectLocalState.ChooseFormat").Returns(
+            "Multiple saved states; choose one for this session or cancel. Nothing is written before choosing.\n{0}");
+        var shown = false;
+        windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(), false).Returns(call =>
+        {
+            var prompt = call.ArgAt<string>(0);
+            var input = new HexIDE.Dialogs.InputBox { Prompt = prompt };
+            var window = new Window { Content = input, Width = 700, Height = 400 };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                input.GetLogicalDescendants().OfType<TextBlock>().Should().Contain(t =>
+                    t.Text != null && t.Text.Contains(stock, StringComparison.Ordinal) && t.Text.Contains(brand, StringComparison.Ordinal));
+                shown = true;
+            }
+            finally { window.Close(); }
+            return Task.FromResult<string?>(null);
+        });
+        await archives.Open(path);
+        await archives.SynchronizeFolder(path);
+        shown.Should().BeTrue();
+        Directory.GetFileSystemEntries(stock).Should().BeEmpty();
+        Directory.GetFileSystemEntries(brand).Should().HaveCount(1);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Linked_state_folder_refusal_explains_unavailability_instead_of_invalid_brand_name(bool checkDescriptorText)
+    {
+        var path = Write("linked.twinproj", "Module Main");
+        var target = Path.Combine(directory, "target");
+        var link = Path.Combine(directory, ".hexide");
+        Directory.CreateDirectory(target);
+        if (OperatingSystem.IsWindows())
+        {
+            using var process = Process.Start(new ProcessStartInfo("cmd.exe")
+            {
+                ArgumentList = { "/d", "/c", "mklink", "/J", link, target },
+                UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true
+            })!;
+            await process.WaitForExitAsync();
+            if (process.ExitCode != 0)
+                throw Xunit.Sdk.SkipException.ForSkip("Cannot create directory junction: " + await process.StandardError.ReadToEndAsync());
+        }
+        else
+        {
+            try { Directory.CreateSymbolicLink(link, target); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            {
+                throw Xunit.Sdk.SkipException.ForSkip("Cannot create directory symbolic link: " + ex.Message);
+            }
+        }
+        try
+        {
+            localization.GetString("Str.ProjectLocalState.UnavailableFormat").Returns(
+                "{0} is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.");
+            localization.GetString("Str.Startup.Descriptor.ProjectLocalName").Returns(
+                "{0}: Invalid project-local state name in '{1}': '{2}'.");
+            await archives.Open(path);
+            await archives.SynchronizeFolder(path);
+            var call = windows.ReceivedCalls().Single(c => c.GetMethodInfo().Name == nameof(IWindowManager.MessageBox));
+            var message = (string)call.GetArguments()[0]!;
+            message.Should().Contain(link);
+            if (checkDescriptorText)
+                message.Should().NotContain("Invalid project-local state name");
+            else
+                message.Should().Be($"Stopped: {link} is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.");
+            Directory.GetFileSystemEntries(target).Should().BeEmpty();
+        }
+        finally { Directory.Delete(link); }
     }
 
     [AvaloniaTheory]

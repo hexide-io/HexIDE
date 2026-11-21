@@ -97,7 +97,7 @@ Brand links SHALL keep their distinct roles and applicable package link-verifica
 
 ### Requirement: Branding preserves compatibility identities and user content
 Managed assembly/resource identities, protocol/schema/tool ids, session headers, environment names
-and serialized project vocabulary MUST remain compatible; branding MUST NOT globally replace text
+and serialized project vocabulary, except the two configurable project-local state names, MUST remain compatible; branding MUST NOT globally replace text
 in projects, program messages or third-party output.
 
 #### Scenario: Branded host opens an existing project
@@ -177,3 +177,47 @@ the folder SHALL be allowed. The report SHALL name the source folder and number 
 #### Scenario: Refused include
 - **WHEN** an included entry would replace stock, supply trust or revocation data, or follow a link
 - **THEN** the tool names the entry and reason and leaves no completed or partial output
+
+### Requirement: Project-local state names are configurable
+The descriptor MAY supply `projectFolder` and `userSidecar`; omission SHALL retain `.hexide` and
+`.user.hexproj`. Invalid names SHALL refuse startup before mutable state access.
+
+#### Scenario: Validating a folder name
+- **WHEN** a descriptor supplies `projectFolder`
+- **THEN** it is a dot followed by a lower-case letter or digit and up to 31 lower-case letters, digits, dots, underscores or hyphens
+- **AND** trailing or consecutive dots, `.hexide-` prefixes, `.`, `..`, `.git`, `.svn`, `.hg` and `.bzr` are refused, with reserved checks case-insensitive
+
+#### Scenario: Validating a sidecar suffix
+- **WHEN** a descriptor supplies `userSidecar`
+- **THEN** it is `.user.` followed by 1–32 lower-case letters, digits or hyphens
+
+### Requirement: Project-local discovery recognizes shared state
+Discovery SHALL count the opening distribution's and stock's names without markers. Other sibling
+folders and sidecars MUST fit the descriptor name grammars and carry the respective stable markers.
+Links, junctions and other reparse points MUST NOT be adopted or written through. Writes SHALL add
+the relevant marker and retain existing sidecar content and recovery-copy policy.
+
+#### Scenario: Recognizing another brand's state
+- **WHEN** a sibling folder fits the folder grammar
+- **THEN** it is recognized only with `project-state.json` containing kind `hexide.project-state` and version 1
+- **AND** another sidecar is recognized only if named exactly the project stem plus a valid suffix, at most 4 MiB, and JSON with kind `hexide.user-sidecar`
+
+#### Scenario: Recovery copies and unsafe candidates
+- **WHEN** a sibling is a recovery copy, breaks the grammar, lacks the required marker, or is a link
+- **THEN** discovery ignores it and never writes through a link
+
+### Requirement: Project-local state selection prevents duplicate writes
+Exactly one discovered location SHALL be used regardless of distribution. With none, the distribution
+SHALL use its own name when needed. With several, nothing SHALL be loaded or written until the person
+chooses a location for this session only. Cancellation SHALL write nothing.
+
+#### Scenario: A project crosses distributions
+- **WHEN** exactly one state folder or sidecar is found, including another brand's marked state
+- **THEN** the distribution uses that location and creates no second copy
+- **AND** with none found it creates state under its own configured name when needed
+
+#### Scenario: More than one location exists
+- **WHEN** two or more folders or sidecars are found
+- **THEN** the prompt names the candidates and explains that they may contain different saved state
+- **AND** no location is loaded or written until a choice, used for this session only
+- **AND** cancellation writes nothing

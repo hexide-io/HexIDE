@@ -32,6 +32,7 @@ public sealed class ArchiveProjectService
     private readonly IConditionalCodeReader conditionalCode;
     private readonly Func<ILspClient>? lspClient;
     private bool treeSelected;
+    private readonly Dictionary<string, string> folderChoices = new(ArchiveEntryIdentity.ContainerPathComparer);
     public IReadOnlyList<IContainerProject> Projects { get; private set; } = [];
     public event Action? Changed;
     public event Action? FocusChanged;
@@ -126,8 +127,25 @@ public sealed class ArchiveProjectService
         {
             // Selection can outlive a closed tree node while waiting for another operation.
             if (!Projects.Any(p => p.CanSynchronizeFolder && ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, path))) return;
-            var result = await Task.Run(() => new ArchiveSourceFolder().Synchronize(path));
+            var engine = new ArchiveSourceFolder { ChosenRoot = folderChoices.GetValueOrDefault(path) };
+            ArchiveFolderResult result;
+            try { result = await Task.Run(() => engine.Synchronize(path)); }
+            catch (ProjectLocalStateConflict conflict)
+            {
+                var choice = await ProjectLocalStateChoice.Ask(windows, localization, conflict.Candidates);
+                if (choice == null) return;
+                folderChoices[path] = choice;
+                engine.ChosenRoot = choice;
+                result = await Task.Run(() => engine.Synchronize(path));
+            }
             message = string.Format(localization.GetString("Str.Archive.FolderReadyFormat"), result.Directory);
+        }
+        catch (ProjectLocalStatePathException ex)
+        {
+            var reason = string.Format(localization.GetString("Str.ProjectLocalState.UnavailableFormat"),
+                ex.StatePath);
+            message = string.Format(localization.GetString("Str.Archive.FolderErrorFormat"), reason);
+            icon = MessageBoxIcon.Warning;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
