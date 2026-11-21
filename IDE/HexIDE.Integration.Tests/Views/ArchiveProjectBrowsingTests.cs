@@ -135,7 +135,12 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             if (checkDescriptorText)
                 message.Should().NotContain("Invalid project-local state name");
             else
-                message.Should().Be($"Stopped: {link} is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.");
+            {
+                // The engine names the project's directory with its links resolved, so on macOS the path starts
+                // /private/var where the temporary directory starts /var. Check the wording around the path.
+                message.Should().StartWith("Stopped: ");
+                message.Should().EndWith(Path.DirectorySeparatorChar + ".hexide is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.");
+            }
             Directory.GetFileSystemEntries(target).Should().BeEmpty();
         }
         finally { Directory.Delete(link); }
