@@ -31,3 +31,68 @@
 - a non-`.vbp` file named by `StartupProject=`;
 - what VB6's own save writes after G1;
 - `Project=` naming a `.vbp`-like extension VB6 knows, such as `.vbg` or `.bas`.
+
+### Which lines a .vbg and a .vbp can hold, through /make (2026-11-21, #2757, `/make`, SP6)
+
+**The question.** G4 above showed a `.vbg` refusing a `[HexIDE]` section, when opened in the IDE. #2757 asked whether a
+`.vbg` could carry such a section as a `.vbp` does, before or after the `Project=` lines. Is it the section, or any
+line VB6 doesn't know? And does a `.vbp` really take a section it doesn't know?
+
+**The probe:**
+- **The software:** VB6 SP6's `/make`, in the Win10 oracle guest.
+- **The method:** a `.vbg` naming one Standard EXE, `P1.vbp`, was built with `/make G.vbg`. Each row changed the
+  group's text only. The `.vbp` rows built `P1.vbp` directly.
+- **Re-runs:** the no-final-newline row was run three times and the all-LF row twice, each with the same answer.
+
+| Row | The `.vbg` | `/make` |
+|---|---|---|
+| H0 | `VBGROUP 5.0`, `StartupProject=P1.vbp`, each line ending CRLF | builds |
+| H1 | H0, then a blank line | builds |
+| H2 | H0, then `[HexIDE]` with two keys | "The project group file '…\G.vbg' is corrupt, and can't be loaded." |
+| H3 | `[HexIDE]` and a key between `VBGROUP 5.0` and `StartupProject=` | the same "corrupt" refusal |
+| H4 | as H3, with a second section, `[Other]`, after it | the same |
+| H5 | H0, then an empty `[HexIDE]` header | the same |
+| H6 | H0, then `Foo=bar`, with no section | the same |
+| H7 | `Foo=bar` between `VBGROUP 5.0` and `StartupProject=` | the same |
+| H8 | a comment line, `; note`, after `VBGROUP 5.0` | the same |
+| H9 | H0 without the final CRLF | the same |
+| H10 | H0 with its last line ending LF alone | builds |
+| H11 | H0 with both lines ending LF alone | "Compile Error in File '…\G.vbg', Line 0 : Invalid outside procedure", and "Build of 'Project1.exe' failed." |
+
+| Row | The `.vbp` (Type, Form, Startup, ExeName32, Name) | `/make` |
+|---|---|---|
+| V0 | as written, ending CRLF | builds |
+| V1 | without the final CRLF | builds |
+| V2 | then `[HexIDE]` alone | builds |
+| V3 | then `[HexIDE]` and `Form1.frm=65001`, the shape of HexIDE's encoding records | builds |
+| V4 | then `[HexIDE]` and `Targets=win32` | builds |
+| V5 | then `[HexIDE]` and `Note=trailer` | builds |
+| V6 | then `Note=trailer`, with no section | "The project file '…\P1.vbp' contains invalid key 'Note'." |
+| V7 | then `[MS Transaction Server]` and `AutoRefresh=1` | builds |
+
+**What it says:**
+- **A `.vbg` takes nothing VB6 doesn't know.** A key, a comment, a section or an empty section header, before or after
+  the `Project=` lines, makes the whole group "corrupt". Only a blank line is let through.
+  - So #2757's hypothesis is overturned under `/make`, as G4 overturned it in the IDE. Anything of HexIDE's own about a
+    group has to live outside the `.vbg`.
+- **A `.vbg`'s last line must end in a newline.** CRLF or LF alone both work, and none at all is "corrupt". A `.vbp`
+  without a final newline builds.
+- **A `.vbg` in LF alone isn't read as a group at all.** `/make` compiled it as a project called `Project1`, failing
+  on line 0. That looks like the file was taken as one line and opened as a source file, as G1 above opens a non-`.vbp`.
+  It's reasoned from the message, not checked.
+- **A `.vbp` takes any section,** with any keys in it. A key VB6 doesn't know is refused only outside a section.
+  - So HexIDE's `[HexIDE]` trailer is safe for `/make` whatever keys it holds, provided they stay inside the section.
+
+**An unrepeated failure.** One run of V5 failed with "Path/File access error: '…'". The VM was being exported live at
+the time, with a production checkpoint and a VSS freeze. A re-run built. I count it as the freeze rather than VB6, but
+that's reasoned, not checked.
+
+**Not measured:**
+- what the IDE's Save Project and Save Project Group write back, for a `.vbp` with a `[HexIDE]` section (#2757's third
+  question);
+- a `.vbg` with other line endings inside the file, such as CR alone;
+- a `.vbp`'s unknown key ahead of the standard keys.
+
+**HexIDE's side.** `GroupSerializer` ends every line with CRLF, the last included (`IDE/HexIDE.Runtime/Serialization/GroupSerializer.cs`,
+`StringWriter` with `NewLine = "\r\n"` and `WriteLine`), so a group HexIDE writes meets H9's rule. It keeps lines it
+doesn't recognise and writes them back, which VB6 would then refuse. That's read from the code, not run.
