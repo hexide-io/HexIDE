@@ -119,10 +119,10 @@ public class ToolDescriptionTextTests
     }
 
     [Fact]
-    public void Close_says_which_message_boxes_refuse_it()
+    public void Close_says_which_dialogs_refuse_it()
     {
         // An OK-only box has no Cancel, yet its close box answers vbOK; only Yes/No and Abort/Retry/Ignore refuse.
         ToolSource.Tools.Single(t => t.Name == "interact").Parameters.Single(p => p.Name == "action").Description
-            .Should().Contain("a Yes/No or Abort/Retry/Ignore MsgBox refuses").And.NotContain("MsgBox with no Cancel");
+            .Should().Contain("a Yes/No or Abort/Retry/Ignore MsgBox or the run-time error dialog refuses").And.NotContain("MsgBox with no Cancel");
     }
 }

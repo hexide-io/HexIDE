@@ -556,9 +556,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   - **A `Case` expression runs again with its `Select Case`** and the `Case`s before it. That is a limit of the walk.
     **VB6 runs only the faulting `Case`'s expression again** (the same page), so this differs:
     [#1079](https://github.com/hexide-io/HexIDE/issues/1079).
-  - **A dialog closed without an answer** takes Debug. VB6's dialog can't be closed without one. It has no close box,
-    and Escape, `SC_CLOSE` and Alt+F4 leave it up (measured 2026-11-21,
-    `docs/vb6-fidelity-oracle/closing-the-run-time-error-dialog.md`, [#607](https://github.com/hexide-io/HexIDE/issues/607)).
+  - **A person cannot close the dialog without an answer — fixed by [#607](https://github.com/hexide-io/HexIDE/issues/607).**
+    Escape and a person's close leave it up, as measured in
+    [Closing the run-time error dialog](vb6-fidelity-oracle/closing-the-run-time-error-dialog.md).
+    HexIDE still shows a close box, refused, where VB6 has none. A close from code still takes Debug.
   - **Whether `Err` holds the error** at the break is unmeasured, and HexIDE leaves it as it was.
   - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate
     leaves unhandled is reported as before, and the run carries on.
