@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 using System.Net.Sockets;
 using HexIDE.IDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
@@ -201,8 +202,7 @@ public class ProfileReaderSafetyTests
 
     private static void WithDirectory(Action<string> action)
     {
-        var directory = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-reader-" + Guid.NewGuid());
-        Directory.CreateDirectory(directory);
+        var directory = ResolvedTemp.CreateDirectory("hexide-reader-");
         try { action(directory); }
         finally { Directory.Delete(directory, true); }
     }

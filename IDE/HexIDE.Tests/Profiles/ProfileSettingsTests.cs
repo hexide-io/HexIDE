@@ -1,15 +1,15 @@
 using System.Text.Json;
 using HexIDE.IDE;
 using HexIDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
 public sealed class ProfileSettingsTests : IDisposable
 {
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-profile-settings-" + Guid.NewGuid());
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-profile-settings-");
     private string SettingsPath => Path.Combine(root, "user-settings.json");
 
-    public ProfileSettingsTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, true);
 
     private SettingsService Create(string defaults)
