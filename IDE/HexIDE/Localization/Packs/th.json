@@ -2,6 +2,11 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "สร้างโครงการต่อไปนี้:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "ใช้ตัวเลือกการสร้างเริ่มต้น",
+    "Str.Dialog.MakeProjectGroup.Build": "สร้าง",
+    "Str.Dialog.MakeProjectGroup.Cancel": "ยกเลิก",
+    "Str.Dialog.MakeProjectGroup.Help": "วิธีใช้",
     "Str.FilePicker.ReplaceExisting": "{0} มีอยู่แล้ว คุณต้องการแทนที่หรือไม่",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "โหลด {0} โดยมีข้อผิดพลาด จึงไม่สามารถบันทึกทับไฟล์ต้นฉบับได้ โปรดเลือกชื่อไฟล์ใหม่",
     "Str.ProjectLoad.PropertyNotSet": "บรรทัด {0}: ไม่สามารถตั้งค่าคุณสมบัติ {1} ใน {2} ได้",

@@ -2,6 +2,11 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Zostaviť nasledujúce projekty:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Použiť predvolené možnosti zostavenia",
+    "Str.Dialog.MakeProjectGroup.Build": "Zostaviť",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Zrušiť",
+    "Str.Dialog.MakeProjectGroup.Help": "_Pomocník",
     "Str.FilePicker.ReplaceExisting": "{0} už existuje. Chcete ho nahradiť?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} bol načítaný s chybami, preto nemôže prepísať pôvodný súbor. Vyberte nový názov súboru.",
     "Str.ProjectLoad.PropertyNotSet": "Riadok {0}: vlastnosť {1} v {2} sa nepodarilo nastaviť.",

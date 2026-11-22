@@ -2,6 +2,11 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Compiler les projets suivants :",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Utiliser les options de compilation par défaut",
+    "Str.Dialog.MakeProjectGroup.Build": "Compiler",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Annuler",
+    "Str.Dialog.MakeProjectGroup.Help": "_Aide",
     "Str.FilePicker.ReplaceExisting": "{0} existe déjà. Voulez-vous le remplacer ?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a été chargé avec des erreurs et ne peut donc pas remplacer son fichier d’origine. Choisissez un nouveau nom de fichier.",
     "Str.ProjectLoad.PropertyNotSet": "Ligne {0} : la propriété {1} de {2} n’a pas pu être définie.",

@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             x:Class="HexIDE.Forms.Views.MakeProjectGroupView"
+             x:DataType="vm:MakeProjectGroupViewModel"
+             Width="420" Height="300" MinWidth="320" MinHeight="220">
+    <Grid Margin="10" ColumnDefinitions="*,10,Auto" RowDefinitions="Auto,*,Auto">
+        <TextBlock Margin="0,0,0,8" Text="{DynamicResource Str.Dialog.MakeProjectGroup.Projects}" />
+        <ListBox Grid.Row="1" ItemsSource="{CompiledBinding Projects}"
+                 SelectedItems="{CompiledBinding SelectedProjects}" SelectionMode="Multiple">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:MakeProjectGroupItem">
+                    <TextBlock Text="{CompiledBinding Name}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <CheckBox Grid.Row="2" Margin="0,8,0,0" IsChecked="{CompiledBinding UseDefaultBuildOptions}"
+                  Content="{DynamicResource Str.Dialog.MakeProjectGroup.DefaultOptions}" />
+        <StackPanel Grid.Column="2" Grid.RowSpan="3" Spacing="6" MinWidth="75">
+            <Button Command="{CompiledBinding BuildCommand}" Content="{DynamicResource Str.Dialog.MakeProjectGroup.Build}" IsDefault="True" />
+            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.MakeProjectGroup.Cancel}" IsCancel="True" />
+            <Button Content="{DynamicResource Str.Dialog.MakeProjectGroup.Help}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

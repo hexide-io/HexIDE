@@ -2,6 +2,11 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Izgradi sljedeće projekte:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Koristi zadane mogućnosti izgradnje",
+    "Str.Dialog.MakeProjectGroup.Build": "Izgradi",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Odustani",
+    "Str.Dialog.MakeProjectGroup.Help": "_Pomoć",
     "Str.FilePicker.ReplaceExisting": "{0} već postoji. Želite li ga zamijeniti?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je učitan s pogreškama pa se ne može spremiti preko izvorne datoteke. Odaberite novi naziv datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Redak {0}: svojstvo {1} u {2} nije moguće postaviti.",

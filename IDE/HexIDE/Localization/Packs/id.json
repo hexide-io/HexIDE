@@ -2,6 +2,11 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Bangun proyek berikut:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Gunakan opsi pembangunan bawaan",
+    "Str.Dialog.MakeProjectGroup.Build": "Bangun",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Batal",
+    "Str.Dialog.MakeProjectGroup.Help": "Bant_uan",
     "Str.FilePicker.ReplaceExisting": "{0} sudah ada. Apakah Anda ingin menggantinya?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} dimuat dengan kesalahan sehingga tidak dapat disimpan menimpa berkas aslinya. Pilih nama berkas baru.",
     "Str.ProjectLoad.PropertyNotSet": "Baris {0}: properti {1} di {2} tidak dapat ditetapkan.",

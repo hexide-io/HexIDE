@@ -2,6 +2,11 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Koosta seuraavat projektit:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Käytä koostamisen oletusasetuksia",
+    "Str.Dialog.MakeProjectGroup.Build": "Koosta",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Peruuta",
+    "Str.Dialog.MakeProjectGroup.Help": "_Ohje",
     "Str.FilePicker.ReplaceExisting": "{0} on jo olemassa. Haluatko korvata sen?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} ladattiin virheiden kanssa, joten sitä ei voi tallentaa alkuperäisen tiedoston päälle. Valitse uusi tiedostonimi.",
     "Str.ProjectLoad.PropertyNotSet": "Rivi {0}: ominaisuutta {1} kohteessa {2} ei voitu asettaa.",

@@ -1519,20 +1519,20 @@ public class MainViewViewModelTests
         asked.Should().Be(3);
     }
 
-    // VB6's builds the group's projects. HexIDE has no build of a group yet (#1515), so the command says so and saves
-    // nothing, where it used to save every project and the group under a Make label.
     [AvaloniaFact]
-    public void MakeProjectGroupCommand_says_it_is_not_implemented_and_saves_nothing()
+    public void MakeProjectGroupCommand_shows_the_dialog_and_cancel_builds_nothing()
     {
         _projectManager.LoadedProjects.Returns([new ProjectDefinition(VBProjectType.EXE, "Project1")]);
         _projectManager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
-        _projectService.ClearReceivedCalls();
-        _localization.GetString("Str.Shell.NotImplemented").Returns("Translated not-implemented notice");
+        var service = RemovalService();
+        _windowManager.ShowDialog(Arg.Any<HexIDE.Forms.ViewModels.MakeProjectGroupViewModel>()).Returns(false);
+        var sut = Build(_runnerService, projects: service);
 
-        _sut.MakeProjectGroupCommand.Execute(null);
+        sut.MakeProjectGroupCommand.Execute(null);
 
-        _windowManager.Received(1).MessageBox("Translated not-implemented notice", null, MessageBoxButtons.Ok, MessageBoxIcon.Information);
-        _projectService.ReceivedCalls().Should().BeEmpty("nothing is saved, built or asked of the project service");
+        _windowManager.Received(1).ShowDialog(Arg.Any<HexIDE.Forms.ViewModels.MakeProjectGroupViewModel>());
+        _eventBus.DidNotReceive().Publish(Arg.Any<HexIDE.Events.ApplyAllUnsavedChangesEvent>());
+        _windowManager.DidNotReceiveWithAnyArgs().SaveFilePickerAsync(default!);
     }
 
     // --- ProjectReferencesCommand ---

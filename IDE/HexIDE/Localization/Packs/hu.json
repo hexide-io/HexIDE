@@ -2,6 +2,11 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "A következő projektek fordítása:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Alapértelmezett fordítási beállítások használata",
+    "Str.Dialog.MakeProjectGroup.Build": "Fordítás",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Mégse",
+    "Str.Dialog.MakeProjectGroup.Help": "Sú_gó",
     "Str.FilePicker.ReplaceExisting": "{0} már létezik. Szeretné lecserélni?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} hibákkal töltődött be, ezért nem írhatja felül az eredeti fájlt. Válasszon új fájlnevet.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. sor: a(z) {2} {1} tulajdonságát nem sikerült beállítani.",
