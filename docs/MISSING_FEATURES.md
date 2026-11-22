@@ -61,7 +61,7 @@
 | Select All | Ctrl+A | Done | |
 | Expand / Shrink Selection (additive) | — | Done | Localized context-menu and keymap commands climb server-returned parent ranges and shrink back to the original selection; edits and outside caret moves reset the chain. Requires a selection-range provider; no default shortcut (#3076). |
 | Find… | Ctrl+F | Done | |
-| Find Next | F3 | Done | |
+| Find Next | F3 | Done | Down searches resume at the selected match's end, including adjacent plain-text and pattern matches (#704). An Up search can still find a match overlapping the selected one (#5308), and a single-module search wraps without VB6's "continue from the beginning?" prompt (#5307). |
 | Replace… | Ctrl+H | Done | |
 | Indent | Ctrl+Tab | Done | AvaloniaEdit indent |
 | Outdent | Shift+Tab | Done | AvaloniaEdit outdent |
