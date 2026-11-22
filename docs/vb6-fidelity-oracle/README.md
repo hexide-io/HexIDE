@@ -652,6 +652,7 @@ added afterwards.
 - [The library's `$` forms (2026-10-15, #742, #1071)](the-librarys--forms.md#the-librarys--forms-2026-10-15-742-1071)
 - [Move, ScaleWidth and ScaleHeight (2026-10-15, #1071)](move-scalewidth-and-scaleheight.md#move-scalewidth-and-scaleheight-2026-10-15-1071)
 - [A PictureBox's ScaleWidth and ScaleHeight, by size and border (2026-11-21, #5162, `/make`, SP6)](a-pictureboxs-scalewidth-and-scaleheight-by-size-and-border.md#a-pictureboxs-scalewidth-and-scaleheight-by-size-and-border-2026-11-21-5162-make-sp6)
+- [Half-twip sizes: a PictureBox's Width and Height are whole twips first (2026-11-22, #5162, `/make`, SP6)](a-pictureboxs-scalewidth-and-scaleheight-by-size-and-border.md#half-twip-sizes-a-pictureboxs-width-and-height-are-whole-twips-first-2026-11-22-5162-make-sp6)
 - [A negative or zero control size (2026-11-16, #589)](a-negative-or-zero-control-size.md#a-negative-or-zero-control-size-2026-11-16-589)
 - [The same `.frm` in VB6's IDE (2026-11-16, #4179)](a-negative-or-zero-control-size.md#the-same-frm-in-vb6s-ide-2026-11-16-4179)
 - [A control's minimum size (2026-11-16, #4071)](a-controls-minimum-size.md#a-controls-minimum-size-2026-11-16-4071)
@@ -856,6 +857,7 @@ added afterwards.
 - [Floating-point intermediates keep the x87's precision until stored (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#floating-point-intermediates-keep-the-x87s-precision-until-stored-2026-11-21-1214-sp6)
 - [A single floating-point operation is rounded twice, to 64 bits and then to a double (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#a-single-operation-is-rounded-twice-2026-11-21-1214-sp6)
 - [Sin, Cos, Tan and Atn are the x87's, reduced by a 66-bit π (2026-11-21, #1214, SP6)](floating-point-intermediates-keep-the-x87s-precision-until-stored.md#sin-cos-tan-and-atn-are-the-x87s-reduced-by-a-66-bit-π-2026-11-21-1214-sp6)
+- [Floating point in 32-bit and 64-bit VBA7 (2026-11-22, #1214)](floating-point-in-32-bit-and-64-bit-vba7.md#floating-point-in-32-bit-and-64-bit-vba7-2026-11-22-1214), measured in Excel's VBA7, not vb6.exe
 - [Rnd and Randomize (2026-10-26, #2117)](rnd-and-randomize.md#rnd-and-randomize-2026-10-26-2117)
 - [Format's AMPM token (2026-10-26, #2040)](formats-ampm-token.md#formats-ampm-token-2026-10-26-2040)
 - [Format of a number beyond Decimal's range (2026-10-26, #2118)](format-of-a-number-beyond-decimals-range.md#format-of-a-number-beyond-decimals-range-2026-10-26-2118)
@@ -1007,6 +1009,7 @@ added afterwards.
 - [The Properties window's Font dialog: its controls, typed sizes and effects (2026-11-16, #4153, design-time, IDE, SP6)](the-properties-windows-font-dialog.md#the-properties-windows-font-dialog-its-controls-typed-sizes-and-effects-2026-11-16-4153-design-time-ide-sp6)
 - [The Object Browser's library list: its order (2026-11-16, #4113, design-time, IDE, SP6)](the-object-browsers-library-list.md#the-object-browsers-library-list-its-order-2026-11-16-4113-design-time-ide-sp6)
 - [A form's members in the Object Browser (2026-11-21, #1968, design-time, IDE, SP6)](the-object-browsers-library-list.md#a-forms-members-in-the-object-browser-2026-11-21-1968-design-time-ide-sp6)
+- [The VB library's Form class (2026-11-22, #5293, design-time, IDE, SP6)](the-object-browsers-library-list.md#the-vb-librarys-form-class-2026-11-22-5293-design-time-ide-sp6)
 - [Default and Cancel buttons (2026-11-17, #4371)](default-and-cancel-buttons.md#default-and-cancel-buttons-2026-11-17-4371)
 - [The default border's pixels (2026-11-18, #4391)](default-and-cancel-buttons.md#the-default-borders-pixels-2026-11-18-4391)
 - [A CommandButton's caption: where it sits, where it's clipped, and how it draws disabled (2026-11-20, #4551, #4586, SP6)](a-commandbuttons-caption-where-it-sits-and-how-it-draws-disabled.md#a-commandbuttons-caption-where-it-sits-where-its-clipped-and-how-it-draws-disabled-2026-11-20-4551-4586-sp6)

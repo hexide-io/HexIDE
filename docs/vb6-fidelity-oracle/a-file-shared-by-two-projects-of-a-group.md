@@ -69,7 +69,15 @@ VB6 also rewrote the other two files' headers:
 **What it shows:**
 - **Each project holds its own copy of a shared file.** After No to the update question, PY's copy kept the original
   text, although PX's had been saved to disk.
-- **VB6 won't show the other copy while one has unsaved changes.** It warns, and leaves the open window in front.
+- **VB6 won't open a second copy's code window while another copy's code window is open.** It warns, and leaves the
+  open window in front, whether or not that copy has unsaved changes. The warning's own wording, "might have changes",
+  doesn't decide it.
+  - **Corrected 2026-11-22.** This line first said "while one has unsaved changes". The table's last row contradicts
+    that: straight after Save Project Group, with PY's window open and nothing unsaved, viewing PX's copy gave the same
+    warning.
+  - **The other page agrees:** `a-module-shared-by-two-projects-in-a-group.md` (#5268) found the warning while P1's
+    code window was open.
+  - **Not measured:** a copy with unsaved changes whose window has been closed.
 - **Saving a shared file asks whether to update the other projects' copies.** Yes copies the saved text into them, and
   No leaves them as they were.
 - **Nothing checks the file on disk before a save.** After No, PY's later save overwrote the file PX had saved, without
