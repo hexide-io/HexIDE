@@ -593,6 +593,7 @@ added afterwards.
 - [A caption's access key (2026-10-22, #920)](a-captions-access-key.md#a-captions-access-key-2026-10-22-920)
 - [With Windows' keyboard cues off (2026-11-21, #919, SP6)](a-captions-access-key.md#with-windows-keyboard-cues-off-2026-11-21-919-sp6)
 - [MousePointer's names and pointers (2026-10-22, #120)](mousepointers-names-and-pointers.md#mousepointers-names-and-pointers-2026-10-22-120)
+- [The comments VB6 writes after enumerated values (2026-11-21, #21, IDE, SP6)](the-comments-vb6-writes-after-enumerated-values.md#the-comments-vb6-writes-after-enumerated-values-2026-11-21-21-ide-sp6)
 - [RGB, QBColor and MsgBox's style (2026-10-12)](rgb-qbcolor-and-msgboxs-style.md#rgb-qbcolor-and-msgboxs-style-2026-10-12)
 - [A message box is modal to the whole program (2026-11-21, #834, SP6)](rgb-qbcolor-and-msgboxs-style.md#a-message-box-is-modal-to-the-whole-program-2026-11-21-834-sp6)
 - [vbMsgBoxRight and vbMsgBoxRtlReading: the box's layout (2026-11-14, #3014)](rgb-qbcolor-and-msgboxs-style.md#vbmsgboxright-and-vbmsgboxrtlreading-the-boxs-layout-2026-11-14-3014)
