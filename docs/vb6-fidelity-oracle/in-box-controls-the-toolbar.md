@@ -714,3 +714,38 @@ The saved button images keep their indexes even when the list doesn't resolve.
 - **A button's Image takes any number,** rounded as `CInt` rounds, halves to even. True is -1 and raises 35600.
 
 **Not measured:** drawing, which needs the console. The disabled and hot rendering with no alternate list, or with mixed geometry, is still open.
+
+### A Buttons bag in another order (2026-11-21, #21, design-time, IDE, SP6)
+
+**The question.** #21's findings list asks, as Q15, whether the order of the lines inside an OCX's `BeginProperty` bag
+matters to VB6. If it reads a bag by name, keeping a file's own order is courtesy. If it reads by position, it's
+required.
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, started elevated and driven on its console. The
+input was VB98's own `Template\Forms\Web Browser.frm` and its `.frx`. Its `tbToolBar` holds a `Buttons` bag with
+`NumButtons = 6`, then `Button1` to `Button6`, each giving `Key`, `Object.ToolTipText` and `ImageIndex` in that order.
+Two one-form projects were opened:
+- **A,** the template as shipped;
+- **B,** the same file with the bag rearranged three ways at once:
+  - each button's three lines in reverse order;
+  - `NumButtons` moved from first in the bag to last;
+  - the `Button2` block placed before `Button1`, each keeping its own name.
+
+Each project was opened, its designer shown, and VB6 closed. Each time VB6 asked to save the project and the form, as
+it does for this template on Windows 10
+([An OCX-bearing form, saved by HexIDE and opened by vb6.exe](serialization--file-format-fidelity.md#an-ocx-bearing-form-saved-by-hexide-and-opened-by-vb6exe-2026-11-21-160-sp6)),
+and was answered Yes.
+
+**What happened:**
+- **Both loaded with no message and no log.** The designer drew the same six buttons in the same order, Back first.
+- **The two saves were byte-identical:** `Web Browser.frm`, 8710 bytes each, and the `.frx` too.
+- **So VB6 wrote B's bag in its own order,** `NumButtons` first, then `Button1` to `Button6`, each `Key`,
+  `Object.ToolTipText`, `ImageIndex`. The file's order was gone.
+
+So the Toolbar reads its `Buttons` bag by name, and a button by its `ButtonN` name, not by where its block sits. A writer
+that changes the order inside this bag doesn't change what VB6 loads. The next VB6 save puts the order back anyway.
+
+### Not measured
+
+- **Another control's bag,** such as a ListView's `ColumnHeaders` or a StatusBar's `Panels`. This is one control.
+- **A bag whose `NumButtons` disagrees with its blocks,** or one with a block missing.

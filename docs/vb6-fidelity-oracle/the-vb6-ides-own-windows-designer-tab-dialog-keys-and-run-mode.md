@@ -226,3 +226,22 @@ design-time property set until the run ends.
   mode.
 - **A UserControl's designer** during a run of a project that uses it.
 - **Project > Add Form, or Add's submenu,** in break mode.
+
+### The same while the program runs (2026-11-21, #870, IDE, SP6)
+
+**The question.** Above, the designer was measured in break mode only. Does a program that is running, and not
+paused, leave the designer available?
+
+**The probe.** A one-form Standard EXE whose form shows a DriveListBox, a DirListBox and a FileListBox, run with F5 and
+left running, with the title bar reading `[run]`.
+
+**What the IDE showed:**
+- **The Toolbox, the Properties window and the Form Layout window were gone,** as in break mode.
+- **The View menu,** opened by a click on the IDE's menu bar while the form ran, had the same items greyed:
+  - Object (Shift+F7);
+  - Properties Window, Form Layout Window and Property Pages;
+  - Toolbox.
+  Call Stack was greyed too. Code, Definition, Object Browser, the Immediate, Locals and Watch windows and the Project
+  Explorer were enabled.
+
+So a running program shuts the designer out just as a paused one does.
