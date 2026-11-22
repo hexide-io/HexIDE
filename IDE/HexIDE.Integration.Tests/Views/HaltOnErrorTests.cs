@@ -408,6 +408,42 @@ public class HaltOnErrorTests
         run.Failed.Should().BeEmpty();
     }
 
+    [AvaloniaFact]
+    public void Continue_retries_only_the_faulting_Case_test()
+    {
+        // Measured: docs/vb6-fidelity-oracle/what-f5-runs-again-after-debug.md (#1079).
+        const string code = """
+            Private d As Integer
+            Private n As Integer
+            Private Function Counted() As Integer
+                n = n + 1
+                Counted = 5
+            End Function
+            Private Sub Command1_Click()
+                Select Case Counted()
+                    Case Is < Counted() - 10
+                        Debug.Print "first"
+                    Case Is > 1 \ d
+                        Debug.Print "second"
+                End Select
+                Debug.Print "n " & n
+            End Sub
+            """;
+        using var run = Start(code);
+
+        run.Click("Command1");
+        Pump();
+        run.Answer(debug: true);
+        run.Controller.CurrentStop.Should().Be(new StoppedInfo(StopReason.RuntimeError, "Form1", LineOf(code, "Case Is >")));
+        run.Controller.EvaluateAsync("d = 1").GetAwaiter().GetResult();
+        run.Controller.Continue();
+        Pump();
+
+        run.Halts.Should().ContainSingle();
+        run.Printed.Should().Equal("second", "n 2");
+        run.Failed.Should().BeEmpty();
+    }
+
     // ---- What handles it, and what doesn't -------------------------------------------------------------------------
 
     [AvaloniaFact]

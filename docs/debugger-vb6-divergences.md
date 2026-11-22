@@ -542,11 +542,11 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   What remains in the IDE:
   - **A statement runs again whole.** That is measured, for `x = F() + 1 \ 0`, where F is called again.
   - **A condition runs again on its own,** an `ElseIf`'s, or a `Loop Until`'s without another pass through the body,
-    and so does a statement of a single-line `If`'s tail. **These are chosen, not measured.** They are the closest
-    reading of "the faulting statement", and they never repeat what came before the fault. But nothing has asked vb6.exe
-    what its F5 runs in these places ([#1079](https://github.com/hexide-io/HexIDE/issues/1079)).
-  - **A `Case` expression runs again with its `Select Case`** and the `Case`s before it. That is a limit of the walk,
-    also unmeasured.
+    and so does a statement of a single-line `If`'s tail. These match the
+    [VB6 IDE measurement](vb6-fidelity-oracle/what-f5-runs-again-after-debug.md).
+  - **A faulting single-test `Case` expression runs again alone — fixed by #1079.** The selector and earlier Cases are not
+    evaluated again, matching the same measurement. Selector faults and comma-separated Case lists remain unmeasured
+    and keep their whole-Select retry.
   - **A dialog closed without an answer** takes Debug. What VB6 does then is unmeasured.
   - **Whether `Err` holds the error** at the break is unmeasured, and HexIDE leaves it as it was.
   - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate
