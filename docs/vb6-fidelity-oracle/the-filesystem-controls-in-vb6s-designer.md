@@ -130,3 +130,18 @@ The defaults-only form was given `Dir1.Path = Drive1.Drive` in `Drive1_Change`, 
 - **What the FileListBox shows in the designer** for a folder with files it would list.
 - **A single click in the DirListBox,** and the Drive list's drop-down.
 - **The release build.** Every row here is SP6.
+
+### The designer's FileListBox lists files (2026-11-21, #164, SP6)
+
+**The question.** Above, the designer's FileListBox showed nothing. Its folder held no file it would list, so whether
+the designer lists files at all was left open.
+
+**The probe.** The same defaults-only form, opened in the same way. Before the project opened, a plain file,
+`aaa-fileprobe.txt`, with only the Archive attribute, was put in the folder VB6 starts in, which is the console user's
+profile folder.
+
+**What the designer showed.** The FileListBox listed `aaa-fileprobe.txt`, and the DirListBox showed the same folder as
+before. So at design time the FileListBox lists the files in VB6's current folder, as it does at run time. Those are
+the files on disk when the designer is drawn, not anything saved in the form.
+
+The file was deleted afterwards.
