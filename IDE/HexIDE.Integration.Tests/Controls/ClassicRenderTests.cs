@@ -48,6 +48,66 @@ namespace HexIDE.Integration.Tests.Controls;
 /// </summary>
 public class ClassicRenderTests
 {
+    // Measured at 96 dpi: docs/vb6-fidelity-oracle/a-rounded-shapes-corners.md (#916).
+    [AvaloniaTheory]
+    [InlineData(100, 60, ShapeTypes.RoundedRectangle, 0, 5, false)]
+    [InlineData(100, 60, ShapeTypes.RoundedRectangle, 0, 5, true)]
+    [InlineData(300, 300, ShapeTypes.RoundedRectangle, 0, 33, false)]
+    [InlineData(300, 300, ShapeTypes.RoundedRectangle, 0, 33, true)]
+    [InlineData(100, 60, ShapeTypes.RoundedSquare, 20, 5, false)]
+    [InlineData(100, 60, ShapeTypes.RoundedSquare, 20, 5, true)]
+    [InlineData(100, 60, ShapeTypes.Rectangle, 0, 0, false)]
+    public void Shape_CornersMatchMeasuredInsets(int width, int height, ShapeTypes type, int left, int inset, bool backFill)
+    {
+        var shape = new VBShape
+        {
+            Width = width, Height = height, ShapeType = type,
+            BorderWidth = 1, BorderStyle = BorderStyles.Solid,
+            BorderColor = VBColor.FromColor(0, 0, 0), FillColor = VBColor.FromColor(0, 0, 0), FillStyle = backFill ? FillStyles.Transparent : FillStyles.Solid,
+            BackStyle = backFill ? BackStyles.Opaque : BackStyles.Transparent, BackColor = VBColor.FromColor(0, 0, 0),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+        };
+        var window = BuildHost(shape);
+        window.Width = width;
+        window.Height = height;
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            var pixels = new int[width * height];
+            var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+            try
+            {
+                frame!.CopyPixels(new PixelRect(0, 0, width, height), handle.AddrOfPinnedObject(), pixels.Length * 4, width * 4);
+            }
+            finally
+            {
+                handle.Free();
+            }
+            bool Black(int x, int y) => (pixels[y * width + x] & 0xff) < 128;
+            var first = Enumerable.Range(0, width).First(x => Black(x, 0));
+            first.Should().BeInRange(left + System.Math.Max(0, inset - 1), left + inset + 1);
+            Black(width / 2, height / 2).Should().BeTrue();
+            if (type == ShapeTypes.RoundedSquare)
+            {
+                Enumerable.Range(0, width).First(x => Black(x, height / 2)).Should().Be(left);
+                for (var y = 0; y < height; y++)
+                    for (var x = 0; x < height; x++)
+                    {
+                        Black(left + x, y).Should().Be(Black(left + height - 1 - x, y));
+                        Black(left + x, y).Should().Be(Black(left + x, height - 1 - y));
+                    }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void SingleLineTextBox_ShortHeight_HoldsItsTextWithoutAVerticalBar()
     {
