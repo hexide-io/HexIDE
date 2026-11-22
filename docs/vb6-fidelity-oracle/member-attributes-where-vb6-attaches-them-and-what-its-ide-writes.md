@@ -1072,3 +1072,43 @@ is where #1013's three findings come from.
 - **A retype in the code window** with the local present. The rename here was a Replace All.
 - **A class module.** Every module here was a `.bas`.
 - **A procedure's parameter** of the stale name.
+
+### File > Make after a retype, with no save (2026-11-22, #749, IDE, SP6)
+
+**The question.** V1 found that a variable renamed by retyping keeps its description at the next save, under the new
+name. Does File > Make build that too, when nothing has been saved since the retype? #749 needs the answer: HexIDE's
+Make with VB6 builds from the files on disk, and a build from a copy would have to write what VB6's own Make builds.
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console, one fresh vb6.exe per run.
+An ActiveX DLL project, `P749`, held one class:
+
+```vb
+Option Explicit
+Public Count As Long
+Attribute Count.VB_VarDescription = "Running total."
+```
+
+1. **The control:** the project opened, then File > Make P749.dll..., and Enter in the Make Project dialog.
+2. **The retype:** the project opened. In the code window, `Count` on the declaration line was selected and `Tally`
+   typed over it, and the caret moved off the line. The line then read `Public Tally As Long`. Then File > Make, as in
+   the control, with nothing saved.
+
+Each build ended with the message box "Error accessing the system registry", because the IDE ran without elevation and
+couldn't register the DLL. The DLL was written each time. Its type library was read in the guest with
+`LoadTypeLibEx`, without registering it.
+
+| Run | `Class1.cls` on disk after the run | The DLL's `_Class1` | Its help string |
+|---|---|---|---|
+| Control | `Public Count As Long` | `Count`, a property get and put | `Running total.` |
+| Retype, no save | `Public Count As Long`, unchanged | **`Tally`**, a property get and put | **`Running total.`** |
+
+Both builds gave the property the same dispatch ID, `0x40030000`.
+
+**Readings:**
+- **Make builds the code as the IDE holds it, not as it was saved.** The file on disk still declared `Count`.
+- **A retyped variable's description follows it into the build,** as V1 found it does into a save.
+
+**Not measured:**
+- a procedure renamed by retyping, and Make from a project group;
+- a Standard EXE, whose build has no type library to read;
+- native against p-code: the project file named no `CompilationType`, and which one the IDE used wasn't read.

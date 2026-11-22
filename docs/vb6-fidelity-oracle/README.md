@@ -165,6 +165,7 @@ driven by hand, its steps were replayed from the console agent's log.
 | *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
 | *Member attributes: where VB6 attaches them, and what its IDE writes* (#273) | the same: 22 of the hand-written shapes, and every save in *Which saves write a module*, two files to the release build's hash; the Procedure Attributes dialog's rows not run again ([on SP6](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#on-sp6-the-load-and-save-shapes-and-which-saves-write-a-module-2026-11-21-1675-ide-sp6)) |
 - [A local of the stale name changes nothing (2026-11-21, #1013, IDE, SP6)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#a-local-of-the-stale-name-changes-nothing-2026-11-21-1013-ide-sp6)
+- [File > Make after a retype, with no save (2026-11-22, #749, IDE, SP6)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#file--make-after-a-retype-with-no-save-2026-11-22-749-ide-sp6)
 
 **#1675's interpreter rows, rebuilt from their sections' tables (2026-11-21).** Each project was built with `/make` as native code and as p-code, and run in vb6.exe's IDE with `/runexit`, all on the guest's console. All three modes logged the same lines in every project.
 - **_Unload Me_ (#973): all five IDE probes give their table's answer.** They are:
