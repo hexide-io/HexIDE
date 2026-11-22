@@ -730,7 +730,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   reads its frame below the paused one in any module, and a standard module's watch is live wherever the program is
   paused. Recursion, frames more than one level down across modules and running-state refresh were not measured and
   keep their previous behavior. *Break When Value Is True* has since been measured for each kind of value (2026-11-21,
-  `docs/vb6-fidelity-oracle/break-when-value-is-true.md`), and HexIDE differs on Strings: [#869](https://github.com/hexide-io/HexIDE/issues/869).
+  `docs/vb6-fidelity-oracle/break-when-value-is-true.md`), and HexIDE follows those break counts now, apart from the
+  String `"0"`, which keeps not breaking
+  because no defensible rule explains VB6's repeated breaks ([#869](https://github.com/hexide-io/HexIDE/issues/869)).
+  The Watches window's `<Type mismatch>` display for unconvertible Strings remains outside that fix.
 
 ### D34. A watch on (All Modules), or on a standard module, doesn't evaluate in design mode (#4452, #4481)
 - **VB6:** a watch added with Module (All Modules) evaluates in design mode as well as at a break. Before the program

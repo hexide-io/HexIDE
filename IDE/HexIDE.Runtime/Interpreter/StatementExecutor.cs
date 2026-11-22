@@ -210,6 +210,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 Debugging.DebugInspector.NodeFor(expr, result, interpreter.ExecutionContext))
             {
                 ChangeKey = ChangeKeyOf(result),
+                BreaksWhenTrue = Debugging.DebugInspector.BreaksWhenTrue(result),
             };
         }
         catch (Debugging.ImmediateEvalException ex) { return EvalErr(expr, ex.Message); }
