@@ -156,4 +156,5 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/ReadOnlySectionProviderTests.cs` | split |
 | `ViewModels/ReferencesViewModelTests.cs` | split |
 | `ViewModels/SaveChangesViewModelTests.cs` | split |
+| `ViewModels/SelectionReadoutTests.cs` | split |
 | `ViewModels/WorkspaceRenameTests.cs` | split |
