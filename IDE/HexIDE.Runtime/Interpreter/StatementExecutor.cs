@@ -1592,6 +1592,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var counterType = currentEnv.TryGetVariableLocation(variable, out var counterLoc)
             ? interpreter.ExecutionContext.State.DeclaredTypeOf(counterLoc)
             : null;
+        if (counterType == Vb6Value.ValueType.String || counterType == Vb6Value.ValueType.Boolean)
+            throw new VBCompileErrorException("Type mismatch");
         if (counterType == Vb6Value.ValueType.LongLong)
             throw new NotImplementedException("A LongLong For counter is unmeasured (#1548)");
         var state = forState.GetValueOrDefault(context);
@@ -1863,14 +1865,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (await RunLoopBodyOnce(block, context.NEXT()) is { } left)
                 return left;
             throw new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized);
-        }
-        if (!VbNumeric.IsCoreNumeric(counterType) && counterType != Vb6Value.ValueType.Date)
-        {
-            // Only a String or a Boolean can be declared and reach here.
-            var typeName = counterType == Vb6Value.ValueType.String ? "String" : "Boolean";
-            throw new NotImplementedException(
-                $"A For whose header raised under On Error Resume Next, with a {typeName} counter, is not supported: " +
-                "what VB6 does then was measured for numeric and Date counters only.");
         }
         if (SteppedInItsType(counterType))
         {
