@@ -506,6 +506,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
     }
 
+    // F8 skips Dim/Static/Const (#4326, where-step-into-stops-around-dim-static-const-and-redim oracle).
+    // Over/Out were not measured; they use the same non-statement positions. Run To Cursor and existing
+    // breakpoints retain today's unmeasured behaviour, as does Set Next Statement onto a declaration.
+    private ValueTask DeclarationGate(Debugging.IDebugGate dbg)
+    {
+        var gate = interpreter.ObserveDebugGate(dbg.OnDeclarationAsync(currentLine, currentModule.Name, this));
+        return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
+    }
+
     internal ValueTask PauseAtModalWait(Debugging.IDebugGate dbg)
     {
         // Show is already executing, so Set Next Statement cannot repoint its suspended call.
@@ -536,7 +545,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!retry && interpreter.DebugController is { } dbg && stmt.attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = false;   // a pause here is inside a nested block — Set Next Statement is refused
-                await DebugGate(dbg);
+                await (stmt.variableStmt() != null || stmt.constStmt() != null
+                    ? DeclarationGate(dbg) : DebugGate(dbg));
             }
             retry = false;
             erlLine = stmt.Start.Line;
@@ -6276,7 +6286,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!retry && interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid
-                await DebugGate(dbg);
+                await (stmts[pc].variableStmt() != null || stmts[pc].constStmt() != null
+                    ? DeclarationGate(dbg) : DebugGate(dbg));
             }
             retry = false;
             // Set Next Statement (P7b): apply a pc repoint requested while paused at this top-level gate, so the

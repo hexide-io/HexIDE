@@ -163,6 +163,10 @@ public sealed class DebugController : IDebugGate
         return OnBreakpointPositionAsync(line, module, frame);
     }
 
+    public ValueTask OnDeclarationAsync(int line, string module, IDebugFrame frame)
+        => MatchesBreakpoint(line, module) || MatchesRunTo(line, module)
+            ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
+
     public ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame)
         => MatchesBreakpoint(line, module) ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
 

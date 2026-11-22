@@ -556,6 +556,22 @@ The IDE SHALL show localized design, run and break title tags, with break select
 - **WHEN** execution continues
 - **THEN** the title shows the run tag and the running status message returns
 
+### Requirement: Declaration lines are not step positions
+
+The debugger SHALL skip `Dim`, `Static` and `Const` when stepping or checking break-type watches,
+including inside nested blocks. `ReDim` SHALL remain a statement position. Existing declaration breakpoints
+and Run To Cursor targets SHALL still pause (#4326).
+F8 is measured in [the oracle](../../../docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md).
+
+#### Scenario: Step past declarations
+- **WHEN** Step Into resumes before a `Dim`, `Static` or `Const` line
+- **THEN** it pauses at the next statement or the procedure's natural End line
+- **AND** the declarations still execute
+
+#### Scenario: Declaration and assignment on one line
+- **WHEN** stepping reaches `Dim a As Integer: a = 5`
+- **THEN** it pauses once on that line, before the assignment
+
 ### Requirement: Procedure boundary stop positions
 
 The interpreter debugger SHALL honour breakpoints on Sub declarations before

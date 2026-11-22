@@ -465,7 +465,8 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   Let/Set boundaries remain unchanged pending measurement. The measured refusal of F9 on Dim is separate from
   this fix. So is stepping: VB6's F8 never stops on a `Dim`, `Static` or `Const` line, and does stop on `ReDim`
   (measured 2026-11-21, `docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md`).
-  HexIDE's step stops on a `Dim` line, as [#4326](https://github.com/hexide-io/HexIDE/issues/4326) records.
+  HexIDE now skips `Dim`, `Static` and `Const` when stepping and still stops on `ReDim` (#4326).
+  Existing declaration breakpoints and Run To Cursor targets remain supported pending measurement (#5296).
 
 ### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
