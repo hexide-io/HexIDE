@@ -126,3 +126,95 @@ The list held the 87 above and nine more, each a member of `Project1.Form1`, sor
 - whether Show Hidden Members adds any.
 
 **In HexIDE.** #1968 tracks listing a form's members.
+
+## The VB library's Form class (2026-11-22, #5293, design-time, IDE, SP6)
+
+**The question.** The section above lists what a project form shows, and no Form events among it. What does the
+Object Browser list for the class itself, `Form` under the `VB` library? HexIDE lists that class's properties and
+events, but none of its methods (#5293).
+
+**The obvious guess was the same 86 members as a project form's. It lists those 86 and the Form class's 31 events,
+117 in all, in one alphabetical list.**
+
+### The probe
+
+VB6's IDE, SP6 (VB6.EXE 6.00.9782), in the console session of a clone of the oracle guest, driven through the agent, on
+the same `Project1` as above. One fresh vb6.exe per run.
+1. F2 opened the Object Browser. A click on its library dropdown, the key `V` and Enter set it to `VB`, the fourth of
+   six entries.
+2. **The classes:** the second entry of the Classes list was clicked, and the list walked with Down.
+3. **The members:** in a second run, Home and eleven Downs in the Classes list selected `Form`, and the Details pane
+   read `Class Form`, member of `VB`. Then the first member was clicked, Home pressed, and the Members list walked with
+   Down.
+
+Each item was read from the Details pane, as above, and only its first line is recorded.
+
+### The classes under `VB`: 35 entries
+
+The list's count was 35. The walk started at the second entry, so the first wasn't read; under `Project1` the first
+was `<globals>`. The other 34, in order, each `Class <name>`, member of `VB`:
+
+App, CheckBox, Clipboard, ComboBox, CommandButton, Control, Data, DirListBox, DriveListBox, FileListBox, Form, Frame,
+Global, HScrollBar, Image, Label, Licenses, Line, ListBox, MDIForm, Menu, OLE, OptionButton, PictureBox, Printer,
+PropertyPage, Screen, Shape, TextBox, Timer, UserControl, UserDocument, VBControlExtender, VScrollBar.
+
+### `Form`'s members: 117
+
+Each was shown as a member of `VB.Form`. A project form's members read `Unknown1._Form` there, in the section above.
+
+| Kind | Count |
+|---|---|
+| Events | 31 |
+| Properties, read-only | 17 |
+| Other properties | 47 |
+| Subs | 17 |
+| Functions | 5 |
+
+**The 86 that aren't events** have the same names as the 86 Form members a project form lists, in the section above.
+Their read-only flags are the same.
+
+**Eight declarations read differently** from a project form's:
+
+| Member | `VB.Form` | A project form |
+|---|---|---|
+| `Icon`, `Image`, `MouseIcon`, `Palette`, `Picture` | `Property Picture As IPictureDisp` | `Property Picture As StdPicture` |
+| `PaintPicture` | `Sub PaintPicture(Picture As IPictureDisp, X1 As Single, ...)` | `... (Picture As StdPicture, ...)` |
+| `Controls` | `Property Controls As object` | `Property Controls As Object` |
+| `PopupMenu` | `Sub PopupMenu(Menu As object, [Flags], [X], [Y], [DefaultMenu])` | `... (Menu As Object, ...)` |
+
+The first row shows `Picture`'s declaration; the other four differ in the same way.
+
+**The 31 events,** as declared:
+
+| Event | Declaration |
+|---|---|
+| Activate, Click, DblClick, Deactivate, GotFocus, Initialize, LinkClose, Load, LostFocus, Paint, Resize, Terminate | `Event <name>()` |
+| DragDrop | `Event DragDrop(Source As Control, X As Single, Y As Single)` |
+| DragOver | `Event DragOver(Source As Control, X As Single, Y As Single, State As Integer)` |
+| KeyDown, KeyUp | `Event KeyDown(KeyCode As Integer, Shift As Integer)` |
+| KeyPress | `Event KeyPress(KeyAscii As Integer)` |
+| LinkError | `Event LinkError(LinkErr As Integer)` |
+| LinkExecute | `Event LinkExecute(CmdStr As String, Cancel As Integer)` |
+| LinkOpen | `Event LinkOpen(Cancel As Integer)` |
+| MouseDown, MouseMove, MouseUp | `Event MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)` |
+| OLECompleteDrag | `Event OLECompleteDrag(Effect As Long)` |
+| OLEDragDrop | `Event OLEDragDrop(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)` |
+| OLEDragOver | `Event OLEDragOver(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single, State As Integer)` |
+| OLEGiveFeedback | `Event OLEGiveFeedback(Effect As Long, DefaultCursors As Boolean)` |
+| OLESetData | `Event OLESetData(Data As DataObject, DataFormat As Integer)` |
+| OLEStartDrag | `Event OLEStartDrag(Data As DataObject, AllowedEffects As Long)` |
+| QueryUnload | `Event QueryUnload(Cancel As Integer, UnloadMode As Integer)` |
+| Unload | `Event Unload(Cancel As Integer)` |
+
+### Readings
+
+- **The VB library's `Form` class lists its events, its properties and its methods together, in one alphabetical
+  list.** A project form lists the same properties and methods and leaves the events out.
+- **A picture-typed member is `IPictureDisp` on the class, and `StdPicture` on a project form.**
+
+**Not measured:**
+- the other classes' members, MDIForm's among them;
+- whether Show Hidden Members adds any;
+- the icons that mark each kind.
+
+**In HexIDE.** #5293 tracks the Form class's member table.
