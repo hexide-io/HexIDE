@@ -219,7 +219,25 @@ Of `Saved.frm`, the first 24 lines were read, through the last control's `End` a
 The earlier IDE save gave 3 too, for three entries. Both rows fit a constant 3, and both fit a copy of the List
 record's field, which was 3 both times. Neither row tells those apart.
 
+**Three more shapes,** the same day. Each was a form of its own with its control's `Begin` at line 12. Each was built
+with `/make` as native code and as p-code, then all three were run in the IDE from one project whose `Sub Main` loaded
+each form in turn.
+
+| The records | `/make`, native and p-code | VB6's IDE, F5 |
+|---|---|---|
+| A ListBox's List record cut inside its second item, at the end of the file: `02 00` · `03 00` · `02 00 "ab"` · `03 00 "cd"`. ItemData `5`, `6` | refused: `Line 12: Property List in G could not be set.` | the box, then `ListCount=1`: `ab`, with ItemData 5 |
+| A ListBox's ItemData record cut short, at the end of the file: `03 00` · `01 00` · `01 00 "5"` · `01 00 "6"`. A whole List record of `ab`, `cde`, `fghi` | refused: `Line 12: Property ItemData in G could not be set.` | the box, then `ListCount=3`, with ItemData 5, 6 and **0** |
+| A `Style = 2` ComboBox `K` with the first probe's records | refused: `Line 12: Property List in K could not be set.` | the box, then `ListCount=2`: `ab` with 5, `cde` with 6 |
+
+- **An item cut short is dropped whole.** `cd`, two bytes of a three-byte item, didn't become an item.
+- **An ItemData record cut short still loads every item in the IDE,** and the values it lacks read 0. Those are the
+  values a record that says 2 and holds 2 gives in the rows above. The difference is the load error, on which `/make`
+  refuses.
+- **A ComboBox reads its records as a ListBox does.**
+- **F5 read all three forms before any code ran.** The three boxes came one after another, each after the last OK, and
+  the program's file was written only after the third. Closing VB6 then listed the `.vbp` and all three forms as
+  changed.
+
 **Not measured:**
-- **A List record cut short inside an item's text.** Here the cut fell between items.
-- **An ItemData record cut short,** in the IDE.
-- **A ComboBox** with the same records.
+- **An ItemData record cut inside an entry's text.**
+- **A ComboBox of another `Style`.**
