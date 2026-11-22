@@ -50,3 +50,62 @@ every row.
   - At 3100 it reads 3040 (3D), 3070 (Flat) and 3100 (no border), against VB6's 3045, 3075 and 3105.
   - At 3110 it reads 3050, 3080 and 3110, against 3045, 3075 and 3105.
   - Assignments at 3100 and 3110 differ the same way.
+
+## Half-twip sizes: a PictureBox's Width and Height are whole twips first (2026-11-22, #5162, `/make`, SP6)
+
+**The question.** The rows above found that a PictureBox's inside is whole pixels, but left a half-pixel size untried,
+so which way 206.5 pixels rounds wasn't known. Is it up, down, or to even?
+
+**The probe.**
+- **The rig:** as above. VB6 SP6 in a clone of the oracle guest at 96 dpi, where one pixel is 15 twips. Each EXE ran in
+  the guest's session 0 through PowerShell Direct, and every value was read in `Form_Load`.
+- **The form:** nine PictureBoxes saved with `Width` 3082.5, 3097.5 and 3112.5, which are 205.5, 206.5 and 207.5
+  pixels. Each `Height` is its Width less 1500. Each size came three ways: Fixed Single and 3D, Fixed Single and Flat,
+  and no border. The three half pixels tell half-up, half-down and half-to-even apart.
+- **The assignments:** `Width` and `Height` (Width less 1500) assigned to a 3D box and a borderless one, at 3082.5,
+  3097.5, 3112.5, 3090 and 3105.
+- **What it wrote:** each box's `Width`, `Height`, `ScaleWidth` and `ScaleHeight` through `CStr`, and `ScaleWidth` in
+  pixels.
+- **The builds:** native and p-code wrote the same 21 lines.
+
+**At load.** ScaleWidth and ScaleHeight in twips, with ScaleWidth in pixels in brackets:
+
+| Saved Width, Height | Read back | Fixed Single, 3D | Fixed Single, Flat | No border |
+|---|---|---|---|---|
+| 3082.5, 1582.5 | **3082, 1582** | 3015 (201), 1515 | 3045 (203), 1545 | 3075 (205), 1575 |
+| 3097.5, 1597.5 | **3098, 1598** | 3045 (203), 1545 | 3075 (205), 1575 | 3105 (207), 1605 |
+| 3112.5, 1612.5 | **3112, 1612** | 3045 (203), 1545 | 3075 (205), 1575 | 3105 (207), 1605 |
+
+**On assignment,** the same. Width, then ScaleWidth for the 3D box and the borderless one:
+
+| Assigned | Width | 3D ScaleWidth | No border ScaleWidth |
+|---|---|---|---|
+| 3082.5 | 3082 | 3015 | 3075 |
+| 3097.5 | 3098 | 3045 | 3105 |
+| 3112.5 | 3112 | 3045 | 3105 |
+| 3090 | 3090 | 3030 | 3090 |
+| 3105 | 3105 | 3045 | 3105 |
+
+Heights followed the same rule in every row.
+
+**What it says:**
+- **Width and Height are whole twips.** A half twip goes to the even neighbour: 3082.5 to 3082, 3097.5 to 3098 and
+  3112.5 to 3112, from the file and on assignment alike. Half-up would give 3083 and 3113, and half-down 3097, so only
+  half-to-even fits all three rows. *Width and Height stay as saved or assigned*, above, holds for whole twips.
+- **So a half pixel never happens.** A whole number of twips is never 7.5 past a multiple of 15. The inside is the
+  whole-twip size in pixels, rounded to the nearest pixel, less the border, and no tie is left to break.
+- **What this overturned:** the probe was written to find which way 206.5 pixels rounds. That question has no answer,
+  because the size never reaches the pixels with a half in it.
+
+**Where main differs.** Main `ef65c5d96` ran the same `.frm` through a Debug `HexIDE.Standalone` on Windows.
+- **Width and Height read back as VB6 reads them** in every row, 3082, 3098 and 3112 included.
+- **At load, the inside keeps the half twip, and isn't whole pixels.** The 3D box at 3082.5 reads `ScaleWidth` 3022.5,
+  where VB6 reads 3015, and the borderless box at 3097.5 reads 3097.5, where VB6 reads 3105.
+- **On assignment, the inside is whole twips but not whole pixels.** The 3D box assigned 3082.5 reads 3022, where VB6
+  reads 3015. Assigned 3090 and 3105, whole pixels, main matches.
+
+**Not measured:**
+- a half twip on another control, or on a form;
+- `Left` and `Top` with a half twip;
+- a half unit in another `ScaleMode`, such as 206.5 assigned in pixels;
+- other dpi settings.
