@@ -100,3 +100,17 @@ p-code agreed on every row.
 **In HexIDE.** The language server's `INTEGERLITERAL`
 (`LspServer/HexIDE.VbLspServer/Grammar/VisualBasic6Lexer.g4:541` on main `3f3ad5742`, read, not run) takes
 `('E' | 'D') INTEGERLITERAL`, which has no sign. So `1E+30` is still its syntax error. #482 tracks the fix.
+
+### A Currency suffix after a signed exponent (2026-11-21, #482, SP6)
+
+The section above's only `@` row with a sign was refused, because `1E+30` is beyond Currency's range. So its reading
+that `@` makes a Currency had no accepted signed row behind it. Three more `/make` projects, the same shape, on the
+oracle guest. VB6.EXE 6.00.9782 (SP6), MSVBVM60 6.00.9848, en-GB, native and p-code agreeing:
+
+| Literal | vb6.exe |
+|---|---|
+| `1E+3@` | Currency, 1000 |
+| `1D+3@` | Currency, 1000 |
+| `1E-3@` | Currency, 0.001 |
+
+So a signed exponent with `@` makes a Currency, as `1D3@` does above.
