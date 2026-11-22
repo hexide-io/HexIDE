@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "于 {0} 报告了问题：{1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: “{1}”中的项目本地状态名称无效：“{2}”。",
     "Str.ProjectLocalState.ChooseFormat": "发现多个项目本地状态位置。每个位置可能包含不同的已保存状态。在您为本次会话选择一个位置之前，不会写入任何内容。请输入编号，或取消：\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} 是链接或联接点，或已不在发现时的位置，因此不会从中读取或向其写入任何内容。"
+    "Str.ProjectLocalState.UnavailableFormat": "{0} 是链接或联接点，或已不在发现时的位置，因此不会从中读取或向其写入任何内容。",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} 的书签、断点和其他用户设置在本次会话中不会加载或保存。\n\n{1}"
   }
 }

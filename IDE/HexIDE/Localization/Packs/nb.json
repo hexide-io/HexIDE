@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Rapporterte et problem {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ugyldig navn på prosjektets lokale tilstand i '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Flere plasseringer for prosjektets lokale tilstand ble funnet. Hver kan inneholde ulik lagret tilstand. Ingenting skrives før du velger en for denne økten. Skriv inn nummeret, eller avbryt:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} er en lenke eller et koblingspunkt, eller finnes ikke lenger der det ble funnet, så ingenting leses fra eller skrives til det."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} er en lenke eller et koblingspunkt, eller finnes ikke lenger der det ble funnet, så ingenting leses fra eller skrives til det.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bokmerker, bruddpunkter og andre brukerspesifikke innstillinger for {0} blir verken lastet inn eller lagret i denne økten.\n\n{1}"
   }
 }

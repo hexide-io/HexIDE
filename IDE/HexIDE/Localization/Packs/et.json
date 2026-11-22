@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Probleemist teatati {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Vigane projekti kohaliku oleku nimi väljal '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Leiti mitu projekti kohaliku oleku asukohta. Igaüks võib sisaldada erinevat salvestatud olekut. Midagi ei kirjutata, kuni valid selle seansi jaoks ühe. Sisesta selle number või tühista:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} on link või ühenduspunkt või ei asu enam seal, kust see leiti, seega sealt ei loeta ega sinna kirjutata midagi."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} on link või ühenduspunkt või ei asu enam seal, kust see leiti, seega sealt ei loeta ega sinna kirjutata midagi.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Projekti {0} järjehoidjaid, katkestuspunkte ega muid kasutajapõhiseid sätteid selles seansis ei laadita ega salvestata.\n\n{1}"
   }
 }

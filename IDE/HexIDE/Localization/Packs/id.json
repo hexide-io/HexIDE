@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Masalah dilaporkan pada {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nama status lokal proyek tidak valid di '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Ditemukan beberapa lokasi status lokal proyek. Masing-masing mungkin berisi status tersimpan yang berbeda. Tidak ada yang ditulis sampai Anda memilih satu untuk sesi ini. Masukkan nomornya, atau batalkan:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} adalah tautan atau junction, atau tidak lagi berada di tempat saat ditemukan, sehingga tidak ada data yang dibaca atau ditulis di sana."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} adalah tautan atau junction, atau tidak lagi berada di tempat saat ditemukan, sehingga tidak ada data yang dibaca atau ditulis di sana.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Penanda, breakpoint, dan pengaturan per pengguna lainnya untuk {0} tidak akan dimuat atau disimpan dalam sesi ini.\n\n{1}"
   }
 }

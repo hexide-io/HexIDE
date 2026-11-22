@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Ett problem rapporterades {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ogiltigt namn på projektets lokala tillstånd i '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Flera platser för projektets lokala tillstånd hittades. Varje plats kan innehålla olika sparade tillstånd. Inget skrivs förrän du väljer en för den här sessionen. Ange numret eller avbryt:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} är en länk eller kopplingspunkt, eller finns inte längre där den hittades, så ingenting läses från eller skrivs till den."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} är en länk eller kopplingspunkt, eller finns inte längre där den hittades, så ingenting läses från eller skrivs till den.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bokmärken, brytpunkter och andra användarspecifika inställningar för {0} varken läses in eller sparas under den här sessionen.\n\n{1}"
   }
 }
