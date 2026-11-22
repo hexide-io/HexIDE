@@ -737,6 +737,7 @@ added afterwards.
 - [The Error Trapping option: where each setting breaks, and what F5 does from the break (2026-11-21, #1070, IDE, SP6)](the-error-trapping-option.md#the-error-trapping-option-where-each-setting-breaks-and-what-f5-does-from-the-break-2026-11-21-1070-ide-sp6)
 - [Indexing a call's result (2026-10-23, #1476)](indexing-a-calls-result.md#indexing-a-calls-result-2026-10-23-1476)
 - [What VB6's Add Form saves (2026-10-23, #1532, design-time, IDE, release build)](what-vb6s-add-form-saves.md#what-vb6s-add-form-saves-2026-10-23-1532-design-time-ide-release-build)
+- [A form that declares both rectangles (2026-11-21, #21, IDE, SP6)](a-form-that-declares-both-rectangles.md#a-form-that-declares-both-rectangles-2026-11-21-21-ide-sp6)
 - [What VB6's Properties window lists for a UserControl and a PropertyPage (2026-10-23, #1585, design-time, IDE)](what-vb6s-properties-window-lists-for-a-usercontrol-and-a-propertypage.md#what-vb6s-properties-window-lists-for-a-usercontrol-and-a-propertypage-2026-10-23-1585-design-time-ide)
 - [What VB6's Properties window shows a position in (2026-10-23, #1636, design-time, IDE)](what-vb6s-properties-window-shows-a-position-in.md#what-vb6s-properties-window-shows-a-position-in-2026-10-23-1636-design-time-ide)
 - [The designer's arrow keys, and the toolbar's position readout (2026-11-21, #6, #1641, design-time, IDE, SP6)](what-vb6s-properties-window-shows-a-position-in.md#the-designers-arrow-keys-and-the-toolbars-position-readout-2026-11-21-6-1641-design-time-ide-sp6)
