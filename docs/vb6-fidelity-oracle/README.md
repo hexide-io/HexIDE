@@ -652,6 +652,7 @@ added afterwards.
 - [The library's `$` forms (2026-10-15, #742, #1071)](the-librarys--forms.md#the-librarys--forms-2026-10-15-742-1071)
 - [Move, ScaleWidth and ScaleHeight (2026-10-15, #1071)](move-scalewidth-and-scaleheight.md#move-scalewidth-and-scaleheight-2026-10-15-1071)
 - [A PictureBox's ScaleWidth and ScaleHeight, by size and border (2026-11-21, #5162, `/make`, SP6)](a-pictureboxs-scalewidth-and-scaleheight-by-size-and-border.md#a-pictureboxs-scalewidth-and-scaleheight-by-size-and-border-2026-11-21-5162-make-sp6)
+- [Half-twip sizes: a PictureBox's Width and Height are whole twips first (2026-11-22, #5162, `/make`, SP6)](a-pictureboxs-scalewidth-and-scaleheight-by-size-and-border.md#half-twip-sizes-a-pictureboxs-width-and-height-are-whole-twips-first-2026-11-22-5162-make-sp6)
 - [A negative or zero control size (2026-11-16, #589)](a-negative-or-zero-control-size.md#a-negative-or-zero-control-size-2026-11-16-589)
 - [The same `.frm` in VB6's IDE (2026-11-16, #4179)](a-negative-or-zero-control-size.md#the-same-frm-in-vb6s-ide-2026-11-16-4179)
 - [A control's minimum size (2026-11-16, #4071)](a-controls-minimum-size.md#a-controls-minimum-size-2026-11-16-4071)
