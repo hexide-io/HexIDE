@@ -1948,7 +1948,7 @@ public class MainViewViewModelTests
     [AvaloniaFact]
     public void A_compile_error_at_start_with_a_location_still_offers_only_End()
     {
-        // #3960 adds metadata, not a debugger halt; #833 owns the unmeasured dialog decision.
+        // #3960 adds metadata; #833 leaves pre-start compile errors on this failed-start route.
         const string text = "Compile error:\n\n+= isn't part of VB6, VBA or VBScript, so this interpreter doesn't run it.";
         var at = new ErrorLocation("Module1", 3);
         _runnerService.FailureLocation.Returns(at);
