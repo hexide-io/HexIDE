@@ -384,7 +384,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | String, numeric, boolean editors | Done | |
 | Colour picker editor | Done | |
 | Font picker editor | Done | |
-| Load/export picture property | Done | Right-click Picture, Icon, MouseIcon or DragIcon to export a VB6-framed StdPicture payload (#159). The row’s ... button loads a picture through the IDE file picker as one undo step, validated by the existing BMP/ICO reader and saved through the companion writer (#2653). No OCX property-bag export |
+| Load, export and clear picture properties | Done | Right-click Picture, Icon, MouseIcon or DragIcon to export a VB6-framed StdPicture payload (#159). The row’s ... button loads a picture through the IDE file picker as one undo step, validated by the existing BMP/ICO reader and saved through the companion writer (#2653). The read-only value cell shows the measured VB6 picture kind. Delete with focus in the cell clears the picture as one undoable edit (#2715, #2872). No OCX property-bag export |
 | Enum / dropdown editor | Done | MousePointer defaults to `0 - Default` on forms and supported intrinsic controls; saves omit 0 and retain nondefault values (#1970), matching the [measured defaults](vb6-fidelity-oracle/mousepointers-names-and-pointers.md#the-default-on-the-form-and-every-intrinsic-control-2026-10-27-1970). |
 | Property value validation | Done | Negative Width/Height are refused before conversion or mutation, through the same check as the three designer automation tools (#589). Zero and small sizes retain existing behaviour; design-time floors are unmeasured. Live check pending (hexide-mcp). |
 | Real-time sync with designer | Done | Bidirectional |
