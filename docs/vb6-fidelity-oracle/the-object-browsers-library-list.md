@@ -218,3 +218,59 @@ The first row shows `Picture`'s declaration; the other four differ in the same w
 - the icons that mark each kind.
 
 **In HexIDE.** #5293 tracks the Form class's member table.
+
+## A control array, menus, a UserControl and a class module in the Object Browser (2026-11-22, #1968, design-time, IDE, SP6)
+
+**The question.** Four of the cases "A form's members in the Object Browser" left unmeasured: how a control array and
+menus are listed among a form's members, and what a UserControl and a class module list.
+
+### The probe
+
+As in that section, with VB6's IDE, SP6 (VB6.EXE 6.00.9782), in a clone of the oracle guest, and one fresh vb6.exe. A
+Standard EXE project, `Project1`, held three components:
+- **`Form1`:** a CommandButton array, `Command1(0)` and `Command1(1)`, and a menu, `mnuFile`, holding `mnuOpen`. No code.
+- **`UserControl1`,** private to the project: one TextBox, `Text1`, and `Public Sub Ping()`.
+- **`Class1`:** `Public Sub Ping()` and `Private Sub Class_Initialize()`.
+
+With the library set to `Project1`, the Classes list was walked. Then each class was selected with Home and Downs, and
+its Members list walked from Home.
+
+### What VB6 lists
+
+**The classes:** `<globals>`, then `Private Class Class1`, `Private Class Form1` and `Private Class UserControl1`, each
+a member of `Project1`.
+
+| Class | Members | What they are |
+|---|---|---|
+| `Class1` | 2 | `Private Sub Class_Initialize()` and `Public Sub Ping()`, members of `Project1.Class1` |
+| `Form1` | 89 | the 86 Form members; `WithEvents Command1 As CommandButton`, **once**; `WithEvents mnuFile As Menu`; `WithEvents mnuOpen As Menu` |
+| `UserControl1` | 86 | the UserControl class's 84; `WithEvents Text1 As TextBox`; `Public Sub Ping()` |
+
+- **Every list was in case-insensitive alphabetical order.**
+- **Each `WithEvents` line was read-only.** On `UserControl1`, `Text1` was a member of `Unknown2._UserControl`, as the
+  class's own members were, and `Ping` a member of `Project1.UserControl1`.
+- **The control array's line** was the same as a single control's in the earlier section.
+
+**The UserControl class's 84 members:**
+
+| Kind | Members |
+|---|---|
+| Read-only properties, 17 | ActiveControl, Ambient, ContainedControls, ContainerHwnd, Controls, Count, DataMembers, EventsFrozen, Extender, HasDC, hDC, hWnd, Hyperlink, Image, Name, Parent, ParentControls |
+| Other properties, 45 | AccessKeys, Appearance, AutoRedraw, BackColor, BackStyle, BorderStyle, ClipBehavior, ClipControls, CurrentX, CurrentY, DrawMode, DrawStyle, DrawWidth, Enabled, FillColor, FillStyle, Font, FontBold, FontItalic, FontName, FontSize, FontStrikethru, FontTransparent, FontUnderline, ForeColor, Height, HitBehavior, KeyPreview, MaskColor, MaskPicture, MouseIcon, MousePointer, OLEDropMode, Palette, PaletteMode, Picture, PropertyPages, RightToLeft, ScaleHeight, ScaleLeft, ScaleMode, ScaleTop, ScaleWidth, Tag, Width |
+| Subs, 16 | AsyncRead, CancelAsyncRead, Circle, Cls, DataMemberChanged, Line, OLEDrag, PaintPicture, PopupMenu, PropertyChanged, PSet, Refresh, Scale, SetFocus, Size, ValidateControls |
+| Functions, 6 | CanPropertyChange, Point, ScaleX, ScaleY, TextHeight, TextWidth |
+
+`PropertyPages` is declared `Property PropertyPages(Integer) As String`.
+
+### Readings
+
+- **A control array is one member,** declared as a single control is.
+- **Every menu item is a member,** a submenu as well as its parent.
+- **A UserControl lists as a form does,** with its own class in place of Form: the class's properties and methods, its
+  controls and its code, and no class events.
+- **A class module lists only what its code declares,** a private event procedure included.
+
+**Not measured:**
+- an MDIForm, an MDI child, and a PropertyPage;
+- a UserControl's `Event` declared in its code;
+- whether Show Hidden Members adds any.
