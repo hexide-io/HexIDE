@@ -1488,6 +1488,10 @@
     "Str.Options.Addin.ReportedFailure": "于 {0} 报告了问题：{1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: “{1}”中的项目本地状态名称无效：“{2}”。",
     "Str.ProjectLocalState.ChooseFormat": "发现多个项目本地状态位置。每个位置可能包含不同的已保存状态。在您为本次会话选择一个位置之前，不会写入任何内容。请输入编号，或取消：\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} 是链接或联接点，或已不在发现时的位置，因此不会从中读取或向其写入任何内容。"
+    "Str.ProjectLocalState.UnavailableFormat": "{0} 是链接或联接点，或已不在发现时的位置，因此不会从中读取或向其写入任何内容。",
+    "Str.Dialog.SharedFile.MultipleModified": "共享文件“{0}”的多个副本已被修改。请在下一个对话框中选择要保存的副本。",
+    "Str.Dialog.SharedFile.Update": "是否要在与 {1} 共享此文件的项目中更新 {0}？",
+    "Str.Dialog.SharedFile.DiscardChanges": "更新项目 {1} 中的 {0} 将丢弃该项目尚未保存的更改。是否继续？",
+    "Str.Dialog.SharedFile.DiskChanged": "自项目 {1} 的副本加载或保存以来，磁盘上的文件“{0}”已发生更改。是否覆盖此文件？"
   }
 }

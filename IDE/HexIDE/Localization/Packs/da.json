@@ -1488,6 +1488,10 @@
     "Str.Options.Addin.ReportedFailure": "Et problem blev rapporteret {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ugyldigt navn på projektets lokale tilstand i '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Der blev fundet flere placeringer til projektets lokale tilstand. De kan indeholde forskellig gemt tilstand. Intet skrives, før du vælger en til denne session. Indtast nummeret, eller annuller:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} er et link eller et forbindelsespunkt, eller findes ikke længere der, hvor det blev fundet, så der hverken læses fra eller skrives til det."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} er et link eller et forbindelsespunkt, eller findes ikke længere der, hvor det blev fundet, så der hverken læses fra eller skrives til det.",
+    "Str.Dialog.SharedFile.MultipleModified": "Flere kopier af den delte fil '{0}' er blevet ændret. Vælg den kopi, der skal gemmes, i den næste dialog.",
+    "Str.Dialog.SharedFile.Update": "Vil du opdatere {0} i de projekter, som deler den med {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Hvis du opdaterer {0} i projektet {1}, kasseres projektets ændringer, som ikke er gemt. Vil du fortsætte?",
+    "Str.Dialog.SharedFile.DiskChanged": "Filen '{0}' er blevet ændret på disken, siden kopien i projektet {1} blev indlæst eller gemt. Vil du overskrive den?"
   }
 }

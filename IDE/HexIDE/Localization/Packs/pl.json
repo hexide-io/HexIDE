@@ -1488,6 +1488,10 @@
     "Str.Options.Addin.ReportedFailure": "Zgłoszono problem o {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nieprawidłowa nazwa lokalnego stanu projektu w '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Znaleziono kilka lokalizacji lokalnego stanu projektu. Każda może zawierać inny zapisany stan. Nic nie zostanie zapisane, dopóki nie wybierzesz jednej dla tej sesji. Wpisz jej numer lub anuluj:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} jest łączem lub skrzyżowaniem katalogów albo nie znajduje się już tam, gdzie zostało znalezione, więc żadne dane nie są stamtąd odczytywane ani tam zapisywane."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} jest łączem lub skrzyżowaniem katalogów albo nie znajduje się już tam, gdzie zostało znalezione, więc żadne dane nie są stamtąd odczytywane ani tam zapisywane.",
+    "Str.Dialog.SharedFile.MultipleModified": "Zmodyfikowano wiele kopii współdzielonego pliku '{0}'.  W następnym oknie dialogowym wybierz kopię do zapisania.",
+    "Str.Dialog.SharedFile.Update": "Czy chcesz zaktualizować {0} w projektach, które współdzielą ten plik z projektem {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Aktualizacja {0} w projekcie {1} spowoduje utratę niezapisanych zmian tego projektu. Czy chcesz kontynuować?",
+    "Str.Dialog.SharedFile.DiskChanged": "Plik '{0}' zmienił się na dysku od czasu wczytania lub zapisania kopii projektu {1}. Czy chcesz go zastąpić?"
   }
 }

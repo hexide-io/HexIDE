@@ -1488,6 +1488,10 @@
     "Str.Options.Addin.ReportedFailure": "{0} に問題が報告されました: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: '{1}' のプロジェクトローカル状態名が無効です: '{2}'。",
     "Str.ProjectLocalState.ChooseFormat": "プロジェクトローカル状態の保存先が複数見つかりました。それぞれに異なる状態が保存されている可能性があります。このセッションで使用する保存先を選ぶまで書き込みません。番号を入力するか、キャンセルしてください:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} はリンクまたはジャンクションであるか、検出時の場所に存在しなくなったため、読み取りも書き込みも行いません。"
+    "Str.ProjectLocalState.UnavailableFormat": "{0} はリンクまたはジャンクションであるか、検出時の場所に存在しなくなったため、読み取りも書き込みも行いません。",
+    "Str.Dialog.SharedFile.MultipleModified": "共有ファイル '{0}' の複数のコピーが変更されています。次のダイアログで保存するコピーを選択してください。",
+    "Str.Dialog.SharedFile.Update": "{1} とファイルを共有するプロジェクト内の {0} を更新しますか?",
+    "Str.Dialog.SharedFile.DiscardChanges": "プロジェクト {1} の {0} を更新すると、そのプロジェクトの未保存の変更が破棄されます。続行しますか?",
+    "Str.Dialog.SharedFile.DiskChanged": "プロジェクト {1} のコピーが読み込まれたか保存されてから、ディスク上のファイル '{0}' が変更されています。上書きしますか?"
   }
 }

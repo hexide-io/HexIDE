@@ -1488,6 +1488,10 @@
     "Str.Options.Addin.ReportedFailure": "Rapporterte et problem {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ugyldig navn på prosjektets lokale tilstand i '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Flere plasseringer for prosjektets lokale tilstand ble funnet. Hver kan inneholde ulik lagret tilstand. Ingenting skrives før du velger en for denne økten. Skriv inn nummeret, eller avbryt:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} er en lenke eller et koblingspunkt, eller finnes ikke lenger der det ble funnet, så ingenting leses fra eller skrives til det."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} er en lenke eller et koblingspunkt, eller finnes ikke lenger der det ble funnet, så ingenting leses fra eller skrives til det.",
+    "Str.Dialog.SharedFile.MultipleModified": "Flere kopier av den delte filen '{0}' er endret. Velg kopien som skal lagres, i den neste dialogboksen.",
+    "Str.Dialog.SharedFile.Update": "Vil du oppdatere {0} i prosjektene som deler filen med {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Oppdatering av {0} i prosjekt {1} forkaster prosjektets ulagrede endringer. Vil du fortsette?",
+    "Str.Dialog.SharedFile.DiskChanged": "Filen '{0}' er endret på disken siden kopien i prosjekt {1} ble lastet inn eller lagret. Vil du overskrive den?"
   }
 }

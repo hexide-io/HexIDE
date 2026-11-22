@@ -1488,6 +1488,10 @@
     "Str.Options.Addin.ReportedFailure": "Foi comunicado um problema às {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nome do estado local do projeto inválido em '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Foram encontradas várias localizações do estado local do projeto. Cada uma pode conter um estado guardado diferente. Nada será escrito até escolher uma para esta sessão. Introduza o respetivo número ou cancele:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} é uma ligação ou junção, ou já não se encontra onde foi encontrado, pelo que não é lido nem escrito qualquer dado nessa localização."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} é uma ligação ou junção, ou já não se encontra onde foi encontrado, pelo que não é lido nem escrito qualquer dado nessa localização.",
+    "Str.Dialog.SharedFile.MultipleModified": "Foram modificadas várias cópias do ficheiro partilhado '{0}'.  Na caixa de diálogo seguinte, selecione a cópia que pretende guardar.",
+    "Str.Dialog.SharedFile.Update": "Pretende atualizar {0} nos projetos que o partilham com {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "A atualização de {0} no projeto {1} irá descartar as alterações não guardadas desse projeto. Pretende continuar?",
+    "Str.Dialog.SharedFile.DiskChanged": "O ficheiro '{0}' foi alterado no disco desde que a cópia do projeto {1} foi carregada ou guardada. Pretende substituí-lo?"
   }
 }

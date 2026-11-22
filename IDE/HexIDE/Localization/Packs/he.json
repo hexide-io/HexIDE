@@ -1488,6 +1488,10 @@
     "Str.Options.Addin.ReportedFailure": "דווחה בעיה ב־{0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: שם לא תקין למצב המקומי של הפרויקט ב־'{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "נמצאו כמה מיקומים למצב המקומי של הפרויקט. כל אחד עשוי להכיל מצב שמור שונה. דבר לא ייכתב עד לבחירת אחד להפעלה זו. יש להזין את מספרו או לבטל:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} הוא קישור או צומת, או שאינו נמצא עוד במקום שבו נמצא, ולכן לא מתבצעת בו קריאה או כתיבה."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} הוא קישור או צומת, או שאינו נמצא עוד במקום שבו נמצא, ולכן לא מתבצעת בו קריאה או כתיבה.",
+    "Str.Dialog.SharedFile.MultipleModified": "כמה עותקים של הקובץ המשותף '{0}' שונו. בתיבת הדו־שיח הבאה, יש לבחור את העותק שיישמר.",
+    "Str.Dialog.SharedFile.Update": "האם לעדכן את {0} בפרויקטים המשתפים אותו עם {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "עדכון {0} בפרויקט {1} ימחק את השינויים שלא נשמרו באותו פרויקט. האם להמשיך?",
+    "Str.Dialog.SharedFile.DiskChanged": "הקובץ '{0}' השתנה בדיסק מאז טעינת העותק של פרויקט {1} או שמירתו. האם להחליף אותו?"
   }
 }

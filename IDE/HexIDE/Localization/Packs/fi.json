@@ -1488,6 +1488,10 @@
     "Str.Options.Addin.ReportedFailure": "Ongelma ilmoitettu {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Virheellinen projektin paikallisen tilan nimi kohdassa '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Projektin paikalliselle tilalle löytyi useita sijainteja. Kukin voi sisältää eri tallennetun tilan. Mitään ei kirjoiteta, ennen kuin valitset yhden tälle istunnolle. Anna sen numero tai peruuta:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} on linkki tai liitoskohta tai ei enää ole paikassa, josta se löytyi, joten siitä ei lueta eikä siihen kirjoiteta mitään."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} on linkki tai liitoskohta tai ei enää ole paikassa, josta se löytyi, joten siitä ei lueta eikä siihen kirjoiteta mitään.",
+    "Str.Dialog.SharedFile.MultipleModified": "Jaetun tiedoston '{0}' useita kopioita on muutettu. Valitse seuraavassa valintaikkunassa tallennettava kopio.",
+    "Str.Dialog.SharedFile.Update": "Haluatko päivittää tiedoston {0} projekteissa, jotka jakavat sen projektin {1} kanssa?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Tiedoston {0} päivittäminen projektissa {1} hylkää kyseisen projektin tallentamattomat muutokset. Haluatko jatkaa?",
+    "Str.Dialog.SharedFile.DiskChanged": "Tiedosto '{0}' on muuttunut levyllä sen jälkeen, kun projektin {1} kopio ladattiin tai tallennettiin. Haluatko korvata sen?"
   }
 }
