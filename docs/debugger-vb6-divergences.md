@@ -463,7 +463,9 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **Status:** **fixed** for these measured boundaries by [#2172](https://github.com/hexide-io/HexIDE/issues/2172).
   Function/Property declaration stepping and breakpoints, Property Get end stepping, early Exit and Property
   Let/Set boundaries remain unchanged pending measurement. The measured refusal of F9 on Dim is separate from
-  this fix, and whether HexIDE pauses on a `Dim` line isn't checked.
+  this fix. So is stepping: VB6's F8 never stops on a `Dim`, `Static` or `Const` line, and does stop on `ReDim`
+  (measured 2026-11-21, `docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md`).
+  HexIDE's step stops on a `Dim` line, as [#4326](https://github.com/hexide-io/HexIDE/issues/4326) records.
 
 ### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
@@ -498,9 +500,17 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **Status:** **deliberate**. Avoiding it would need an unwind that doesn't pass through each frame's await.
 
 ### D22. A compile error met while a program runs is a run-time error dialog, and the run carries on
-- **VB6:** a compile error found while the program runs, such as a call to a Sub that does not exist, is shown in
-  the compile-error box (OK and Help), and the IDE stops at that line. That is how it is commonly described; it is
-  **not yet measured** on the oracle.
+- **VB6:** measured 2026-11-21 in the IDE, SP6 (`docs/vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md`).
+  A compile error found while the program runs, such as a call to a Sub that does not exist, comes in the
+  compile-error box, "Compile error:" with OK and Help only.
+  - **With Compile On Demand on,** the default, the box comes when the procedure holding the error is first called,
+    before any of its statements run. After OK the IDE is in break mode. The execution point is on that procedure's
+    declaration line, and the offending code is selected. F5 or F8 from there raise the same box again.
+  - **With Compile On Demand off,** F5 compiles everything first. The box comes before any code runs, and the IDE
+    stays in design mode.
+  - **Either way,** a syntax error behaves the same, and code after the failing call never runs.
+  - It used to be described as "the IDE stops at that line". It stops at the procedure's declaration, with the
+    offending line selected.
 - **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error
   dialog. End is enabled; Continue, Debug and Help are not. End ends the run. Closed any other way, the dialog
   leaves the run going, with the event procedure that met the error abandoned, as after a run-time error in an
@@ -511,9 +521,8 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **Why:** one route for every error a run meets. Sub Main's compile errors already went through that dialog
   (#754), and a separate compile-error box would answer the same error two ways. A tree-walker meets a compile error
   only when it reaches the statement, so stopping before the run began is not possible for it.
-- **Status:** **open**. The one-dialog route was decided in [#759](https://github.com/hexide-io/HexIDE/issues/759);
-  the measurement, and whether to break at the line instead, is
-  [#833](https://github.com/hexide-io/HexIDE/issues/833).
+- **Status:** **open**. The one-dialog route was decided in [#759](https://github.com/hexide-io/HexIDE/issues/759). The measurement is in, and whether to
+  break at the procedure's declaration instead is [#833](https://github.com/hexide-io/HexIDE/issues/833).
 
 ### D23. An unhandled run-time error in an event procedure left the run going — FIXED
 - **VB6:** in the IDE, an unhandled run-time error stops the program at the statement and enters break mode, offering
@@ -542,12 +551,14 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   What remains in the IDE:
   - **A statement runs again whole.** That is measured, for `x = F() + 1 \ 0`, where F is called again.
   - **A condition runs again on its own,** an `ElseIf`'s, or a `Loop Until`'s without another pass through the body,
-    and so does a statement of a single-line `If`'s tail. **These are chosen, not measured.** They are the closest
-    reading of "the faulting statement", and they never repeat what came before the fault. But nothing has asked vb6.exe
-    what its F5 runs in these places ([#1079](https://github.com/hexide-io/HexIDE/issues/1079)).
-  - **A `Case` expression runs again with its `Select Case`** and the `Case`s before it. That is a limit of the walk,
-    also unmeasured.
-  - **A dialog closed without an answer** takes Debug. What VB6 does then is unmeasured.
+    and so does a statement of a single-line `If`'s tail. These were chosen as the closest reading of "the faulting
+    statement". **VB6 does the same** (measured 2026-11-21, `docs/vb6-fidelity-oracle/what-f5-runs-again-after-debug.md`).
+  - **A `Case` expression runs again with its `Select Case`** and the `Case`s before it. That is a limit of the walk.
+    **VB6 runs only the faulting `Case`'s expression again** (the same page), so this differs:
+    [#1079](https://github.com/hexide-io/HexIDE/issues/1079).
+  - **A dialog closed without an answer** takes Debug. VB6's dialog can't be closed without one. It has no close box,
+    and Escape, `SC_CLOSE` and Alt+F4 leave it up (measured 2026-11-21,
+    `docs/vb6-fidelity-oracle/closing-the-run-time-error-dialog.md`, [#607](https://github.com/hexide-io/HexIDE/issues/607)).
   - **Whether `Err` holds the error** at the break is unmeasured, and HexIDE leaves it as it was.
   - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate
     leaves unhandled is reported as before, and the run carries on.
@@ -565,6 +576,11 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **Why:** a deliberate exception to the rule that HexIDE matches the IDE where the two differ (decided 2026-10-15,
   recorded on #1011). The default stops code that handles its own errors, and following it would mean building
   "Continue from a break hands the error to the caller's handler".
+  - **That second half was an assumption, and VB6 doesn't do it.** Measured 2026-11-21
+    (`docs/vb6-fidelity-oracle/the-error-trapping-option.md`): Continue from the in-class break retries the class's
+    statement, and the caller's handler never runs.
+  - **So following the default needs no hand-off,** only the break in the class.
+  - **The decision stands as recorded.** #1070 is where it gets revisited.
 - **Status:** **by design.** An Error Trapping option, which would let a developer choose VB6's default, is
   [#1070](https://github.com/hexide-io/HexIDE/issues/1070).
 - **Numbered D24 when the decision was recorded** on #1011's branch, and renumbered when merging main brought in main's
@@ -712,8 +728,9 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **Status:** **partial by design** for design-time and after-End name resolution (above). Context selection and
   storage remain, as #4354. Cross-module contexts are measured and followed since #4481: a procedure's or class's watch
   reads its frame below the paused one in any module, and a standard module's watch is live wherever the program is
-  paused. Recursion, frames more than one level down across modules, Break When types and running-state refresh were
-  not measured and keep their previous behavior.
+  paused. Recursion, frames more than one level down across modules and running-state refresh were not measured and
+  keep their previous behavior. *Break When Value Is True* has since been measured for each kind of value (2026-11-21,
+  `docs/vb6-fidelity-oracle/break-when-value-is-true.md`), and HexIDE differs on Strings: [#869](https://github.com/hexide-io/HexIDE/issues/869).
 
 ### D34. A watch on (All Modules), or on a standard module, doesn't evaluate in design mode (#4452, #4481)
 - **VB6:** a watch added with Module (All Modules) evaluates in design mode as well as at a break. Before the program
