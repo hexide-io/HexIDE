@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "S’ha informat d’un problema a les {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nom d’estat local del projecte no vàlid a '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "S’han trobat diverses ubicacions d’estat local del projecte. Cadascuna pot contenir un estat desat diferent. No s’escriurà res fins que en trieu una per a aquesta sessió. Introduïu-ne el número o cancel·leu:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} és un enllaç o una unió, o ja no és on es va trobar; per tant, no s’hi llegeix ni s’hi escriu res."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} és un enllaç o una unió, o ja no és on es va trobar; per tant, no s’hi llegeix ni s’hi escriu res.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Els marcadors, els punts d’interrupció i la resta de configuració per usuari de {0} no es carregaran ni es desaran en aquesta sessió.\n\n{1}"
   }
 }

@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Probleem gemeld op {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ongeldige naam voor lokale projectstatus in '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Er zijn meerdere locaties voor lokale projectstatus gevonden. Elke locatie kan een andere opgeslagen status bevatten. Er wordt niets geschreven totdat u er een voor deze sessie kiest. Voer het nummer in of annuleer:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} is een koppeling of knooppunt, of staat niet meer op de gevonden locatie. Daarom wordt daar niets gelezen of geschreven."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} is een koppeling of knooppunt, of staat niet meer op de gevonden locatie. Daarom wordt daar niets gelezen of geschreven.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bladwijzers, onderbrekingspunten en andere gebruikersinstellingen voor {0} worden in deze sessie niet geladen of opgeslagen.\n\n{1}"
   }
 }

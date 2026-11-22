@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Probléma jelentve ekkor: {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Érvénytelen projekt-helyi állapotnév itt: '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Több hely található a projekt helyi állapotához. Mindegyik más mentett állapotot tartalmazhat. Semmi sem lesz kiírva, amíg nem választ egyet ehhez a munkamenethez. Adja meg a számát, vagy szakítsa meg:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} hivatkozás vagy csatlakozási pont, vagy már nincs ott, ahol megtaláltuk, ezért sem olvasás, sem írás nem történik ezen a helyen."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} hivatkozás vagy csatlakozási pont, vagy már nincs ott, ahol megtaláltuk, ezért sem olvasás, sem írás nem történik ezen a helyen.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "A(z) {0} könyvjelzői, töréspontjai és egyéb felhasználónkénti beállításai ebben a munkamenetben nem töltődnek be, és nem is mentődnek.\n\n{1}"
   }
 }

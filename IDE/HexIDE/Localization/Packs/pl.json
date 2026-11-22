@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Zgłoszono problem o {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nieprawidłowa nazwa lokalnego stanu projektu w '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Znaleziono kilka lokalizacji lokalnego stanu projektu. Każda może zawierać inny zapisany stan. Nic nie zostanie zapisane, dopóki nie wybierzesz jednej dla tej sesji. Wpisz jej numer lub anuluj:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} jest łączem lub skrzyżowaniem katalogów albo nie znajduje się już tam, gdzie zostało znalezione, więc żadne dane nie są stamtąd odczytywane ani tam zapisywane."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} jest łączem lub skrzyżowaniem katalogów albo nie znajduje się już tam, gdzie zostało znalezione, więc żadne dane nie są stamtąd odczytywane ani tam zapisywane.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Zakładki, punkty przerwania i inne ustawienia użytkownika dla {0} nie zostaną wczytane ani zapisane w tej sesji.\n\n{1}"
   }
 }
