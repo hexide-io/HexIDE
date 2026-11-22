@@ -156,6 +156,12 @@ public class FormDeserializer
             return null;
         }
 
+        // VB6's 4.00 form upgrade preserves UseZOrder (#5274; file-format fidelity oracle, Q11).
+        using var sourceLines = new System.IO.StringReader(source);
+        if (sourceLines.ReadLine() == "VERSION 4.00" && rootComponent.Type == "VB.Form"
+            && !rootComponent.OrderedRawProperties.Any(p => p.Name.Equals("PaletteMode", StringComparison.OrdinalIgnoreCase)))
+            rootComponent.OrderedRawProperties.Add(("PaletteMode", ["   PaletteMode     =   1  'UseZOrder"]));
+
         rootComponent.Type = rootType;
 
         // Nor is a form that holds another form, or a UserControl or PropertyPage block, which read as one. Loading it
