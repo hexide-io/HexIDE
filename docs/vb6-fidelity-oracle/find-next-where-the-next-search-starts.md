@@ -90,3 +90,30 @@ the end of the selection: a one-character match finds its neighbour (`aaa`, offs
 overlaps the last (`aaaa`, offset 2).
 
 **Still not measured:** Direction Up, Find Whole Word Only, Match Case, and Replace.
+
+### Direction Up (2026-11-22, #704, SP6)
+
+One more of the items above, measured the same way with VB6.EXE 6.00.9782 (SP6), in a clone of the oracle guest. The
+Search scope was the dialog's default, Current Module. Each case started with the caret at the end of the line
+`s = "..."`, Ln 5, Col 14 for `aaa`. Direction was set with Alt+D and the key U.
+
+| Text | Find What | Keys after the first Find Next | The line read back | Found |
+|---|---|---|---|---|
+| `abab` | `ab` | Esc | `s = "abQ"` | offset 2 |
+| `abab` | `ab` | Enter, then Esc | `s = "Qab"` | offset 2, then 0 |
+| `aaaa` | `aa` | Esc | `s = "aaQ"` | offset 2 |
+| `aaaa` | `aa` | Esc, F3 | `s = "Qaa"` | offset 2, then **0, not 1** |
+| `aaa` | `aa` | Esc | `s = "aQ"` | offset 1 |
+| `aaa` | `aa` | Esc, F3 | a message box | offset 1, then none |
+
+- **With Direction Up, F3 past the first match** asked "Beginning of search scope has been reached; do you want to
+  continue from the end?", with Yes, No and Help.
+- **Enter on that box** gave "The specified region has been searched.", with OK and Help, as Direction Down does.
+
+**Readings:**
+- **Up searches back from the caret,** and the first match is the last one before it.
+- **The next Up search starts at the selection's start,** and takes only a match that ends there or before it. So
+  matches never overlap, as with Down, where the next search starts at the selection's end.
+
+**Still not measured:** Find Whole Word Only, Match Case, Replace, and the Yes of either prompt when another match lies
+before the starting point.

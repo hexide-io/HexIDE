@@ -979,6 +979,7 @@ added afterwards.
 - [List Members and Complete Word: Enter, Tab and Space (2026-11-04, #3056)](list-members-and-complete-word-enter-tab-and-space.md#list-members-and-complete-word-enter-tab-and-space-2026-11-04-3056)
 - [Find Next: where the next search starts (2026-11-21, #704, design-time, IDE, SP6)](find-next-where-the-next-search-starts.md#find-next-where-the-next-search-starts-2026-11-21-704-design-time-ide-sp6)
 - [Direction Down, and Use Pattern Matching (2026-11-21, #704, SP6)](find-next-where-the-next-search-starts.md#direction-down-and-use-pattern-matching-2026-11-21-704-sp6)
+- [Direction Up (2026-11-22, #704, SP6)](find-next-where-the-next-search-starts.md#direction-up-2026-11-22-704-sp6)
 - [The VB6 IDE's own windows: the designer's Tab, dialog keys and run mode (2026-11-16, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#the-vb6-ides-own-windows-the-designers-tab-dialog-keys-and-run-mode-2026-11-16-ide-sp6)
 - [Tab in the form designer (2026-11-16, #3399, design-time, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#tab-in-the-form-designer-2026-11-16-3399-design-time-ide-sp6)
 - [Find and Replace: their access keys (2026-11-16, #2738, IDE, SP6)](the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#find-and-replace-their-access-keys-2026-11-16-2738-ide-sp6)
