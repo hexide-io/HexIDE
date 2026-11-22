@@ -353,6 +353,11 @@ public class FormSerializer
                 && instance.GetPropertyOrDefault(VBProperties.IntervalProperty) == 0)
                 continue;
 
+            // Standard is omitted even after switching back from Graphical (measured, #913).
+            if (prop == VBProperties.ButtonStyleProperty
+                && instance.GetPropertyOrDefault(VBProperties.ButtonStyleProperty) == VBButtonStyle.Standard)
+                continue;
+
             // VB6's designer never writes a Dropdown Combo's Style, even once it was set to another and back: #926's saved
             // form has neither combo's line (measured, #1428).
             if (prop == VBProperties.ComboStyleProperty

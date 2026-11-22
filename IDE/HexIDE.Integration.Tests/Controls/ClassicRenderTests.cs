@@ -201,6 +201,132 @@ public class ClassicRenderTests
         }
     }
 
+    // #913: the runtime paint (#752) and designer paint (oracle PR #5217) agree.
+    private static FormDefinition ButtonStyleForm(int style) => new FormDeserializer().Deserialize(
+        new ProjectDefinition(VBProjectType.EXE, "P"), $$"""
+        VERSION 5.00
+        Begin VB.Form Form1
+           Begin VB.CommandButton Command1
+              BackColor = &H000000FF&
+              Style = {{style}}
+              Height = 480
+              Width = 2400
+           End
+        End
+        Attribute VB_Name = "Form1"
+
+        """.ReplaceLineEndings("\r\n"), new NullSink())!;
+
+    private static Color Pixel(Bitmap bitmap, int x, int y)
+    {
+        var pixels = new int[1];
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try
+        {
+            bitmap.CopyPixels(new PixelRect(x, y, 1, 1), handle.AddrOfPinnedObject(), 4, 4);
+            var pixel = unchecked((uint)pixels[0]);
+            return bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888
+                ? Color.FromArgb((byte)(pixel >> 24), (byte)pixel, (byte)(pixel >> 8), (byte)(pixel >> 16))
+                : Color.FromUInt32(pixel);
+        }
+        finally { handle.Free(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void CommandButton_Style_selects_the_runtime_face(int style)
+    {
+        var button = CommandButtonComponentClass.Instance.Instantiate(ButtonStyleForm(style).Components.Single(c => c.BaseClass is CommandButtonComponentClass));
+        button.Width = 160;
+        button.Height = 32;
+        button.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        button.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        using var frame = RenderOnce(button);
+        frame.Should().NotBeNull();
+        var expected = style == 1 ? Colors.Red
+            : ((ISolidColorBrush)VBColor.FromSystemColor(VbSystemColor.Btnface).ToBrush()).Color;
+        Pixel(frame!, 10, 10).Should().Be(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void CommandButton_Style_selects_the_designer_face(int style)
+    {
+        var form = ButtonStyleForm(style);
+        var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>())
+            .Initialize(form);
+        var renderer = new ControlRenderer { Width = 160, Height = 32 };
+        var window = BuildHost(renderer);
+        try
+        {
+            window.Show();
+            renderer.Component = new ComponentInstanceViewModel(designer, form.Components.Single(c => c.BaseClass is CommandButtonComponentClass));
+            Dispatcher.UIThread.RunJobs();
+            var bitmap = (Bitmap)((Image)renderer.Child!).Source!;
+            var expected = style == 1 ? Colors.Red
+                : ((ISolidColorBrush)VBColor.FromSystemColor(VbSystemColor.Btnface).ToBrush()).Color;
+            Pixel(bitmap, 10, 10).Should().Be(expected);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void CommandButton_Style_changes_repaint_the_stored_BackColor()
+    {
+        var button = (VBCommandButton)CommandButtonComponentClass.Instance.Instantiate(
+            ButtonStyleForm(1).Components.Single(c => c.BaseClass is CommandButtonComponentClass));
+        button.Width = 160;
+        button.Height = 32;
+        button.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        button.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        var window = BuildHost(button);
+        try
+        {
+            window.Show();
+            button.Style = VBButtonStyle.Standard;
+            Dispatcher.UIThread.RunJobs();
+            using var standard = window.CaptureRenderedFrame();
+            var face = ((ISolidColorBrush)VBColor.FromSystemColor(VbSystemColor.Btnface).ToBrush()).Color;
+            Pixel(standard!, 10, 10).Should().Be(face);
+
+            button.Style = VBButtonStyle.Graphical;
+            Dispatcher.UIThread.RunJobs();
+            using var graphical = window.CaptureRenderedFrame();
+            Pixel(graphical!, 10, 10).Should().Be(Colors.Red);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void CommandButton_Standard_runtime_BackColor_assignment_keeps_the_face_and_reads_back_red()
+    {
+        var component = ButtonStyleForm(0).Components.Single(c => c.BaseClass is CommandButtonComponentClass);
+        component.SetProperty(VBProperties.BackColorProperty, VBColor.FromSystemColor(VbSystemColor.Btnface));
+        var button = CommandButtonComponentClass.Instance.Instantiate(component);
+        button.Width = 160;
+        button.Height = 32;
+        button.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        button.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        var window = BuildHost(button);
+        try
+        {
+            window.Show();
+            // This assignment is unmeasured; #913 directs the same paint rule for loaded and assigned colours.
+            HexIDE.Runtime.AvaloniaInterop.AvaloniaInteroperability.TrySet(button, VBProperties.BackColorProperty,
+                new HexIDE.Runtime.Interpreter.Vb6Value(255L)).Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            using var assigned = window.CaptureRenderedFrame();
+            Pixel(assigned!, 10, 10).Should().Be(
+                ((ISolidColorBrush)VBColor.FromSystemColor(VbSystemColor.Btnface).ToBrush()).Color);
+            HexIDE.Runtime.AvaloniaInterop.AvaloniaInteroperability.TryGet(button, VBProperties.BackColorProperty,
+                out var backColor).Should().BeTrue();
+            backColor.Value.Should().Be(255L);
+        }
+        finally { window.Close(); }
+    }
+
     private static int CaptionColours(Bitmap bitmap, PixelRect region)
     {
         var pixels = new int[region.Width * region.Height];

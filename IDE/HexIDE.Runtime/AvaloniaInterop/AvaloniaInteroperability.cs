@@ -192,6 +192,8 @@ public static class AvaloniaInteroperability
         Register<VBOptionButton, VBAppearance>(VBProperties.AppearanceProperty, VBOptionButton.AppearanceProperty);
         Register<VBOptionButton, bool>(VBProperties.OptionValueProperty, VBOptionButton.ValueProperty);
 
+        Register<VBCommandButton, VBButtonStyle>(VBProperties.ButtonStyleProperty, button => button.Style,
+            (_, _) => throw TextBoxMembers.ReadOnlyAtRunTime("Style"));
         Register<VBCommandButton, bool>(VBProperties.DefaultProperty, button => button.Default, (button, value) => button.Default = value);
         Register<VBCommandButton, bool>(VBProperties.CancelProperty, button => button.Cancel, (button, value) => button.Cancel = value);
 
@@ -299,6 +301,9 @@ public static class AvaloniaInteroperability
         VBProps.RefuseIfRemoved(control);
         if (control is VBTimer && !TimerMembers.HasProperty(property.Name))
             return false;
+        // Style shares its name with other controls' properties; refuse before their conversion/checks (#913).
+        if (control is VBCommandButton && property.Name.Equals("Style", StringComparison.OrdinalIgnoreCase))
+            throw TextBoxMembers.ReadOnlyAtRunTime("Style");
         RefuseUnmeasuredColour(control, property);
         if (control is VBTimer && ControlPositions.IsPosition(property))
             throw IdentityMembers.ReadOnlyAtRunTime(property.Name);

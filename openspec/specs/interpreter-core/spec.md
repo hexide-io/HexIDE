@@ -3375,3 +3375,32 @@ implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 - **WHEN** it loads
 - **THEN** Width, Height, ScaleWidth and ScaleHeight read 2610, 2955, 2520 and 2520
 - **AND** its window has a caption bar
+
+### Requirement: CommandButton Style is readable and cannot be assigned at run time
+
+A CommandButton’s Style SHALL read as Integer 0 (Standard) or 1 (Graphical). Assigning Style SHALL
+raise 382, "'Style' property cannot be set at run time", and leave Style unchanged. Standard SHALL
+paint the button-face system colour regardless of stored BackColor; Graphical SHALL paint BackColor.
+
+#### Scenario: An Object cannot change a Graphical button’s Style
+
+- **GIVEN** an Object holding a Graphical CommandButton
+- **WHEN** code assigns its Style to 0 under On Error Resume Next
+- **THEN** Err.Number is 382 and Err.Description is "'Style' property cannot be set at run time"
+- **AND** Style remains Integer 1
+
+#### Scenario: Direct assignment uses the interpreter’s execution policy
+
+- **WHEN** code directly assigns `Command1.Style = 1`
+- **THEN** the interpreter raises the same 382 when the statement runs
+- **AND** VB6’s compile-time rejection is documented as a difference in evaluation point
+
+#### Scenario: Code sets a Standard button’s BackColor
+
+- **WHEN** code assigns BackColor on a Standard button
+- **THEN** it keeps painting the button face and reads back the assigned BackColor
+- **AND** this follows #913’s decision to share the loaded-colour paint rule, rather than a measurement of that assignment
+
+CallByName remains outside this requirement (#4520). Authority:
+[Style measurements](../../../docs/vb6-fidelity-oracle/a-commandbuttons-style-assigned-from-code-and-painted-in-the-designer.md)
+and [loaded runtime paint](../../../docs/vb6-fidelity-oracle/a-form-based-games-runtime-surface.md).
