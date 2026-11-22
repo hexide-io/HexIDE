@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Problemă raportată la {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nume nevalid pentru starea locală a proiectului în '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "S-au găsit mai multe locații pentru starea locală a proiectului. Fiecare poate conține o stare salvată diferită. Nu se va scrie nimic până nu alegeți una pentru această sesiune. Introduceți numărul sau anulați:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} este o legătură sau o joncțiune ori nu se mai află unde a fost găsit, așa că nu se citește și nu se scrie nimic în acea locație."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} este o legătură sau o joncțiune ori nu se mai află unde a fost găsit, așa că nu se citește și nu se scrie nimic în acea locație.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Semnele de carte, punctele de întrerupere și celelalte setări per utilizator pentru {0} nu vor fi încărcate și nici salvate în această sesiune.\n\n{1}"
   }
 }

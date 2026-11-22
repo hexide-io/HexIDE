@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Apie problemą pranešta {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Netinkamas projekto vietinės būsenos pavadinimas lauke '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Rastos kelios projekto vietinės būsenos vietos. Kiekvienoje gali būti skirtinga išsaugota būsena. Nieko nebus rašoma, kol nepasirinksite vienos šiam seansui. Įveskite jos numerį arba atšaukite:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} yra saitas arba jungties taškas, arba nebėra ten, kur buvo rastas, todėl iš jo nieko neskaitoma ir į jį nieko nerašoma."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} yra saitas arba jungties taškas, arba nebėra ten, kur buvo rastas, todėl iš jo nieko neskaitoma ir į jį nieko nerašoma.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} žymelės, stabdos taškai ir kiti naudotojo nustatymai šioje sesijoje nebus nei įkelti, nei įrašyti.\n\n{1}"
   }
 }

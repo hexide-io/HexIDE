@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Par problēmu ziņots {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nederīgs projekta lokālā stāvokļa nosaukums laukā '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Atrastas vairākas projekta lokālā stāvokļa atrašanās vietas. Katrā var būt atšķirīgs saglabātais stāvoklis. Nekas netiks rakstīts, līdz izvēlēsieties vienu šai sesijai. Ievadiet tās numuru vai atceliet:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} ir saite vai savienojuma punkts, vai vairs neatrodas vietā, kur tas tika atrasts, tāpēc no tā nekas netiek lasīts un tajā nekas netiek rakstīts."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} ir saite vai savienojuma punkts, vai vairs neatrodas vietā, kur tas tika atrasts, tāpēc no tā nekas netiek lasīts un tajā nekas netiek rakstīts.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} grāmatzīmes, pārtraukumpunkti un citi lietotāja iestatījumi šajā sesijā netiks ne ielādēti, ne saglabāti.\n\n{1}"
   }
 }

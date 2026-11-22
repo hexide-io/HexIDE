@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "{0} に問題が報告されました: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: '{1}' のプロジェクトローカル状態名が無効です: '{2}'。",
     "Str.ProjectLocalState.ChooseFormat": "プロジェクトローカル状態の保存先が複数見つかりました。それぞれに異なる状態が保存されている可能性があります。このセッションで使用する保存先を選ぶまで書き込みません。番号を入力するか、キャンセルしてください:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} はリンクまたはジャンクションであるか、検出時の場所に存在しなくなったため、読み取りも書き込みも行いません。"
+    "Str.ProjectLocalState.UnavailableFormat": "{0} はリンクまたはジャンクションであるか、検出時の場所に存在しなくなったため、読み取りも書き込みも行いません。",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} のブックマーク、ブレークポイント、その他のユーザーごとの設定は、このセッションでは読み込まれず、保存もされません。\n\n{1}"
   }
 }

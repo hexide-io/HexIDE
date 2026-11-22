@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Problema segnalato alle {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nome dello stato locale del progetto non valido in '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Sono state trovate più posizioni dello stato locale del progetto. Ognuna può contenere uno stato salvato diverso. Non verrà scritto nulla finché non ne verrà scelta una per questa sessione. Immettere il numero o annullare:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} è un collegamento o una giunzione, oppure non si trova più dove è stato rilevato, quindi non viene letto né scritto alcun dato in tale posizione."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} è un collegamento o una giunzione, oppure non si trova più dove è stato rilevato, quindi non viene letto né scritto alcun dato in tale posizione.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "I segnalibri, i punti di interruzione e le altre impostazioni per utente di {0} non verranno caricati né salvati in questa sessione.\n\n{1}"
   }
 }
