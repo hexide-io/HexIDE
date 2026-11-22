@@ -18,7 +18,7 @@
     "FindCommand":                             "Ctrl+F",
     "FindNextCommand":                         "F3",
     "ReplaceCommand":                          "Ctrl+H",
-    "IndentCommand":                           "Ctrl+Tab",
+    "IndentCommand":                           "Tab",
     "OutdentCommand":                          "Shift+Tab",
     "ListPropertiesMethodsCommand":            "Ctrl+J",
     "ListConstantsCommand":                    "Ctrl+Shift+J",

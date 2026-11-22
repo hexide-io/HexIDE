@@ -59,7 +59,11 @@ public class ApplicationCommands
     public static readonly RoutedCommand FindCommand = new RoutedCommand(nameof(FindCommand), new KeyGesture(Key.F, GetPlatformCommandKey()));
     public static readonly RoutedCommand FindNextCommand = new RoutedCommand(nameof(FindNextCommand), new KeyGesture(Key.F3));
     public static readonly RoutedCommand ReplaceCommand = new RoutedCommand(nameof(ReplaceCommand), GetReplaceKeyGesture());
-    public static readonly RoutedCommand IndentCommand = new RoutedCommand(nameof(IndentCommand), new KeyGesture(Key.Tab, GetPlatformCommandKey()));
+    public static readonly RoutedCommand IndentCommand = new RoutedCommand(nameof(IndentCommand), new KeyGesture(Key.Tab))
+    {
+        // Let the text area offer Tab to completion and snippets before indenting.
+        NativeGesture = new KeyGesture(Key.Tab)
+    };
     public static readonly RoutedCommand OutdentCommand = new RoutedCommand(nameof(OutdentCommand), new KeyGesture(Key.Tab, KeyModifiers.Shift));
     public static readonly RoutedCommand InsertFileCommand = new RoutedCommand(nameof(InsertFileCommand));
     public static readonly RoutedCommand ListPropertiesMethodsCommand = new RoutedCommand(nameof(ListPropertiesMethodsCommand), new KeyGesture(Key.J, GetPlatformCommandKey()));

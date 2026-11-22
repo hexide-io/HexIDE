@@ -31,6 +31,13 @@ public sealed class KeymapServiceTests : IDisposable
         JsonDocument.Parse(File.ReadAllText(path)).RootElement.GetProperty("bindings").EnumerateObject().Should().BeEmpty();
     }
 
+    [Fact]
+    public void IndentDefaultsToPlainTab()
+    {
+        // VB6 SP6 measurement: docs/vb6-fidelity-oracle/indent-outdent-and-ctrl-tab-in-the-code-window.md.
+        ApplicationCommands.IndentCommand.Gestures.Should().Equal(new KeyGesture(Key.Tab, KeyModifiers.None));
+    }
+
     [AvaloniaFact]
     public void DefaultPackDocumentsEveryDeclaredBinding()
     {
