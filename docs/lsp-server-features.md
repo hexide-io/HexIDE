@@ -97,7 +97,10 @@ highlight. Four copies of the rule would drift.
     qualifiers name** — VB6 gives them by position;
   - `VB_Var…` lines under a module-level variable's or constant's declaration are that line's when they name
     what it declares, or, on a line declaring one name, when they name something nothing in the module
-    declares, which is what retyping the variable's name leaves behind.
+    declares, which is what retyping the variable's name leaves behind. For this check, procedure names
+    count wherever they occur; variables and constants count only before the first body-opening line,
+    and designer names count. Procedure locals do not count ([#1013](https://github.com/hexide-io/HexIDE/issues/1013);
+    [oracle measurement](vb6-fidelity-oracle/member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#a-local-of-the-stale-name-changes-nothing-2026-11-21-1013-ide-sp6)).
 - **Anything else is an orphan**: a run under a blank line, a comment or a body statement, a run mixing the
   two kinds, a variable attribute away from its variable. An orphan is ordinary text here as it is in the
   IDE, and a damaged one is reported like any other line.
@@ -121,10 +124,6 @@ comparison would pass over the inline files and the demos alone. The inline file
 orphan and no rename's leftover, and each of the reader's rules is decided by one shape in them. Formatting
 is checked exactly: every line is given two trailing spaces, so the lines the answer changes must be exactly
 the non-empty lines outside the IDE's regions.
-
-- ◐ A local declared anywhere in the module counts as a name the module declares, so a `Dim Count` inside
-  any procedure turns a renamed variable's `Attribute Count.VB_VarDescription` from that variable's run into
-  an orphan, in both copies of the rule ([#1013](https://github.com/hexide-io/HexIDE/issues/1013)).
 
 ---
 

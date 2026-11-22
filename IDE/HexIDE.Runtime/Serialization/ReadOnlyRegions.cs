@@ -259,8 +259,9 @@ public static class ReadOnlyRegions
     /// (<see cref="NamesDeclaredOn(string, int, int)"/>), and, for the renamed kind alone, every line of the
     /// module and the designer block for the names they write, and the module for where its first procedure
     /// starts. That is collection, not binding: a qualifier is compared with names written down, and never
-    /// resolved to a declaration. The module's names err towards too many, a procedure's locals included, which
-    /// errs towards an orphan and never towards giving a run to a member whose name it does not carry.
+    /// resolved to a declaration. The module's names follow MemberDeclarations: procedures wherever they occur,
+    /// variables and constants only before the first body-opening line, and designer names; never locals
+    /// (oracle, "A local of the stale name changes nothing", #1013).
     /// </para>
     /// </remarks>
     public static IReadOnlyList<MemberRun> MemberRuns(string text, int prefixLength) => Scan(text, prefixLength).Runs;
@@ -556,18 +557,23 @@ public static class ReadOnlyRegions
             return firstBody.Value;
         }
 
-        // Every name the module writes a declaration of, read the same way from every logical line, a procedure's
-        // own locals included, and the designer block's controls.
+        // The same declarations-section rule as MemberDeclarations, plus the designer block's controls.
+        // Locals do not count (oracle, "A local of the stale name changes nothing", #1013).
         HashSet<string> ModuleNames()
         {
             if (moduleNames is null)
             {
                 moduleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 AddDesignerNames(text, lines, headerLines, moduleNames);
-                foreach (var line in logical)
+                var first = FirstBody();
+                for (var i = 0; i < logical.Count; i++)
                 {
+                    var line = logical[i];
                     foreach (var d in ReadDeclarations(text, lines[line.First].Start, lines[line.Last].ContentEnd, out _))
-                        moduleNames.Add(d.Name);
+                    {
+                        if (d.Kind == DeclarationKind.Procedure || i < first)
+                            moduleNames.Add(d.Name);
+                    }
                 }
             }
             return moduleNames;
