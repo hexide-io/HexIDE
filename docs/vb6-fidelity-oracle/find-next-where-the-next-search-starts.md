@@ -63,3 +63,30 @@ The message box is titled "Microsoft Visual Basic" and says "The specified regio
 **In HexIDE.** With a selection, `FindReplaceViewModel.FindNext` starts a Down search at `startOffset + 1`
 (`IDE/HexIDE/Forms/ViewModels/FindReplaceViewModel.cs:541`), and `FindNextRegex` does the same (`:615`). That is read
 from main `3f3ad5742`, not run. #704 tracks the fix.
+
+### Direction Down, and Use Pattern Matching (2026-11-21, #704, SP6)
+
+Two of the *Not measured* items above, measured the same way on the oracle guest with VB6.EXE 6.00.9782 (SP6). Direction
+was set with Alt+D and the key D, and pattern matching with Alt+U, using the access keys "Find and Replace: their access
+keys" records. Alt+F then went back to Find What before Enter.
+
+| Text | Find What | Options | Keys after the first Find Next | The line read back | The second search |
+|---|---|---|---|---|---|
+| `abab` | `ab` | Direction Down | Enter | `s = "abQ"` | found offset 2 |
+| `aaaa` | `aa` | Direction Down | Esc, F3 | `s = "aaQ"` | found offset 2, not 1 |
+| `aaa` | `aa` | Direction Down | Esc, F3 | a message box, then a second one | found nothing |
+| `aaa` | `a` | Use Pattern Matching | Esc, F3 | `s = "aQa"` | found offset 1 |
+| `aaaa` | `a?` | Use Pattern Matching | Esc, F3 | `s = "aaQ"` | found offset 2, not 1 |
+
+- **With Direction Down,** F3 past the last match first asks "End of search scope has been reached; do you want to
+  continue from the beginning?", with Yes, No and Help, and Yes the default. Enter on Yes then gave "The specified
+  region has been searched." A screenshot shows the first box, with the match at offset 0 still selected.
+- **The pattern rows started with the caret on the `s =` line.** Two first attempts started on the `Dim` line, as the
+  rows above do. With Match Case off, `a` matched the `A` of `As` there, and `a?` matched `As`. So those attempts read
+  the wrong match, and they're not counted.
+
+**Readings:** Direction Down agrees with All, and pattern matching agrees with plain text. The next search starts at
+the end of the selection: a one-character match finds its neighbour (`aaa`, offset 1), and a two-character match never
+overlaps the last (`aaaa`, offset 2).
+
+**Still not measured:** Direction Up, Find Whole Word Only, Match Case, and Replace.
