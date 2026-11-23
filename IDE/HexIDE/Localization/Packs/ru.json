@@ -1542,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "Сервер не инициализирован: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Проверка подключения к языковому серверу",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ещё не запускала этот элемент и не подключалась к нему, либо он с тех пор изменился. Согласие запускает программу на этом компьютере или подключает к этому адресу.",
-    "Str.Tool.LanguageServers.Trial.Run": "Запустить"
+    "Str.Tool.LanguageServers.Trial.Run": "Запустить",
+    "Str.Dialog.MenuEditor.Msg.NoName": "Элемент меню должен иметь имя",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Недопустимое имя объекта: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Элемент массива элементов меню должен иметь индекс",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Индексы массива элементов меню должны идти в порядке возрастания",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' — имя элемента управления"
   }
 }

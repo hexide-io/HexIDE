@@ -2,6 +2,11 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menu-kontrolak izena izan behar du",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Objektu-izen baliogabea: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Menu-kontrolen matrizeko elementuak indizea izan behar du",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Menu-kontrolen matrizeko indizeek goranzko ordenan egon behar dute",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' kontrol-izena da",
     "Str.Dialog.MakeProjectGroup.Projects": "Konpilatu proiektu hauek:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Erabili konpilazio-aukera lehenetsiak",
     "Str.Dialog.MakeProjectGroup.Build": "Konpilatu",

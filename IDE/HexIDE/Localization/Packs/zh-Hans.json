@@ -1542,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "服务器未初始化：{0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "测试语言服务器连接",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE 以前未启动或连接过此条目，或者它自上次以来已更改。同意后，将在此计算机上启动程序或连接到此地址。",
-    "Str.Tool.LanguageServers.Trial.Run": "运行"
+    "Str.Tool.LanguageServers.Trial.Run": "运行",
+    "Str.Dialog.MenuEditor.Msg.NoName": "菜单控件必须有名称",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "无效的对象名: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "菜单控件数组元素必须有索引",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "菜单控件数组索引必须按升序排列",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' 是控件名称"
   }
 }

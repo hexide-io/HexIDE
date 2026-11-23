@@ -2,6 +2,11 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "メニュー コントロールには名前が必要です",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "オブジェクト名が不正です: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "メニュー コントロール配列の要素にはインデックスが必要です",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "メニュー コントロール配列のインデックスは昇順でなければなりません",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' はコントロール名です",
     "Str.Dialog.MakeProjectGroup.Projects": "次のプロジェクトをビルド:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "既定のビルド オプションを使用する",
     "Str.Dialog.MakeProjectGroup.Build": "ビルド",

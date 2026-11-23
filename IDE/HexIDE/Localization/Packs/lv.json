@@ -2,6 +2,11 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Izvēlnes vadīklai jābūt nosaukumam",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nederīgs objekta nosaukums: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Izvēlnes vadīklu masīva elementam jābūt indeksam",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Izvēlnes vadīklu masīva indeksiem jābūt augošā secībā",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' ir vadīklas nosaukums",
     "Str.Dialog.MakeProjectGroup.Projects": "Būvēt šādus projektus:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Izmantot noklusējuma būvēšanas opcijas",
     "Str.Dialog.MakeProjectGroup.Build": "Būvēt",

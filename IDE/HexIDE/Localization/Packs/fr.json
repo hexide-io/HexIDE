@@ -2,6 +2,11 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Le contrôle de menu doit avoir un nom",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nom d’objet non valide : '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "L’élément du groupe de contrôles de menu doit avoir un indice",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Les indices du groupe de contrôles de menu doivent être en ordre croissant",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' est un nom de contrôle",
     "Str.Dialog.MakeProjectGroup.Projects": "Compiler les projets suivants :",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Utiliser les options de compilation par défaut",
     "Str.Dialog.MakeProjectGroup.Build": "Compiler",

@@ -2,6 +2,11 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Kontrolka menu musi mieć nazwę",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nieprawidłowa nazwa obiektu: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Element tablicy kontrolek menu musi mieć indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeksy tablicy kontrolek menu muszą być w kolejności rosnącej",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' jest nazwą kontrolki",
     "Str.Dialog.MakeProjectGroup.Projects": "Kompiluj następujące projekty:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Użyj domyślnych opcji kompilacji",
     "Str.Dialog.MakeProjectGroup.Build": "Kompiluj",

@@ -1542,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "เซิร์ฟเวอร์ไม่ได้เริ่มต้น: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "ทดสอบการเชื่อมต่อเซิร์ฟเวอร์ภาษา",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ยังไม่เคยเริ่มหรือเชื่อมต่อกับรายการนี้ หรือรายการนี้เปลี่ยนแปลงไปแล้ว การยอมรับจะเริ่มโปรแกรมบนคอมพิวเตอร์นี้หรือเชื่อมต่อกับที่อยู่นี้",
-    "Str.Tool.LanguageServers.Trial.Run": "เรียกใช้"
+    "Str.Tool.LanguageServers.Trial.Run": "เรียกใช้",
+    "Str.Dialog.MenuEditor.Msg.NoName": "ตัวควบคุมเมนูต้องมีชื่อ",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "ชื่อวัตถุไม่ถูกต้อง: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "สมาชิกอาร์เรย์ตัวควบคุมเมนูต้องมีดัชนี",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "ดัชนีอาร์เรย์ตัวควบคุมเมนูต้องเรียงจากน้อยไปมาก",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' เป็นชื่อตัวควบคุม"
   }
 }

@@ -2,6 +2,11 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menüüjuhtelemendil peab olema nimi",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Lubamatu objektinimi: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Menüüjuhtelementide massiivi elemendil peab olema indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Menüüjuhtelementide massiivi indeksid peavad olema kasvavas järjekorras",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' on juhtelemendi nimi",
     "Str.Dialog.MakeProjectGroup.Projects": "Koosta järgmised projektid:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Kasuta koostamise vaikesätteid",
     "Str.Dialog.MakeProjectGroup.Build": "Koosta",

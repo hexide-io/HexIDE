@@ -2,6 +2,11 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Контролата на менюто трябва да има име",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Невалидно име на обект: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Елементът на масива от контроли на менюто трябва да има индекс",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Индексите на масива от контроли на менюто трябва да са във възходящ ред",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' е име на контрола",
     "Str.Dialog.MakeProjectGroup.Projects": "Компилиране на следните проекти:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Използване на опциите за компилиране по подразбиране",
     "Str.Dialog.MakeProjectGroup.Build": "Компилиране",

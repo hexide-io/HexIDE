@@ -1542,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "Strežnik ni bil inicializiran: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Preizkusi povezavo z jezikovnim strežnikom",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE tega še ni zagnal ali se s tem povezal oziroma se je to od takrat spremenilo. S soglasjem se zažene program v tem računalniku ali vzpostavi povezava s tem naslovom.",
-    "Str.Tool.LanguageServers.Trial.Run": "Zaženi"
+    "Str.Tool.LanguageServers.Trial.Run": "Zaženi",
+    "Str.Dialog.MenuEditor.Msg.NoName": "Kontrolnik menija mora imeti ime",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Neveljavno ime predmeta: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Element polja kontrolnikov menija mora imeti indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeksi polja kontrolnikov menija morajo biti v naraščajočem vrstnem redu",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' je ime kontrolnika"
   }
 }

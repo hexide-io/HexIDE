@@ -2,6 +2,11 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menu control must have a name",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Not a legal object name: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Menu control array element must have an index",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Menu control array indexes must be in ascending order",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' is a control name",
     "Str.Dialog.MakeProjectGroup.Projects": "Build the following projects:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Use Default Build Options",
     "Str.Dialog.MakeProjectGroup.Build": "Build",

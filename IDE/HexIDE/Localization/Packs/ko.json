@@ -2,6 +2,11 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "메뉴 컨트롤에는 이름이 있어야 합니다",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "올바르지 않은 개체 이름: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "메뉴 컨트롤 배열 요소에는 인덱스가 있어야 합니다",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "메뉴 컨트롤 배열 인덱스는 오름차순이어야 합니다",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}'은(는) 컨트롤 이름입니다",
     "Str.Dialog.MakeProjectGroup.Projects": "다음 프로젝트 빌드:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "기본 빌드 옵션 사용",
     "Str.Dialog.MakeProjectGroup.Build": "빌드",

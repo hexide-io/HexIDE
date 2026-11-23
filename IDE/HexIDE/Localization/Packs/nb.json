@@ -2,6 +2,11 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menykontrollen må ha et navn",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Ugyldig objektnavn: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elementet i menykontrollmatrisen må ha en indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeksene i menykontrollmatrisen må være i stigende rekkefølge",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' er et kontrollnavn",
     "Str.Dialog.MakeProjectGroup.Projects": "Bygg følgende prosjekter:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Bruk standardalternativer for bygging",
     "Str.Dialog.MakeProjectGroup.Build": "Bygg",

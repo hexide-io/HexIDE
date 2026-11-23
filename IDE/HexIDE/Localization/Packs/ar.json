@@ -2,6 +2,11 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "يجب أن يكون لعنصر تحكم القائمة اسم",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "اسم كائن غير صالح: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "يجب أن يكون لعنصر مصفوفة عناصر تحكم القائمة فهرس",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "يجب أن تكون فهارس مصفوفة عناصر تحكم القائمة بترتيب تصاعدي",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' هو اسم عنصر تحكم",
     "Str.Dialog.MakeProjectGroup.Projects": "إنشاء المشاريع التالية:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "استخدام خيارات الإنشاء الافتراضية",
     "Str.Dialog.MakeProjectGroup.Build": "إنشاء",

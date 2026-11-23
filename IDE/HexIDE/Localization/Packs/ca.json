@@ -2,6 +2,11 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "El control de menú ha de tenir un nom",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nom d’objecte no vàlid: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "L’element de la matriu de controls de menú ha de tenir un índex",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Els índexs de la matriu de controls de menú han d’estar en ordre ascendent",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' és un nom de control",
     "Str.Dialog.MakeProjectGroup.Projects": "Compila els projectes següents:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Utilitza les opcions de compilació per defecte",
     "Str.Dialog.MakeProjectGroup.Build": "Compila",

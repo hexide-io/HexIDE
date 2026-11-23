@@ -2,6 +2,11 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Il controllo di menu deve avere un nome",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nome di oggetto non valido: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "L’elemento della matrice di controlli di menu deve avere un indice",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Gli indici della matrice di controlli di menu devono essere in ordine crescente",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' è un nome di controllo",
     "Str.Dialog.MakeProjectGroup.Projects": "Compila i seguenti progetti:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Usa le opzioni di compilazione predefinite",
     "Str.Dialog.MakeProjectGroup.Build": "Compila",

@@ -2,6 +2,11 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "לפקד התפריט חייב להיות שם",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "שם אובייקט לא חוקי: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "לרכיב במערך פקדי התפריט חייב להיות אינדקס",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "האינדקסים של מערך פקדי התפריט חייבים להיות בסדר עולה",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' הוא שם של פקד",
     "Str.Dialog.MakeProjectGroup.Projects": "בנה את הפרויקטים הבאים:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "השתמש באפשרויות הבנייה המוגדרות כברירת מחדל",
     "Str.Dialog.MakeProjectGroup.Build": "בנה",

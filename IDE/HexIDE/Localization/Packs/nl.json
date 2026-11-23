@@ -2,6 +2,11 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Het menubesturingselement moet een naam hebben",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Ongeldige objectnaam: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Het element van de menubesturingselementmatrix moet een index hebben",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "De indexen van de menubesturingselementmatrix moeten in oplopende volgorde staan",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' is een naam van een besturingselement",
     "Str.Dialog.MakeProjectGroup.Projects": "De volgende projecten bouwen:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Standaardbouwopties gebruiken",
     "Str.Dialog.MakeProjectGroup.Build": "Bouwen",

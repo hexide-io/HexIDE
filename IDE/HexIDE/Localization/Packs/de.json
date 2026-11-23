@@ -2,6 +2,11 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Das Menüsteuerelement muss einen Namen haben",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Kein gültiger Objektname: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Das Element des Menüsteuerelementfelds muss einen Index haben",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Die Indizes des Menüsteuerelementfelds müssen aufsteigend sein",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' ist ein Steuerelementname",
     "Str.Dialog.MakeProjectGroup.Projects": "Folgende Projekte erstellen:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Standardoptionen für die Erstellung verwenden",
     "Str.Dialog.MakeProjectGroup.Build": "Erstellen",

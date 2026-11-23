@@ -2,6 +2,11 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menukontrolelementet skal have et navn",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Ugyldigt objektnavn: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elementet i menukontrolelementmatricen skal have et indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Menukontrolelementmatricens indeks skal være i stigende rækkefølge",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' er et kontrolelementnavn",
     "Str.Dialog.MakeProjectGroup.Projects": "Byg følgende projekter:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Brug standardindstillinger for bygning",
     "Str.Dialog.MakeProjectGroup.Build": "Byg",

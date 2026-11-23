@@ -2,6 +2,11 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Kontrola izbornika mora imati naziv",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Neispravan naziv objekta: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Element polja kontrola izbornika mora imati indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeksi polja kontrola izbornika moraju biti u uzlaznom redoslijedu",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' je naziv kontrole",
     "Str.Dialog.MakeProjectGroup.Projects": "Izgradi sljedeće projekte:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Koristi zadane mogućnosti izgradnje",
     "Str.Dialog.MakeProjectGroup.Build": "Izgradi",

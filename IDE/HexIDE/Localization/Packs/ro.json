@@ -1542,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "Serverul nu s-a inițializat: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testează conexiunea la serverul de limbaj",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE-ul nu a mai pornit sau nu s-a mai conectat la acesta ori acesta s-a modificat între timp. Acceptarea pornește un program pe acest computer sau se conectează la această adresă.",
-    "Str.Tool.LanguageServers.Trial.Run": "Execută"
+    "Str.Tool.LanguageServers.Trial.Run": "Execută",
+    "Str.Dialog.MenuEditor.Msg.NoName": "Controlul de meniu trebuie să aibă un nume",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nume de obiect nevalid: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elementul tabloului de controale de meniu trebuie să aibă un index",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indicii tabloului de controale de meniu trebuie să fie în ordine crescătoare",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' este un nume de control"
   }
 }

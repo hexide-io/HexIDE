@@ -2,6 +2,11 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "O control de menú debe ter un nome",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nome de obxecto non válido: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "O elemento da matriz de controis de menú debe ter un índice",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Os índices da matriz de controis de menú deben estar en orde ascendente",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' é un nome de control",
     "Str.Dialog.MakeProjectGroup.Projects": "Compilar os seguintes proxectos:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Usar as opcións de compilación predeterminadas",
     "Str.Dialog.MakeProjectGroup.Build": "Compilar",

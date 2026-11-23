@@ -2,6 +2,11 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Meniu valdiklis turi turėti pavadinimą",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Netinkamas objekto pavadinimas: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Meniu valdiklių masyvo elementas turi turėti indeksą",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Meniu valdiklių masyvo indeksai turi būti didėjimo tvarka",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' yra valdiklio pavadinimas",
     "Str.Dialog.MakeProjectGroup.Projects": "Kurti šiuos projektus:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Naudoti numatytąsias kūrimo parinktis",
     "Str.Dialog.MakeProjectGroup.Build": "Kurti",

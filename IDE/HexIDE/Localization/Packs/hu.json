@@ -2,6 +2,11 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "A menüvezérlőnek nevet kell adni",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Érvénytelen objektumnév: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "A menüvezérlő-tömb elemének indexszel kell rendelkeznie",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "A menüvezérlő-tömb indexeinek növekvő sorrendben kell lenniük",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' egy vezérlő neve",
     "Str.Dialog.MakeProjectGroup.Projects": "A következő projektek fordítása:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Alapértelmezett fordítási beállítások használata",
     "Str.Dialog.MakeProjectGroup.Build": "Fordítás",

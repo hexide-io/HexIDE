@@ -2,6 +2,11 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Kontrol menu harus memiliki nama",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nama objek tidak valid: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elemen larik kontrol menu harus memiliki indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeks larik kontrol menu harus berurutan naik",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' adalah nama kontrol",
     "Str.Dialog.MakeProjectGroup.Projects": "Bangun proyek berikut:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Gunakan opsi pembangunan bawaan",
     "Str.Dialog.MakeProjectGroup.Build": "Bangun",

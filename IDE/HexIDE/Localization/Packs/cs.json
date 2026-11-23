@@ -2,6 +2,11 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Ovládací prvek nabídky musí mít název",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Neplatný název objektu: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Prvek pole ovládacích prvků nabídky musí mít index",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indexy pole ovládacích prvků nabídky musí být ve vzestupném pořadí",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' je název ovládacího prvku",
     "Str.Dialog.MakeProjectGroup.Projects": "Sestavit následující projekty:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Použít výchozí možnosti sestavení",
     "Str.Dialog.MakeProjectGroup.Build": "Sestavit",
