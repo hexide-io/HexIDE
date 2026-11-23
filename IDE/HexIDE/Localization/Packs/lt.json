@@ -342,6 +342,7 @@
     "Str.Help.LogFolder.OpenFailed": "Nepavyko atverti žurnalų aplanko. Galite jį atverti rankiniu būdu: {0}",
     "Str.Menu.Help.About": "_Apie HexIDE...",
     "Str.Menu.MacApp.About": "Apie HexIDE",
+    "Str.Menu.MacApp.Settings": "Parinktys…",
     "Str.Menu.GoToGithubRepo": "Atverti GitHub saugyklą",
     "Str.ProjectType.StandardEXE": "Standartinė EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

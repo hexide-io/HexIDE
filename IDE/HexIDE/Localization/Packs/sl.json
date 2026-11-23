@@ -308,6 +308,7 @@
     "Str.Help.LogFolder.OpenFailed": "Mape dnevnikov ni bilo mogoče odpreti. Odprete jo lahko ročno: {0}",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.MacApp.About": "O programu HexIDE",
+    "Str.Menu.MacApp.Settings": "Možnosti…",
     "Str.Menu.GoToGithubRepo": "Pojdi v repozitorij GitHub",
     "Str.ProjectType.StandardEXE": "Standardni EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
