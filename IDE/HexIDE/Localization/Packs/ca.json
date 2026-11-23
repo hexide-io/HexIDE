@@ -1494,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nom d’estat local del projecte no vàlid a '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "S’han trobat diverses ubicacions d’estat local del projecte. Cadascuna pot contenir un estat desat diferent. No s’escriurà res fins que en trieu una per a aquesta sessió. Introduïu-ne el número o cancel·leu:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} és un enllaç o una unió, o ja no és on es va trobar; per tant, no s’hi llegeix ni s’hi escriu res.",
+    "Str.Dialog.SharedFile.MultipleModified": "S'han modificat diverses còpies del fitxer compartit '{0}'. Al diàleg següent, seleccioneu la còpia que s'ha de desar.",
+    "Str.Dialog.SharedFile.Update": "Voleu actualitzar {0} als projectes que el comparteixen amb {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Si actualitzeu {0} al projecte {1}, es descartaran els canvis sense desar d'aquest projecte. Voleu continuar?",
+    "Str.Dialog.SharedFile.DiskChanged": "El fitxer '{0}' ha canviat al disc des que es va carregar o desar la còpia del projecte {1}. Voleu sobreescriure'l?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Els marcadors, els punts d’interrupció i la resta de configuració per usuari de {0} no es carregaran ni es desaran en aquesta sessió.\n\n{1}"
   }
 }

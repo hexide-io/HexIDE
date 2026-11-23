@@ -1494,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Vigane projekti kohaliku oleku nimi väljal '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Leiti mitu projekti kohaliku oleku asukohta. Igaüks võib sisaldada erinevat salvestatud olekut. Midagi ei kirjutata, kuni valid selle seansi jaoks ühe. Sisesta selle number või tühista:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} on link või ühenduspunkt või ei asu enam seal, kust see leiti, seega sealt ei loeta ega sinna kirjutata midagi.",
+    "Str.Dialog.SharedFile.MultipleModified": "Jagatud faili '{0}' mitut koopiat on muudetud. Valige järgmises dialoogis koopia, mis tuleb salvestada.",
+    "Str.Dialog.SharedFile.Update": "Kas soovite värskendada faili {0} projektides, mis jagavad seda projektiga {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Faili {0} värskendamine projektis {1} tühistab selle projekti salvestamata muudatused. Kas soovite jätkata?",
+    "Str.Dialog.SharedFile.DiskChanged": "Fail '{0}' on kettal muutunud pärast projekti {1} koopia laadimist või salvestamist. Kas soovite selle üle kirjutada?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Projekti {0} järjehoidjaid, katkestuspunkte ega muid kasutajapõhiseid sätteid selles seansis ei laadita ega salvestata.\n\n{1}"
   }
 }

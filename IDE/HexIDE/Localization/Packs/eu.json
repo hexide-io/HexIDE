@@ -1494,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Proiektuaren egoera lokalaren izen baliogabea '{1}' eremuan: '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Proiektuaren egoera lokalaren hainbat kokaleku aurkitu dira. Bakoitzak gordetako egoera desberdina izan dezake. Ez da ezer idatziko saio honetarako bat aukeratu arte. Sartu haren zenbakia edo utzi:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} esteka edo juntura bat da, edo jada ez dago aurkitu zen tokian; beraz, ez da ezer irakurtzen bertatik edo idazten bertan.",
+    "Str.Dialog.SharedFile.MultipleModified": "'{0}' fitxategi partekatuaren hainbat kopia aldatu dira. Hurrengo elkarrizketa-koadroan, hautatu gorde nahi duzun kopia.",
+    "Str.Dialog.SharedFile.Update": "{0} eguneratu nahi duzu fitxategia {1} proiektuarekin partekatzen duten proiektuetan?",
+    "Str.Dialog.SharedFile.DiscardChanges": "{1} proiektuan {0} eguneratzeak proiektu horren gorde gabeko aldaketak baztertuko ditu. Jarraitu nahi duzu?",
+    "Str.Dialog.SharedFile.DiskChanged": "'{0}' fitxategia diskoan aldatu da {1} proiektuaren kopia kargatu edo gorde zenetik. Gainidatzi nahi duzu?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} proiektuaren laster-markak, eten-puntuak eta erabiltzailearen beste ezarpenak ez dira kargatuko ez gordeko saio honetan.\n\n{1}"
   }
 }

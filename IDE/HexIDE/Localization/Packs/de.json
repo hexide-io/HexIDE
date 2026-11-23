@@ -1494,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ungültiger Name für den lokalen Projektzustand in '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Mehrere Speicherorte für den lokalen Projektzustand wurden gefunden. Jeder kann einen anderen gespeicherten Zustand enthalten. Bis Sie einen für diese Sitzung auswählen, wird nichts geschrieben. Geben Sie die Nummer ein oder brechen Sie ab:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} ist ein Link oder eine Verzeichnisverbindung oder befindet sich nicht mehr am gefundenen Ort. Daher wird dort nichts gelesen oder geschrieben.",
+    "Str.Dialog.SharedFile.MultipleModified": "Mehrere Kopien der gemeinsam genutzten Datei '{0}' wurden geändert. Wählen Sie im folgenden Dialog die Kopie aus, die gespeichert werden soll.",
+    "Str.Dialog.SharedFile.Update": "Möchten Sie {0} in den Projekten aktualisieren, die diese Datei gemeinsam mit {1} nutzen?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Wenn Sie {0} im Projekt {1} aktualisieren, werden die ungespeicherten Änderungen dieses Projekts verworfen. Möchten Sie fortfahren?",
+    "Str.Dialog.SharedFile.DiskChanged": "Die Datei '{0}' wurde auf dem Datenträger geändert, seit die Kopie des Projekts {1} geladen oder gespeichert wurde. Möchten Sie sie überschreiben?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Lesezeichen, Haltepunkte und andere benutzerspezifische Einstellungen für {0} werden in dieser Sitzung weder geladen noch gespeichert.\n\n{1}"
   }
 }

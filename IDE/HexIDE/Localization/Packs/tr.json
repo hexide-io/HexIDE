@@ -1494,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: '{1}' içinde geçersiz proje yerel durum adı: '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Birden fazla proje yerel durum konumu bulundu. Her biri farklı bir kayıtlı durum içerebilir. Bu oturum için birini seçene kadar hiçbir şey yazılmayacak. Numarasını girin veya iptal edin:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} bir bağlantı veya birleşim noktası ya da artık bulunduğu konumda değil; bu nedenle buradan hiçbir şey okunmaz veya buraya hiçbir şey yazılmaz.",
+    "Str.Dialog.SharedFile.MultipleModified": "Paylaşılan '{0}' dosyasının birden çok kopyası değiştirildi.  Sonraki iletişim kutusunda kaydedilecek kopyayı seçin.",
+    "Str.Dialog.SharedFile.Update": "{0} dosyasını {1} ile paylaşan projelerde güncellemek ister misiniz?",
+    "Str.Dialog.SharedFile.DiscardChanges": "{1} projesinde {0} dosyasını güncellemek, o projenin kaydedilmemiş değişikliklerini siler. Devam etmek ister misiniz?",
+    "Str.Dialog.SharedFile.DiskChanged": "'{0}' dosyası, {1} projesinin kopyası yüklendikten veya kaydedildikten sonra diskte değiştirildi. Üzerine yazmak ister misiniz?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} için yer imleri, kesme noktaları ve kullanıcıya özgü diğer ayarlar bu oturumda yüklenmeyecek ve kaydedilmeyecek.\n\n{1}"
   }
 }

@@ -1494,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nome dello stato locale del progetto non valido in '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Sono state trovate più posizioni dello stato locale del progetto. Ognuna può contenere uno stato salvato diverso. Non verrà scritto nulla finché non ne verrà scelta una per questa sessione. Immettere il numero o annullare:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} è un collegamento o una giunzione, oppure non si trova più dove è stato rilevato, quindi non viene letto né scritto alcun dato in tale posizione.",
+    "Str.Dialog.SharedFile.MultipleModified": "Sono state modificate più copie del file condiviso '{0}'. Nella finestra di dialogo successiva, selezionare la copia da salvare.",
+    "Str.Dialog.SharedFile.Update": "Aggiornare {0} nei progetti che lo condividono con {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "L'aggiornamento di {0} nel progetto {1} eliminerà le modifiche non salvate di quel progetto. Continuare?",
+    "Str.Dialog.SharedFile.DiskChanged": "Il file '{0}' è stato modificato su disco da quando la copia del progetto {1} è stata caricata o salvata. Sovrascriverlo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "I segnalibri, i punti di interruzione e le altre impostazioni per utente di {0} non verranno caricati né salvati in questa sessione.\n\n{1}"
   }
 }

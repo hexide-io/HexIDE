@@ -218,6 +218,10 @@
     "Str.Options.Addin.ReportedFailure": "Foi relatado um problema às {0}: {1}",
     "Str.ProjectLocalState.ChooseFormat": "Foram encontrados vários locais de estado local do projeto. Cada um pode conter um estado salvo diferente. Nada será escrito até você escolher um para esta sessão. Digite o número ou cancele:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} é um link ou uma junção, ou não está mais onde foi encontrado, portanto nenhum dado é lido ou gravado nesse local.",
+    "Str.Dialog.SharedFile.MultipleModified": "Várias cópias do arquivo compartilhado '{0}' foram modificadas.  Na próxima caixa de diálogo, selecione a cópia que deseja salvar.",
+    "Str.Dialog.SharedFile.Update": "Deseja atualizar {0} nos projetos que o compartilham com {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "A atualização de {0} no projeto {1} descartará as alterações não salvas desse projeto. Deseja continuar?",
+    "Str.Dialog.SharedFile.DiskChanged": "O arquivo '{0}' foi alterado no disco desde que a cópia do projeto {1} foi carregada ou salva. Deseja substituí-lo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os pontos de interrupção e as outras configurações por usuário de {0} não serão carregados nem salvos nesta sessão.\n\n{1}"
   }
 }
