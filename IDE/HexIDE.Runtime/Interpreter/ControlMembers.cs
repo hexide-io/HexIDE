@@ -104,6 +104,8 @@ internal static class ControlMembers
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (control is VBPictureBox && RuntimeDrawing.IsMethod(memberName))
         {
+            if (memberName.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException("Refresh used as a value is not implemented (#991)");
             if (memberName.Equals("Cls", StringComparison.OrdinalIgnoreCase))
                 throw RuntimeDrawing.Refused("Cls used as a value");
             return RuntimeDrawing.Call(control, memberName, await Arguments());
