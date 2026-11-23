@@ -353,7 +353,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// <summary>
     /// The component list a save would hand the model, in the order it would hand it: the form, then each container's
     /// contents with the one drawn on top first, as VB6 writes them, each followed by what it holds; then the menus,
-    /// which are not drawn, in the order they have always had. The inverse of <see cref="DrawOrder"/>.
+    /// which are not drawn, in <see cref="TopLevelMenu"/> order with each parent's SubItems. The inverse of <see cref="DrawOrder"/>.
     /// </summary>
     private (List<ComponentInstance> Ordered, Dictionary<ComponentInstanceViewModel, int> PositionInList) ComponentsAsSaved()
     {
@@ -388,7 +388,20 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // A control whose container is not on this form is still handed over rather than lost; the writer refuses a tree
         // it cannot place.
         ordered.AddRange(AllComponents.Where(c => c != Form && !IsMenu(c) && !placed.Contains(c.Instance)).Select(c => c.Instance));
-        ordered.AddRange(AllComponents.Where(IsMenu).OrderBy(c => positionInList.GetValueOrDefault(c, 0)).Select(c => c.Instance));
+        void PlaceMenu(ComponentInstance menu)
+        {
+            if (!placed.Add(menu))
+                return;
+            ordered.Add(menu);
+            if (menu.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } children)
+                foreach (var child in children)
+                    PlaceMenu(child);
+        }
+        foreach (var menu in TopLevelMenu)
+            PlaceMenu(menu.Instance);
+        // Keep disconnected menus for the writer to validate, as with controls above.
+        foreach (var menu in AllComponents.Where(IsMenu))
+            PlaceMenu(menu.Instance);
         return (ordered, positionInList);
     }
 
@@ -1740,7 +1753,11 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         foreach (var deleted in vm.Deleted)
         {
             if (deleted.Menu != null)
-                AllComponents.Remove(AllComponents.First(c => c.Instance == deleted.Menu));
+            {
+                var component = AllComponents.First(c => c.Instance == deleted.Menu);
+                AllComponents.Remove(component);
+                Components.Remove(component);
+            }
         }
 
         List<ComponentInstanceViewModel> topLevel = new();

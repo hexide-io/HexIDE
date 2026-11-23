@@ -547,6 +547,135 @@ public class BeginOrderTests
         Saved(vm, form).Should().Be("Command1,Picture1,Label1,mnuFile");
     }
 
+    private static IWindowManager MenuEditor(Action<MenuEditorViewModel> edit)
+    {
+        var windows = Substitute.For<IWindowManager>();
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            edit((MenuEditorViewModel)call[0]);
+            return Task.FromResult(true);
+        });
+        return windows;
+    }
+
+    private static void AddHelp(MenuEditorViewModel editor)
+    {
+        editor.SelectedMenu = editor.FlatMenu.Last();
+        editor.SelectedMenu.Caption = "Help";
+        editor.SelectedMenu.Name = "mnuHelp";
+    }
+
+    // #5431: the saved menu tree must agree with the editor and survive HexIDE's own reader.
+    [AvaloniaFact]
+    public async Task A_menu_added_after_loaded_menus_is_written_after_them()
+    {
+        var (vm, form) = Open("Command1,Label1,mnuFile,mnuEdit", MenuEditor(AddHelp));
+
+        await vm.EditMenu();
+
+        vm.TopLevelMenu.Select(m => m.Name).Should().Equal("mnuFile", "mnuEdit", "mnuHelp");
+        Saved(vm, form).Should().Be("Command1,Label1,mnuFile,mnuEdit,mnuHelp");
+    }
+
+    [AvaloniaFact]
+    public async Task A_loaded_menu_moved_up_is_written_in_the_editors_order()
+    {
+        var (vm, form) = Open("Command1,Label1,mnuFile,mnuEdit", MenuEditor(editor =>
+        {
+            editor.SelectedMenu = editor.FlatMenu.Single(m => m.Name == "mnuEdit");
+            editor.MoveUp();
+        }));
+
+        await vm.EditMenu();
+
+        vm.TopLevelMenu.Select(m => m.Name).Should().Equal("mnuEdit", "mnuFile");
+        Saved(vm, form).Should().Be("Command1,Label1,mnuEdit,mnuFile");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Edited_menus_read_back_in_the_designers_order(bool move)
+    {
+        var (vm, form) = Open("Command1,Label1,mnuFile,mnuEdit", MenuEditor(editor =>
+        {
+            if (move)
+            {
+                editor.SelectedMenu = editor.FlatMenu.Single(m => m.Name == "mnuEdit");
+                editor.MoveUp();
+            }
+            else
+                AddHelp(editor);
+        }));
+        await vm.EditMenu();
+        var menuBar = vm.TopLevelMenu.Select(m => m.Name).ToArray();
+        vm.CommitLayout();
+        var (text, _) = new FormSerializer().Serialize(form, "Form1.frm");
+
+        var reloaded = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            text, new NullSink())!;
+        vm.Initialize(reloaded);
+
+        vm.TopLevelMenu.Select(m => m.Name).Should().Equal(menuBar);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, "Command1,mnuFile(mnuOpen,mnuExit,mnuHelp),mnuEdit")]
+    [InlineData(true, "Command1,mnuFile(mnuExit,mnuOpen),mnuEdit")]
+    public async Task Submenus_are_written_in_the_editors_order(bool move, string saved)
+    {
+        var (vm, form) = Open("Command1,mnuFile(mnuOpen,mnuExit),mnuEdit", MenuEditor(editor =>
+        {
+            editor.SelectedMenu = editor.FlatMenu.Single(m => m.Name == "mnuExit");
+            if (move)
+                editor.MoveUp();
+            else
+            {
+                editor.Insert();
+                editor.SelectedMenu!.Caption = "Help";
+                editor.SelectedMenu.Name = "mnuHelp";
+            }
+        }));
+
+        await vm.EditMenu();
+
+        Saved(vm, form).Should().Be(saved);
+    }
+
+    [AvaloniaFact]
+    public void Loaded_menus_saved_unedited_keep_their_order()
+    {
+        var (vm, form) = Open("Command1,Label1,mnuFile,mnuEdit");
+
+        Saved(vm, form).Should().Be("Command1,Label1,mnuFile,mnuEdit");
+    }
+
+    private static void DeleteEdit(MenuEditorViewModel editor)
+    {
+        editor.SelectedMenu = editor.FlatMenu.Single(m => m.Name == "mnuEdit");
+        editor.Delete();
+    }
+
+    [AvaloniaFact]
+    public async Task A_deleted_loaded_menu_is_not_written()
+    {
+        var (vm, form) = Open("Command1,mnuFile,mnuEdit", MenuEditor(DeleteEdit));
+
+        await vm.EditMenu();
+
+        Saved(vm, form).Should().Be("Command1,mnuFile");
+    }
+
+    [AvaloniaFact]
+    public async Task A_deleted_loaded_menu_is_removed_from_Components_too()
+    {
+        var (vm, _) = Open("Command1,mnuFile,mnuEdit", MenuEditor(DeleteEdit));
+
+        await vm.EditMenu();
+
+        vm.Components.Should().NotContain(c => c.Name == "mnuEdit");
+    }
+
     // ── Lines ────────────────────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
