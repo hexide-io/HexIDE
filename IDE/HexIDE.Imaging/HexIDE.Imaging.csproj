@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <RootNamespace>HexIDE.Imaging</RootNamespace>
+        <Description>Decodes untrusted picture bytes for the IDE and the Basic provider alike: one copy of the checks (#3411).</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" />
+    </ItemGroup>
+
+</Project>

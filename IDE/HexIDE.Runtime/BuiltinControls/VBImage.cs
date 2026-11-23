@@ -132,13 +132,8 @@ public class VBImage : Control, ICustomHitTest
     /// <summary>
     /// How many bytes to skip before the image itself: 8 for a StdPicture stream, 0 for anything else.
     /// </summary>
-    internal static int StdPictureHeaderLength(byte[] bytes, int from = 0)
-    {
-        const uint StdPicturePreamble = 0x0000746C;
-        if (bytes.Length - from < 8) return 0;
-        var preamble = (uint)(bytes[from] | (bytes[from + 1] << 8) | (bytes[from + 2] << 16) | (bytes[from + 3] << 24));
-        return preamble == StdPicturePreamble ? 8 : 0;
-    }
+    internal static int StdPictureHeaderLength(byte[] bytes, int from = 0) =>
+        HexIDE.Imaging.FrxImageHelper.StdPictureHeaderLength(bytes, from);
 
     public override void Render(DrawingContext context)
     {
