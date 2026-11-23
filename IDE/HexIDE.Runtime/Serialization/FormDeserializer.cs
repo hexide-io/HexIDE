@@ -459,6 +459,13 @@ public class FormDeserializer
                     continue; // unknown property — preserved verbatim by OrderedRawProperties loop below
 
                 var val = serializedProperty.Value;
+                // Outside the measured six form styles, keep the raw line and its existing reader (#1596).
+                if (propertyClass == VBProperties.FormBorderStyleProperty && val is not (int and >= 0 and <= 5))
+                {
+                    unparsedKnownNames.Add(propertyName);
+                    continue;
+                }
+
                 // VB6 IDE load errors recover the size as zero, requiring Save As (#4179, PR #4350; #4422).
                 if (rootComponent.Type == "VB.Form" && parent is not null && TryReadNumber(val, out var size)
                     && (DesignerSizeValidation.Refuses(propertyClass, size)
