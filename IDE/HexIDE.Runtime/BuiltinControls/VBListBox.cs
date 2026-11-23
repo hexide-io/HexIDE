@@ -47,7 +47,8 @@ public class VBListBox : ListBox
 
     private readonly VBMultiSelect multiSelect;
     // A multi-select list's ListIndex: the focused item, which need not be selected.
-    private int focusIndex;
+    private int focusedIndex;
+    private int focusIndex { get => focusedIndex; set { focusedIndex = value; RefreshRows(); } }
     // An Extended list's anchor, which a Shift range runs from.
     private int anchorIndex;
     // A Shift press on an Extended list, whose range comes at the release.
@@ -60,12 +61,14 @@ public class VBListBox : ListBox
     private int savedStyle;
     private int columns;
     private bool designer;
+    private Thickness rowMargins;
 
     internal int SavedStyle { get => savedStyle; init { savedStyle = value; ConfigureLayout(); } }
     internal int Columns { get => columns; init { columns = value; ConfigureLayout(); } }
     internal bool HasChecks => savedStyle == 1 && !IsMultiSelect;
     internal bool Sorted { get; init; }
     private bool HasColumns => columns > 0;
+    private bool DrawRuntimeRows => !designer && (savedStyle == 0 || HasChecks);
 
     internal void UseDesignerLayout()
     {
@@ -91,9 +94,135 @@ public class VBListBox : ListBox
         }
     }
 
+    // #5473 / oracle PR #5502: selection survives focus loss; ListIndex alone gets the focus mark.
+    protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey) =>
+        DrawRuntimeRows ? new RuntimeItem(this) : base.CreateContainerForItemOverride(item, index, recycleKey);
+
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        if (DrawRuntimeRows)
+        {
+            ClearValue(PaddingProperty);
+            rowMargins = Padding;
+            if (IsEffectivelyEnabled) Padding = new Thickness(0, Padding.Top, 0, Padding.Bottom);
+            rowsNeedPadding = true;
+        }
+    }
+
+    private void RefreshRows()
+    {
+        foreach (var container in GetRealizedContainers())
+            if (container is RuntimeItem item) item.Refresh();
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsEffectivelyEnabledProperty && DrawRuntimeRows) rowsNeedPadding = true;
+        if (change.Property == IsEffectivelyEnabledProperty || change.Property == IsKeyboardFocusWithinProperty || change.Property == BackgroundProperty
+            || change.Property == ForegroundProperty)
+            RefreshRows();
+    }
+
+    private sealed class RuntimeItem : ListBoxItem
+    {
+        protected override Type StyleKeyOverride => typeof(ListBoxItem);
+        private readonly VBListBox list;
+        private FocusMark? mark;
+        private readonly IControlTemplate runtimeTemplate;
+
+        internal RuntimeItem(VBListBox list)
+        {
+            this.list = list;
+            FocusAdorner = null;
+            Template = runtimeTemplate = new FuncControlTemplate<ListBoxItem>((item, scope) =>
+            {
+                var presenter = new Avalonia.Controls.Presenters.ContentPresenter { Name = "RowContent", Background = Brushes.Transparent };
+                presenter.Bind(Avalonia.Controls.Presenters.ContentPresenter.ContentProperty, item.GetObservable(ContentProperty));
+                presenter.Bind(Avalonia.Controls.Presenters.ContentPresenter.ContentTemplateProperty, item.GetObservable(ContentTemplateProperty));
+                presenter.Bind(ForegroundProperty, item.GetObservable(ForegroundProperty));
+                presenter.Bind(PaddingProperty, item.GetObservable(PaddingProperty));
+                presenter.VerticalContentAlignment = VerticalAlignment.Center;
+                var panel = new Grid();
+                panel.Children.Add(presenter);
+                mark = new FocusMark(this) { IsHitTestVisible = false };
+                RenderOptions.SetEdgeMode(mark, EdgeMode.Aliased);
+                panel.Children.Add(mark);
+                return panel;
+            });
+        }
+
+        internal void Refresh()
+        {
+            if (IsEffectivelyEnabled)
+            {
+                Template = runtimeTemplate;
+                Foreground = IsSelected
+                    ? VBColor.FromSystemColor(VbSystemColor.Highlighttext).ToBrush() : list.Foreground;
+            }
+            else
+            {
+                // Disabled drawing is outside #5473; retain the existing theme.
+                ClearValue(TemplateProperty);
+                ClearValue(ForegroundProperty);
+            }
+            InvalidateVisual();
+            mark?.InvalidateVisual();
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            if ((change.Property == IsSelectedProperty || change.Property == IsEffectivelyEnabledProperty) && list is not null) Refresh();
+        }
+
+        private IBrush RowBackground => IsSelected
+            ? VBColor.FromSystemColor(VbSystemColor.Highlight).ToBrush() : list.Background ?? Brushes.Transparent;
+        private double Start => list.HasChecks ? 15 : 0;
+
+        public override void Render(DrawingContext context)
+        {
+            if (!IsEffectivelyEnabled)
+            {
+                base.Render(context);
+                return;
+            }
+            context.FillRectangle(list.Background ?? Brushes.Transparent, new Rect(Bounds.Size));
+            context.FillRectangle(RowBackground, new Rect(Start, 0, Math.Max(0, Bounds.Width - Start), Bounds.Height));
+        }
+
+        private sealed class FocusMark(RuntimeItem item) : Control
+        {
+            public override void Render(DrawingContext context)
+            {
+                if (!item.list.IsKeyboardFocusWithin || item.list.IndexFromContainer(item) != item.list.ListIndex
+                    || item.RowBackground is not ISolidColorBrush solid)
+                    return;
+                var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+                var left = (int)Math.Round(item.Start * scale);
+                var right = (int)Math.Round(Bounds.Width * scale) - 1;
+                var bottom = (int)Math.Round(Bounds.Height * scale) - 1;
+                var color = solid.Color;
+                var inverse = new SolidColorBrush(Color.FromRgb((byte)(color.R ^ 255), (byte)(color.G ^ 255), (byte)(color.B ^ 255)));
+                void Dot(int x, int y) => context.FillRectangle(inverse, new Rect(x / scale, y / scale, 1 / scale, 1 / scale));
+                for (var x = left; x <= right; x++)
+                {
+                    if ((x - left) % 2 == 0) Dot(x, 0);
+                    if ((x - left + bottom) % 2 == 0) Dot(x, bottom);
+                }
+                for (var y = 1; y < bottom; y++)
+                {
+                    if (y % 2 == 0) Dot(left, y);
+                    if ((right - left + y) % 2 == 0) Dot(right, y);
+                }
+            }
+        }
+    }
+
     private sealed class CheckGlyph(VBListBox list) : Control
     {
-        protected override Size MeasureOverride(Size availableSize) => new(16, 16);
+        protected override Size MeasureOverride(Size availableSize) => new(list.designer || !list.IsEffectivelyEnabled ? 16 : 15, 16);
         public override void Render(DrawingContext context)
         {
             var pen = new Pen(list.Foreground, 1);
@@ -265,6 +394,7 @@ public class VBListBox : ListBox
     protected override void PrepareContainerForItemOverride(Control container, object? item, int index)
     {
         base.PrepareContainerForItemOverride(container, item, index);
+        if (container is RuntimeItem runtimeItem) runtimeItem.Refresh();
         if (container is ListBoxItem listItem && ListBoxRowHeights.Find(AttachedProperties.GetFont(this)) is { } height)
         {
             listItem.UseLayoutRounding = false;
@@ -280,10 +410,12 @@ public class VBListBox : ListBox
         // VB6's first row starts at the list's inner edge: the theme's top padding pushed the last of 1,425 twips' seven
         // rows partly out of view (#4073, seen live). The bottom padding stays: it is the scroll slack that lets
         // SetTopIndexFromCode reach the measured last page when the viewport isn't a whole number of rows.
-        // Horizontal padding is unmeasured and left as it is.
+        // Runtime rows now reach both inner edges, as measured in #5473.
         ClearValue(PaddingProperty);
-        if (ListBoxRowHeights.Find(AttachedProperties.GetFont(this)) is not null)
-            Padding = new Thickness(Padding.Left, 0, Padding.Right, Padding.Bottom);
+        rowMargins = Padding;
+        var measured = ListBoxRowHeights.Find(AttachedProperties.GetFont(this)) is not null;
+        Padding = new Thickness(!DrawRuntimeRows || !IsEffectivelyEnabled ? Padding.Left : 0, measured ? 0 : Padding.Top,
+            !DrawRuntimeRows || !IsEffectivelyEnabled ? Padding.Right : 0, Padding.Bottom);
         foreach (var container in GetRealizedContainers())
             ApplyRowHeight(container);
     }
@@ -302,14 +434,25 @@ public class VBListBox : ListBox
             item.Height = MeasuredRowHeight(height);
             item.ClearValue(PaddingProperty);
             var padding = item.Padding;
-            item.Padding = new Thickness(padding.Left, 0, padding.Right, 0);
+            item.Padding = RuntimeRowPadding(new Thickness(padding.Left, 0, padding.Right, 0));
         }
         else
         {
             item.ClearValue(UseLayoutRoundingProperty);
             item.ClearValue(HeightProperty);
             item.ClearValue(PaddingProperty);
+            item.Padding = RuntimeRowPadding(item.Padding);
         }
+    }
+
+    private Thickness RuntimeRowPadding(Thickness padding)
+    {
+        if (!DrawRuntimeRows) return padding;
+        // Bare lists keep their zero inset; loaded fonts retain the existing themed row padding.
+        var inner = AttachedProperties.GetFont(this) is null ? default : padding;
+        if (!IsEffectivelyEnabled) return inner;
+        return new Thickness(HasChecks ? 0 : inner.Left + rowMargins.Left, inner.Top,
+            HasChecks ? 0 : inner.Right + rowMargins.Right, inner.Bottom);
     }
 
     // #3275: TopIndex assignments raise Scroll only when the resulting top row changes.
