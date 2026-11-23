@@ -68,6 +68,26 @@ public sealed class LinkedEditingTests : IDisposable
         return editor;
     }
 
+    private static async Task WaitUntil(Func<bool> condition, string what)
+    {
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (deadline.Elapsed < TimeSpan.FromSeconds(30))
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (condition()) return;
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+        condition().Should().BeTrue(what);
+    }
+
+    private bool ReceivedRequest(Position position) => lsp.ReceivedCalls().Any(call =>
+        call.GetMethodInfo().Name == nameof(ILspClient.RequestLinkedEditingRangesAsync)
+        && Equals(call.GetArguments()[1], position));
+
+    private static int SegmentCount(TextEditor editor) => editor.TextArea.TextView.BackgroundRenderers
+        .OfType<HexIDE.Controls.DocumentHighlightRenderer>().Sum(renderer => renderer.Segments.Count());
+
+    // Negative request assertions need time beyond the debounce: there is no completion event to await.
     private static async Task Rest()
     {
         await Task.Delay(750, TestContext.Current.CancellationToken);
@@ -78,12 +98,12 @@ public sealed class LinkedEditingTests : IDisposable
     public async Task TypingMirrorsAndOneUndoRestoresAllThree()
     {
         var editor = Show();
-        await Rest();
+        await WaitUntil(() => SegmentCount(editor) == 3, "the three linked ranges should be marked");
         editor.TextArea.TextView.BackgroundRenderers.OfType<HexIDE.Controls.DocumentHighlightRenderer>()
             .SelectMany(renderer => renderer.Segments).Should().HaveCount(3);
         window!.KeyTextInput("y");
         editor.Text.ReplaceLineEndings("\n").Should().Be(Code.Replace("x", "xy"));
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 2)), "the edited caret position should be requested");
         await lsp.Received().RequestLinkedEditingRangesAsync(Arg.Any<string>(), new Position(3, 2), Arg.Any<CancellationToken>());
         editor.Undo();
         editor.Text.ReplaceLineEndings("\n").Should().Be(Code);
@@ -97,7 +117,7 @@ public sealed class LinkedEditingTests : IDisposable
     public async Task EndingKeepsTypedTextAndStopsMirroring(string reason)
     {
         var editor = Show(pattern: "[a-z]+");
-        await Rest();
+        await WaitUntil(() => SegmentCount(editor) == 3, "linking should be active before typing");
         window!.KeyTextInput("y");
         editor.Text.ReplaceLineEndings("\n").Should().Contain("Dim xy");
         if (reason == "caret") { editor.CaretOffset = 0; editor.CaretOffset = editor.Document.Text.IndexOf("xy =", StringComparison.Ordinal) + 2; }
@@ -117,7 +137,7 @@ public sealed class LinkedEditingTests : IDisposable
         editor.CaretOffset = offset - 1;
         editor.CaretOffset = offset;
         await lsp.DidNotReceive().RequestLinkedEditingRangesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 1)), "the caret position should be requested");
         await lsp.Received(1).RequestLinkedEditingRangesAsync(Arg.Any<string>(), new Position(3, 1), Arg.Any<CancellationToken>());
         lsp.ClearReceivedCalls();
         editor.CaretOffset = editor.Document.Text.IndexOf(" = ", StringComparison.Ordinal) + 1;
@@ -129,7 +149,7 @@ public sealed class LinkedEditingTests : IDisposable
     public async Task CrossingTheCurrentRangeDoesNotMirror()
     {
         var editor = Show();
-        await Rest();
+        await WaitUntil(() => SegmentCount(editor) == 3, "linking should be active before replacing a range");
         var offset = editor.Document.Text.IndexOf("x =", StringComparison.Ordinal);
         var expected = editor.Text.Remove(offset - 1, 2).Insert(offset - 1, "_");
         editor.Document.Replace(offset - 1, 2, "_");
@@ -144,13 +164,14 @@ public sealed class LinkedEditingTests : IDisposable
         var editor = Show();
         var answer = new TaskCompletionSource<LinkedEditingRanges?>(TaskCreationOptions.RunContinuationsAsynchronously);
         lsp.RequestLinkedEditingRangesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(answer.Task);
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 1)), "the initial caret position should be requested");
         await lsp.Received().RequestLinkedEditingRangesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
         editor.Document.Insert(editor.Document.TextLength, " ");
         lsp.RequestLinkedEditingRangesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns((LinkedEditingRanges?)null);
         answer.SetResult(new LinkedEditingRanges([
             new(new(2, 4), new(2, 5)), new(new(3, 0), new(3, 1)), new(new(3, 4), new(3, 5))]));
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 1)), "the request should have been received before rejecting its stale answer");
+        Dispatcher.UIThread.RunJobs();
         window!.KeyTextInput("y");
         editor.Text.ReplaceLineEndings("\n").Should().Be(Code.Replace("x =", "xy =") + " ");
     }
@@ -171,7 +192,8 @@ public sealed class LinkedEditingTests : IDisposable
     {
         Show(response: "{\"ranges\":[{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}},{\"start\":{\"line\":3,\"character\":0},\"end\":{\"line\":3,\"character\":1}}]}");
         statusBar.ClearReceivedCalls();
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 1)), "the protected answer should have been requested");
+        Dispatcher.UIThread.RunJobs();
         statusBar.DidNotReceive().SetTemporaryMessage(Arg.Any<string>(), Arg.Any<TimeSpan>());
     }
 
@@ -192,7 +214,7 @@ public sealed class LinkedEditingTests : IDisposable
         var editor = Show();
         lsp.RequestLinkedEditingRangesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
             .Returns((LinkedEditingRanges?)null);
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 1)), "the first request should arrive before clearing calls");
         lsp.ClearReceivedCalls();
         var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         lsp.ChangeDocumentAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -200,12 +222,16 @@ public sealed class LinkedEditingTests : IDisposable
         try
         {
             window!.KeyTextInput("y");
-            await Rest();
+            await WaitUntil(() => lsp.ReceivedCalls().Any(call =>
+                call.GetMethodInfo().Name == nameof(ILspClient.ChangeDocumentAsync)
+                && call.GetArguments()[2] is string text && text.Contains("xy = x", StringComparison.Ordinal)),
+                "the edited text should reach the server");
             await lsp.Received().ChangeDocumentAsync(Arg.Any<string>(), Arg.Any<int>(),
                 Arg.Is<string>(text => text.Contains("xy = x", StringComparison.Ordinal)), Arg.Any<CancellationToken>());
+            await Rest();
             await lsp.DidNotReceive().RequestLinkedEditingRangesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
             sent.SetResult();
-            await Rest();
+            await WaitUntil(() => ReceivedRequest(new Position(3, 2)), "the edited caret position should be requested");
             await lsp.Received().RequestLinkedEditingRangesAsync(Arg.Any<string>(), new Position(3, 2), Arg.Any<CancellationToken>());
         }
         finally { sent.TrySetResult(); }
@@ -217,10 +243,10 @@ public sealed class LinkedEditingTests : IDisposable
         var editor = Show();
         lsp.RequestLinkedEditingRangesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
             .Returns((LinkedEditingRanges?)null);
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 1)), "the first request should arrive before clearing calls");
         lsp.ClearReceivedCalls();
         window!.KeyTextInput("y");
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 2)), "the edited caret position should be requested");
         await lsp.Received().RequestLinkedEditingRangesAsync(Arg.Any<string>(), new Position(3, 2), Arg.Any<CancellationToken>());
     }
 
@@ -231,7 +257,8 @@ public sealed class LinkedEditingTests : IDisposable
     public async Task UnusableAnswerDoesNotMirror(string response)
     {
         var editor = Show(response: response);
-        await Rest();
+        await WaitUntil(() => ReceivedRequest(new Position(3, 1)), "the unusable answer should have been requested");
+        Dispatcher.UIThread.RunJobs();
         editor.TextArea.TextView.BackgroundRenderers.OfType<HexIDE.Controls.DocumentHighlightRenderer>()
             .SelectMany(renderer => renderer.Segments).Should().BeEmpty();
         window!.KeyTextInput("y");
