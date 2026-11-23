@@ -325,11 +325,15 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// <summary>Shows the match, bringing its document to the front first when it is not the active one.</summary>
     private void SelectMatch(ISearchableDocument target, int offset, int length)
     {
+        var source = _documentDockService.ActiveDocument as CodeEditorViewModel;
+        var destination = Direction == FindDirection.Down ? offset + length : offset;
         if (target is FindProjectDocuments.UnopenedDocument unopened)
         {
             target = unopened.Open()!;
             if (target is null) return;
         }
+        if (source is not null && (!ReferenceEquals(source, target) || source.CaretOffset != destination))
+            source.RecordLastPosition();
         if (!ReferenceEquals(target, _documentDockService.ActiveDocument)
             && target is BaseEditorWindowViewModel window)
         {

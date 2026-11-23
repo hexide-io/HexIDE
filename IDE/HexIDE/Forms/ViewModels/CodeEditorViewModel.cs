@@ -436,6 +436,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }));
         AutoDispose(new ActionDisposable(() =>
         {
+            LeaveLastPositionLine();
             var body = BufferBody;   // the same split as the flush above, for the same reason
             formDefinition?.UpdateCode(body);
             if (moduleDefinition is not null)
@@ -1370,7 +1371,36 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         FocusWindowRequest?.Invoke();
     }
 
-    private void OnCaretOffsetChanged() => SyncCombosToCaret();
+    private int? lastPositionEditedLine;
+
+    internal void LastPositionTextEntered(string text)
+    {
+        if (text.Length > 0 && !text.Contains('\r') && !text.Contains('\n'))
+            lastPositionEditedLine = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber;
+    }
+
+    internal void RecordLastPosition()
+    {
+        if (identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document,
+                Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber));
+    }
+
+    internal void LeaveLastPositionLine()
+    {
+        if (lastPositionEditedLine is not { } line) return;
+        lastPositionEditedLine = null;
+        if (identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document, line));
+    }
+
+    private void OnCaretOffsetChanged()
+    {
+        if (lastPositionEditedLine is { } line &&
+            Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber != line)
+            LeaveLastPositionLine();
+        SyncCombosToCaret();
+    }
 
     private bool syncingFromCaret;
 
@@ -2765,6 +2795,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // protocol's zero-based Position.
         if (!editorService.NavigateTo(uri, line, col))
             Log.Debug("[definition] Nothing loaded answers to {Uri}", uri);
+    }
+
+    internal void NavigateToDefinitionUri(string uri, int line, int column)
+    {
+        var origin = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber;
+        if (editorService.NavigateTo(uri, line, column) && identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document, origin));
     }
 
     // A hover's file link opens a document the project already holds, and nothing else: a server's link is not the
