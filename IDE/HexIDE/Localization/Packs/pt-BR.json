@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.FindReplace.Msg.UnmatchedBrackets": "Colchetes sem correspondência na cadeia de pesquisa",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Usar as opções de compilação padrão",
     "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edição vinculada (renomear os outros usos de uma variável ao digitar)",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao digitar",
@@ -219,10 +220,25 @@
     "Str.ProjectLocalState.ChooseFormat": "Foram encontrados vários locais de estado local do projeto. Cada um pode conter um estado salvo diferente. Nada será escrito até você escolher um para esta sessão. Digite o número ou cancele:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} é um link ou uma junção, ou não está mais onde foi encontrado, portanto nenhum dado é lido ou gravado nesse local.",
     "Str.Dialog.SharedFile.MultipleModified": "Várias cópias do arquivo compartilhado '{0}' foram modificadas.  Na próxima caixa de diálogo, selecione a cópia que deseja salvar.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "A cópia deste arquivo que pode conter alterações já está aberta.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) é compartilhado com outros projetos. Deseja salvá-lo?",
     "Str.Dialog.SharedFile.Update": "Deseja atualizar {0} nos projetos que o compartilham com {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "A atualização de {0} no projeto {1} descartará as alterações não salvas desse projeto. Deseja continuar?",
     "Str.Dialog.SharedFile.DiskChanged": "O arquivo '{0}' foi alterado no disco desde que a cópia do projeto {1} foi carregada ou salva. Deseja substituí-lo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os pontos de interrupção e as outras configurações por usuário de {0} não serão carregados nem salvos nesta sessão.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Já existe um controle chamado '{0}'.  Deseja criar uma matriz de controles?"
+    "Str.Naming.Msg.CreateControlArray": "Já existe um controle chamado '{0}'.  Deseja criar uma matriz de controles?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Interceptação de erros",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testando…",
+    "Str.Tool.LanguageServers.Trial.Result": "Resultado do teste de conexão",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Este servidor precisa de um projeto aberto.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Informado pelo servidor: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "O servidor não informou o nome nem a versão.",
+    "Str.Tool.LanguageServers.Trial.Silent": "O servidor se conectou, mas não respondeu a initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Esta entrada declara um arquivo do espaço de trabalho que só é gerado, com consentimento, em uma inicialização real. Sua ausência pode explicar esta falha.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Parada concluída.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Falha na parada: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testar a conexão com o servidor de linguagem",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "O IDE nunca iniciou este item nem se conectou a ele, ou ele foi alterado desde então. Ao aceitar, você inicia um programa neste computador ou estabelece uma conexão com este endereço.",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' vai se conectar a um endereço ao qual o HexIDE nunca se conectou: {1}"
   }
 }

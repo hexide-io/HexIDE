@@ -1,0 +1,7 @@
+{
+  "name": "Fixture IDE key",
+  "strings": {
+    "Str.Fixture.IdeKey.Own": "Own",
+    "Str.Menu.File": "Hijacked"
+  }
+}

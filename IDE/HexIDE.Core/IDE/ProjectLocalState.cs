@@ -104,13 +104,15 @@ internal static partial class ProjectLocalState
         return path;
     }
 
+    private sealed record FolderStateMarker(string kind, int version);
+
     internal static void WriteFolderMarker(string root)
     {
         var path = Path.Combine(root, FolderMarker);
         EnsureRegularPath(root);
         EnsureRegularPath(path);
         Directory.CreateDirectory(root);
-        AtomicFileWriter.WriteRecoverableText(path, JsonSerializer.Serialize(new { kind = FolderKind, version = 1 }));
+        AtomicFileWriter.WriteRecoverableText(path, JsonSerializer.Serialize(new FolderStateMarker(FolderKind, 1)));
     }
 }
 

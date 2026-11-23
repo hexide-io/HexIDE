@@ -662,6 +662,7 @@ public sealed class DistributionDescriptorTests
     }
 
     [Theory]
+    [InlineData("vb6")]
     [InlineData("vba")]
     [InlineData("none")]
     [InlineData("./mine")]

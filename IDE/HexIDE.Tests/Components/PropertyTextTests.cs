@@ -233,12 +233,12 @@ public class PropertyTextTests
     [Fact]
     public void A_value_the_file_holds_and_HexIDE_could_not_read_is_the_file_s_text_not_the_default()
     {
-        // A palette colour (#786): the window shows the default, and setting what it shows would replace the file's.
-        var label = Control(Load("   Begin VB.Label Label1\r\n      BackColor       =   &H02C0C0C0&\r\n   End\r\n"), "Label1");
+        // An invalid system colour: the window shows the default, and setting what it shows would replace the file's.
+        var label = Control(Load("   Begin VB.Label Label1\r\n      BackColor       =   &H80000019&\r\n   End\r\n"), "Label1");
 
         var row = PropertyText.Rows(label).Single(r => r.Name == "BackColor");
 
-        row.Value.Should().Be("&H02C0C0C0&");
+        row.Value.Should().Be("&H80000019&");
         row.Settable.Should().BeFalse();
         row.Note.Should().Contain("could not read");
     }

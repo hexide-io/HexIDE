@@ -96,6 +96,7 @@ public class ProfileBundleTests
     [Theory]
     [InlineData("loadUnsignedAddins", "true")]
     [InlineData("revocationListUrl", "\"\"")]
+    [InlineData("errorTrapping", "0")]
     [InlineData("reloadFilesChangedOutsideIde", "false")]
     [InlineData("editorColorOverrides", "{}")]
     [InlineData("serverChatTools", "{}")]
@@ -157,6 +158,7 @@ public class ProfileBundleTests
     [InlineData("vb6")]
     [InlineData("vbaode")]
     [InlineData("vba")]
+    [InlineData("neutral")]
     public void BuiltinNamesCannotBeShadowedButExplicitDirectoriesCanSelectThem(string id)
     {
         WithBundle(directory =>

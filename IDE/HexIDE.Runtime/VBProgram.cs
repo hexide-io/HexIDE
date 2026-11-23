@@ -176,6 +176,7 @@ public sealed class VBProgram : IFormProgram
             Events = Events,
             Forms = this,
         };
+        interpreter.BuiltIns.HoldFormsForMessageBox = () => new Dialogs.MessageBoxFormHold(loaded);
         if (project is not null)
         {
             interpreter.SetAppInfo(AppInfo.FromProject(project));

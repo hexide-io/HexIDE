@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
@@ -88,6 +89,7 @@ public class SSTabRuntimeTests : WindowTestFixture
     [InlineData("Style = 2", 380)]
     [InlineData("TabOrientation = 4", 380)]
     [InlineData("TabHeight = 0", 380)]
+    [InlineData("TabHeight = -1", 380)]
     [InlineData("TabMaxWidth = -1", 380)]
     [InlineData("Rows = 2", 383)]
     [InlineData("TabCaption(3) = \"x\"", 381)]
@@ -253,18 +255,130 @@ public class SSTabRuntimeTests : WindowTestFixture
         values.Should().Equal("300");
     }
 
+    // #4970 / oracle PR #5210: docs/vb6-fidelity-oracle/in-box-controls-the-sstab.md,
+    // "Assigning in every ScaleMode, the edges, a flipped scale, and 1,100 reads" (SP6 native and p-code).
+    [AvaloniaTheory]
+    [InlineData("TabHeight", 2, "10", 353)]
+    [InlineData("TabHeight", 2, "11", 388)]
+    [InlineData("TabHeight", 2, "12", 423)]
+    [InlineData("TabHeight", 2, "13", 459)]
+    [InlineData("TabHeight", 2, "14", 494)]
+    [InlineData("TabHeight", 2, "14.9", 526)]
+    [InlineData("TabHeight", 2, "15", 529)]
+    [InlineData("TabHeight", 2, "15.01", 530)]
+    [InlineData("TabHeight", 2, "15.05", 531)]
+    [InlineData("TabHeight", 2, "20", 706)]
+    [InlineData("TabHeight", 4, "0.75", 159)]
+    [InlineData("TabHeight", 4, "1", 212)]
+    [InlineData("TabHeight", 4, "2", 423)]
+    [InlineData("TabHeight", 4, "2.5", 529)]
+    [InlineData("TabHeight", 5, "0.2", 508)]
+    [InlineData("TabHeight", 5, "0.2083", 529)]
+    [InlineData("TabHeight", 5, "0.5", 1270)]
+    [InlineData("TabHeight", 6, "5.27", 527)]
+    [InlineData("TabHeight", 6, "5.274", 527)]
+    [InlineData("TabHeight", 6, "5.276", 528)]
+    [InlineData("TabHeight", 7, "0.527", 527)]
+    [InlineData("TabHeight", 7, "0.5274", 527)]
+    [InlineData("TabHeight", 7, "0.5276", 528)]
+    [InlineData("TabHeight", 0, "31.25", 529)]
+    [InlineData("TabHeight", 0, "1", 17)]
+    [InlineData("TabHeight", 0, "2.5", 42)]
+    [InlineData("TabHeight", 0, "0.05", 1)]
+    [InlineData("TabHeight", 1, "0.2", 0)]
+    [InlineData("TabHeight", 1, "0.28", 0)]
+    [InlineData("TabHeight", 6, "0.004", 0)]
+    [InlineData("TabHeight", 6, "0.005", 0)]
+    [InlineData("TabHeight", 1, "0.29", 1)]
+    [InlineData("TabHeight", 4, "1.5", 317)]
+    [InlineData("TabHeight", 1, "36", 63)]
+    [InlineData("TabHeight", 1, "900", 1587)]
+    [InlineData("TabMaxWidth", 2, "10", 353)]
+    [InlineData("TabMaxWidth", 2, "11", 388)]
+    [InlineData("TabMaxWidth", 2, "12", 423)]
+    [InlineData("TabMaxWidth", 2, "13", 459)]
+    [InlineData("TabMaxWidth", 2, "14", 494)]
+    [InlineData("TabMaxWidth", 2, "14.9", 526)]
+    [InlineData("TabMaxWidth", 2, "15", 529)]
+    [InlineData("TabMaxWidth", 2, "15.01", 530)]
+    [InlineData("TabMaxWidth", 2, "15.05", 531)]
+    [InlineData("TabMaxWidth", 2, "20", 706)]
+    [InlineData("TabMaxWidth", 4, "0.75", 159)]
+    [InlineData("TabMaxWidth", 4, "1", 212)]
+    [InlineData("TabMaxWidth", 4, "2", 423)]
+    [InlineData("TabMaxWidth", 4, "2.5", 529)]
+    [InlineData("TabMaxWidth", 5, "0.2", 508)]
+    [InlineData("TabMaxWidth", 5, "0.2083", 529)]
+    [InlineData("TabMaxWidth", 5, "0.5", 1270)]
+    [InlineData("TabMaxWidth", 6, "5.27", 527)]
+    [InlineData("TabMaxWidth", 6, "5.274", 527)]
+    [InlineData("TabMaxWidth", 6, "5.276", 528)]
+    [InlineData("TabMaxWidth", 7, "0.527", 527)]
+    [InlineData("TabMaxWidth", 7, "0.5274", 527)]
+    [InlineData("TabMaxWidth", 7, "0.5276", 528)]
+    [InlineData("TabMaxWidth", 0, "31.25", 529)]
+    [InlineData("TabMaxWidth", 0, "1", 17)]
+    [InlineData("TabMaxWidth", 0, "2.5", 42)]
+    [InlineData("TabMaxWidth", 0, "0.05", 1)]
+    [InlineData("TabMaxWidth", 1, "0.2", 0)]
+    [InlineData("TabMaxWidth", 1, "0.28", 0)]
+    [InlineData("TabMaxWidth", 6, "0.004", 0)]
+    [InlineData("TabMaxWidth", 6, "0.005", 0)]
+    [InlineData("TabMaxWidth", 1, "0.29", 1)]
+    [InlineData("TabMaxWidth", 4, "1.5", 317)]
+    [InlineData("TabMaxWidth", 1, "36", 63)]
+    [InlineData("TabMaxWidth", 1, "900", 1587)]
+    public void AssignmentsInEveryScaleKeepWholeHimetric(string property, int mode, string assigned, int kept)
+    {
+        var designer = Form.Replace("Begin VB.Form Form1", "Begin VB.Form Form1\n   ClientWidth = 9600\n   ClientHeight = 7200");
+        var setup = mode == 0 ? "ScaleWidth = 1000\nScaleHeight = 100" : $"ScaleMode = {mode}";
+        double? stored = null;
+        var (values, errors) = ControlsAddTests.Run($$"""
+            {{setup}}
+            On Error Resume Next
+            SSTab1.{{property}} = {{assigned}}
+            Debug.Print CStr(Err.Number)
+            ScaleMode = 2
+            Debug.Print SSTab1.{{property}} = CSng({{kept}}# * CDbl(CSng(1440# / 2540)) / 20)
+            """, "", designer, inspect: window =>
+            {
+                var tab = window.GetVisualDescendants().OfType<VBSSTab>().SingleOrDefault();
+                stored = property == "TabHeight" ? tab?.TabHeightHimetric : tab?.TabMaxWidthHimetric;
+            });
+        errors.Should().BeEmpty();
+        stored.Should().Be(kept);
+        double.IsNegative(stored!.Value).Should().BeFalse("a kept zero is +0, not the -0 Math.Ceiling gives");
+        values.Should().Equal("0", "True");
+    }
+
+    // The 5.274 mm and 0.5274 cm rows above are the same 527.4 HIMETRIC in twips.
+    [AvaloniaTheory]
+    [InlineData("TabHeight")]
+    [InlineData("TabMaxWidth")]
+    public void EquivalentTwipAssignmentKeepsTheSameWholeHimetric(string property)
+    {
+        double? stored = null;
+        var (_, errors) = ControlsAddTests.Run($"SSTab1.{property} = 5.274 * 1440 / 25.4", "", Form,
+            inspect: window =>
+            {
+                var tab = window.GetVisualDescendants().OfType<VBSSTab>().SingleOrDefault();
+                stored = property == "TabHeight" ? tab?.TabHeightHimetric : tab?.TabMaxWidthHimetric;
+            });
+        errors.Should().BeEmpty();
+        stored.Should().Be(527);
+    }
+
     [AvaloniaTheory]
     [InlineData("ScaleMode = 6\nDebug.Print SSTab1.TabHeight")]
     [InlineData("ScaleMode = 7\nDebug.Print SSTab1.TabMaxWidth")]
     [InlineData("ScaleWidth = 1000\nDebug.Print SSTab1.TabHeight")]
-    [InlineData("ScaleMode = 2\nSSTab1.TabHeight = 20")]
-    [InlineData("SSTab1.TabHeight = 0.2")]
-    [InlineData("SSTab1.TabMaxWidth = 900\nScaleMode = 2\nDebug.Print SSTab1.TabMaxWidth")]
+    [InlineData("ScaleWidth = -1000\nDebug.Print SSTab1.TabHeight")]
+    [InlineData("ScaleWidth = -1000\nDebug.Print SSTab1.TabMaxWidth")]
     public void RemainingDimensionCasesNameFollowup(string code)
     {
         var (_, errors) = ControlsAddTests.Run(code, "", Form);
         errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("#4970");
+            .Which.Message.Should().Contain("#5439");
     }
 
     [AvaloniaFact]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Runtime.Versioning;
 using Serilog;
 
@@ -37,6 +38,7 @@ public class ReferenceLibraryService : IReferenceLibraryService
                     if (string.IsNullOrEmpty(name)) continue;
 
                     string? libPath = null;
+                    var lcid = 0;
                     foreach (var lcidName in versionKey.GetSubKeyNames())
                     {
                         using var lcidKey = versionKey.OpenSubKey(lcidName);
@@ -45,10 +47,14 @@ public class ReferenceLibraryService : IReferenceLibraryService
                         var win64Path = lcidKey.OpenSubKey("win64")?.GetValue(null) as string;
                         var win32Path = lcidKey.OpenSubKey("win32")?.GetValue(null) as string;
                         libPath = win64Path ?? win32Path;
-                        if (libPath != null) break;
+                        if (libPath != null)
+                        {
+                            int.TryParse(lcidName, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out lcid);
+                            break;
+                        }
                     }
 
-                    results.Add(new AvailableReference(guidName, versionName, name, libPath));
+                    results.Add(new AvailableReference(guidName, versionName, name, libPath) { Lcid = lcid });
                 }
             }
         }

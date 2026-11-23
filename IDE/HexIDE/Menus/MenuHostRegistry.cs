@@ -51,6 +51,7 @@ internal static class MenuHostRegistry
             ["application.IncreaseVerticalSpacingCommand"] = new("{x:Static vb:ApplicationCommands.IncreaseVerticalSpacingCommand}", ApplicationCommands.IncreaseVerticalSpacingCommand, null),
             ["application.IndentCommand"] = new("{x:Static vb:ApplicationCommands.IndentCommand}", ApplicationCommands.IndentCommand, null),
             ["application.InsertFileCommand"] = new("{x:Static vb:ApplicationCommands.InsertFileCommand}", ApplicationCommands.InsertFileCommand, null),
+            ["application.LastPositionCommand"] = new("{x:Static vb:ApplicationCommands.LastPositionCommand}", ApplicationCommands.LastPositionCommand, null),
             ["application.ListConstantsCommand"] = new("{x:Static vb:ApplicationCommands.ListConstantsCommand}", ApplicationCommands.ListConstantsCommand, null),
             ["application.ListPropertiesMethodsCommand"] = new("{x:Static vb:ApplicationCommands.ListPropertiesMethodsCommand}", ApplicationCommands.ListPropertiesMethodsCommand, null),
             ["application.LockControlsCommand"] = new("{x:Static vb:ApplicationCommands.LockControlsCommand}", ApplicationCommands.LockControlsCommand, null),

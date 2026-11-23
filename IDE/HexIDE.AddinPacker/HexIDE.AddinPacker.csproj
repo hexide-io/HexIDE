@@ -15,6 +15,9 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <!-- No PackageReference here, ever: the release's signing job runs this program next to the first-party key, so
+       every package it builds with is code trusted with that key. hexide-pack (HexIDE.AddinPacker.Interactive) holds
+       the prompts and their package, and calls PackerCli.Run (#5555, PackerFrontEndBoundaryTests). -->
   <ItemGroup>
     <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
   </ItemGroup>

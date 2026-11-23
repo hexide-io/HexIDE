@@ -117,6 +117,117 @@ public class MenuEditorInteractionTests
         serializer.Serialize(form, "Form1.frm").frmText.Should().Be(before);
     }
 
+    // #5457: collection changes must survive the real two-way ListBox selection binding.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Delete_then_OK_removes_the_selected_menu_from_the_saved_form(bool submenu)
+    {
+        await EditSavedMenus(submenu, editor =>
+        {
+            SelectRow(editor, 1);
+            Click(editor, editor.Field<Button>("DeleteButton"));
+        }, saved => saved.Should().Contain("Begin VB.Menu mnuFile").And.NotContain("Begin VB.Menu " + (submenu ? "mnuOpen" : "mnuHelp")));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Two_moves_keep_the_item_selected_and_save_the_order(bool up)
+    {
+        await EditSavedMenus(true, editor =>
+        {
+            SelectRow(editor, up ? 3 : 1);
+            var selected = editor.Model.SelectedMenu;
+            for (var press = 0; press < 2; press++)
+            {
+                Click(editor, editor.Field<Button>(up ? "UpButton" : "DownButton"));
+                editor.Field<ListBox>("MenuList").SelectedItem.Should().BeSameAs(selected);
+                editor.Model.SelectedMenu.Should().BeSameAs(selected);
+            }
+        }, saved =>
+        {
+            var names = up ? new[] { "mnuFile", "mnuEdit", "mnuOpen", "mnuHelp" }
+                : new[] { "mnuFile", "mnuHelp", "mnuEdit", "mnuOpen" };
+            saved.ReplaceLineEndings("\n").Split('\n').Where(line => line.Contains("Begin VB.Menu"))
+                .Select(line => line.Trim()).Should().Equal(names.Select(name => "Begin VB.Menu " + name));
+        });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Insert_and_Next_select_the_expected_row_through_the_view(bool insert)
+    {
+        using var editor = new Editor();
+        editor.Model.SelectedMenu!.Caption = "File";
+        SelectRow(editor, 0);
+        Click(editor, editor.Field<Button>(insert ? "InsertButton" : "NextButton"));
+        editor.Field<ListBox>("MenuList").SelectedIndex.Should().Be(1);
+        editor.Model.SelectedMenu.Should().BeSameAs(editor.Model.FlatMenu[1]);
+    }
+
+    private static void SelectRow(Editor editor, int index)
+    {
+        editor.Window.UpdateLayout();
+        var list = editor.Field<ListBox>("MenuList");
+        Click(editor, list.ContainerFromIndex(index)!);
+        list.SelectedIndex.Should().Be(index);
+    }
+
+    private static void Click(Editor editor, Control control)
+    {
+        var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), editor.Window)!.Value;
+        editor.Window.MouseDown(point, MouseButton.Left);
+        editor.Window.MouseUp(point, MouseButton.Left);
+        editor.Window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    private static async Task EditSavedMenus(bool submenu, Action<Editor> edit, Action<string> check)
+    {
+        var project = TestHelpers.CreateProjectWithForm("P", "Form1");
+        var form = project.Forms.First();
+        var serializer = new FormSerializer();
+        var windows = Substitute.For<IWindowManager>();
+        using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
+            Substitute.For<ILocalizationService>()).Initialize(form);
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var model = (MenuEditorViewModel)call[0];
+            var names = submenu ? new[] { "mnuFile", "mnuOpen", "mnuHelp", "mnuEdit" }
+                : new[] { "mnuFile", "mnuHelp", "mnuEdit" };
+            foreach (var name in names)
+            {
+                model.SelectedMenu!.Caption = name;
+                model.SelectedMenu.Name = name;
+                model.SelectedMenu.Indent = 0;
+                if (submenu && name != "mnuFile")
+                    model.MoveRight();
+                model.Next();
+            }
+            return Task.FromResult(true);
+        });
+        await designer.EditMenu();
+        var before = serializer.Serialize(form, "Form1.frm").frmText;
+        before.Should().Contain("Begin VB.Menu " + (submenu ? "mnuOpen" : "mnuHelp"));
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            using var editor = new Editor((MenuEditorViewModel)call[0]);
+            bool? accepted = null;
+            editor.Model.CloseRequested += value => accepted = value;
+            edit(editor);
+            Click(editor, editor.Field<Button>("OKButton"));
+            accepted.Should().BeTrue();
+            return Task.FromResult(accepted == true);
+        });
+        var exception = await Record.ExceptionAsync(() => designer.EditMenu());
+        var saved = serializer.Serialize(form, "Form1.frm").frmText;
+        exception.Should().BeNull("the editor must apply OK without throwing; saved form: {0}", saved);
+        check(saved);
+    }
+
     [AvaloniaFact]
     public void Enter_activates_the_measured_Next_default()
     {

@@ -114,7 +114,7 @@ public class OnTypeFormattingTests
     [InlineData("\r\n")]
     public async Task TimeoutIndentsWithoutCloserAndUndoesWithLineBreak(string newline)
     {
-        await using var f = await Fixture.Open(newline);
+        await using var f = await Fixture.Open(newline, budget: VBLspClient.OnTypeFormattingTimeout);
         f.Enter();
         await f.Request();
         await f.Server.Cancelled.Task.WaitAsync(Fixture.HangTimeout, TestContext.Current.CancellationToken);
@@ -170,7 +170,8 @@ public class OnTypeFormattingTests
     [AvaloniaFact]
     public async Task TypingBeforeTimeoutDiscardsFallback()
     {
-        await using var f = await Fixture.Open();
+        // Mitigation only: the continuation that types still races the budget on a loaded runner (#5497).
+        await using var f = await Fixture.Open(budget: TimeSpan.FromSeconds(2));
         f.Enter();
         await f.Request();
         f.Window.KeyTextInput("Z");
@@ -428,7 +429,7 @@ public class OnTypeFormattingTests
         private string enterDiagnostics = "Enter not pressed through Fixture.Enter, so no state was recorded";
 
         public static async Task<Fixture> Open(string newline = "\n", string trigger = "\n", bool lastLine = false,
-            bool closed = false)
+            bool closed = false, TimeSpan? budget = null)
         {
             var server = new Server(trigger);
             var (local, remote) = FullDuplexStream.CreatePair();
@@ -439,7 +440,10 @@ public class OnTypeFormattingTests
             transport.LeaveServerRunning.Returns(true);
             transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
                 .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(new LspMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
-            var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
+            var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6")
+            {
+                OnTypeFormattingBudget = budget ?? TimeSpan.FromSeconds(10)
+            };
             await client.StartAsync(TestContext.Current.CancellationToken);
             var localization = new LocalizationService();
             localization.Apply("en");

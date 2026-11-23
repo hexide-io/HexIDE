@@ -9,8 +9,11 @@ internal sealed record InstalledProfileCandidate(string Id, string DirectoryPath
 
 internal static class ProfileCatalog
 {
+    /// <summary>The embedded profile selected when the selector and brand default are omitted.</summary>
+    internal const string DefaultId = "neutral";
+
     // Explicit resource index: never enumerate an avares directory or search the working directory.
-    private static readonly ImmutableArray<string> BuiltinIds = ["vb6", "vbaode", "vba"];
+    private static readonly ImmutableArray<string> BuiltinIds = ["neutral", "vb6", "vbaode", "vba"];
 
     public static ImmutableArray<ProfileSnapshot> Builtins { get; } = LoadBuiltins();
 

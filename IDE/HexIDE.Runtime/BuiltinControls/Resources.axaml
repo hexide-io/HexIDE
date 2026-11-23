@@ -2,6 +2,68 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:builtinControls="clr-namespace:HexIDE.Runtime.BuiltinControls"
                     xmlns:common="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia">
+    <ControlTheme x:Key="{x:Type builtinControls:VBTextBox}"
+                  TargetType="builtinControls:VBTextBox"
+                  BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ClassicBorderDecorator x:Name="TextEdge" BorderStyle="Sunken"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Background="{TemplateBinding Background}"
+                                        BorderDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkBrushKey}}"
+                                        BorderDarkDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkDarkBrushKey}}"
+                                        BorderLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightBrushKey}}"
+                                        BorderLightLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightLightBrushKey}}">
+                    <ScrollViewer Name="PART_ScrollViewer"
+                                  Margin="{TemplateBinding Padding}"
+                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  AllowAutoHide="{TemplateBinding (ScrollViewer.AllowAutoHide)}"
+                                  BringIntoViewOnFocusChange="{TemplateBinding (ScrollViewer.BringIntoViewOnFocusChange)}"
+                                  HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
+                                  IsScrollChainingEnabled="{TemplateBinding (ScrollViewer.IsScrollChainingEnabled)}"
+                                  VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
+                        <!-- FontDecorationDrawing adds underline/strikethrough in this scrolling panel. -->
+                        <Panel>
+                            <TextPresenter Name="PART_TextPresenter"
+                                           CaretBlinkInterval="{TemplateBinding CaretBlinkInterval}"
+                                           CaretBrush="{TemplateBinding CaretBrush}"
+                                           CaretIndex="{TemplateBinding CaretIndex}"
+                                           LineHeight="{TemplateBinding LineHeight}"
+                                           LetterSpacing="{TemplateBinding LetterSpacing}"
+                                           PasswordChar="{TemplateBinding PasswordChar}"
+                                           RevealPassword="{TemplateBinding RevealPassword}"
+                                           SelectionBrush="{TemplateBinding SelectionBrush}"
+                                           SelectionEnd="{TemplateBinding SelectionEnd}"
+                                           SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                                           SelectionStart="{TemplateBinding SelectionStart}"
+                                           Text="{TemplateBinding Text, Mode=TwoWay}"
+                                           TextAlignment="{TemplateBinding TextAlignment}"
+                                           TextWrapping="{TemplateBinding TextWrapping}" />
+                        </Panel>
+                        <ScrollViewer.Styles>
+                            <Style Selector="ScrollContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Cursor" Value="IBeam" />
+                            </Style>
+                        </ScrollViewer.Styles>
+                    </ScrollViewer>
+                </ClassicBorderDecorator>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:disabled /template/ ClassicBorderDecorator#TextEdge">
+            <Setter Property="Opacity" Value="{DynamicResource ThemeDisabledOpacity}" />
+        </Style>
+    </ControlTheme>
+    <ControlTheme x:Key="FlatVBTextBox"
+                  TargetType="builtinControls:VBTextBox"
+                  BasedOn="{StaticResource {x:Type builtinControls:VBTextBox}}">
+        <Setter Property="BorderThickness" Value="1" />
+        <Style Selector="^ /template/ ClassicBorderDecorator#TextEdge">
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static common:SystemColors.WindowFrameBrushKey}}" />
+        </Style>
+    </ControlTheme>
+
     <ControlTheme x:Key="{x:Type builtinControls:VBCommandButton}"
                   TargetType="builtinControls:VBCommandButton"
                   BasedOn="{StaticResource {x:Type Button}}">
@@ -12,7 +74,7 @@
                     <Border x:Name="DefaultFrame" BorderThickness="1"
                             BorderBrush="{DynamicResource {x:Static common:SystemColors.WindowFrameBrushKey}}"
                             IsVisible="False" />
-                    <ClassicBorderDecorator x:Name="ButtonEdge" BorderStyle="Raised" BorderThickness="2"
+                    <ClassicBorderDecorator x:Name="ButtonEdge" BorderStyle="Raised" BorderThickness="3"
                                             Background="{TemplateBinding Background}"
                                             BorderControlBrush="{DynamicResource {x:Static common:SystemColors.ControlBrushKey}}"
                                             BorderLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightBrushKey}}"
@@ -44,6 +106,7 @@
         </Style>
         <Style Selector="^:pressed /template/ ClassicBorderDecorator#ButtonEdge">
             <Setter Property="BorderStyle" Value="Sunken" />
+            <Setter Property="BorderThickness" Value="2" />
         </Style>
     </ControlTheme>
     <ControlTheme x:Key="{x:Type builtinControls:VBCheckBox}"
@@ -65,8 +128,11 @@
                                                 Height="13"
                                                 BorderStyle="Sunken"
                                                 Background="{DynamicResource {x:Static common:SystemColors.WindowBrushKey}}"
-                                                BorderThickness="{TemplateBinding BorderThickness}"
-                                                BorderBrush="{TemplateBinding BorderBrush}">
+                                                BorderThickness="2"
+                                                BorderDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkBrushKey}}"
+                                                BorderDarkDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkDarkBrushKey}}"
+                                                BorderLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightBrushKey}}"
+                                                BorderLightLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightLightBrushKey}}">
                             <Path x:Name="CheckMarkPath"
                                   Margin="1,1,1,1"
                                   Width="7"
@@ -109,8 +175,9 @@
     <ControlTheme x:Key="FlatVBCheckBox"
                   TargetType="builtinControls:VBCheckBox"
                   BasedOn="{StaticResource {x:Type builtinControls:VBCheckBox}}">
-        <Setter Property="BorderBrush" Value="Black" />
-        <Setter Property="BorderThickness" Value="2" />
+        <Style Selector="^ /template/ ClassicBorderDecorator#CheckMark">
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static common:SystemColors.WindowFrameBrushKey}}" />
+        </Style>
     </ControlTheme>
 
 
@@ -125,12 +192,15 @@
                     <BulletDecorator.Bullet>
                         <!-- Draw Checkmark border and tick mark -->
                         <ClassicBorderDecorator x:Name="Border"
-                                                        Width="13"
-                                                        Height="13"
-                                                        BorderStyle="RadioButton"
-                                                        Background="{DynamicResource {x:Static common:SystemColors.WindowBrushKey}}"
-                                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                                Width="13"
+                                                Height="13"
+                                                BorderStyle="RadioButton"
+                                                Background="{DynamicResource {x:Static common:SystemColors.WindowBrushKey}}"
+                                                BorderThickness="2"
+                                                BorderDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkBrushKey}}"
+                                                BorderDarkDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkDarkBrushKey}}"
+                                                BorderLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightBrushKey}}"
+                                                BorderLightLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightLightBrushKey}}">
                             <Ellipse x:Name="checkMark"
                                      Fill="{TemplateBinding Foreground}"
                                      Width="4"
@@ -152,7 +222,9 @@
     <ControlTheme x:Key="FlatVBOptionButton"
                   TargetType="builtinControls:VBOptionButton"
                   BasedOn="{StaticResource {x:Type builtinControls:VBOptionButton}}">
-        <Setter Property="BorderBrush" Value="Black" />
+        <Style Selector="^ /template/ ClassicBorderDecorator#Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static common:SystemColors.WindowFrameBrushKey}}" />
+        </Style>
     </ControlTheme>
 
 

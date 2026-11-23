@@ -25,7 +25,6 @@ using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Integration.Tests.Views;
 

@@ -2210,13 +2210,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 try
                 {
                     await executor.HoistDeclaredLocals(proc);
-                    // #4449: a step into Sub Main, or into a form's Load or Initialize, stops at its declaration, as
-                    // VB6 does from design mode and from `Form1.Show` in Sub Main (measured). Direct calls keep their
-                    // existing rule. So does any other module's event during the startup load, such as a class's or a
-                    // UserControl's: where those stop is unmeasured.
+                    // #5295: Step Into a directly called standard-module Sub stops at its declaration (measured:
+                    // docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md).
+                    // #4449's entry rule stays unchanged. Functions, Properties and class/form Subs, including
+                    // Class_Initialize and Class_Terminate, keep today's rule: their direct entry is unmeasured.
                     if (proc.Declaration is VB6Parser.SubStmtContext declaration)
                         await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true, entry: true,
-                            stepEntry: isEntry && (me is null ||
+                            stepEntry: !isEntry && owner.Kind == InterpreterModuleKind.Standard ||
+                                isEntry && (me is null ||
                                 !(InStartupDispatch && owner.Kind != InterpreterModuleKind.Form) &&
                                 (proc.Name.Equals("Form_Load", StringComparison.OrdinalIgnoreCase) ||
                                  proc.Name.Equals("Form_Initialize", StringComparison.OrdinalIgnoreCase))));
@@ -2256,6 +2257,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : proc.ReturnUdtTypeName is { } className && ProjectClassFor(className) is { } declaredClass
                         ? returned.ViewedAs(declaredClass.Name)
                     : proc.ReturnsVariant ? returned.AsVariant()
+                    // The generic Control return view binds list members late, as an Object result does (#5135).
+                    : returned.Value is Avalonia.Controls.Control list && AvaloniaInterop.ListMembers.IsList(list)
+                      && string.Equals(proc.ReturnUdtTypeName, "Control", StringComparison.OrdinalIgnoreCase)
+                        ? returned.ViewedAs("Control")
                     : returned.ReadFromControlSlot ? returned.ViewedAs(returned.DeclaredAs)
                     : returned;
             foreach (var (slot, target) in fixedStringCopies)

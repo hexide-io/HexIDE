@@ -63,7 +63,10 @@ keep their existing behaviour. The IDE keeps its own or the brand's icon. The me
 Project-local state stays shared across stock and branded distributions (#5149, superseding that part
 of #3420). Per-user settings, logs and recovery still follow the distribution id. A brand may name the
 project-local folder and sidecar, but opening a project in another distribution does not create a second copy.
-The archive layout inside the folder is unchanged.
+Compound source-folder synchronization puts each tree at `{root}/{file name}/`, its tracked manifest at
+`{root}/.manifests/{file name}.json` and ignored recovery state at `{root}/.sync/{file name}/` (#5148).
+On the next sync, the previous `.twinproj` and `.twinproj-sync` layout moves across only after recovery
+and verification against its baseline (or the current saved file for a clone); conflicts retain existing data.
 
 Discovery checks beside the saved project file. The opening distribution's names and stock's names
 count without a marker, preserving existing state. Other folder names must fit the `projectFolder`
