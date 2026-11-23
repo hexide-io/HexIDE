@@ -419,3 +419,94 @@ The bordered `Picture1` gives a 2940 × 1935 twip inside at 3000 × 2000, 4440 �
 **Not evidence here.** The inside's height comes out a whole number of pixels, 1935 for a saved 1940 and 1995 for 2000. That's the case #5162 measures, in oracle PR #5175.
 
 **Not measured:** a form's scale after a resize, which needs a shown form, on the console; a PictureBox resized by its container's own resize.
+
+### The last of #4693: a UserControl saved without extents, scale members through an Object, a Line after a mode change, argument counts, and drawing on a UserControl (2026-11-23, #4693, SP6)
+
+**The question.** What #4693 still refused or left unmeasured:
+- a UserControl saved with ScaleMode 0 and no extents;
+- its scale members reached through an Object variable;
+- a Line's ends after its centimetre PictureBox changes ScaleMode;
+- ScaleX and ScaleY with four or more arguments, or none;
+- drawing on a UserControl.
+
+**The rig:**
+- **Builds:** vb6.exe 6.00.9782 with MSVBVM60 6.00.9848, on the oracle guest's console. Each probe ran as a made EXE, native code and p-code, and in the IDE through `vb6.exe /runexit`. **All three logged the same lines.** The compile errors came from `/make`, one project for each row.
+- **The program:** a Standard EXE starting at `Sub Main`, which loaded, showed and probed `Form1`. Form1 held a placed `UserControl1` (2400 × 1800 twips) and a borderless PictureBox.
+
+**A UserControl saved with `ScaleMode = 0` and no ScaleLeft, ScaleTop, ScaleWidth or ScaleHeight lines.** Its `.ctl` gave a client of 2400 × 1800 and a Label1 at 150, 300, 600 by 255. Read from a Public Sub of the control:
+
+| Read | Gave |
+|---|---|
+| ScaleMode | 0, an Integer |
+| ScaleLeft, ScaleTop | 0, 0, Singles |
+| ScaleWidth, ScaleHeight | 2400, 1800, Singles |
+| Label1's Left, Top, Width, Height | 150, 300, 600, 255 |
+| `ScaleX(1, vbInches, vbUser)` | 1440, a Single |
+| `ScaleX(1440)` | 816.378 |
+| `ScaleY(15, vbPixels, vbTwips)` | 225 |
+
+**So it's one twip a unit,** as for a form or a PictureBox saved the same way (the section above, "A UserControl's scale, late-bound Scale, and scales saved without extents").
+
+**The scale members through an Object variable:**
+
+| From | Statement | VB6 |
+|---|---|---|
+| inside the control | `Set o = UserControl` | **compile error**, "Invalid use of base class name" |
+| inside the control | `Set o = Me`, then `TypeName(o)` | `UserControl1` |
+| inside the control, with `o` set to `Me` | reading `o.ScaleWidth`, `o.ScaleMode` or `o.ScaleX(1440)`; assigning `o.ScaleWidth = 100` or `o.ScaleMode = 3`; `o.Scale (0, 0)-(10, 10)` and a bare `o.Scale` | **438** each time, and the scale stays as it was |
+| the form, with `o` set to `UC1`, the extender | reading `o.ScaleMode`, `o.ScaleWidth` or `o.ScaleLeft`; `o.ScaleMode = 3`; `o.ScaleX(1440)` | **438**, "Object doesn't support this property or method" |
+
+**ScaleX and ScaleY with the wrong number of arguments:**
+
+| Call | VB6 |
+|---|---|
+| `Me.ScaleY(1, 2, 3, 4)`, `Me.ScaleY(1, 2, 3, 4, 5)`, `Me.ScaleY(1, 2, 3, 4, 5, 6)` | compile error, "Wrong number of arguments or invalid property assignment" |
+| `Me.ScaleX(1, 2, 3, 4, 5)`, `Me.ScaleX(1, 2, 3, 4, 5, 6)` | the same |
+| `Picture1.ScaleY(1, 2, 3, 4, 5)`, `Picture1.ScaleX(1, 2, 3, 4, 5, 6)` | the same |
+| `Me.ScaleX()` | compile error, "Argument not optional" |
+| late-bound, `o` set to the form: `o.ScaleX` with 4, 5 or 6 arguments, or `()`; `o.ScaleY` with 5 | **450**, "Wrong number of arguments or invalid property assignment" |
+
+**A Line's ends after its PictureBox changes ScaleMode.** Picture1 was 2835 twips square with no border, ScaleMode 7, centimetres. Line1 was saved at X1 0.5, Y1 1, X2 2.5, Y2 3. The ends read:
+
+| Picture1 now | X1 | Y1 | X2 | Y2 |
+|---|---|---|---|---|
+| as loaded, ScaleMode 7 | 0.4991811 | 1.000126 | 2.499433 | 3.000378 |
+| ScaleMode 1, twips | 283 | 567 | 1417 | 1701 |
+| ScaleMode 3, pixels | 18.86667 | 37.8 | 94.46667 | 113.4 |
+| ScaleMode 5, inches | 0.1965278 | 0.39375 | 0.9840278 | 1.18125 |
+| ScaleMode 6, millimetres | 4.99181 | 10.00126 | 24.99433 | 30.00378 |
+| ScaleMode 2, points | 14.15 | 28.35 | 70.85 | 85.05 |
+| ScaleMode 4, characters | 2.358333 | 2.3625 | 11.80833 | 7.0875 |
+| ScaleMode 7 again | 0.4991811 | 1.000126 | 2.499433 | 3.000378 |
+| `Scale (0, 0)-(100, 50)` | 9.982363 | 10 | 49.98236 | 30 |
+
+Each is a Single.
+- **Setting `Line1.X1 = 10`** in ScaleMode 3 read back 10. In ScaleMode 1 it then read 150.
+- **So a Line keeps its ends in whole twips.** Loading the saved centimetres gave 283, 567, 1417 and 1701, and they read in whatever ScaleMode its container has now: 283 twips over the 120 a character is wide, 2.358333, or over 2835 for 100 user units, 9.982363.
+
+**Drawing on a UserControl.** The same drawing ran on the control, through its own methods, and on a borderless PictureBox of the same size. Each had AutoRedraw True, BackColor white, ForeColor black, FillStyle 1 and DrawWidth 1.
+- **The drawing:**
+  - a line;
+  - a box (`B`);
+  - a filled red box (`BF`);
+  - a circle, and an ellipse of aspect 0.5;
+  - a `PSet`;
+  - `Print "Ab";` at CurrentX 20, CurrentY 35;
+  - a line with DrawWidth 3.
+- **It ran twice:** once in ScaleMode 3, and once after `Scale (0, 0)-(100, 50)`.
+- **The read:** every pixel of 160 × 120, through `Point`, summed into one figure per row from each pixel's x and red value, with a count of the pixels that weren't white.
+
+| Run | Pixels not white | CurrentX, CurrentY after the Print | TextWidth, TextHeight of "Ab" | 120 row figures |
+|---|---|---|---|---|
+| ScaleMode 3, the control | 743 | 33, 35 | 13, 13 | |
+| ScaleMode 3, the PictureBox | 743 | 33, 35 | 13, 13 | **the same, row by row** |
+| `Scale (0, 0)-(100, 50)`, the control | 1580 | 28.125, 35 | 8.125, 5.416667 | |
+| `Scale (0, 0)-(100, 50)`, the PictureBox | 1580 | 28.125, 35 | 8.125, 5.416667 | **the same, row by row** |
+
+**So drawing on a UserControl gave what drawing on a PictureBox gives,** in both scales, in all three builds. The comparison is of per-row figures, not of every pixel's bytes. Two different drawings could sum to the same row, but no rule here is drawn from that.
+
+**Not measured:**
+- a UserControl's drawing with AutoRedraw False, and its Paint event;
+- drawing with other DrawMode, DrawStyle or FillStyle values on a UserControl;
+- `Printer`'s scale;
+- a Line control inside a UserControl.
