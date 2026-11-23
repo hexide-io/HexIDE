@@ -2636,6 +2636,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && buddyTarget.Value is VBUpDown)
             return value;
 
+        // #4407: Toolbar list properties accept the reference through Let as well as Set.
+        if (value.Value is VBImageList
+            && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } toolbarCall
+            && toolbarCall.iCS_S_VariableOrProcedureCall() is { } toolbarLead
+            && toolbarCall.iCS_S_MemberCall() is [var toolbarMember]
+            && !MemberHasArgs(toolbarMember)
+            && UdtFieldName(toolbarMember).ToLowerInvariant() is "imagelist" or "hotimagelist" or "disabledimagelist"
+            && interpreter.ExecutionContext.TryGetVariable(currentEnv, toolbarLead.GetText(), out var toolbarTarget)
+            && toolbarTarget.Value is VBToolbar)
+            return value;
+
         // Icons accepts a reference through Let too (#1085, Icons probe).
         if (value.Value is VBImageList
             && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } imageCall
