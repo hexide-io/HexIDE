@@ -196,23 +196,77 @@ public class SavePictureTests : WindowTestFixture, IDisposable
         File.Exists(output).Should().BeFalse();
     }
 
-    // #992 records new output files, not replacement or destination metadata semantics.
+    // SP6, #992 comments “SavePicture to a file that already exists” and “the 75 message names the path as given” (2026-11-23).
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ExistingDestinationsRefuseWithoutReplacing(bool readOnly)
+    public async Task ExistingPlainDestinationIsRewrittenInPlace(bool relative)
     {
         var output = Path.Combine(folder, "existing.bmp");
-        byte[] original = [1, 2, 3];
+        File.WriteAllBytes(output, Enumerable.Repeat((byte)'X', 2000).ToArray());
+        var oldWrite = new DateTime(2002, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(output, oldWrite);
+        if (OperatingSystem.IsWindows())
+            File.SetCreationTimeUtc(output, new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var creation = File.GetCreationTimeUtc(output);
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        await ContainerRuntimeHarness.Run(ctx, env, $"""
+            {ChangeDirectory(relative)}
+            SavePicture LoadPicture({Literal(Path.Combine(Data, "x24.bmp"))}), {Literal(relative ? "existing.bmp" : output)}
+            """);
+        File.ReadAllBytes(output).Should().Equal(Fixture("o_x24.bmp.out"));
+        File.GetLastWriteTimeUtc(output).Should().BeAfter(oldWrite);
+        if (OperatingSystem.IsWindows())
+        {
+            File.GetCreationTimeUtc(output).Should().Be(creation);
+            File.GetAttributes(output).Should().Be(FileAttributes.Archive);
+        }
+    }
+
+    private string ChangeDirectory(bool relative) => !relative ? "" :
+        (OperatingSystem.IsWindows() ? $"ChDrive {Literal(folder)}\n" : "") + $"ChDir {Literal(folder)}";
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ExistingReadOnlyDestinationRaises75(bool relative) =>
+        ProtectedDestinationRaises75(FileAttributes.ReadOnly, relative);
+
+    [AvaloniaFact]
+    public async Task ExistingHiddenDestinationRaises75()
+    {
+        if (!OperatingSystem.IsWindows()) throw Xunit.Sdk.SkipException.ForSkip("Requires Windows hidden file attributes");
+        await ProtectedDestinationRaises75(FileAttributes.Hidden, true);
+    }
+
+    private async Task ProtectedDestinationRaises75(FileAttributes attributes, bool relative)
+    {
+        var output = Path.Combine(folder, "existing.bmp");
+        var path = relative ? (attributes == FileAttributes.Hidden ? @"sub\..\existing.bmp" : "existing.bmp") : output;
+        var original = Enumerable.Repeat((byte)'X', 2000).ToArray();
         File.WriteAllBytes(output, original);
-        if (readOnly) File.SetAttributes(output, FileAttributes.ReadOnly);
+        if (OperatingSystem.IsWindows())
+            File.SetCreationTimeUtc(output, new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(output, new DateTime(2002, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        File.SetAttributes(output, attributes);
+        var creation = File.GetCreationTimeUtc(output);
+        var lastWrite = File.GetLastWriteTimeUtc(output);
+        var originalAttributes = File.GetAttributes(output);
         try
         {
             var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
-            var run = () => ContainerRuntimeHarness.Run(ctx, env,
-                $"SavePicture LoadPicture({Literal(Path.Combine(Data, "x24.bmp"))}), {Literal(output)}");
-            await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*(#992)");
+            var values = await ContainerRuntimeHarness.Run(ctx, env, $"""
+                {ChangeDirectory(relative)}
+                On Error Resume Next
+                SavePicture LoadPicture({Literal(Path.Combine(Data, "x24.bmp"))}), {Literal(path)}
+                Debug.Print Err.Number
+                Debug.Print Err.Description
+                """);
+            values.Select(v => v.Value).Should().Equal(75L, $"Path/File access error: '{path}'");
             File.ReadAllBytes(output).Should().Equal(original);
+            File.GetCreationTimeUtc(output).Should().Be(creation);
+            File.GetLastWriteTimeUtc(output).Should().Be(lastWrite);
+            File.GetAttributes(output).Should().Be(originalAttributes);
         }
         finally { File.SetAttributes(output, FileAttributes.Normal); }
     }

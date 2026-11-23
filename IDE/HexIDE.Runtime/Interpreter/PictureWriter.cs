@@ -24,7 +24,16 @@ internal static class PictureWriter
         try
         {
             var destination = files.FullPath(path);
-            if (File.Exists(destination)) throw Unmeasured();
+            if (File.Exists(destination))
+            {
+                // SP6 preserves creation time by rewriting in place (#992, 2026-11-23 overwrite measurements).
+                var attributes = File.GetAttributes(destination);
+                if ((attributes & FileAttributes.ReadOnly) != 0 ||
+                    (OperatingSystem.IsWindows() && (attributes & FileAttributes.Hidden) != 0))
+                    throw new VBRunTimeException(new VBStandardError(75, $"Path/File access error: '{path}'"));
+                File.WriteAllBytes(destination, bytes);
+                return;
+            }
             temporary = Path.Combine(Path.GetDirectoryName(destination)!, ".savepicture-" + Guid.NewGuid());
             File.WriteAllBytes(temporary, bytes);
             File.Move(temporary, destination);

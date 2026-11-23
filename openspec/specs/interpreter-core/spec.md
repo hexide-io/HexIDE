@@ -3416,7 +3416,7 @@ implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 The interpreter SHALL execute positional and named `SavePicture Picture, FileName` statements for the
 VB6 SP6 layouts recorded in [#992](https://github.com/hexide-io/HexIDE/issues/992#issuecomment-7094565387).
 The picture SHALL choose the output format regardless of the destination extension. Unmeasured picture
-layouts, conversions, replacement of existing destinations and write failures SHALL raise a not-implemented refusal naming #992.
+layouts, conversions and unmeasured write failures SHALL raise a not-implemented refusal naming #992.
 
 #### Scenario: Saving a bitmap or JPEG
 - **WHEN** SavePicture receives an uncompressed bottom-up 8-, 24- or 32-bit BMP with a 40-byte DIB header and a full 256-entry table for 8-bit
@@ -3443,5 +3443,11 @@ layouts, conversions, replacement of existing destinations and write failures SH
 - **THEN** error 76 names the path as supplied, without a file
 
 #### Scenario: An existing destination
-- **WHEN** the destination already exists
-- **THEN** SavePicture refuses as not implemented (#992) and preserves it, because replacement and file metadata semantics are unmeasured
+- **WHEN** a plain destination already exists
+- **THEN** SavePicture truncates and rewrites it in place with the same bytes as a new file, preserving creation time and updating last-write time and the Windows Archive attribute
+- **AND** this follows the SP6 overwrite measurements in [#992](https://github.com/hexide-io/HexIDE/issues/992) (2026-11-23)
+
+#### Scenario: A protected existing destination
+- **WHEN** the existing destination is read-only, or hidden on Windows
+- **THEN** error 75, "Path/File access error: '<path>'", names the path exactly as passed, including relative components
+- **AND** the file's bytes, creation time, last-write time and attributes remain unchanged
