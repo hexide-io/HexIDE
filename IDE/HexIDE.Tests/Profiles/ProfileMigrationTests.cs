@@ -44,16 +44,15 @@ public sealed class ProfileMigrationTests : IDisposable
     }
 
     [Fact]
-    public void BareProfilePreservesVb6OfferingsAndReferencesVisibility()
+    public void NeutralProfilePreservesVb6OfferingsAndReferencesVisibility()
     {
-        File.WriteAllText(Path.Combine(root, "profile.json"), """{"schemaVersion":1,"id":"bare-test"}""");
         var resolver = new ProfileResolver(root, root);
-        var bare = new ProfileService(resolver.Resolve(root));
+        var neutral = new ProfileService(resolver.Resolve("neutral"));
         var vb6 = new ProfileService(resolver.Resolve("vb6"));
 
-        bare.AvailableProjectTypes.Should().Equal(vb6.AvailableProjectTypes);
-        bare.IsProjectReferencesVisible.Should().Be(vb6.IsProjectReferencesVisible);
-        bare.IsToolsReferencesVisible.Should().Be(vb6.IsToolsReferencesVisible);
+        neutral.AvailableProjectTypes.Should().Equal(vb6.AvailableProjectTypes);
+        neutral.IsProjectReferencesVisible.Should().Be(vb6.IsProjectReferencesVisible);
+        neutral.IsToolsReferencesVisible.Should().Be(vb6.IsToolsReferencesVisible);
     }
 
     [Theory]
@@ -116,9 +115,19 @@ public sealed class ProfileMigrationTests : IDisposable
         File.WriteAllText(Path.Combine(root, "bundle", "profile.json"), """{"schemaVersion":1,"id":"vb6"}""");
         ServerOptions.ParseArgs(selector == null ? [] : ["--profile", selector], root);
         var snapshot = ServerOptions.ResolveProfile(root, root);
-        if (selector == null) snapshot!.Id.Should().Be(ProfileCatalog.DefaultId);
+        if (selector == null) snapshot!.Id.Should().Be("neutral");
         (snapshot?.Source).Should().Be(source == "bundle" ? Path.Combine(root, source) : source);
         if (selector == "none") snapshot.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(null, "vbaode")]
+    [InlineData("vb6", "vb6")]
+    public void BrandDefaultAndExplicitSelectionPrecedeOmission(string? selector, string expected)
+    {
+        var brand = new DistributionIdentity("example", "Example", defaultProfile: "vbaode");
+        var selection = ServerOptions.SelectProfile(selector, root, brand, root);
+        new ProfileResolver(root, selection.Directory).Resolve(selection.Selector)!.Id.Should().Be(expected);
     }
 
     [Fact]

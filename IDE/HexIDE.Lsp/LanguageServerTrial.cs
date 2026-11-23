@@ -15,7 +15,8 @@ namespace HexIDE.Lsp;
 /// <b>A trial launches a command, so it has gates of its own.</b> The window reads <c>lsp-servers.json</c> again
 /// after startup, and that file is one any process running as the person may write. So a command that
 /// <see cref="LanguageServerCommandStore"/> hasn't seen, or has seen with other arguments or environment, is shown
-/// through <see cref="ILanguageServerLaunchConfirmation"/> before it runs. Declining runs nothing, and agreeing
+/// through <see cref="ILanguageServerLaunchConfirmation"/> before it runs. So is an address it dials that the store hasn't
+/// seen (#5465), since an entry that only connects still sends a server the project's folder. Declining runs nothing, and agreeing
 /// records it as seen, as saving the entry in the window does. A bundled entry's id earns no exemption: a person's
 /// entry with the same id replaces it.
 /// </para>
@@ -81,7 +82,8 @@ public sealed class LanguageServerTrial
         if (entry.Id is not { Length: > 0 } id)
             return LanguageServerTrialResult.NotRun(LanguageServerTrialOutcome.NotLaunchable, "", null, entry);
 
-        var command = LanguageServerConfigLoader.LaunchedCommandOf(entry);
+        // What it starts and where it dials (#5465): an entry that only connects is confirmed too.
+        var command = LanguageServerConfigLoader.SeenIdentityOf(entry);
         if (command is not null && _seen.IsNewOrChanged(id, command))
         {
             var name = string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName;
@@ -155,7 +157,8 @@ public enum LanguageServerTrialOutcome
 }
 
 /// <summary>What a trial found (#1209).</summary>
-/// <param name="Command">The command identity confirmed or run, or null for an entry the IDE only connects to.</param>
+/// <param name="Command">The identity confirmed or run, from <c>LanguageServerConfigLoader.SeenIdentityOf</c>: the command it
+/// starts and the address it dials. Null for an entry that does neither, such as one that only listens.</param>
 /// <param name="Disabled">The entry is switched off in the file, so the IDE won't start it until it's switched on.</param>
 /// <param name="ArtifactNotGenerated">
 /// The entry declares a <c>workspaceArtifact</c> or <c>projectImport</c>, which a real start generates with consent

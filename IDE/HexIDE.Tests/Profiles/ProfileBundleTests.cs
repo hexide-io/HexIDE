@@ -158,6 +158,7 @@ public class ProfileBundleTests
     [InlineData("vb6")]
     [InlineData("vbaode")]
     [InlineData("vba")]
+    [InlineData("neutral")]
     public void BuiltinNamesCannotBeShadowedButExplicitDirectoriesCanSelectThem(string id)
     {
         WithBundle(directory =>

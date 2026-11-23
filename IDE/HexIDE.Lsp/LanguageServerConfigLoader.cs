@@ -311,24 +311,76 @@ public sealed class LanguageServerConfigLoader
         foreach (var entry in entries)
         {
             if (entry.Enabled == false || entry.Id is not { } id) continue;
-            if (LaunchedCommandOf(entry) is not { } command) continue;
+            if (SeenIdentityOf(entry) is not { } command) continue;
 
             if (!seen.IsNewOrChanged(id, command)) continue;
 
+            // An entry that starts nothing and only dials an address gets a sentence of its own (#5465). Its kind
+            // is the same, so whatever reads these as "something new will be reached" needs no second case.
+            var connectsOnly = LaunchedCommandOf(entry) is null;
             problems.Add(new LanguageServerConfigProblem(
                 id,
-                $"'{id}' will run a command {HexIDE.IDE.Distribution.DisplayName} has not run before: {command}",
+                connectsOnly
+                    ? $"'{id}' will connect to an address {HexIDE.IDE.Distribution.DisplayName} has not connected to before: {DialledEndpointOf(entry)}"
+                    : $"'{id}' will run a command {HexIDE.IDE.Distribution.DisplayName} has not run before: {command}",
                 false,
-                LanguageServerConfigProblemKind.UnseenCommand).WithDetails("UnseenCommand", id, command));
+                LanguageServerConfigProblemKind.UnseenCommand).WithDetails(
+                    connectsOnly ? "UnseenEndpoint" : "UnseenCommand", id, connectsOnly ? DialledEndpointOf(entry)! : command));
 
             // Warning, not debug, and deliberately not only carried in the problem list. Until something
             // renders these (#259), the log is the ONLY place this reaches a person — and a notice nobody
             // can see is the failure this requirement exists to prevent.
-            _logger.LogWarning(
-                "Language server '{Id}' will run a command HexIDE has not run before: {Command}", id, command);
+            if (connectsOnly)
+                _logger.LogWarning(
+                    "Language server '{Id}' will connect to an address HexIDE has not connected to before: {Endpoint}",
+                    id, DialledEndpointOf(entry));
+            else
+                _logger.LogWarning(
+                    "Language server '{Id}' will run a command HexIDE has not run before: {Command}", id, command);
 
             seen.Record(id, command);
         }
+    }
+
+    /// <summary>
+    /// What the seen store keys an entry on, for the startup notice, the window's Save and a trial launch: the command
+    /// it starts, and the address it dials (#5465).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why the address counts.</b> An entry that only connects starts nothing, so <see cref="LaunchedCommandOf"/>
+    /// has nothing to say about it. But it still sends a server the project's folder in <c>initialize</c>, and then
+    /// each open document's text, and a <c>connect</c> address may be another machine. A file appearing with an
+    /// address in it is no more consent than one appearing with a path in it, so a new or changed address is
+    /// announced, as a new command is.
+    /// </para>
+    /// <para>
+    /// For an entry that only launches, this is exactly <see cref="LaunchedCommandOf"/>, so a stdio or pipe command
+    /// already recorded stays seen. A tcp entry with a command and a <c>connect</c> endpoint gains its address, so it
+    /// is announced once more after this change.
+    /// </para>
+    /// </remarks>
+    public static string? SeenIdentityOf(LanguageServerEntry entry)
+    {
+        var command = LaunchedCommandOf(entry);
+        if (DialledEndpointOf(entry) is not { } endpoint) return command;
+        return command is null ? $"connect {endpoint}" : $"{command}; connect {endpoint}";
+    }
+
+    /// <summary>
+    /// The address a tcp or WebSocket entry dials, or null for one that listens, or names no endpoint, or uses
+    /// another transport. Pipes are left out on purpose: a pipe is dialled on this machine only.
+    /// </summary>
+    public static string? DialledEndpointOf(LanguageServerEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.Endpoint)) return null;
+        var role = entry.Transport?.Trim().ToLowerInvariant() switch
+        {
+            "tcp" => entry.TcpRole,
+            "websocket" => entry.WebSocketRole,
+            _ => "listen",
+        };
+        return string.Equals(role?.Trim(), "listen", StringComparison.OrdinalIgnoreCase) ? null : entry.Endpoint.Trim();
     }
 
     /// <summary>
@@ -695,14 +747,15 @@ public sealed class LanguageServerConfigLoader
                 if (string.IsNullOrWhiteSpace(entry.Endpoint)) missing.Add("endpoint");
                 else if (!TcpLspTransport.TryAddress(entry.Endpoint.Trim(), out var address)
                     || (string.Equals(entry.TcpRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
-                        && !address!.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
-                        && !System.Net.IPAddress.TryParse(address.Host.Trim('[', ']'), out _))
+                        // On this machine only, as a WebSocket listener is (#5465): whatever dials in first is taken
+                        // as the server, so a bind on the network lets any host there take that role.
+                        && !TcpLspTransport.IsLoopbackHost(address!.Host))
                     || (!string.Equals(entry.TcpRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
                         && address!.Port == 0))
                 {
                     problems.Add(new LanguageServerConfigProblem(entry.Id,
-                        "TCP requires tcp://host:port; listen requires localhost or an IP address, and connect requires a nonzero port.", true)
-                        .WithDetails("Tcp", "endpoint=tcp://host:port; listen=localhost/IP; connect port=1..65535"));
+                        "TCP requires tcp://host:port; listen requires localhost, 127.0.0.1 or [::1], and connect requires a nonzero port. A server on another machine is reached with connect.", true)
+                        .WithDetails("Tcp", "endpoint=tcp://host:port; listen=localhost/127.0.0.1/[::1]; connect port=1..65535"));
                     return false;
                 }
                 if (!string.IsNullOrWhiteSpace(entry.TcpRole)

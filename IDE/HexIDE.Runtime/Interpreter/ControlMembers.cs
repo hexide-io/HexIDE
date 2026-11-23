@@ -33,11 +33,12 @@ internal static class ControlMembers
         return new(value);
     }
 
+    // Measured late-bound list receivers, including Collection items and function results (#5135).
     // VB.Control declarations also reach dispatch with the bare Control view.
     private static bool IsLateBoundListReference(Vb6Value variable) =>
-        variable.ReadFromControlSlot && (variable.HeldAsVariant
+        variable.HeldAsVariant
             || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(variable.DeclaredAs, "Control", StringComparison.OrdinalIgnoreCase));
+            || string.Equals(variable.DeclaredAs, "Control", StringComparison.OrdinalIgnoreCase);
 
     internal static async Task<Vb6Value> Read(Vb6Value variable, string memberIdentifier, IReadOnlyList<Vb6Value>? args,
         string? propertySpelling = null, Func<Task<List<Vb6Value>>>? evaluateArgs = null,
@@ -74,14 +75,23 @@ internal static class ControlMembers
         if (variable.Value is ItemsControl searchList && ListMembers.IsList(searchList) && ListMembers.IsExtension(searchList, memberIdentifier))
             return ListMembers.CallExtension(searchList, memberIdentifier, await Arguments());
 
-        // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
-        if (variable.Value is Control listControl && ListMembers.IsList(listControl) && hasArgs)
+        // A list's List(i) and ItemData(i), including a late-bound empty argument list (#5135).
+        if (variable.Value is Control listControl && ListMembers.IsList(listControl))
         {
-            if (memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
-                return ListMembers.ReadItemData(listControl, await Arguments());
-            if (memberIdentifier.Equals("List", StringComparison.OrdinalIgnoreCase))
-                return ListMembers.ReadItem(listControl, await Arguments());
-            if (listControl is VBListBox listBox && memberIdentifier.Equals("Selected", StringComparison.OrdinalIgnoreCase))
+            var itemData = memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase);
+            var item = memberIdentifier.Equals("List", StringComparison.OrdinalIgnoreCase);
+            if (itemData || item)
+            {
+                var indexes = await Arguments();
+                if (IsLateBoundListReference(variable) && indexes.Count == 0)
+                {
+                    VBProps.RefuseIfRemoved(listControl);
+                    throw new VBRunTimeException(VBStandardError.NeedPropertyArrayIndex);
+                }
+                if (hasArgs)
+                    return itemData ? ListMembers.ReadItemData(listControl, indexes) : ListMembers.ReadItem(listControl, indexes);
+            }
+            if (hasArgs && listControl is VBListBox listBox && memberIdentifier.Equals("Selected", StringComparison.OrdinalIgnoreCase))
                 return ListMembers.ReadSelected(listBox, await Arguments());
         }
 

@@ -74,6 +74,24 @@ public partial class FindReplaceViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task FindNextCommand_exposes_the_search_completion()
+    {
+        var symbols = new TaskCompletionSource<DocumentSymbol[]>();
+        var document = new SearchRangeDocument("needle") { PendingSymbols = symbols.Task };
+        SetActiveEditor(document);
+        var sut = ProjectFind();
+        sut.Scope = FindScope.CurrentModule;
+
+        sut.FindNextCommand.Execute(null);
+        sut.FindNextCommand.ExecutionTask.Should().NotBeNull();
+        sut.FindNextCommand.ExecutionTask!.IsCompleted.Should().BeFalse();
+        document.SelectionLength.Should().Be(0);
+        symbols.SetResult([]);
+        await sut.FindNextCommand.ExecutionTask;
+        document.Document.GetText(document.SelectionStart, document.SelectionLength).Should().Be("needle");
+    }
+
+    [AvaloniaFact]
     public async Task ProjectScope_UsesUnsavedBufferWithoutFlushing()
     {
         var project = SearchProject("P");
@@ -444,7 +462,8 @@ public partial class FindReplaceViewModelTests : IDisposable
         public int SelectionStart { get; set; }
         public int SelectionLength { get; set; }
         public DocumentSymbol[] Symbols { get; set; } = [];
-        public Task<DocumentSymbol[]> RequestSearchSymbolsAsync() => Task.FromResult(Symbols);
+        public Task<DocumentSymbol[]>? PendingSymbols { get; set; }
+        public Task<DocumentSymbol[]> RequestSearchSymbolsAsync() => PendingSymbols ?? Task.FromResult(Symbols);
         public override object? Icon => null;
         protected override string ComputeTitle() => "Test";
     }

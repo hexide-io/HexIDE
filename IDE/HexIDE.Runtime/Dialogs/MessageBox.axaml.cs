@@ -58,6 +58,7 @@ public partial class MessageBox : UserControl
     /// </remarks>
     public async Task<MessageBoxResult> ShowAndWait(Window window, Window owner)
     {
+        MessageBoxFormHold.EnterNative();
         window.FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
             ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         ApplyWindowStyles(window);
@@ -96,6 +97,7 @@ public partial class MessageBox : UserControl
         ProgramDialogChrome.Apply(again);
         current = again;
         window.Close();
+        MessageBoxFormHold.RefreshNative(owner);
         var closed = Watch(again);
         void OnOwnerClosed(object? sender, EventArgs e) => again.Close();
         owner.Closed += OnOwnerClosed;
