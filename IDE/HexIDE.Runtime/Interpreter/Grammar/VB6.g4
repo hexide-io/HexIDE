@@ -38,7 +38,7 @@ grammar VB6;
     {
         var source = designerSource ??= InputStream.ToString()!;
         if (TokenStartCharIndex >= (designerHeaderEnd ??=
-            HexIDE.Runtime.Serialization.ReadOnlyRegions.HeaderEnd(source, 0))) return false;
+            HexIDE.Language.ReadOnlyRegions.HeaderEnd(source, 0))) return false;
         var lineStart = source.LastIndexOf('\n', System.Math.Max(0, TokenStartCharIndex - 1)) + 1;
         return !source.AsSpan(lineStart, TokenStartCharIndex - lineStart).TrimStart()
             .StartsWith("Attribute ", System.StringComparison.OrdinalIgnoreCase);
