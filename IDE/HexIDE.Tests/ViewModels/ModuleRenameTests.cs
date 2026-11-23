@@ -60,7 +60,7 @@ public class ModuleRenameTests
         editor.Document.Insert(editor.Document.TextLength, "Dim x As Long\r\n");
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(new[] { project });
-        var explorer = new ProjectToolViewModel(manager, bus, Substitute.For<IProjectService>(),
+        var explorer = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, bus, Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), loc);
         explorer.SelectedModule = new ModuleViewModel(explorer.LoadedProjects[0], module);
 

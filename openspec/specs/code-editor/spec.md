@@ -493,8 +493,9 @@ with the code it was set on, whether or not the document is open in a code windo
 - **WHEN** a control is added, so the designer block grows
 - **THEN** the breakpoint is still on the same statement
 
-#### Scenario: Changing a form's layout while paused
-- **WHEN** a designer change is made while a run is paused
+#### Scenario: A programmatic header refresh while paused
+- **GIVEN** in-box runs shut out the designer as specified in [form-designer](../form-designer/spec.md)
+- **WHEN** a designer-header refresh is delivered programmatically while a run is paused
 - **THEN** no prompt to reset the run is shown on its account
 
 ### Requirement: Lines SHALL be numbered from the top of the file

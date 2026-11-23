@@ -94,7 +94,7 @@
                     <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ViewCodeCommand}"
                                           ExecutingCommand="{CompiledBinding ViewCode}" />
                     <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ViewObjectCommand}"
-                                          ExecutingCommand="{CompiledBinding ViewObject}" />
+                                          ExecutingCommand="{CompiledBinding ViewObjectCommand}" />
                     <input:CommandBinding Command="{x:Static vb:ApplicationCommands.UndoCommand}"
                                           ExecutingCommand="{CompiledBinding #Root.Undo}" />
                     <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RedoCommand}"

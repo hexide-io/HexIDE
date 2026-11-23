@@ -686,27 +686,19 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 - **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
   in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
 
-### D26. A designer change while a run is paused asks nothing, and moves breakpoints the run numbers the old way
-- **VB6:** **unmeasured**: whether VB6 lets a form's design be changed in break mode at all, and whether doing so
-  asks to reset the project.
-- **HexIDE:** nothing stops a designer change during a run: neither the designer nor `add_control` checks for
-  one. Since #273 task 3.13 it raises no reset prompt (D2), because a designer change is not a code edit
-  (`ResetPromptTests.ChangingAFormsLayoutWhilePaused`). The change reaches the model, the header and, at a
-  save, the file; the running form keeps the layout it was loaded with, since `VBLoader` builds it from the
-  definition once. Since lines count from the top of the file (D25), a change that adds or removes lines of the
-  designer block moves every line of code below it, and `HeaderRefresher.ShiftMarks` moves the document's
-  breakpoints with them and `ProjectRunnerService` pushes the moved set to the run. The interpreter still
-  numbers its statements from the text it parsed when the run started, so a moved breakpoint is missed or
-  stops another statement. The current-statement bar is a bare line number as well (`CurrentLineRenderer`), so
-  it is off by the change from that moment, and at every later pause, which the run reports in its own
-  numbering. A save whose rendered header has a different number of lines takes the same path
-  (`HeaderRefresher.Saved`).
-- **Why:** the prompt was exempted because a designer change is the IDE re-rendering the header, not the
-  developer editing code; the run's line numbers are the text it parsed, and nothing re-numbers it.
-- **Status:** **open**, [#870](https://github.com/hexide-io/HexIDE/issues/870), read from the code and not yet
-  reproduced live. It weighs holding the run's numbering until the run ends, re-numbering the run, which is
-  hard, and treating a designer change during a run as the code window treats an edit, the likeliest, which
-  waits on measuring what VB6 allows in break mode.
+### D26. Designer changes during an in-box run are shut out (#870)
+- **VB6:** running and paused projects hide the form designer, Toolbox, Properties and Form Layout; View Object
+  and their View commands are greyed. At End the designer returns behind the code window. Measured in SP6:
+  [the oracle rows](vb6-fidelity-oracle/the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#a-forms-designer-while-a-run-is-paused-2026-11-21-870-ide-sp6).
+- **HexIDE:** in-box runs suspend designer tabs without losing their undo history or selection, hide the design
+  tools without saving the temporary layout, disable the opening commands and refuse designer automation.
+  Suspending the focused designer keeps the other View commands and their keys reachable, by focusing the
+  remaining active document or the main view. At every run end the tabs and previously visible tools return.
+  This prevents designer header changes moving
+  breakpoints while the interpreter still uses the text it parsed at start.
+- **Status:** **fixed**, #870. External debug sessions keep their existing behaviour; their line identities
+  belong to the adapter. UserControl design-time execution, Add's break-mode submenu and Project Explorer's
+  Save, Save As, Remove and Print remain outside this change.
 
 ---
 

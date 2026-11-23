@@ -69,7 +69,7 @@ public sealed class ProjectFileNodeTests
     public void Activating_the_file_uses_the_file_editor()
     {
         var editors = Substitute.For<IEditorService>();
-        var explorer = new ProjectToolViewModel(Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
+        var explorer = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), editors, Substitute.For<ILocalizationService>());
         var project = new ProjectDefinition(VBProjectType.EXE, "Example") { AbsolutePath = "/Example.vbp" };
         using var node = new ProjectViewModel(explorer, project);
@@ -129,7 +129,7 @@ public sealed class ProjectFileNodeTests
         finally { Directory.Delete(directory, true); }
     }
 
-    private static ProjectToolViewModel Explorer() => new(Substitute.For<IProjectManager>(),
+    private static ProjectToolViewModel Explorer() => new(new HexIDE.Debugging.RunScope(), Substitute.For<IProjectManager>(),
         Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), Substitute.For<IEditorService>(),
         Substitute.For<ILocalizationService>());
 }

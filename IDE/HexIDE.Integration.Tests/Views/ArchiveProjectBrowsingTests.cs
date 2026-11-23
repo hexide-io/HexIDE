@@ -155,7 +155,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         localization.GetString("Str.Office.ProjectCaption").Returns("{0} ({1})");
         await archives.Open(OfficeFile(file));
         var manager = Substitute.For<IProjectManager>();
-        var model = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+        var model = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
         var root = model.RootItems.OfType<ArchiveTreeNode>().Single();
         root.Name.Should().Contain(file);
@@ -225,7 +225,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     {
         localization.GetString("Str.Office.LockedCaption").Returns("{0} ({1}) locked");
         await archives.Open(OfficeFile("locked.xlsm"));
-        var model = new ProjectToolViewModel(Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
+        var model = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
         var root = model.RootItems.OfType<ArchiveTreeNode>().Single();
         root.Name.Should().Be("LockedProject (locked.xlsm) locked");
@@ -320,7 +320,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     {
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(new[] { new ProjectDefinition(VBProjectType.EXE, "Ordinary") });
-        var model = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+        var model = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
         model.SelectedItem = model.LoadedProjects.Single();
         var view = new ProjectToolView { DataContext = model };
@@ -532,7 +532,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         manager.StartupProject.Returns(project);
         manager.LoadedProjects.Returns(new[] { project });
         var focus = new FocusedProjectUtil(dock, manager, archives);
-        var tree = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+        var tree = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
         await archives.Open(Write("one.twinproj", "source"));
         focus.FocusedOrStartupProject.Should().BeNull();
@@ -552,7 +552,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     {
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
-        var tree = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+        var tree = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
         tree.SynchronizeArchiveFolderCommand.CanExecute(null).Should().BeFalse();
         var path = Write("one.twinproj", "preview");
@@ -602,7 +602,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     {
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
-        var tree = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+        var tree = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
         var path = Write("one.twinproj", "saved");
         await archives.Open(path);

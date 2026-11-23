@@ -14,6 +14,7 @@ namespace HexIDE.IDE;
 
 public partial class EditorService : IEditorService
 {
+    private readonly HexIDE.Debugging.IRunScope runScope;
     private readonly IDocumentDockService documentDockService;
     private readonly Func<CodeEditorViewModel> codeEditorViewModelFactory;
     private readonly Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory;
@@ -30,7 +31,7 @@ public partial class EditorService : IEditorService
     /// Pure.DI resolves at compile time and cannot break. The <c>Func</c> is the back edge — the same
     /// device, and the same reason, as the note on <c>ILspWorkspace</c> in <c>DISetup</c>.
     /// </param>
-    public EditorService(IDocumentDockService documentDockService,
+    public EditorService(HexIDE.Debugging.IRunScope runScope, IDocumentDockService documentDockService,
         Func<CodeEditorViewModel> codeEditorViewModelFactory,
         Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory,
         Func<ProjectDocumentViewModel> projectDocumentViewModelFactory,
@@ -38,6 +39,7 @@ public partial class EditorService : IEditorService
         Func<IProjectManager> projectManager, ILocalizationService localization, IEventBus? events = null,
         Func<IProjectService>? projects = null)
     {
+        this.runScope = runScope;
         this.documentDockService = documentDockService;
         this.codeEditorViewModelFactory = codeEditorViewModelFactory;
         this.relatedDocumentEditorViewModelFactory = relatedDocumentEditorViewModelFactory;
@@ -345,7 +347,7 @@ public partial class EditorService : IEditorService
 
     public void EditForm(FormDefinition? form, ComponentInstance component)
     {
-        if (form is null) return;
+        if (form is null || runScope.RunningProject is not null) return;
         EditForm(form);
         var designer = documentDockService.OpenDocuments.OfType<FormEditViewModel>()
             .FirstOrDefault(vm => vm.FormDefinition == form);
@@ -355,7 +357,7 @@ public partial class EditorService : IEditorService
 
     public void EditForm(FormDefinition? form)
     {
-        if (form == null) return;
+        if (form == null || runScope.RunningProject is not null) return;
         Log.Debug("EditorService: EditForm({FormName})", form.Name);
         if (documentDockService.TryActivate<FormEditViewModel>(vm => vm.FormDefinition == form))
         {

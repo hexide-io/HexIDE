@@ -37,7 +37,7 @@ public sealed class AddProjectGroupTests : IDisposable
             windows, events, manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
             strings, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
-        explorer = new ProjectToolViewModel(manager, events, service, editors, strings);
+        explorer = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, events, service, editors, strings);
     }
 
     private string WriteProject(string name)

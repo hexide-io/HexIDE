@@ -343,7 +343,7 @@ public class WorkingCopyReplyTests
         projects.LoadedProjects.Returns([project]);
         projects.StartupProject.Returns(project);
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         var source = await tools.SetFileContentAsync(name, "Option Explicit");
         var property = await tools.SetControlPropertyAsync(name, "Form1", "Caption", "Go");
@@ -371,7 +371,7 @@ public class WorkingCopyReplyTests
         projects.LoadedProjects.Returns([project]);
         projects.StartupProject.Returns(project);
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var result = await new HexIdeTools(context).GetProjectInfoAsync(TestContext.Current.CancellationToken);
         result.Note.Should().Contain("Project1").And.Contain("no chosen home").And.Contain("Save Project");
     }

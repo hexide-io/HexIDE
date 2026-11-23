@@ -100,7 +100,7 @@ public class RemoveDocumentTests : IDisposable
         await service.SaveProject(document.Project, false);
         var path = document.AbsolutePath!;
         var bytes = File.ReadAllBytes(path);
-        var explorer = new HexIDE.Tools.ProjectToolViewModel(Substitute.For<IProjectManager>(), events, service,
+        var explorer = new HexIDE.Tools.ProjectToolViewModel(new HexIDE.Debugging.RunScope(), Substitute.For<IProjectManager>(), events, service,
             Substitute.For<IEditorService>(), Substitute.For<HexIDE.Localization.ILocalizationService>());
         using var tree = new HexIDE.Tools.ProjectViewModel(explorer, document.Project);
 

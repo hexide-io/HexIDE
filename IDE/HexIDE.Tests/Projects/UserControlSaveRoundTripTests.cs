@@ -138,7 +138,7 @@ public class UserControlSaveRoundTripTests : IDisposable
         project.Forms.Should().BeEmpty();
         project.Modules.Should().BeEmpty();
         project.PreservedItemLines.Should().Equal(line);
-        var tool = new HexIDE.Tools.ProjectToolViewModel(Substitute.For<IProjectManager>(),
+        var tool = new HexIDE.Tools.ProjectToolViewModel(new HexIDE.Debugging.RunScope(), Substitute.For<IProjectManager>(),
             Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), Substitute.For<IEditorService>(),
             Substitute.For<HexIDE.Localization.ILocalizationService>());
         using var tree = new HexIDE.Tools.ProjectViewModel(tool, project);

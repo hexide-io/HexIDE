@@ -21,7 +21,47 @@ operations do.
 > Applying the class's last segment to other carried classes is the naming decision recorded in #1458,
 > reasoned rather than measured. The control-array question remains unimplemented for modelled and carried controls.
 
+The run-mode rows follow the [VB6 SP6 IDE measurements](../../../docs/vb6-fidelity-oracle/the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#a-forms-designer-while-a-run-is-paused-2026-11-21-870-ide-sp6).
+The broader tab scope, state preservation, documents added during a run and external-session scope follow the
+decisions in [#870](https://github.com/hexide-io/HexIDE/issues/870).
+
 ## Requirements
+
+### Requirement: The designer during a run
+
+The IDE SHALL shut out designer tabs and design tools throughout an in-box run, running or paused. It SHALL
+preserve their state for restoration at run end and SHALL refuse designer opening and mutation. External debug
+sessions SHALL retain their existing behaviour.
+
+#### Scenario: Start and pause with a designer open
+- **WHEN** an in-box run starts with a form designer, Toolbox and Properties showing, then pauses
+- **THEN** every open form, UserControl and PropertyPage designer leaves the document area without disposal
+  or a Recently Closed entry, and no route opens or activates a designer, including one added during the run
+- **AND** Toolbox, Properties and Form Layout are hidden
+- **AND** View Object, Properties Window, Form Layout Window and Toolbox, their buttons and keys (F4 and
+  Shift+F7), and the Project Explorer's View Object and Properties are disabled and requeried
+- **AND** Property Pages stays disabled, while View Code and the Project Explorer remain available
+- **AND** Immediate, Locals, Watch, Call Stack, Project Explorer, Object Browser and Color Palette retain
+  their normal availability through the focused control
+- **AND** if the suspended designer held keyboard focus, focus moves to the document now active in its area,
+  or to the main view when that area has no document, so routed commands and their keys remain reachable
+- **AND** `set_control_property`, `move_control`, `add_control`, `invoke_designer_undo`, `invoke_designer_redo`,
+  `invoke_format_command` and `view_designer` refuse unchanged, explain that a project is running and the designer
+  is shut until it ends, and name `stop_project`
+
+#### Scenario: End restores only what was open
+- **WHEN** the in-box run ends by any route, including a failed start
+- **THEN** suspended designers return to their areas and order with their selection and undo history
+- **AND** the active document stays active, and only previously visible design tools return
+- **AND** a Form Layout window hidden before the run stays hidden, and opening commands are requeried
+
+#### Scenario: Close the IDE during a run
+- **WHEN** the layout is saved while the design tools are temporarily hidden
+- **THEN** it retains their layout from before the run
+
+#### Scenario: An external session
+- **WHEN** an add-in debug adapter starts an external debug session
+- **THEN** designer tabs and design tools retain their visibility and their View commands remain enabled
 
 ### Requirement: Changing a form's BorderStyle applies the measured designer consequences
 

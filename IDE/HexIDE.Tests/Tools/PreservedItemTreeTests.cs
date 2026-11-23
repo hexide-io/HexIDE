@@ -72,6 +72,6 @@ public class PreservedItemTreeTests
         new(CreateTool(), definition);
 
     private static ProjectToolViewModel CreateTool() =>
-        new(Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
+        new(new HexIDE.Debugging.RunScope(), Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), Substitute.For<ILocalizationService>());
 }

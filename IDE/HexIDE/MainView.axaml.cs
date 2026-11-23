@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using Avalonia.LogicalTree;
 using TextEditor = AvaloniaEdit.TextEditor;
 using Dock.Model.Core;
+using Dock.Model.Controls;
 using HexIDE.Forms.Views;
 using HexIDE.Forms.ViewModels;
 using HexIDE.VisualDesigner;
@@ -84,12 +85,14 @@ public partial class MainView : UserControl
             {
                 _focusOwner.KeyboardFocusRequested -= FocusDockable;
                 _focusOwner.PauseFocusRequested -= FocusPausedIde;
+                _focusOwner.DesignersSuspending -= FocusBeforeDesignerSuspension;
             }
             _focusOwner = DataContext as MainViewViewModel;
             if (_focusOwner != null)
             {
                 _focusOwner.KeyboardFocusRequested += FocusDockable;
                 _focusOwner.PauseFocusRequested += FocusPausedIde;
+                _focusOwner.DesignersSuspending += FocusBeforeDesignerSuspension;
             }
         };
         LayoutUpdated += (_, _) => TryFocusDockable();
@@ -126,13 +129,33 @@ public partial class MainView : UserControl
     private IDockable? _pendingFocus;
     private int _focusRequest;
 
+    private void FocusBeforeDesignerSuspension()
+    {
+        if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Control focused) return;
+        var designer = focused.GetVisualAncestors().Prepend(focused).OfType<FormEditView>().FirstOrDefault();
+        if (designer?.DataContext is not FormEditViewModel { Owner: IDocumentDock area }) return;
+
+        // Keep the command route attached while Dock removes the focused designer and lays out its successor.
+        ++_focusRequest;
+        _pendingFocus = null;
+        Focusable = true;
+        Focus();
+        if (area.VisibleDockables?.LastOrDefault(tab => tab is not FormEditViewModel) is { } next)
+            QueueDockableFocus(next);
+    }
+
     private void FocusDockable(IDockable dockable, bool reactivating)
     {
-        var request = ++_focusRequest;
-        _pendingFocus = dockable is CodeEditorViewModel or ImmediateToolViewModel or ProjectToolViewModel
+        QueueDockableFocus(dockable is CodeEditorViewModel or ImmediateToolViewModel or ProjectToolViewModel
             or PropertiesToolViewModel or ObjectBrowserToolViewModel
             || reactivating && dockable is LanguageServersToolViewModel or DiagnosticsToolViewModel or ProtocolInspectorToolViewModel
-            ? dockable : null;
+            ? dockable : null);
+    }
+
+    private void QueueDockableFocus(IDockable? dockable)
+    {
+        var request = ++_focusRequest;
+        _pendingFocus = dockable;
         // Existing panes need no layout; new content is picked up by LayoutUpdated when Dock creates it.
         Dispatcher.UIThread.Post(() =>
         {
@@ -144,9 +167,7 @@ public partial class MainView : UserControl
     {
         if (_pendingFocus is not { } dockable) return;
         var view = this.GetVisualDescendants().OfType<UserControl>()
-            .FirstOrDefault(c => ReferenceEquals(c.DataContext, dockable) && c.IsEffectivelyVisible
-                && c is CodeEditorView or ImmediateToolView or ProjectToolView or PropertiesToolView or ObjectBrowserToolView
-                    or LanguageServersToolView or DiagnosticsToolView or ProtocolInspectorToolView);
+            .FirstOrDefault(c => ReferenceEquals(c.DataContext, dockable) && c.IsEffectivelyVisible);
         if (view == null) return;
         var children = view.GetVisualDescendants().OfType<Control>();
         Control? input = view switch
@@ -159,7 +180,7 @@ public partial class MainView : UserControl
                 ?? children.OfType<ListBoxItem>().FirstOrDefault(c => c.IsEffectivelyVisible),
             ObjectBrowserToolView => children.OfType<TextBox>().FirstOrDefault(c => c.IsEffectivelyVisible),
             LanguageServersToolView or DiagnosticsToolView or ProtocolInspectorToolView => view,
-            _ => null,
+            _ => view,
         };
         // Reactivation focuses the content itself; fresh opens retain their existing focus policy (#3393).
         if (ReferenceEquals(input, view)) view.Focusable = true;

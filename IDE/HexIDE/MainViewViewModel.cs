@@ -128,6 +128,12 @@ public partial class MainViewViewModel : ObservableObject
 
     public DelegateCommand StartDefaultProjectCommand { get; }
     public DelegateCommand StartExternalDebugCommand { get; }
+    public DelegateCommand ViewObjectCommand { get; }
+    public DelegateCommand OpenPropertiesCommand { get; }
+    public DelegateCommand OpenFormLayoutCommand { get; }
+    public DelegateCommand OpenToolBoxCommand { get; }
+    private readonly List<Tool> runHiddenTools = [];
+
     public HexIDE.Debugging.ExternalDebugService? ExternalDebugger { get; }
 
     public DelegateCommand StartDefaultProjectWithFullCompileCommand { get; }
@@ -315,6 +321,7 @@ public partial class MainViewViewModel : ObservableObject
     private readonly AddinToolWindowService _addinToolWindowService;
 
     internal event Action? PauseFocusRequested;
+    internal event Action? DesignersSuspending;
     internal event Action<IDockable, bool>? KeyboardFocusRequested;
 
     public class DockFactory : Factory
@@ -1212,8 +1219,12 @@ public partial class MainViewViewModel : ObservableObject
 
         // ---- capture the live tree back into a manifest (Closing save) ----
 
+        // Temporary run-mode hides must never become the persisted layout, even on shutdown or a named-layout save.
+        internal LayoutManifest? SuspendedLayout { get; set; }
+
         public LayoutManifest CaptureManifest(IRootDock layout)
         {
+            if (SuspendedLayout is { } beforeRun) return beforeRun;
             var main = layout.DefaultDockable as IDock;
 
             var left = leftProportion;
@@ -1804,6 +1815,21 @@ public partial class MainViewViewModel : ObservableObject
         ExternalDebugger = externalDebugger;
         StartExternalDebugCommand = new DelegateCommand(() => StartExternalDebugAsync().ListenErrors(),
             () => externalDebugger is not null && !projectRunnerService.IsRunning);
+        ViewObjectCommand = new DelegateCommand(() =>
+        {
+            if (projectRunnerService.RunningProject is not null) return;
+            if (ReferenceEquals(Layout.FocusedDockable, projectExplorer) && projectExplorer.ViewObjectCommand.CanExecute(null))
+                projectExplorer.ViewObjectCommand.Execute(null);
+            else if (documentDockService.ActiveDocument?.OpenDocument is { } document)
+                editorService.EditForm(document.Form ?? document.Module?.FormPart);
+            else if (projectExplorer.ViewObjectCommand.CanExecute(null)) projectExplorer.ViewObjectCommand.Execute(null);
+        }, () => projectRunnerService.RunningProject is null
+            && (documentDockService.ActiveDocument?.OpenDocument is { } document
+                && (document.Form is not null || document.Module?.FormPart is not null)
+                || projectExplorer.SelectedFormOrFormPart));
+        OpenPropertiesCommand = new DelegateCommand(OpenPropertiesTool, () => projectRunnerService.RunningProject is null);
+        OpenFormLayoutCommand = new DelegateCommand(OpenFormLayoutTool, () => projectRunnerService.RunningProject is null);
+        OpenToolBoxCommand = new DelegateCommand(OpenToolBox, () => projectRunnerService.RunningProject is null);
         // When the interpreter breaks, bring the offending form/module's code editor forward. The editor view then
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
         debugController.Stopped += info =>
@@ -2165,6 +2191,9 @@ public partial class MainViewViewModel : ObservableObject
 
         projectRunnerService.ObservePropertyChanged(x => x.CanEndProject)
             .Subscribe(_ => EndProjectCommand.RaiseCanExecutedChanged());
+
+        projectRunnerService.ObservePropertyChanged(x => x.RunningProject)
+            .Subscribe(_ => UpdateDesignerRunState());
 
         projectRunnerService.ObservePropertyChanged(x => x.IsRunning)
             .Subscribe(_ =>
@@ -2794,8 +2823,41 @@ public partial class MainViewViewModel : ObservableObject
         return null;
     }
 
+    private void UpdateDesignerRunState()
+    {
+        var running = projectRunnerService.RunningProject is not null;
+        if (running && dockFactory.SuspendedLayout is null)
+        {
+            dockFactory.SuspendedLayout = dockFactory.CaptureManifest(Layout);
+            if (documentDockService is DocumentDockService documents)
+            {
+                DesignersSuspending?.Invoke();
+                documents.SuspendDesigners();
+            }
+            foreach (var tool in new Tool[] { ToolBox, Properties, FormLayout })
+                if (IsToolInLayout(tool))
+                {
+                    runHiddenTools.Add(tool);
+                    CloseTool(tool);
+                }
+        }
+        else if (!running && dockFactory.SuspendedLayout is not null)
+        {
+            foreach (var tool in runHiddenTools) OpenOrActivateTool(tool, true);
+            runHiddenTools.Clear();
+            if (documentDockService is DocumentDockService documents) documents.RestoreDesigners();
+            dockFactory.SuspendedLayout = null;
+        }
+        ViewObjectCommand.RaiseCanExecutedChanged();
+        OpenPropertiesCommand.RaiseCanExecutedChanged();
+        OpenFormLayoutCommand.RaiseCanExecutedChanged();
+        OpenToolBoxCommand.RaiseCanExecutedChanged();
+        CommandManager.InvalidateRequerySuggested();
+    }
     private void OpenOrActivateTool(Tool tool, bool right)
     {
+        if (projectRunnerService.RunningProject is not null && (ReferenceEquals(tool, ToolBox)
+            || ReferenceEquals(tool, Properties) || ReferenceEquals(tool, FormLayout))) return;
         var opened = FindDock<IDockable>(x => ReferenceEquals(x, tool));
         if (opened != null)
         {

@@ -101,7 +101,7 @@ public partial class ProjectToolViewModel : Tool
         return null;
     }
 
-    public ProjectToolViewModel(IProjectManager projectManager,
+    public ProjectToolViewModel(HexIDE.Debugging.RunScope runScope, IProjectManager projectManager,
         IEventBus eventBus,
         IProjectService projectService,
         IEditorService editorService,
@@ -133,7 +133,7 @@ public partial class ProjectToolViewModel : Tool
                 editorService.EditForm(SelectedForm.FormDefinition);
             else if (SelectedModule != null)
                 editorService.EditForm(SelectedModule.ModuleDefinition.FormPart);
-        }, () => SelectedForm != null || SelectedModule?.ModuleDefinition.FormPart != null);
+        }, () => runScope.RunningProject is null && (SelectedForm != null || SelectedModule?.ModuleDefinition.FormPart != null));
         ViewCodeCommand = new DelegateCommand(() =>
         {
             if (SelectedForm != null)
@@ -147,7 +147,12 @@ public partial class ProjectToolViewModel : Tool
         {
             ViewObjectCommand.Execute(null);
             ((ICommand)ApplicationCommands.OpenPropertiesCommand).Execute(null);
-        }, () => SelectedForm != null);
+        }, () => runScope.RunningProject is null && SelectedForm != null);
+        runScope.InBoxRunChanged += () =>
+        {
+            ViewObjectCommand.RaiseCanExecutedChanged();
+            FormPropertiesCommand.RaiseCanExecutedChanged();
+        };
         SaveFormCommand = new DelegateCommand(() =>
         {
             if (SelectedForm != null)

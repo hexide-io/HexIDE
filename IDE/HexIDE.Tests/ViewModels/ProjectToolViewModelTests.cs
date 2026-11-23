@@ -9,8 +9,50 @@ using HexIDE.Tools;
 
 namespace HexIDE.Tests.ViewModels;
 
-public class ProjectToolViewModelTests
+public class ProjectToolViewModelTests : CompositionTestBase
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Designer_commands_are_disabled_during_an_in_box_run(bool paused)
+    {
+        var setup = Composition;
+        try
+        {
+            var root = setup.Root;
+            var project = new ProjectDefinition(VBProjectType.EXE, "P");
+            var form = new FormDefinition(project, FormComponentClass.Instance, "Form1");
+            project.AddForm(form);
+            form.UpdateCode(form.Code + "\r\nPrivate Sub Form_Load()\r\nDim n As Long\r\nn = 0\r\nEnd Sub\r\n");
+            setup.ProjectManager.AddProject(project);
+            var explorer = root.ProjectExplorer;
+            explorer.SelectedForm = new FormViewModel(explorer.LoadedProjects.Single(), form);
+            explorer.ViewObjectCommand.CanExecute(null).Should().BeTrue();
+            explorer.FormPropertiesCommand.CanExecute(null).Should().BeTrue();
+            var changes = 0;
+            explorer.ViewObjectCommand.CanExecuteChanged += (_, _) => changes++;
+            setup.ProjectRunnerService.RunProject(project, stepInto: paused);
+            await Task.Yield();
+            setup.ProjectRunnerService.RunningProject.Should().BeSameAs(project);
+            setup.DebugController.State.Should().Be(paused
+                ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+            explorer.ViewObjectCommand.CanExecute(null).Should().BeFalse();
+            explorer.FormPropertiesCommand.CanExecute(null).Should().BeFalse();
+            explorer.ViewCodeCommand.CanExecute(null).Should().BeTrue();
+            changes.Should().BeGreaterThan(0);
+            setup.ProjectRunnerService.EndProject();
+            await Task.Yield();
+            explorer.ViewObjectCommand.CanExecute(null).Should().BeTrue();
+            explorer.FormPropertiesCommand.CanExecute(null).Should().BeTrue();
+        }
+        finally
+        {
+            setup.ProjectRunnerService.EndProject();
+            await Task.Yield();
+            setup.ProjectManager.UnloadAllProjects();
+        }
+    }
+
     private readonly IProjectManager projectManager;
     private readonly IEventBus eventBus;
     private readonly IProjectService projectService;
@@ -32,7 +74,7 @@ public class ProjectToolViewModelTests
         localization.GetString("Str.Tool.Project.TitleEmpty").Returns("Project Group - Group1");
         localization.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
         localization.GetString("Str.Tool.Project.TitleProject").Returns("Project - {0}");
-        return new(projectManager, eventBus, projectService, editorService, localization);
+        return new(new HexIDE.Debugging.RunScope(), projectManager, eventBus, projectService, editorService, localization);
     }
 
     private ProjectToolViewModel CreateVmWithLoadedProject(
@@ -52,7 +94,7 @@ public class ProjectToolViewModelTests
         projectManager.CurrentGroup.Returns(group);
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.Tool.Project.TitleGroup").Returns("Projektgruppe - {0}");
-        var vm = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization);
+        var vm = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), projectManager, eventBus, projectService, editorService, localization);
         var root = vm.RootItems.Should().ContainSingle().Which.Should().BeOfType<ProjectGroupViewModel>().Subject;
         var node = root.Should().BeAssignableTo<IProjectTreeElement>().Subject;
         node.AccessibleName.Should().Be(root.DisplayName).And.Be("Projektgruppe - Group1");
@@ -92,7 +134,7 @@ public class ProjectToolViewModelTests
         localization.GetString(Arg.Any<string>()).Returns("");
         localization.GetString("Str.Tool.Project.TitleGroup").Returns("Projektgruppe - {0}");
 
-        var vm = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization);
+        var vm = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), projectManager, eventBus, projectService, editorService, localization);
 
         vm.RootItems.Should().ContainSingle().Which.Should().BeOfType<ProjectGroupViewModel>()
             .Which.DisplayName.Should().Be("Projektgruppe - Group1");
@@ -111,7 +153,7 @@ public class ProjectToolViewModelTests
         projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project });
         var group = new ProjectGroupDefinition("FirstGroup");
         if (grouped) projectManager.CurrentGroup.Returns(group);
-        var vm = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization);
+        var vm = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), projectManager, eventBus, projectService, editorService, localization);
         vm.Title.Should().Be(grouped ? "Project Group - FirstGroup" : "Project - FirstProject");
         var notifications = new List<string?>();
         vm.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
@@ -134,7 +176,7 @@ public class ProjectToolViewModelTests
         localization.GetString("Str.Tool.Project.TitleEmpty").Returns("Project Group - Group1");
         localization.GetString("Str.Tool.Project.TitleGroup").Returns("Project Group - {0}");
         localization.GetString("Str.Tool.Project.TitleProject").Returns("Project - {0}");
-        var vm = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization);
+        var vm = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), projectManager, eventBus, projectService, editorService, localization);
         vm.Title.Should().Be("Project Group - Group1");
         localization.GetString("Str.Tool.Project.TitleEmpty").Returns("Grupo de proxectos - Grupo1");
         localization.LanguageChanged += Raise.Event<Action>();

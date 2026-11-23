@@ -24,7 +24,7 @@ public class ProjectGroupAccessibilityTests
         manager.CurrentGroup.Returns(group);
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.Tool.Project.TitleGroup").Returns("Projektgruppe - {0}");
-        var tool = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+        var tool = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization);
         var view = new ProjectToolView { DataContext = tool };
         var window = new Window { Content = view, Width = 600, Height = 200 };

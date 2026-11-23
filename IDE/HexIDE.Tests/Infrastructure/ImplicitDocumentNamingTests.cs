@@ -356,6 +356,7 @@ public class ImplicitDocumentNamingTests
     public async Task Active_designer_replies_identify_the_form_even_when_nothing_changes(string action)
     {
         using var f = new Fixture();
+        f.Context.ProjectRunnerService.RunningProject.Returns((ProjectDefinition?)null);
         using var designer = Designer(f.Second);
         f.Tabs(designer);
         object result = action switch

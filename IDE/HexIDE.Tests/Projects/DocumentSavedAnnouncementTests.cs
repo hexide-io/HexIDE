@@ -188,7 +188,7 @@ public class DocumentSavedAnnouncementTests : IDisposable
         _lsp.ClearReceivedCalls();
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(new[] { project });
-        var explorer = new HexIDE.Tools.ProjectToolViewModel(manager, _eventBus, service,
+        var explorer = new HexIDE.Tools.ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, _eventBus, service,
             Substitute.For<IEditorService>(), Substitute.For<HexIDE.Localization.ILocalizationService>());
         explorer.SelectedForm = explorer.LoadedProjects[0].Elements.OfType<HexIDE.Tools.FormViewModel>().Single();
         explorer.DeleteForm();

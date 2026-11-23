@@ -18,7 +18,7 @@ public class FindReplaceServiceTests
         var projects = Substitute.For<IProjectManager>();
         var editors = Substitute.For<IEditorService>();
         var localization = Substitute.For<ILocalizationService>();
-        var explorer = new ProjectToolViewModel(projects, Substitute.For<IEventBus>(),
+        var explorer = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), projects, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), editors, localization);
         var shown = new List<IDialog>();
         windows.When(manager => manager.ShowWindow(Arg.Any<IDialog>()))

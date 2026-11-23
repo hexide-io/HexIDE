@@ -484,7 +484,7 @@ public class MainViewViewModelTests
         var watches = new WatchesToolViewModel(loc, new HexIDE.Debugging.WatchService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.IDE.IWindowManager>());
         var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var editorService = editor ?? Substitute.For<IEditorService>();
-        var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, projects, editorService, loc);
+        var projectExplorer = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), _projectManager, _eventBus, projects, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(mockDocDock, loc);
         var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
             Substitute.For<ILanguageConnectionRegistry>());
@@ -1514,6 +1514,33 @@ public class MainViewViewModelTests
         _runnerService.CanStartDefaultProjectWithFullCompile.Returns(allowed);
 
         _sut.StartDefaultProjectWithFullCompileCommand.CanExecute(null).Should().Be(allowed);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Designer_view_commands_follow_the_in_box_run(bool paused)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new HexIDE.Runtime.ProjectElements.FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1");
+        project.AddForm(form);
+        using var node = new ProjectViewModel(_sut.ProjectExplorer, project);
+        _sut.ProjectExplorer.SelectedForm = new FormViewModel(node, form);
+        var names = new[] { "ViewObject", "OpenProperties", "OpenFormLayout", "OpenToolBox" };
+        var commands = names.Select(name => DebugCommand(_sut, name)).ToArray();
+        commands.Should().OnlyContain(command => command.CanExecute(null));
+        using var requery = new RequeryProbe();
+        _runnerService.RunningProject.Returns(new ProjectDefinition(VBProjectType.EXE, "P"));
+        _debugController.State.Returns(paused ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+        _runnerService.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _runnerService, new PropertyChangedEventArgs(nameof(IProjectRunnerService.RunningProject)));
+        requery.ShouldHaveRefreshed();
+        commands.Should().OnlyContain(command => !command.CanExecute(null));
+        _runnerService.RunningProject.Returns((ProjectDefinition?)null);
+        _runnerService.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _runnerService, new PropertyChangedEventArgs(nameof(IProjectRunnerService.RunningProject)));
+        requery.ShouldHaveRefreshed();
+        commands.Should().OnlyContain(command => command.CanExecute(null));
     }
 
     // --- BreakProjectCommand ---

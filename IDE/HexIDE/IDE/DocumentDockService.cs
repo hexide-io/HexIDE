@@ -24,6 +24,39 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     internal Func<CodeEditorViewModel, Task>? SharedCodeClosing { get; set; }
     // The document area that last held focus, so focus moving to a tool pane doesn't hand the active tab back to the first area.
     private IDocumentDock? lastFocusedArea;
+    private readonly List<(BaseEditorWindowViewModel Tab, IDocumentDock Area, int Index, IDockable[] Following)> suspendedDesigners = [];
+
+    // Collection removal keeps the area and the view model alive; CloseDockable would dispose it and record a close.
+    internal void SuspendDesigners()
+    {
+        if (suspendedDesigners.Count != 0 || factory.Value is not { } f) return;
+        foreach (var area in f.DocumentAreas.ToArray())
+        {
+            var tabs = area.VisibleDockables?.ToArray() ?? [];
+            var activeDesigner = area.ActiveDockable is HexIDE.VisualDesigner.FormEditViewModel;
+            for (var i = 0; i < tabs.Length; i++)
+                if (tabs[i] is HexIDE.VisualDesigner.FormEditViewModel designer)
+                    suspendedDesigners.Add((designer, area, i, tabs[(i + 1)..]));
+            foreach (var entry in suspendedDesigners.Where(e => ReferenceEquals(e.Area, area)))
+                area.VisibleDockables!.Remove(entry.Tab);
+            if (activeDesigner)
+                area.ActiveDockable = area.VisibleDockables?.LastOrDefault();
+        }
+        UpdateActiveDocument();
+    }
+
+    internal void RestoreDesigners()
+    {
+        foreach (var (tab, area, index, following) in suspendedDesigners)
+        {
+            if (!openDocuments.Contains(tab)) continue;
+            var tabs = area.VisibleDockables!;
+            var next = following.FirstOrDefault(tabs.Contains);
+            tabs.Insert(next is null ? Math.Min(index, tabs.Count) : tabs.IndexOf(next), tab);
+        }
+        suspendedDesigners.Clear();
+        UpdateActiveDocument();
+    }
 
     public RecentlyClosedDocuments RecentlyClosed { get; } = new();
 
@@ -134,7 +167,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     public bool TryActivate<T>(Func<T, bool> predicate, bool takeFocus = true) where T : BaseEditorWindowViewModel
     {
         var match = openDocuments.OfType<T>().FirstOrDefault(predicate);
-        if (match?.Owner is not IDocumentDock dock) return false;
+        if (match?.Owner is not IDocumentDock dock || dock.VisibleDockables?.Contains(match) != true) return false;
 
         if (!takeFocus) return true;
         factory.Value!.FocusDockable(dock, match);

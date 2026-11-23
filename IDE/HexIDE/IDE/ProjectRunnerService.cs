@@ -138,7 +138,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
         private set
         {
             _pauseWindow = null;
+            if (ReferenceEquals(runScope.RunningProject, value)) return;
             runScope.RunningProject = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RunningProject)));
             if (value is null) runScope.End();
             else
             {

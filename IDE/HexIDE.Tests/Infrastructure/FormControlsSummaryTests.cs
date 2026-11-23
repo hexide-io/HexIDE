@@ -158,7 +158,7 @@ public class FormControlsSummaryTests
         var writer = Substitute.For<IProjectService>();
         writer.SaveForm(form, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>()).Returns(true);
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, Substitute.For<IProjectRunnerService>(), writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         if (check is "carried" or "array" or "indexedarray" or "readonly")
         {
@@ -278,7 +278,7 @@ public class FormControlsSummaryTests
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns([]);
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
         async Task Check(string[] names)
         {
@@ -342,7 +342,7 @@ public class FormControlsSummaryTests
             Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form) : null;
         dock.OpenDocuments.Returns(designer is null ? [] : [designer]);
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
 
         var tools = new HexIdeTools(context);
         var missing = await tools.GetFormControlsAsync("Form1", controlName: "Absent");
@@ -403,7 +403,7 @@ public class FormControlsSummaryTests
         dock.OpenDocuments.Returns([]);
         // Only these services are used by this read-only tool; the context also subscribes to diagnostics.
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
         var tools = new HexIdeTools(context);
 
         foreach (var name in new string?[] { null, "Control1" })

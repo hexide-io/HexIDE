@@ -35,6 +35,7 @@ public class EditorServiceNavigationTests
     }
 
     private EditorService Sut() => new(
+        new HexIDE.Debugging.RunScope(),
         _dock,
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
