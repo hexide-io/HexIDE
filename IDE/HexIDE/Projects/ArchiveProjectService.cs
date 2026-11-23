@@ -126,9 +126,10 @@ public sealed class ArchiveProjectService
         try
         {
             // Selection can outlive a closed tree node while waiting for another operation.
-            if (!Projects.Any(p => p.CanSynchronizeFolder && ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, path))) return;
-            var engine = new ArchiveSourceFolder { ChosenRoot = folderChoices.GetValueOrDefault(path) };
-            ArchiveFolderResult result;
+            var format = Projects.FirstOrDefault(p => ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, path))?.FolderFormat();
+            if (format == null) return;
+            var engine = new CompoundSourceFolder(format) { ChosenRoot = folderChoices.GetValueOrDefault(path) };
+            CompoundFolderResult result;
             try { result = await Task.Run(() => engine.Synchronize(path)); }
             catch (ProjectLocalStateConflict conflict)
             {

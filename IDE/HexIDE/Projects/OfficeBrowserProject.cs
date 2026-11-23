@@ -16,7 +16,6 @@ internal sealed class OfficeBrowserProject : IContainerProject
     public string ContainerPath { get; }
     public string Name { get; }
     public ContainerFolder Root { get; }
-    public bool CanSynchronizeFolder => false;
     public bool SupportsLanguageServers => true;
     public bool IsLocked { get; }
     public string? NoticeKey => "Str.Office.SourceNotice";
