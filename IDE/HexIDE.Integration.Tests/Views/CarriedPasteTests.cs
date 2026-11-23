@@ -21,10 +21,9 @@ namespace HexIDE.Integration.Tests.Views;
 /// behind. A cut removed the original, so the next save lost them, with nothing said.
 /// </para>
 /// <para>
-/// A carried control goes only where its name is free, which a cut leaves it. A copy's would repeat the original's,
-/// and vb6.exe builds a form holding a name twice without either control (#854), so a copy is still pasted without
-/// them until how VB6 renames one is measured. It also goes only into a form that declares the libraries the form it
-/// came from did, so an OCX's control never lands where nothing says which OCX it is.
+/// A single carried control whose name is taken gets its class's next default name, matching the No answer measured
+/// for ImageList in #1458 (oracle PRs #5265 and #5285). It goes only into a form declaring the source's libraries.
+/// A carried block declaring several controls still goes only where all its names are free.
 /// </para>
 /// </remarks>
 public class CarriedPasteTests
@@ -173,22 +172,28 @@ public class CarriedPasteTests
     }
 
     [AvaloniaFact]
-    public void A_frame_copied_and_pasted_leaves_the_original_its_control_and_gives_the_copy_none()
+    public void A_frame_copied_and_pasted_keeps_the_original_and_renames_the_carried_copy()
     {
         var (vm, form) = Open(Form1, Companion);
         Select(vm, "Frame1");
         vm.CopySelectedControls();
         vm.PasteControls();
 
-        var (text, _) = Save(vm, form, "Form1.frm");
+        var (text, companion) = Save(vm, form, "Form1.frm");
 
         Count(text, "Begin VB.Frame").Should().Be(2);
-        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1,
-            "a second imlIcons would be a name twice on the form, which vb6.exe builds without either (#854)");
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList ImageList1").Should().Be(1);
+        var original = vm.AllComponents.Single(c => c.Name == "Frame1").Instance.PreservedChildSubtrees.Single();
+        var copy = vm.AllComponents.Single(c => c.Name == "Frame2").Instance.PreservedChildSubtrees.Single();
+        copy.Text.Should().Be(original.Text.Replace("ImageList imlIcons", "ImageList ImageList1"),
+            "only the Begin line's name changes; Left, Top and Images stay as read");
+        Cited(text, companion).Where(c => c.Property == "Picture").Should().HaveCount(2)
+            .And.AllSatisfy(c => c.Record.Should().Equal(ListImageRecord));
     }
 
     [AvaloniaFact]
-    public void A_cut_frame_pasted_twice_carries_its_control_into_the_first_paste_only()
+    public void A_cut_frame_pasted_twice_keeps_its_name_then_renames_the_carried_copy()
     {
         var (vm, form) = Open(Form1, Companion);
         Select(vm, "Frame1");
@@ -196,10 +201,68 @@ public class CarriedPasteTests
         vm.PasteControls();
         vm.PasteControls();
 
-        var (text, _) = Save(vm, form, "Form1.frm");
+        var (text, companion) = Save(vm, form, "Form1.frm");
 
         Count(text, "Begin VB.Frame").Should().Be(2);
         Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList ImageList1").Should().Be(1);
+        Cited(text, companion).Where(c => c.Property == "Picture").Should().HaveCount(2)
+            .And.AllSatisfy(c => c.Record.Should().Equal(ListImageRecord));
+    }
+
+    [AvaloniaFact]
+    public void Two_pastes_of_one_copy_take_successive_carried_names()
+    {
+        var (vm, form) = Open(Form1, Companion);
+        Select(vm, "Frame1");
+        vm.CopySelectedControls();
+        vm.PasteControls();
+        vm.PasteControls();
+
+        var (text, companion) = Save(vm, form, "Form1.frm");
+
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList ImageList1").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList ImageList2").Should().Be(1);
+        Cited(text, companion).Where(c => c.Property == "Picture").Should().HaveCount(3)
+            .And.AllSatisfy(c => c.Record.Should().Equal(ListImageRecord));
+    }
+
+    [AvaloniaFact]
+    public void A_carried_copy_fills_the_lowest_free_number_ignoring_case()
+    {
+        var source = Form1.Replace("VB.Label Label1", "VB.Label imagelist1")
+            .Replace("VB.Label Label2", "VB.Label ImageList3");
+        var (vm, form) = Open(source, Companion);
+        Select(vm, "Frame1");
+        vm.CopySelectedControls();
+        vm.PasteControls();
+
+        var (text, _) = Save(vm, form, "Form1.frm");
+
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList ImageList2").Should().Be(1);
+        text.Should().NotContain("Begin NoSuchLib.ImageList ImageList1");
+    }
+
+    [AvaloniaFact]
+    public void Undoing_a_renamed_paste_removes_the_copy_and_keeps_the_original()
+    {
+        var (vm, form) = Open(Form1, Companion);
+        Select(vm, "Frame1");
+        vm.CopySelectedControls();
+        vm.PasteControls();
+        var (pasted, _) = Save(vm, form, "Form1.frm");
+        Count(pasted, "Begin NoSuchLib.ImageList ImageList1").Should().Be(1);
+
+        vm.UndoStack.Undo();
+        var (text, companion) = Save(vm, form, "Form1.frm");
+
+        Count(text, "Begin VB.Frame").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1);
+        text.Should().NotContain("Begin NoSuchLib.ImageList ImageList1");
+        Cited(text, companion).Should().ContainSingle(c => c.Property == "Picture")
+            .Which.Record.Should().Equal(ListImageRecord);
     }
 
     [AvaloniaFact]
