@@ -18,7 +18,7 @@ public static class VBColorExtensions
 {
     public static IBrush ToBrush(this VBColor color)
     {
-        if (color.Type == VBColor.ColorType.Raw)
+        if (color.Type != VBColor.ColorType.SystemColor)
             return new SolidColorBrush(new Color(0xFF, color.R, color.G, color.B));
 
         // FindResource returns AvaloniaProperty.UnsetValue (not null) when the key is missing in

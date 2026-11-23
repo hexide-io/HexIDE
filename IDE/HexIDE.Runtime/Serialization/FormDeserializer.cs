@@ -475,8 +475,8 @@ public class FormDeserializer
                         form.LoadedWithErrors = true;
                         return;
                     }
-                    // Kept as written, so a save puts it back rather than losing it: a palette colour
-                    // (&H02C0C0C0&) is a value VB6 accepts that HexIDE cannot hold yet (#786).
+                    // Kept as written, so a save puts it back rather than losing it: for example,
+                    // an invalid system colour outside &H80000000 to &H80000018.
                     unparsedKnownNames.Add(serializedProperty.Key);
                     if (duplicatedNames.Contains(serializedProperty.Key))
                         form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreadableDuplicateProperty,
