@@ -9,7 +9,7 @@ public class StartupCompositionTests : CompositionTestBase
         var saved = settings.ErrorTrapping;
         try
         {
-            settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule;
+            settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors;
             _ = Composition.Root;
             Composition.ProjectRunnerService.ErrorTrapping.Should().Be(settings.ErrorTrapping);
             settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnAllErrors;

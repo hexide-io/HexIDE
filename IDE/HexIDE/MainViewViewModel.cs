@@ -1930,9 +1930,10 @@ public partial class MainViewViewModel : ObservableObject
 
         // A run-time error nothing handles halts the program at the statement that raised it, as VB6's IDE does (#1011).
         // The dialog offers End and Debug, and nothing runs behind it. Debug breaks there with the procedure still live,
-        // and Continue runs the statement again. Recorded before the dialog, as every run-time error is. A dialog closed
-        // without an answer, as stop_project and shutdown_ide close it, takes Debug, which loses nothing: what VB6 does
-        // then is not measured.
+        // and Continue runs the statement again. Recorded before the dialog, as every run-time error is. A person cannot
+        // close it without an answer (docs/vb6-fidelity-oracle/closing-the-run-time-error-dialog.md). A close from code,
+        // as shutdown_ide makes, still answers false and takes Debug. stop_project ends the run past the dialog and leaves it
+        // open, as its reply says; End or Debug then dismisses it.
         projectRunnerService.ErrorTrapping = settingsService.ErrorTrapping;
         projectRunnerService.HaltHost = async failure =>
         {

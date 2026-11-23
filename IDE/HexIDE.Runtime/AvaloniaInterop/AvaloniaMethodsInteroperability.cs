@@ -102,6 +102,11 @@ public static class AvaloniaMethodsInteroperability
         {
             if (method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase))
                 throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            if (method.Equals("Refresh", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
+            {
+                c.InvalidateVisual();
+                return Vb6Value.Nothing;
+            }
             if (method.Equals("Refresh", StringComparison.OrdinalIgnoreCase)
                 || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase))
                 throw new NotImplementedException($"FlatScrollBar {method} is not implemented (#1097)");

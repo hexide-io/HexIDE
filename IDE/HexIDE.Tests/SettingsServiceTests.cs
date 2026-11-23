@@ -34,13 +34,40 @@ public class SettingsServiceTests : IDisposable
     [InlineData(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors)]
     public void ErrorTrappingDefaultsAndPersists(HexIDE.Runtime.Debugging.ErrorTrapping mode)
     {
-        CreateSut().ErrorTrapping.Should().Be(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors);
+        SettingsDefaults.ErrorTrapping.Should().Be(HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule);
+        CreateSut().ErrorTrapping.Should().Be(SettingsDefaults.ErrorTrapping);
         File.WriteAllText(SettingsPath, "{}");
         CreateSut().ErrorTrapping.Should().Be(SettingsDefaults.ErrorTrapping);
         var settings = CreateSut();
         settings.ErrorTrapping = mode;
         settings.Save();
         CreateSut().ErrorTrapping.Should().Be(mode);
+    }
+
+    [Fact]
+    public void MissingErrorTrappingUsesTheDefaultAndStaysUnwritten()
+    {
+        File.WriteAllText(SettingsPath, "{}");
+        var settings = CreateSut();
+        settings.ErrorTrapping.Should().Be(HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule);
+        settings.TabWidth = 6;
+        settings.Save();
+        using var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+        saved.RootElement.TryGetProperty("errorTrapping", out _).Should().BeFalse();
+        saved.RootElement.GetProperty("tabWidth").GetInt32().Should().Be(6);
+    }
+
+    [Fact]
+    public void StoredUnhandledErrorsSurvivesSavingAnotherProperty()
+    {
+        File.WriteAllText(SettingsPath, "{\"errorTrapping\":2}");
+        var settings = CreateSut();
+        settings.ErrorTrapping.Should().Be(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors);
+        settings.TabWidth = 6;
+        settings.Save();
+        using var saved = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+        saved.RootElement.GetProperty("errorTrapping").GetInt32().Should().Be(2);
+        CreateSut().ErrorTrapping.Should().Be(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors);
     }
 
     [Fact]

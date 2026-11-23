@@ -106,12 +106,8 @@ A test that reaches the provider only at run time, through the application's com
 | `Serialization/GuardedContentTests.cs` | provider |
 | `Serialization/LineEditsTests.cs` | provider |
 | `Serialization/LoneCrLineEndTests.cs` | provider |
-| `Serialization/MemberAttributeCorpusTests.cs` | provider |
 | `Serialization/MemberAttributeQualifiersTests.cs` | provider |
-| `Serialization/MemberDeclarationsTests.cs` | provider |
-| `Serialization/MemberRunsTests.cs` | provider |
 | `Serialization/MenuPropertyPersistenceTests.cs` | split |
-| `Serialization/ReadOnlyRegionsTests.cs` | provider |
 | `Serialization/SafeImageDecoderTests.cs` | provider |
 | `Serialization/ToolbarSerializationTests.cs` | provider |
 | `Serialization/VbNameRetargetTests.cs` | provider |
@@ -125,6 +121,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Tools/PreservedItemTreeTests.cs` | split |
 | `Tools/ProjectTreeAccessibleNameTests.cs` | split |
 | `ViewModels/ArrayElementRenameTests.cs` | split |
+| `ViewModels/BookmarkEditTests.cs` | split |
 | `ViewModels/CodeEditorUndoTests.cs` | split |
 | `ViewModels/CodeEditorViewModelTests.cs` | split |
 | `ViewModels/CodeWindowHoldsTheFileTests.cs` | split |
@@ -142,7 +139,6 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/GuardedWritersTests.cs` | split |
 | `ViewModels/MainViewViewModelTests.cs` | split |
 | `ViewModels/MarkOnReadOnlyLineTests.cs` | split |
-| `ViewModels/MemberRunFollowsItsLineTests.cs` | split |
 | `ViewModels/MenuEditorInteractionTests.cs` | split |
 | `ViewModels/MenuEditorViewModelTests.cs` | split |
 | `ViewModels/MenuPropertyNamesTests.cs` | split |

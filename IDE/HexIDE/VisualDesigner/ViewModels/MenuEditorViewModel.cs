@@ -144,10 +144,11 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         if (selectedMenu == null || selectedMenu == blankMenu)
             return;
 
-        var indexOf = FlatMenu.IndexOf(selectedMenu);
+        var menu = selectedMenu;
+        var indexOf = FlatMenu.IndexOf(menu);
         FlatMenu.RemoveAt(indexOf);
         indexOf = Math.Min(indexOf, FlatMenu.Count - 1);
-        Deleted.Add(selectedMenu);
+        Deleted.Add(menu);
         if (indexOf >= 0)
             SelectedMenu = FlatMenu[indexOf];
         else
@@ -175,10 +176,12 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         if (selectedMenu == null || selectedMenu == blankMenu)
             return;
 
-        var indexOf = FlatMenu.IndexOf(selectedMenu);
+        var menu = selectedMenu;
+        var indexOf = FlatMenu.IndexOf(menu);
         if (indexOf > 0)
         {
             FlatMenu.Move(indexOf, indexOf - 1);
+            SelectedMenu = menu;
         }
     }
 
@@ -187,10 +190,12 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         if (selectedMenu == null)
             return;
 
-        var indexOf = FlatMenu.IndexOf(selectedMenu);
+        var menu = selectedMenu;
+        var indexOf = FlatMenu.IndexOf(menu);
         if (indexOf < FlatMenu.Count - 2)
         {
             FlatMenu.Move(indexOf, indexOf + 1);
+            SelectedMenu = menu;
         }
     }
 

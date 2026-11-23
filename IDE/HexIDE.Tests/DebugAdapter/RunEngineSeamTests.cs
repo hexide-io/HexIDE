@@ -34,6 +34,13 @@ public class RunEngineSeamTests
         _runner.RunStarting += () => _runStarts++;
     }
 
+    [Fact]
+    public void A_new_runner_uses_the_IDE_error_trapping_default()
+    {
+        _runner.ErrorTrapping.Should().Be(ErrorTrapping.BreakInClassModule);
+        _runner.ErrorTrapping.Should().Be(SettingsDefaults.ErrorTrapping);
+    }
+
     // #5036: capture installation scope at Prepare; table recorded in #4890.
     [AvaloniaTheory]
     [InlineData(false)]

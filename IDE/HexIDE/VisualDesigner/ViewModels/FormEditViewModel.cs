@@ -70,6 +70,46 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </summary>
     public bool HasWindowFrame => formDefinition?.RootVBTypeName is not ("VB.UserControl" or "VB.PropertyPage");
 
+    [Notify]
+    private Bitmap? captionIcon;
+
+    [Notify]
+    private bool hasCaptionIcon;
+
+    [Notify]
+    private bool hasCaptionGlyph;
+
+    // Designer measurements and the two stand-ins: #2716. The runtime and designer share the file-state reader.
+    internal void RefreshCaptionIcon()
+    {
+        var previous = CaptionIcon;
+        Bitmap? image = null;
+        var icon = VBLoader.ReadDesignerCaptionIcon(Form.Instance);
+        try
+        {
+            if (icon.Image is { } bytes)
+            {
+                using var stream = new MemoryStream(bytes, writable: false);
+                image = new Bitmap(stream);
+            }
+        }
+        catch (Exception)
+        {
+            // An unreadable picture must not prevent the form from opening.
+        }
+        CaptionIcon = image;
+        HasCaptionIcon = icon.Visible;
+        HasCaptionGlyph = icon.UseFormGlyph;
+        previous?.Dispose();
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        CaptionIcon?.Dispose();
+        CaptionIcon = null;
+    }
+
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Form");
 
     [Notify]
@@ -712,6 +752,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         foreach (var comp in DrawOrder(fileOrder))
             Components.Add(viewModels[comp]);
+
+        RefreshCaptionIcon();
 
         // Menus stay in the flat component list; SubItems identifies which belong under another menu.
         TopLevelMenu.Clear();

@@ -56,7 +56,7 @@ public static class SettingsDefaults
 
     /// <summary>Watch loaded component files and reload them when changed outside the IDE. On by default.</summary>
     public const bool ReloadFilesChangedOutsideIde = true;
-    public const ErrorTrapping ErrorTrapping = ErrorTrapping.BreakOnUnhandledErrors;
+    public const ErrorTrapping ErrorTrapping = ErrorTrapping.BreakInClassModule;
 
     // ── Toolbar visibility ──────────────────────────────────────
     public const bool IsStandardToolbarVisible = true;

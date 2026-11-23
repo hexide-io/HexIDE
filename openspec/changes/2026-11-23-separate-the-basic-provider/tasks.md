@@ -6,7 +6,7 @@
 
 Each slice removes its rows from the guard's list. Sizes and owners are in the phase 1 comment on #3411.
 
-- [ ] 2.1 The guard: a test fails on a product reference into a provider assembly that its list doesn't name, and on a listed one that has gone (#5388).
+- [x] 2.1 The guard: a test fails on a product reference into a provider assembly that its list doesn't name, and on a listed one that has gone (#5388).
 - [ ] 2.2 The run engine behind an interface that `ProjectRunnerService` calls, with `DISetup`'s debugger wiring (slice 2 folded in: its other uses already go through Core's interface).
 - [ ] 2.3 The running controls: the eight files that use them.
 - [ ] 2.4 A provider-fed designer: the component registry and Toolbox, "is this a form" checks, the designer's preview, and the Object Browser's in-box members.
@@ -23,6 +23,6 @@ Each slice removes its rows from the guard's list. Sizes and owners are in the p
 
 ## 3. Later phases (the supervisor sequences them)
 
-- [ ] 3.1 Phase 3: VB6 registers as a bundled first-party add-in.
+- [ ] 3.1 Phase 3: VB6 registers as a bundled first-party add-in, and the registration grant switches from the Desktop composition's origin to a first-party signature with the `hexide.basic` id.
 - [ ] 3.2 Phase 4: the namespace renames the proposal names, in one mechanical PR, announced as a breaking API change.
 - [ ] 3.3 Phase 4: the repository split.

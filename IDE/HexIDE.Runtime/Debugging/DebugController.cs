@@ -210,6 +210,7 @@ public sealed class DebugController : IDebugGate
 
     public Func<VBRunTimeException, Task<bool>>? HaltHost { get; set; }
 
+    // The IDE applies its setting at every run. Hosts that set nothing use compiled-program handling.
     public ErrorTrapping ErrorTrapping { get; set; } = ErrorTrapping.BreakOnUnhandledErrors;
 
     public bool CanHalt => HaltHost is not null;

@@ -2116,6 +2116,18 @@ as not implemented.
 - **THEN** Print # writes "Error 5" and Write # writes "#ERROR 5#"
 - **AND** implicit string coercion still raises 13
 
+### Requirement: Intrinsic control defaults in output and concatenation
+
+`Print #`, `Debug.Print`, paused Immediate `?` and `&` SHALL read the intrinsic control default that a Let reads.
+`Write #` SHALL write a Boolean control default as a Boolean and other modeled control defaults as quoted Strings,
+using Let-to-String coercion. An intrinsic control with an unimplemented default SHALL refuse with #790.
+The output rules are measured in [#5385](https://github.com/hexide-io/HexIDE/issues/5385).
+
+#### Scenario: Writing a numeric default and an explicit property
+- **WHEN** `Write #` receives a CheckBox control reference
+- **THEN** it writes the CheckBox value as a quoted String
+- **AND** `Write #` of the explicit Value property writes a bare number
+
 ### Requirement: New on a form creates a separate instance
 
 Explicit `New Form2` SHALL create an instance distinct from the form's default instance, from any executing
@@ -3276,7 +3288,36 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** execution refuses with NotImplementedException naming #988
 - **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
 - **AND** an unrepresentable saved FillColor refuses instead of silently using black
-- **AND** AutoRedraw assignments are retained; persistence and Paint-event timing remain #991, and text drawing #989
+- **AND** text drawing remains #989; Image and Picture = Image remain #992
+
+#### Scenario: AutoRedraw keeps a picture independently of the window
+- **WHEN** a form or PictureBox draws with AutoRedraw True
+- **THEN** it SHALL draw into its kept picture and display that picture
+- **WHEN** it draws with AutoRedraw False
+- **THEN** only the window SHALL change; Point SHALL read the window until Refresh
+- **AND** turning AutoRedraw off SHALL keep the picture
+- **WHEN** Refresh runs with no arguments
+- **THEN** the window SHALL reset to the kept picture and only that object's Paint SHALL run before the next statement if AutoRedraw is False
+- **AND** with AutoRedraw True no Paint SHALL run
+- **AND** Refresh used as a value and CallByName Refresh SHALL refuse explicitly with #991, pending measurement of their results
+
+#### Scenario: Paint follows measured visibility and growth changes
+- **WHEN** a form first shows
+- **THEN** Resize SHALL run once synchronously, followed by posted Activate, form Paint and visible PictureBox Paint
+- **WHEN** a form shows after Hide or restores from minimized
+- **THEN** form Paint and visible PictureBox Paint SHALL be posted, after Resize on restore
+- **WHEN** a form's client area grows by a native resize or code size assignment
+- **THEN** its Paint SHALL be posted after Resize; a pure shrink or position-only Move SHALL raise no Paint
+- **WHEN** a control is hidden, or a PictureBox is shown or grows
+- **THEN** form Paint, or that PictureBox's Paint respectively, SHALL be posted
+- **AND** a PictureBox size change while shown SHALL raise Resize synchronously
+- **AND** AutoRedraw True SHALL suppress that object's Paint on all these paths
+- **AND** drawing, Cls, Caption and BackColor SHALL raise no Paint
+- **AND** these posted Paints SHALL retain window drawing; exposure by another application SHALL neither raise Paint nor discard drawing
+
+These #991 scenarios use the [drawing oracle's console measurements](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md).
+Retaining drawing for posted Paint, and ignoring other applications' exposure, are the issue's explicit fidelity decisions.
+The conflicting AutoRedraw-toggle Paint sequences and Cls's effect on each layer remain unpinned.
 
 #### Scenario: Drawing and readback use distinct rounding paths
 - **WHEN** a form draws PSet (7.5, 7.5) in twips
@@ -3436,3 +3477,32 @@ implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 - **WHEN** it loads
 - **THEN** Width, Height, ScaleWidth and ScaleHeight read 2610, 2955, 2520 and 2520
 - **AND** its window has a caption bar
+
+### Requirement: CommandButton Style is readable and cannot be assigned at run time
+
+A CommandButton’s Style SHALL read as Integer 0 (Standard) or 1 (Graphical). Assigning Style SHALL
+raise 382, "'Style' property cannot be set at run time", and leave Style unchanged. Standard SHALL
+paint the button-face system colour regardless of stored BackColor; Graphical SHALL paint BackColor.
+
+#### Scenario: An Object cannot change a Graphical button’s Style
+
+- **GIVEN** an Object holding a Graphical CommandButton
+- **WHEN** code assigns its Style to 0 under On Error Resume Next
+- **THEN** Err.Number is 382 and Err.Description is "'Style' property cannot be set at run time"
+- **AND** Style remains Integer 1
+
+#### Scenario: Direct assignment uses the interpreter’s execution policy
+
+- **WHEN** code directly assigns `Command1.Style = 1`
+- **THEN** the interpreter raises the same 382 when the statement runs
+- **AND** VB6’s compile-time rejection is documented as a difference in evaluation point
+
+#### Scenario: Code sets a Standard button’s BackColor
+
+- **WHEN** code assigns BackColor on a Standard button
+- **THEN** it keeps painting the button face and reads back the assigned BackColor
+- **AND** this follows #913’s decision to share the loaded-colour paint rule, rather than a measurement of that assignment
+
+CallByName remains outside this requirement (#4520). Authority:
+[Style measurements](../../../docs/vb6-fidelity-oracle/a-commandbuttons-style-assigned-from-code-and-painted-in-the-designer.md)
+and [loaded runtime paint](../../../docs/vb6-fidelity-oracle/a-form-based-games-runtime-surface.md).

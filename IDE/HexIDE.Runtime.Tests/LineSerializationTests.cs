@@ -89,6 +89,51 @@ public class LineSerializationTests
             saved.Should().NotContain($"      {absent} ", $"a Line has no {absent} the file did not give it");
     }
 
+    private static FormDefinition LoadWithDrawMode(string value) => Load(About.Replace(
+        "      BorderWidth     =   2\r\n",
+        $"      BorderWidth     =   2\r\n      DrawMode        =   {value}\r\n"));
+
+    // VB6 SP6's saved comments, including the shifted names (oracle: the-line-control.md, #5263).
+    [Theory]
+    [InlineData("1", "      DrawMode        =   1  'Blackness")]
+    [InlineData("2", "      DrawMode        =   2  'Blackness")]
+    [InlineData("3", "      DrawMode        =   3  'Not Merge Pen")]
+    [InlineData("4", "      DrawMode        =   4  'Mask Not Pen")]
+    [InlineData("5", "      DrawMode        =   5  'Not Copy Pen")]
+    [InlineData("6", "      DrawMode        =   6  'Mask Pen Not")]
+    [InlineData("7", "      DrawMode        =   7  'Invert")]
+    [InlineData("8", "      DrawMode        =   8  'Xor Pen")]
+    [InlineData("9", "      DrawMode        =   9  'Not Mask Pen")]
+    [InlineData("10", "      DrawMode        =   10  'Mask Pen")]
+    [InlineData("11", "      DrawMode        =   11  'Not Xor Pen")]
+    [InlineData("12", "      DrawMode        =   12  'Nop")]
+    [InlineData("14", "      DrawMode        =   14  'Copy Pen")]
+    [InlineData("15", "      DrawMode        =   15  'Merge Pen Not")]
+    [InlineData("16", "      DrawMode        =   16  'Merge Pen")]
+    [InlineData("20", "      DrawMode        =   20")] // Preserve HexIDE's existing output for unmeasured values.
+    public void A_lines_DrawMode_saves_with_the_expected_comment(string value, string expected)
+    {
+        Save(LoadWithDrawMode(value)).Should().Contain(expected + "\r\n");
+    }
+
+    [Fact]
+    public void A_line_omits_its_default_DrawMode_even_when_the_file_sets_it()
+    {
+        Save(LoadWithDrawMode("13")).Should().Be(About);
+    }
+
+    [Fact]
+    public void A_lines_commented_DrawMode_reads_as_a_number_and_saves_back_byte_for_byte()
+    {
+        const string drawMode = "      DrawMode        =   7  'Invert\r\n";
+        var frm = About.Replace("      BorderWidth     =   2\r\n", "      BorderWidth     =   2\r\n" + drawMode);
+        var form = Load(frm);
+        var line = form.Components.Last(c => c.BaseClass is LineComponentClass);
+
+        line.GetPropertyOrDefault(VBProperties.DrawModeProperty).Should().Be(7);
+        Save(form).Should().Be(frm);
+    }
+
     [Fact]
     public void A_line_with_nothing_set_reads_VB6s_defaults()
     {

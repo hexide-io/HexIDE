@@ -2354,18 +2354,19 @@ public sealed class VBLspClient : ILspClient
         && ServerCapabilities.SupportsOnTypeFormatting(AdvertisedCapabilities, trigger);
 
     internal static readonly TimeSpan OnTypeFormattingTimeout = TimeSpan.FromMilliseconds(250);
+    internal TimeSpan OnTypeFormattingBudget { get; init; } = OnTypeFormattingTimeout;
 
     public async Task<TextEdit[]?> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized) return null;
         if (!SupportsOnTypeFormatting(uri, trigger)) return [];
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        budget.CancelAfter(OnTypeFormattingTimeout);
+        budget.CancelAfter(OnTypeFormattingBudget);
         var p = new DocumentOnTypeFormattingParams(new TextDocumentIdentifier(uri), position, trigger, options);
         try
         {
             return await InvokeRequestAsync<TextEdit[]?>(_rpc, "textDocument/onTypeFormatting", p,
-                budget.Token, timeout: OnTypeFormattingTimeout, documentUri: uri) ?? [];
+                budget.Token, timeout: OnTypeFormattingBudget, documentUri: uri) ?? [];
         }
         catch (Exception ex)
         {
