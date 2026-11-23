@@ -11,6 +11,29 @@ which is why VB6 gave it a dedicated key.
 
 ## Requirements
 
+### Requirement: Project designer members join code declarations
+For a project form or a module with a designer half, the browser SHALL retain its code symbols and add
+its named controls once per case-insensitive name, including every menu level, as property members with
+`WithEvents <name> As <class>` signatures. It SHALL add the designer root class's currently listed
+properties, omit its intrinsic events, and sort the combined list case-insensitively by name without
+merging code/property name clashes. Plain modules and class modules SHALL retain their code-only lists.
+
+Forms are measured in [the Object Browser oracle](../../../docs/vb6-fidelity-oracle/the-object-browsers-library-list.md#a-forms-members-in-the-object-browser-2026-11-21-1968-design-time-ide-sp6);
+arrays, menus and UserControls are measured in the same page's section on a control array, menus, a UserControl and a
+class module ([oracle page](../../../docs/vb6-fidelity-oracle/the-object-browsers-library-list.md), from #1968).
+PropertyPage uses the same collection policy as a reasoned extension, not a measured VB6 claim.
+Root methods await member tables (#5293).
+
+#### Scenario: A form with a button and no code
+- **WHEN** the developer selects a project form containing Command1 and no code
+- **THEN** its members include `WithEvents Command1 As CommandButton` and root properties such as Caption
+- **AND** no intrinsic Load event appears
+- **AND** all members share one case-insensitive alphabetical list
+
+#### Scenario: Reselecting a designer module
+- **WHEN** the developer reselects a module with a designer half after its code symbols change
+- **THEN** the current code symbols replace the previous ones alongside its controls and root properties
+
 ### Requirement: Library selection survives removal and reopening
 When a selected library is removed, the browser SHALL select All Libraries and keep its class list,
 member list and navigation history consistent with that selection. During File > Open Project or Reload
