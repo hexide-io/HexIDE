@@ -571,6 +571,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
             }
             catch (Exception ex) when (Locate(ex, stmt)) { throw; }
+            catch (VBCompileErrorException ex) when (CompileHaltsHere())
+            {
+                _suspendedAtTopLevel = false;
+                if (!await HaltOnCompileError(ex, stmt.Start.Line))
+                    throw;
+                retry = true;
+                i--;
+                continue;
+            }
             catch (GoToSignal g) when (ClosingLabelsOf(OwnerOf(context)).Contains(g.Label))
             {
                 // A GoTo to a head on the line that closes this block's construct, or opens its next part: the block
@@ -2242,6 +2251,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     break;
                 }
                 catch (Exception ex) when (Locate(ex, stmt)) { throw; }
+                catch (VBCompileErrorException ex) when (CompileHaltsHere())
+                {
+                    _suspendedAtTopLevel = false;
+                    if (!await HaltOnCompileError(ex, stmt.Start.Line))
+                        throw;
+                }
                 catch (VBRunTimeException ex) when (!ResumesNext && HaltsHere(ex))
                 {
                     // The statement alone runs again, not the statements before it on the line (#1011).
@@ -6333,6 +6348,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
             }
             catch (Exception ex) when (Locate(ex, stmts[pc])) { throw; }
+            catch (VBCompileErrorException ex) when (CompileHaltsHere())
+            {
+                _suspendedAtTopLevel = true;
+                if (!await HaltOnCompileError(ex, stmts[pc].Start.Line))
+                    throw;
+                retry = true;
+            }
             catch (GoToSignal g)
             {
                 pc = ResolveLabel(labels, g.Label);
@@ -6484,6 +6506,27 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return true;
         }
         return false;
+    }
+
+    // Compile errors bypass On Error. VB6 compiles at procedure entry; the walk raises the same error later,
+    // at the statement it reaches (#833; vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md).
+    private bool CompileHaltsHere()
+    {
+        if (interpreter.DebugController?.CompileHaltHost is null)
+            return false;
+        foreach (var frame in interpreter.ActivationStack)
+            if (ReferenceEquals(frame, this))
+                return true;
+        return false;
+    }
+
+    private async Task<bool> HaltOnCompileError(VBCompileErrorException error, int line)
+    {
+        currentLine = line;
+        ErrorLocation.Note(error, currentModule.Name, line);
+        var halt = interpreter.ObserveDebugGate(
+            interpreter.DebugController!.HaltOnCompileErrorAsync(error, line, currentModule.Name, this)).AsTask();
+        return interpreter.Events is { } events ? await events.WhileWaitingOnWindow(halt) : await halt;
     }
 
     // Halt at the statement on line, and answer whether to run it again. The dialog, and a break after it, give up the

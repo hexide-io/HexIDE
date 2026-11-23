@@ -92,6 +92,12 @@ public interface IDebugGate : IDebugController
     /// <see cref="StopExecutionSignal"/>, as the End button does. False means no host is set, and the error goes on.
     /// </summary>
     ValueTask<bool> HaltAsync(VBRunTimeException error, int line, string module, IDebugFrame? frame);
+
+    /// <summary>The IDE's compile-error dialog host; absent in standalone runs (#833).</summary>
+    Func<VBCompileErrorException, Task<bool>>? CompileHaltHost { get; set; }
+
+    /// <summary>Halt at a compile error met by the walk; Debug breaks and retries, End resets the run.</summary>
+    ValueTask<bool> HaltOnCompileErrorAsync(VBCompileErrorException error, int line, string module, IDebugFrame? frame);
 }
 
 /// <summary>

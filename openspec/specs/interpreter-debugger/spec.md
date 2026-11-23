@@ -661,3 +661,21 @@ as such and an engine fault SHALL report Internal error (51).
 #### Scenario: Startup or event failure
 - **WHEN** Sub Main or an event procedure leaves a run-time error unhandled
 - **THEN** the host shows the fatal warning and holds execution until dismissal
+
+### Requirement: A compile error met during an IDE run halts at the executing statement
+With the IDE's compile-error halt host set, a `VBCompileErrorException` met in a program activation SHALL
+halt through the existing run-time error dialog, regardless of On Error handlers. Debug SHALL suspend at
+that statement with reason RuntimeError; Continue SHALL retry it, meeting the error again. End SHALL end
+the run. Without that host the existing reporting route SHALL remain, including standalone runs; syntax
+errors found before a run starts SHALL remain failed starts.
+
+This is #833's execution-time translation of VB6's Compile On Demand behaviour, measured in
+`docs/vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md`: VB6 compiles at procedure entry and
+breaks at its declaration; the walk reaches the offending statement after earlier statements have run.
+
+#### Scenario: Continue from a compile-error break
+- **GIVEN** a click handler prints "before", calls a missing Sub, then prints "after"
+- **WHEN** the IDE runs it and the developer chooses Debug at the halt
+- **THEN** it breaks at the missing call, with only "before" printed
+- **WHEN** the developer continues
+- **THEN** the same error halts again and "after" never prints
