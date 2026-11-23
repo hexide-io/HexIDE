@@ -827,6 +827,7 @@ added afterwards.
 - [An empty ListBox, an empty Image and a Label narrower than its caption, in VB6's designer and a run (2026-11-21, #927, #860, #921, SP6)](an-empty-listbox-an-empty-image-and-a-label-narrower-than-its-caption.md#an-empty-listbox-an-empty-image-and-a-label-narrower-than-its-caption-in-vb6s-designer-and-a-run-2026-11-21-927-860-921-sp6)
 - [An icon picture's size, and the image it draws (2026-11-14, #2626)](an-icon-pictures-size-and-the-image-it-draws.md#an-icon-pictures-size-and-the-image-it-draws-2026-11-14-2626)
 - [An empty Picture, and what SavePicture writes (2026-11-21, #992, SP6)](loadpicture-file-kinds-and-file-errors.md#an-empty-picture-and-what-savepicture-writes-2026-11-21-992-sp6)
+- [SavePicture's bytes, and the colour table it writes (2026-11-23, #992, SP6)](loadpicture-file-kinds-and-file-errors.md#savepictures-bytes-and-the-colour-table-it-writes-2026-11-23-992-sp6)
 - [An Image's size when its Picture is set at run time (2026-11-20, #5010, SP6)](an-images-size-when-its-picture-is-set.md#an-images-size-when-its-picture-is-set-at-run-time-2026-11-20-5010-sp6)
 - [The Screen object (2026-10-28, #2431)](the-screen-object.md#the-screen-object-2026-10-28-2431)
 - [The control a shown form focuses (2026-10-28, #2436)](the-control-a-shown-form-focuses.md#the-control-a-shown-form-focuses-2026-10-28-2436)
