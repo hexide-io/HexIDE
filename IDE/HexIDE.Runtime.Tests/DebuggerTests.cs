@@ -15,7 +15,13 @@ public class DebuggerTests : BaseVBTestFixture
     public async Task SynchronousResume_DeepRecursionUnwindsTheStack()
     {
         // #4433: a Continue that completes the break before the walk awaits it must still unwind the walk's stack.
-        var (vb, dbg) = NewDebuggable("Work 1000\nSub Work(ByVal n As Long)\nDebug.Print n\nIf n > 0 Then Work n - 1\nEnd Sub\n");
+        // 545 deep, not 1,000, as a mitigation (#5449). The test timed out under full-suite load during GC pauses of
+        // 15 to 20 s. Its own share of that is small: alone, a 1,000-deep run allocated 36 MB, 35 MB of it the walk's own
+        // with no breakpoint set, and paused for GC for about 30 ms of its 0.8 to 1.3 s. So the pause is the loaded
+        // run's, and a shorter walk only spends less time exposed to it. 545 still fails with #4433's fix reverted:
+        // Error 28, three runs of three on WSL and on Windows.
+        const int depth = 545;
+        var (vb, dbg) = NewDebuggable($"Work {depth}\nSub Work(ByVal n As Long)\nDebug.Print n\nIf n > 0 Then Work n - 1\nEnd Sub\n");
         dbg.SetBreakpoints("Module1", [3]);
         var stops = 0;
         dbg.Stopped += _ => { stops++; dbg.Continue(); };
@@ -24,8 +30,8 @@ public class DebuggerTests : BaseVBTestFixture
         // ended 3,304 to 4,102 frames deep. A test inheriting that stack fails its first call with Error 28.
         await Task.Run(() => vb.Execute(), TestContext.Current.CancellationToken).Guarded();
         await Task.Yield();
-        stops.Should().Be(1001);
-        AssertDebugLog(Enumerable.Range(0, 1001).Reverse().Select(n => new Vb6Value((long)n)).ToList());
+        stops.Should().Be(depth + 1);
+        AssertDebugLog(Enumerable.Range(0, depth + 1).Reverse().Select(n => new Vb6Value((long)n)).ToList());
     }
 
     [Fact]
