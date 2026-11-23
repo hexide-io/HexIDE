@@ -185,7 +185,8 @@ ClientHeight 2400. Form1 had `StartUpPosition = 3 'Windows Default` and Form2 `0
 BorderStyle row's value cell, typed the number, pressed Return and saved with Ctrl+S, and the saved `.frm` was read back.
 Before the first step, the designer's position box on the toolbar read 2880, 1530 for the selected form.
 
-**From ClientLeft 3000, ClientTop 2000, one change after another, on Form1 and Form2 alike:**
+**From ClientLeft 3000, ClientTop 2000, one change after another, on Form2.** Form1 gave the same values for each
+style it was changed to.
 
 | Changed to | ClientLeft | ClientTop |
 |---|---|---|
@@ -230,7 +231,7 @@ settings.
   2880, 1530 and Fixed Dialog at 2925, 1920. VB6 showed 2895, 1545 and saved 2940, 1935, which is rounding.
 - **A change and its reverse needn't come back to the start.** 2000 less Sizable's 465 is 102⅓ pixels. The corner
   became 102, so Sizable came back as 1995, and stayed 1995 for every later round trip. A start that is a whole pixel from
-  its corner, such as (60, 345) or (3015, 2010), comes back exactly.
+  its corner, such as (60, 345), came back exactly.
 - **StartUpPosition makes no difference** in the designer. Form1 (Windows Default) and Form2 (Manual) gave the same rows.
 
 **What was overturned.** The section above said a form that goes to Fixed Dialog and back "comes back as it started".
