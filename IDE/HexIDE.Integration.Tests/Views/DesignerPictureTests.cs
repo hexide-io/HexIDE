@@ -8,6 +8,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Controls;
@@ -78,14 +79,18 @@ public class DesignerPictureTests
         return new DesignerPicture(request.PixelWidth, request.PixelHeight, pixels, 0, 0, double.PositiveInfinity, double.PositiveInfinity);
     }
 
+    // In BGRA whatever the bitmap's own order. A RenderTargetBitmap takes Skia's native order, which is RGBA on macOS,
+    // so comparing its raw bytes with the designer's BGRA picture failed there with both showing red (#860).
     private static byte[] PixelsOf(Bitmap bitmap)
     {
+        (bitmap.Format == PixelFormat.Bgra8888 || bitmap.Format == PixelFormat.Rgba8888)
+            .Should().BeTrue($"the test reads 4-byte BGRA or RGBA pixels, and this bitmap is {bitmap.Format}");
         var stride = bitmap.PixelSize.Width * 4;
         var pixels = new byte[stride * bitmap.PixelSize.Height];
         var pin = GCHandle.Alloc(pixels, GCHandleType.Pinned);
         try { bitmap.CopyPixels(new PixelRect(bitmap.PixelSize), pin.AddrOfPinnedObject(), pixels.Length, stride); }
         finally { pin.Free(); }
-        return pixels;
+        return bitmap.Format == PixelFormat.Rgba8888 ? InProcessDesignerPictures.SwapRedAndBlue(pixels) : pixels;
     }
 
     private static void Showing(ControlRenderer renderer, Action shown)
