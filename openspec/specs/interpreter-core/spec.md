@@ -3358,17 +3358,26 @@ Native menu items SHALL reflect shown captions, Enabled, Visible and Checked; se
 omitted while hidden and restored in order when shown. Array Load and Unload SHALL update the mirror
 in order. Top-level items without children SHALL have empty native submenus. Native Click SHALL
 raise the existing menu Click with its array Index, and a submenu's Opening SHALL raise its
-holding menu's Click; NeedsUpdate alone, which AppKit also raises when it searches the menus for a key equivalent,
+holding menu's Click from a job posted to the UI dispatcher, only if that submenu has not raised Closed
+before the job runs ([#5379](https://github.com/hexide-io/HexIDE/issues/5379)); NeedsUpdate alone, which AppKit also raises when it searches the menus for a key equivalent,
 SHALL raise no Click. Native items SHALL have no Gesture; the existing window shortcut chain SHALL
 remain responsible for shortcut dispatch. Measured platform rules: [#5011 K1–K14](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7031789606)
 and [K15–K18](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7034162303);
 implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 
-#### Scenario: A menu enables an item before its native submenu opens
+#### Scenario: A menu enables an item during its native submenu open
 - **GIVEN** a desktop form using the system menu bar with a disabled submenu item
-- **WHEN** the holding native submenu raises Opening and its menu Click enables the item
-- **THEN** that same native item is enabled before the submenu opens
+- **WHEN** the holding native submenu raises Opening and remains open until the posted dispatcher job runs
+- **THEN** its menu Click enables that same native item during the open
 - **AND** no in-window menu strip appears
+
+#### Scenario: An accessibility read or Help search closes before dispatch
+- **WHEN** a native submenu raises Opening then Closed before the posted dispatcher job runs
+- **THEN** its holding menu raises no Click
+
+#### Scenario: Two opens each post a Click
+- **WHEN** a native submenu raises Opening twice without Closed before the dispatcher jobs run
+- **THEN** its holding menu raises two Clicks
 
 #### Scenario: A borderless menu form keeps its frame with the system menu bar
 - **GIVEN** a BorderStyle 0 desktop form with a 2520 by 2520 twip client and a visible top-level menu, using the system menu bar
