@@ -88,9 +88,10 @@ remove the breakpoint. These shapes reproduce the
 use the same rule as decided in #1053, without claiming further measurements.
 
 Whole-text replacements and edits while an external debugger is active SHALL NOT remap the interpreter
-store. Closed-document edits SHALL retain stored numbers. Bookmarks SHALL retain their existing edit
-behaviour pending #5334. Explicit header refreshes SHALL still shift bookmarks and closed-document
-breakpoints, while an open window's document change moves its breakpoints exactly once.
+store. Closed-document edits SHALL retain stored numbers. Explicit header refreshes SHALL shift
+closed-document breakpoints, while an open window's document change moves its breakpoints exactly once.
+See [Open-window bookmarks follow statements through edits](../bookmarks/spec.md#requirement-open-window-bookmarks-follow-statements-through-edits)
+for the bookmark rule.
 
 #### Scenario: Insert and undo above a conditional breakpoint
 - **WHEN** a line is inserted above a statement carrying a conditional breakpoint
