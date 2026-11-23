@@ -18,7 +18,15 @@ public partial class DialogWindow : Window
         if (DataContext is IDialog dialog)
         {
             dialog.CloseRequested += CloseRequested;
+            Closing += OnClosing;
         }
+    }
+
+    private void OnClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (DataContext is IDialog { RefusesPersonClose: true }
+            && !e.IsProgrammatic && e.CloseReason == WindowCloseReason.WindowClosing)
+            e.Cancel = true;
     }
 
     private void CloseRequested(bool dialogResult)
@@ -32,6 +40,7 @@ public partial class DialogWindow : Window
         if (DataContext is IDialog dialog)
         {
             dialog.CloseRequested -= CloseRequested;
+            Closing -= OnClosing;
         }
     }
 }

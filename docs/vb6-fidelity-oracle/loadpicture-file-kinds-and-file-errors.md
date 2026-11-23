@@ -108,6 +108,59 @@ Every BMP written loaded back as Type 1, 529 by 265.
 - **The name doesn't choose the format.** A file named `.gif` or `.jpg` gets a BMP.
 - **An empty picture can't be saved,** 380. An icon is saved as an icon.
 
+### SavePicture's bytes, and the colour table it writes (2026-11-23, #992, SP6)
+
+**The question.** The section above gives each file's kind and length. A writer needs every header field, and the
+section left open whether an 8-bit file's colour table is the source's.
+
+**The probe.**
+- **Setup:** VB6.EXE 6.00.9782 (SP6), `/make` as native code in a clone of the oracle guest, with the program run there in session 0.
+- **The images,** made in the guest with .NET's `System.Drawing`, as above: the 20 by 10 red image with a blue 3 by 3 corner, as a 24-bit `.bmp`, a 32-bit `.bmp`, a `.jpg`, a `.gif` and an 8-bit `.bmp`, and a 32 by 32 green icon, `x.ico`, of 766 bytes.
+- **A grey ramp** was added: an 8-bit `.bmp` written byte by byte, whose colour table entry *i* is (*i*, *i*, *i*). Every pixel is index 100, and `biClrUsed` is 256.
+- **The program** passed each to `LoadPicture`, then `SavePicture` to a name ending `.out`. Each file's bytes were read back in the guest.
+
+**The headers.** Every BMP written had these fields, whatever the source:
+
+| Field | 24-bit output | 8-bit output |
+|---|---|---|
+| `bfType`, `bfSize` | `BM`, the file's length (654) | `BM`, the file's length (1278) |
+| `bfReserved1`, `bfReserved2` | 0, 0 | 0, 0 |
+| `bfOffBits` | 54 | 1078 |
+| `biSize`, `biWidth`, `biHeight` | 40, 20, **10**: positive, so the rows are bottom-up | 40, 20, 10 |
+| `biPlanes`, `biBitCount`, `biCompression` | 1, 24, 0 | 1, 8, 0 |
+| `biSizeImage` | **600**: the pixel bytes, rows padded to 4 | **200** |
+| `biXPelsPerMeter`, `biYPelsPerMeter` | **0, 0**: the sources had 3780 | 0, 0 |
+| `biClrUsed`, `biClrImportant` | 0, 0 | **0, 0**: the sources had 256 |
+
+**The pixels:**
+- **From the 24-bit and 32-bit BMPs:** the top row (the file's last) began `ff 00 00` three times then `00 00 ff`, which is blue then red, in BGR order, as the source's pixels are. The 32-bit source's fourth byte is dropped.
+- **From the JPEG:** the decoder's colours, such as `d6 01 15`, not the exact red.
+
+**The 8-bit colour table:**
+
+| Source | The table written | Pixels written |
+|---|---|---|
+| The grey ramp | **the source's own:** entry *i* is (*i*, *i*, *i*), with the fourth byte 0 | index 100, as the source's |
+| The GIF | the GIF's global colour table, in its order: `000000`, `000033`, `000066` and so on | red as index 210 |
+| The 8-bit BMP saved from that GIF | the same header, the same first entries and 251 entries that aren't black, as from the GIF | index 210, the same |
+
+The third row's source table wasn't byte for byte the output's, and the bytes that differ weren't located. The grey ramp is the row that tells "the source's table" from "a fixed palette".
+
+**The icon.** `x.ico` was written back as 766 bytes, the same as the source except byte 9. That is the directory
+entry's `bReserved`, which the source had as `0x80` and the output as 0. It loaded as Type 3, 847 by 847.
+
+**Readings:**
+- **An 8-bit picture keeps its own colour table and indexes.** `biClrUsed` becomes 0, the table has 256 entries, and each entry's fourth byte is 0.
+- **A bitmap's header is VB6's own,** with the resolution fields 0 and `biSizeImage` filled in.
+- **An icon is written as the icon it is,** with the directory entry's reserved byte cleared.
+
+**Still not measured:**
+- an 8-bit source whose table has fewer than 256 entries;
+- 1-, 4- and 16-bit and RLE bitmaps, and top-down ones;
+- a GIF with a local colour table or transparency;
+- an icon with more than one image, or one not 32 by 32;
+- write errors other than a missing folder.
+
 ### In HexIDE
 
 At `86dcc6c50` (read from the code, not run: a probe in `HexIDE.Runtime.Tests` stopped on the BMP itself, where
@@ -117,3 +170,34 @@ decoding needs the Avalonia platform that project lacks):
   raise 481;
 - a file that can't be read is refused, "LoadPicture file errors are unmeasured (#1087)" (`PanelPicture.Load`), where
   VB6 raises 53, 75 or 76.
+
+### SavePicture over a file that already exists (2026-11-23, #992, SP6)
+
+**The question.** The sections above saved to new files. A program that saves the same picture twice, or over an old
+copy, writes to a file that's already there. Does VB6 replace it, truncate it, or refuse? And what of a read-only or
+hidden one?
+
+**The probe.**
+- **Setup:** VB6.EXE 6.00.9782 (SP6), `/make` as native code in a clone of the oracle guest, with the program run there
+  in session 0.
+- **The picture:** the 20 by 10, 24-bit `x24.bmp` from the sections above, through `LoadPicture`, saved with
+  `SavePicture p, App.Path & "\exA.bmp"` and the like, under `On Error Resume Next`. Each statement's `Err.Number` and
+  `Err.Description` were printed to a file.
+- **The destinations,** each made beforehand by the probe script as 2000 bytes of `X` (0x58), created 2001-01-01 and
+  last written 2002-01-01, then given its attribute.
+
+| Destination | `Err.Number`, `Err.Description` | The file afterwards |
+|---|---|---|
+| a plain file | 0 | **replaced:** 654 bytes, byte for byte what SavePicture writes to a new file. Creation time 2001-01-01 kept, last-write time the run's, attributes `Archive` |
+| a read-only file | **75**, "Path/File access error: 'C:\probe\sp992\exB.bmp'" | unchanged: 2000 bytes, both times as before, `ReadOnly` |
+| a hidden file | **75**, the same message naming its own path | unchanged: 2000 bytes, both times as before, `Hidden` |
+
+**Readings:**
+- **SavePicture replaces an existing file.** A longer one is truncated to the new length, and nothing of it is left.
+- **It's rewritten in place, not deleted and made again:** its creation time survives.
+- **A read-only or a hidden destination is error 75,** "Path/File access error", with the path in the message, and the
+  file is left alone.
+
+**Not told apart:** whether that message names the path as given or as the full path. The program passed a full path.
+
+**Still not measured:** a destination that is a folder, one another program has open, and a system file.

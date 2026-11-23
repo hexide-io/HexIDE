@@ -52,6 +52,7 @@ internal static class CommandDisplayNames
         ["IncreaseVerticalSpacingCommand"] = "Str.Menu.Format.Spacing.Increase",
         ["IndentCommand"] = "Str.Menu.Edit.Indent",
         ["InsertFileCommand"] = "Str.Menu.Edit.InsertFile",
+        ["LastPositionCommand"] = "Str.Menu.View.LastPosition",
         ["ListConstantsCommand"] = "Str.Menu.Edit.ListConstants",
         ["ListPropertiesMethodsCommand"] = "Str.Menu.Edit.ListPropertiesMethods",
         ["LockControlsCommand"] = "Str.Menu.Format.LockControls",

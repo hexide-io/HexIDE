@@ -157,6 +157,20 @@ public class GuardedContentMemberRunTests
         Applied(Replace(code, incoming), incoming);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AddingOrDeletingALocalLeavesARenamedVariablesRunAlone(bool adding)
+    {
+        const string code = "Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\n" +
+                            "Public Sub Reset()\r\n    Tally = 0\r\nEnd Sub\r\n";
+        var withLocal = code.Replace("    Tally", "    Dim Count As Long\r\n    Tally");
+        var original = adding ? code : withLocal;
+        var incoming = adding ? withLocal : code;
+
+        Applied(Replace(original, incoming), incoming);
+    }
+
     [Fact]
     public void AVariableWhoseQualifierIsInAnotherCaseIsRenamedWithItToo()
     {

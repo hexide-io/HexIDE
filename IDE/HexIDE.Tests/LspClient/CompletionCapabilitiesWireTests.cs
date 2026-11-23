@@ -63,6 +63,8 @@ public class CompletionCapabilitiesWireTests
         item.GetProperty("preselectSupport").GetBoolean().Should().BeTrue();
         item.GetProperty("documentationFormat").EnumerateArray().Select(value => value.GetString())
             .Should().Equal("plaintext");
+        item.GetProperty("resolveSupport").GetProperty("properties").EnumerateArray()
+            .Select(value => value.GetString()).Should().Equal("documentation", "detail");
     }
     [Fact]
     public async Task InitializeDeclaresDiagnosticPresentationCapabilities()

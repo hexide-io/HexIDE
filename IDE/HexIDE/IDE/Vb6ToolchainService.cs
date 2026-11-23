@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HexIDE.Events;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Lsp;

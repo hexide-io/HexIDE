@@ -9,6 +9,8 @@ public class Static
 {
     public static bool IsBrowser = OperatingSystem.IsBrowser();
 
+    internal static bool IsNotMacOS = !OperatingSystem.IsMacOS();
+
     internal static HexIDE.Profiles.ProfileSnapshot? Profile { get; set; }
 
     // Set before constructing services; a null snapshot alone also occurs in browser/design-time hosts.
