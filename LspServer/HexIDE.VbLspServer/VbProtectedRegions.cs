@@ -371,10 +371,14 @@ internal sealed class VbProtectedRegions
             if (moduleNames is null)
             {
                 moduleNames = DeclaredNames(lines, header);
-                foreach (var line in logical)
+                var first = FirstBody();
+                for (var i = 0; i < logical.Count; i++)
                 {
-                    foreach (var d in ReadDeclarations(Text(line), out _))
-                        moduleNames.Add(d.Name);
+                    foreach (var d in ReadDeclarations(Text(logical[i]), out _))
+                    {
+                        if (d.Kind == DeclarationKind.Procedure || i < first)
+                            moduleNames.Add(d.Name);
+                    }
                 }
             }
             return moduleNames;
