@@ -829,6 +829,7 @@ added afterwards.
 - [An icon picture's size, and the image it draws (2026-11-14, #2626)](an-icon-pictures-size-and-the-image-it-draws.md#an-icon-pictures-size-and-the-image-it-draws-2026-11-14-2626)
 - [An empty Picture, and what SavePicture writes (2026-11-21, #992, SP6)](loadpicture-file-kinds-and-file-errors.md#an-empty-picture-and-what-savepicture-writes-2026-11-21-992-sp6)
 - [An Image's size when its Picture is set at run time (2026-11-20, #5010, SP6)](an-images-size-when-its-picture-is-set.md#an-images-size-when-its-picture-is-set-at-run-time-2026-11-20-5010-sp6)
+- [The largest picture LoadPicture loads (2026-11-23, #5461, SP6)](the-largest-picture-loadpicture-loads.md#the-largest-picture-loadpicture-loads-2026-11-23-5461-sp6)
 - [The Screen object (2026-10-28, #2431)](the-screen-object.md#the-screen-object-2026-10-28-2431)
 - [The control a shown form focuses (2026-10-28, #2436)](the-control-a-shown-form-focuses.md#the-control-a-shown-form-focuses-2026-10-28-2436)
 - [A form's own ActiveControl (2026-10-28, #2437)](a-forms-own-activecontrol.md#a-forms-own-activecontrol-2026-10-28-2437)
