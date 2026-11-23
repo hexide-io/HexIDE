@@ -150,7 +150,7 @@ public class VBLabel : TemplatedControl, ICustomHitTest
         var parsed = RecognizesAccessKey && Text is { } caption ? VBCaption.Parse(caption) : (VBCaption.Parsed?)null;
         var accessText = parsed is { FitsAccessText: true };
         if (accessText ? decorator.Child is not AccessText : decorator.Child is null or AccessText)
-            decorator.Child = accessText ? new AccessText() : new TextBlock();
+            decorator.Child = accessText ? new AccessText { ShowAccessKey = true } : new TextBlock();
 
         var textblock = (TextBlock)decorator.Child!;
         // In a symbol font, the glyphs GDI draws for the caption's bytes (#1133); the caption itself is unchanged. With

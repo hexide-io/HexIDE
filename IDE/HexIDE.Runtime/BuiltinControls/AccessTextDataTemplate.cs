@@ -1,3 +1,4 @@
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 
 namespace HexIDE.Runtime.BuiltinControls;
@@ -15,5 +16,14 @@ public class AccessTextDataTemplate
     public static readonly FuncDataTemplate MenuAccess = For(VBCaption.KeyChoice.First);
 
     private static FuncDataTemplate For(VBCaption.KeyChoice choice) =>
-        new FuncDataTemplate<object>((data, _) => data is string caption ? VBCaption.Present(caption, choice) : null, false);
+        new FuncDataTemplate<object>((data, _) =>
+        {
+            if (data is not string caption)
+                return null;
+
+            var visual = VBCaption.Present(caption, choice);
+            if (choice == VBCaption.KeyChoice.Last && visual is AccessText accessText)
+                accessText.ShowAccessKey = true;
+            return visual;
+        }, false);
 }

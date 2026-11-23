@@ -12,9 +12,12 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.VisualDesigner;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Shapes = Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -25,6 +28,7 @@ using Classic.Avalonia.Theme;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Themes;
+using HexIDE.Integration.Tests.Views;
 
 namespace HexIDE.Integration.Tests.Controls;
 
@@ -227,6 +231,121 @@ public class ClassicRenderTests
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
 
+    private const string AccessKeyForm = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Begin VB.CommandButton Command1
+              Caption = "&OK"
+              Height = 480
+              Width = 2400
+           End
+           Begin VB.Label Label1
+              Caption = "Centred &label"
+              Alignment = 2
+              Top = 600
+              Height = 480
+              Width = 2400
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    // CommandButton and Label measurements: docs/vb6-fidelity-oracle/a-captions-access-key.md (#919).
+    [AvaloniaTheory]
+    [InlineData("Command1", false, false)]
+    [InlineData("Command1", false, true)]
+    [InlineData("Command1", true, false)]
+    [InlineData("Command1", true, true)]
+    [InlineData("Label1", false, false)]
+    [InlineData("Label1", false, true)]
+    [InlineData("Label1", true, false)]
+    [InlineData("Label1", true, true)]
+    public void ControlCaption_ShowsAccessKey(string name, bool designer, bool afterPointerPress)
+    {
+        Control content;
+        Control control;
+        if (designer)
+        {
+            var component = FindComponent(Deserialize(AccessKeyForm), name);
+            content = control = ((IDesignerComponentClass)component.BaseClass).InstantiateForDesigner(component);
+        }
+        else
+        {
+            var (root, canvas, _, _) = ContainerRuntimeHarness.Spawn(AccessKeyForm);
+            content = root;
+            control = canvas.Children.Single(c => VBProps.GetName(c) == name);
+        }
+
+        var window = BuildHost(content);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            if (afterPointerPress)
+            {
+                window.KeyPress(Key.LeftAlt, RawInputModifiers.Alt, PhysicalKey.None, null);
+                window.GetValue(AccessText.ShowAccessKeyProperty).Should().BeTrue();
+                window.MouseDown(new Point(200, 100), MouseButton.Left);
+                window.MouseUp(new Point(200, 100), MouseButton.Left);
+                window.KeyRelease(Key.LeftAlt, RawInputModifiers.None, PhysicalKey.None, null);
+                Dispatcher.UIThread.RunJobs();
+                window.GetValue(AccessText.ShowAccessKeyProperty).Should().BeFalse();
+            }
+
+            control.GetVisualDescendants().OfType<AccessText>().Single().ShowAccessKey.Should().BeTrue();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DesignerCommandCaption_PaintsTheAccessKeyUnderlineAtRest()
+    {
+        var form = Deserialize(AccessKeyForm);
+        var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>())
+            .Initialize(form);
+        var renderer = new ControlRenderer { Width = 160, Height = 32 };
+        var window = BuildHost(renderer);
+        try
+        {
+            var component = FindComponent(form, "Command1");
+            renderer.Component = new ComponentInstanceViewModel(designer, component);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            using var marked = (Bitmap)((Image)renderer.Child!).Source!;
+
+            component.SetProperty(VBProperties.CaptionProperty, "OK");
+            Dispatcher.UIThread.RunJobs();
+            using var plain = (Bitmap)((Image)renderer.Child!).Source!;
+            plain.Should().NotBeSameAs(marked);
+
+            // Both captions lay out the same glyphs. Look for a horizontal run of added ink just below the O.
+            var region = new PixelRect(65, 16, 15, 9);
+            var markedPixels = ReadPixels(marked, region);
+            var plainPixels = ReadPixels(plain, region);
+            Enumerable.Range(0, region.Height).Should().Contain(y =>
+                Enumerable.Range(0, region.Width - 2).Any(x =>
+                    IsDarker(markedPixels, plainPixels, y * region.Width + x) &&
+                    IsDarker(markedPixels, plainPixels, y * region.Width + x + 1) &&
+                    IsDarker(markedPixels, plainPixels, y * region.Width + x + 2)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static bool IsDarker(int[] marked, int[] plain, int index) =>
+        (marked[index] & 0xff) < (plain[index] & 0xff);
+
+    private static FormDefinition Deserialize(string source) =>
+        new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source.ReplaceLineEndings("\r\n"), new NullSink())!;
+
+    private static ComponentInstance FindComponent(FormDefinition form, string name) =>
+        form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == name);
+
     [AvaloniaFact]
     public void DesignerCommandCaption_HasAntialiasedPixels()
     {
@@ -261,14 +380,16 @@ public class ClassicRenderTests
         }
     }
 
-    private static int CaptionColours(Bitmap bitmap, PixelRect region)
+    private static int CaptionColours(Bitmap bitmap, PixelRect region) => new HashSet<int>(ReadPixels(bitmap, region)).Count;
+
+    private static int[] ReadPixels(Bitmap bitmap, PixelRect region)
     {
         var pixels = new int[region.Width * region.Height];
         var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
         try
         {
             bitmap.CopyPixels(region, handle.AddrOfPinnedObject(), pixels.Length * 4, region.Width * 4);
-            return new HashSet<int>(pixels).Count;
+            return pixels;
         }
         finally
         {
