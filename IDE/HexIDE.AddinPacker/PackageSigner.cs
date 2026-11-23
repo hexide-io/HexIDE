@@ -140,7 +140,8 @@ public static class PackageSigner
         Console.WriteLine($"Publisher: {PackageCrypto.KeyFingerprint(firstPartyPublic)}");
     }
 
-    private static string ResolveOutputDirectory(string path, int links = 0)
+    // hexide-pack resolves a folder for private keys with this too, to refuse one inside a git clone (#5555).
+    public static string ResolveOutputDirectory(string path, int links = 0)
     {
         if (links > 40) throw new IOException("too many symbolic links in output directory");
         var full = Path.GetFullPath(path);
@@ -249,15 +250,22 @@ public static class PackageSigner
 
     private static void ValidateDisplayName(string displayName)
     {
-        // The trust inspector shows this name to users, so a bidi override or other invisible format character
-        // (U+202E, U+200B, U+FEFF, ...) could make one publisher's name read as another's. Refuse them with the controls.
-        if (string.IsNullOrWhiteSpace(displayName) || displayName != displayName.Trim()
+        if (!IsValidDisplayName(displayName))
+            throw new ArgumentException(InvalidDisplayName);
+    }
+
+    public const string InvalidDisplayName =
+        "invalid display name (expected 1–128 trimmed characters without control or invisible format characters)";
+
+    // The trust inspector shows this name to users, so a bidi override or other invisible format character
+    // (U+202E, U+200B, U+FEFF, ...) could make one publisher's name read as another's. Refuse them with the controls.
+    // hexide-pack checks a typed name with this before it runs a command (#5555).
+    public static bool IsValidDisplayName(string displayName) =>
+        !(string.IsNullOrWhiteSpace(displayName) || displayName != displayName.Trim()
             || displayName.Length > 128 || displayName.Any(c => char.IsControl(c)
                 || char.GetUnicodeCategory(c) is System.Globalization.UnicodeCategory.Format
                     or System.Globalization.UnicodeCategory.LineSeparator
-                    or System.Globalization.UnicodeCategory.ParagraphSeparator))
-            throw new ArgumentException("invalid display name (expected 1–128 trimmed characters without control or invisible format characters)");
-    }
+                    or System.Globalization.UnicodeCategory.ParagraphSeparator));
 
     private static ECDsa ReadKey(string path, bool privateKey, string label)
     {

@@ -23,8 +23,10 @@ Add Form has static menu children; Add Project names the host's `add-project-tem
 #### Scenario: Selection readouts
 
 The `selection-readout` provider stands for both icons, both text blocks and both spacers at the end
-of Standard. It does not expose a widget, code or AXAML authoring escape hatch. The readout's units
-remain unchanged; #1641 is outside this component.
+of Standard. It does not expose a widget, code or AXAML authoring escape hatch. The readouts SHALL use
+the Properties window's design-position values: a control's in its container's ScaleMode, and a form's own outer size in twips. Position uses `Left, Top`; size uses `Width x Height`
+(#1641). Fractional values retain the Properties window's precision, including `25.533` where VB6's
+toolbar showed `25.53` (the deliberate divergence decided in #1641).
 
 ### Requirement: Toolbars share host command and visibility registrations
 

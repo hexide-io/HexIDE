@@ -133,6 +133,13 @@ public sealed class TcpLspTransport : ILspTransport
             if (_role == TcpRole.Listen)
             {
                 var host = _address.Host;
+                // Whatever dials in first is taken as the server, and a server can edit the document. So the IDE
+                // listens on this machine only, as its WebSocket listener does (#5465). The loader refuses such an
+                // entry first; this is the same rule for anything that builds the transport itself.
+                if (!IsLoopbackHost(host))
+                    throw new ArgumentException(
+                        "a listening endpoint must be on this machine: localhost, 127.0.0.1 or [::1]. A server elsewhere " +
+                        "is reached with tcpRole \"connect\".");
                 var bind = host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
                     ? IPAddress.Loopback : IPAddress.Parse(host.Trim('[', ']'));
                 _listener = new TcpListener(bind, _address.Port);
@@ -176,6 +183,11 @@ public sealed class TcpLspTransport : ILspTransport
             text => Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle, text)));
         return new LspMessageHandler(tapped, tapped, formatter, _logger);
     }
+
+    /// <summary><c>localhost</c>, or an IP literal on the loopback network (127.0.0.0/8 or ::1).</summary>
+    internal static bool IsLoopbackHost(string host) =>
+        host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+        || (IPAddress.TryParse(host.Trim('[', ']'), out var address) && IPAddress.IsLoopback(address));
 
     internal static bool TryAddress(string endpoint, out Uri? address)
     {

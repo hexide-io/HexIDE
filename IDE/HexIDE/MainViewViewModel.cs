@@ -53,6 +53,7 @@ public partial class MainViewViewModel : ObservableObject
     private readonly IProjectService projectService;
     private readonly IDocumentDockService documentDockService;
     public DelegateCommand ReopenClosedDocumentCommand { get; }
+    public DelegateCommand LastPositionCommand { get; }
     public ObservableCollection<RecentProjectItemViewModel> ClosedDocumentMenuItems { get; } = new();
 
     /// <summary>The Run menu's F5 Runs and Start Once With, for the launches add-ins contribute; null when none can be.</summary>
@@ -788,8 +789,41 @@ public partial class MainViewViewModel : ObservableObject
             if (await file.ConfirmCloseAsync()) CloseDockable(file);
         }
 
+        internal Func<CodeEditorViewModel, Task>? SharedCodeClosing { get; set; }
+        private readonly HashSet<CodeEditorViewModel> closingCode = [];
+        private bool skipSharedQuestion;
+
+        // Service-driven teardown has already resolved unsaved changes. Dock's close command is the
+        // person-facing route used by the tab's close box and close_document_tab.
+        internal void CloseWithoutSharedQuestion(IDockable dockable)
+        {
+            var previous = skipSharedQuestion;
+            skipSharedQuestion = true;
+            try { CloseDockable(dockable); }
+            finally { skipSharedQuestion = previous; }
+        }
+
+        private async Task CloseCode(CodeEditorViewModel editor)
+        {
+            if (!closingCode.Add(editor)) return;
+            try
+            {
+                await SharedCodeClosing!(editor);
+            }
+            finally
+            {
+                closingCode.Remove(editor);
+                if (editor.IsOpen) CloseWithoutSharedQuestion(editor);
+            }
+        }
+
         public override void CloseDockable(IDockable dockable)
         {
+            if (!skipSharedQuestion && dockable is CodeEditorViewModel code && SharedCodeClosing is not null)
+            {
+                CloseCode(code).ListenErrors();
+                return;
+            }
             if (dockable is ProjectFileDocumentViewModel file && (file.IsModified || file.Applying))
             {
                 CloseProjectFile(file).ListenErrors();
@@ -1813,6 +1847,27 @@ public partial class MainViewViewModel : ObservableObject
         dockFactory.InitLayout(Layout);
         foreach (var tool in addinToolWindowService.Tools)
             RegisterAddinTool(tool);
+        var lastPositions = new LastPositionHistory(eventBus);
+        LastPositionCommand = new DelegateCommand(
+            () => lastPositions.GoBack(editorService, ActiveCodeDocument),
+            () => lastPositions.Entries.Count > 0);
+        lastPositions.Changed += () =>
+        {
+            LastPositionCommand.RaiseCanExecutedChanged();
+            Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
+        };
+        CodeEditorViewModel? previousCode = ActiveCodeDocument;
+        documentDockService.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(IDocumentDockService.ActiveDocument)) return;
+            if (!ReferenceEquals(previousCode, ActiveCodeDocument)) previousCode?.LeaveLastPositionLine();
+            previousCode = ActiveCodeDocument;
+        };
+        projectRunnerService.RunStarting += () =>
+        {
+            ActiveCodeDocument?.LeaveLastPositionLine();
+            ActiveCodeDocument?.RecordLastPosition();
+        };
         documentDockService.TrackTabs();
         ReopenClosedDocumentCommand = new DelegateCommand(
             () => documentDockService.ReopenClosedDocument(editorService),
@@ -1875,9 +1930,10 @@ public partial class MainViewViewModel : ObservableObject
 
         // A run-time error nothing handles halts the program at the statement that raised it, as VB6's IDE does (#1011).
         // The dialog offers End and Debug, and nothing runs behind it. Debug breaks there with the procedure still live,
-        // and Continue runs the statement again. Recorded before the dialog, as every run-time error is. A dialog closed
-        // without an answer, as stop_project and shutdown_ide close it, takes Debug, which loses nothing: what VB6 does
-        // then is not measured.
+        // and Continue runs the statement again. Recorded before the dialog, as every run-time error is. A person cannot
+        // close it without an answer (docs/vb6-fidelity-oracle/closing-the-run-time-error-dialog.md). A close from code,
+        // as shutdown_ide makes, still answers false and takes Debug. stop_project ends the run past the dialog and leaves it
+        // open, as its reply says; End or Debug then dismisses it.
         projectRunnerService.ErrorTrapping = settingsService.ErrorTrapping;
         projectRunnerService.HaltHost = async failure =>
         {
@@ -1960,9 +2016,9 @@ public partial class MainViewViewModel : ObservableObject
         RestartProjectCommand = new DelegateCommand(projectRunnerService.RestartProject,
             () => projectRunnerService.CanRestartProject);
         // What a project's type doesn't offer isn't offered here.
-        ProjectReferencesCommand = new DelegateCommand(() => projectService.EditProjectReferences(FocusedProjectUtil.FocusedOrStartupProject!),
+        ProjectReferencesCommand = new DelegateCommand(() => { _ = projectService.EditProjectReferences(FocusedProjectUtil.FocusedOrStartupProject!); },
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsReferences: true });
-        ProjectComponentsCommand = new DelegateCommand(() => projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!),
+        ProjectComponentsCommand = new DelegateCommand(() => { _ = projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!); },
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsComponents: true });
         ProjectPropertiesCommand = new DelegateCommand(() =>
             {

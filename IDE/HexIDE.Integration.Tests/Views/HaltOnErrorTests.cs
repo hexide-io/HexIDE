@@ -763,7 +763,7 @@ public class HaltOnErrorTests
     [InlineData(ModuleKind.StandardModule)]
     public void A_handler_in_the_caller_catches_an_error_its_callee_does_not_handle(ModuleKind kind)
     {
-        // c1, decided on #1011 as compiled programs do it, and c2, measured the same everywhere: the form's handler runs.
+        // c1 under Break on Unhandled Errors, as in compiled programs, and c2, measured the same everywhere: the form's handler runs.
         var call = kind == ModuleKind.ClassModule ? "Dim o As Helper\n    Set o = New Helper\n    o.Divide" : "Divide";
         using var run = Start($$"""
             Private Sub Command1_Click()

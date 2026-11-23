@@ -14,6 +14,10 @@ public sealed class LanguageServerEditorStore(
     public event Action<IReadOnlyList<LanguageServerEntry>>? Reloaded;
 
     public IReadOnlyList<LanguageServerEntry> Defaults { get; } = defaults;
+
+    /// <summary>The store a save records its command in. A Test connection from the same window (<see cref="LanguageServerTrial"/>)
+    /// takes this one, so a command saved here isn't asked about again and one confirmed there is remembered (#1209).</summary>
+    public LanguageServerCommandStore Seen => seen;
     private readonly LanguageServerConfigLoader _loader = new(filePath, logger);
 
     public string Read() => File.Exists(filePath) ? File.ReadAllText(filePath) : "{\"version\":1,\"servers\":[]}";
@@ -159,7 +163,7 @@ public sealed class LanguageServerEditorStore(
             encoding = reader.CurrentEncoding;
         }
         AtomicFileWriter.WriteAllBytes(filePath, [.. encoding.GetPreamble(), .. encoding.GetBytes(updated)]);
-        if (entry.Id is { } id && LanguageServerConfigLoader.LaunchedCommandOf(entry) is { } command)
+        if (entry.Id is { } id && LanguageServerConfigLoader.SeenIdentityOf(entry) is { } command)
             seen.Record(id, command);
         Load();
         return true;

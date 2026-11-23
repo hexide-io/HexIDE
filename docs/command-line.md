@@ -25,7 +25,7 @@ The examples use the release executable, `HexIDE` (`HexIDE.exe` on Windows); a b
 | `--newproject-unsaved` | — | Creates a Standard EXE without writing project or component files and skips the startup dialog. Save Project asks where to put them. |
 | `--capture-lsp` | — | Arms the [protocol capture](lsp-client.md#reading-the-conversation) for every language-server connection before the first one is made. |
 | `--user-data-dir` | a directory | Keeps this session's settings and other per-user files there instead of the usual place. See below. |
-| `--profile` | a name, directory, or `none` | Selects a base profile for this session; omission selects embedded `vb6`. |
+| `--profile` | a name, directory, or `none` | Selects a base profile for this session; omission selects embedded `neutral`. |
 | `--server-port` | a port number | Starts the automation server on that port. **Debug builds only** — see below. |
 | `--session` | a name | Serves automation only to the agent session of that name. **Debug builds only** — see below. |
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
@@ -139,7 +139,7 @@ sessions*.
 **`--profile` selects a bundle once per launch**, in Debug and Release. The value is classified in order:
 exact `none`, a path (rooted, starting with `.`, or containing `/` or backslash), then a lower-case bundle
 name. Relative paths resolve where you invoked HexIDE; use `./example` for a directory rather than a name.
-The built-in names `vb6`, `vbaode` and `vba` are reserved and always select embedded bundles. Other names
+The built-in names `neutral`, `vb6`, `vbaode` and `vba` are reserved and always select embedded bundles. Other names
 load only from `profiles/<name>/profile.json` inside the active user-data directory. The user-data flag
 may appear before or after the profile flag. An explicit path can select a bundle with a built-in id.
 Selection is never saved. Missing/repeated selectors or invalid bundles refuse startup with exit code 2;
@@ -147,7 +147,10 @@ bundle errors name the source and file to check. Started from Explorer or a shor
 console, a bundle error shows in a "Cannot start" box, as a broken `brand.json` does (#4169). Saved user choices
 override bundle defaults and packs.
 
-The built-ins retain today's References placement and New Project offerings: `vb6` offers all eight
+The default `neutral` built-in names no templates or visibility overrides: it offers every registered
+template in registration order and the host's References defaults (Project shown, Tools hidden).
+With VB6 registered, it offers the same eight entries as `vb6`. The other built-ins retain their
+References placement and New Project offerings: `vb6` offers all eight
 entries with Project References; `vbaode` offers Standard EXE with Tools References; `vba` offers none
 with Tools References. The toolbar Add Project flyout uses the same ordered offerings, with a disabled explanation when none are offered (#418).
 `--profile none` is a recovery launch: it loads no bundle, discovered user keymaps, user translations,

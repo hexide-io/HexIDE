@@ -16,6 +16,7 @@ public sealed class VBLspClient : ILspClient
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
+    private readonly ConcurrentDictionary<string, (int Connection, SemanticTokens Tokens)> _semanticResults = new();
     private readonly ConcurrentDictionary<string, (int Connection, int Version, string Text)> _sentDocumentVersions = new();
 
     private RenameDocumentSnapshot? SentDocumentSnapshot(string uri)
@@ -628,6 +629,7 @@ public sealed class VBLspClient : ILspClient
         _capabilities = null;
         _warnedCapabilities.Clear();
         _semanticWarnings.Clear();
+        _semanticResults.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;
@@ -689,6 +691,7 @@ public sealed class VBLspClient : ILspClient
     /// <summary>Unsubscribes and disposes the current JSON-RPC connection (leaving the transport intact).</summary>
     private void DisposeRpc()
     {
+        _semanticResults.Clear();
         _watchedFiles?.Dispose();
         _watchedFiles = null;
         _initializeAnswered = false;
@@ -716,6 +719,7 @@ public sealed class VBLspClient : ILspClient
     private async Task InitializeAsync(CancellationToken cancellationToken, AttemptRecorder attempt)
     {
         if (_rpc is null) return;
+        using var semanticRequests = JsonDocument.Parse("""{"delta":true}""");
 
         // Asked for now, not when this client was built: the server starts on first use, and the project
         // open at that moment is what it should be rooted at.
@@ -764,9 +768,12 @@ public sealed class VBLspClient : ILspClient
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
                         CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"],
-                            InsertTextModeSupport: new InsertTextModeClientCapabilities([1, 2])),
+                            InsertTextModeSupport: new InsertTextModeClientCapabilities([1, 2]))
+                        {
+                            ResolveSupport = new(["documentation", "detail"])
+                        },
                         CompletionList: new CompletionListClientCapabilities(["insertTextMode"])),
-                    SemanticTokens: new SemanticTokensClientCapabilities(new(),
+                    SemanticTokens: new SemanticTokensClientCapabilities(new(semanticRequests.RootElement.Clone()),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
                          "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator", "decorator"],
@@ -871,6 +878,7 @@ public sealed class VBLspClient : ILspClient
         attempt.Reached(LanguageConnectionStage.Initialized);
         _attempt = attempt.Build();
         _writtenOpens = new();
+        _semanticResults.Clear();
         Interlocked.Increment(ref _connection);
         _initialized = true;
         PullWorkspaceDiagnosticsInBackground();
@@ -1150,6 +1158,7 @@ public sealed class VBLspClient : ILspClient
 
     private async Task CloseDocumentCoreAsync(string uri, CancellationToken cancellationToken)
     {
+        _semanticResults.TryRemove(uri, out _);
         _openDocuments.TryRemove(uri, out _);
         _sentDocumentVersions.TryRemove(uri, out _);
         if (_writtenOpens.TryRemove(uri, out var written)) written.TrySetCanceled();
@@ -1823,32 +1832,61 @@ public sealed class VBLspClient : ILspClient
         var rpc = _rpc;
         if (rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
         var connection = Volatile.Read(ref _connection);
-        _openDocuments.TryGetValue(uri, out var document);
+        TrackedDocument? document = null;
         try
         {
+            if (_openDocuments.ContainsKey(uri) && ServerCapabilities.AcceptsOpenClose(_capabilities?.Value))
+                await WrittenOpen(_writtenOpens, uri).Task.WaitAsync(RequestTimeout, cancellationToken);
+            if (!_initialized || !ReferenceEquals(rpc, _rpc) || connection != Volatile.Read(ref _connection))
+                return null;
+            // Replay replaces the tracked record when it writes didOpen; capture after that barrier.
+            _openDocuments.TryGetValue(uri, out document);
             var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
                 .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
+            _semanticResults.TryGetValue(uri, out var held);
+            var full = AdvertisedCapabilities.Value.GetProperty("semanticTokensProvider").GetProperty("full");
+            var delta = held.Connection == connection && held.Tokens?.ResultId is not null
+                && full.ValueKind == JsonValueKind.Object
+                && full.TryGetProperty("delta", out var supported) && supported.ValueKind == JsonValueKind.True;
             SemanticTokens? result;
             var delay = 250;
             while (true)
             {
                 try
                 {
-                    result = await InvokeRequestAsync<SemanticTokens>(rpc, "textDocument/semanticTokens/full",
-                        new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken, supersededUri: uri, documentUri: uri);
+                    if (delta)
+                    {
+                        var reply = await InvokeRequestAsync<JsonElement>(rpc, "textDocument/semanticTokens/full/delta",
+                            new SemanticTokensDeltaParams(new TextDocumentIdentifier(uri), held.Tokens!.ResultId!),
+                            cancellationToken, supersededUri: uri, documentUri: uri);
+                        result = ReadSemanticTokens(reply, held.Tokens.Data);
+                    }
+                    else
+                        result = await InvokeRequestAsync<SemanticTokens>(rpc, "textDocument/semanticTokens/full",
+                            new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken, supersededUri: uri, documentUri: uri);
+                    if (!IsCurrent()) return null;
                     break;
                 }
                 catch (RemoteInvocationException ex) when (ex.ErrorCode == -32801)
                 {
+                    _semanticResults.TryRemove(uri, out _);
                     await Task.Delay(TimeSpan.FromMilliseconds(delay), _timeProvider, cancellationToken);
                     delay = Math.Min(delay * 2, 4000);
-                    _openDocuments.TryGetValue(uri, out var current);
                     // An edit, close/reopen or reconnect must not revive the overtaken request.
-                    if (!_initialized || !ReferenceEquals(rpc, _rpc)
-                        || connection != Volatile.Read(ref _connection) || !ReferenceEquals(current, document))
-                        return null;
+                    if (!IsCurrent()) return null;
+                }
+                catch (Exception ex) when (delta && ex is not OperationCanceledException && !cancellationToken.IsCancellationRequested)
+                {
+                    _semanticResults.TryRemove(uri, out _);
+                    if (_semanticWarnings.TryAdd(uri, 0))
+                        _logger.LogWarning(ex, "[LSP] Semantic token delta failed for {Uri}; requesting full tokens", uri);
+                    if (!IsCurrent()) return null;
+                    delta = false;
+                    delay = 250;
                 }
             }
+            if (result?.Data is not null && result.ResultId is not null) _semanticResults[uri] = (connection, result);
+            else _semanticResults.TryRemove(uri, out _);
             if (result?.Data is not { Length: > 0 })
             {
                 if (_semanticWarnings.TryAdd(uri, 0))
@@ -1859,10 +1897,44 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
+            _semanticResults.TryRemove(uri, out _);
             if (ex is not OperationCanceledException && !cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
                 _logger.LogWarning(ex, "[LSP] Semantic tokens failed for {Uri}; keeping lexical colours", uri);
             return null;
         }
+
+        bool IsCurrent()
+        {
+            _openDocuments.TryGetValue(uri, out var current);
+            return _initialized && ReferenceEquals(rpc, _rpc)
+                && connection == Volatile.Read(ref _connection) && ReferenceEquals(current, document);
+        }
+    }
+
+    private static SemanticTokens? ReadSemanticTokens(JsonElement reply, int[] previous)
+    {
+        if (reply.ValueKind == JsonValueKind.Null) return null;
+        var id = reply.TryGetProperty("resultId", out var resultId) ? resultId.GetString() : null;
+        if (reply.TryGetProperty("data", out var data))
+            return new SemanticTokens(data.EnumerateArray().Select(n => n.GetInt32()).ToArray()) { ResultId = id };
+        var edits = reply.GetProperty("edits").EnumerateArray().Select(edit => (
+            Start: edit.GetProperty("start").GetInt32(),
+            DeleteCount: edit.GetProperty("deleteCount").GetInt32(),
+            Data: edit.TryGetProperty("data", out var inserted)
+                ? inserted.EnumerateArray().Select(n => n.GetInt32()).ToArray() : Array.Empty<int>())).ToArray();
+        var result = previous.ToList();
+        var boundary = previous.Length;
+        // Every edit indexes the previous array, before any insertion or deletion.
+        foreach (var edit in edits.OrderByDescending(e => e.Start))
+        {
+            if (edit.Start < 0 || edit.DeleteCount < 0 || edit.Start > boundary
+                || edit.DeleteCount > boundary - edit.Start)
+                throw new InvalidOperationException("Semantic token edit is outside the previous array or overlaps another edit.");
+            result.RemoveRange(edit.Start, edit.DeleteCount);
+            result.InsertRange(edit.Start, edit.Data);
+            boundary = edit.Start;
+        }
+        return new SemanticTokens(result.ToArray()) { ResultId = id };
     }
 
     public async Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken cancellationToken = default)
@@ -1922,6 +1994,26 @@ public sealed class VBLspClient : ILspClient
         {
             WarnRequestFailedOnce("textDocument/completion", ex, cancellationToken);
             return [];
+        }
+    }
+
+    public async Task<CompletionItem?> ResolveCompletionItemAsync(CompletionItem item, CancellationToken cancellationToken = default)
+    {
+        if (cancellationToken.IsCancellationRequested || _rpc is not { } rpc || !IsRunning
+            || !ServerCapabilities.ResolvesCompletionItems(AdvertisedCapabilities)) return null;
+        try
+        {
+            var resolved = await InvokeRequestAsync<CompletionItem?>(rpc, "completionItem/resolve", item, cancellationToken);
+            return resolved is null ? null : item with
+            {
+                Detail = resolved.Detail ?? item.Detail,
+                Documentation = resolved.Documentation ?? item.Documentation
+            };
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("completionItem/resolve", ex, cancellationToken);
+            return null;
         }
     }
 
@@ -2262,18 +2354,19 @@ public sealed class VBLspClient : ILspClient
         && ServerCapabilities.SupportsOnTypeFormatting(AdvertisedCapabilities, trigger);
 
     internal static readonly TimeSpan OnTypeFormattingTimeout = TimeSpan.FromMilliseconds(250);
+    internal TimeSpan OnTypeFormattingBudget { get; init; } = OnTypeFormattingTimeout;
 
     public async Task<TextEdit[]?> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized) return null;
         if (!SupportsOnTypeFormatting(uri, trigger)) return [];
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        budget.CancelAfter(OnTypeFormattingTimeout);
+        budget.CancelAfter(OnTypeFormattingBudget);
         var p = new DocumentOnTypeFormattingParams(new TextDocumentIdentifier(uri), position, trigger, options);
         try
         {
             return await InvokeRequestAsync<TextEdit[]?>(_rpc, "textDocument/onTypeFormatting", p,
-                budget.Token, timeout: OnTypeFormattingTimeout, documentUri: uri) ?? [];
+                budget.Token, timeout: OnTypeFormattingBudget, documentUri: uri) ?? [];
         }
         catch (Exception ex)
         {
@@ -2794,6 +2887,7 @@ public sealed class VBLspClient : ILspClient
         _identity = null;
         _warnedCapabilities.Clear();
         _semanticWarnings.Clear();
+        _semanticResults.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         RaiseStateChanged();
@@ -2836,6 +2930,7 @@ public sealed class VBLspClient : ILspClient
         _capabilities = null;
         _warnedCapabilities.Clear();
         _semanticWarnings.Clear();
+        _semanticResults.Clear();
         _prioritySkips.Clear();
         _warnedFailures.Clear();
         _identity = null;

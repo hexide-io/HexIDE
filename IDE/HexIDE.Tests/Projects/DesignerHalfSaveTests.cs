@@ -2,7 +2,13 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Headless.XUnit;
+using HexIDE.Bookmarks;
+using HexIDE.Debugging;
+using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
+using HexIDE.Localization;
+using HexIDE.Lsp;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Sidecar;
@@ -33,10 +39,12 @@ public class DesignerHalfSaveTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private ProjectService MakeService()
+    private ProjectService MakeService(IEventBus? bus = null, IHeaderRefresher? refresher = null)
     {
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(_ => loaded);
+        projectManager.When(m => m.AddProject(Arg.Any<ProjectDefinition>()))
+            .Do(ci => loaded.Add(ci.Arg<ProjectDefinition>()));
         // Every picker is answered with the name it suggests, in this test's folder, and recorded.
         windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(ci =>
@@ -51,14 +59,14 @@ public class DesignerHalfSaveTests : IDisposable
 
         return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"),
             windowManager,
-            Substitute.For<IEventBus>(),
+            bus ?? Substitute.For<IEventBus>(),
             projectManager,
             Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            refresher ?? Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
     }
 
     private ProjectDefinition SavedProject()
@@ -120,6 +128,89 @@ public class DesignerHalfSaveTests : IDisposable
         asked.Should().ContainSingle("the second save has the file the first chose");
         File.ReadAllText(written).Should().Contain("Public Sub Added()");
         Directory.GetFiles(dir).Should().ContainSingle();
+    }
+
+    // #1661: Control rows measured in docs/vb6-fidelity-oracle/a-usercontrols-and-a-propertypages-own-events.md.
+    // EXE and already-True rows guard unchanged behaviour; the EXE row is not a VB6 measurement.
+    [Theory]
+    [InlineData("Control", "PropertyPage", "False", "True", false)]
+    [InlineData("Control", "PropertyPage", "False", "True", true)]
+    [InlineData("Control", "UserControl", "False", "False", false)]
+    [InlineData("Exe", "PropertyPage", "False", "False", false)]
+    [InlineData("Control", "PropertyPage", "True", "True", false)]
+    public async Task Saving_a_designer_half_reconciles_only_a_Control_PropertyPages_exposure(
+        string projectType, string kind, string exposed, string expected, bool checkModel)
+    {
+        var svc = MakeService();
+        var name = kind + "1";
+        var file = Path.Join(dir, name + (kind == "PropertyPage" ? ".pag" : ".ctl"));
+        var original = $"VERSION 5.00\r\nBegin VB.{kind} {name} \r\nEnd\r\n"
+            + $"Attribute VB_Name = \"{name}\"\r\n"
+            + "Attribute VB_GlobalNameSpace = False\r\nAttribute VB_Creatable = True\r\n"
+            + $"Attribute VB_PredeclaredId = False\r\nAttribute VB_Exposed = {exposed}\r\n"
+            + "Option Explicit\r\n";
+        File.WriteAllText(file, original);
+        var vbp = Path.Join(dir, "Project1.vbp");
+        File.WriteAllText(vbp, $"Type={projectType}\r\n{kind}={Path.GetFileName(file)}\r\nName=\"Project1\"\r\n");
+        await svc.OpenProject(vbp);
+        var module = loaded.Single().Modules.Single();
+        var codeBefore = module.Code;
+
+        (await svc.SaveForm(module.FormPart!, saveAs: false, interactive: false)).Should().BeTrue();
+
+        if (checkModel)
+            module.Code.Should().Be(codeBefore.Replace("VB_Exposed = " + exposed, "VB_Exposed = " + expected));
+        else
+            File.ReadAllBytes(file).Should().Equal(System.Text.Encoding.UTF8.GetBytes(
+                original.Replace("VB_Exposed = " + exposed, "VB_Exposed = " + expected)));
+    }
+
+    // #1661 decides the first-save rule; Add Property Page itself remains unmeasured in a Control project.
+    [Fact]
+    public async Task A_new_Control_PropertyPage_keeps_its_default_until_its_first_save()
+    {
+        var svc = MakeService();
+        var project = new ProjectDefinition(VBProjectType.Control, "Project1") { AbsolutePath = Path.Join(dir, "Project1.vbp") };
+        loaded.Add(project);
+        var module = await AddNew(svc, project, "PropertyPage");
+        module.Code.Should().Contain("Attribute VB_Exposed = False");
+
+        await svc.SaveForm(module.FormPart!, saveAs: false, interactive: false);
+
+        module.Code.Should().Contain("Attribute VB_Exposed = True");
+        File.ReadAllText(module.AbsolutePath!).Should().Contain("Attribute VB_Exposed = True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Saved_exposure_is_adopted_by_an_open_code_window(bool withMemberRewrite)
+    {
+        var bus = new EventBus();
+        var dock = Substitute.For<IDocumentDockService>();
+        using var refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService());
+        var svc = MakeService(bus, refresher);
+        var project = new ProjectDefinition(VBProjectType.Control, "Project1") { AbsolutePath = Path.Join(dir, "Project1.vbp") };
+        loaded.Add(project);
+        var module = await AddNew(svc, project, "PropertyPage");
+        if (withMemberRewrite)
+            module.UpdateCode(module.Code + "Public Sub Current()\r\nAttribute Old.VB_Description = \"kept\"\r\nEnd Sub\r\n");
+        using var editor = new CodeEditorViewModel(windowManager, Substitute.For<IEditorService>(), svc, bus,
+            Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+            Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<IRunScope>(),
+            Substitute.For<ILocalizationService>()).Initialize(module);
+        dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
+
+        await svc.SaveForm(module.FormPart!, saveAs: false, interactive: false);
+
+        editor.BufferBody.Should().Be(module.Code);
+        editor.Document.Text.Should().Be(File.ReadAllText(module.AbsolutePath!));
+        editor.BufferBody.Should().Contain("Attribute VB_Exposed = True");
+        if (withMemberRewrite)
+            editor.BufferBody.Should().Contain("Attribute Current.VB_Description");
+        await svc.SaveForm(module.FormPart!, saveAs: false, interactive: false);
+        editor.Document.Text.Should().Be(File.ReadAllText(module.AbsolutePath!));
     }
 
     [Fact]

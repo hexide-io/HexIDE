@@ -484,6 +484,8 @@ public class VBListBox : ListBox
 
     private void Pressed(PointerPressedEventArgs e)
     {
+        if (Dialogs.MessageBoxFormHold.IsInputHeld(this))
+            return;
         pressedOnItem = e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed
                         && IndexAt(e.Source) >= 0;
     }
@@ -522,6 +524,8 @@ public class VBListBox : ListBox
 
     private void Moved(PointerEventArgs e)
     {
+        if (Dialogs.MessageBoxFormHold.IsInputHeld(this))
+            return;
         if (!pressedOnItem || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
         // Over the empty area, or outside the list, the selection stays on the last item reached.
@@ -543,6 +547,8 @@ public class VBListBox : ListBox
 
     private void Released(PointerReleasedEventArgs e)
     {
+        if (Dialogs.MessageBoxFormHold.IsInputHeld(this))
+            return;
         var click = pressedOnItem && e.InitialPressMouseButton == MouseButton.Left && !AttachedEvents.IsSecondPress(this);
         pressedOnItem = false;
         if (shiftPressed)

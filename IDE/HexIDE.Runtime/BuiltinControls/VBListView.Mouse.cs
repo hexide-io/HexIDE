@@ -15,8 +15,8 @@ public sealed partial class VBListView
     private bool secondPress;
     private ListViewItem? anchor;
 
-    private double RowHeight => Images("SmallIcons") is not null ? 17 : 18;
-    private double HeaderHeight => Images("SmallIcons") is not null || Images("ColumnHeaderIcons") is not null ? 17 : 18;
+    private double RowHeight => (Images("SmallIcons") is not null ? 17 : 18) + (Number("View") == 3 ? FontHeightGrowth : 0);
+    private double HeaderHeight => (Images("SmallIcons") is not null || Images("ColumnHeaderIcons") is not null ? 17 : 18) + FontHeightGrowth;
 
     private IEnumerable<(ListViewItem Item, Rect Cell, Rect Row)> ItemCells()
     {

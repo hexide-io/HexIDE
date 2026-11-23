@@ -1,7 +1,10 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using HexIDE.Runtime.AvaloniaInterop;
+using HexIDE.Runtime.BuiltinTypes;
 using Avalonia.Threading;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -14,7 +17,8 @@ public sealed partial class VBListView : Decorator, ICSharpPropertyBag, INamedPa
 {
     static VBListView()
     {
-        AffectsRender<VBListView>(IsFocusedProperty, IsEnabledProperty);
+        AffectsRender<VBListView>(IsFocusedProperty, IsEnabledProperty, AttachedProperties.FontProperty);
+        AttachedProperties.FontProperty.Changed.AddClassHandler<VBListView>((list, _) => list.UpdateLabelEditorFont());
     }
 
     public VBListView()
@@ -22,6 +26,7 @@ public sealed partial class VBListView : Decorator, ICSharpPropertyBag, INamedPa
         Items = new ListViewItems(this);
         Columns = new ListViewColumns(InvalidateVisual, value => ValidateImage("ColumnHeaderIcons", value));
         Focusable = true;
+        AttachedProperties.SetFont(this, VBFont.Default);
         UpdateClientInset();
     }
 
@@ -105,7 +110,7 @@ public sealed partial class VBListView : Decorator, ICSharpPropertyBag, INamedPa
         ["BackColor"] = new((long)unchecked((int)0x80000005)), ["ForeColor"] = new((long)unchecked((int)0x80000008)),
         ["OLEDragMode"] = new(0L), ["OLEDropMode"] = new(0L), ["MousePointer"] = new(0L),
         ["Picture"] = Vb6Value.Nothing, ["DropHighlight"] = Vb6Value.Nothing,
-        ["Font"] = new(new ListViewFont()),
+        ["Font"] = Vb6Value.Nothing,
         ["Icons"] = Vb6Value.Nothing, ["SmallIcons"] = Vb6Value.Nothing, ["ColumnHeaderIcons"] = Vb6Value.Nothing,
     };
     internal bool Sorted => (bool)properties["Sorted"].Value!;
@@ -259,6 +264,11 @@ public sealed partial class VBListView : Decorator, ICSharpPropertyBag, INamedPa
     public bool TryGetProperty(string name, out Vb6Value value)
     {
         CheckSort();
+        if (name.Equals("Font", StringComparison.OrdinalIgnoreCase))
+        {
+            value = new Vb6Value(ControlFont.Get(this));
+            return true;
+        }
         if (properties.TryGetValue(name, out value))
             return true;
         if (name.Equals("Enabled", StringComparison.OrdinalIgnoreCase))
@@ -359,19 +369,4 @@ public sealed partial class VBListView : Decorator, ICSharpPropertyBag, INamedPa
         if (Components.InBox.ListViewComponentClass.Instance.Member(name) is not null)
             throw new NotImplementedException($"ListView.{name} is not implemented (#1085)");
     }
-}
-
-internal sealed class ListViewFont(string family = "MS Sans Serif", double size = 8.25) : ICSharpProxy, ICSharpPropertyBag
-{
-    public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException("ListView Font calls are unmeasured (#1085)");
-    public bool TryGetProperty(string name, out Vb6Value value)
-    {
-        value = name.ToLowerInvariant() switch
-        {
-            "name" => new Vb6Value(family), "size" => new Vb6Value(size),
-            _ => throw new NotImplementedException($"ListView Font.{name} is unmeasured (#1085)"),
-        };
-        return true;
-    }
-    public bool TrySetProperty(string name, Vb6Value value) => throw new NotImplementedException($"ListView Font.{name} assignment is unmeasured (#1085)");
 }

@@ -25,8 +25,8 @@ wire formats SHALL be reused; pack semantic warning rules remain with their adap
 
 ### Requirement: Resolution has deterministic sources
 The loader SHALL classify `none`, paths and names in that order. Omission SHALL select indexed embedded
-`vb6`; `vb6`, `vbaode` and `vba` SHALL be reserved embedded names. Other names SHALL resolve only under
-the supplied user-data directory's `profiles/<id>` directory, whose manifest id MUST match. Explicit
+`neutral`; `neutral`, `vb6`, `vbaode` and `vba` SHALL be reserved embedded names. Other names SHALL
+resolve only under the supplied user-data directory's `profiles/<id>` directory, whose manifest id MUST match. Explicit
 paths SHALL resolve against the supplied invocation directory and retain absolute-path provenance.
 
 #### Scenario: An installed bundle collides with a built-in
@@ -164,7 +164,7 @@ as user translations. Startup SHALL supply the selected snapshot to this adapter
 ### Requirement: Startup selects one profile before constructing consumers
 The desktop CLI SHALL accept one `--profile <value>` or `/profile <value>` selector in Debug and Release.
 It SHALL resolve against the invocation directory and the fully parsed user-data directory, independent
-of flag order. Omission SHALL select embedded `vb6`; `none` SHALL select a null snapshot with baseline
+of flag order. Omission SHALL select embedded `neutral`; `none` SHALL select a null snapshot with baseline
 offerings. A selected
 bundle MUST validate before application, and rejection MUST exit with code 2 and an attributed localized
 remedy rather than silently selecting a different bundle. Selection SHALL NOT be persisted.
@@ -187,8 +187,9 @@ validation. The rendered replacement help row MUST fit the 94-column budget.
 ### Requirement: Built-ins preserve migration offerings
 The profile service SHALL use ordered stable template ids and References visibility from the selected
 snapshot, retaining host defaults for omitted entries and preserving an explicitly empty project list.
-Built-in `vb6` SHALL show Project References and offer all eight baseline templates in order; `vbaode`
-SHALL show Tools References and offer only Standard EXE; `vba` SHALL show Tools References and offer none.
+Built-in `neutral` SHALL name no templates or visibility overrides, offering every registered template
+in registration order and the host's References defaults. Built-in `vb6` SHALL show Project References
+and offer all eight baseline templates in order; `vbaode` SHALL show Tools References and offer only Standard EXE; `vba` SHALL show Tools References and offer none.
 The opposite References placement SHALL be hidden. Built-ins SHALL supply no theme, keymap, translation,
 settings or toolbar overrides. Profiles SHALL NOT change runtime functionality.
 
@@ -250,6 +251,6 @@ registered templates excluded by the profile.
 - **THEN** neither surface offers a built-in template and both explain how to continue
 
 #### Scenario: Full and intermediate profiles
-- **WHEN** the selected profile is `vb6` (including omission) or `vbaode`
+- **WHEN** VB6's templates are registered and the selected profile is `neutral` (including omission), `vb6` or `vbaode`
 - **THEN** both surfaces offer respectively eight templates or Standard EXE only, in profile order
 - **AND** the flyout cannot invoke unsupported template entries

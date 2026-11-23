@@ -152,5 +152,21 @@ public static class ComponentNaming
     public static IEnumerable<string> NamesDeclaredBy(string preservedText) =>
         BeginLine.Matches(preservedText).Select(begin => begin.Groups["name"].Value);
 
-    private static readonly Regex BeginLine = new(@"^\s*Begin\s+\S+\s+(?<name>\S+)", RegexOptions.Multiline);
+    // #1458's No answer: only the declaration's name changes. Several controls in one carried block still need
+    // their own measured treatment; the class's last segment for classes other than ImageList is a design decision.
+    internal static string? RenameSingleCarriedControl(string preservedText, HashSet<string> namesInUse)
+    {
+        var declarations = BeginLine.Matches(preservedText);
+        if (declarations.Count != 1)
+            return null;
+        var declaration = declarations[0];
+        var className = declaration.Groups["class"].Value;
+        var prefix = className[(className.LastIndexOf('.') + 1)..];
+        var index = 1;
+        while (namesInUse.Contains(prefix + index)) index++;
+        var name = declaration.Groups["name"];
+        return preservedText[..name.Index] + prefix + index + preservedText[(name.Index + name.Length)..];
+    }
+
+    private static readonly Regex BeginLine = new(@"^\s*Begin\s+(?<class>\S+)\s+(?<name>\S+)", RegexOptions.Multiline);
 }

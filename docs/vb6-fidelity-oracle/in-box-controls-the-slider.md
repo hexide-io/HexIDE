@@ -264,3 +264,63 @@ as the setters do would refuse a form VB6 runs.
 
 HexIDE doesn't model the Slider (#1091). The designer draws it as an empty box (#157). Running a form that holds one is
 refused, as for any control HexIDE can't create (#857), and the refusal names #1091 as the issue that tracks it.
+
+## The Slider's conversions, Enabled, SelectRange, Text and MousePointer (2026-11-23, #1091, SP6)
+
+**A value stored into a Slider property converts as VB converts it to the property's type, then meets the property's own check.** No new rule appeared. `MISSING_LANGUAGE.md` listed these conversions as unmeasured, and HexIDE refuses them.
+
+**The probe.**
+- **The form:** an `MSComctlLib.Slider` (MSCOMCTL.OCX 2.0), and `Sub Main` showing it.
+- **Each store:** before it, every property was reset to Min 0, Max 100, Value 50, SmallChange 1, LargeChange 5, TickFrequency 1, SelectRange True, SelStart 10, SelLength 20, Enabled True, Text `""` and MousePointer 0.
+  - The value was put in a `Variant`, then stored twice: **early-bound**, as `Form1.Slider1.Min = v`, and **late-bound**, through an `Object` variable.
+  - `Err.Number` was read straight after, then the property was read back through `CallByName` with its `TypeName`.
+- **The build:** `/make` as native code and as p-code on VB6.EXE 6.00.9782 (SP6) with MSVBVM60 6.00.9848, run on the Win10-C clone's console, whose locale is English (UK). **The two builds wrote identical logs.**
+- **Early and late binding agreed on every row but Null:** early-bound raises **94** "Invalid use of Null", late-bound **13** "Type mismatch". Either way the property keeps its value.
+
+**The Long properties.** Each cell is what the property read afterwards, or the error raised, with the property unchanged:
+
+| Stored | Min | Max | Value | SmallChange | LargeChange | TickFrequency | SelStart | SelLength |
+|---|---|---|---|---|---|---|---|---|
+| `Null` | 94 / 13 | 94 / 13 | 94 / 13 | 94 / 13 | 94 / 13 | 94 / 13 | 94 / 13 | 94 / 13 |
+| `Empty` | 0 | **380** | 0 | 0 | 0 | 0 | 0 | 0 |
+| `True` | -1 | **380** | 0 | **380** | **380** | **380** | **380** | **380** |
+| `False` | 0 | **380** | 0 | 0 | 0 | 0 | 0 | 0 |
+| `"7"` | 7 | 7 | 7 | 7 | 7 | 7 | 7 | 7 |
+| `"abc"` | 13 | 13 | 13 | 13 | 13 | 13 | 13 | 13 |
+| `CByte(7)` | 7 | 7 | 7 | 7 | 7 | 7 | 7 | 7 |
+| `CCur(7.5)` | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
+| `CDate(2)` | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
+| `CDec(7.5)` | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
+| `7.5` (Double) | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
+| `CSng(2.5)` | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
+
+**What the table shows:**
+- **The conversion is VB's own `CLng`:** Empty is 0, True is -1, a numeric string parses, other text raises 13, and halves go to the even neighbour (7.5 to 8, 2.5 to 2). A Date is its serial number.
+- **Every 380 is a range check met after converting,** not a conversion failure:
+  - Max 0 or -1 isn't above Min 0;
+  - SmallChange, LargeChange, TickFrequency, SelStart and SelLength refuse -1;
+  - Value -1 is below Min, so it reads Min, 0, with no error, as this page's `Value = -1` row has it.
+
+**Enabled and SelectRange** (Boolean) agreed with each other on every value:
+
+| Stored | Reads |
+|---|---|
+| `0`, `Empty`, `"False"` | False |
+| `1`, `-1`, `2`, `1.5`, `CByte(1)`, `CCur(1)`, `"True"` | True |
+| `"abc"` | 13, unchanged |
+| `Null` | 94 / 13, unchanged |
+
+So it's `CBool`: any non-zero number is True.
+
+**Text** (String):
+- `5`, `True`, `2.5`, `CCur(3)` and `CDate(2)` read back as `"5"`, `"True"`, `"2.5"`, `"3"` and `"01/01/1900"`. That's `CStr`, with the date in this guest's English (UK) format.
+- `Empty` reads `""`.
+- `Null` raises 94 / 13, and Text keeps its value.
+
+**MousePointer:** 5 to 15 are accepted and read back as stored, as a Long. 98 and 100 raise **380** and leave it at 0. With this page's 0 to 4 and 99, the accepted set is 0 to 15 and 99.
+
+**Not measured:**
+- the drag tip's placement with Text set and a vertical Slider or TextPosition 1;
+- the default extents of a block saved without them;
+- `hWnd`, `MouseIcon` and OLE drag;
+- the 5.0 control, `ComctlLib.Slider`.

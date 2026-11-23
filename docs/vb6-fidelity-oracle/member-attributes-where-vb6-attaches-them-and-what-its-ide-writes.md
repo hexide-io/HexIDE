@@ -1073,6 +1073,56 @@ is where #1013's three findings come from.
 - **A class module.** Every module here was a `.bas`.
 - **A procedure's parameter** of the stale name.
 
+### In a class module, too (2026-11-23, #1013, IDE, SP6)
+
+**The question.** The section above measured standard modules only, and listed a class module as not measured. HexIDE's
+greying test `AnEditFarFromARunThatTurnsItIntoAnOrphanRedrawsIt` made an orphan with a local in a class module, so the
+answer decides which of that test and #1013's change is right.
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console. One Standard EXE held
+`Module1`, with an empty `Sub Main`, and three class modules. Each class had the header VB6 writes for a new class in a
+Standard EXE, then:
+
+```vb
+Option Explicit
+' p4 marker
+Public Tally As Long
+Attribute Count.VB_VarDescription = "Running total."
+
+Public Sub Reset()
+    Dim Count As Long          ' the line that varies
+    Tally = 0
+End Sub
+```
+
+| Class | Its member-level line | Its local |
+|---|---|---|
+| C0 | `Public Tally As Long` | none |
+| C1 | `Public Tally As Long` | `Dim Count As Long` |
+| CV1L | `Public Count As Long` | `Dim Count As Long`, and `Count = 0` in the body |
+
+The steps were the section above's:
+1. A Replace All of `Public Count As Long` with `Public Tally As Long` over Current Project.
+2. A Replace All of `p4 marker` with `p4 marker2`.
+3. File > Save Project.
+
+**What VB6 wrote:**
+
+| Class | After the save |
+|---|---|
+| C0 | `Attribute Count.VB_VarDescription` **dropped** |
+| C1 | **dropped** the same way |
+| CV1L | carried and re-qualified: `Public Tally As Long` / `Attribute Tally.VB_VarDescription = "Running total."` |
+
+Apart from those lines and the marker, no line of any class changed.
+
+**So a class module is the same as a standard module here.** A procedure's local of the stale name changes nothing,
+either way. The test was updated in #1013's PR, #5362, rather than the change narrowed. It now checks that a class
+module's local leaves the run as the rename's, and makes its orphan with a procedure of the stale name.
+
+**Still not measured:** a retype in the code window with the local present, and a procedure's parameter of the stale
+name.
+
 ### File > Make after a retype, with no save (2026-11-22, #749, IDE, SP6)
 
 **The question.** V1 found that a variable renamed by retyping keeps its description at the next save, under the new

@@ -64,6 +64,7 @@ public partial class ProjectService : IProjectService
         this.templates = templates;
         this.trust = trust;
         this.documents = documents;
+        if (documents is DocumentDockService dock) dock.SharedCodeClosing = SaveSharedCodeOnClose;
         // A ProjectService made without the IDE's project types, which only a test makes, has VB6's type alone, registered
         // as the composition registers it.
         this.contributed = contributed ?? Vb6ProjectType.Alone();
@@ -172,12 +173,12 @@ public partial class ProjectService : IProjectService
     /// is never loaded, so no member joining the project takes its place.
     /// </summary>
     private static string? KeptLinePath(string line) =>
-        SerializedProject.ItemLineFile(line) is { } file
-        && (file.Key.Equals(SerializedProject.FormKey, StringComparison.OrdinalIgnoreCase)
-            || file.Key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
-            || file.Key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase)
-            || file.Key.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
-            || file.Key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
+        Vb6ProjectPaths.ItemLineFile(line) is { } file
+        && (file.Key.Equals(Vb6ProjectPaths.FormKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(Vb6ProjectPaths.ModuleKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(Vb6ProjectPaths.ClassKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(Vb6ProjectPaths.UserControlKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(Vb6ProjectPaths.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
             ? line.Substring(file.Start, file.Length)
             : null;
 
@@ -816,7 +817,7 @@ public partial class ProjectService : IProjectService
     // System.IO.Path.GetFileName on a raw RelatedDoc= value and name a document after its directory on
     // Linux. One rule, one place.
     internal static string ToLocalRelativePath(string relativePath) =>
-        SerializedProject.ToHostPath(relativePath);
+        Vb6ProjectPaths.ToHostPath(relativePath);
 
     private async Task LoadProjectFromDisk(string projectPath, ContributedProjectType type, IProjectFileFormat own)
     {
@@ -1615,7 +1616,7 @@ public partial class ProjectService : IProjectService
         var members = projectManager.LoadedProjects
             .Select(project => (Project: project, Path: pathOf(project) ?? project.AbsolutePath))
             .Where(member => member.Path is { } path && !path.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase))
-            .Select(member => $"{member.Project.Name} ({SerializedProject.FileNameOf(member.Path!)})").ToList();
+            .Select(member => $"{member.Project.Name} ({Vb6ProjectPaths.FileNameOf(member.Path!)})").ToList();
         if (members.Count > 0)
             throw new ProjectGroupKindRefusal(group.Name, members);
     }
@@ -2994,6 +2995,17 @@ public partial class ProjectService : IProjectService
     /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the module is written by its own Save or Save As.</param>
     private void WriteModule(ModuleDefinition module, string modulePath, bool adoptHeader, bool ownCommand, SaveRewriteReport? rewrites = null)
     {
+        // Any save of a Control project's PropertyPage exposes it (#1661, oracle PR #5244).
+        // Change the model before rendering, leaving absent attributes and all other header text alone.
+        if (adoptHeader && module.Kind == ModuleKind.PropertyPage && module.Owner.ProjectType == VBProjectType.Control)
+        {
+            var exposure = System.Text.RegularExpressions.Regex.Match(FormCodeText.AttributeBlock(module.Code),
+                @"(?:\A|(?<=[\r\n]))Attribute VB_Exposed = False(?=[\r\n]|\z)");
+            if (exposure.Success)
+                module.UpdateCode(module.Code.Remove(exposure.Index, exposure.Length)
+                    .Insert(exposure.Index, "Attribute VB_Exposed = True"));
+        }
+
         // As SerializeFormToFile: before the render and the repointing, and not for a copy (#273 task 4.4).
         if (adoptHeader
             && RewrittenQualifiers(module, modulePath, ownCommand, FormatOf(module.Owner).CodePrefix(module), module.Code, rewrites) is { } requalified)

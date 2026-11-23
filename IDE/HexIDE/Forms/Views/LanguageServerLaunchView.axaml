@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             x:DataType="vm:LanguageServerLaunchViewModel"
+             x:Class="HexIDE.Forms.Views.LanguageServerLaunchView">
+    <StackPanel Margin="16" Spacing="12" Width="560">
+        <TextBlock Text="{CompiledBinding Server}" TextWrapping="Wrap" />
+        <TextBlock Text="{CompiledBinding Prompt}" TextWrapping="Wrap" />
+        <TextBox x:Name="CommandText" Text="{CompiledBinding Command, Mode=OneWay}" IsReadOnly="True"
+                 FontFamily="Courier New" TextWrapping="Wrap" MaxHeight="320"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button x:Name="CancelButton" Content="{DynamicResource Str.Options.Shell.Buttons.Cancel}"
+                    Command="{CompiledBinding CancelCommand}" IsCancel="True" IsDefault="True" />
+            <Button x:Name="RunButton" Content="{DynamicResource Str.Tool.LanguageServers.Trial.Run}"
+                    Command="{CompiledBinding RunCommand}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>
