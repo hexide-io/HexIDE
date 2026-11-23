@@ -3210,7 +3210,7 @@ arguments or invalid property assignment" as execution reaches the statement. La
 SHALL raise 450, "Wrong number of arguments or invalid property assignment". Centimetre PictureBox Line
 endpoints SHALL load as whole twips using the approved factor, with the one-Single-step X1/Y1 difference the maintainer accepted with #990's factor.
 A centimetre-loaded PictureBox Line SHALL read its ends in the container's current ScaleMode, User included,
-and a write SHALL store whole twips. These final rows are measured in
+adding the container's ScaleLeft and ScaleTop, and a write SHALL take them off and store whole twips. These final rows are measured in
 [#4693](https://github.com/hexide-io/HexIDE/issues/4693) (oracle PR #5514).
 Loading Lines saved in User-scale PictureBoxes and other unmeasured Line modes SHALL remain refused naming #4693.
 

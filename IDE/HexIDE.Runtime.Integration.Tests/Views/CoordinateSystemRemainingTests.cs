@@ -113,6 +113,9 @@ public partial class CoordinateSystemTests
     [InlineData("Picture2.ScaleMode = 4", "2.358333|2.3625|11.80833|7.0875")]
     [InlineData("Picture2.ScaleMode = 3\nPicture2.ScaleMode = 7", "0.4991811|1.000126|2.499433|3.000378")]
     [InlineData("Picture2.Scale (0, 0)-(100, 50)", "9.982363|10|49.98236|30")]
+    // The container's origin is added (#5530, oracle PR #5534, measured on Lines loaded in other units).
+    [InlineData("Picture2.Scale (10, 20)-(110, 70)", "19.98236|30|59.98236|50")]
+    [InlineData("Picture2.ScaleMode = 3\nPicture2.ScaleLeft = -5", "13.86667|37.8|89.46667|113.4")]
     public void Line_ends_follow_the_current_container_scale(string setup, string expected)
     {
         var frm = MetricLineForm.Replace("Width = 3000", "Width = 2835\nBorderStyle = 0")
@@ -144,6 +147,17 @@ public partial class CoordinateSystemTests
         var run = RunLoad(MetricLineForm, "Picture2.ScaleMode = 3\nLine2.X1 = 10\nDebug.Print CStr(Line2.X1)\nPicture2.ScaleMode = 1\nDebug.Print CStr(Line2.X1)");
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("10", "150");
+    }
+
+    // A write takes the container's origin off before it scales (#5530, oracle PR #5534): (40 - 20) * 56.7 twips.
+    [AvaloniaFact]
+    public void Line_write_in_a_scale_with_an_origin_subtracts_it()
+    {
+        var frm = MetricLineForm.Replace("Width = 3000", "Width = 2835\nBorderStyle = 0").Replace("Height = 2000", "Height = 2835");
+        var run = RunLoad(frm, "Picture2.Scale (10, 20)-(110, 70)\nLine2.Y1 = 40\nDebug.Print CStr(Line2.Y1)"
+            + "\nPicture2.ScaleMode = 1\nDebug.Print CStr(Line2.Y1)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("40", "1134");
     }
 
 }
