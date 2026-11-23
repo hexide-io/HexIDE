@@ -1,0 +1,27 @@
+## 1. Measure (phase 1)
+
+- [x] 1.1 Read every product assembly's references into the provider at `6d421e942`, from the built DLLs' metadata and from the source, and post the report and the slice list on #3411.
+
+## 2. Separate in the tree (phase 2)
+
+Each slice removes its rows from the guard's list. Sizes and owners are in the phase 1 comment on #3411.
+
+- [ ] 2.1 The guard: a test fails on a product reference into a provider assembly that its list doesn't name, and on a listed one that has gone (#5388).
+- [ ] 2.2 The run engine behind an interface that `ProjectRunnerService` calls.
+- [ ] 2.3 The debugger contract: concrete debug-controller users go through Core's interface.
+- [ ] 2.4 The running controls: the eight files that use them.
+- [ ] 2.5 A provider-fed designer: the component registry and Toolbox, "is this a form" checks, the designer's preview, and the Object Browser's in-box members.
+- [ ] 2.6 The VB6 file formats and code-window text: the text policy, path helpers, the project file format, and the designer's `.frx` helpers.
+- [ ] 2.7 Language helpers through the language registration.
+- [ ] 2.8 VB6 value types and the provider's resources in the IDE.
+- [ ] 2.9 Make and Make with VB6 as the VB6 project type's offer.
+- [ ] 2.10 The provider's strings into a pack area of its own, under the parity guard.
+- [ ] 2.11 A neutral default profile.
+- [ ] 2.12 #3663: move the provider's test files, and split the test files that test both sides.
+- [ ] 2.13 Core's internals: the four members the provider uses.
+- [ ] 2.14 The guard's list holds only the rows phases 3 and 4 remove.
+
+## 3. Later phases (the supervisor sequences them)
+
+- [ ] 3.1 Phase 3: VB6 registers as a bundled first-party add-in.
+- [ ] 3.2 Phase 4: the repository split.
