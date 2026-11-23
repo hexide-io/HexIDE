@@ -414,8 +414,11 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   Over runs Load without stopping. Over from Main's last statement stops at its `End Sub`.
   Measured in VB6 SP6 on 2026-11-18: [#4449](https://github.com/hexide-io/HexIDE/issues/4449), oracle PR #4651.
 - **HexIDE:** matches those measured positions, pinned through running forms in `FormInstanceTests` and
-  `IdleBreakTests`. Module-level variable declarations still run without a step stop. Direct procedure calls retain
-  their existing declaration handling; they were not measured here.
+  `IdleBreakTests`. Module-level variable declarations still run without a step stop. Direct calls to standard-module Subs now stop
+  at their declarations before their first statements on Step Into ([#5295](https://github.com/hexide-io/HexIDE/issues/5295),
+  [measured stops](vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md)).
+  Functions, Properties and class/form Subs (including Class_Initialize and Class_Terminate) retain their existing
+  direct-entry handling, unmeasured. Step Over and Step Out retain their existing depth rules, also unmeasured here.
 - **History:** #1010 fixed a startup split across dispatches that disarmed the starting step before Load. Its
   first-statement expectation, and #2172's startup End exception, were not measurements; #4449 overturns them.
 - **Startup form with no Initialize, and after Load:** measured in VB6 SP6 on 2026-11-18
