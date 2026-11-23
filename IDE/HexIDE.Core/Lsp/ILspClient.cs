@@ -259,6 +259,10 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/completion and returns completion items, or empty.</summary>
     Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
+    /// <summary>Resolves a completion item's detail and documentation on its server, or returns null.</summary>
+    Task<CompletionItem?> ResolveCompletionItemAsync(CompletionItem item, CancellationToken cancellationToken = default) =>
+        Task.FromResult<CompletionItem?>(null);
+
     /// <summary>Calls onAnswer only when completion was answered, including a valid empty answer.</summary>
     async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position,
         CancellationToken cancellationToken, Action onAnswer)

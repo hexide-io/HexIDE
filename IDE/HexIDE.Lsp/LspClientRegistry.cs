@@ -572,6 +572,14 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken ct = default) =>
         GatherCompletionAsync(uri, position, null, ct);
 
+    private readonly ConditionalWeakTable<CompletionItem, ILspClient> _completionOwners = new();
+
+    public Task<CompletionItem?> ResolveCompletionItemAsync(CompletionItem item, CancellationToken ct = default) =>
+        !ct.IsCancellationRequested && _completionOwners.TryGetValue(item, out var client)
+        && client.IsRunning && _entries.Any(e => ReferenceEquals(e.Client, client))
+            ? client.ResolveCompletionItemAsync(item, ct)
+            : Task.FromResult<CompletionItem?>(null);
+
     private async Task<CompletionItem[]> GatherCompletionAsync(
         string uri, Position position, string? triggerCharacter, CancellationToken ct)
     {
@@ -609,7 +617,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                     _logger.LogDebug("Completion from {Id} answered after the popup opened; discarded.", OwnerOf(client));
                     client.NoteLateCompletion();
                 });
-                if (timely) return items;
+                if (timely)
+                {
+                    if (ServerCapabilities.ResolvesCompletionItems(client.AdvertisedCapabilities))
+                        foreach (var item in items) _completionOwners.GetValue(item, _ => client);
+                    return items;
+                }
             }
             catch (Exception ex)
             {

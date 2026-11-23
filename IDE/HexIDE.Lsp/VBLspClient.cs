@@ -764,7 +764,10 @@ public sealed class VBLspClient : ILspClient
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
                         CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"],
-                            InsertTextModeSupport: new InsertTextModeClientCapabilities([1, 2])),
+                            InsertTextModeSupport: new InsertTextModeClientCapabilities([1, 2]))
+                        {
+                            ResolveSupport = new(["documentation", "detail"])
+                        },
                         CompletionList: new CompletionListClientCapabilities(["insertTextMode"])),
                     SemanticTokens: new SemanticTokensClientCapabilities(new(),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
@@ -1922,6 +1925,26 @@ public sealed class VBLspClient : ILspClient
         {
             WarnRequestFailedOnce("textDocument/completion", ex, cancellationToken);
             return [];
+        }
+    }
+
+    public async Task<CompletionItem?> ResolveCompletionItemAsync(CompletionItem item, CancellationToken cancellationToken = default)
+    {
+        if (cancellationToken.IsCancellationRequested || _rpc is not { } rpc || !IsRunning
+            || !ServerCapabilities.ResolvesCompletionItems(AdvertisedCapabilities)) return null;
+        try
+        {
+            var resolved = await InvokeRequestAsync<CompletionItem?>(rpc, "completionItem/resolve", item, cancellationToken);
+            return resolved is null ? null : item with
+            {
+                Detail = resolved.Detail ?? item.Detail,
+                Documentation = resolved.Documentation ?? item.Documentation
+            };
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("completionItem/resolve", ex, cancellationToken);
+            return null;
         }
     }
 

@@ -2349,14 +2349,14 @@ anyway, so it is recorded rather than defended.
 The client SHALL declare `textDocument.completion` in initialize with default `insertTextMode: 1`
 (asIs), all 25 completion kinds, preselect support, plaintext documentation support, insert/replace
 support, snippet support, both insert text modes and the `insertTextMode` list item default.
-It SHALL omit optional completion capabilities it does not implement, including completion resolve
-and context support.
+It SHALL advertise completion resolve for `documentation` and `detail`. It SHALL omit optional
+completion capabilities it does not implement, including context support.
 
 #### Scenario: A server inspects completion capabilities
 - **WHEN** the client sends initialize
 - **THEN** completion declares kind values 1 through 25, preselect support, plaintext documentation and default insertion mode `1`
 - **AND** insert/replace and both indentation modes are supported, with only `insertTextMode` advertised as a list item default
-- **AND** snippet support is declared; resolve and context support are absent
+- **AND** snippet support is declared, resolve lists only `documentation` and `detail`, and context support is absent
 
 ### Requirement: Completion text edits commit together
 The editor SHALL apply a completion's TextEdit instead of its insertText or label when provided,
@@ -2492,6 +2492,23 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 - **WHEN** the user requests completion with the caret within or after `Ms`
 - **THEN** the request position is before `M`
 - **AND** after `c.` or `UBound(` with no identifier, the request position remains after the punctuation
+
+### Requirement: Resolve the selected completion item's description
+
+The editor SHALL resolve a selected completion item at most once per list, through the server that
+supplied it, when that server advertises `completionProvider.resolveProvider: true`. The request SHALL
+preserve opaque `data` when present. The editor SHALL update the still-selected item's tooltip with
+returned detail and documentation only. Moving selection or closing the list SHALL cancel the request.
+Accepting an item SHALL use its existing insertion data without waiting for resolve.
+
+#### Scenario: Documentation arrives after selection
+- **WHEN** the user selects an item and its server resolves it with detail and documentation
+- **THEN** the selected item's tooltip shows that detail and documentation
+- **AND** insertion still uses the item from the completion list
+
+#### Scenario: The user moves away while resolve is pending
+- **WHEN** the selection changes or the list closes before resolve completes
+- **THEN** the request is cancelled and a late reply cannot change the tooltip
 
 ### Requirement: Completion acceptance keys
 In ordinary code the editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts
