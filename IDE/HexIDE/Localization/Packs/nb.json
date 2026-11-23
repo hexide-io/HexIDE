@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Feilfangst",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Stopp ved alle feil",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Stopp i klassemodul",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Stopp ved ubehandlede feil"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Stopp ved ubehandlede feil",
+    "Str.Tool.LanguageServers.Trial.Test": "Test",
+    "Str.Tool.LanguageServers.Trial.Testing": "Tester…",
+    "Str.Tool.LanguageServers.Trial.Result": "Resultat av tilkoblingstest",
+    "Str.Tool.LanguageServers.Trial.Declined": "Ingenting ble kjørt.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Denne oppføringen kan ikke startes herfra.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Denne serveren trenger et åpent prosjekt.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Serveren ble initialisert.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Serveren oppga ikke navn eller versjon.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Oppgitt av serveren: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Annonserte funksjoner: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Avviste klientfunksjoner: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Serveren koblet til, men svarte ikke på initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Denne oppføringen angir en arbeidsområdefil som bare opprettes ved en vanlig oppstart, med samtykke. At den mangler, kan forklare denne feilen.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Denne oppføringen er slått av. IDE-et starter den ikke før den er slått på.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Stopp fullført.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Stopp mislyktes: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Serveren ble ikke initialisert: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Test tilkobling til språkserver",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE-et har ikke startet eller koblet til dette før, eller det har blitt endret siden sist. Hvis du godtar, startes et program på denne datamaskinen eller en tilkobling til denne adressen.",
+    "Str.Tool.LanguageServers.Trial.Run": "Kjør"
   }
 }

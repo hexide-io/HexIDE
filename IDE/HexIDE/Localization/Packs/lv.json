@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Kļūdu pārtveršana",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Apturēt pie visām kļūdām",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Apturēt klases modulī",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Apturēt pie neapstrādātām kļūdām"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Apturēt pie neapstrādātām kļūdām",
+    "Str.Tool.LanguageServers.Trial.Test": "Pārbaudīt",
+    "Str.Tool.LanguageServers.Trial.Testing": "Pārbauda…",
+    "Str.Tool.LanguageServers.Trial.Result": "Savienojuma pārbaudes rezultāts",
+    "Str.Tool.LanguageServers.Trial.Declined": "Nekas netika palaists.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Šo ierakstu nevar palaist no šejienes.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Šim serverim ir nepieciešams atvērts projekts.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Serveris tika inicializēts.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Serveris nepaziņoja nosaukumu vai versiju.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Servera paziņotais: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Paziņotās iespējas: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Noraidītās klienta iespējas: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Serveris izveidoja savienojumu, bet neatbildēja uz initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Šis ieraksts norāda darbvietas failu, kas ar piekrišanu tiek ģenerēts tikai īstas palaišanas laikā. Tā trūkums var izskaidrot šo kļūmi.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Šis ieraksts ir izslēgts. IDE to nepalaidīs, kamēr tas nebūs ieslēgts.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Apturēšana pabeigta.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Apturēšana neizdevās: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Serveris netika inicializēts: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Pārbaudīt valodas servera savienojumu",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE to vēl nav palaidusi vai tam pievienojusies, vai arī tas kopš tā laika ir mainījies. Piekrītot šajā datorā tiek palaista programma vai izveidots savienojums ar šo adresi.",
+    "Str.Tool.LanguageServers.Trial.Run": "Palaist"
   }
 }

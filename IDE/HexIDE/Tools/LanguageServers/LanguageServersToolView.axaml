@@ -29,12 +29,38 @@
             <ItemsControl ItemsSource="{CompiledBinding Definitions}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="ls:LanguageServerDefinitionViewModel">
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,3">
-                            <TextBlock Text="{CompiledBinding Id}" VerticalAlignment="Center" />
-                            <Button IsVisible="{CompiledBinding IsUser}" Content="{DynamicResource Str.Options.Toolbars.Edit}"
-                                    Command="{CompiledBinding EditCommand}" />
-                            <Button IsVisible="{CompiledBinding IsBundled}" Content="{DynamicResource Str.Tool.LanguageServers.Editor.Customise}"
-                                    Command="{CompiledBinding EditCommand}" />
+                        <!-- The row's id names it for automation, so its Test, Edit and result are addressable by server. -->
+                        <StackPanel Spacing="4" Margin="0,3" AutomationProperties.AutomationId="{CompiledBinding Id}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{CompiledBinding Id}" VerticalAlignment="Center" />
+                                <Button IsVisible="{CompiledBinding IsUser}" Content="{DynamicResource Str.Options.Toolbars.Edit}"
+                                        Command="{CompiledBinding EditCommand}" />
+                                <Button IsVisible="{CompiledBinding IsBundled}" Content="{DynamicResource Str.Tool.LanguageServers.Editor.Customise}"
+                                        Command="{CompiledBinding EditCommand}" />
+                                <Button Content="{CompiledBinding TestLabel}" Command="{CompiledBinding TestCommand}" />
+                            </StackPanel>
+                            <StackPanel IsVisible="{CompiledBinding HasResult}" Spacing="4"
+                                        AutomationProperties.Name="{DynamicResource Str.Tool.LanguageServers.Trial.Result}">
+                                <TextBlock Text="{CompiledBinding ResultText}" TextWrapping="Wrap" />
+                                <ItemsControl ItemsSource="{CompiledBinding Steps}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="ls:LanguageServerStepViewModel">
+                                            <StackPanel Spacing="2">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{CompiledBinding Marker}" />
+                                                    <TextBlock Text="{CompiledBinding Stage}" />
+                                                    <TextBlock Text="{CompiledBinding Elapsed}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{CompiledBinding Detail}" TextWrapping="Wrap"
+                                                           IsVisible="{CompiledBinding HasDetail}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Content="{DynamicResource Str.Tool.LanguageServers.ShowMessages}"
+                                        Command="{CompiledBinding ShowMessagesCommand}"
+                                        IsVisible="{CompiledBinding HasMessages}" />
+                            </StackPanel>
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

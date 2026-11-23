@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Intercettazione errori",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interrompi su tutti gli errori",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interrompi nel modulo di classe",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interrompi su errori non gestiti"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interrompi su errori non gestiti",
+    "Str.Tool.LanguageServers.Trial.Test": "Prova",
+    "Str.Tool.LanguageServers.Trial.Testing": "Prova in corso…",
+    "Str.Tool.LanguageServers.Trial.Result": "Risultato della prova di connessione",
+    "Str.Tool.LanguageServers.Trial.Declined": "Non è stato eseguito nulla.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Questa voce non può essere avviata da qui.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Questo server richiede un progetto aperto.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Il server è stato inizializzato.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Il server non ha comunicato nome o versione.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Comunicato dal server: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Funzionalità dichiarate: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Funzionalità del client rifiutate: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Il server si è connesso ma non ha risposto a initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Questa voce dichiara un file dell’area di lavoro che viene generato, con il consenso, solo durante un avvio effettivo. La sua assenza può spiegare questo errore.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Questa voce è disattivata. L’IDE non la avvierà finché non verrà attivata.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Arresto completato.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Arresto non riuscito: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Il server non è stato inizializzato: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Prova della connessione al server di linguaggio",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "L’IDE non ha mai avviato o connesso questo elemento, oppure è cambiato da allora. Il consenso avvia un programma su questo computer o si connette a questo indirizzo.",
+    "Str.Tool.LanguageServers.Trial.Run": "Esegui"
   }
 }

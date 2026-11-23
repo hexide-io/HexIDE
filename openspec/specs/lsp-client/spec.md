@@ -3477,3 +3477,35 @@ offering connection; editor.action.rename and editor.action.showReferences SHALL
 #### Scenario: A host call outlives its authorization
 - **WHEN** the add-in calls any action without a running claimed handler on its connection
 - **THEN** InvalidOperationException is thrown and no UI is shown
+
+
+### Requirement: Test a configured language server from its definition row
+
+The Language Servers window SHALL offer a user-requested Test action for each bundled or user definition,
+resolve its entry once, and pass that same entry to the gated isolated language-server trial. It SHALL
+allow only one trial per row at a time, show Testing while running, and retain an accessible text result
+beneath the row. The trial SHALL use the editor store's seen-command store and SHALL never register a client
+for documents, allow editor callbacks, or generate a declared workspace file.
+
+#### Scenario: Successful test
+- **WHEN** a user tests an entry and it initializes
+- **THEN** the result shows its reported name and version, or their absence, sorted advertised capabilities,
+  any declined capabilities, and the stop outcome
+- **AND** disabled entries are tested with a notice explaining normal starts remain disabled
+- **AND** Show messages opens the separate `test:<id>` protocol capture
+
+#### Scenario: Silent server
+- **WHEN** a test connects but the server never answers initialize within the client's timeout
+- **THEN** the result explicitly says so, shows the startup steps and stopping detail, and reports the stop
+
+#### Scenario: Start failure
+- **WHEN** the configured command cannot start
+- **THEN** the result identifies Connecting and its detail using the live connection step renderer
+- **AND** a failed trial declaring a workspace file explains that only a real start generates it with consent
+
+#### Scenario: Declined command
+- **WHEN** an unseen or changed command is tested
+- **THEN** a confirmation dialog shows the server name and id and the full unchanged command in selectable,
+  read-only wrapping monospaced text
+- **AND** only Run agrees; Cancel is the default and Escape action, and closing or failing to show declines
+- **AND** declining launches nothing and the result says nothing was run, with no Show messages action, since nothing connected

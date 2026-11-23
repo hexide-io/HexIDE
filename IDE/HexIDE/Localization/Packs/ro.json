@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Interceptarea erorilor",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Întrerupe la toate erorile",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Întrerupe în modulul de clasă",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Întrerupe la erorile netratate"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Întrerupe la erorile netratate",
+    "Str.Tool.LanguageServers.Trial.Test": "Testează",
+    "Str.Tool.LanguageServers.Trial.Testing": "Se testează…",
+    "Str.Tool.LanguageServers.Trial.Result": "Rezultatul testului de conexiune",
+    "Str.Tool.LanguageServers.Trial.Declined": "Nu s-a executat nimic.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Această intrare nu poate fi pornită de aici.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Acest server necesită un proiect deschis.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Serverul s-a inițializat.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Serverul nu a raportat niciun nume sau versiune.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Raportat de server: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Capabilități anunțate: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Capabilități ale clientului refuzate: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Serverul s-a conectat, dar nu a răspuns la initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Această intrare declară un fișier al spațiului de lucru care este generat, cu acordul dvs., doar la o pornire reală. Absența lui poate explica acest eșec.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Această intrare este dezactivată. IDE-ul nu o va porni până nu este activată.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Oprire finalizată.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Oprirea a eșuat: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Serverul nu s-a inițializat: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testează conexiunea la serverul de limbaj",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE-ul nu a mai pornit sau nu s-a mai conectat la acesta ori acesta s-a modificat între timp. Acceptarea pornește un program pe acest computer sau se conectează la această adresă.",
+    "Str.Tool.LanguageServers.Trial.Run": "Execută"
   }
 }

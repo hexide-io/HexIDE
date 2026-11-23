@@ -226,6 +226,17 @@
     "Str.Dialog.SharedFile.DiskChanged": "O arquivo '{0}' foi alterado no disco desde que a cópia do projeto {1} foi carregada ou salva. Deseja substituí-lo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os pontos de interrupção e as outras configurações por usuário de {0} não serão carregados nem salvos nesta sessão.\n\n{1}",
     "Str.Naming.Msg.CreateControlArray": "Já existe um controle chamado '{0}'.  Deseja criar uma matriz de controles?",
-    "Str.Options.Environment.ErrorTrapping.Header": "Interceptação de erros"
+    "Str.Options.Environment.ErrorTrapping.Header": "Interceptação de erros",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testando…",
+    "Str.Tool.LanguageServers.Trial.Result": "Resultado do teste de conexão",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Este servidor precisa de um projeto aberto.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Informado pelo servidor: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "O servidor não informou o nome nem a versão.",
+    "Str.Tool.LanguageServers.Trial.Silent": "O servidor se conectou, mas não respondeu a initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Esta entrada declara um arquivo do espaço de trabalho que só é gerado, com consentimento, em uma inicialização real. Sua ausência pode explicar esta falha.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Parada concluída.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Falha na parada: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testar a conexão com o servidor de linguagem",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "O IDE nunca iniciou este item nem se conectou a ele, ou ele foi alterado desde então. Ao aceitar, você inicia um programa neste computador ou estabelece uma conexão com este endereço."
   }
 }

@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Перехоплення помилок",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Переривати за всіх помилок",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Переривати в модулі класу",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Переривати за необроблених помилок"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Переривати за необроблених помилок",
+    "Str.Tool.LanguageServers.Trial.Test": "Перевірити",
+    "Str.Tool.LanguageServers.Trial.Testing": "Перевірка…",
+    "Str.Tool.LanguageServers.Trial.Result": "Результат перевірки підключення",
+    "Str.Tool.LanguageServers.Trial.Declined": "Нічого не запущено.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Цей запис неможливо запустити звідси.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Для цього сервера потрібен відкритий проєкт.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Сервер ініціалізовано.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Сервер не повідомив назву або версію.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Сервер повідомив: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Заявлені можливості: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Відхилені можливості клієнта: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Сервер підключився, але не відповів на initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Цей запис оголошує файл робочої області, який створюється зі згоди лише під час справжнього запуску. Його відсутність може пояснювати цю помилку.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Цей запис вимкнено. IDE не запустить його, доки його не буде ввімкнено.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Зупинення завершено.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Помилка зупинення: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Сервер не ініціалізовано: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Перевірка підключення до мовного сервера",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ще не запускала цей елемент і не підключалася до нього, або він відтоді змінився. Згода запускає програму на цьому комп’ютері або підключає до цієї адреси.",
+    "Str.Tool.LanguageServers.Trial.Run": "Запустити"
   }
 }

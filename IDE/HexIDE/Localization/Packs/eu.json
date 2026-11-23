@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Erroreen atzematea",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Eten errore guztietan",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Eten klase-moduluan",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Eten kudeatu gabeko erroreetan"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Eten kudeatu gabeko erroreetan",
+    "Str.Tool.LanguageServers.Trial.Test": "Probatu",
+    "Str.Tool.LanguageServers.Trial.Testing": "Probatzen…",
+    "Str.Tool.LanguageServers.Trial.Result": "Konexio-probaren emaitza",
+    "Str.Tool.LanguageServers.Trial.Declined": "Ez da ezer exekutatu.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Sarrera hau ezin da hemendik abiarazi.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Zerbitzari honek irekitako proiektu bat behar du.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Zerbitzaria hasieratu da.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Zerbitzariak ez du izenik edo bertsiorik jakinarazi.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Zerbitzariak jakinarazitakoa: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Iragarritako gaitasunak: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Baztertutako bezero-gaitasunak: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Zerbitzaria konektatu da, baina ez dio initialize eskaerari erantzun.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Sarrera honek lan-eremuko fitxategi bat deklaratzen du. Benetako abiarazte batek soilik sortzen du, baimenarekin. Fitxategia falta izateak hutsegite hau azal dezake.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Sarrera hau desaktibatuta dago. IDEak ez du abiaraziko aktibatu arte.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Gelditzea amaitu da.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Gelditzeak huts egin du: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Zerbitzaria ez da hasieratu: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Probatu hizkuntza-zerbitzariaren konexioa",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDEak ez du hau inoiz abiarazi edo honekin konektatu, edo ordutik aldatu da. Onartuz gero, programa bat abiaraziko da ordenagailu honetan edo helbide honetara konektatuko da.",
+    "Str.Tool.LanguageServers.Trial.Run": "Exekutatu"
   }
 }

@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "לכידת שגיאות",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "עצירה בכל שגיאה",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "עצירה במודול מחלקה",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "עצירה בשגיאות שלא טופלו"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "עצירה בשגיאות שלא טופלו",
+    "Str.Tool.LanguageServers.Trial.Test": "בדיקה",
+    "Str.Tool.LanguageServers.Trial.Testing": "מתבצעת בדיקה…",
+    "Str.Tool.LanguageServers.Trial.Result": "תוצאת בדיקת החיבור",
+    "Str.Tool.LanguageServers.Trial.Declined": "דבר לא הופעל.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "לא ניתן להפעיל רשומה זו מכאן.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "שרת זה דורש פרויקט פתוח.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "השרת אותחל.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "השרת לא דיווח על שם או גרסה.",
+    "Str.Tool.LanguageServers.Trial.Identity": "דווח על ידי השרת: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "יכולות שפורסמו: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "יכולות לקוח שנדחו: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "השרת התחבר אך לא השיב ל־initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "רשומה זו מצהירה על קובץ סביבת עבודה שנוצר רק בהפעלה רגילה, בהסכמה. היעדרו עשוי להסביר כשל זה.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "רשומה זו מושבתת. סביבת הפיתוח לא תפעיל אותה עד שתופעל.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "העצירה הושלמה.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "העצירה נכשלה: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "השרת לא אותחל: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "בדיקת חיבור לשרת שפה",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "סביבת הפיתוח טרם הפעילה זאת או התחברה לכך, או שהדבר השתנה מאז. הסכמה תפעיל תוכנית במחשב זה או תתחבר לכתובת זו.",
+    "Str.Tool.LanguageServers.Trial.Run": "הפעלה"
   }
 }

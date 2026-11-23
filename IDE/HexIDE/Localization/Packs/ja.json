@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "エラー トラップ",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "すべてのエラーで中断(_A)",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "クラス モジュールで中断(_C)",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "処理されないエラーで中断(_U)"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "処理されないエラーで中断(_U)",
+    "Str.Tool.LanguageServers.Trial.Test": "テスト",
+    "Str.Tool.LanguageServers.Trial.Testing": "テスト中…",
+    "Str.Tool.LanguageServers.Trial.Result": "接続テストの結果",
+    "Str.Tool.LanguageServers.Trial.Declined": "何も実行されませんでした。",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "このエントリはここから起動できません。",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "このサーバーには開いているプロジェクトが必要です。",
+    "Str.Tool.LanguageServers.Trial.Initialized": "サーバーが初期化されました。",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "サーバーから名前もバージョンも報告されませんでした。",
+    "Str.Tool.LanguageServers.Trial.Identity": "サーバーからの報告: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "通知された機能: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "拒否されたクライアント機能: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "サーバーは接続しましたが、initialize に応答しませんでした。",
+    "Str.Tool.LanguageServers.Trial.Artifact": "このエントリはワークスペースファイルを宣言しています。このファイルは同意を得た通常の起動時にのみ生成されます。ファイルがないことが、この失敗の原因かもしれません。",
+    "Str.Tool.LanguageServers.Trial.Disabled": "このエントリは無効です。有効にするまで IDE は起動しません。",
+    "Str.Tool.LanguageServers.Trial.Stopped": "停止が完了しました。",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "停止に失敗しました: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "サーバーが初期化されませんでした: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "言語サーバーの接続をテスト",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE はこれを以前に起動または接続したことがないか、前回から変更されています。同意すると、このコンピューターでプログラムを起動するか、このアドレスに接続します。",
+    "Str.Tool.LanguageServers.Trial.Run": "実行"
   }
 }

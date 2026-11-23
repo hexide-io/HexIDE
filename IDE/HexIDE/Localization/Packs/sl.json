@@ -1515,6 +1515,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Prestrezanje napak",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prekini ob vseh napakah",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prekini v razrednem modulu",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini ob neobravnavanih napakah"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini ob neobravnavanih napakah",
+    "Str.Tool.LanguageServers.Trial.Test": "Preizkusi",
+    "Str.Tool.LanguageServers.Trial.Testing": "Preizkušanje…",
+    "Str.Tool.LanguageServers.Trial.Result": "Rezultat preizkusa povezave",
+    "Str.Tool.LanguageServers.Trial.Declined": "Nič ni bilo zagnano.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Tega vnosa od tukaj ni mogoče zagnati.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Ta strežnik potrebuje odprt projekt.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Strežnik je bil inicializiran.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Strežnik ni sporočil imena ali različice.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Sporočil strežnik: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Oglaševane zmožnosti: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Zavrnjene zmožnosti odjemalca: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Strežnik se je povezal, vendar ni odgovoril na initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Ta vnos določa datoteko delovnega prostora, ki se s soglasjem ustvari samo ob dejanskem zagonu. Njena odsotnost lahko pojasni to napako.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Ta vnos je izklopljen. IDE ga ne bo zagnal, dokler ne bo vklopljen.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Zaustavitev je končana.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Zaustavitev ni uspela: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Strežnik ni bil inicializiran: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Preizkusi povezavo z jezikovnim strežnikom",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE tega še ni zagnal ali se s tem povezal oziroma se je to od takrat spremenilo. S soglasjem se zažene program v tem računalniku ali vzpostavi povezava s tem naslovom.",
+    "Str.Tool.LanguageServers.Trial.Run": "Zaženi"
   }
 }
