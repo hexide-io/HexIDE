@@ -64,9 +64,10 @@ public partial class UserControlKeyTests
         internal readonly VBWindowContext Context;
         // What the run reported, as the IDE hears it: a fault (a refusal) or a run-time error (#4266).
         internal readonly List<Exception> Faults = [];
+        internal readonly List<VBCompileErrorException> CompileErrors = [];
         internal readonly List<VBRunTimeException> RunTimeErrors = [];
         internal Control Named(string name) => Window.GetLogicalDescendants().OfType<Control>().Single(c => VBProps.GetName(c) == name);
-        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, bool activate = false, string formSettings = "")
+        internal Run(string settings, string formCode = "", string controlCode = "", string child = "", bool plain = false, string? blocks = null, bool activate = false, string formSettings = "", IReadOnlyDictionary<int, byte[]>? frxBlobs = null)
         {
             var project = new ProjectDefinition(VBProjectType.EXE, "P");
             var ctl = new FormDeserializer().Deserialize(project,
@@ -92,10 +93,11 @@ public partial class UserControlKeyTests
                 + formSettings + (blocks ?? (Block("VB.TextBox", "Text1", 0) + Block("P.Dial", "uc1", 1, child)
                 + (plain ? Block("P.Plain", "ucPlain", 4) : "")
                 + Block("VB.CommandButton", "Command1", 2) + Block("VB.Label", "Label1", 3, extra: "Caption = \"&T\"")))
-                + "End\nAttribute VB_Name = \"Form1\"\n" + formCode, new Sink(), extraComponents: registry)!;
+                + "End\nAttribute VB_Name = \"Form1\"\n" + formCode, new Sink(), frxBlobs: frxBlobs, extraComponents: registry)!;
             project.AddForm(form);
             Context = new VBWindowContext(Lib) { Window = Window };
             VBWindowContext.Faulted += OnFaulted;
+            VBWindowContext.CompileError += OnCompileError;
             VBWindowContext.RunTimeError += OnRunTimeError;
             var root = VBLoader.FormComponentOf(form);
             AttachedProperties.SetBackColor(Window, root.GetPropertyOrDefault(VBProperties.BackColorProperty));
@@ -128,6 +130,11 @@ public partial class UserControlKeyTests
                 await new StatementExecutor(Context.Interpreter!, Context.InstanceEnv, Context.FormInstance!.ClassDef)
                     .Visit(Context.Interpreter!.TryParseStatement(line)!);
         }
+        private void OnCompileError(VBWindowContext context, VBCompileErrorException e)
+        {
+            if (ReferenceEquals(context, Context))
+                CompileErrors.Add(e);
+        }
         private void OnFaulted(VBWindowContext context, Exception e)
         {
             if (ReferenceEquals(context, Context))
@@ -141,6 +148,7 @@ public partial class UserControlKeyTests
         public void Dispose()
         {
             VBWindowContext.Faulted -= OnFaulted;
+            VBWindowContext.CompileError -= OnCompileError;
             VBWindowContext.RunTimeError -= OnRunTimeError;
             Context.Program?.Abandon();
             Window.Close();

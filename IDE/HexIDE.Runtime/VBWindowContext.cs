@@ -284,14 +284,6 @@ public class VBWindowContext : IModuleExecutionRoot
         await interpreter!.RaiseFormEvent(EnsureInstance(), name, args);
     }
 
-    // The event is measured; PropertyBag operations are not part of #1631 and remain explicitly refused.
-    internal sealed class UnimplementedPropertyBag : ICSharpProxy, ICSharpPropertyBag
-    {
-        public void Call(string method, List<Vb6Value> args) => throw new NotImplementedException($"PropertyBag.{method}");
-        public bool TryGetProperty(string name, out Vb6Value value) => throw new NotImplementedException($"PropertyBag.{name}");
-        public bool TrySetProperty(string name, Vb6Value value) => throw new NotImplementedException($"PropertyBag.{name}");
-    }
-
     private IEnumerable<VBUserControl> UserControls => EnsureInstance().Controls?.All.OfType<VBUserControl>()
         .OrderBy(AvaloniaInterop.UserControlMembers.Windowless) ?? Enumerable.Empty<VBUserControl>();
 
@@ -310,7 +302,7 @@ public class VBWindowContext : IModuleExecutionRoot
             if (control.Context is not { } context)
                 continue;
             await context.ControlEvent("UserControl_Initialize");
-            await context.ControlEvent("UserControl_ReadProperties", [new Vb6Value(new UnimplementedPropertyBag())]);
+            await context.ControlEvent("UserControl_ReadProperties", [new Vb6Value(new UserControlPropertyBag(control.SavedProperties))]);
             if (!AvaloniaInterop.UserControlMembers.Invisible(control))
                 await context.ControlEvent("UserControl_Resize");
         }

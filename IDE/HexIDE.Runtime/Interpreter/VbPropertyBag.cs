@@ -5,7 +5,7 @@ using HexIDE.Runtime.AvaloniaInterop;
 
 namespace HexIDE.Runtime.Interpreter;
 
-// Standalone bags only. The UserControl bag has separate, unmeasured persistence rules (#4741).
+// Standalone bags only. UserControlPropertyBag reads a placed instance's saved .frm text (#4741).
 internal sealed class VbPropertyBag : ICSharpAsyncProxy, ICSharpPropertyBag
 {
     private sealed record Entry(string Name, Vb6Value Value);

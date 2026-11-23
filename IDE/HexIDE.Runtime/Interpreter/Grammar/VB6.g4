@@ -32,6 +32,18 @@ grammar VB6;
         return char.IsLetterOrDigit((char)c) || c == '_';
     }
 
+    private int? designerHeaderEnd;
+    private string designerSource;
+    private bool InDesignerHeader()
+    {
+        var source = designerSource ??= InputStream.ToString()!;
+        if (TokenStartCharIndex >= (designerHeaderEnd ??=
+            HexIDE.Runtime.Serialization.ReadOnlyRegions.HeaderEnd(source, 0))) return false;
+        var lineStart = source.LastIndexOf('\n', System.Math.Max(0, TokenStartCharIndex - 1)) + 1;
+        return !source.AsSpan(lineStart, TokenStartCharIndex - lineStart).TrimStart()
+            .StartsWith("Attribute ", System.StringComparison.OrdinalIgnoreCase);
+    }
+
     public bool IsVba64 { get; set; }
 
 }
@@ -300,7 +312,10 @@ cp_Properties
 // The trailing WS? is the designer-block half of the same thing moduleConfigElement documents:
 // `Enabled = 0   'False` leaves whitespace in front of a hidden comment.
 cp_SingleProperty
-	: WS? (DESIGNER_KEY | implicitCallStmt_InStmt) WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? WS? NEWLINE+
+	// Saved text is data: the form reader and UserControl bag interpret it, not the code parser (#4741).
+	: WS? (DESIGNER_KEY | implicitCallStmt_InStmt) WS? EQ (~(NEWLINE | DESIGNER_UNTERMINATED_STRING))*
+	  // An unterminated string's token holds the line's end, so it stands in for the first NEWLINE.
+	  (NEWLINE | DESIGNER_UNTERMINATED_STRING) NEWLINE*
 	;
 
 cp_PropertyName
@@ -2538,6 +2553,17 @@ R_SQUARE_BRACKET
 
 STRINGLITERAL
    : '"' (~ ["\r\n] | '""')* '"'
+   ;
+
+
+// Saved UserControl text may have no closing quote; the bag omits that entry (#4741).
+// Keep it as data in the designer header, while code still gets the existing lexical error.
+// The token takes its line end, and the next line's indentation as NEWLINE does, so the predicate is reached only
+// where a line ends inside an open string. Placed
+// straight after the loop, it was reached after every character of every string literal, and ANTLR caches no DFA
+// edge computed through a predicate: string-heavy source lexed about 78 times slower (#2676's class, #4741 review).
+DESIGNER_UNTERMINATED_STRING
+   : '"' (~ ["\r\n] | '""')* ('\r'? '\n' | '\r') [ \t]* {InDesignerHeader()}?
    ;
 
 

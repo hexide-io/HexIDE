@@ -39,7 +39,7 @@ public class UserControlComponentClass : ComponentBaseClass
         var first = line.IndexOf('"');
         var last = line.LastIndexOf('"');
         var accessKeys = first >= 0 && last > first ? line[(first + 1)..last] : "";
-        var control = new VBUserControl(VBLoader.SpawnComponentsForDesigner(_formPart, _registry), accessKeys, _formPart);
+        var control = new VBUserControl(VBLoader.SpawnComponentsForDesigner(_formPart, _registry), accessKeys, _formPart, instance.UnknownRawProperties.ToArray());
         control.IsEnabled = root.GetPropertyOrDefault(VBProperties.EnabledProperty);
         AvaloniaInterop.UserControlMembers.Register(control, root);
         return control;

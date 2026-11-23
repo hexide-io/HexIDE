@@ -22,13 +22,15 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
     internal bool DisplayAsDefault { get; private set; }
     private readonly Ambient ambient;
     private readonly FormDefinition definition;
+    internal IReadOnlyList<Components.ComponentInstance.UnknownRawProperty> SavedProperties { get; }
     private VbObject? ambientForm;
     private string ambientName = "";
     private bool ambientRightToLeft;
 
-    internal VBUserControl(Control contents, string accessKeys, FormDefinition definition)
+    internal VBUserControl(Control contents, string accessKeys, FormDefinition definition, IReadOnlyList<Components.ComponentInstance.UnknownRawProperty> savedProperties)
     {
         this.definition = definition;
+        SavedProperties = savedProperties;
         Child = new Grid { Children = { contents, ContainerHost } };
         var root = definition.Components.First(c => c.BaseClass is Components.FormComponentClass);
         backColor = root.GetPropertyOrDefault(VBProperties.BackColorProperty);
@@ -73,7 +75,7 @@ internal sealed class VBUserControl : Decorator, IModuleExecutionRoot
             return;
         await context.ControlEvent("UserControl_Initialize");
         await context.ControlEvent("UserControl_Resize");
-        await context.ControlEvent("UserControl_ReadProperties", [new Vb6Value(new VBWindowContext.UnimplementedPropertyBag())]);
+        await context.ControlEvent("UserControl_ReadProperties", [new Vb6Value(new UserControlPropertyBag(SavedProperties))]);
     }
 
     private bool watchLoadedVisibility;
