@@ -2116,6 +2116,18 @@ as not implemented.
 - **THEN** Print # writes "Error 5" and Write # writes "#ERROR 5#"
 - **AND** implicit string coercion still raises 13
 
+### Requirement: Intrinsic control defaults in output and concatenation
+
+`Print #`, `Debug.Print`, paused Immediate `?` and `&` SHALL read the intrinsic control default that a Let reads.
+`Write #` SHALL write a Boolean control default as a Boolean and other modeled control defaults as quoted Strings,
+using Let-to-String coercion. An intrinsic control with an unimplemented default SHALL refuse with #790.
+The output rules are measured in [#5385](https://github.com/hexide-io/HexIDE/issues/5385).
+
+#### Scenario: Writing a numeric default and an explicit property
+- **WHEN** `Write #` receives a CheckBox control reference
+- **THEN** it writes the CheckBox value as a quoted String
+- **AND** `Write #` of the explicit Value property writes a bare number
+
 ### Requirement: New on a form creates a separate instance
 
 Explicit `New Form2` SHALL create an instance distinct from the form's default instance, from any executing
