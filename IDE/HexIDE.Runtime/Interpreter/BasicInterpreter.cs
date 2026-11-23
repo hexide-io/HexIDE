@@ -2257,6 +2257,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : proc.ReturnUdtTypeName is { } className && ProjectClassFor(className) is { } declaredClass
                         ? returned.ViewedAs(declaredClass.Name)
                     : proc.ReturnsVariant ? returned.AsVariant()
+                    // The generic Control return view binds list members late, as an Object result does (#5135).
+                    : returned.Value is Avalonia.Controls.Control list && AvaloniaInterop.ListMembers.IsList(list)
+                      && string.Equals(proc.ReturnUdtTypeName, "Control", StringComparison.OrdinalIgnoreCase)
+                        ? returned.ViewedAs("Control")
                     : returned.ReadFromControlSlot ? returned.ViewedAs(returned.DeclaredAs)
                     : returned;
             foreach (var (slot, target) in fixedStringCopies)

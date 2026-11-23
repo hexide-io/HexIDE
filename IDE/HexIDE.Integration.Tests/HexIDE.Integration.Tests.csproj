@@ -28,6 +28,11 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- A fixture language-pack area, read through the real composition (#5394). -->
+        <AvaloniaResource Include="Localization\Areas\**\*.json" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Using Include="AwesomeAssertions" />
         <Using Include="NSubstitute" />
         <Using Include="Xunit" />

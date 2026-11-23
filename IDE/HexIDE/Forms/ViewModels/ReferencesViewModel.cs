@@ -60,7 +60,7 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
         this.localization = localization;
 
         foreach (var name in BuiltInNames)
-            References.Add(ReferencesReferenceViewModel.BuiltIn(name));
+            References.Add(ReferencesReferenceViewModel.BuiltIn(name, localization));
 
         // Every reference the project has, in its order, OLE Automation among them.
         var projectRefGuids = new HashSet<string>(
@@ -68,14 +68,14 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var r in definition.References)
-            References.Add(new ReferencesReferenceViewModel(r, isChecked: true, isBuiltIn: false));
+            References.Add(new ReferencesReferenceViewModel(r, isChecked: true, isBuiltIn: false, localization));
 
         // Available type libraries from the registry that are not already added
         foreach (var avail in libraryService.GetAvailableReferences())
         {
             if (projectRefGuids.Contains(avail.Guid)) continue;
-            var r = new VbReference(avail.Guid, avail.Version, 0, avail.LibPath, avail.Name);
-            References.Add(new ReferencesReferenceViewModel(r, isChecked: false, isBuiltIn: false));
+            var r = new VbReference(avail.Guid, avail.Version, avail.Lcid, avail.LibPath, avail.Name);
+            References.Add(new ReferencesReferenceViewModel(r, isChecked: false, isBuiltIn: false, localization));
         }
 
         // VB6 opens on the last checked row (measured).
@@ -83,7 +83,7 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
 
         OkCommand = new DelegateCommand(() => CloseRequested?.Invoke(true));
         CancelCommand = new DelegateCommand(() => CloseRequested?.Invoke(false));
-        BrowseCommand = new DelegateCommand(async () => await Browse());
+        BrowseCommand = new DelegateCommand((Action)(async () => await Browse()));
         MoveUpCommand = new DelegateCommand(MoveUp, CanMoveUp);
         MoveDownCommand = new DelegateCommand(MoveDown, CanMoveDown);
     }
@@ -150,7 +150,7 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
 
         var filename = System.IO.Path.GetFileNameWithoutExtension(path);
         var browsed = new VbReference("{00000000-0000-0000-0000-000000000000}", "1.0", 0, path, filename);
-        var vm = new ReferencesReferenceViewModel(browsed, isChecked: true, isBuiltIn: false);
+        var vm = new ReferencesReferenceViewModel(browsed, isChecked: true, isBuiltIn: false, localization);
         References.Add(vm);
         SelectedReference = vm;
     }
@@ -167,11 +167,20 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
 public partial class ReferencesReferenceViewModel
 {
     /// <summary>A fixed row: checked, unmovable, and no reference of the project, so it has no GUID.</summary>
-    public static ReferencesReferenceViewModel BuiltIn(string name) =>
-        new(new VbReference("", "", 0, null, name), isChecked: true, isBuiltIn: true);
+    public static ReferencesReferenceViewModel BuiltIn(string name) => BuiltIn(name, null);
+
+    internal static ReferencesReferenceViewModel BuiltIn(string name, ILocalizationService? localization) =>
+        new(new VbReference("", "", 9, null, name), isChecked: true, isBuiltIn: true, localization);
+
+    private readonly ILocalizationService? localization;
 
     public ReferencesReferenceViewModel(VbReference reference, bool isChecked, bool isBuiltIn)
+        : this(reference, isChecked, isBuiltIn, null) { }
+
+    internal ReferencesReferenceViewModel(VbReference reference, bool isChecked, bool isBuiltIn,
+        ILocalizationService? localization)
     {
+        this.localization = localization;
         Guid = reference.Guid;
         Version = reference.Version;
         Lcid = reference.Lcid;
@@ -191,5 +200,21 @@ public partial class ReferencesReferenceViewModel
     [Notify] private bool isChecked;
 
     public string Location => LibPath ?? (IsBuiltIn ? "built-in" : "");
-    public string Language => "English/Standard";
+    public string Language
+    {
+        get
+        {
+            var (key, english) = LanguageText(Lcid);
+            return localization?.GetString(key) ?? english;
+        }
+    }
+
+    // Only 0, 9 and 0x409 are measured: docs/vb6-fidelity-oracle/the-references-dialogs-fixed-rows.md,
+    // "The References dialog's Language line follows the library's LCID". Keep today's text for all others.
+    internal static (string Key, string English) LanguageText(int lcid) => lcid switch
+    {
+        0 => ("Str.Dialog.References.LanguageStandard", "Standard"),
+        0x409 => ("Str.Dialog.References.LanguageEnglishUnitedStates", "English/United States"),
+        _ => ("Str.Dialog.References.LanguageEnglishStandard", "English/Standard")
+    };
 }

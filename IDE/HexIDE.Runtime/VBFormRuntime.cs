@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Dialogs;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime;
@@ -69,6 +70,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     
     public VBFormRuntime()
     {
+        MessageBoxFormHold.HoldInput(this);
         AddHandler(GotFocusEvent, (_, e) =>
         {
             if (e is FocusChangedEventArgs moved && FindControl(this, moved.NewFocusedElement as ILogical) is { } control)
@@ -288,6 +290,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         // Sub Main). Activated posts the events (#994), except Me.Show inside Load's measured exception (#2436).
         if ((windowContext.Loading || !wasShown) && IsEnabled && heldBy is null)
             windowContext.Program?.Activated(windowContext);
+        MessageBoxFormHold.RefreshNative(this);
     }
 
     private void ClearLeavingOwnership()
@@ -303,6 +306,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     {
         ClearLeavingOwnership();
         Hide();
+        MessageBoxFormHold.RefreshNative(this);
     }
 
     public bool IsShown => IsVisible;

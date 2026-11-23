@@ -21,11 +21,23 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
     private readonly string _dir;
     private readonly bool _recoveryMode = Static.IsRecoveryMode;
 
-    // The canonical (en) map — used only to reject orphan keys and validate placeholders. Never mutated.
-    private readonly Dictionary<string, string> _canonical;
+    // The IDE's canonical (en) map. Never mutated.
+    private readonly Dictionary<string, string> _ideCanonical;
+
+    // The IDE's canonical map with every registered area's (#5394): what an override must translate, and whose placeholders
+    // it must keep. Rebuilt when the areas change.
+    private Dictionary<string, string> _canonicalStrings;
+    private int _canonicalVersion = -1;
+    private readonly LanguagePackAreas _areas;
 
     // Validated overrides per locale id (case-sensitive keys, matching the Str.* convention).
     private readonly Dictionary<string, Dictionary<string, string>> _byId = new(StringComparer.Ordinal);
+
+    // Overrides whose key nothing registered holds now, per locale id: an area's that isn't registered yet or has gone, or
+    // a key since retired. They're kept and saved with the rest, never applied, and placed if an area that owns them
+    // registers (#5394). Dropping them would lose them from disk at the language's next save, and a tier-2 pack is
+    // installed as just such a file.
+    private readonly Dictionary<string, Dictionary<string, string>> _kept = new(StringComparer.Ordinal);
 
     // Matches a single-brace placeholder like {0}, {1,-8}, {2:N2}; captures the integer index. Doubled
     // braces ({{ / }}) are stripped before matching so escaped literals are not treated as placeholders.
@@ -39,10 +51,11 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
     {
     }
 
-    /// <summary>Test/seam constructor: overrides the storage directory.</summary>
-    internal UserTranslationsService(string dir)
+    /// <summary>Test/seam constructor: overrides the storage directory, and the language-pack areas read.</summary>
+    internal UserTranslationsService(string dir, LanguagePackAreas? areas = null)
     {
         _dir = dir;
+        _areas = areas ?? LanguagePackAreas.Current;
         try
         {
             if (!_recoveryMode)
@@ -53,8 +66,59 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
             Log.Warning(ex, "UserTranslationsService: Failed to create translations dir {Dir}", _dir);
         }
 
-        _canonical = LoadCanonical();
+        _ideCanonical = LoadCanonical();
+        _canonicalStrings = _ideCanonical;
         LoadAll();
+    }
+
+    private Dictionary<string, string> Canonical
+    {
+        get
+        {
+            var version = _areas.Version;
+            if (version != _canonicalVersion)
+            {
+                var canonical = new Dictionary<string, string>(_ideCanonical);
+                _areas.AddEnglish(canonical);
+                _canonicalStrings = canonical;
+                _canonicalVersion = version;
+                Place();
+            }
+
+            return _canonicalStrings;
+        }
+    }
+
+    /// <summary>
+    /// Moves each kept override whose key is now held, with its placeholders intact, into the overrides applied, and each
+    /// applied one whose key is no longer held into those kept. Changes nothing on disk: the file holds both.
+    /// </summary>
+    private void Place()
+    {
+        var canonical = _canonicalStrings;
+        foreach (var id in _byId.Keys.Concat(_kept.Keys).Distinct().ToList())
+        {
+            var placed = _byId.GetValueOrDefault(id);
+            var kept = _kept.GetValueOrDefault(id);
+            foreach (var (key, value) in kept?.ToList() ?? [])
+                if (canonical.ContainsKey(key) && PreservesPlaceholders(canonical, key, value))
+                {
+                    kept!.Remove(key);
+                    (placed ??= _byId[id] = new Dictionary<string, string>(StringComparer.Ordinal))[key] = value;
+                }
+
+            foreach (var (key, value) in placed?.ToList() ?? [])
+                if (!canonical.ContainsKey(key))
+                {
+                    placed!.Remove(key);
+                    (kept ??= _kept[id] = new Dictionary<string, string>(StringComparer.Ordinal))[key] = value;
+                }
+
+            if (placed is { Count: 0 })
+                _byId.Remove(id);
+            if (kept is { Count: 0 })
+                _kept.Remove(id);
+        }
     }
 
     private static string DefaultDir()
@@ -67,6 +131,8 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
         if (_recoveryMode)
             return;
         _byId.Clear();
+        _kept.Clear();
+        var canonical = Canonical;
 
         string[] files;
         try
@@ -93,16 +159,23 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
                 if (strings is null || strings.Count == 0) continue;
 
                 var validated = new Dictionary<string, string>(StringComparer.Ordinal);
+                var kept = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (var (key, value) in strings)
                 {
-                    if (!_canonical.ContainsKey(key)) continue;            // orphan key — drop
                     if (string.IsNullOrWhiteSpace(value)) continue;         // empty/whitespace — drop
-                    if (!PreservesPlaceholders(key, value)) continue;       // placeholder-breaker — drop
+                    if (!canonical.ContainsKey(key))                        // no area holds it now — keep, unapplied
+                    {
+                        kept[key] = value;
+                        continue;
+                    }
+                    if (!PreservesPlaceholders(canonical, key, value)) continue; // placeholder-breaker — drop
                     validated[key] = value;
                 }
 
                 if (validated.Count > 0)
                     _byId[id] = validated;
+                if (kept.Count > 0)
+                    _kept[id] = kept;
             }
             catch (Exception ex)
             {
@@ -111,8 +184,11 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
         }
     }
 
-    public IReadOnlyDictionary<string, string> GetOverrides(string id) =>
-        _byId.TryGetValue(id, out var map) ? map : EmptyMap;
+    public IReadOnlyDictionary<string, string> GetOverrides(string id)
+    {
+        _ = Canonical;
+        return _byId.TryGetValue(id, out var map) ? map : EmptyMap;
+    }
 
     public bool SetOverride(string id, string key, string? value)
     {
@@ -125,6 +201,7 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
         if (!PreservesPlaceholders(key, value))
             return false;
 
+        _kept.GetValueOrDefault(id)?.Remove(key);
         if (!_byId.TryGetValue(id, out var map))
         {
             map = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -139,26 +216,30 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
 
     public void ClearOverride(string id, string key)
     {
+        _ = Canonical;
         if (!_byId.TryGetValue(id, out var map) || !map.Remove(key))
             return;
 
         if (map.Count == 0)
-        {
             _byId.Remove(id);
+        // The file goes only when nothing is left in it, kept overrides included.
+        if (map.Count == 0 && !_kept.ContainsKey(id))
             DeleteFile(id);
-        }
         else
-        {
             Persist(id);
-        }
 
         OverridesChanged?.Invoke(id);
     }
 
     public void ResetAll(string id)
     {
+        _ = Canonical;
         var existed = _byId.Remove(id);
-        DeleteFile(id);
+        // Resetting removes what the Translation Editor shows. Overrides of keys no area holds now aren't shown, and stay.
+        if (_kept.ContainsKey(id))
+            Persist(id);
+        else
+            DeleteFile(id);
         if (existed)
             OverridesChanged?.Invoke(id);
     }
@@ -166,7 +247,7 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
     public IReadOnlyCollection<string> OverriddenIds => _byId.Keys;
 
     public bool PreservesPlaceholders(string canonicalKey, string candidate) =>
-        PreservesPlaceholders(_canonical, canonicalKey, candidate);
+        PreservesPlaceholders(Canonical, canonicalKey, candidate);
 
     internal static bool PreservesPlaceholders(IReadOnlyDictionary<string, string> canonicalStrings,
         string canonicalKey, string candidate)
@@ -214,11 +295,16 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
     private void Persist(string id)
     {
         if (_recoveryMode) return;
-        if (!_byId.TryGetValue(id, out var map)) return;
+        var placed = _byId.GetValueOrDefault(id);
+        var kept = _kept.GetValueOrDefault(id);
+        if (placed is null && kept is null) return;
         try
         {
             Directory.CreateDirectory(_dir);
-            var record = new LanguagePackRecord(id, null, new Dictionary<string, string>(map));
+            var strings = new Dictionary<string, string>(kept ?? EmptyMap, StringComparer.Ordinal);
+            foreach (var (key, value) in placed ?? EmptyMap)
+                strings[key] = value;
+            var record = new LanguagePackRecord(id, null, strings);
             var json = JsonSerializer.Serialize(record, LocalizationJsonContext.Default.LanguagePackRecord);
             AtomicFileWriter.WriteRecoverableText(PathFor(id), json);
             Log.Debug("UserTranslationsService: Wrote overrides for '{Id}'", id);

@@ -37,6 +37,7 @@ public class ProfileProjectOfferingsTests
     }
 
     [AvaloniaTheory]
+    [InlineData("neutral")]
     [InlineData("vb6")]
     [InlineData("vbaode")]
     [InlineData("vba")]

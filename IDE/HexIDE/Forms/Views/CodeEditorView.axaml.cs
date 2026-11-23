@@ -139,7 +139,7 @@ public partial class CodeEditorView : UserControl
     private CodeEditorView(CodeEditorView? splitOwner)
     {
         _splitOwner = splitOwner;
-        ExpandSelection = new DelegateCommand(() => _ = ExpandSelectionAsync(), CanChangeSelection);
+        ExpandSelection = new DelegateCommand(() => { _ = ExpandSelectionAsync(); }, CanChangeSelection);
         ShrinkSelection = new DelegateCommand(ShrinkSelectionCore, CanChangeSelection);
 
         // Through the view model, because a designer change reaches this window as a header write and a
@@ -202,7 +202,7 @@ public partial class CodeEditorView : UserControl
             else
                 _ = PasteAtTheEndOfADescribedLineAsync();
         }, () => true);
-        PasteAsComment = new DelegateCommand(() => _ = PasteAsCommentAsync(), () => true);
+        PasteAsComment = new DelegateCommand(() => { _ = PasteAsCommentAsync(); }, () => true);
         SelectAll = new DelegateCommand(() => TextEditor.SelectAll(), () => true);
         Find = new DelegateCommand(() =>
         {

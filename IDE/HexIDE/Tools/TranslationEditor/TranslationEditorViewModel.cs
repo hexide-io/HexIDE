@@ -401,20 +401,26 @@ public partial class TranslationEditorViewModel : Document
     }
 
     /// <summary>Loads the canonical en.json key list (file order) via the same asset path the localization
-    /// engine uses. Failure yields an empty grid rather than throwing.</summary>
+    /// engine uses, then each registered language-pack area's keys (#5394), in the order the areas were registered.
+    /// Rows are built once, so an area registered after the editor first opens isn't listed until the next start.
+    /// Failure to read the IDE's pack yields only the areas' keys rather than throwing.</summary>
     private static IReadOnlyList<string> LoadCanonicalKeys()
     {
+        var keys = new List<string>();
         try
         {
             var uri = new Uri("avares://HexIDE/Localization/Packs/en.json");
             using var stream = AssetLoader.Open(uri);
             var record = JsonSerializer.Deserialize(stream, LocalizationJsonContext.Default.LanguagePackRecord);
-            return record?.Strings?.Keys.ToList() ?? [];
+            keys.AddRange(record?.Strings?.Keys ?? Enumerable.Empty<string>());
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "TranslationEditor: failed to load canonical key list (en.json)");
-            return [];
         }
+
+        foreach (var area in LanguagePackAreas.Current.Areas)
+            keys.AddRange(area.English.Keys);
+        return keys;
     }
 }
