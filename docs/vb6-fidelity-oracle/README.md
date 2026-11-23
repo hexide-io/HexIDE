@@ -1055,6 +1055,7 @@ added afterwards.
 - [Image, and Picture = Image (2026-11-21, #991, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#image-and-picture--image-2026-11-21-991-sp6)
 - [An auto-made object is in its slot while its Class_Initialize runs (2026-11-18, #4605, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6)
 - [A PropertyBag at run time (2026-11-18, #4680, SP6)](a-propertybag-at-run-time.md#a-propertybag-at-run-time-2026-11-18-4680-sp6)
+- [A UserControl's own PropertyBag (2026-11-23, #4741, SP6)](a-usercontrols-own-propertybag.md#a-usercontrols-own-propertybag-2026-11-23-4741-sp6)
 - [The `Date` and `Time` statements (2026-11-18, #4681, SP6)](the-date-and-time-statements.md#the-date-and-time-statements-2026-11-18-4681-sp6)
 - [`_NewEnum`, and a class that makes itself enumerable (2026-11-18, #4679, SP6)](collection.md#_newenum-and-a-class-that-makes-itself-enumerable-2026-11-18-4679-sp6)
 - [Pictures on the Clipboard: `GetData` and `SetData` (2026-11-18, #4682, SP6)](text-clipboard.md#pictures-getdata-and-setdata-2026-11-18-4682-sp6)
