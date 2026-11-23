@@ -26,6 +26,8 @@
 
     <ItemGroup>
         <AvaloniaResource Include="Localization\Packs\*.json" />
+        <!-- Fixture language-pack areas (#5394), registered by LanguagePackAreasTests. -->
+        <AvaloniaResource Include="Localization\Areas\**\*.json" />
     </ItemGroup>
 
     <ItemGroup>
