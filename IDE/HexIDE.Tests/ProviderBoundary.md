@@ -19,12 +19,12 @@ removals; Release checks additions only because Desktop's automation server is D
 | internals | HexIDE.Runtime | HexIDE.Integration.Tests |
 | internals | HexIDE.Runtime | HexIDE.Tests |
 | project | HexIDE | HexIDE.Runtime |
+| project | HexIDE.Desktop | HexIDE.Runtime |
 | project | HexIDE.Desktop | HexIDE.VbLspServer |
 | project | HexIDE.Integration.Tests | HexIDE.Runtime |
 | project | HexIDE.Integration.Tests | HexIDE.Standalone |
 | project | HexIDE.Tests | HexIDE.Runtime |
 | project | HexIDE.Tests | HexIDE.Standalone |
-| type | HexIDE | CompiledAvaloniaXaml.!AvaloniaResources |
 | type | HexIDE | HexIDE.Runtime.AvaloniaInterop.AvaloniaDisplay |
 | type | HexIDE | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
 | type | HexIDE | HexIDE.Runtime.AvaloniaTextClipboard |
@@ -134,6 +134,7 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.VBWindowContext |
 | type | HexIDE | VB6Lexer |
 | type | HexIDE.Desktop | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
+| type | HexIDE.Desktop | HexIDE.Runtime.BasicProvider |
 | type | HexIDE.Desktop | HexIDE.Runtime.BuiltinControls.LockKey |
 | type | HexIDE.Desktop | HexIDE.Runtime.BuiltinControls.LockKeySource |
 | type | HexIDE.Desktop | HexIDE.Runtime.BuiltinControls.LockKeys |
