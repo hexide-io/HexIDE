@@ -2442,7 +2442,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (reference.Value is (VBTextBox or VBUserControl) && RuntimeScale.IsConversion(member)
             && (reference.HeldAsVariant || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
-        return ((Control)reference.Value!).CallAsync(member, args, ModalOwner());
+        return reference.CallAsync(member, args, ModalOwner());
     }
 
     private VbObject? ModalOwner()
@@ -3427,6 +3427,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             if (ControlMembers.TryWrite(variable, memberIdentifier, null, value))
                 return default;
+            VB6ControlMembers.RefuseUnresolved(variable, UdtFieldName(members[0]));
             throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
         }
         if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } procedureOrArrayCall)
