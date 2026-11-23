@@ -585,6 +585,7 @@ added afterwards.
 - [A Double or a Single converted to Decimal (2026-11-15, #4012)](a-double-or-a-single-converted-to-decimal.md#a-double-or-a-single-converted-to-decimal-2026-11-15-4012)
 - [A control where a value is wanted is its default member (2026-10-12, #790)](a-control-where-a-value-is-wanted-is-its-default-member.md#a-control-where-a-value-is-wanted-is-its-default-member-2026-10-12-790)
 - [Each intrinsic control's default member (2026-11-21, #790, SP6)](a-control-where-a-value-is-wanted-is-its-default-member.md#each-intrinsic-controls-default-member-2026-11-21-790-sp6)
+- [A control printed, written to a file, and joined with `&` (2026-11-23, #5385, SP6)](a-control-where-a-value-is-wanted-is-its-default-member.md#a-control-printed-written-to-a-file-and-joined-with--2026-11-23-5385-sp6)
 - [A Label's colours, read back and painted (2026-10-12, #795)](a-labels-colours-read-back-and-painted.md#a-labels-colours-read-back-and-painted-2026-10-12-795)
 - [A Label's colours: re-measured on SP6, with a game's order (2026-11-19, #4965)](a-labels-colours-read-back-and-painted.md#re-measured-on-sp6-with-a-games-order-2026-11-19-4965)
 - [Seven system colours (2026-10-22, #908)](seven-system-colours.md#seven-system-colours-2026-10-22-908)
