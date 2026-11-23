@@ -10,8 +10,19 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 public sealed partial class VBListView
 {
-    internal static readonly Typeface LabelTypeface = new("Arial");
-    internal const double LabelFontSize = 11;
+    private VBFont DrawingFont => AttachedProperties.GetFont(this) ?? VBFont.Default;
+    // Only report view was measured in #2895; keep the other views' drawing font unchanged.
+    private bool UsesControlFont => Number("View") == 3;
+    internal Typeface LabelTypeface => UsesControlFont
+        ? new(DrawingFont.ToFontFamily(), DrawingFont.ToFontStyle(), DrawingFont.ToFontWeight()) : new("Arial");
+    internal double LabelFontSize => UsesControlFont ? DrawingFont.ToFontSize() : 11;
+    private TextDecorationCollection? LabelTextDecorations => UsesControlFont ? FontDecorationDrawing.For(DrawingFont) : null;
+
+    private static double LineHeight(VBFont font) => new FormattedText("Ag", CultureInfo.InvariantCulture,
+        FlowDirection.LeftToRight, new Typeface(font.ToFontFamily(), font.ToFontStyle(), font.ToFontWeight()),
+        font.ToFontSize(), Brushes.Black).Height;
+
+    private double FontHeightGrowth => Math.Max(0, LineHeight(DrawingFont) - LineHeight(VBFont.Default));
 
     private bool Flag(string name) => (bool)properties[name].Value!;
     private long Number(string name) => (long)properties[name].Value!;
@@ -114,7 +125,7 @@ public sealed partial class VBListView
         }
     }
 
-    private static double TextWidth(string text) => new FormattedText(text, CultureInfo.InvariantCulture,
+    private double TextWidth(string text) => new FormattedText(text, CultureInfo.InvariantCulture,
         FlowDirection.LeftToRight, LabelTypeface, LabelFontSize, Brushes.Black).Width;
 
     private bool ShowSelection(ListViewItem item) => item.IsSelected && (IsFocused || !Flag("HideSelection") || !IsEnabled);
@@ -173,7 +184,7 @@ public sealed partial class VBListView
             context.DrawRectangle(null, new Pen(SystemBrush(VbSystemColor.Windowtext), 1, new DashStyle([1, 1], 0)), highlight.Deflate(0.5));
     }
 
-    private static void DrawText(DrawingContext context, string text, Rect cell, int alignment = 0,
+    private void DrawText(DrawingContext context, string text, Rect cell, int alignment = 0,
         IBrush? foreground = null, bool bold = false, bool wrap = false)
     {
         if (cell.Width <= 0 || cell.Height <= 0)
@@ -183,7 +194,8 @@ public sealed partial class VBListView
             LabelFontSize, foreground ?? SystemBrush(VbSystemColor.Windowtext),
             textAlignment: alignment switch { 1 => TextAlignment.Right, 2 => TextAlignment.Center, _ => TextAlignment.Left },
             textWrapping: wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, textTrimming: TextTrimming.CharacterEllipsis,
-            maxWidth: cell.Width, maxHeight: cell.Height);
+            maxWidth: cell.Width, maxHeight: cell.Height,
+            textDecorations: LabelTextDecorations);
         layout.Draw(context, cell.TopLeft);
     }
 }
