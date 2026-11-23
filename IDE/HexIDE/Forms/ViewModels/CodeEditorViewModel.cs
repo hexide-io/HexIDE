@@ -54,7 +54,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Code");
 
-    private TextDocument document = new TextDocument();
+    private readonly TextDocument document = new TextDocument();
     private FormDefinition? formDefinition;
     private ModuleDefinition? moduleDefinition;
 
@@ -284,6 +284,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
+        Document.Changing += FollowBreakpoints;
+        AutoDispose(new ActionDisposable(() => Document.Changing -= FollowBreakpoints));
         Document.TextChanged += (_, _) =>
         {
             RefreshBufferModified();
@@ -445,6 +447,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (session is { } closing)
                 ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, IsModified && !unloading);
         }));
+    }
+
+    private void FollowBreakpoints(object? sender, DocumentChangeEventArgs change)
+    {
+        if (identity is not { } current || ExternalDebugger?.IsActive == true ||
+            (change.Offset == 0 && change.RemovalLength == Document.TextLength))
+            return;
+
+        var removed = FormCodeText.LineBreaks(change.RemovedText.Text);
+        var inserted = FormCodeText.LineBreaks(change.InsertedText.Text);
+        breakpointService.Remap(current, line => line < 1 || line > Document.LineCount ? line :
+            HexIDE.Debugging.MarkLines.Remap(line, change.Offset, change.RemovalLength, removed, inserted, ReadLine));
+
+        (int Begin, int Statement, int End, int Next) ReadLine(int line)
+        {
+            var before = Document.GetLineByNumber(line);
+            var statement = before.Offset;
+            while (statement < before.EndOffset && char.IsWhiteSpace(Document.GetCharAt(statement)))
+                statement++;
+            return (before.Offset, statement, before.EndOffset, before.Offset + before.TotalLength);
+        }
     }
 
     private bool modelIsModified;

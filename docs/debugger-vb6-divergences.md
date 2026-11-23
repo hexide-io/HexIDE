@@ -608,15 +608,14 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   sidecar could have left one there. Task 3.17 made that untrue: the sidecar's load drops a mark on a
   read-only line, and logs it (`UserSidecarService.OffReadOnlyLines`). Since #884, file-relative header
   marks from versions 2 and 3 are retained at their file lines; member Attribute marks are still dropped. What can still put
-  one there is an edit or a reload, because a breakpoint or a bookmark is a bare line number and does not
-  follow its line. Once a project is open, only `HeaderRefresher.ShiftMarks` moves marks, by the header's
-  change in length, at a designer change, a save or a reload. A designer change and a save add or remove no
-  line below the header, so for them that moves each mark with its line, and neither puts one on a read-only
-  line. Three routes remain:
-  - an edit that adds or removes lines at or above a mark, by any route: Enter, a paste, a cut, Undo, an
-    add-in's edit, `set_file_content`. A member's `Attribute` line can move under it: in the probe, one line
-    inserted above `Public Function Total()` moved `Attribute Total.VB_Description` under a breakpoint set on
-    `Total = 0`;
+  one there is an edit making its line read-only, a whole-text replacement or a reload. In an open code
+  window, breakpoints now follow
+  their statements through edits, undo and redo (#1053); their conditions move with them. Bookmarks keep
+  their line numbers until #5334 measures them. `HeaderRefresher` still moves both stores by a header's
+  change in height, leaving an open window's breakpoint move to its document change. Three routes remain:
+  - a whole-text replacement (`ReplaceBody`, including `set_file_content`), or an add-in's edit with no
+    code window open, leaves breakpoint numbers unchanged. Bookmarks keep their numbers through ordinary
+    edits too, so a member's `Attribute` line can move under a bookmark;
   - an edit that makes the marked line itself read-only. An orphaned `Attribute` line is not a region, so it
     takes a mark, and it locks the moment it comes to describe a member (`ReadOnlyRegions.Verdict`). A
     procedure attribute describes any procedure declared on the line above, whatever its qualifier names. A
@@ -632,9 +631,9 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
     an `Attribute` line directly under a procedure's declaration puts it on the number of a breakpoint on
     the procedure's first statement.
 
-  The first two routes were probed headlessly through `CodeEditorViewModel` on 2026-10-14, by writing to the
-  document rather than typing; the third, and the rest of the second, are read from `FileReloader` and
-  `ReadOnlyRegions`. Such a mark is never hit: the debugger passes over an `Attribute` statement, and an
+  The original edit routes were probed headlessly through `CodeEditorViewModel` on 2026-10-14; #1053
+  now tests breakpoint following and the whole-text/bookmark exceptions through the document. The reload
+  route and the remaining read-only transitions are read from `FileReloader` and `ReadOnlyRegions`. Such a mark is never hit: the debugger passes over an `Attribute` statement, and an
   `Attribute` line in a procedure without its `= value` is a syntax error, so the run never starts (both
   probed through the interpreter's `DebugController` that day). The gutter does not draw it while its run is
   folded, nor while the header is folded unless it is on the header's first line: both margins draw a mark
@@ -806,3 +805,16 @@ and error in Immediate on evaluation failure (#3005); capable DAP adapters evalu
 compiled backend over DAP. *(Landed since this list was written: Watches + Break-When-True/Changed + Data Tips (P6), Run To Cursor
 + Set Next Statement + Immediate assignment/Set (P7), the Locals property/control surface incl. the form-`Me` +
 child-control tree (P8 + D7 residual-1/3, D7 now RESOLVED).)*
+
+### D38. Closed-document edits and bookmarks do not follow statements (#5334)
+- **VB6:** breakpoints followed their statements in the eight measured open-window edit rows, including
+  undo; deleting the line or joining it onto the preceding line removed the breakpoint. See
+  [the SP6 measurement](vb6-fidelity-oracle/a-breakpoint-through-edits-above-it.md). Bookmarks, edits with
+  the window closed, edits in break mode, another procedure and save/reload were not measured.
+- **HexIDE:** #1053 follows breakpoints and their conditions through an open window's document changes.
+  An add-in's edit to a closed document and whole-text replacements retain the stored numbers. An active
+  external debugger owns its breakpoints, so those edits are not followed by the interpreter store.
+  Bookmarks retain their numbers through edits until #5334; the existing explicit header shifts still
+  move bookmarks and closed-document breakpoints.
+- **Scope:** the edit rule reproduces the measured rows and applies the same shapes elsewhere; those
+  other shapes are not additional VB6 measurements.

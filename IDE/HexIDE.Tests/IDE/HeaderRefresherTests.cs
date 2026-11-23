@@ -180,6 +180,42 @@ public class HeaderRefresherTests
         breakpoints.GetBreakpoints(document).Should().Equal(13);
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnOpenWindowsFirstBodyBreakpointFollowsAThreeLineHeaderWrite(bool moduleSave)
+    {
+        var form = Deserialize(OneLabel);
+        form.UpdateCode("Sub Main()\r\nEnd Sub\r\n");
+        var module = TestHelpers.CreateModule();
+        module.UpdateCode("Sub Main()\r\nEnd Sub\r\n");
+        using var editor = moduleSave ? NewCodeEditor().Initialize(module)
+            : NewCodeEditor().Initialize(form);
+        dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
+        using var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
+        var identity = editor.Identity;
+        var oldHeader = moduleSave ? FormCodeText.Prefix(module) : FormCodeText.Prefix(form);
+        var firstBody = FormCodeText.LineBreaks(oldHeader) + 1;
+        editor.Document.GetLineByNumber(firstBody).Length.Should().Be("Sub Main()".Length);
+        breakpoints.SetDocument(identity, [firstBody]);
+        breakpoints.SetCondition(identity, firstBody, "n = 2");
+        bookmarks.SetBookmarks(identity, [firstBody - 1]);
+        var newHeader = oldHeader + "' a\r\n' b\r\n' c\r\n";
+
+        if (moduleSave) sut.Saved(identity, newHeader);
+        else sut.ApplyHeader(form, newHeader);
+
+        breakpoints.GetBreakpoints(identity).Should().Equal(firstBody + 3);
+        breakpoints.GetCondition(identity, firstBody + 3).Should().Be("n = 2");
+        bookmarks.GetBookmarks(identity).Should().Equal(firstBody + 2);
+        editor.Document.UndoStack.Undo();
+        breakpoints.GetBreakpoints(identity).Should().Equal(firstBody);
+        breakpoints.GetCondition(identity, firstBody).Should().Be("n = 2");
+        editor.Document.UndoStack.Redo();
+        breakpoints.GetBreakpoints(identity).Should().Equal(firstBody + 3);
+        breakpoints.GetCondition(identity, firstBody + 3).Should().Be("n = 2");
+    }
+
     private static string Header(int lines) => string.Concat(Enumerable.Repeat("x\r\n", lines));
 
     // -- The gates ---------------------------------------------------------------------------------
@@ -812,8 +848,8 @@ public class HeaderRefresherTests
         finally { File.Delete(path); }
     }
 
-    /// <summary>A code editor with every collaborator stubbed: only the buffer is under test here.</summary>
-    private static CodeEditorViewModel NewCodeEditor()
+    /// <summary>A code editor sharing the mark stores; other collaborators are stubbed.</summary>
+    private CodeEditorViewModel NewCodeEditor()
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>())
@@ -830,8 +866,8 @@ public class HeaderRefresherTests
             Substitute.For<HexIDE.Lsp.ILspClient>(),
             Substitute.For<ISettingsService>(),
             Substitute.For<IStatusBarService>(),
-            Substitute.For<IBookmarkService>(),
-            Substitute.For<IBreakpointService>(),
+            bookmarks,
+            breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<IRunScope>(),
             Substitute.For<HexIDE.Localization.ILocalizationService>());
