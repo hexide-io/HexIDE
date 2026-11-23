@@ -49,6 +49,11 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
         if (host is HexIdeHost concrete) concrete.ReportFailure(message, exception, origin);
         else host.ReportFailure(message, exception);
     }
+    // NoInlining keeps this a real frame, so GetCallingAssembly is the add-in's, which the dictionary must belong to.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public IDisposable RegisterResources(Uri dictionary) =>
+        host is HexIdeHost concrete ? concrete.RegisterResources(dictionary, origin, Assembly.GetCallingAssembly())
+            : host.RegisterResources(dictionary);
     public bool RunProject() => host.RunProject();
     public bool StopProject() => host.StopProject();
 }

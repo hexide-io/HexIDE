@@ -10,6 +10,13 @@ internal readonly record struct AddinOrigin(string Id, string Title, bool IsFirs
     public string[]? PublisherNamespaces { get; init; }
 
     /// <summary>
+    /// Made by HexIDE's own startup code for something compiled into it, never read from a package: the Basic provider,
+    /// which HexIDE.Desktop composes until phase 3 of #3411 loads it as an add-in (#5396). Nothing that reads a manifest
+    /// sets it, so an add-in that names itself after the provider is not the provider.
+    /// </summary>
+    public bool IsComposed { get; init; }
+
+    /// <summary>
     /// The add-in an assembly belongs to, by the load context the registry loaded it into, whose manifest names it. An
     /// assembly in no add-in's context, the host's own or a test's, is named by its simple name.
     /// </summary>

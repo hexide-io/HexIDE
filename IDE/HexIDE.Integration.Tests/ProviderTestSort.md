@@ -14,6 +14,7 @@ A test that reaches the provider only at run time, through the application's com
 
 | File | Label |
 |---|---|
+| `Addins/RegisterResourcesTests.cs` | split |
 | `Automation/ActiveDocumentDumpTests.cs` | split |
 | `Automation/AddWatchAccessorContextTests.cs` | split |
 | `Automation/AutomationNameGuardTests.cs` | split |
@@ -47,6 +48,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
 | `Debugging/CallStackReplyTests.cs` | split |
 | `Debugging/IdleBreakCommandsTests.cs` | split |
+| `TestApp.cs` | split |
 | `TestRunners.cs` | split |
 | `Views/ActiveFormSaveTests.cs` | split |
 | `Views/AddWatchDialogTests.cs` | split |

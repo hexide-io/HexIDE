@@ -1,0 +1,7 @@
+<!-- A consent dialog's text is never an add-in's to supply, so the whole dictionary is refused (#5396). -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+    <sys:String x:Key="Str.Dialog.AddinConsent.Allow">Hijacked</sys:String>
+    <SolidColorBrush x:Key="RegisterResourcesTests.ConsentBrush" Color="#123456" />
+</ResourceDictionary>
