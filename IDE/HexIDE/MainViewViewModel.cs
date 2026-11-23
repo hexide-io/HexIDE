@@ -1960,9 +1960,9 @@ public partial class MainViewViewModel : ObservableObject
         RestartProjectCommand = new DelegateCommand(projectRunnerService.RestartProject,
             () => projectRunnerService.CanRestartProject);
         // What a project's type doesn't offer isn't offered here.
-        ProjectReferencesCommand = new DelegateCommand(() => projectService.EditProjectReferences(FocusedProjectUtil.FocusedOrStartupProject!),
+        ProjectReferencesCommand = new DelegateCommand(() => { _ = projectService.EditProjectReferences(FocusedProjectUtil.FocusedOrStartupProject!); },
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsReferences: true });
-        ProjectComponentsCommand = new DelegateCommand(() => projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!),
+        ProjectComponentsCommand = new DelegateCommand(() => { _ = projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!); },
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsComponents: true });
         ProjectPropertiesCommand = new DelegateCommand(() =>
             {

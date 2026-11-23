@@ -121,9 +121,9 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         _localization = localization;
         _projects = projects;
 
-        FindNextCommand = new DelegateCommand(() => RunAsync(ExecuteFindNext).ListenErrors(), () => SearchText.Length > 0);
-        ReplaceOneCommand = new DelegateCommand(() => RunAsync(ExecuteReplaceOne).ListenErrors(), () => SearchText.Length > 0);
-        ReplaceAllCommand = new DelegateCommand(() => RunAsync(ExecuteReplaceAllAsync).ListenErrors(), () => SearchText.Length > 0);
+        FindNextCommand = new DelegateCommand(() => RunAsync(ExecuteFindNext), () => SearchText.Length > 0);
+        ReplaceOneCommand = new DelegateCommand(() => RunAsync(ExecuteReplaceOne), () => SearchText.Length > 0);
+        ReplaceAllCommand = new DelegateCommand(() => RunAsync(ExecuteReplaceAllAsync), () => SearchText.Length > 0);
         CancelCommand = new DelegateCommand(() => CloseRequested?.Invoke(false), () => true);
     }
 

@@ -84,7 +84,7 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
 
         OkCommand = new DelegateCommand(() => CloseRequested?.Invoke(true));
         CancelCommand = new DelegateCommand(() => CloseRequested?.Invoke(false));
-        BrowseCommand = new DelegateCommand(async () => await Browse());
+        BrowseCommand = new DelegateCommand((Action)(async () => await Browse()));
         MoveUpCommand = new DelegateCommand(MoveUp, CanMoveUp);
         MoveDownCommand = new DelegateCommand(MoveDown, CanMoveDown);
     }
