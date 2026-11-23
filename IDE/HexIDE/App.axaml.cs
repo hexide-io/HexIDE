@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Fonts;
 using Avalonia.Controls;
@@ -53,7 +55,31 @@ public partial class App : Application
                 { MainWindow.DataContext: MainViewViewModel viewModel })
                 viewModel.About();
         };
-        NativeMenu.SetMenu(this, new NativeMenu { Items = { about } });
+        var settings = new NativeMenuItem { Gesture = new KeyGesture(Key.OemComma, KeyModifiers.Meta) };
+        settings.Bind(NativeMenuItem.HeaderProperty, this.GetResourceObservable("Str.Menu.MacApp.Settings"));
+        settings.Click += (_, _) =>
+        {
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime
+                { MainWindow.DataContext: MainViewViewModel viewModel })
+                viewModel.OpenOptions();
+        };
+
+        var menu = new NativeMenu { Items = { about, settings } };
+        // Avalonia 12.1.6 appends its standard items to this collection before exporting the menu.
+        // Change the generated Hide Others item's gesture in place to keep its native action.
+        if (menu.Items is INotifyCollectionChanged items)
+        {
+            items.CollectionChanged += (_, e) =>
+            {
+                if (e.NewItems is null)
+                    return;
+                foreach (var item in e.NewItems)
+                    if (item is NativeMenuItem { Header: "Hide Others", Gesture: { Key: Key.Q } gesture } hideOthers
+                        && gesture.KeyModifiers == (KeyModifiers.Meta | KeyModifiers.Alt))
+                        hideOthers.Gesture = new KeyGesture(Key.H, gesture.KeyModifiers);
+            };
+        }
+        NativeMenu.SetMenu(this, menu);
     }
 
     internal void LoadMarkup()

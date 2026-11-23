@@ -58,6 +58,12 @@ public enum EventCoalescing
 /// </remarks>
 public sealed class EventPump : HexIDE.IDE.IProgramActivity
 {
+    private readonly Func<Task> yieldToInput;
+
+    public EventPump() : this(YieldToInput) { }
+
+    internal EventPump(Func<Task> yieldToInput) => this.yieldToInput = yieldToInput;
+
     /// <summary>One handler's run.</summary>
     internal sealed class Walk(string name)
     {
@@ -359,7 +365,7 @@ public sealed class EventPump : HexIDE.IDE.IProgramActivity
             walk.Looped = true;
         try
         {
-            await Suspended(walk, YieldToInput());
+            await Suspended(walk, yieldToInput());
             while (Dequeue() is { } next)
             {
                 var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer, next.Scope);

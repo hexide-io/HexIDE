@@ -680,7 +680,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a form or UserControl control property and saves it. SSTab Tab selects a page (0 to Tabs - 1) without undo; a page naming an unmodelled control is refused unchanged. Searches loaded projects without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. 'value' is written as the Properties window shows it; its own description gives the forms, and a refused value's reply says what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A project started with --newproject has a form working copy in the temp folder, written without a picker. Pathless writes need a folder and answer_next_file_dialog; the refusal gives the save route. The reply's note gives the stored value; project and document name the form as the IDE spells them. Refuses writes outside the project's folder or through links, including armed destinations. Before replacing source or companion bytes, preserves a recovery file; the reply names it and how to restore it.")]
+    [Description("Sets a form or UserControl control property and saves it. SSTab Tab selects a page (0 to Tabs - 1) without undo; a page naming an unmodelled control is refused unchanged. Searches loaded projects without regard to case; pass `project` for duplicate document names, otherwise ambiguity is refused and the reply lists them. 'value' uses Properties window notation; its description lists the forms. get_form_controls lists controls and, with 'controlName', each property and value. Properties match without regard to case, ignoring parentheses: 'Name' reaches '(Name)'. Names must be valid VB6 names, unique by name and Index; a form's must also be free among the project's forms and modules. An unindexed control joins an array of its type at highest Index + 1 without asking. Creating an array from two unindexed controls of one type is refused: set the holder's Index to 0 first, then rename the other. Refused renames change nothing. The save writes the whole file, including earlier unsaved text. If its code page cannot hold a character, the value changes in the IDE but nothing is written and no dialog appears; the reply names the document, code page, character and line. A project started with --newproject has a form working copy in the temp folder, written without a picker. Pathless writes need a folder and answer_next_file_dialog; the refusal gives the save route. The reply's note gives the stored value; project and document name the form as the IDE spells them. Refuses writes outside the project's folder or through links, including armed destinations. Before replacing source or companion bytes, preserves a recovery file; the reply names it and how to restore it.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName,
         [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
@@ -738,7 +738,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (ambiguous is not null)
                 return (null, null, $"Nothing was changed: {ambiguous}"
                     + (string.Equals(property.Trim('(', ')'), "Name", StringComparison.OrdinalIgnoreCase)
-                        ? ". Renaming one element takes it out of the array, and nothing in the IDE joins it back yet (#1276)"
+                        ? ". Renaming an element keeps its Index. Address it as name(index); it can rejoin an array where its Index is free"
                         : ""));
             if (control is null)
                 return (null, null, $"No control named '{controlName}' on {document.Display}");
@@ -813,6 +813,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 ? (Index: leaving, Others: PropertyText.Named(components, (string)before!).Count - 1)
                 : ((int Index, int Others)?)null;
 
+            if (propClass == VBProperties.NameProperty
+                && HexIDE.VisualDesigner.ComponentNaming.ArrayCreationHolder(control, parsed as string, components) is { } holder)
+                return (null, null, $"'{controlName}' was not renamed: creating a control array needs confirmation in the Properties window. "
+                    + $"With set_control_property, set '{holder.GetPropertyOrDefault(VBProperties.NameProperty)}' Index to 0 first, then rename '{controlName}' to '{parsed}'; it joins with Index 1.");
+
             // A rename passes the Properties window's rules on every route. With the designer open its handler
             // enforces them as the value is set, and throws; without it nothing would, so they are asked here.
             if (propClass == VBProperties.NameProperty && designerVm is null
@@ -823,6 +828,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return (null, null, safetyRefusal);
             try
             {
+                if (designerVm is null && propClass == VBProperties.NameProperty && parsed is string proposed
+                    && HexIDE.VisualDesigner.ComponentNaming.JoiningIndex(control, proposed, components) is { } joiningIndex)
+                    control.SetUntypedProperty(VBProperties.DesignIndexProperty,
+                        joiningIndex.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 control.SetUntypedProperty(propClass, parsed);
             }
             catch (Avalonia.Data.DataValidationException ex)
@@ -1105,7 +1114,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return new MutateResult(true, null,
                 TabStateNote() + (entry.Archive is null
                     ? $" This VBA module is read-only. Language servers know it as {entry.Name}{entry.LanguageServerExtension}, the name VBA's Export File gives it. Office may run compiled p-code that differs from the stored source."
-                    : " This archive entry is read-only; available text previews attach language servers by extension."),
+                    : " This archive entry is read-only. A text preview goes to the language servers that claim its extension, and a twinBASIC source only to those that also declare the language twinbasic."),
                 Project: entry.Identity.ContainerPath, Document: ArchiveToolPaths.PathOf(entry),
                 Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null);
         }
@@ -2776,7 +2785,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
     [McpServerTool(Name = "add_watch")]
     [DescribesEnum(typeof(HexIDE.Debugging.WatchType))]
-    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue (breaks at each statement while the expression is true), or BreakWhenChanged (breaks when its value changes); all three show their value while paused. Matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not. 'project' names the running project in which expressions are evaluated; context is the stored Module.Procedure header, or (All Procedures). In an external debug session only Expression watches can be added, to the session's Watch window, and their values need a stopped frame.")]
+    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue (breaks once when the expression becomes true, and again only after it has been false), or BreakWhenChanged (breaks when its value changes); all three show their value while paused. Matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not. 'project' names the running project in which expressions are evaluated; context is the stored Module.Procedure header, or (All Procedures). In an external debug session only Expression watches can be added, to the session's Watch window, and their values need a stopped frame.")]
     public async Task<WatchesResult> AddWatchAsync(string expression, string? watchType = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>

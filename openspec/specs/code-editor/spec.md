@@ -564,13 +564,43 @@ blank line inside it. A diagnostics or document-symbol refresh SHALL NOT navigat
 - **THEN** typing lands on the blank body line between the declaration and `End Sub`
 
 ### Requirement: Rebuilding the Procedure box SHALL preserve the caret
-A document-symbol refresh SHALL preserve the current Procedure selection when it remains in the list and
-SHALL NOT navigate the caret when restoring that selection. Choosing a procedure in the box SHALL still navigate.
+A document-symbol refresh SHALL reconcile the Object and Procedure selections to the caret and
+SHALL NOT navigate the caret while updating those selections. Choosing a procedure in the box SHALL still navigate.
 
 #### Scenario: Symbols arrive while the developer is typing
 - **GIVEN** `(Declarations)` or a named procedure is selected under `(General)` and the caret is in a procedure body
 - **WHEN** diagnostics cause the document symbols and Procedure list to refresh
-- **THEN** the same Procedure item remains selected and the caret and document text are unchanged
+- **THEN** the procedure containing the caret is selected and the caret and document text are unchanged
+
+### Requirement: Object and Procedure boxes follow the caret
+
+With document symbols available, both boxes SHALL follow the caret's innermost procedure range, without
+navigating, requesting focus or generating stubs. Selections and blank/comment ownership SHALL match the
+[VB6 SP6 measurements](../../../docs/vb6-fidelity-oracle/the-object-and-procedure-boxes-follow-the-caret.md) (#936).
+
+#### Scenario: The caret in the declarations
+- **WHEN** the caret is on a declarations-section line that is not blank or a comment
+- **THEN** the boxes show `(General)` / `(Declarations)`
+
+#### Scenario: Blank lines and comments before a procedure
+- **WHEN** the caret is on a blank line or comment, with only blank lines and comments between it and the next procedure
+- **THEN** that following procedure is selected
+
+#### Scenario: Mapping a procedure to its listed entries
+- **GIVEN** a procedure whose name matches an object and one of its declared events
+- **WHEN** the caret enters that procedure
+- **THEN** its object and event are selected, matching the longest object name
+- **AND** other procedures select `(General)` and their listed entry, including accessor labels
+
+#### Scenario: Unmeasured trailing lines
+- **WHEN** the caret moves after the last procedure
+- **THEN** existing selection behaviour is retained pending measurement
+
+#### Scenario: Moving away and choosing an earlier handler
+- **GIVEN** the caret is in `Command1_Click` and the boxes show `Command1` / `Click`
+- **WHEN** the caret moves into general procedure `Foo`
+- **THEN** the boxes show `(General)` / `Foo` without moving the caret or changing the text
+- **AND** choosing `Command1` / `Click` navigates back to the existing handler
 
 ### Requirement: Procedure entries distinguish property accessors
 

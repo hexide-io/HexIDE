@@ -74,7 +74,7 @@ public sealed record CallStackFrame(string ProcName, string Module, int Line);
 
 /// <summary>The typed result of evaluating a Watch / condition expression against a paused frame. Richer than the
 /// Immediate window's flat string: <see cref="Node"/> is an expandable <see cref="DebugNode"/> (so an object/array/
-/// UDT watch expands like Locals), <see cref="Truthy"/> is the VB6 Boolean coercion (for a "Break When True" watch),
+/// UDT watch expands like Locals), <see cref="Truthy"/> is the conditional-breakpoint truth rule,
 /// and <see cref="Ok"/> distinguishes a real value from an evaluation error (so a condition tells False from an
 /// error). On error, <see cref="Display"/> carries the VB6-style message and <see cref="TypeName"/> is empty.</summary>
 public sealed record DebugEvalResult(bool Ok, string Display, string TypeName, bool Truthy, DebugNode Node)
@@ -84,6 +84,9 @@ public sealed record DebugEvalResult(bool Ok, string Display, string TypeName, b
     /// its type. VB6's text has 7 or 15 significant digits, so a change below them would not show in it (#772).
     /// </summary>
     public string? ChangeKey { get; init; }
+
+    /// <summary>The watch-only truth rule for "Break When Value Is True" (#869).</summary>
+    public bool BreaksWhenTrue { get; init; }
 
     public bool UndefinedName { get; init; }
 }

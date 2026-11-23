@@ -12,9 +12,12 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.VisualDesigner;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Shapes = Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -25,6 +28,7 @@ using Classic.Avalonia.Theme;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Themes;
+using HexIDE.Integration.Tests.Views;
 
 namespace HexIDE.Integration.Tests.Controls;
 
@@ -48,12 +52,222 @@ namespace HexIDE.Integration.Tests.Controls;
 /// </summary>
 public class ClassicRenderTests
 {
+    // Measured at 96 dpi: docs/vb6-fidelity-oracle/a-rounded-shapes-corners.md (#916).
+    [AvaloniaTheory]
+    [InlineData(100, 60, ShapeTypes.RoundedRectangle, 0, 5, false)]
+    [InlineData(100, 60, ShapeTypes.RoundedRectangle, 0, 5, true)]
+    [InlineData(300, 300, ShapeTypes.RoundedRectangle, 0, 33, false)]
+    [InlineData(300, 300, ShapeTypes.RoundedRectangle, 0, 33, true)]
+    [InlineData(100, 60, ShapeTypes.RoundedSquare, 20, 5, false)]
+    [InlineData(100, 60, ShapeTypes.RoundedSquare, 20, 5, true)]
+    [InlineData(100, 60, ShapeTypes.Rectangle, 0, 0, false)]
+    public void Shape_CornersMatchMeasuredInsets(int width, int height, ShapeTypes type, int left, int inset, bool backFill)
+    {
+        var shape = new VBShape
+        {
+            Width = width, Height = height, ShapeType = type,
+            BorderWidth = 1, BorderStyle = BorderStyles.Solid,
+            BorderColor = VBColor.FromColor(0, 0, 0), FillColor = VBColor.FromColor(0, 0, 0), FillStyle = backFill ? FillStyles.Transparent : FillStyles.Solid,
+            BackStyle = backFill ? BackStyles.Opaque : BackStyles.Transparent, BackColor = VBColor.FromColor(0, 0, 0),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+        };
+        var window = BuildHost(shape);
+        window.Width = width;
+        window.Height = height;
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            var pixels = new int[width * height];
+            var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+            try
+            {
+                frame!.CopyPixels(new PixelRect(0, 0, width, height), handle.AddrOfPinnedObject(), pixels.Length * 4, width * 4);
+            }
+            finally
+            {
+                handle.Free();
+            }
+            bool Black(int x, int y) => (pixels[y * width + x] & 0xff) < 128;
+            var first = Enumerable.Range(0, width).First(x => Black(x, 0));
+            first.Should().BeInRange(left + System.Math.Max(0, inset - 1), left + inset + 1);
+            Black(width / 2, height / 2).Should().BeTrue();
+            if (type == ShapeTypes.RoundedSquare)
+            {
+                Enumerable.Range(0, width).First(x => Black(x, height / 2)).Should().Be(left);
+                for (var y = 0; y < height; y++)
+                    for (var x = 0; x < height; x++)
+                    {
+                        Black(left + x, y).Should().Be(Black(left + height - 1 - x, y));
+                        Black(left + x, y).Should().Be(Black(left + x, height - 1 - y));
+                    }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Measured grids: docs/vb6-fidelity-oracle/the-3-d-and-flat-edges-of-a-checkbox-optionbutton-textbox-and-commandbutton.md.
+    [AvaloniaTheory]
+    [InlineData("CheckBox", false)]
+    [InlineData("CheckBox", true)]
+    [InlineData("OptionButton", false)]
+    [InlineData("OptionButton", true)]
+    [InlineData("TextBox", false)]
+    [InlineData("TextBox", true)]
+    [InlineData("CommandButton", false)]
+    public void MeasuredEdges_RenderWholePixelBands(string kind, bool flat)
+    {
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            $"VERSION 5.00\r\nBegin VB.Form Form1\r\n   Begin VB.{kind} Control1\r\n      Appearance = {(flat ? 0 : 1)}\r\n   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n", new NullSink())!;
+        var instance = form.Components.Single(c => c.BaseClass.VBTypeName == "VB." + kind);
+        var control = ((ComponentBaseClass)instance.BaseClass).Instantiate(instance);
+        control.Width = 100;
+        control.Height = 30;
+        control.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        control.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        control.Focusable = false;
+        var window = BuildHost(control);
+        SetEdgeColours(window);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            var glyph = control.GetVisualDescendants().OfType<ClassicBorderDecorator>().FirstOrDefault();
+            var origin = glyph?.TranslatePoint(default, window) ?? control.TranslatePoint(default, window)!.Value;
+            var width = (int)(glyph?.Bounds.Width ?? control.Bounds.Width);
+            var height = (int)(glyph?.Bounds.Height ?? control.Bounds.Height);
+            var x = (int)origin.X;
+            var y = (int)origin.Y;
+            var top = width / 2;
+            var left = height / 2;
+            var raised = kind == "CommandButton";
+            var outer = flat ? "#646464" : raised ? "#FFFFFF" : "#A0A0A0";
+            var inner = flat ? "#646464" : raised ? "#E3E3E3" : "#696969";
+            Pixel(frame!, x + top, y).Should().Be(Color.Parse(outer), "the outer top band");
+            Pixel(frame!, x, y + left).Should().Be(Color.Parse(outer), "the outer left band");
+            if (!flat || kind != "TextBox")
+            {
+                Pixel(frame!, x + top, y + 1).Should().Be(Color.Parse(inner), "the inner top band");
+                Pixel(frame!, x + 1, y + left).Should().Be(Color.Parse(inner), "the inner left band");
+            }
+            if (kind == "CheckBox")
+            {
+                Pixel(frame!, x, y).Should().Be(Color.Parse(outer), "the outer top-left corner");
+                Pixel(frame!, x + 1, y + 1).Should().Be(Color.Parse(inner), "the inner top-left corner");
+            }
+            if (kind is "CheckBox" or "CommandButton")
+            {
+                var bottomOuter = flat ? "#646464" : raised ? "#696969" : "#FFFFFF";
+                var bottomInner = flat ? "#646464" : raised ? "#A0A0A0" : "#E3E3E3";
+                Pixel(frame!, x + width / 2, y + height - 1).Should().Be(Color.Parse(bottomOuter));
+                Pixel(frame!, x + width / 2, y + height - 2).Should().Be(Color.Parse(bottomInner));
+                Pixel(frame!, x + width - 1, y + height / 2).Should().Be(Color.Parse(bottomOuter));
+                Pixel(frame!, x + width - 2, y + height / 2).Should().Be(Color.Parse(bottomInner));
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(VBAppearance.Flat)]
+    [InlineData(VBAppearance._3D)]
+    public void UnmeasuredBorderStyleZero_KeepsStockTextBoxDrawing(VBAppearance appearance)
+    {
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            $"VERSION 5.00\r\nBegin VB.Form Form1\r\n   Begin VB.TextBox Text1\r\n      BorderStyle = 0\r\n      Appearance = {(int)appearance}\r\n   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n", new NullSink())!;
+        var instance = form.Components.Single(c => c.BaseClass is TextBoxComponentClass);
+        var box = ((ComponentBaseClass)instance.BaseClass).Instantiate(instance);
+        box.Width = 100;
+        box.Height = 30;
+        box.Focusable = false;
+        var stock = new TextBox { Padding = new Thickness(1), Width = 100, Height = 30, Focusable = false };
+        var panel = new StackPanel { Children = { box, stock } };
+        var window = BuildHost(panel);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            box.GetVisualDescendants().OfType<ClassicBorderDecorator>().Should().BeEmpty();
+            var a = box.TranslatePoint(default, window)!.Value;
+            var b = stock.TranslatePoint(default, window)!.Value;
+            for (var band = 0; band < 3; band++)
+            {
+                Pixel(frame!, (int)a.X + 50, (int)a.Y + band).Should()
+                    .Be(Pixel(frame!, (int)b.X + 50, (int)b.Y + band));
+                Pixel(frame!, (int)a.X + band, (int)a.Y + 15).Should()
+                    .Be(Pixel(frame!, (int)b.X + band, (int)b.Y + 15));
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressedCommandButton_KeepsSunkenEdge()
+    {
+        var button = new VBCommandButton { Width = 100, Height = 30 };
+        var window = BuildHost(button);
+        SetEdgeColours(window);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var point = button.TranslatePoint(new Point(50, 15), window)!.Value;
+            window.MouseDown(point, Avalonia.Input.MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            button.IsPressed.Should().BeTrue();
+            var edge = button.GetVisualDescendants().OfType<ClassicBorderDecorator>().Single();
+            edge.BorderStyle.Should().Be(ClassicBorderStyle.Sunken);
+            var origin = edge.TranslatePoint(default, window)!.Value;
+            Pixel(frame!, (int)origin.X + 10, (int)origin.Y).Should().Be(Color.Parse("#A0A0A0"));
+            Pixel(frame!, (int)origin.X + 10, (int)origin.Y + 1).Should().Be(Color.Parse("#696969"));
+            window.MouseUp(point, Avalonia.Input.MouseButton.Left);
+        }
+        finally { window.Close(); }
+    }
+
+    private static void SetEdgeColours(Window window)
+    {
+        window.Resources[Classic.CommonControls.SystemColors.ControlDarkBrushKey] = new SolidColorBrush(Color.Parse("#A0A0A0"));
+        window.Resources[Classic.CommonControls.SystemColors.ControlDarkDarkBrushKey] = new SolidColorBrush(Color.Parse("#696969"));
+        window.Resources[Classic.CommonControls.SystemColors.ControlLightBrushKey] = new SolidColorBrush(Color.Parse("#E3E3E3"));
+        window.Resources[Classic.CommonControls.SystemColors.ControlLightLightBrushKey] = Brushes.White;
+        window.Resources[Classic.CommonControls.SystemColors.WindowFrameBrushKey] = new SolidColorBrush(Color.Parse("#646464"));
+    }
+
+    private static Color Pixel(Bitmap bitmap, int x, int y)
+    {
+        var pixel = new byte[4];
+        var handle = GCHandle.Alloc(pixel, GCHandleType.Pinned);
+        try
+        {
+            bitmap.CopyPixels(new PixelRect(x, y, 1, 1), handle.AddrOfPinnedObject(), 4, 4);
+            // In the bitmap's own order: a RenderTargetBitmap is RGBA on macOS and BGRA elsewhere.
+            return bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888
+                ? Color.FromArgb(pixel[3], pixel[0], pixel[1], pixel[2])
+                : Color.FromArgb(pixel[3], pixel[2], pixel[1], pixel[0]);
+        }
+        finally { handle.Free(); }
+    }
+
     [AvaloniaFact]
     public void SingleLineTextBox_ShortHeight_HoldsItsTextWithoutAVerticalBar()
     {
         foreach (var height in new[] { 19, 21, 24, 25 })
         {
-            var box = new VBTextBox { Text = "hello", Width = 120, Height = height };
+            // Keep the line small enough to fit on Windows too; the next test covers taller fonts being clipped.
+            var box = new VBTextBox { Text = "hello", FontSize = 11, Width = 120, Height = height };
             var window = BuildHost(box);
             try
             {
@@ -167,6 +381,121 @@ public class ClassicRenderTests
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
 
+    private const string AccessKeyForm = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Begin VB.CommandButton Command1
+              Caption = "&OK"
+              Height = 480
+              Width = 2400
+           End
+           Begin VB.Label Label1
+              Caption = "Centred &label"
+              Alignment = 2
+              Top = 600
+              Height = 480
+              Width = 2400
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    // CommandButton and Label measurements: docs/vb6-fidelity-oracle/a-captions-access-key.md (#919).
+    [AvaloniaTheory]
+    [InlineData("Command1", false, false)]
+    [InlineData("Command1", false, true)]
+    [InlineData("Command1", true, false)]
+    [InlineData("Command1", true, true)]
+    [InlineData("Label1", false, false)]
+    [InlineData("Label1", false, true)]
+    [InlineData("Label1", true, false)]
+    [InlineData("Label1", true, true)]
+    public void ControlCaption_ShowsAccessKey(string name, bool designer, bool afterPointerPress)
+    {
+        Control content;
+        Control control;
+        if (designer)
+        {
+            var component = FindComponent(Deserialize(AccessKeyForm), name);
+            content = control = ((IDesignerComponentClass)component.BaseClass).InstantiateForDesigner(component);
+        }
+        else
+        {
+            var (root, canvas, _, _) = ContainerRuntimeHarness.Spawn(AccessKeyForm);
+            content = root;
+            control = canvas.Children.Single(c => VBProps.GetName(c) == name);
+        }
+
+        var window = BuildHost(content);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            if (afterPointerPress)
+            {
+                window.KeyPress(Key.LeftAlt, RawInputModifiers.Alt, PhysicalKey.None, null);
+                window.GetValue(AccessText.ShowAccessKeyProperty).Should().BeTrue();
+                window.MouseDown(new Point(200, 100), MouseButton.Left);
+                window.MouseUp(new Point(200, 100), MouseButton.Left);
+                window.KeyRelease(Key.LeftAlt, RawInputModifiers.None, PhysicalKey.None, null);
+                Dispatcher.UIThread.RunJobs();
+                window.GetValue(AccessText.ShowAccessKeyProperty).Should().BeFalse();
+            }
+
+            control.GetVisualDescendants().OfType<AccessText>().Single().ShowAccessKey.Should().BeTrue();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DesignerCommandCaption_PaintsTheAccessKeyUnderlineAtRest()
+    {
+        var form = Deserialize(AccessKeyForm);
+        var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>())
+            .Initialize(form);
+        var renderer = new ControlRenderer { Width = 160, Height = 32 };
+        var window = BuildHost(renderer);
+        try
+        {
+            var component = FindComponent(form, "Command1");
+            renderer.Component = new ComponentInstanceViewModel(designer, component);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            using var marked = (Bitmap)((Image)renderer.Child!).Source!;
+
+            component.SetProperty(VBProperties.CaptionProperty, "OK");
+            Dispatcher.UIThread.RunJobs();
+            using var plain = (Bitmap)((Image)renderer.Child!).Source!;
+            plain.Should().NotBeSameAs(marked);
+
+            // Both captions lay out the same glyphs. Look for a horizontal run of added ink just below the O.
+            var region = new PixelRect(65, 16, 15, 9);
+            var markedPixels = ReadPixels(marked, region);
+            var plainPixels = ReadPixels(plain, region);
+            Enumerable.Range(0, region.Height).Should().Contain(y =>
+                Enumerable.Range(0, region.Width - 2).Any(x =>
+                    IsDarker(markedPixels, plainPixels, y * region.Width + x) &&
+                    IsDarker(markedPixels, plainPixels, y * region.Width + x + 1) &&
+                    IsDarker(markedPixels, plainPixels, y * region.Width + x + 2)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static bool IsDarker(int[] marked, int[] plain, int index) =>
+        (marked[index] & 0xff) < (plain[index] & 0xff);
+
+    private static FormDefinition Deserialize(string source) =>
+        new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source.ReplaceLineEndings("\r\n"), new NullSink())!;
+
+    private static ComponentInstance FindComponent(FormDefinition form, string name) =>
+        form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == name);
+
     [AvaloniaFact]
     public void DesignerCommandCaption_HasAntialiasedPixels()
     {
@@ -216,21 +545,6 @@ public class ClassicRenderTests
         Attribute VB_Name = "Form1"
 
         """.ReplaceLineEndings("\r\n"), new NullSink())!;
-
-    private static Color Pixel(Bitmap bitmap, int x, int y)
-    {
-        var pixels = new int[1];
-        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
-        try
-        {
-            bitmap.CopyPixels(new PixelRect(x, y, 1, 1), handle.AddrOfPinnedObject(), 4, 4);
-            var pixel = unchecked((uint)pixels[0]);
-            return bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888
-                ? Color.FromArgb((byte)(pixel >> 24), (byte)pixel, (byte)(pixel >> 8), (byte)(pixel >> 16))
-                : Color.FromUInt32(pixel);
-        }
-        finally { handle.Free(); }
-    }
 
     [AvaloniaTheory]
     [InlineData(0)]
@@ -327,14 +641,16 @@ public class ClassicRenderTests
         finally { window.Close(); }
     }
 
-    private static int CaptionColours(Bitmap bitmap, PixelRect region)
+    private static int CaptionColours(Bitmap bitmap, PixelRect region) => new HashSet<int>(ReadPixels(bitmap, region)).Count;
+
+    private static int[] ReadPixels(Bitmap bitmap, PixelRect region)
     {
         var pixels = new int[region.Width * region.Height];
         var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
         try
         {
             bitmap.CopyPixels(region, handle.AddrOfPinnedObject(), pixels.Length * 4, region.Width * 4);
-            return new HashSet<int>(pixels).Count;
+            return pixels;
         }
         finally
         {

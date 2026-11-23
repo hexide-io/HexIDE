@@ -59,14 +59,18 @@ public class ApplicationCommands
     public static readonly RoutedCommand FindCommand = new RoutedCommand(nameof(FindCommand), new KeyGesture(Key.F, GetPlatformCommandKey()));
     public static readonly RoutedCommand FindNextCommand = new RoutedCommand(nameof(FindNextCommand), new KeyGesture(Key.F3));
     public static readonly RoutedCommand ReplaceCommand = new RoutedCommand(nameof(ReplaceCommand), GetReplaceKeyGesture());
-    public static readonly RoutedCommand IndentCommand = new RoutedCommand(nameof(IndentCommand), new KeyGesture(Key.Tab, GetPlatformCommandKey()));
+    public static readonly RoutedCommand IndentCommand = new RoutedCommand(nameof(IndentCommand), new KeyGesture(Key.Tab))
+    {
+        // Let the text area offer Tab to completion and snippets before indenting.
+        NativeGesture = new KeyGesture(Key.Tab)
+    };
     public static readonly RoutedCommand OutdentCommand = new RoutedCommand(nameof(OutdentCommand), new KeyGesture(Key.Tab, KeyModifiers.Shift));
     public static readonly RoutedCommand InsertFileCommand = new RoutedCommand(nameof(InsertFileCommand));
     public static readonly RoutedCommand ListPropertiesMethodsCommand = new RoutedCommand(nameof(ListPropertiesMethodsCommand), new KeyGesture(Key.J, GetPlatformCommandKey()));
     public static readonly RoutedCommand ListConstantsCommand = new RoutedCommand(nameof(ListConstantsCommand), new KeyGesture(Key.J, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand QuickInfoCommand = new RoutedCommand(nameof(QuickInfoCommand), new KeyGesture(Key.I, GetPlatformCommandKey()));
     public static readonly RoutedCommand ParameterInfoCommand = new RoutedCommand(nameof(ParameterInfoCommand), new KeyGesture(Key.I, GetPlatformCommandKey() | KeyModifiers.Shift));
-    public static readonly RoutedCommand CompleteWordCommand = new RoutedCommand(nameof(CompleteWordCommand), new KeyGesture(Key.Space, GetPlatformCommandKey()));
+    public static readonly RoutedCommand CompleteWordCommand = new RoutedCommand(nameof(CompleteWordCommand), GetCompleteWordKeyGesture(OperatingSystem.IsMacOS()));
     public static readonly RoutedCommand BookmarksCommand = new RoutedCommand(nameof(BookmarksCommand));
     public static readonly RoutedCommand SplitWindowCommand = new RoutedCommand(nameof(SplitWindowCommand));
     public static readonly RoutedCommand ToggleFoldCommand = new RoutedCommand(nameof(ToggleFoldCommand), GetToggleFoldKeyGestures(RuntimeInformation.IsOSPlatform(OSPlatform.OSX)));
@@ -150,15 +154,14 @@ public class ApplicationCommands
         return command;
     }
 
-    private static KeyModifiers GetPlatformCommandKey()
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            return KeyModifiers.Meta;
-        }
+    private static KeyModifiers GetPlatformCommandKey() =>
+        GetPlatformCommandKey(RuntimeInformation.IsOSPlatform(OSPlatform.OSX));
 
-        return KeyModifiers.Control;
-    }
+    private static KeyModifiers GetPlatformCommandKey(bool isMacOS) =>
+        isMacOS ? KeyModifiers.Meta : KeyModifiers.Control;
+
+    internal static KeyGesture GetCompleteWordKeyGesture(bool isMacOS) =>
+        new(Key.Space, isMacOS ? KeyModifiers.Control : GetPlatformCommandKey(isMacOS));
 
     internal static List<KeyGesture> GetToggleFoldKeyGestures(bool isMacOS)
     {

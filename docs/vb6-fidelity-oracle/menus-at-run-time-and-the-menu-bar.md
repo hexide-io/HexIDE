@@ -294,17 +294,20 @@ sessions. The rows count before the form is shown. Form3 loads 270 twips taller 
 **Not measured:** an MDI child's menu bar, so a change to it isn't either (since measured: *An MDI child's menu bar*, below); and the bar's rows, rather than its break,
 on the BorderStyles other than Fixed Single.
 
-**In HexIDE (#4946),** on main at 1bec9d018:
+**In HexIDE (#4946),** on main at d4c9b47c5:
 - **A change reversed before it lands** changes nothing and raises no Resize (#4983). This is pinned by
   `FormOuterSizeTests.Pending_menu_bar_changes_apply_the_final_target`.
 - **The bar wraps** onto rows counted from the host's menu font, and a Width change re-wraps it (#4978, PR #4999).
   - Headless at scaling 1, `FormOuterSizeTests.Wrapped_bar_counts_in_outer_and_client_sizes` reads Form3 as the
     console does: `3420 4440`, then `3705 4440` after `Width = Width + 3000`, and `3420 4440` after
     `Width = Width - 3000`.
-  - Live on Windows at 150%, the window lost a pixel after a Width change, reading `3690 4425`. #4995 (PR #5028) fixes
-    that.
-- **A change that changes a wrapped bar's row count** is still refused as not implemented, by `CheckRows`
-  (`MenuMembers.cs:185-192`), until #4946's build lands. It was measured in the rows above.
+  - Live on Windows at 150%, the window lost a pixel after a Width change, reading `3690 4425`. That was #4995, fixed
+    by PR #5028 and pinned by `FormOuterSizeTests.Platform_rounding_preserves_a_wrapped_bars_window_height`. Not
+    re-checked live since.
+- **A change that changes a wrapped bar's row count** lands at the next message, as the rows above have it (PR #5077).
+  `ChangeRows` (`MenuMembers.cs:178`) counts the rows the menus give, and `ChangeBar` (`:119`) applies them when the
+  message comes. `FormOuterSizeTests.Wrapped_menu_edits_land_at_the_next_message` pins the rows V1 to V4, C1 to C3,
+  L1 to L3, B1, B2, V12 and V13.
 
 ## An MDI child's menu bar (2026-11-21, #4946, SP6)
 
@@ -355,3 +358,7 @@ on the BorderStyles other than Fixed Single.
 - a child whose bar wraps;
 - `NegotiateMenus` and an MDI form's `WindowList` menu;
 - a change that lands while the child is being activated.
+
+**In HexIDE,** on main at d4c9b47c5, a change to an MDI child's menu bar is refused as not implemented
+(`MenuMembers.cs:139`). HexIDE has no MDI form at run time yet: an `.frm` whose root is `VB.MDIForm` is refused at load
+as "not a valid form file" (#5313).

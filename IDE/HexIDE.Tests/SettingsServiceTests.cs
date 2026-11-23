@@ -28,6 +28,21 @@ public class SettingsServiceTests : IDisposable
         return new SettingsService(SettingsPath);
     }
 
+    [Theory]
+    [InlineData(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnAllErrors)]
+    [InlineData(HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule)]
+    [InlineData(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors)]
+    public void ErrorTrappingDefaultsAndPersists(HexIDE.Runtime.Debugging.ErrorTrapping mode)
+    {
+        CreateSut().ErrorTrapping.Should().Be(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors);
+        File.WriteAllText(SettingsPath, "{}");
+        CreateSut().ErrorTrapping.Should().Be(SettingsDefaults.ErrorTrapping);
+        var settings = CreateSut();
+        settings.ErrorTrapping = mode;
+        settings.Save();
+        CreateSut().ErrorTrapping.Should().Be(mode);
+    }
+
     [Fact]
     public void LinkedEditingDefaultsOffAndRoundTrips()
     {

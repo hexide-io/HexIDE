@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -223,6 +224,22 @@ public class ResetPromptTests : IDisposable
         Press(editor, Key.Back);
 
         vm.Document.Text.Should().Contain("nload Me").And.NotContain("Unload Me");
+        Prompts().Should().Be(1);
+    }
+
+    [AvaloniaFact]
+    public void TabInCodeWhileRunningAsksToReset()
+    {
+        var vm = OpenForm();
+        var editor = Show(vm);
+        editor.CaretOffset = InCode(vm);
+
+        var window = windows[0];
+        window.KeyPressQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+        window.KeyReleaseQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+
+        vm.Document.Text.Should().Contain("        Unload Me");
         Prompts().Should().Be(1);
     }
 

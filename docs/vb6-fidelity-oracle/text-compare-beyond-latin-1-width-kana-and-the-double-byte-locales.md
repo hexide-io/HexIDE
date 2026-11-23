@@ -48,3 +48,31 @@ The "Fits" column is read by hand against each reading or stroke count, for the 
 - ideographs beyond the 48;
 - the half-width forms of Hangul;
 - the other East Asian locales (zh-HK, zh-SG, ja-JP's alternative sorts).
+
+### Every full-width letter (2026-11-23, #5253, SP6)
+
+**The question.** The probe above took only `ＡＢＣａｂｃ` of the full-width letters. #5253 builds the fold, and the other 23
+letters, in each case, were the open part.
+
+**The probe.** One `Sub Main` program, built with `/make` on vb6.exe SP6 as native code and as p-code, under en-GB
+(`GetUserDefaultLCID` 2057). The two builds logged identical lines. For each letter from A to Z, with `F` the full-width
+capital (`ChrW(&HFF21 + i)`) and `f` the full-width small letter (`ChrW(&HFF41 + i)`), it logged:
+- `StrComp(F, capital)`, `StrComp(f, small)`, `StrComp(F, f)` and `StrComp(F, small)`, all with `vbTextCompare`;
+- `StrComp(F, the next ASCII capital)` and `StrComp(F, the previous one)`, with `vbTextCompare`;
+- `StrComp(F & "1", capital & "2", vbTextCompare)`;
+- `StrComp(F, capital, vbBinaryCompare)`.
+
+**Every one of the 26 letters gave the same row:**
+
+| Comparison | Result |
+|---|---|
+| `F` against its ASCII capital, `f` against its ASCII small letter, `F` against `f`, `F` against the ASCII small letter | 0 |
+| `F` against the next ASCII capital | -1 |
+| `F` against the previous ASCII capital | 1 |
+| `F & "1"` against the capital `& "2"` | -1: the letters tie, and the next character decides |
+| `F` against its ASCII capital, binary | 1 |
+
+So **text compare folds every full-width letter to its ASCII letter, in either case,** as the probe above found for A to C,
+and it sorts exactly where that letter does. Binary compare keeps them apart.
+
+**Not measured:** full-width punctuation and symbols (U+FF01 to U+FF0F and the others), and any locale but en-GB.

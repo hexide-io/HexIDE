@@ -52,6 +52,7 @@ public static class VBProperties
 
     public static PropertyClass<bool> AutoSizeProperty = new PropertyClass<bool>("AutoSize", "Whether the control resizes itself to fit its contents.", PropertyCategory.Position, false);
 
+    internal static readonly PropertyClass<VBFormBorderStyle> FormBorderStyleProperty = new("BorderStyle", "The style of border drawn around the object.", PropertyCategory.Appearance, VBFormBorderStyle.Sizable);
     public static PropertyClass<VBBorder> BorderStyleProperty = new PropertyClass<VBBorder>("BorderStyle", "The style of border drawn around the object.", PropertyCategory.Appearance, VBBorder.None);
 
     public static PropertyClass<VBColor> ForeColorProperty = new PropertyClass<VBColor>("ForeColor", "The color used for the object's text and graphics.", PropertyCategory.Appearance, VBColor.FromSystemColor(VbSystemColor.Btntext));
