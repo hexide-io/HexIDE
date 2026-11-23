@@ -8,8 +8,10 @@ namespace HexIDE.Runtime.Tests;
 /// no DFA edge computed through a predicate. One such predicate, in IDENTIFIER_CONTINUATION, made the interpreter's lexer
 /// about 350 times slower and the language server's about 200 times. The interpreter's took 385 ms over a 489-line form,
 /// which the editor re-lexes on every edit for bracket colouring (#2676). A predicate at the right edge runs only once
-/// its alternative has matched, so it costs nothing on ordinary tokens. This reads the grammars rather than timing them,
-/// so it cannot be flaky.
+/// its alternative has matched, so it costs nothing on ordinary tokens, unless a loop comes straight before it: it then
+/// runs at every iteration. One placed after a string's characters made string-heavy source lex about 78 times slower
+/// (#4741's review), and this test cannot see that (#5537), so keep such a loop to text as rare as IDENTIFIER_CONTINUATION's
+/// trailing blanks. This reads the grammars rather than timing them, so it cannot be flaky.
 /// </summary>
 public class LexerPredicatePlacementTests
 {

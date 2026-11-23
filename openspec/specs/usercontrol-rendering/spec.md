@@ -222,7 +222,7 @@ Measured: [#4337](https://github.com/hexide-io/HexIDE/issues/4337), native and p
 #### Scenario: Loading a hidden array element
 - **WHEN** a program loads a new UserControl array element from a template with saved custom properties
 - **THEN** its own Initialize, Resize with extender Width zero, and ReadProperties run before Load returns
-- **AND** ReadProperties receives the same PropertyBag surface as a design-time element, with operations still unimplemented
+- **AND** ReadProperties receives the same read-only PropertyBag as a placed instance, reading the template’s saved scalar values ([#4741](https://github.com/hexide-io/HexIDE/issues/4741))
 - **AND** the resulting element has the template's saved Width, Height and Top and Visible False
 
 #### Scenario: Showing loaded elements before the form appears
