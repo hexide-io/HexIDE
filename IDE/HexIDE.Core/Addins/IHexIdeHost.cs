@@ -142,8 +142,9 @@ public interface IHexIdeHost
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Deny by default.</b> Only an add-in HexIDE's own source grants language packs registers any, and only the
-    /// <c>Str.*</c> families its grant names. Today only the Basic provider holds one.
+    /// <b>Only the owners HexIDE grants it may call it.</b> The grants are in HexIDE's own source, keyed by owner, and each
+    /// names the <c>Str.*</c> families its owner's packs may supply. Any other add-in is refused, whatever its signature.
+    /// Today the only grant is the Basic provider's, which HexIDE composes itself.
     /// </para>
     /// <para>
     /// <b>It only adds.</b> Every file is read before anything is merged, and the whole folder is refused if any one key is
