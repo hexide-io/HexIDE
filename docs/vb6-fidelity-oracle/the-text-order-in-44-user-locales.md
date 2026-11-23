@@ -110,3 +110,48 @@ They were built with `ChrW` and sorted as above, by a stable insertion sort on `
 - the double-byte code pages (932, 936, 949 and 950) and their locales;
 - German phone book and traditional Spanish, which `Set-Culture` doesn't select (above);
 - strings longer than one character beyond the digraphs listed.
+
+### One string set under every locale (2026-11-23, #5105, SP6)
+
+**The question.** The sections above measured these locales in pieces:
+- #1567's 321 strings under 44 locales;
+- the other code pages' upper halves under the 20 or so locales that use them;
+- the two alternative sorts on their own.
+
+Each piece was recorded as what moved against en-GB. #5105's loader needs every locale's whole order in one shape, so
+this run sorts one set that holds all of those pieces, under all 46 locales.
+
+**The probe.**
+- **The set:** 784 strings. It's every string of #1567's measured order but `""`, NUL, Tab, LF and CR; every
+  character of the upper halves of code pages 1250, 1251, 1253 to 1258 and 874 not already among them, without the C1
+  controls; and the 15 digraphs of "Each locale's own script".
+- **The sort:** a stable merge sort on `StrComp(a, b, vbTextCompare)`, with adjacent equals grouped.
+- **Setup:** one `Sub Main` program on VB6.EXE 6.00.9782 (SP6) and MSVBVM60 6.00.9848, in a clone of the oracle guest
+  on Windows 10 build 19044.1288. Built with `/make` as native code and as p-code, each exe run in session 0.
+- **The locale:** set by `Set-Culture`. For German phone book and traditional Spanish, the sort LCID was written into
+  `HKCU\Control Panel\International`, as above. `GetUserDefaultLCID` read back the expected LCID in every run, 66567
+  and 1034 for those two.
+- **Native code and p-code wrote byte-identical files in all 46 locales.** The orders are
+  `corpus/locale-sort/<locale>.sbcs.txt`, and that folder's README gives the format and each locale's group count.
+  The files leave out five C1 controls, which the repository refuses in a tracked file. Each was a group of its own in
+  every locale.
+
+**What it shows:**
+- **19 locales besides en-GB sort the whole set exactly as en-GB does:** ar-SA, ca-ES, de-DE, el-GR, en-AU, en-US, eu-ES, fr-CA,
+  fr-FR, gl-ES, he-IL, id-ID, it-IT, nl-NL, pt-BR, pt-PT, th-TH, zh-CN and zh-TW. Above, 22 besides en-GB did so on
+  #1567's strings alone. bg-BG, ru-RU and uk-UA leave en-GB's order once their own Cyrillic is in the set, as "Each locale's own script"
+  found around Й.
+- **en-GB's order agrees with #1567's** on all 310 strings the two sets share, with no pair ordered differently.
+- **The tailorings recorded above all hold in the full set.** These were checked:
+  - sv-SE: Å after Ž, and Ä after Å;
+  - da-DK: `"aa"` after Å;
+  - tr-TR: Ç after `"cop"` and before D;
+  - cs-CZ: `"ch"` after H and before I;
+  - German phone book: `ä` equal to `"ae"`, which plain de-DE keeps apart;
+  - traditional Spanish: `"ch"` after `"cop"` and before D;
+  - ja-JP: `\` equal to `¥`.
+- **Group counts run from 569 (vi-VN, German phone book) to 574 (is-IS)** against en-GB's 572. They differ where a
+  locale joins strings en-GB keeps apart, or splits ones it joins.
+
+**Not measured:** characters outside these code pages; strings beyond this set's 69 longer ones; any locale or Windows
+build but these.
