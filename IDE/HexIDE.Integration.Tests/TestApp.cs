@@ -82,31 +82,31 @@ public class TestApp : Application
         {
             Source = new Uri("avares://HexIDE/Themes/Classic.axaml"),
         }) ; Console.Error.WriteLine("1085 probe: resource 5");
-        // As App.axaml does: the running controls' own templates. Without them a Frame has no template, so the controls
-        // it contains are not in the visual tree at all, and real pointer input passes through them (#974).
-        foreach (var dictionary in new[] { "VBTimer.axaml", "VBLabel.axaml", "Resources.axaml" })
-        {
-            Console.Error.WriteLine("1085 probe: loading " + dictionary);
-            try
-            {
-                Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
-                {
-                    Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/" + dictionary),
-                });
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine("1085 probe: " + ex);
-                throw;
-            }
-            Console.Error.WriteLine("1085 probe: loaded " + dictionary);
-        }
+        // As the IDE does: the running controls' own templates. Without them a Frame has no template, so the controls it
+        // contains are not in the visual tree at all, and real pointer input passes through them (#974). The provider registers
+        // them itself, through a host whose resources go through the IDE's checks, under the origin the IDE gives it (#5396).
+        RegisterProvider();
         // The running IDE has every window in its lifetime's list, which the headless host has not got: a window a test showed
         // before its first call to the driver went untracked, and a test that ran first saw it as opening later.
         HexIDE.IDE.RunningProgram.Current = new HexIDE.IDE.InterpreterRunningProgram();
         HexIDE.Automation.UiAutomationDriver.TrackWindows();
         WindowLeakGuard.Track();
         Console.Error.WriteLine("1085 probe: Initialize finished");
+    }
+
+    /// <summary>
+    /// The service the provider's themes went through, so a test can see what it holds. One per application: the headless
+    /// harness makes more than one in a run, and each merges the provider's themes afresh.
+    /// </summary>
+    internal HexIDE.Addins.AddinResourceService ProviderResources { get; } = new();
+
+    private void RegisterProvider()
+    {
+        var origin = HexIDE.Desktop.BasicProviderComposition.Origin;
+        var host = Substitute.For<HexIDE.Addins.IHexIdeHost>();
+        host.RegisterResources(Arg.Any<Uri>()).Returns(call =>
+            ProviderResources.Register(call.Arg<Uri>(), origin, typeof(HexIDE.Runtime.BasicProvider).Assembly));
+        new HexIDE.Runtime.BasicProvider().Initialize(host);
     }
 
     public static AppBuilder BuildAvaloniaApp() =>

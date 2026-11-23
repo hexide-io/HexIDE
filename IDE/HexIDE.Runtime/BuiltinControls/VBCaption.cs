@@ -1,4 +1,3 @@
-using System.Text;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -75,38 +74,15 @@ public static class VBCaption
     /// </summary>
     public static Parsed Parse(string caption, KeyChoice choice = KeyChoice.Last)
     {
-        if (!caption.Contains('&'))
-            return new Parsed(caption, null);
-
-        var shown = new StringBuilder(caption.Length);
-        int? key = null;
-        for (var i = 0; i < caption.Length; i++)
-        {
-            if (caption[i] != '&')
-            {
-                shown.Append(caption[i]);
-            }
-            else if (i + 1 < caption.Length && caption[i + 1] == '&')
-            {
-                shown.Append('&');
-                i++;
-            }
-            else if (i + 1 < caption.Length && (choice == KeyChoice.Last || key is null))
-            {
-                // The marked character is appended on the next pass.
-                key = shown.Length;
-            }
-            // A trailing &, with nothing to mark, is not shown. A Label draws an underline where its character would be,
-            // which a button and a menu do not; that is not reproduced.
-        }
-        return new Parsed(shown.ToString(), key);
+        var parsed = BuiltinTypes.VBCaptionText.Parse(caption, choice == KeyChoice.First);
+        return new Parsed(parsed.Shown, parsed.AccessKey);
     }
 
     /// <summary>
     /// <paramref name="caption"/> as shown: <c>E&amp;xit</c> is <c>Exit</c>, <c>Tom &amp;&amp; Jerry</c> is <c>Tom &amp; Jerry</c>,
     /// <c>Trail&amp;</c> is <c>Trail</c>.
     /// </summary>
-    public static string AsShown(string caption) => Parse(caption).Shown;
+    public static string AsShown(string caption) => BuiltinTypes.VBCaptionText.Shown(caption);
 
     /// <summary>
     /// What a control draws its caption with: an AccessText where the caption <see cref="Parsed.FitsAccessText"/>, plain

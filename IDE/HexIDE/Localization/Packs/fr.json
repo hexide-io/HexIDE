@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Plusieurs emplacements d’état local du projet ont été trouvés. Chacun peut contenir un état enregistré différent. Rien ne sera écrit avant que vous en choisissiez un pour cette session. Saisissez son numéro ou annulez :\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} est un lien ou une jonction, ou ne se trouve plus à l’emplacement où il a été trouvé ; aucune donnée n’y est donc lue ni écrite.",
     "Str.Dialog.SharedFile.MultipleModified": "Plusieurs copies du fichier partagé « {0} » ont été modifiées. Dans la boîte de dialogue suivante, sélectionnez la copie à enregistrer.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "La copie de ce fichier susceptible de contenir des modifications est déjà ouverte.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) est partagé par d’autres projets. Voulez-vous l’enregistrer ?",
     "Str.Dialog.SharedFile.Update": "Voulez-vous mettre à jour {0} dans les projets qui le partagent avec {1} ?",
     "Str.Dialog.SharedFile.DiscardChanges": "La mise à jour de {0} dans le projet {1} supprimera les modifications non enregistrées de ce projet. Voulez-vous continuer ?",
     "Str.Dialog.SharedFile.DiskChanged": "Le fichier « {0} » a changé sur le disque depuis le chargement ou l’enregistrement de la copie du projet {1}. Voulez-vous l’écraser ?",

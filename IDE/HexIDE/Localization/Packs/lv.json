@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Atrastas vairākas projekta lokālā stāvokļa atrašanās vietas. Katrā var būt atšķirīgs saglabātais stāvoklis. Nekas netiks rakstīts, līdz izvēlēsieties vienu šai sesijai. Ievadiet tās numuru vai atceliet:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} ir saite vai savienojuma punkts, vai vairs neatrodas vietā, kur tas tika atrasts, tāpēc no tā nekas netiek lasīts un tajā nekas netiek rakstīts.",
     "Str.Dialog.SharedFile.MultipleModified": "Ir mainītas vairākas koplietotā faila '{0}' kopijas. Nākamajā dialoglodziņā atlasiet saglabājamo kopiju.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "Šī faila kopija, kurā var būt izmaiņas, jau ir atvērta.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) tiek koplietots ar citiem projektiem. Vai vēlaties to saglabāt?",
     "Str.Dialog.SharedFile.Update": "Vai vēlaties atjaunināt {0} projektos, kas to koplieto ar {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Atjauninot {0} projektā {1}, tiks atmestas šī projekta nesaglabātās izmaiņas. Vai vēlaties turpināt?",
     "Str.Dialog.SharedFile.DiskChanged": "Fails '{0}' diskā ir mainījies kopš projekta {1} kopijas ielādes vai saglabāšanas. Vai vēlaties to pārrakstīt?",

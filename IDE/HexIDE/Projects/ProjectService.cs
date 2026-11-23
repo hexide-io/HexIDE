@@ -64,6 +64,7 @@ public partial class ProjectService : IProjectService
         this.templates = templates;
         this.trust = trust;
         this.documents = documents;
+        if (documents is DocumentDockService dock) dock.SharedCodeClosing = SaveSharedCodeOnClose;
         // A ProjectService made without the IDE's project types, which only a test makes, has VB6's type alone, registered
         // as the composition registers it.
         this.contributed = contributed ?? Vb6ProjectType.Alone();

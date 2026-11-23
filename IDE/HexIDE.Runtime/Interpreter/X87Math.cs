@@ -4,8 +4,8 @@ using System.Numerics;
 
 namespace HexIDE.Runtime.Interpreter;
 
-// #5259, oracle PRs #5258 and #5294. The reduced trig series and Atn use 256 fractional bits,
-// leaving room for cancellation near a multiple of pi/2 and for the two rounds on store.
+// #5259, oracle PRs #5258 and #5294. The full model keeps 256 fractional bits for
+// cancellation and the two rounds on store. #5337 retains it near rounding boundaries.
 internal static class X87Math
 {
     internal const double ArgumentLimit = 9223372036854775808.0; // 2^63
@@ -22,13 +22,175 @@ internal static class X87Math
 
     // Below this bound the cubic correction is less than half an x87 ulp. Keep the input
     // directly, including subnormal values and signed zero.
-    internal static double Sin(double x) =>
+    internal static double Sin(double x) => Evaluate(x, 0);
+    internal static double Cos(double x) => Evaluate(x, 1);
+    internal static double Tan(double x) => Evaluate(x, 2);
+    internal static double Atan(double x) => Evaluate(x, 3);
+
+    private static double Evaluate(double x, int function)
+    {
+        if (Math.Abs(x) < TinyArgument)
+            return function == 1 ? 1 : x;
+
+        DoubleDouble value;
+        if (function == 3)
+            value = FastAtan(Math.Abs(x));
+        else
+        {
+            // Keep the cancellation exact, including the largest admitted arguments.
+            BigInteger argument = ToFixed(Math.Abs(x));
+            BigInteger turns = RoundQuotient(argument, HalfPi66);
+            DoubleDouble remainder = FromFixed(argument - turns * HalfPi66);
+            DoubleDouble square = -(remainder * remainder);
+            DoubleDouble sin = SinCoefficients[^1], cos = CosCoefficients[^1];
+            for (int i = SinCoefficients.Length - 2; i >= 0; --i)
+            {
+                sin = sin * square + SinCoefficients[i];
+                cos = cos * square + CosCoefficients[i];
+            }
+            sin *= remainder;
+            (sin, cos) = (int)(turns & 3) switch
+            {
+                0 => (sin, cos),
+                1 => (cos, -sin),
+                2 => (-sin, -cos),
+                _ => (-cos, sin)
+            };
+            if (x < 0)
+                sin = -sin;
+            value = function == 0 ? sin : function == 1 ? cos : sin / cos;
+        }
+
+        if (TryStoreFast(value.Hi, value.Lo, out double result))
+            return function == 3 ? Math.CopySign(result, x) : result;
+
+        return function switch
+        {
+            0 => SinExact(x),
+            1 => CosExact(x),
+            2 => TanExact(x),
+            _ => AtanExact(x)
+        };
+    }
+
+    // The series error is bounded by 2^-88 times the magnitude; see the derivation in
+    // scripts/probes/issue-5337/README.md. On this scale that is at most 2^-24.
+    internal static bool TryStoreFast(double hi, double lo, out double result)
+    {
+        double magnitude = Math.Abs(hi);
+        double low = hi < 0 ? -lo : lo;
+        int exponent = Math.ILogB(magnitude);
+        // A negative tail below an exact power of two belongs to the lower binade.
+        if ((BitConverter.DoubleToUInt64Bits(magnitude) & 0x000FFFFFFFFFFFFFUL) == 0 && low < 0)
+            --exponent;
+        double high = Math.ScaleB(magnitude, 63 - exponent);
+        low = Math.ScaleB(low, 63 - exponent);
+        double rounded = Math.Round(low);
+        result = 0;
+        if (!double.IsFinite(high) || Math.Abs(Math.Abs(low - rounded) - 0.5) <= Math.ScaleB(1.0, -24))
+            return false;
+
+        // high is an integer on this scale. Once the 64-bit round is certified,
+        // this addition performs the 53-bit round, including its exact halfway cases.
+        result = Math.CopySign(Math.ScaleB(high + rounded, exponent - 63), hi);
+        return true;
+    }
+
+    private static readonly DoubleDouble[] SinCoefficients = TrigCoefficients(true);
+    private static readonly DoubleDouble[] CosCoefficients = TrigCoefficients(false);
+    private static readonly DoubleDouble[] AtanCoefficients = CreateAtanCoefficients();
+    private static readonly DoubleDouble QuarterPi = FromFixed(Pi >> 2);
+
+    private static DoubleDouble[] TrigCoefficients(bool sine)
+    {
+        var coefficients = new DoubleDouble[16];
+        BigInteger factorial = BigInteger.One;
+        for (int n = 0; n < coefficients.Length; ++n)
+        {
+            if (n > 0)
+                factorial *= (2 * n) * (sine ? 2 * n + 1 : 2 * n - 1);
+            coefficients[n] = FromFixed(One / factorial);
+        }
+        return coefficients;
+    }
+
+    private static DoubleDouble[] CreateAtanCoefficients()
+    {
+        var coefficients = new DoubleDouble[49];
+        for (int n = 0; n < coefficients.Length; ++n)
+            coefficients[n] = FromFixed(One / (2 * n + 1));
+        return coefficients;
+    }
+
+    private static DoubleDouble FastAtan(double x)
+    {
+        bool reciprocal = x > 1;
+        DoubleDouble value = new(x, 0);
+        if (reciprocal)
+            value = new DoubleDouble(1, 0) / value;
+        bool nearOne = value.Hi > 0.5;
+        if (nearOne)
+            value = (value + new DoubleDouble(-1, 0)) / (value + new DoubleDouble(1, 0));
+        DoubleDouble square = -(value * value);
+        // Shorter series retain the same tail bound on these dyadic intervals.
+        double magnitude = Math.BitIncrement(Math.Abs(value.Hi));
+        int last = magnitude <= 1.0 / 64 ? 9 : magnitude <= 1.0 / 16 ? 15 : magnitude <= 1.0 / 4 ? 31 : 48;
+        DoubleDouble sum = AtanCoefficients[last];
+        for (int n = last - 1; n >= 0; --n)
+            sum = sum * square + AtanCoefficients[n];
+        sum *= value;
+        if (nearOne)
+            sum += QuarterPi;
+        if (reciprocal)
+            sum = QuarterPi + QuarterPi + -sum;
+        return sum;
+    }
+
+    private static DoubleDouble FromFixed(BigInteger value)
+    {
+        double high = Math.ScaleB((double)value, -FractionBits);
+        BigInteger highFixed = ToFixed(Math.Abs(high));
+        if (high < 0)
+            highFixed = -highFixed;
+        return new(high, Math.ScaleB((double)(value - highFixed), -FractionBits));
+    }
+
+    private readonly record struct DoubleDouble(double Hi, double Lo)
+    {
+        public static DoubleDouble operator -(DoubleDouble x) => new(-x.Hi, -x.Lo);
+
+        public static DoubleDouble operator +(DoubleDouble x, DoubleDouble y)
+        {
+            double sum = x.Hi + y.Hi;
+            double part = sum - x.Hi;
+            double error = (x.Hi - (sum - part)) + (y.Hi - part) + x.Lo + y.Lo;
+            double high = sum + error;
+            return new(high, error - (high - sum));
+        }
+
+        public static DoubleDouble operator *(DoubleDouble x, DoubleDouble y)
+        {
+            double product = x.Hi * y.Hi;
+            double error = Math.FusedMultiplyAdd(x.Hi, y.Hi, -product) + x.Hi * y.Lo + x.Lo * y.Hi;
+            double high = product + error;
+            return new(high, error - (high - product));
+        }
+
+        public static DoubleDouble operator /(DoubleDouble x, DoubleDouble y)
+        {
+            double quotient = x.Hi / y.Hi;
+            DoubleDouble residual = x + -(y * new DoubleDouble(quotient, 0));
+            return new DoubleDouble(quotient, 0) + new DoubleDouble((residual.Hi + residual.Lo) / y.Hi, 0);
+        }
+    }
+
+    internal static double SinExact(double x) =>
         Math.Abs(x) < TinyArgument ? x : StoreDouble(Trig(x).Sin);
 
-    internal static double Cos(double x) =>
+    internal static double CosExact(double x) =>
         Math.Abs(x) < TinyArgument ? 1.0 : StoreDouble(Trig(x).Cos);
 
-    internal static double Tan(double x)
+    internal static double TanExact(double x)
     {
         if (Math.Abs(x) < TinyArgument)
             return x;
@@ -37,7 +199,7 @@ internal static class X87Math
         return StoreDouble(Divide(sin, cos));
     }
 
-    internal static double Atan(double x)
+    internal static double AtanExact(double x)
     {
         if (Math.Abs(x) < TinyArgument)
             return x;

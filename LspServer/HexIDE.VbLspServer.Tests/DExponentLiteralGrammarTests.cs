@@ -17,9 +17,36 @@ public class DExponentLiteralGrammarTests
     [InlineData("2.5D2")]
     [InlineData(".5D1")]
     [InlineData("1E3")]
+    [InlineData("1E30")]
+    [InlineData("1.5E+30")]
     public void A_literal_with_a_D_or_E_exponent_parses(string literal)
     {
         VbDiagnosticsProvider.GetDiagnostics("Sub Main()\n    x = " + literal + "\nEnd Sub\n").Should().BeEmpty();
+    }
+
+    // #482: oracle a-d-exponent-in-a-source-literal.md, "A signed exponent, and a lowercase e"
+    // and "A Currency suffix after a signed exponent".
+    [Theory]
+    [InlineData("1E+30")]
+    [InlineData("1e+30")]
+    [InlineData("1D+30")]
+    [InlineData("1d+30")]
+    [InlineData("-1E+30")]
+    [InlineData("1E+30#")]
+    [InlineData("1E+30!")]
+    [InlineData("1E-30")]
+    [InlineData("12E+2")]
+    [InlineData("1E+3@")]
+    public void A_whole_number_with_a_signed_exponent_parses(string literal)
+    {
+        VbDiagnosticsProvider.GetDiagnostics("Sub Main()\n    x = " + literal + "\nEnd Sub\n").Should().BeEmpty();
+    }
+
+    [Fact]
+    public void A_Const_and_a_directive_take_a_signed_exponent()
+    {
+        VbDiagnosticsProvider.GetDiagnostics("Const K = 1E+30\n#Const C = 1E+3\nSub Main()\n#If C = 1000 Then\n    x = K\n#End If\nEnd Sub\n")
+            .Should().BeEmpty();
     }
 
     [Fact]
@@ -38,6 +65,7 @@ public class DExponentLiteralGrammarTests
     [Theory]
     [InlineData("1D")]
     [InlineData("1 D3")]
+    [InlineData("1E+")]
     public void A_D_with_no_exponent_is_still_an_error(string literal)
     {
         // vb6.exe's "Syntax error", native and p-code.

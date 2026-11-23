@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "S-au găsit mai multe locații pentru starea locală a proiectului. Fiecare poate conține o stare salvată diferită. Nu se va scrie nimic până nu alegeți una pentru această sesiune. Introduceți numărul sau anulați:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} este o legătură sau o joncțiune ori nu se mai află unde a fost găsit, așa că nu se citește și nu se scrie nimic în acea locație.",
     "Str.Dialog.SharedFile.MultipleModified": "Au fost modificate mai multe copii ale fișierului partajat '{0}'.  În dialogul următor, selectați copia care trebuie salvată.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "Copia acestui fișier care ar putea conține modificări este deja deschisă.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) este partajat cu alte proiecte. Doriți să îl salvați?",
     "Str.Dialog.SharedFile.Update": "Doriți să actualizați {0} în proiectele care îl partajează cu {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Actualizarea {0} în proiectul {1} va elimina modificările nesalvate ale acelui proiect. Doriți să continuați?",
     "Str.Dialog.SharedFile.DiskChanged": "Fișierul '{0}' s-a modificat pe disc de când copia proiectului {1} a fost încărcată sau salvată. Doriți să îl suprascrieți?",

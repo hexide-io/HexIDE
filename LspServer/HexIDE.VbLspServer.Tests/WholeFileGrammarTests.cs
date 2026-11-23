@@ -43,8 +43,6 @@ public class WholeFileGrammarTests
     {
         ["TideTable.bas"] = "spring-tide carries a deliberate syntax error — the demo exists to show a "
                           + "foreign server's diagnostics in HexIDE's editor (demo/README.md).",
-        ["Class4.cls"]    = "hexide-io/HexIDE#482 — this grammar rejects a signed exponent with no decimal "
-                          + "point, so `1E+30` is a syntax error here and is not one to the interpreter.",
     };
 
     private static IEnumerable<string> CorpusRoots(Func<string, string?>? findRoot = null)

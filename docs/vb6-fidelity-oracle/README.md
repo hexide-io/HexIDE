@@ -165,6 +165,7 @@ driven by hand, its steps were replayed from the console agent's log.
 | *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
 | *Member attributes: where VB6 attaches them, and what its IDE writes* (#273) | the same: 22 of the hand-written shapes, and every save in *Which saves write a module*, two files to the release build's hash; the Procedure Attributes dialog's rows not run again ([on SP6](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#on-sp6-the-load-and-save-shapes-and-which-saves-write-a-module-2026-11-21-1675-ide-sp6)) |
 - [A local of the stale name changes nothing (2026-11-21, #1013, IDE, SP6)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#a-local-of-the-stale-name-changes-nothing-2026-11-21-1013-ide-sp6)
+- [In a class module, too (2026-11-23, #1013, IDE, SP6)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#in-a-class-module-too-2026-11-23-1013-ide-sp6)
 - [File > Make after a retype, with no save (2026-11-22, #749, IDE, SP6)](member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#file--make-after-a-retype-with-no-save-2026-11-22-749-ide-sp6)
 
 **#1675's interpreter rows, rebuilt from their sections' tables (2026-11-21).** Each project was built with `/make` as native code and as p-code, and run in vb6.exe's IDE with `/runexit`, all on the guest's console. All three modes logged the same lines in every project.
@@ -833,6 +834,7 @@ added afterwards.
 - [An empty Picture, and what SavePicture writes (2026-11-21, #992, SP6)](loadpicture-file-kinds-and-file-errors.md#an-empty-picture-and-what-savepicture-writes-2026-11-21-992-sp6)
 - [SavePicture's bytes, and the colour table it writes (2026-11-23, #992, SP6)](loadpicture-file-kinds-and-file-errors.md#savepictures-bytes-and-the-colour-table-it-writes-2026-11-23-992-sp6)
 - [An Image's size when its Picture is set at run time (2026-11-20, #5010, SP6)](an-images-size-when-its-picture-is-set.md#an-images-size-when-its-picture-is-set-at-run-time-2026-11-20-5010-sp6)
+- [The largest picture LoadPicture loads (2026-11-23, #5461, SP6)](the-largest-picture-loadpicture-loads.md#the-largest-picture-loadpicture-loads-2026-11-23-5461-sp6)
 - [The Screen object (2026-10-28, #2431)](the-screen-object.md#the-screen-object-2026-10-28-2431)
 - [The control a shown form focuses (2026-10-28, #2436)](the-control-a-shown-form-focuses.md#the-control-a-shown-form-focuses-2026-10-28-2436)
 - [A form's own ActiveControl (2026-10-28, #2437)](a-forms-own-activecontrol.md#a-forms-own-activecontrol-2026-10-28-2437)
@@ -1054,6 +1056,7 @@ added afterwards.
 - [When the default member can't take the arguments (2026-11-18, #4747)](with-new-default-instances-and-set-through-members.md#when-the-default-member-cant-take-the-arguments-2026-11-18-4747)
 - [A Let through a default member that returns an object, and a Let of Nothing (2026-11-20, #4906, SP6)](a-let-through-an-object-returning-default-member.md#a-let-through-a-default-member-that-returns-an-object-and-a-let-of-nothing-2026-11-20-4906-sp6)
 - [LoadPicture: which files load, and the errors for those that don't (2026-11-18, #4597, SP6)](loadpicture-file-kinds-and-file-errors.md#loadpicture-which-files-load-and-the-errors-for-those-that-dont-2026-11-18-4597-sp6)
+- [SavePicture over a file that already exists (2026-11-23, #992, SP6)](loadpicture-file-kinds-and-file-errors.md#savepicture-over-a-file-that-already-exists-2026-11-23-992-sp6)
 - [Image, and Picture = Image (2026-11-21, #991, SP6)](the-drawing-methods-line-pset-circle-cls-and-point.md#image-and-picture--image-2026-11-21-991-sp6)
 - [An auto-made object is in its slot while its Class_Initialize runs (2026-11-18, #4605, SP6)](an-auto-made-object-is-in-its-slot-during-class-initialize.md#an-auto-made-object-is-in-its-slot-while-its-class_initialize-runs-2026-11-18-4605-sp6)
 - [A PropertyBag at run time (2026-11-18, #4680, SP6)](a-propertybag-at-run-time.md#a-propertybag-at-run-time-2026-11-18-4680-sp6)
