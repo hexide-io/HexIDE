@@ -682,6 +682,7 @@ added afterwards.
 - [Text Clipboard (#1156, 2026-10-17)](text-clipboard.md#text-clipboard-1156-2026-10-17)
 - [A TextBox's MultiLine and ScrollBars (2026-10-22, #1340)](a-textboxs-multiline-and-scrollbars.md#a-textboxs-multiline-and-scrollbars-2026-10-22-1340)
 - [A TextBox's MaxLength and Locked (2026-11-22, #5300, SP6)](a-textboxs-maxlength-and-locked.md#a-textboxs-maxlength-and-locked-2026-11-22-5300-sp6)
+- [A TextBox's MaxLength: its range (2026-11-22, #5300, SP6)](a-textboxs-maxlength-and-locked.md#maxlengths-range-2026-11-22-5300-sp6)
 - [The reset prompt: which edits raise it, and which windows it holds (2026-10-22, #1329)](the-reset-prompt-which-edits-raise-it-and-which-windows-it-holds.md#the-reset-prompt-which-edits-raise-it-and-which-windows-it-holds-2026-10-22-1329)
 - [A form whose two names disagree (2026-10-22, #473)](a-form-whose-two-names-disagree.md#a-form-whose-two-names-disagree-2026-10-22-473)
 - [A quote inside a .frm string (2026-10-22, #218)](a-quote-inside-a-frm-string.md#a-quote-inside-a-frm-string-2026-10-22-218)
