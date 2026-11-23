@@ -38,6 +38,8 @@ public static class DocumentLanguage
     /// </para>
     /// </summary>
     public const string Vb6 = "vb6";
+    /// <summary>The explicit language label for source entries in a twinBASIC container.</summary>
+    public const string TwinBasic = "twinbasic";
 
     /// <summary>
     /// The document's extension including its leading dot, lower-cased, or null when it has none.

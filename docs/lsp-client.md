@@ -744,8 +744,11 @@ Each ordinal entry name segment is percent-encoded independently, including embe
 the container's complete `file:` URI is percent-encoded as the query value. `ArchiveEntryUri`, beside
 `LspDocumentUri`, builds and parses it. Containers compare as host file paths (case-insensitively on Windows),
 while entry segments remain case-sensitive. Distinct containers never share document identity.
-An available twinBASIC text preview opens a session with its text, routed by the entry's extension, and closes it
-with the tab. Reload recreates that session and its diagnostic markers. Entries stay read-only and send
+An available twinBASIC text preview opens a session with its text and closes it with the tab. Source entries
+(`.twin` and the VB6 source extensions, ignoring case) carry the `twinbasic` language label: only servers
+claiming the extension and declaring `languageId` `twinbasic` receive them (#1122). Other entries route by
+extension. Without a matching server, no diagnostics are produced. Reload recreates that session and its
+diagnostic markers. Entries stay read-only and send
 no `didChange`; no shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
 The protocol inspector and `list_lsp_messages` record the conversation normally; pseudonymised exports redact
 both entry names and the nested container URI.

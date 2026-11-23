@@ -1027,7 +1027,7 @@ public sealed class VBLspClient : ILspClient
     /// </summary>
     public Task OpenDocumentAsync(
         string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
-        string? ownerAddinId = null) =>
+        string? ownerAddinId = null, string? languageId = null) =>
         OpenDocumentAsync(uri, text, cancellationToken);
 
     public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)
