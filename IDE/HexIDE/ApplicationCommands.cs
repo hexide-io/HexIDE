@@ -77,7 +77,8 @@ public class ApplicationCommands
     public static readonly RoutedCommand ToggleBookmarkCommand = new RoutedCommand(nameof(ToggleBookmarkCommand), new KeyGesture(Key.F2, GetPlatformCommandKey()));
     public static readonly RoutedCommand NextBookmarkCommand = new RoutedCommand(nameof(NextBookmarkCommand));
     public static readonly RoutedCommand PreviousBookmarkCommand = new RoutedCommand(nameof(PreviousBookmarkCommand));
-    public static readonly RoutedCommand ClearAllBookmarksCommand = new RoutedCommand(nameof(ClearAllBookmarksCommand), new KeyGesture(Key.F2, GetPlatformCommandKey() | KeyModifiers.Shift));
+    public static readonly RoutedCommand ClearAllBookmarksCommand = new RoutedCommand(nameof(ClearAllBookmarksCommand));
+    public static readonly RoutedCommand LastPositionCommand = new RoutedCommand(nameof(LastPositionCommand), new KeyGesture(Key.F2, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand CallHierarchyCommand = new RoutedCommand(nameof(CallHierarchyCommand));
     public static readonly RoutedCommand TypeHierarchyCommand = new RoutedCommand(nameof(TypeHierarchyCommand));
     public static readonly RoutedCommand RunCodeLensCommand = new RoutedCommand(nameof(RunCodeLensCommand));

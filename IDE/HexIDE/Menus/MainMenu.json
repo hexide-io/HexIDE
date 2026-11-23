@@ -433,9 +433,10 @@
         "command": "application.GoToDeclarationCommand"
       },
       {
-        "kind": "Placeholder",
+        "kind": "Command",
         "id": "view.lastposition",
-        "labelKey": "Str.Menu.View.LastPosition"
+        "labelKey": "Str.Menu.View.LastPosition",
+        "command": "application.LastPositionCommand"
       },
       {
         "kind": "Command",

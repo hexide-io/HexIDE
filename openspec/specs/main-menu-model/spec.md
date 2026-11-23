@@ -18,12 +18,23 @@ localization key.
 
 #### Scenario: Disabled unfinished entries
 
-View → Last Position and View → Property Pages are placeholders with no action, state, provider or
-children.
+View → Property Pages is a placeholder with no action, state, provider or children.
 
 #### Scenario: Split the active code window
 
 Window → Split references the registered split command, handled by the active code editor (#70).
+
+#### Scenario: Return to Last Position
+
+View → Last Position references the application-wide Last Position command (#69). It is disabled until
+there is a history entry. Ctrl+Shift+F2 (Cmd+Shift+F2 on macOS) walks the eight most recent edited lines,
+Definition and Find origins, and run-start positions, newest first and cycling after the oldest. Edited
+lines enter when left; a press selects its destination before recording the edited line it leaves.
+Entries store fixed line numbers and land at column 1, clamped to the last line, activating or reopening
+their code window. Removing a module or unloading its project drops its entries. Clear All Bookmarks
+retains its menu and toolbar actions without a default key. The measured cases are recorded in the
+[oracle page](../../../docs/vb6-fidelity-oracle/view-last-position.md) and
+[oracle PR #5426](https://github.com/hexide-io/HexIDE/pull/5426).
 
 #### Scenario: Host-populated menus
 

@@ -71,7 +71,7 @@
 | Quick Info | Ctrl+I | Done | Ctrl+I calls `TriggerQuickInfo()` → LSP hover at caret; auto-hover on mouse-over also active |
 | Parameter Info | Ctrl+Shift+I | Done | Triggers LSP signature help |
 | Complete Word | Ctrl+Space | Done | Completes a unique prefix immediately; otherwise opens the full completion list (#3056) |
-| Bookmarks | Ctrl+F2 / Ctrl+Shift+F2 | Done | Toggle/next/previous/clear-all; next and previous have no default gesture; cyan circle gutter margin; persisted per project in the `.user.hexproj` sidecar via `UserSidecarService` (**exceeds VB6**, which lost bookmarks on close). Not set on a line of the header or of a member's `Attribute` lines, which are read-only (#273) |
+| Bookmarks | Ctrl+F2 | Done | Toggle/next/previous/clear-all; next, previous and clear-all have no default gesture; cyan circle gutter margin; persisted per project in the `.user.hexproj` sidecar via `UserSidecarService` (**exceeds VB6**, which lost bookmarks on close). Not set on a line of the header or of a member's `Attribute` lines, which are read-only (#273) |
 
 ---
 
@@ -82,7 +82,7 @@
 | Code | F7 | Done | Opens code editor for active form/module and focuses its text area (#3393) |
 | Object | Shift+F7 | Done | Opens form designer for active form |
 | Definition | — | Done | LSP go-to-definition |
-| Last Position | — | Stub | Always disabled |
+| Last Position | Ctrl+Shift+F2 | Done | Eight-entry, cyclic history of edited lines, Definition/Find origins and run-start positions; fixed line numbers; reopens closed code windows (#69). [Measured behaviour](vb6-fidelity-oracle/view-last-position.md), with lifetime edges in [oracle PR #5426](https://github.com/hexide-io/HexIDE/pull/5426) |
 | Recent edit locations | — | Done | View → Recent Edits: module, line and preview; session-only, newest 50; coalesces within 10 lines; locations follow text edits (#1999) |
 | Object Browser | F2 | Partial | Opening focuses the search input (#3393). Libraries sort alphabetically ignoring case after `<All Libraries>`, including the project, without changing selection (#4202; headless checked, supervisor live check pending). Two-panel browser implemented: library/class/member tree, search (local filter plus a workspace-wide `workspace/symbol` query of every capable running server), Back/Forward, Go-to-Definition, LSP member loading with an in-process declaration collection for unopened project modules (#4401), description panel; theme-tinted Fluent kind icons (#11); members refresh on selection, member navigation positions the caret, and Escape closes (#24); unavailable type metadata uses a localized class placeholder in every shipped pack (#4100; checked live in German and Pseudo) |
 | Immediate Window | Ctrl+G | Done (Phase 4 + P7c) | Opening focuses the editable buffer (#3393); `?expr`/`Print expr`/bare expr evaluates against the paused frame. A `?` line prints as `Debug.Print` does, ` 5 ` for 5 and lists with `;` and `,`, as VB6's Immediate window was measured to (#1386); a bare **assignment or `Set` now EXECUTES** and mutates the frame (`count = 5` assigns, `?count = 5` compares — P7c); user Sub/Function calls still rejected (deadlock-prone — D14–D15); Debug.Print output lands here; MCP `evaluate`; held text selection is guarded against recursive caret scrolling in short Immediate and code editors (#3273; live verification pending) |
@@ -554,7 +554,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Alt+F5 | Run with VB6 | Done | Asks before replacing an output unless its filename and SHA-256 match the last successful Run build, persisted in the user sidecar (#4504); Make and Run use the `Path32` output folder when `ExeName32` is also set, otherwise the `.vbp` folder (#4538, measured in [oracle PR #4756](https://github.com/hexide-io/HexIDE/pull/4756)); working directory remains HexIDE's own |
 | Shift+F2 | View Definition | Done | Routed GoToDefinitionCommand; F12 also remains available (#3) |
 | F2 | Object Browser | Done | OpenObjectBrowserCommand on F2; next and previous bookmark have no default gesture, so nothing else takes it |
-| Ctrl+Shift+F2 | Last Position | Missing | Menu item still disabled; Ctrl+Shift+F2 gesture consumed by ClearAllBookmarksCommand |
+| Ctrl+Shift+F2 | Last Position | Done | View > Last Position; Clear All Bookmarks has no default key (#69) |
 | F7 | View Code | Done | ViewCodeCommand on F7 |
 | Ctrl+F2 | Next Procedure | Missing | Procedure navigation shortcut |
 

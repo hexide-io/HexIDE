@@ -82,6 +82,7 @@ internal static class CommandKeyMapping
             ["FormatSelectionCommand"]                 = ApplicationCommands.FormatSelectionCommand,
             ["FormatDocumentCommand"]                  = ApplicationCommands.FormatDocumentCommand,
             // ── View ──────────────────────────────────────────────
+            ["LastPositionCommand"] = ApplicationCommands.LastPositionCommand,
             ["ViewCodeCommand"]                        = ApplicationCommands.ViewCodeCommand,
             ["ViewObjectCommand"]                      = ApplicationCommands.ViewObjectCommand,
             ["OpenImmediateCommand"]                   = ApplicationCommands.OpenImmediateCommand,

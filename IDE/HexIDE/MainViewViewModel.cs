@@ -53,6 +53,7 @@ public partial class MainViewViewModel : ObservableObject
     private readonly IProjectService projectService;
     private readonly IDocumentDockService documentDockService;
     public DelegateCommand ReopenClosedDocumentCommand { get; }
+    public DelegateCommand LastPositionCommand { get; }
     public ObservableCollection<RecentProjectItemViewModel> ClosedDocumentMenuItems { get; } = new();
 
     /// <summary>The Run menu's F5 Runs and Start Once With, for the launches add-ins contribute; null when none can be.</summary>
@@ -1813,6 +1814,27 @@ public partial class MainViewViewModel : ObservableObject
         dockFactory.InitLayout(Layout);
         foreach (var tool in addinToolWindowService.Tools)
             RegisterAddinTool(tool);
+        var lastPositions = new LastPositionHistory(eventBus);
+        LastPositionCommand = new DelegateCommand(
+            () => lastPositions.GoBack(editorService, ActiveCodeDocument),
+            () => lastPositions.Entries.Count > 0);
+        lastPositions.Changed += () =>
+        {
+            LastPositionCommand.RaiseCanExecutedChanged();
+            Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
+        };
+        CodeEditorViewModel? previousCode = ActiveCodeDocument;
+        documentDockService.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(IDocumentDockService.ActiveDocument)) return;
+            if (!ReferenceEquals(previousCode, ActiveCodeDocument)) previousCode?.LeaveLastPositionLine();
+            previousCode = ActiveCodeDocument;
+        };
+        projectRunnerService.RunStarting += () =>
+        {
+            ActiveCodeDocument?.LeaveLastPositionLine();
+            ActiveCodeDocument?.RecordLastPosition();
+        };
         documentDockService.TrackTabs();
         ReopenClosedDocumentCommand = new DelegateCommand(
             () => documentDockService.ReopenClosedDocument(editorService),
