@@ -450,17 +450,26 @@ public static class PackageSigner
 
     // A private key named among the package's own files would be published inside it. Only the files pack is told to
     // bundle are copied, so the key gets in only by being named, but a key kept beside the build output is one --include
-    // away (#5318). Compared as full paths, ignoring case, so a case-insensitive disk can't hide a match.
+    // away (#5318). A path match is the weakest form, because File.Copy follows links: a copy of the key, a symlink or a
+    // hard link to it all have other paths. So each named file is read as File.Copy will read it, through any link, and
+    // refused if it holds the key's text, as UTF-8 or UTF-16. The path is compared too, ignoring case, which also covers
+    // a file named in another case on a case-insensitive disk. Neither message echoes the key.
     private static void RequireKeyNotPacked(PackRequest r, string keyPath)
     {
         var key = Path.GetFullPath(keyPath);
+        var keyText = File.ReadAllText(keyPath).Trim();
+        byte[][] forms = [Encoding.UTF8.GetBytes(keyText), Encoding.Unicode.GetBytes(keyText)];
         var named = new List<string> { r.Entry };
         named.AddRange(r.Include);
         if (!string.IsNullOrEmpty(r.Logo)) named.Add(r.Logo);
-        if (named.Any(name => string.Equals(Path.GetFullPath(Path.Combine(r.SrcDir, name.Replace('\\', '/'))), key,
-                StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException($"'{keyPath}' is your private key, and it's named as a file to bundle, so it "
-                + "would be published inside the package. Nothing was packed.");
+        foreach (var name in named)
+        {
+            var path = Path.GetFullPath(Path.Combine(r.SrcDir, name.Replace('\\', '/')));
+            if (string.Equals(path, key, StringComparison.OrdinalIgnoreCase)
+                || (File.Exists(path) && File.ReadAllBytes(path) is var bytes && forms.Any(form => bytes.AsSpan().IndexOf(form) >= 0)))
+                throw new InvalidOperationException($"'{name}' is, or holds, your private key '{keyPath}', and it's named as a "
+                    + "file to bundle, so the key would be published inside the package. Nothing was packed.");
+        }
     }
 
     private static void RequireOwnedOutput(string output, string trust, string keyPath)

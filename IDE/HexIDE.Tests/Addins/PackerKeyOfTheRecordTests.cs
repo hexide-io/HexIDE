@@ -199,6 +199,57 @@ public sealed class PackerKeyOfTheRecordTests : IDisposable
         Directory.Exists(Output).Should().BeFalse();
     }
 
+    // A path match misses the likeliest mistake: a copy of the key in the source folder, named with --include. File.Copy
+    // follows links too, so a symlink or hard link to the key has its own path as well. The content is what's checked.
+    [Theory]
+    [InlineData("copy")]
+    [InlineData("embedded-utf8")]
+    [InlineData("embedded-utf16")]
+    public void A_bundled_file_holding_the_key_is_refused_whatever_its_name(string shape)
+    {
+        var key = MoveTheKeyOutOfTheTrustFolder();
+        var text = File.ReadAllText(key).Trim();
+        var copy = Path.Combine(Source, "settings.bin");
+        switch (shape)
+        {
+            case "copy": File.Copy(key, copy); break;
+            case "embedded-utf8": File.WriteAllText(copy, "prefix " + text + " suffix"); break;
+            default: File.WriteAllText(copy, "prefix " + text + " suffix", System.Text.Encoding.Unicode); break;
+        }
+
+        var refusal = FluentActions.Invoking(() => PackWith(key, "settings.bin"))
+            .Should().Throw<InvalidOperationException>().Which.Message;
+
+        refusal.Should().Contain("'settings.bin' is, or holds, your private key").And.Contain("Nothing was packed")
+            .And.NotContain(text, "the refusal never echoes the key");
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    public static bool CanCreateSymbolicLinks => !OperatingSystem.IsWindows();
+
+    [Fact(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    public void A_bundled_symlink_to_the_key_is_refused()
+    {
+        var key = MoveTheKeyOutOfTheTrustFolder();
+        File.CreateSymbolicLink(Path.Combine(Source, "linked.bin"), key);
+
+        FluentActions.Invoking(() => PackWith(key, "linked.bin")).Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().Contain("'linked.bin' is, or holds, your private key");
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_bundled_file_that_does_not_hold_the_key_still_packs()
+    {
+        var key = MoveTheKeyOutOfTheTrustFolder();
+        File.WriteAllText(Path.Combine(Source, "settings.bin"), "nothing secret");
+
+        PackWith(key, "settings.bin");
+
+        SignedByTheRecordsKey().Should().BeTrue();
+        File.Exists(Path.Combine(Output, "settings.bin")).Should().BeTrue();
+    }
+
     [Fact]
     public async Task The_packer_reads_key_from_its_command_line()
     {
