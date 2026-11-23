@@ -3427,3 +3427,44 @@ implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 - **WHEN** it loads
 - **THEN** Width, Height, ScaleWidth and ScaleHeight read 2610, 2955, 2520 and 2520
 - **AND** its window has a caption bar
+
+### Requirement: SavePicture writes measured picture layouts
+
+The interpreter SHALL execute positional and named `SavePicture Picture, FileName` statements for the
+VB6 SP6 layouts recorded in [#992](https://github.com/hexide-io/HexIDE/issues/992#issuecomment-7094565387).
+The picture SHALL choose the output format regardless of the destination extension. Unmeasured picture
+layouts, conversions and unmeasured write failures SHALL raise a not-implemented refusal naming #992.
+
+#### Scenario: Saving a bitmap or JPEG
+- **WHEN** SavePicture receives an uncompressed bottom-up 8-, 24- or 32-bit BMP with a 40-byte DIB header and a full 256-entry table for 8-bit
+- **THEN** it writes the measured BMP header and preserves the source pixels and indexed palette, clearing palette reserved bytes and dropping the fourth pixel byte for 32-bit sources
+
+#### Scenario: Saving a JPEG
+- **WHEN** SavePicture receives a JPEG picture
+- **THEN** it writes a 24-bit BMP of the decoded pixels, which for the measured fixture are VB6's output byte for byte
+
+#### Scenario: Saving the measured GIF shape
+- **WHEN** a GIF has one full-canvas image at 0,0, a 256-entry global table, only one preceding Graphic Control Extension, no local table or interlacing, and an unused transparent index
+- **THEN** SavePicture writes an 8-bit BMP with the original indexes and global table order, clearing the transparent entry
+- **AND** other GIF shapes refuse before writing the destination
+
+#### Scenario: Saving an icon
+- **WHEN** the source is an icon containing one 32 by 32 image
+- **THEN** SavePicture writes its bytes with the directory entry's reserved byte cleared
+- **AND** selecting one image while loading a multi-image icon does not make that source a supported save layout
+
+#### Scenario: Empty picture and missing folder
+- **WHEN** an empty picture is saved
+- **THEN** error 380, "Invalid property value", is raised without a file
+- **WHEN** a picture is saved to a missing folder
+- **THEN** error 76 names the path as supplied, without a file
+
+#### Scenario: An existing destination
+- **WHEN** a plain destination already exists
+- **THEN** SavePicture truncates and rewrites it in place with the same bytes as a new file, preserving creation time and updating last-write time and the Windows Archive attribute
+- **AND** this follows the SP6 overwrite measurements in [#992](https://github.com/hexide-io/HexIDE/issues/992) (2026-11-23)
+
+#### Scenario: A protected existing destination
+- **WHEN** the existing destination is read-only, or hidden on Windows
+- **THEN** error 75, "Path/File access error: '<path>'", names the path exactly as passed, including relative components
+- **AND** the file's bytes, creation time, last-write time and attributes remain unchanged

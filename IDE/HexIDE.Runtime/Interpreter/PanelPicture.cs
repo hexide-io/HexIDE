@@ -11,6 +11,8 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 
     internal byte[] FileBytes { get; }
 
+    internal bool SaveLayoutUnmeasured { get; init; }
+
     /// <summary>The pixel size a PNG's IHDR declares, for one that doesn't decode (#4967); null for any other picture.</summary>
     private Avalonia.PixelSize? DeclaredSize { get; init; }
 
@@ -76,9 +78,11 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
         if (kind is not (FrxImageHelper.FrxBlobKind.Bitmap or FrxImageHelper.FrxBlobKind.Icon
             or FrxImageHelper.FrxBlobKind.Jpeg or FrxImageHelper.FrxBlobKind.Gif))
             throw new VBRunTimeException(VBStandardError.InvalidPicture);
+        var saveLayoutUnmeasured = kind == FrxImageHelper.FrxBlobKind.Icon
+            && (file.Length < 22 || BitConverter.ToUInt16(file, 4) != 1 || file[6] != 32 || file[7] != 32);
         if (loadPicture && kind == FrxImageHelper.FrxBlobKind.Icon)
             file = LoadPictureIcon(file);
-        var picture = new PanelPicture(file);
+        var picture = new PanelPicture(file) { SaveLayoutUnmeasured = saveLayoutUnmeasured };
         if (picture.Bitmap == null)
             throw new NotImplementedException("This Panel.Picture image is not implemented (#4882)");
         return picture;
