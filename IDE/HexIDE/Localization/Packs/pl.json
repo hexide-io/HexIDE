@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Istnieje już formant o nazwie '{0}'.  Czy chcesz utworzyć tablicę formantów?",
     "Str.FilePicker.ReplaceExisting": "{0} już istnieje. Czy chcesz go zastąpić?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} został wczytany z błędami, więc nie można nim nadpisać oryginalnego pliku. Wybierz nową nazwę pliku.",
     "Str.ProjectLoad.PropertyNotSet": "Wiersz {0}: nie można ustawić właściwości {1} w {2}.",

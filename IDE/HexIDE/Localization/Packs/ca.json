@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Ja hi ha un control anomenat '{0}'.  Voleu crear una matriu de controls?",
     "Str.FilePicker.ReplaceExisting": "{0} ja existeix. Voleu substituir-lo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} s’ha carregat amb errors i no es pot desar sobre el fitxer original. Trieu un nom de fitxer nou.",
     "Str.ProjectLoad.PropertyNotSet": "Línia {0}: no s’ha pogut definir la propietat {1} de {2}.",

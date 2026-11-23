@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "已存在名為 '{0}' 的控制項。  是否建立控制項陣列？",
     "Str.FilePicker.ReplaceExisting": "{0} 已存在。是否要取代它？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} 載入時發生錯誤，因此無法覆寫原始檔案。請選擇新的檔案名稱。",
     "Str.ProjectLoad.PropertyNotSet": "第 {0} 行：無法設定 {2} 的屬性 {1}。",

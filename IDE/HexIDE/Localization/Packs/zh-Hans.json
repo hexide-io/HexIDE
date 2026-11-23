@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "已存在名为 '{0}' 的控件。  是否创建控件数组？",
     "Str.FilePicker.ReplaceExisting": "{0} 已存在。是否要替换它？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} 加载时出现错误，因此无法覆盖保存到原始文件。请选择新的文件名。",
     "Str.ProjectLoad.PropertyNotSet": "第 {0} 行：无法设置 {2} 的属性 {1}。",

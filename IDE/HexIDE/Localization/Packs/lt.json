@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Valdiklis pavadinimu '{0}' jau yra.  Ar norite sukurti valdiklių masyvą?",
     "Str.FilePicker.ReplaceExisting": "{0} jau yra. Ar norite jį pakeisti?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} įkeltas su klaidomis, todėl negalima jo įrašyti vietoje pradinio failo. Pasirinkite naują failo vardą.",
     "Str.ProjectLoad.PropertyNotSet": "{0} eilutė: nepavyko nustatyti {2} ypatybės {1}.",

@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "You already have a control named '{0}'.  Do you want to create a control array?",
     "Str.FilePicker.ReplaceExisting": "{0} already exists. Do you want to replace it?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} loaded with errors, so it can't be saved over its original file. Choose a new file name.",
     "Str.ProjectLoad.PropertyNotSet": "Line {0}: Property {1} in {2} could not be set.",

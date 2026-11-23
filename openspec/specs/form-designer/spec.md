@@ -624,7 +624,36 @@ or saving. Automation replies SHALL name the resulting element or plain control.
   control outside the array, Index raises 343), not measured VB6 IDE behaviour; reverse file order and
   IDE prompts remain unmeasured
 - **AND** existing event signatures and new handler stubs remain unchanged, tracked by
-  [#4205](https://github.com/hexide-io/HexIDE/issues/4205); renaming to join an array remains #1397
+  [#4205](https://github.com/hexide-io/HexIDE/issues/4205); renaming to join an array follows the requirement below
+
+### Requirement: Renaming can create or join a control array
+
+The Properties window SHALL ask before renaming an unindexed control to the name of exactly one other
+unindexed modelled control of the same type, following the [VB6 SP6 measurement](../../../docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md)
+(#1397, measuring PR #5234). The localized question SHALL name the holder and use a Warning icon,
+the product display name as title, and Yes (default) then No. HexIDE offers no Help button.
+
+#### Scenario: Accept or decline array creation
+
+- **WHEN** Command2 is renamed to Command1 and neither control has an Index
+- **THEN** the question precedes the rename
+- **AND** Yes gives the original Index 0 and the renamed control Index 1, preserving Caption, position and TabIndex
+- **AND** one Undo restores both controls; Redo reapplies the change
+- **BUT** No changes nothing and shows no further message
+
+#### Scenario: Join an existing array
+
+- **WHEN** an unindexed control is renamed to the name of an indexed array of the same type
+- **THEN** every rename route joins it without a question, at one more than the highest Index
+- **AND** the Properties window records the Index and name together for undo
+- **AND** this allocation rule is the explicit #1397 decision; VB6 was measured only for 0..1 becoming 0..2
+- **BUT** unindexed cross-type renames, preserved holders, multiple unindexed holders and unavailable Index values remain refused
+
+#### Scenario: Automation cannot confirm
+
+- **WHEN** set_control_property would create an array from two unindexed controls
+- **THEN** it refuses before mutation or save and explains in English that the caller can set the holder's
+  Index to 0 first, then rename the other control to join it
 
 ### Requirement: Assign TabIndex when adding or pasting a control
 

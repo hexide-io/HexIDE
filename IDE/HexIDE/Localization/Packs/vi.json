@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Đã có điều khiển tên '{0}'.  Bạn có muốn tạo một mảng điều khiển không?",
     "Str.FilePicker.ReplaceExisting": "{0} đã tồn tại. Bạn có muốn thay thế không?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} được tải với lỗi nên không thể lưu đè lên tệp gốc. Hãy chọn tên tệp mới.",
     "Str.ProjectLoad.PropertyNotSet": "Dòng {0}: không thể đặt thuộc tính {1} trong {2}.",

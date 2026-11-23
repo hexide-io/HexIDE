@@ -2,6 +2,7 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Вече има контрола с име '{0}'.  Искате ли да създадете масив от контроли?",
     "Str.FilePicker.ReplaceExisting": "{0} вече съществува. Искате ли да го замените?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} е зареден с грешки и не може да бъде записан върху оригиналния файл. Изберете ново име на файл.",
     "Str.ProjectLoad.PropertyNotSet": "Ред {0}: свойството {1} в {2} не можа да бъде зададено.",

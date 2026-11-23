@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Já existe um controle chamado '{0}'.  Deseja criar uma matriz de controles?",
     "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edição vinculada (renomear os outros usos de uma variável ao digitar)",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao digitar",
     "Str.Menu.MacApp.About": "Sobre o HexIDE",

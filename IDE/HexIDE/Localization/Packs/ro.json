@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Există deja un control numit '{0}'.  Doriți să creați o matrice de controale?",
     "Str.FilePicker.ReplaceExisting": "{0} există deja. Doriți să îl înlocuiți?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a fost încărcat cu erori și nu poate fi salvat peste fișierul original. Alegeți un nume de fișier nou.",
     "Str.ProjectLoad.PropertyNotSet": "Linia {0}: proprietatea {1} din {2} nu a putut fi setată.",

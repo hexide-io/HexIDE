@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "يوجد بالفعل عنصر تحكم باسم '{0}'.  هل تريد إنشاء مصفوفة عناصر تحكم؟",
     "Str.FilePicker.ReplaceExisting": "{0} موجود بالفعل. هل تريد استبداله؟",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "تم تحميل {0} مع وجود أخطاء، لذا لا يمكن حفظه فوق ملفه الأصلي. اختر اسم ملف جديدًا.",
     "Str.ProjectLoad.PropertyNotSet": "السطر {0}: تعذر تعيين الخاصية {1} في {2}.",

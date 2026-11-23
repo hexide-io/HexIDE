@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Dagoeneko badago '{0}' izeneko kontrol bat.  Kontrol-matrize bat sortu nahi duzu?",
     "Str.FilePicker.ReplaceExisting": "{0} badago lehendik. Ordeztu nahi duzu?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} erroreekin kargatu da, beraz ezin da jatorrizko fitxategia gainidatziz gorde. Aukeratu beste fitxategi-izen bat.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. lerroa: ezin izan da {2} elementuaren {1} propietatea ezarri.",

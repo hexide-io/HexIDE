@@ -45,6 +45,8 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     private void InstancePropertyChanging(ComponentInstance _, PropertyClass propertyClass, object? oldvalue, object? newValue)
     {
+        if (propertyClass == VBProperties.NameProperty)
+            parentViewModel.BeginRename(instance);
         if (propertyClass == VBProperties.DesignIndexProperty
             && ControlArrayIndex.RefusalFor(instance, newValue as string ?? "",
                 parentViewModel.AllComponents.Select(c => c.Instance)) is { } indexRefusal)
@@ -54,6 +56,11 @@ public partial class ComponentInstanceViewModel : ObservableObject
                 parentViewModel.AllComponents.Select(c => c.Instance), parentViewModel.FormDefinition,
                 ReferenceEquals(this, parentViewModel.Form), parentViewModel.Localization) is { } refusal)
             throw new DataValidationException(refusal);
+        if (propertyClass == VBProperties.NameProperty && newValue is string name
+            && !Equals(oldvalue, newValue)
+            && ComponentNaming.JoiningIndex(instance, name, parentViewModel.AllComponents.Select(c => c.Instance)) is { } index)
+            parentViewModel.AssignJoiningIndex(instance, index);
+
     }
 
     private void InstanceOnOnComponentPropertyChanged(ComponentInstance _, PropertyClass propertyClass)

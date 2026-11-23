@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Υπάρχει ήδη ένα στοιχείο ελέγχου με όνομα '{0}'.  Θέλετε να δημιουργήσετε έναν πίνακα στοιχείων ελέγχου;",
     "Str.FilePicker.ReplaceExisting": "Το {0} υπάρχει ήδη. Θέλετε να το αντικαταστήσετε;",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "Το {0} φορτώθηκε με σφάλματα και δεν μπορεί να αποθηκευτεί πάνω στο αρχικό αρχείο. Επιλέξτε νέο όνομα αρχείου.",
     "Str.ProjectLoad.PropertyNotSet": "Γραμμή {0}: δεν ήταν δυνατός ο ορισμός της ιδιότητας {1} στο {2}.",

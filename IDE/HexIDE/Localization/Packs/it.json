@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Esiste già un controllo denominato '{0}'.  Creare una matrice di controlli?",
     "Str.FilePicker.ReplaceExisting": "{0} esiste già. Sostituirlo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} è stato caricato con errori e non può quindi sovrascrivere il file originale. Scegliere un nuovo nome di file.",
     "Str.ProjectLoad.PropertyNotSet": "Riga {0}: impossibile impostare la proprietà {1} in {2}.",

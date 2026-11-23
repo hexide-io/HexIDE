@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Ya existe un control llamado '{0}'.  ¿Desea crear una matriz de controles?",
     "Str.FilePicker.ReplaceExisting": "{0} ya existe. ¿Desea reemplazarlo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} se cargó con errores, por lo que no puede guardarse sobre su archivo original. Elija un nuevo nombre de archivo.",
     "Str.ProjectLoad.PropertyNotSet": "Línea {0}: no se pudo establecer la propiedad {1} en {2}.",

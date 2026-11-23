@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Naming.Msg.CreateControlArray": "Елемент керування з іменем '{0}' уже існує.  Створити масив елементів керування?",
     "Str.FilePicker.ReplaceExisting": "{0} уже існує. Замінити його?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} завантажено з помилками, тому його не можна зберегти поверх початкового файлу. Виберіть нове ім’я файлу.",
     "Str.ProjectLoad.PropertyNotSet": "Рядок {0}: не вдалося встановити властивість {1} у {2}.",
