@@ -13,10 +13,13 @@ and everything else is expressed in terms of it.
 Undoing these operations is a separate capability (`form-designer-undo-redo`); this one covers what the
 operations do.
 
-> **Known divergence.** "Copying a container SHALL copy what it holds" is not met for a control HexIDE does not
-> model: a copy is pasted without it, since its name would repeat the original's, and a container cut into another
-> form is pasted without it unless that form declares the libraries the first one did. Tracked in
-> [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
+> **Known divergence.** "Copying a container SHALL copy what it holds" is still not met when a carried
+> block declares several controls and any name is taken, or when the target form does not declare the source's
+> libraries (case 2). Tracked in [#1458](https://github.com/hexide-io/HexIDE/issues/1458).
+> A single carried control whose name is taken now gets its class's next free default name, matching the
+> [measured No answer for ImageList](../../../docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md).
+> Applying the class's last segment to other carried classes is the naming decision recorded in #1458,
+> reasoned rather than measured. The control-array question remains unimplemented for modelled and carried controls.
 
 ## Requirements
 
