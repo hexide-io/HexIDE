@@ -146,7 +146,6 @@ public class TextBoxSelectionTests
             VBDebugConsole.Output -= print;
         }
 
-        // vb6.exe's MaxLength row is left out: HexIDE's TextBox doesn't model MaxLength yet.
         printed.Should().Equal(
             "types Long Long String",
             "design text=[Text1] start=0 len=0 sel=[] err=0",
