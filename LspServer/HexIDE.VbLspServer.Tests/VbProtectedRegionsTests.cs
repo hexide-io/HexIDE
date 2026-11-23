@@ -168,6 +168,7 @@ public class VbProtectedRegionsTests
     [InlineData("Public Function Total(ByVal a As Long, _  \r\n    ByVal b As Long) As Currency\r\nAttribute Total.VB_Description = \"x\"\r\nEnd Function\r\n")]
     [InlineData("Public Sub Halt()\r\nattribute halt.VB_Description = \"x\"\r\nEnd Sub\r\n")] // the word in any case (p12)
     [InlineData("Public Spare As Long\r\nAttribute Spare.VB_VarProcData.VB_Invoke_Property = \"x\"\r\n")] // the kind is read after the first dot; not measured
+    [InlineData("Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\nPublic Sub Reset()\r\n    Dim Count As Long\r\nEnd Sub\r\n")] // #1013, oracle V1L
     public void ARunVb6GivesToTheLineAboveIsProtected(string code)
     {
         var attribute = Lines(code).Select((line, i) => (line, i)).First(l => l.line.StartsWith("Attribute", StringComparison.OrdinalIgnoreCase)).i;

@@ -6,6 +6,7 @@ using Avalonia.Media.Imaging;
 using Classic.Avalonia.Theme;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Imaging;
+using HexIDE.Runtime.AvaloniaInterop;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -102,6 +103,17 @@ public class VBPictureBox : TemplatedControl, IVBContainerControl
         AttachedEvents.AttachFocusEvents<VBPictureBox>();
         ControlKeyEvents.Attach<VBPictureBox>();
         PictureDataProperty.Changed.AddClassHandler<VBPictureBox>((box, _) => box.OnPictureDataChanged());
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if ((change.Property != WidthProperty && change.Property != HeightProperty)
+            || RuntimePaint.Form(this) is not { IsShown: true })
+            return;
+        this.ExecuteSub(RuntimePaint.ResizeEvent);
+        if (change.GetNewValue<double>() > change.GetOldValue<double>())
+            RuntimePaint.Post(this);
     }
 
     private void OnPictureDataChanged()

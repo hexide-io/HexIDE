@@ -170,3 +170,34 @@ decoding needs the Avalonia platform that project lacks):
   raise 481;
 - a file that can't be read is refused, "LoadPicture file errors are unmeasured (#1087)" (`PanelPicture.Load`), where
   VB6 raises 53, 75 or 76.
+
+### SavePicture over a file that already exists (2026-11-23, #992, SP6)
+
+**The question.** The sections above saved to new files. A program that saves the same picture twice, or over an old
+copy, writes to a file that's already there. Does VB6 replace it, truncate it, or refuse? And what of a read-only or
+hidden one?
+
+**The probe.**
+- **Setup:** VB6.EXE 6.00.9782 (SP6), `/make` as native code in a clone of the oracle guest, with the program run there
+  in session 0.
+- **The picture:** the 20 by 10, 24-bit `x24.bmp` from the sections above, through `LoadPicture`, saved with
+  `SavePicture p, App.Path & "\exA.bmp"` and the like, under `On Error Resume Next`. Each statement's `Err.Number` and
+  `Err.Description` were printed to a file.
+- **The destinations,** each made beforehand by the probe script as 2000 bytes of `X` (0x58), created 2001-01-01 and
+  last written 2002-01-01, then given its attribute.
+
+| Destination | `Err.Number`, `Err.Description` | The file afterwards |
+|---|---|---|
+| a plain file | 0 | **replaced:** 654 bytes, byte for byte what SavePicture writes to a new file. Creation time 2001-01-01 kept, last-write time the run's, attributes `Archive` |
+| a read-only file | **75**, "Path/File access error: 'C:\probe\sp992\exB.bmp'" | unchanged: 2000 bytes, both times as before, `ReadOnly` |
+| a hidden file | **75**, the same message naming its own path | unchanged: 2000 bytes, both times as before, `Hidden` |
+
+**Readings:**
+- **SavePicture replaces an existing file.** A longer one is truncated to the new length, and nothing of it is left.
+- **It's rewritten in place, not deleted and made again:** its creation time survives.
+- **A read-only or a hidden destination is error 75,** "Path/File access error", with the path in the message, and the
+  file is left alone.
+
+**Not told apart:** whether that message names the path as given or as the full path. The program passed a full path.
+
+**Still not measured:** a destination that is a folder, one another program has open, and a system file.

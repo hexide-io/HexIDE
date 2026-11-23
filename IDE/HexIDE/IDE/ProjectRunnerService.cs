@@ -97,7 +97,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     /// <inheritdoc />
     public ErrorLocation? FailureLocation { get; private set; }
 
-    private ErrorTrapping errorTrapping = ErrorTrapping.BreakOnUnhandledErrors;
+    private ErrorTrapping errorTrapping = SettingsDefaults.ErrorTrapping;
     public ErrorTrapping ErrorTrapping
     {
         get => errorTrapping;

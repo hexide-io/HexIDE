@@ -58,6 +58,10 @@ public class VBImage : Control, ICustomHitTest
         set => SetValue(StretchProperty, value);
     }
 
+    internal bool IsDesignerPreview { get; set; }
+
+    private static readonly IBrush EmptyDesignerOutline = new SolidColorBrush(Color.FromRgb(100, 100, 100));
+
     internal VBBorder BorderStyle { get; set; }
 
     private PixelSize? runtimePictureSize;
@@ -134,7 +138,26 @@ public class VBImage : Control, ICustomHitTest
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (Decode() is not { } bitmap) return;
+        if (Decode() is not { } bitmap)
+        {
+            // VB6 SP6's empty Image: oracle PR #5225 (#860). Invalid pictures keep their existing behaviour.
+            if (IsDesignerPreview && (Picture is null || Picture.Length == 0) && Bounds.Width >= 1 && Bounds.Height >= 1)
+            {
+                for (var x = 0d; x < Bounds.Width; x += 6)
+                {
+                    var width = Math.Min(3, Bounds.Width - x);
+                    context.DrawRectangle(EmptyDesignerOutline, null, new Rect(x, 0, width, 1));
+                    context.DrawRectangle(EmptyDesignerOutline, null, new Rect(x, Bounds.Height - 1, width, 1));
+                }
+                for (var y = 0d; y < Bounds.Height; y += 6)
+                {
+                    var height = Math.Min(3, Bounds.Height - y);
+                    context.DrawRectangle(EmptyDesignerOutline, null, new Rect(0, y, 1, height));
+                    context.DrawRectangle(EmptyDesignerOutline, null, new Rect(Bounds.Width - 1, y, 1, height));
+                }
+            }
+            return;
+        }
 
         var source = new Rect(bitmap.Size);
         // Stretch fills the control; otherwise the picture is drawn at its own size from the top-left and

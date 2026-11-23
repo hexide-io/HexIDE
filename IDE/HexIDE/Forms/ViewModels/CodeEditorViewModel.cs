@@ -284,8 +284,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
-        Document.Changing += FollowBreakpoints;
-        AutoDispose(new ActionDisposable(() => Document.Changing -= FollowBreakpoints));
+        Document.Changing += FollowMarks;
+        AutoDispose(new ActionDisposable(() => Document.Changing -= FollowMarks));
         Document.TextChanged += (_, _) =>
         {
             RefreshBufferModified();
@@ -436,6 +436,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }));
         AutoDispose(new ActionDisposable(() =>
         {
+            LeaveLastPositionLine();
             var body = BufferBody;   // the same split as the flush above, for the same reason
             formDefinition?.UpdateCode(body);
             if (moduleDefinition is not null)
@@ -449,16 +450,19 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }));
     }
 
-    private void FollowBreakpoints(object? sender, DocumentChangeEventArgs change)
+    private void FollowMarks(object? sender, DocumentChangeEventArgs change)
     {
-        if (identity is not { } current || ExternalDebugger?.IsActive == true ||
+        if (identity is not { } current ||
             (change.Offset == 0 && change.RemovalLength == Document.TextLength))
             return;
 
         var removed = FormCodeText.LineBreaks(change.RemovedText.Text);
         var inserted = FormCodeText.LineBreaks(change.InsertedText.Text);
-        breakpointService.Remap(current, line => line < 1 || line > Document.LineCount ? line :
-            HexIDE.Debugging.MarkLines.Remap(line, change.Offset, change.RemovalLength, removed, inserted, ReadLine));
+        if (ExternalDebugger?.IsActive != true)
+            breakpointService.Remap(current, line => line < 1 || line > Document.LineCount ? line :
+                HexIDE.Debugging.MarkLines.Remap(line, change.Offset, change.RemovalLength, removed, inserted, ReadLine));
+        bookmarkService.Remap(current, line => line < 0 || line >= Document.LineCount ? line :
+            HexIDE.Debugging.MarkLines.RemapBookmark(line + 1, change.Offset, change.RemovalLength, removed, inserted, ReadLine) - 1);
 
         (int Begin, int Statement, int End, int Next) ReadLine(int line)
         {
@@ -1370,7 +1374,36 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         FocusWindowRequest?.Invoke();
     }
 
-    private void OnCaretOffsetChanged() => SyncCombosToCaret();
+    private int? lastPositionEditedLine;
+
+    internal void LastPositionTextEntered(string text)
+    {
+        if (text.Length > 0 && !text.Contains('\r') && !text.Contains('\n'))
+            lastPositionEditedLine = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber;
+    }
+
+    internal void RecordLastPosition()
+    {
+        if (identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document,
+                Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber));
+    }
+
+    internal void LeaveLastPositionLine()
+    {
+        if (lastPositionEditedLine is not { } line) return;
+        lastPositionEditedLine = null;
+        if (identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document, line));
+    }
+
+    private void OnCaretOffsetChanged()
+    {
+        if (lastPositionEditedLine is { } line &&
+            Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber != line)
+            LeaveLastPositionLine();
+        SyncCombosToCaret();
+    }
 
     private bool syncingFromCaret;
 
@@ -2415,6 +2448,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);
 
+    Task<CompletionItem?> HexIDE.Forms.Views.IEditorDocumentQueries.ResolveCompletionItemAsync(
+        CompletionItem item, CancellationToken ct) => lspClient.ResolveCompletionItemAsync(item, ct);
+
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
         => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
@@ -2765,6 +2801,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // protocol's zero-based Position.
         if (!editorService.NavigateTo(uri, line, col))
             Log.Debug("[definition] Nothing loaded answers to {Uri}", uri);
+    }
+
+    internal void NavigateToDefinitionUri(string uri, int line, int column)
+    {
+        var origin = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber;
+        if (editorService.NavigateTo(uri, line, column) && identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document, origin));
     }
 
     // A hover's file link opens a document the project already holds, and nothing else: a server's link is not the

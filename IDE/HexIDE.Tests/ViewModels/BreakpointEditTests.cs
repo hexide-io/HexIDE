@@ -53,13 +53,7 @@ public class BreakpointEditTests
         var prefix = editor.Document.LineCount - new TextDocument(Program).LineCount;
         breakpoints.Toggle(editor.Identity, 6 + prefix);
         breakpoints.SetCondition(editor.Identity, 6 + prefix, "n = 2");
-        var body = new TextDocument(Program);
-        DocumentChangeEventArgs? change = null;
-        body.Changing += (_, e) => change = e;
-        Edit(body, edit);
-        if (change is not null)
-            editor.Document.Replace(change.Offset + editor.Document.GetLineByNumber(prefix + 1).Offset,
-                change.RemovalLength, change.InsertedText.Text);
+        EditBody(editor, edit, prefix);
         if (edit == "undo")
         {
             breakpoints.GetBreakpoints(editor.Identity).Should().Equal(7 + prefix);
@@ -89,17 +83,6 @@ public class BreakpointEditTests
         editor.Document.UndoStack.Redo();
         breakpoints.GetBreakpoints(editor.Identity).Should().Equal(line + 1);
         breakpoints.GetCondition(editor.Identity, line + 1).Should().Be("n = 2");
-    }
-
-    [AvaloniaFact]
-    public void BookmarksKeepTheirNumbersUntilMeasured()
-    {
-        var bookmarks = new BookmarkService();
-        using var editor = NewEditor(new BreakpointService(), bookmarks);
-        editor.ReplaceBody(Program);
-        bookmarks.SetBookmarks(editor.Identity, [6]);
-        editor.Document.Insert(editor.Document.GetLineByNumber(5).EndOffset, "\r\n");
-        bookmarks.GetBookmarks(editor.Identity).Should().Equal(6);
     }
 
     [AvaloniaFact]
@@ -144,7 +127,18 @@ public class BreakpointEditTests
         }
     }
 
-    private static CodeEditorViewModel NewEditor(IBreakpointService breakpoints, IBookmarkService bookmarks,
+    internal static void EditBody(CodeEditorViewModel editor, string edit, int prefix)
+    {
+        var body = new TextDocument(Program);
+        DocumentChangeEventArgs? change = null;
+        body.Changing += (_, e) => change = e;
+        Edit(body, edit);
+        if (change is not null)
+            editor.Document.Replace(change.Offset + editor.Document.GetLineByNumber(prefix + 1).Offset,
+                change.RemovalLength, change.InsertedText.Text);
+    }
+
+    internal static CodeEditorViewModel NewEditor(IBreakpointService breakpoints, IBookmarkService bookmarks,
         HexIDE.Debugging.ExternalDebugService? external = null) =>
         new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
             Substitute.For<IProjectService>(), new EventBus(), Substitute.For<ILspClient>(),

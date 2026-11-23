@@ -40,6 +40,18 @@ public class MemberAttributeQualifiersTests
 
     private static string Rewritten(string code) => MemberAttributeQualifiers.Rewrite(ClassHeader, code);
 
+    [Fact]
+    public void ARenameCarriesAVariableDescriptionWithALocalOfTheStaleName()
+    {
+        // Oracle: "A local of the stale name changes nothing", V1L (#1013), standard module.
+        const string original = "Public Count As Long\r\nAttribute Count.VB_VarDescription = \"Running total.\"\r\n" +
+                                "Public Sub Reset()\r\n    Dim Count As Long\r\n    Count = 0\r\nEnd Sub\r\n";
+        var renamed = original.Replace("Public Count", "Public Tally");
+
+        MemberAttributeQualifiers.Rewrite("Attribute VB_Name = \"Module1\"\r\n", renamed)
+            .Should().Be(renamed.Replace("Attribute Count.", "Attribute Tally."));
+    }
+
     // -- A procedure's run: rewritten to the procedure's name, whatever it said --------------------------
 
     public static TheoryData<string, string, string> ProcedureShapes => new()

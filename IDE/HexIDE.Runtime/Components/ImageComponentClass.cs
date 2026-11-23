@@ -52,5 +52,12 @@ public class ImageComponentClass : ComponentBaseClass
         };
     }
 
+    public override Control InstantiateForDesigner(ComponentInstance instance)
+    {
+        var image = (VBImage)base.InstantiateForDesigner(instance);
+        image.IsDesignerPreview = true;
+        return image;
+    }
+
     public static ComponentBaseClass Instance { get; } = new ImageComponentClass();
 }

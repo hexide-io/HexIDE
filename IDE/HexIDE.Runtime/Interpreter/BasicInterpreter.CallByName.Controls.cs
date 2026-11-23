@@ -37,6 +37,8 @@ public partial class BasicInterpreter
             {
                 if (kind != 1) throw CallByNameMissingMember();
                 CallByNameArity(args.Count, member.RequiredArgs, member.MaxArgs);
+                if (name.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
+                    throw new NotImplementedException("CallByName Refresh result is unmeasured and not implemented (#991)");
                 return FormMembers.Call(form, name, args);
             }
             if (kind is 2 or 3)
@@ -72,6 +74,8 @@ public partial class BasicInterpreter
         {
             if (kind != 1) throw CallByNameMissingMember();
             CallByNameArity(args.Count, method.Value.Min, method.Value.Max);
+            if (name.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException("CallByName Refresh result is unmeasured and not implemented (#991)");
             return await control.CallAsync(name, args);
         }
         if (kind == 1) throw CallByNameMissingMember();
