@@ -179,3 +179,65 @@ Put together with the section above, every entry measured fits one reading:
 That's a rule fitted to these rows, not a measurement of its own.
 
 **Not measured:** a vertical tab or a form feed before the digits, and whitespace before a sign, as in ` -8`.
+
+### A List record cut short, opened in VB6's IDE (2026-11-22, #5147, IDE, SP6)
+
+**The question.** A List record whose count promises more items than follow stops the form loading under `/make`, as
+the rows above found. HexIDE's run refuses the same form (#5147). What does VB6's IDE do with it?
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console. One form, `Form1`, with one
+ListBox `G` whose `Begin` line is line 12. Its records were written by hand:
+- **ItemData:** `03 00` · `01 00` · `01 00 "5"` · `01 00 "6"` · `01 00 "7"`;
+- **List,** at the end of the file: `03 00` · `04 00` · `02 00 "ab"` · `03 00 "cde"`. The count says 3, and two items
+  follow.
+
+`Form_Load` appended `ListCount`, then each item with its `ItemData`, to a file.
+
+| Step | What VB6's IDE did |
+|---|---|
+| Open the project | Opened with **no message**, and wrote no `Form1.log`. |
+| Open the form's designer | "Errors during load. Refer to '…\Form1.log' for details", with OK and Help. The log: `Line 12: Property List in G could not be set.` |
+| OK | The designer opened, with `G` listing `ab` and `cde`. |
+| F5 | **Ran,** with no further message. The file: `ListCount=2`, `0 [ab] 5`, `1 [cde] 6`. |
+| Ctrl+S on the form | **Save File As**, suggesting `Form1` in the IDE's current folder, not the form's own. |
+| Saved as `Saved.frm` | The records: ItemData `02 00` · `03 00` · `01 00 "5"` · `01 00 "6"`, then List `02 00` · `03 00` · `02 00 "ab"` · `03 00 "cde"`. The `.frm` cited them at `"Saved.frx":0000` and `"Saved.frx":000A`. The Project window then named `Saved.frm`, and `Form1.frm` and `Form1.frx` kept their bytes and times. |
+| The project reopened, the designer never opened, then F5 | The same box, over the IDE in `[run]`, and the same log line. After OK the program **ran** and wrote the same three lines. |
+| End, then close VB6 | "Save changes to the following files?" listed `lst5147.vbp` and **`Form1.frm`**, though nothing had been edited. No was answered. |
+
+Of `Saved.frm`, the first 24 lines were read, through the last control's `End` and three `Attribute` lines. It was
+1087 bytes, the same length as `Form1.frm`. The rest of it wasn't compared.
+
+**What this settles:**
+- **VB6's IDE loads the form with the items that are there,** and runs it. A compiled build refuses it.
+- **`ItemData` values are taken by position for the items that loaded.** The third, 7, was dropped, as the rows above
+  found for a record longer than the list.
+- **The log names the control's `Begin` line,** line 12, as [A negative or zero control size](a-negative-or-zero-control-size.md) found for widths.
+- **A form loaded with errors goes to Save As,** as it did there, and the save writes what loaded: two items.
+- **The load error alone marks the form changed.** Closing listed `Form1.frm` with no edit made to it.
+
+**What resisted explanation.** The ItemData record's second field came back as 3 here, for two entries of one byte.
+The earlier IDE save gave 3 too, for three entries. Both rows fit a constant 3, and both fit a copy of the List
+record's field, which was 3 both times. Neither row tells those apart.
+
+**Three more shapes,** the same day. Each was a form of its own with its control's `Begin` at line 12. Each was built
+with `/make` as native code and as p-code, then all three were run in the IDE from one project whose `Sub Main` loaded
+each form in turn.
+
+| The records | `/make`, native and p-code | VB6's IDE, F5 |
+|---|---|---|
+| A ListBox's List record cut inside its second item, at the end of the file: `02 00` · `03 00` · `02 00 "ab"` · `03 00 "cd"`. ItemData `5`, `6` | refused: `Line 12: Property List in G could not be set.` | the box, then `ListCount=1`: `ab`, with ItemData 5 |
+| A ListBox's ItemData record cut short, at the end of the file: `03 00` · `01 00` · `01 00 "5"` · `01 00 "6"`. A whole List record of `ab`, `cde`, `fghi` | refused: `Line 12: Property ItemData in G could not be set.` | the box, then `ListCount=3`, with ItemData 5, 6 and **0** |
+| A `Style = 2` ComboBox `K` with the first probe's records | refused: `Line 12: Property List in K could not be set.` | the box, then `ListCount=2`: `ab` with 5, `cde` with 6 |
+
+- **An item cut short is dropped whole.** `cd`, two bytes of a three-byte item, didn't become an item.
+- **An ItemData record cut short still loads every item in the IDE,** and the values it lacks read 0. Those are the
+  values a record that says 2 and holds 2 gives in the rows above. The difference is the load error, on which `/make`
+  refuses.
+- **A ComboBox reads its records as a ListBox does.**
+- **F5 read all three forms before any code ran.** The three boxes came one after another, each after the last OK, and
+  the program's file was written only after the third. Closing VB6 then listed the `.vbp` and all three forms as
+  changed.
+
+**Not measured:**
+- **An ItemData record cut inside an entry's text.**
+- **A ComboBox of another `Style`.**
