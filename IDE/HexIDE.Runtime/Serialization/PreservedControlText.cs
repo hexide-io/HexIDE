@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using HexIDE.Language;
 
 namespace HexIDE.Runtime.Serialization;
 

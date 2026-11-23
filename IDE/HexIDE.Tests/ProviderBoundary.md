@@ -116,7 +116,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Serialization.ProjectLoader |
 | type | HexIDE | HexIDE.Runtime.Serialization.ProjectLoader+Result |
 | type | HexIDE | HexIDE.Runtime.Serialization.ProjectSerializer |
-| type | HexIDE | HexIDE.Runtime.Serialization.ReadOnlyRegions |
 | type | HexIDE | HexIDE.Runtime.Serialization.Reduction |
 | type | HexIDE | HexIDE.Runtime.Serialization.RichTextBoxPersistence |
 | type | HexIDE | HexIDE.Runtime.Serialization.SafeImageDecoder |
