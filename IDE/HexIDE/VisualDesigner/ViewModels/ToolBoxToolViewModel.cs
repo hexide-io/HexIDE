@@ -4,7 +4,6 @@ using Avalonia.Media;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -86,7 +85,7 @@ public partial class ToolBoxToolViewModel : Tool
 
         var libraries = project.ObjectReferences
             .Select(reference => componentRegistry.Libraries.FirstOrDefault(library => library.IsNamedBy(reference)))
-            .OfType<RuntimeLibrary>().Distinct();
+            .OfType<IControlLibrary>().Distinct();
         foreach (var library in libraries)
         foreach (var control in componentRegistry.LibraryControls.Where(c => ReferenceEquals(c.Library, library)))
             inBoxTools.Add(new ComponentToolViewModel(this, control.Class, IconFactory.Themed(control.IconKey))

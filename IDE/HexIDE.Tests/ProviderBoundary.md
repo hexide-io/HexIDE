@@ -127,7 +127,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE.Desktop | HexIDE.Runtime.BasicProvider |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.FormComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.IDesignerComponentClass |
-| type | HexIDE.Desktop | HexIDE.Runtime.Components.InBox.RuntimeLibrary |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.InBox.SSTabComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.MenuComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Serialization.CodeWindowText |

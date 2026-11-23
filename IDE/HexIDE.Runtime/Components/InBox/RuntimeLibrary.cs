@@ -11,7 +11,7 @@ namespace HexIDE.Runtime.Components.InBox;
 /// The in-box control libraries' GUIDs, versions, control lists and constants were read from their type libraries on
 /// the oracle VM (the oracle's "In-box controls: the ProgressBar"). Nothing is hosted through COM.
 /// </remarks>
-public sealed class RuntimeLibrary
+public sealed class RuntimeLibrary : IControlLibrary
 {
     private readonly string? constantsResource;
     private readonly Lazy<Constants> constants;
