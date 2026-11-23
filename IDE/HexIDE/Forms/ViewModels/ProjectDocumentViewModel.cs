@@ -6,7 +6,6 @@ using System.Linq;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
 using PropertyChanged.SourceGenerator;
 
@@ -203,7 +202,7 @@ public partial class ProjectDocumentViewModel : BaseEditorWindowViewModel
     /// <c>Path.GetFileName</c> answers wrongly on Linux.
     /// </summary>
     private static string? FileNameOf(string? absolutePath) =>
-        string.IsNullOrEmpty(absolutePath) ? null : SerializedProject.FileNameOf(absolutePath);
+        string.IsNullOrEmpty(absolutePath) ? null : Vb6ProjectPaths.FileNameOf(absolutePath);
 
     private static string FileNameOrName(ProjectDefinition definition) =>
         FileNameOf(definition.AbsolutePath) ?? definition.Name;
