@@ -112,12 +112,159 @@ public class ClassicRenderTests
         }
     }
 
+    // Measured grids: docs/vb6-fidelity-oracle/the-3-d-and-flat-edges-of-a-checkbox-optionbutton-textbox-and-commandbutton.md.
+    [AvaloniaTheory]
+    [InlineData("CheckBox", false)]
+    [InlineData("CheckBox", true)]
+    [InlineData("OptionButton", false)]
+    [InlineData("OptionButton", true)]
+    [InlineData("TextBox", false)]
+    [InlineData("TextBox", true)]
+    [InlineData("CommandButton", false)]
+    public void MeasuredEdges_RenderWholePixelBands(string kind, bool flat)
+    {
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            $"VERSION 5.00\r\nBegin VB.Form Form1\r\n   Begin VB.{kind} Control1\r\n      Appearance = {(flat ? 0 : 1)}\r\n   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n", new NullSink())!;
+        var instance = form.Components.Single(c => c.BaseClass.VBTypeName == "VB." + kind);
+        var control = ((ComponentBaseClass)instance.BaseClass).Instantiate(instance);
+        control.Width = 100;
+        control.Height = 30;
+        control.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        control.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        control.Focusable = false;
+        var window = BuildHost(control);
+        SetEdgeColours(window);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            var glyph = control.GetVisualDescendants().OfType<ClassicBorderDecorator>().FirstOrDefault();
+            var origin = glyph?.TranslatePoint(default, window) ?? control.TranslatePoint(default, window)!.Value;
+            var width = (int)(glyph?.Bounds.Width ?? control.Bounds.Width);
+            var height = (int)(glyph?.Bounds.Height ?? control.Bounds.Height);
+            var x = (int)origin.X;
+            var y = (int)origin.Y;
+            var top = width / 2;
+            var left = height / 2;
+            var raised = kind == "CommandButton";
+            var outer = flat ? "#646464" : raised ? "#FFFFFF" : "#A0A0A0";
+            var inner = flat ? "#646464" : raised ? "#E3E3E3" : "#696969";
+            Pixel(frame!, x + top, y).Should().Be(Color.Parse(outer), "the outer top band");
+            Pixel(frame!, x, y + left).Should().Be(Color.Parse(outer), "the outer left band");
+            if (!flat || kind != "TextBox")
+            {
+                Pixel(frame!, x + top, y + 1).Should().Be(Color.Parse(inner), "the inner top band");
+                Pixel(frame!, x + 1, y + left).Should().Be(Color.Parse(inner), "the inner left band");
+            }
+            if (kind == "CheckBox")
+            {
+                Pixel(frame!, x, y).Should().Be(Color.Parse(outer), "the outer top-left corner");
+                Pixel(frame!, x + 1, y + 1).Should().Be(Color.Parse(inner), "the inner top-left corner");
+            }
+            if (kind is "CheckBox" or "CommandButton")
+            {
+                var bottomOuter = flat ? "#646464" : raised ? "#696969" : "#FFFFFF";
+                var bottomInner = flat ? "#646464" : raised ? "#A0A0A0" : "#E3E3E3";
+                Pixel(frame!, x + width / 2, y + height - 1).Should().Be(Color.Parse(bottomOuter));
+                Pixel(frame!, x + width / 2, y + height - 2).Should().Be(Color.Parse(bottomInner));
+                Pixel(frame!, x + width - 1, y + height / 2).Should().Be(Color.Parse(bottomOuter));
+                Pixel(frame!, x + width - 2, y + height / 2).Should().Be(Color.Parse(bottomInner));
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(VBAppearance.Flat)]
+    [InlineData(VBAppearance._3D)]
+    public void UnmeasuredBorderStyleZero_KeepsStockTextBoxDrawing(VBAppearance appearance)
+    {
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            $"VERSION 5.00\r\nBegin VB.Form Form1\r\n   Begin VB.TextBox Text1\r\n      BorderStyle = 0\r\n      Appearance = {(int)appearance}\r\n   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n", new NullSink())!;
+        var instance = form.Components.Single(c => c.BaseClass is TextBoxComponentClass);
+        var box = ((ComponentBaseClass)instance.BaseClass).Instantiate(instance);
+        box.Width = 100;
+        box.Height = 30;
+        box.Focusable = false;
+        var stock = new TextBox { Padding = new Thickness(1), Width = 100, Height = 30, Focusable = false };
+        var panel = new StackPanel { Children = { box, stock } };
+        var window = BuildHost(panel);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            box.GetVisualDescendants().OfType<ClassicBorderDecorator>().Should().BeEmpty();
+            var a = box.TranslatePoint(default, window)!.Value;
+            var b = stock.TranslatePoint(default, window)!.Value;
+            for (var band = 0; band < 3; band++)
+            {
+                Pixel(frame!, (int)a.X + 50, (int)a.Y + band).Should()
+                    .Be(Pixel(frame!, (int)b.X + 50, (int)b.Y + band));
+                Pixel(frame!, (int)a.X + band, (int)a.Y + 15).Should()
+                    .Be(Pixel(frame!, (int)b.X + band, (int)b.Y + 15));
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressedCommandButton_KeepsSunkenEdge()
+    {
+        var button = new VBCommandButton { Width = 100, Height = 30 };
+        var window = BuildHost(button);
+        SetEdgeColours(window);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var point = button.TranslatePoint(new Point(50, 15), window)!.Value;
+            window.MouseDown(point, Avalonia.Input.MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            button.IsPressed.Should().BeTrue();
+            var edge = button.GetVisualDescendants().OfType<ClassicBorderDecorator>().Single();
+            edge.BorderStyle.Should().Be(ClassicBorderStyle.Sunken);
+            var origin = edge.TranslatePoint(default, window)!.Value;
+            Pixel(frame!, (int)origin.X + 10, (int)origin.Y).Should().Be(Color.Parse("#A0A0A0"));
+            Pixel(frame!, (int)origin.X + 10, (int)origin.Y + 1).Should().Be(Color.Parse("#696969"));
+            window.MouseUp(point, Avalonia.Input.MouseButton.Left);
+        }
+        finally { window.Close(); }
+    }
+
+    private static void SetEdgeColours(Window window)
+    {
+        window.Resources[Classic.CommonControls.SystemColors.ControlDarkBrushKey] = new SolidColorBrush(Color.Parse("#A0A0A0"));
+        window.Resources[Classic.CommonControls.SystemColors.ControlDarkDarkBrushKey] = new SolidColorBrush(Color.Parse("#696969"));
+        window.Resources[Classic.CommonControls.SystemColors.ControlLightBrushKey] = new SolidColorBrush(Color.Parse("#E3E3E3"));
+        window.Resources[Classic.CommonControls.SystemColors.ControlLightLightBrushKey] = Brushes.White;
+        window.Resources[Classic.CommonControls.SystemColors.WindowFrameBrushKey] = new SolidColorBrush(Color.Parse("#646464"));
+    }
+
+    private static Color Pixel(Bitmap bitmap, int x, int y)
+    {
+        var pixel = new byte[4];
+        var handle = GCHandle.Alloc(pixel, GCHandleType.Pinned);
+        try
+        {
+            bitmap.CopyPixels(new PixelRect(x, y, 1, 1), handle.AddrOfPinnedObject(), 4, 4);
+            return Color.FromArgb(pixel[3], pixel[2], pixel[1], pixel[0]);
+        }
+        finally { handle.Free(); }
+    }
+
     [AvaloniaFact]
     public void SingleLineTextBox_ShortHeight_HoldsItsTextWithoutAVerticalBar()
     {
         foreach (var height in new[] { 19, 21, 24, 25 })
         {
-            var box = new VBTextBox { Text = "hello", Width = 120, Height = height };
+            // Keep the line small enough to fit on Windows too; the next test covers taller fonts being clipped.
+            var box = new VBTextBox { Text = "hello", FontSize = 11, Width = 120, Height = height };
             var window = BuildHost(box);
             try
             {
