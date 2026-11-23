@@ -19,6 +19,9 @@ public enum OptionKind
     ExistingFolder,
     /// <summary>A folder holding <see cref="PackerCommands.TrustFiles"/>, checked by name only.</summary>
     TrustFolder,
+    /// <summary>A private key file that exists, checked for existence only and never opened here. Skipping it needs the
+    /// trust folder to hold <c>firstparty.key</c> (<see cref="AnswerChecks.NeededWhenSkipped"/>).</summary>
+    SigningKey,
     /// <summary>A file inside the answer to <c>--src</c>.</summary>
     FileInSource,
     /// <summary>A folder the command writes public output to.</summary>
@@ -50,9 +53,10 @@ public static class PackerCommands
     public static readonly IReadOnlyList<string> Capabilities =
         ["project.read", "project.write", "program.run", "ui.contribute", "languageServer.contribute"];
 
-    /// <summary>The files <c>pack --trust</c> reads, by name.</summary>
+    /// <summary>The public chain files <c>pack --trust</c> reads, by name. Its key is <c>firstparty.key</c> there too,
+    /// unless <c>--key</c> names one elsewhere (#5318).</summary>
     public static readonly IReadOnlyList<string> TrustFiles =
-        ["firstparty.key", "publisher.json", "publisher.sig", "intermediate.json", "intermediate.sig"];
+        ["publisher.json", "publisher.sig", "intermediate.json", "intermediate.sig"];
 
     public static readonly IReadOnlyList<PackerCommand> All =
     [
@@ -65,7 +69,9 @@ public static class PackerCommands
             new("title", OptionKind.Text, "the add-in's name, as users see it", Required: true),
             new("version", OptionKind.Text, "the add-in's version, such as 1.0.0", Required: true),
             new("trust", OptionKind.TrustFolder,
-                "your trust folder: firstparty.key beside publisher.json/.sig and intermediate.json/.sig", Required: true),
+                "your trust folder: publisher.json/.sig and intermediate.json/.sig", Required: true),
+            new("key", OptionKind.SigningKey,
+                "your private publisher key; Enter uses firstparty.key in the trust folder"),
             new("out", OptionKind.OutputFolder, "where to write the signed package", Required: true),
             new("description", OptionKind.Text, "a one-line description"),
             new("author", OptionKind.Text, "the author, as users see it"),

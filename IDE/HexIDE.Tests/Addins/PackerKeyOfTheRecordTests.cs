@@ -112,4 +112,111 @@ public sealed class PackerKeyOfTheRecordTests : IDisposable
         (await stderr).Should().StartWith("error: ").And.Contain("Nothing was packed").And.Contain("remove it");
         Directory.Exists(Output).Should().BeFalse();
     }
+
+    // #5318: pack --key reads the publisher key from wherever it is kept, so a trust folder of public files is enough.
+    private string MoveTheKeyOutOfTheTrustFolder()
+    {
+        var key = Path.Combine(_root, "private", "acme.key");
+        Directory.CreateDirectory(Path.GetDirectoryName(key)!);
+        File.Move(Path.Combine(Trust, "firstparty.key"), key);
+        return key;
+    }
+
+    private void PackWith(string key, params string[] include) => PackageSigner.Pack(new PackRequest
+    {
+        SrcDir = Source, OutDir = Output, Id = "com.test.probe", Title = "Probe", Version = "1.0.0", Entry = "probe.dll",
+        TrustDir = Trust, KeyFile = key, Include = [.. include],
+    });
+
+    private bool SignedByTheRecordsKey()
+    {
+        using var named = PackageCrypto.ImportPublicKey(System.Text.Json.JsonSerializer.Deserialize(
+            File.ReadAllBytes(Path.Combine(Trust, "publisher.json")), AddinJsonContext.Default.PublisherRecord)!.PublicKey);
+        return PackageCrypto.Verify(named, File.ReadAllBytes(Path.Combine(Output, "addin.json")),
+            File.ReadAllText(Path.Combine(Output, "addin.sig")));
+    }
+
+    [Fact]
+    public void Key_names_a_key_outside_the_trust_folder_and_it_signs_the_package()
+    {
+        var key = MoveTheKeyOutOfTheTrustFolder();
+
+        PackWith(key);
+
+        SignedByTheRecordsKey().Should().BeTrue();
+        File.Exists(Path.Combine(Trust, "firstparty.key")).Should().BeFalse("the trust folder held public files only");
+        Directory.GetFiles(Output).Select(Path.GetFileName).Should().NotContain(name => name!.EndsWith(".key"));
+    }
+
+    [Fact]
+    public void Key_wins_over_a_leftover_firstparty_key_in_the_trust_folder()
+    {
+        var key = MoveTheKeyOutOfTheTrustFolder();
+        File.Copy(Path.Combine(Other, "firstparty.key"), Path.Combine(Trust, "firstparty.key"));
+
+        PackWith(key);
+
+        SignedByTheRecordsKey().Should().BeTrue("--key is the key read, not the trust folder's");
+    }
+
+    [Fact]
+    public void A_key_given_with_key_that_the_record_does_not_name_is_refused_before_anything_is_written()
+    {
+        MoveTheKeyOutOfTheTrustFolder();
+        var wrong = Path.Combine(Other, "firstparty.key");
+
+        var refusal = FluentActions.Invoking(() => PackWith(wrong)).Should().Throw<InvalidOperationException>().Which.Message;
+
+        refusal.Should().Contain(wrong).And.Contain("Nothing was packed")
+            .And.Contain(RecordKeyFingerprint(Other)).And.Contain(RecordKeyFingerprint(Trust));
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [Fact]
+    public void With_no_key_anywhere_it_says_where_it_looked_and_what_to_do()
+    {
+        MoveTheKeyOutOfTheTrustFolder();
+
+        var refusal = FluentActions.Invoking(Pack).Should().Throw<InvalidOperationException>().Which.Message;
+
+        refusal.Should().Contain($"There's no key at '{Path.Combine(Trust, "firstparty.key")}'")
+            .And.Contain("--key").And.Contain("Nothing was packed");
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_key_named_as_a_file_to_bundle_is_refused_so_it_is_never_published(bool differentCase)
+    {
+        var key = Path.Combine(Source, "acme.key");
+        File.Move(Path.Combine(Trust, "firstparty.key"), key);
+
+        var refusal = FluentActions.Invoking(() => PackWith(key, differentCase ? "ACME.KEY" : "acme.key"))
+            .Should().Throw<InvalidOperationException>().Which.Message;
+
+        refusal.Should().Contain("would be published inside the package").And.Contain("Nothing was packed");
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task The_packer_reads_key_from_its_command_line()
+    {
+        var key = MoveTheKeyOutOfTheTrustFolder();
+        var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var argument in new[]
+                 {
+                     typeof(PackageSigner).Assembly.Location, "pack", "--src", Source, "--out", Output, "--id", "com.test.probe",
+                     "--title", "Probe", "--version", "1.0.0", "--entry", "probe.dll", "--trust", Trust, "--key", key,
+                 })
+            start.ArgumentList.Add(argument);
+        using var process = Process.Start(start)!;
+        var stdout = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+        var stderr = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+
+        process.ExitCode.Should().Be(0, await stderr);
+        (await stdout).Should().Contain("Packed 'com.test.probe'");
+        SignedByTheRecordsKey().Should().BeTrue();
+    }
 }

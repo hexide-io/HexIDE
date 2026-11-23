@@ -49,9 +49,9 @@ HexIDE.AddinPacker.exe genkeys-release --root-out signing/root --intermediate-ou
 
 The three private directories contain only `root.key`, `intermediate.key` and `firstparty.key`,
 respectively. `--public-out` contains `hexide-root.pub`, `hexide-firstparty.pub`,
-`intermediate.json/.sig` and `publisher.json/.sig`. To use the existing `pack --trust` interface,
-copy the four JSON/signature records beside `firstparty.key`; root and intermediate private keys
-are not inputs to `pack`.
+`intermediate.json/.sig` and `publisher.json/.sig`. To pack with them, give `pack --trust` a folder holding the
+four JSON/signature records and `pack --key` the `firstparty.key` file, or copy the records beside `firstparty.key`
+and leave out `--key`. Root and intermediate private keys are not inputs to `pack`.
 
 Ids follow the grammar in [TRUST.md](../../TRUST.md). Display names must be non-empty, already
 trimmed, at most 128 characters, and contain no control, Unicode format, line-separator or
@@ -91,7 +91,8 @@ same commands without a `dotnet` prefix. No CI artifact is added by this command
 - `IDE/HexIDE.AddinPacker/firstparty/README.md`
 - `TRUST.md` — `HexIDE root`, `First-party publisher` SHA-256 fingerprints
 
-`pack` refuses a `firstparty.key` that isn't the key its trust folder's `publisher.json` names, before it writes anything,
+`pack` refuses a key that isn't the one its trust folder's `publisher.json` names, whether `--key` gives it or it is the
+trust folder's `firstparty.key` (#5318), before it writes anything,
 and the error gives both fingerprints. So a release whose `HEXIDE_FIRSTPARTY_KEY` and committed records come from different
 chains fails at packing instead of shipping first-party add-ins that HexIDE refuses. A Desktop build fails the same way
 when `firstparty/` holds a key left over from an earlier chain: remove it, or get the current key (#4109).

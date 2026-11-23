@@ -52,9 +52,10 @@ The root supplied during issuance must be the root trusted by the intended HexID
 `hexide-pack`, built from `IDE/HexIDE.AddinPacker.Interactive`, runs every packer command and asks for any option
 you leave out, so `hexide-pack pack` walks you through signing an add-in.
 
-Put those four public chain files in your `pack --trust <dir>` directory. The packer currently reads
-your own private signing key from `firstparty.key` in that directory; the filename does not grant
-first-party status. Pack with your own key, and keep it private.
+Put those four public chain files in your `pack --trust <dir>` directory, and give your private signing key with
+`pack --key <file>`, wherever you keep it. Keep the key out of any folder you publish or commit. `pack` refuses a key
+that isn't the one your `publisher.json` names, and a key named among the files to bundle. Without `--key`, `pack`
+reads `firstparty.key` from the trust folder; that filename does not grant first-party status.
 
 Publish your add-in signing key's fingerprint somewhere users already trust you (your website, repo, or
 release notes). A user can then compare it against the **Publisher** row in HexIDE's trust inspector.

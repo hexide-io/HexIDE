@@ -12,7 +12,7 @@ public static class PackerCli
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("usage: genkeys <outDir> | sign-publisher --root-public-key .. --intermediate-key .. --intermediate .. --publisher-id .. --display-name .. --public-key .. --out .. [--namespaces rdcore.,..] | pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust ..");
+            Console.Error.WriteLine("usage: genkeys <outDir> | sign-publisher --root-public-key .. --intermediate-key .. --intermediate .. --publisher-id .. --display-name .. --public-key .. --out .. [--namespaces rdcore.,..] | pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust .. [--key ..]");
             Console.Error.WriteLine("       genkeys-release --root-out .. --intermediate-out .. --firstparty-out .. --public-out ..");
             Console.Error.WriteLine("         --intermediate-id .. --intermediate-name .. --firstparty-id .. --firstparty-name ..");
             Console.Error.WriteLine("       sign-revocations --in .. --root-key .. --out .. | verify-revocations --json .. --sig .. --root ..");
@@ -87,6 +87,7 @@ public static class PackerCli
                         Author = o.GetValueOrDefault("author", [""])[0],
                         Entry = Required(o, "entry"),
                         TrustDir = Required(o, "trust"),
+                        KeyFile = o.TryGetValue("key", out var keyFile) && keyFile.Count > 0 ? keyFile[0] : null,
                         Include = o.GetValueOrDefault("include", []),
                         Capabilities = o.GetValueOrDefault("capability", []),
                         MinHexideVersion = o.TryGetValue("min-hexide-version", out var minimum) && minimum.Count > 0 ? minimum[0] : null,

@@ -38,6 +38,8 @@ public static class AnswerChecks
                 return Version.TryParse(value, out _) ? null : "expected a version such as 0.7.0";
             case OptionKind.ExistingFile:
                 return File.Exists(value) ? null : $"there's no file at '{value}'";
+            case OptionKind.SigningKey:
+                return File.Exists(value) ? null : $"there's no file at '{value}'";
             case OptionKind.ExistingFolder:
                 return Directory.Exists(value) ? null : $"there's no folder at '{value}'";
             case OptionKind.TrustFolder:
@@ -57,6 +59,16 @@ public static class AnswerChecks
                 throw new ArgumentOutOfRangeException(nameof(option), option.Kind, null);
         }
     }
+
+    /// <summary>
+    /// Returns why an optional option can't be skipped, given the other answers, or null when it can. <c>pack --key</c>
+    /// can be skipped only when the trust folder holds <c>firstparty.key</c>, which is checked by name only.
+    /// </summary>
+    public static string? NeededWhenSkipped(PackerOption option, Func<string, string?> answerOf) =>
+        option.Kind == OptionKind.SigningKey && answerOf("trust") is { } trust
+            && !File.Exists(Path.Combine(trust, "firstparty.key"))
+            ? $"'{trust}' has no firstparty.key, so give your key's file"
+            : null;
 
     /// <summary>
     /// A private key written inside a git clone is one commit from publication, so hexide-pack refuses any folder
