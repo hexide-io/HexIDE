@@ -15,7 +15,7 @@ using HexIDE.Integration.Tests.Views;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
 
-// #1088 and #2334 ImageList probes, native and p-code. Painting is a separate slice.
+// #1088/#2334/#4407 ImageList probes, native and p-code; #4407 records oracle PR #5214.
 public class ToolbarImageListTests
 {
     private sealed class Sink : IDeserializeErrorSink { public void LogError(string _) { } }
@@ -37,19 +37,95 @@ public class ToolbarImageListTests
         return value;
     }
 
-    [AvaloniaFact]
-    public void Unmeasured_missing_saved_list_refuses()
+    // Measured on vb6.exe SP6, native and p-code: hexide-io/HexIDE#4407, oracle PR #5214.
+    [AvaloniaTheory]
+    [InlineData("imagelist1", false, false)]
+    [InlineData("NoSuchList", false, true)]
+    [InlineData("Text1", false, true)]
+    [InlineData("Toolbar2", false, true)]
+    [InlineData("ImageList1", true, true)]
+    public async Task Saved_names_resolve_case_insensitively_or_read_430(string name, bool array, bool unresolved)
     {
-        var load = () => ContainerRuntimeHarness.Spawn("""
-            VERSION 5.00
-            Begin VB.Form Form1
-               Begin MSComctlLib.Toolbar Toolbar1
-                  ImageList = "MissingList"
-               End
-            End
-            Attribute VB_Name = "Form1"
+        var path = Path.Join(RepoTree.Root(), "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
+        var source = Vb6TextFile.ReadAllText(path).Replace("\"ImageList1\"", $"\"{name}\"");
+        source = source.Replace("   Begin MSComctlLib.Toolbar Toolbar1", "   Begin VB.TextBox Text1\n   End\n   Begin MSComctlLib.Toolbar Toolbar1");
+        if (array) source = source.Replace("Begin MSComctlLib.ImageList ImageList1", "Begin MSComctlLib.ImageList ImageList1\n      Index = 0");
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source,
+            new Sink(), FrxDeserializer.Read(File.ReadAllBytes(Path.ChangeExtension(path, ".frx")), source))!;
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        HexIDE.Runtime.VBLoader.SpawnComponents(form, context, environment);
+        var printed = await ContainerRuntimeHarness.Run(context, environment, """
+            On Error Resume Next
+            Debug.Print TypeName(Toolbar1.ImageList)
+            Debug.Print Err.Number, Toolbar1.Buttons(1).Image, Toolbar1.Buttons(2).Image, Toolbar1.Buttons(7).Image
             """);
-        load.Should().Throw<NotImplementedException>();
+        printed.Should().Equal(unresolved
+            ? new[] { new Vb6Value(430L), new Vb6Value(1), new Vb6Value(2), new Vb6Value(3) }
+            : new[] { new Vb6Value("ImageList"), new Vb6Value(0L), new Vb6Value(1), new Vb6Value(2), new Vb6Value(3) });
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ImageList", false)]
+    [InlineData("ImageList", true)]
+    [InlineData("HotImageList", false)]
+    [InlineData("HotImageList", true)]
+    [InlineData("DisabledImageList", false)]
+    [InlineData("DisabledImageList", true)]
+    public async Task Let_binds_and_rebinding_preserves_all_images(string member, bool let)
+    {
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        var bar = new VBToolbar();
+        var images = Images();
+        context.AllocVariable(environment, "bar", new Vb6Value(bar));
+        context.AllocVariable(environment, "images", new Vb6Value((Control)images));
+        var printed = await ContainerRuntimeHarness.Run(context, environment, $$"""
+            {{(let ? "" : "Set ")}}bar.{{member}} = images
+            Set bar.ImageList = images
+            Set b = bar.Buttons.Add(, , , , 1)
+            Set c = bar.Buttons.Add(, , , , "blue")
+            Set bar.{{member}} = images
+            Debug.Print b.Image, c.Image
+            {{(let ? "" : "Set ")}}bar.{{member}} = images
+            Debug.Print b.Image, c.Image
+            """);
+        printed.Should().Equal(new Vb6Value(1), new Vb6Value("blue"), new Vb6Value(1), new Vb6Value("blue"));
+        Read(bar, member).Value.Should().BeSameAs(images);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ImageList", "text")]
+    [InlineData("ImageList", "other")]
+    [InlineData("ImageList", "New Collection")]
+    [InlineData("HotImageList", "text")]
+    [InlineData("HotImageList", "other")]
+    [InlineData("HotImageList", "New Collection")]
+    [InlineData("DisabledImageList", "text")]
+    [InlineData("DisabledImageList", "other")]
+    [InlineData("DisabledImageList", "New Collection")]
+    [InlineData("ImageList", "picture")]
+    [InlineData("HotImageList", "picture")]
+    [InlineData("DisabledImageList", "picture")]
+    public async Task Non_list_objects_raise_35610_and_preserve_binding(string member, string expression)
+    {
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        var bar = new VBToolbar();
+        var images = Images();
+        bar.TrySetProperty("ImageList", new Vb6Value((Control)images));
+        bar.TrySetProperty(member, new Vb6Value((Control)images));
+        context.AllocVariable(environment, "bar", new Vb6Value(bar));
+        context.AllocVariable(environment, "text", new Vb6Value(new VBTextBox()));
+        context.AllocVariable(environment, "other", new Vb6Value(new VBToolbar()));
+        context.AllocVariable(environment, "picture", new Vb6Value(new VBPictureBox()));
+        var printed = await ContainerRuntimeHarness.Run(context, environment, $$"""
+            On Error Resume Next
+            Set bar.{{member}} = {{expression}}
+            Debug.Print Err.Number
+            """);
+        printed.Should().Equal(new Vb6Value(35610L));
+        Read(bar, member).Value.Should().BeSameAs(images);
     }
 
     [AvaloniaTheory]
@@ -117,6 +193,26 @@ public class ToolbarImageListTests
             """);
         bar.HotImageList.Should().BeSameAs(images);
         bar.DisabledImageList.Should().BeSameAs(images);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ImageList")]
+    [InlineData("HotImageList")]
+    [InlineData("DisabledImageList")]
+    public async Task Saved_toolbar_accepts_list_Let_without_an_Object_receiver(string member)
+    {
+        var path = Path.Join(RepoTree.Root(), "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
+        var source = Vb6TextFile.ReadAllText(path);
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source,
+            new Sink(), FrxDeserializer.Read(File.ReadAllBytes(Path.ChangeExtension(path, ".frx")), source))!;
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        HexIDE.Runtime.VBLoader.SpawnComponents(form, context, environment);
+        var printed = await ContainerRuntimeHarness.Run(context, environment, $$"""
+            Toolbar1.{{member}} = ImageList1
+            Debug.Print TypeName(Toolbar1.{{member}}), Toolbar1.Buttons(1).Image
+            """);
+        printed.Should().Equal(new Vb6Value("ImageList"), new Vb6Value(1));
     }
 
     [AvaloniaFact]
@@ -265,6 +361,9 @@ public class ToolbarImageListTests
 
     // Measured on vb6.exe SP6, native and p-code: hexide-io/HexIDE#4147.
     [AvaloniaTheory]
+    [InlineData("False", 0, 0)]
+    [InlineData("#1/2/1900#", 0, 3)]
+    [InlineData("2@", 0, 2)]
     [InlineData("2#", 0, 2)]
     [InlineData("CSng(2)", 0, 2)]
     [InlineData("CByte(2)", 0, 2)]
@@ -339,33 +438,27 @@ public class ToolbarImageListTests
         Read(button, "Image").Should().Be(new Vb6Value(1));
     }
 
-    [AvaloniaFact]
-    public async Task Unmeasured_false_selector_still_refuses()
-    {
-        var bar = new VBToolbar();
-        bar.TrySetProperty("ImageList", new Vb6Value((Control)Images()));
-        var button = (ToolbarItem)(await bar.Buttons.CallAsync("Add", []))!.Value.Value!;
-        button.TrySetProperty("Image", new Vb6Value(1));
-        var assign = () => button.TrySetProperty("Image", new Vb6Value(false));
-        assign.Should().Throw<NotImplementedException>();
-        Read(button, "Image").Should().Be(new Vb6Value(1));
-    }
-
     [AvaloniaTheory]
-    [InlineData("HotImageList", false)]
-    [InlineData("HotImageList", true)]
-    [InlineData("DisabledImageList", false)]
-    [InlineData("DisabledImageList", true)]
-    public async Task Unmeasured_alternate_sizes_still_refuse(string member, bool empty)
+    [InlineData("HotImageList", 16, false)]
+    [InlineData("DisabledImageList", 16, false)]
+    [InlineData("HotImageList", 32, false)]
+    [InlineData("DisabledImageList", 32, false)]
+    [InlineData("HotImageList", 16, true)]
+    [InlineData("DisabledImageList", 16, true)]
+    public async Task Alternate_size_mismatch_preserves_binding_and_empty_32_still_refuses(string member, int normalSize, bool empty)
     {
         var bar = new VBToolbar();
-        bar.TrySetProperty("ImageList", new Vb6Value((Control)Images()));
+        var normal = Images();
+        normal.ImageWidth = normal.ImageHeight = normalSize;
+        bar.TrySetProperty("ImageList", new Vb6Value((Control)normal));
+        if (!empty && normalSize == 16) bar.TrySetProperty(member, new Vb6Value((Control)normal));
         var alternate = Images();
         if (empty) await alternate.Images.CallAsync("Clear", []);
-        alternate.ImageWidth = alternate.ImageHeight = 32;
+        alternate.ImageWidth = alternate.ImageHeight = normalSize == 16 ? 32 : 16;
         var assign = () => bar.TrySetProperty(member, new Vb6Value((Control)alternate));
-        assign.Should().Throw<NotImplementedException>();
-        Read(bar, member).Value.Should().BeNull();
+        if (empty) assign.Should().Throw<NotImplementedException>();
+        else assign.Should().Throw<VBRunTimeException>().Which.Error.ErrNo.Should().Be(380);
+        Read(bar, member).Value.Should().BeSameAs(!empty && normalSize == 16 ? normal : null);
     }
 
     [AvaloniaFact]

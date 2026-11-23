@@ -1498,6 +1498,7 @@
     "Str.Dialog.SharedFile.Update": "是否要在與 {1} 共用此檔案的專案中更新 {0}？",
     "Str.Dialog.SharedFile.DiscardChanges": "更新專案 {1} 中的 {0} 將捨棄該專案尚未儲存的變更。是否繼續？",
     "Str.Dialog.SharedFile.DiskChanged": "自專案 {1} 的複本載入或儲存以來，磁碟上的檔案「{0}」已變更。是否覆寫此檔案？",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} 的書籤、中斷點和其他使用者設定在此工作階段中不會載入或儲存。\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} 的書籤、中斷點和其他使用者設定在此工作階段中不會載入或儲存。\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "已存在名為 '{0}' 的控制項。  是否建立控制項陣列？"
   }
 }

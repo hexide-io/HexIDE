@@ -268,9 +268,12 @@ public class VBLoader
         foreach (var toolbar in placed.Values.OfType<VBToolbar>())
         {
             if (toolbar.SavedImageListName is not { } name) continue;
-            var matches = placed.Values.Where(c => VBProps.GetName(c) == name).ToArray();
-            if (matches.Length != 1 || matches[0] is not VBImageList images)
-                throw ToolbarItems.Unmeasured();
+            var matches = placed.Values.Where(c => string.Equals(VBProps.GetName(c), name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length != 1 || matches[0] is not VBImageList images || VBProps.GetIndex(images) is not null)
+            {
+                toolbar.UnresolvedSavedImageList = true;
+                continue;
+            }
             toolbar.TrySetProperty("ImageList", new Vb6Value((Control)images));
         }
 

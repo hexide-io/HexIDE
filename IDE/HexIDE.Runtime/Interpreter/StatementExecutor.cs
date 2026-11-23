@@ -507,6 +507,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
     }
 
+    // F8 skips Dim/Static/Const (#4326, where-step-into-stops-around-dim-static-const-and-redim oracle).
+    // Over/Out were not measured; they use the same non-statement positions. Run To Cursor and existing
+    // breakpoints retain today's unmeasured behaviour, as does Set Next Statement onto a declaration.
+    private ValueTask DeclarationGate(Debugging.IDebugGate dbg)
+    {
+        var gate = interpreter.ObserveDebugGate(dbg.OnDeclarationAsync(currentLine, currentModule.Name, this));
+        return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
+    }
+
     internal ValueTask PauseAtModalWait(Debugging.IDebugGate dbg)
     {
         // Show is already executing, so Set Next Statement cannot repoint its suspended call.
@@ -537,7 +546,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!retry && interpreter.DebugController is { } dbg && stmt.attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = false;   // a pause here is inside a nested block — Set Next Statement is refused
-                await DebugGate(dbg);
+                await (stmt.variableStmt() != null || stmt.constStmt() != null
+                    ? DeclarationGate(dbg) : DebugGate(dbg));
             }
             retry = false;
             erlLine = stmt.Start.Line;
@@ -561,6 +571,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
             }
             catch (Exception ex) when (Locate(ex, stmt)) { throw; }
+            catch (VBCompileErrorException ex) when (CompileHaltsHere())
+            {
+                _suspendedAtTopLevel = false;
+                if (!await HaltOnCompileError(ex, stmt.Start.Line))
+                    throw;
+                retry = true;
+                i--;
+                continue;
+            }
             catch (GoToSignal g) when (ClosingLabelsOf(OwnerOf(context)).Contains(g.Label))
             {
                 // A GoTo to a head on the line that closes this block's construct, or opens its next part: the block
@@ -1593,6 +1612,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var counterType = currentEnv.TryGetVariableLocation(variable, out var counterLoc)
             ? interpreter.ExecutionContext.State.DeclaredTypeOf(counterLoc)
             : null;
+        if (counterType == Vb6Value.ValueType.String || counterType == Vb6Value.ValueType.Boolean)
+            throw new VBCompileErrorException("Type mismatch");
         if (counterType == Vb6Value.ValueType.LongLong)
             throw new NotImplementedException("A LongLong For counter is unmeasured (#1548)");
         var state = forState.GetValueOrDefault(context);
@@ -1864,14 +1885,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (await RunLoopBodyOnce(block, context.NEXT()) is { } left)
                 return left;
             throw new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized);
-        }
-        if (!VbNumeric.IsCoreNumeric(counterType) && counterType != Vb6Value.ValueType.Date)
-        {
-            // Only a String or a Boolean can be declared and reach here.
-            var typeName = counterType == Vb6Value.ValueType.String ? "String" : "Boolean";
-            throw new NotImplementedException(
-                $"A For whose header raised under On Error Resume Next, with a {typeName} counter, is not supported: " +
-                "what VB6 does then was measured for numeric and Date counters only.");
         }
         if (SteppedInItsType(counterType))
         {
@@ -2238,6 +2251,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     break;
                 }
                 catch (Exception ex) when (Locate(ex, stmt)) { throw; }
+                catch (VBCompileErrorException ex) when (CompileHaltsHere())
+                {
+                    _suspendedAtTopLevel = false;
+                    if (!await HaltOnCompileError(ex, stmt.Start.Line))
+                        throw;
+                }
                 catch (VBRunTimeException ex) when (!ResumesNext && HaltsHere(ex))
                 {
                     // The statement alone runs again, not the statements before it on the line (#1011).
@@ -2615,6 +2634,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && UdtFieldName(buddyMember).Equals("BuddyControl", StringComparison.OrdinalIgnoreCase)
             && interpreter.ExecutionContext.TryGetVariable(currentEnv, buddyLead.GetText(), out var buddyTarget)
             && buddyTarget.Value is VBUpDown)
+            return value;
+
+        // #4407: Toolbar list properties accept the reference through Let as well as Set.
+        if (value.Value is VBImageList
+            && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } toolbarCall
+            && toolbarCall.iCS_S_VariableOrProcedureCall() is { } toolbarLead
+            && toolbarCall.iCS_S_MemberCall() is [var toolbarMember]
+            && !MemberHasArgs(toolbarMember)
+            && UdtFieldName(toolbarMember).ToLowerInvariant() is "imagelist" or "hotimagelist" or "disabledimagelist"
+            && interpreter.ExecutionContext.TryGetVariable(currentEnv, toolbarLead.GetText(), out var toolbarTarget)
+            && toolbarTarget.Value is VBToolbar)
             return value;
 
         // Icons accepts a reference through Let too (#1085, Icons probe).
@@ -6298,7 +6328,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!retry && interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid
-                await DebugGate(dbg);
+                await (stmts[pc].variableStmt() != null || stmts[pc].constStmt() != null
+                    ? DeclarationGate(dbg) : DebugGate(dbg));
             }
             retry = false;
             // Set Next Statement (P7b): apply a pc repoint requested while paused at this top-level gate, so the
@@ -6328,6 +6359,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
             }
             catch (Exception ex) when (Locate(ex, stmts[pc])) { throw; }
+            catch (VBCompileErrorException ex) when (CompileHaltsHere())
+            {
+                _suspendedAtTopLevel = true;
+                if (!await HaltOnCompileError(ex, stmts[pc].Start.Line))
+                    throw;
+                retry = true;
+            }
             catch (GoToSignal g)
             {
                 pc = ResolveLabel(labels, g.Label);
@@ -6479,6 +6517,27 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return true;
         }
         return false;
+    }
+
+    // Compile errors bypass On Error. VB6 compiles at procedure entry; the walk raises the same error later,
+    // at the statement it reaches (#833; vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md).
+    private bool CompileHaltsHere()
+    {
+        if (interpreter.DebugController?.CompileHaltHost is null)
+            return false;
+        foreach (var frame in interpreter.ActivationStack)
+            if (ReferenceEquals(frame, this))
+                return true;
+        return false;
+    }
+
+    private async Task<bool> HaltOnCompileError(VBCompileErrorException error, int line)
+    {
+        currentLine = line;
+        ErrorLocation.Note(error, currentModule.Name, line);
+        var halt = interpreter.ObserveDebugGate(
+            interpreter.DebugController!.HaltOnCompileErrorAsync(error, line, currentModule.Name, this)).AsTask();
+        return interpreter.Events is { } events ? await events.WhileWaitingOnWindow(halt) : await halt;
     }
 
     // Halt at the statement on line, and answer whether to run it again. The dialog, and a break after it, give up the

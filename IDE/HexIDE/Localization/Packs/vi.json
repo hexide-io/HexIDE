@@ -1498,6 +1498,7 @@
     "Str.Dialog.SharedFile.Update": "Bạn có muốn cập nhật {0} trong các dự án dùng chung tệp này với {1} không?",
     "Str.Dialog.SharedFile.DiscardChanges": "Việc cập nhật {0} trong dự án {1} sẽ loại bỏ các thay đổi chưa lưu của dự án đó. Bạn có muốn tiếp tục không?",
     "Str.Dialog.SharedFile.DiskChanged": "Tệp '{0}' đã thay đổi trên đĩa kể từ khi bản sao của dự án {1} được tải hoặc lưu. Bạn có muốn ghi đè tệp này không?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Dấu trang, điểm dừng và các thiết lập riêng của người dùng khác cho {0} sẽ không được tải hoặc lưu trong phiên này.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Dấu trang, điểm dừng và các thiết lập riêng của người dùng khác cho {0} sẽ không được tải hoặc lưu trong phiên này.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Đã có điều khiển tên '{0}'.  Bạn có muốn tạo một mảng điều khiển không?"
   }
 }

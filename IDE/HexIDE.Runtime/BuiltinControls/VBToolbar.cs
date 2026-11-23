@@ -33,6 +33,12 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             Setters = { new Setter(TemplatedControl.BorderThicknessProperty, new Thickness(0)),
                 new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent) }
         });
+        Styles.Add(new Style(x => x.Is<Button>().Class("flat").Class("normalImages").Class(":pointerover")
+            .Not(y => y.Class(":checked")).Not(y => y.Class(":pressed")))
+        {
+            Setters = { new Setter(TemplatedControl.BorderThicknessProperty, new Thickness(0)),
+                new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent) }
+        });
     }
 
     private readonly Dictionary<Control, ToolbarItem> targets = [];
@@ -174,6 +180,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
                 var face = new Canvas();
                 face.SetValue(TextElement.FontFamilyProperty, FontFamily);
                 face.SetValue(TextElement.FontSizeProperty, FontSize);
+                if (Flat && HotImageList is null) imageButton.Classes.Add("normalImages");
                 var image = new ToolbarImage(this, item, imageButton);
                 face.Children.Add(image);
                 face.Children.Add(captionVisual);
@@ -194,6 +201,11 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
                 imageButton.Content = face;
                 imageButton.PointerEntered += (_, _) => image.InvalidateVisual();
                 imageButton.PointerExited += (_, _) => image.InvalidateVisual();
+                imageButton.PropertyChanged += (_, change) =>
+                {
+                    if (change.Property == Button.IsPressedProperty || change.Property == ToggleButton.IsCheckedProperty)
+                        image.InvalidateVisual();
+                };
             }
             visual.Width = Math.Max(0, item.LayoutWidth / 15);
             visual.Height = ButtonHeight / 15;
@@ -237,12 +249,12 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
     internal VBImageList? ImageList;
     internal VBImageList? HotImageList, DisabledImageList;
     internal string? SavedImageListName;
+    internal bool UnresolvedSavedImageList;
     private ToolbarItems? buttons;
 
     internal Vb6Value ValidateImage(Vb6Value image)
     {
         // #4147: Strings are exact keys; numeric selectors use CInt rounding and storage.
-        if (image.Type == Vb6Value.ValueType.Boolean && !(bool)image.Value!) throw ToolbarItems.Unmeasured();
         if (image.IsNull || image.WithoutOddBytes("VBToolbar text use").Type == Vb6Value.ValueType.String && ((string)image.Value!).Length == 0)
             throw ToolbarItems.Error(35603);
         if (image.Type == Vb6Value.ValueType.String)
@@ -255,7 +267,8 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
         if (image.Type != Vb6Value.ValueType.Integer && image.Type != Vb6Value.ValueType.Long &&
             image.Type != Vb6Value.ValueType.Byte && image.Type != Vb6Value.ValueType.Single &&
             image.Type != Vb6Value.ValueType.Double && image.Type != Vb6Value.ValueType.Currency &&
-            image.Type != Vb6Value.ValueType.Decimal && image.Type != Vb6Value.ValueType.Boolean &&
+            image.Type != Vb6Value.ValueType.Decimal && image.Type != Vb6Value.ValueType.Date &&
+            image.Type != Vb6Value.ValueType.Boolean &&
             image.Type != Vb6Value.ValueType.EmptyVariant)
             throw ToolbarItems.Unmeasured();
         var index = image.Type == Vb6Value.ValueType.Integer || image.Type == Vb6Value.ValueType.Long
@@ -268,20 +281,25 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
         return new Vb6Value((int)index);
     }
 
+    private static NotImplementedException UnmeasuredListBinding() =>
+        new("Toolbar list binding value types or geometry are not implemented (#4407)");
+
     private void BindImages(Vb6Value value)
     {
         if (value.Type == Vb6Value.ValueType.String) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (value.Value is not null && value.Value is not VBImageList)
         {
-            if (value.Value is VBPictureBox) throw ToolbarItems.Error(35610);
-            throw ToolbarItems.Unmeasured();
+            if (value.Type == Vb6Value.ValueType.Object || value.Type == Vb6Value.ValueType.Control ||
+                value.Type == Vb6Value.ValueType.CSharpProxyObject) throw ToolbarItems.Error(35610);
+            throw UnmeasuredListBinding();
         }
-        if (value.Value is null && value.Type != Vb6Value.ValueType.Object) throw ToolbarItems.Unmeasured();
+        if (value.Value is null && value.Type != Vb6Value.ValueType.Object) throw UnmeasuredListBinding();
         var images = value.Value as VBImageList;
         if (images is not null && images.Images.Count == 0) throw ToolbarItems.Error(35613);
         ValidateImageGeometry(images, TextBelow);
-        var resetImages = ImageList is not null || images is null;
+        var resetImages = ImageList is not null && !ReferenceEquals(ImageList, images) || images is null;
         ImageList = images;
+        UnresolvedSavedImageList = false;
         if (resetImages)
             foreach (var item in Buttons.Items) item.Image = new Vb6Value(0);
         if (images is not null) images.BoundToolbars.Add(new WeakReference<VBToolbar>(this));
@@ -366,7 +384,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
         value = name.ToLowerInvariant() switch
         {
             "buttons" => new(Buttons),
-            "imagelist" => ImageList is null ? Vb6Value.Nothing : new((Control)ImageList),
+            "imagelist" => UnresolvedSavedImageList ? throw new VBRunTimeException(VBStandardError.ClassDoesntSupportAutomation) : ImageList is null ? Vb6Value.Nothing : new((Control)ImageList),
             "hotimagelist" => HotImageList is null ? Vb6Value.Nothing : new((Control)HotImageList),
             "disabledimagelist" => DisabledImageList is null ? Vb6Value.Nothing : new((Control)DisabledImageList),
             "appearance" => new(appearance),
@@ -410,17 +428,23 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             case "imagelist": BindImages(value); return true;
             case "hotimagelist": case "disabledimagelist":
                 if (value.Type == Vb6Value.ValueType.String) throw new VBRunTimeException(VBStandardError.TypeMismatch);
-                // #4147 Fidelity Principle: a refused PictureBox assignment preserves the previous list.
-                if (value.Value is VBPictureBox) throw ToolbarItems.Error(35610);
+                // #4407 Fidelity Principle: a refused object assignment preserves the previous list.
+                if (value.Value is not null && value.Value is not VBImageList &&
+                    (value.Type == Vb6Value.ValueType.Object || value.Type == Vb6Value.ValueType.Control ||
+                     value.Type == Vb6Value.ValueType.CSharpProxyObject)) throw ToolbarItems.Error(35610);
                 if (value.Value is not VBImageList && !(value.Value is null && value.Type == Vb6Value.ValueType.Object))
-                    throw ToolbarItems.Unmeasured();
+                    throw UnmeasuredListBinding();
                 var alternate = value.Value as VBImageList;
                 if (alternate is not null)
                 {
                     var cleared = alternate.Images.Count == 0 && alternate.ImageWidth == 0 && alternate.ImageHeight == 0;
+                    if (alternate.Images.Count != 0 && ImageList is not null &&
+                        (alternate.ImageWidth != ImageList.ImageWidth || alternate.ImageHeight != ImageList.ImageHeight))
+                        throw ToolbarItems.Error(380);
                     if ((!cleared && (alternate.ImageWidth != 16 || alternate.ImageHeight != 16)) ||
-                        ImageList is not { ImageWidth: 16, ImageHeight: 16 })
-                        throw ToolbarItems.Unmeasured();
+                        ImageList is not { ImageWidth: 16, ImageHeight: 16 } &&
+                        !(ImageList is null && alternate.Images.Count != 0))
+                        throw UnmeasuredListBinding();
                     if (alternate.Images.Count == 0) throw ToolbarItems.Error(380);
                 }
                 if (name.Equals("hotimagelist", StringComparison.OrdinalIgnoreCase)) HotImageList = alternate;

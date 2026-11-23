@@ -1498,6 +1498,7 @@
     "Str.Dialog.SharedFile.Update": "Vil du oppdatere {0} i prosjektene som deler filen med {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Oppdatering av {0} i prosjekt {1} forkaster prosjektets ulagrede endringer. Vil du fortsette?",
     "Str.Dialog.SharedFile.DiskChanged": "Filen '{0}' er endret på disken siden kopien i prosjekt {1} ble lastet inn eller lagret. Vil du overskrive den?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bokmerker, bruddpunkter og andre brukerspesifikke innstillinger for {0} blir verken lastet inn eller lagret i denne økten.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bokmerker, bruddpunkter og andre brukerspesifikke innstillinger for {0} blir verken lastet inn eller lagret i denne økten.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Det finnes allerede en kontroll med navnet '{0}'.  Vil du opprette en kontrollmatrise?"
   }
 }

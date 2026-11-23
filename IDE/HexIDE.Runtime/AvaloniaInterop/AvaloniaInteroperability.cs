@@ -214,11 +214,7 @@ public static class AvaloniaInteroperability
         Register<VBCommandButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
 
         // Setting Text from code puts the caret at the start (measured, #1150); typing, which sets it too, does not come here.
-        Register<VBTextBox, string>(VBProperties.TextProperty, box => box.Text ?? "", (box, text) =>
-        {
-            box.Text = text;
-            TextBoxMembers.TextSet(box);
-        });
+        Register<VBTextBox, string>(VBProperties.TextProperty, box => box.Text ?? "", TextBoxMembers.SetText);
 
         Register<VBScrollBar, int>(VBProperties.ValueProperty, bar => bar.VbValue, (bar, value) => bar.VbValue = value);
 
@@ -629,6 +625,33 @@ public static class AvaloniaInteroperability
         }
 
         value = default!;
+        return false;
+    }
+
+    // #807: the .frm model stores pixels and a VBFont descriptor, whereas TryGet exposes container units and a Font
+    // object. Use the same binding's stored value for instantiation, after checking that the run-time read is supported.
+    internal static bool TryGetForInstantiation(Control control, PropertyClass property, out object? value)
+    {
+        value = null;
+        if (property == VBProperties.NameProperty || property == VBProperties.DesignIndexProperty
+            || property == VBProperties.VisibleProperty || property == VBProperties.TabIndexProperty
+            || property == VBProperties.MultiSelectProperty || property == VBProperties.ComboStyleProperty
+            || control is VBComboBox && property == VBProperties.HeightProperty)
+            return false;
+        try
+        {
+            if (!TryGet(control, property, out _) || !bindingsByProperty.TryGetValue(property, out var candidates))
+                return false;
+            foreach (var binding in candidates)
+            {
+                if (!binding.IsValidControl(control))
+                    continue;
+                value = binding.GetUntyped(control);
+                return true;
+            }
+        }
+        catch (VBRunTimeException) { }       // An unreadable property keeps its .frm value.
+        catch (NotImplementedException) { }
         return false;
     }
 

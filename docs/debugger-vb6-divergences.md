@@ -465,7 +465,8 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   Let/Set boundaries remain unchanged pending measurement. The measured refusal of F9 on Dim is separate from
   this fix. So is stepping: VB6's F8 never stops on a `Dim`, `Static` or `Const` line, and does stop on `ReDim`
   (measured 2026-11-21, `docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md`).
-  HexIDE's step stops on a `Dim` line, as [#4326](https://github.com/hexide-io/HexIDE/issues/4326) records.
+  HexIDE now skips `Dim`, `Static` and `Const` when stepping and still stops on `ReDim` (#4326).
+  Existing declaration breakpoints and Run To Cursor targets remain supported pending measurement (#5296).
 
 ### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
@@ -499,7 +500,7 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   starts the nesting again from the dispatcher: it takes about 2.5 s now.
 - **Status:** **deliberate**. Avoiding it would need an unwind that doesn't pass through each frame's await.
 
-### D22. A compile error met while a program runs is a run-time error dialog, and the run carries on
+### D22. A compile error met while a program runs halts at the statement
 - **VB6:** measured 2026-11-21 in the IDE, SP6 (`docs/vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md`).
   A compile error found while the program runs, such as a call to a Sub that does not exist, comes in the
   compile-error box, "Compile error:" with OK and Help only.
@@ -511,18 +512,17 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   - **Either way,** a syntax error behaves the same, and code after the failing call never runs.
   - It used to be described as "the IDE stops at that line". It stops at the procedure's declaration, with the
     offending line selected.
-- **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error
-  dialog. End is enabled; Continue, Debug and Help are not. End ends the run. Closed any other way, the dialog
-  leaves the run going, with the event procedure that met the error abandoned, as after a run-time error in an
-  event procedure. A syntax error found before the run begins is a start that never became a run: it is reported in
-  the same dialog, and nothing runs. Parse-time compile errors with a line also carry their module and
-  whole-file line through `get_last_runtime_error` ([#3960](https://github.com/hexide-io/HexIDE/issues/3960));
-  errors without a line remain unlocated. The dialog text and buttons are unchanged.
-- **Why:** one route for every error a run meets. Sub Main's compile errors already went through that dialog
-  (#754), and a separate compile-error box would answer the same error two ways. A tree-walker meets a compile error
-  only when it reaches the statement, so stopping before the run began is not possible for it.
-- **Status:** **open**. The one-dialog route was decided in [#759](https://github.com/hexide-io/HexIDE/issues/759). The measurement is in, and whether to
-  break at the procedure's declaration instead is [#833](https://github.com/hexide-io/HexIDE/issues/833).
+- **HexIDE:** with the IDE's halt host, a compile error met while running halts the program through the same
+  run-time error dialog (#759, #833). Debug breaks at the statement that raised it; Continue retries that statement
+  and meets the error again. End ends the run. Compile errors bypass every On Error handler. Statements before the
+  failing statement have already run. Without a compile halt host, including standalone runs, the existing
+  event-boundary reporting route remains. A syntax error found before the run begins still reports a failed start
+  in design mode; parse errors with a line retain their module and whole-file line (#3960).
+- **Why:** one dialog for every error a run meets remains the #759 decision. A tree-walker meets a compile error
+  when it executes the statement; finding it at procedure entry would require binding. This is the in-bounds
+  translation: the same error, raised later.
+- **Status:** the run halts; the break is at the statement, not the procedure's declaration (in-bounds, as above).
+  VB6's separate compile-error box and its Compile On Demand off pre-compilation remain different.
 
 ### D23. An unhandled run-time error in an event procedure left the run going — FIXED
 - **VB6:** in the IDE, an unhandled run-time error stops the program at the statement and enters break mode, offering
@@ -563,8 +563,8 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate
     leaves unhandled is reported as before, and the run carries on.
 
-  D22 is the same divergence for a compile error, and D27 is the one case where HexIDE follows the compiled program
-  instead.
+  D22 records the later compile-error halt at the executing statement; D27 is the case where HexIDE follows the
+  compiled program instead.
 
 ### D27. A class's error that its caller handles goes to the caller, where VB6's IDE stops in the class (deliberate)
 - **VB6:** under the IDE's default Error Trapping, *Break in Class Module*, a class method with no handler of its own

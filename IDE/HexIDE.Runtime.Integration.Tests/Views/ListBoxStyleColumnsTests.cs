@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Text;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
@@ -204,9 +206,117 @@ public class ListBoxStyleColumnsTests : WindowTestFixture
             nextColumn.Bounds.X.Should().BeGreaterThan(first.Bounds.X);
             list.ContainerFromIndex(rows - 1)!.Bounds.Y.Should().BeGreaterThan(first.Bounds.Y);
             nextColumn.Bounds.Width.Should().BeApproximately(first.Bounds.Width, 0.01);
-            // Two whole columns fit the viewport; the next is outside it.
+            // The measured pitch keeps the second column within the viewport.
             (nextColumn.Bounds.Right - first.Bounds.X).Should().BeLessThanOrEqualTo(list.Scroll.Viewport.Width + 0.01);
         }
+    }
+
+    // SP6 measurements: docs/vb6-fidelity-oracle/a-lists-saved-items-in-the-designer-and-at-load.md (#5133).
+    private static (VBListBox List, Window Window) SavedLayout(bool designer, int style, int columns,
+        double width = 129, double scaling = 1)
+    {
+        var instance = new ComponentInstance(ListBoxComponentClass.Instance, "List1");
+        instance.UnknownRawProperties.Add(new("Style", [$"Style = {style}"]));
+        instance.UnknownRawProperties.Add(new("Columns", [$"Columns = {columns}"]));
+        var items = style == 1 ? new[] { "alpha", "beta" } : Enumerable.Range(1, designer ? 6 : 12).Select(i => $"c{i}").ToArray();
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, Encoding.ASCII, true))
+        {
+            writer.Write((ushort)items.Length);
+            writer.Write((ushort)5);
+            foreach (var item in items) { writer.Write((ushort)item.Length); writer.Write(Encoding.ASCII.GetBytes(item)); }
+        }
+        instance.SetProperty(VBProperties.ListProperty, stream.ToArray());
+        var list = (VBListBox)(designer
+            ? ListBoxComponentClass.Instance.InstantiateForDesigner(instance)
+            : ListBoxComponentClass.Instance.Instantiate(instance));
+        list.Width = width;
+        list.Height = 43;
+        var window = new Window { Content = new Canvas { Children = { list } }, Width = 400, Height = 200 };
+        ContainerRuntimeHarness.MergeAppResources(window);
+        window.SetRenderScaling(scaling);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (list, window);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(129, 2, 63)]
+    [InlineData(167, 2, 82)]
+    [InlineData(167, 3, 54)]
+    [InlineData(200, 2, 98)]
+    [InlineData(200, 3, 65)]
+    [InlineData(200, 4, 49)]
+    [InlineData(198, 4, 48)]
+    [InlineData(202, 4, 49)]
+    [InlineData(2500.0 / 15, 2, 82)]
+    public void Run_columns_use_measured_whole_pixel_pitch(double width, int columns, int pitch)
+    {
+        var (list, window) = SavedLayout(false, 0, columns, width);
+        try
+        {
+            var first = list.ContainerFromIndex(0)!;
+            var second = list.ContainerFromIndex(1)!;
+            second.Bounds.Y.Should().Be(first.Bounds.Y);
+            (second.Bounds.X - first.Bounds.X).Should().Be(pitch);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1, 1.0)]
+    [InlineData(2, 1.0)]
+    [InlineData(2, 1.5)]
+    public void Designer_columns_run_down_then_across_at_120_DIPs(int columns, double scaling)
+    {
+        var (list, window) = SavedLayout(true, 0, columns, scaling: scaling);
+        try
+        {
+            list.Items.Should().Equal("c1", "c2", "c3", "c4", "c5", "c6");
+            var first = list.ContainerFromIndex(0)!;
+            var second = list.ContainerFromIndex(1)!;
+            second.Bounds.Y.Should().Be(first.Bounds.Y);
+            (second.Bounds.X - first.Bounds.X).Should().Be(120);
+            list.Scroll!.Extent.Width.Should().BeGreaterThan(list.Scroll.Viewport.Width);
+            ScrollViewer.GetHorizontalScrollBarVisibility(list).Should().Be(Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Designer_checkbox_items_draw_unchecked_glyphs()
+    {
+        var (list, window) = SavedLayout(true, 1, 0);
+        try
+        {
+            list.Items.Should().Equal("alpha", "beta");
+            foreach (var index in new[] { 0, 1 })
+            {
+                list.ContainerFromIndex(index)!.GetVisualDescendants().Should().Contain(c => c.GetType().Name == "CheckGlyph");
+                list.IsItemSelected(index).Should().BeFalse();
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, 0)]
+    [InlineData(false, 1)]
+    public void Plain_designer_and_single_column_run_keep_full_width_rows(bool designer, int columns)
+    {
+        var (list, window) = SavedLayout(designer, 0, columns);
+        try
+        {
+            var first = list.ContainerFromIndex(0)!;
+            first.Bounds.Width.Should().BeApproximately(list.Scroll!.Viewport.Width - list.Padding.Left - list.Padding.Right, 0.01);
+            if (designer)
+            {
+                var second = list.ContainerFromIndex(1)!;
+                second.Bounds.X.Should().Be(first.Bounds.X);
+                second.Bounds.Y.Should().BeGreaterThan(first.Bounds.Y);
+            }
+        }
+        finally { window.Close(); }
     }
 
     // Drawing is a reasoned requirement in #4209, not a claim about VB6's checkbox pixels.

@@ -1498,6 +1498,7 @@
     "Str.Dialog.SharedFile.Update": "¿Desea actualizar {0} en los proyectos que lo comparten con {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Al actualizar {0} en el proyecto {1}, se descartarán los cambios sin guardar de ese proyecto. ¿Desea continuar?",
     "Str.Dialog.SharedFile.DiskChanged": "El archivo '{0}' ha cambiado en el disco desde que se cargó o guardó la copia del proyecto {1}. ¿Desea sobrescribirlo?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Los marcadores, los puntos de interrupción y otros ajustes por usuario de {0} no se cargarán ni se guardarán en esta sesión.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Los marcadores, los puntos de interrupción y otros ajustes por usuario de {0} no se cargarán ni se guardarán en esta sesión.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Ya existe un control llamado '{0}'.  ¿Desea crear una matriz de controles?"
   }
 }

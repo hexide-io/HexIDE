@@ -272,6 +272,76 @@ public class ControlArrayTests
 
     // ── Phase 2: runtime Load / Unload (oracle-pinned) ──────────────────────────────────
 
+    // #807, oracle PR #5188: control-arrays.md, "Which run-time values Load copies" (native and p-code).
+    private const string RuntimeCopyArrays = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Begin VB.Label Arr
+              BackColor       =   &H00C0C0C0&
+              Caption         =   "t0"
+              Index           =   0
+              Left            =   120
+              Top             =   120
+              Width           =   900
+              Tag             =   "g0"
+           End
+           Begin VB.TextBox Tx
+              Index           =   0
+              Text            =   "x0"
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    [AvaloniaTheory]
+    [InlineData("Arr", "BackColor", "vbRed", 255d)]
+    [InlineData("Arr", "Caption", "\"changed\"", "changed")]
+    [InlineData("Arr", "Left", "999", 999d)]
+    [InlineData("Arr", "Top", "4800", 4800d)]
+    [InlineData("Arr", "Width", "1111", 1111d)]
+    [InlineData("Arr", "Tag", "\"g1\"", "g1")]
+    [InlineData("Arr", "ForeColor", "vbBlue", 16711680d)]
+    [InlineData("Arr", "Enabled", "False", false)]
+    [InlineData("Arr", "FontBold", "True", true)]
+    [InlineData("Arr", "Alignment", "2", 2d)]
+    [InlineData("Tx", "Text", "\"typed\"", "typed")]
+    public async Task Load_CopiesRuntimeProperty(string array, string property, string assigned, object expected)
+    {
+        var debug = await Run(RuntimeCopyArrays,
+            $"{array}(0).{property} = {assigned}\r\nLoad {array}(1)\r\nDebug.Print {array}(1).{property}\r\n");
+        debug.Should().ContainSingle();
+        if (expected is double number)
+            Convert.ToDouble(debug[0].Value).Should().Be(number);
+        else
+            debug[0].Value.Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public async Task Load_LaterElement_CopiesRuntimeCaption()
+    {
+        var debug = await Run(RuntimeCopyArrays,
+            "Arr(0).Caption = \"changed\"\r\nLoad Arr(1)\r\nLoad Arr(2)\r\nDebug.Print Arr(2).Caption\r\n");
+        debug.Should().Equal(new Vb6Value("changed"));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Arr", "Caption", "changed")]
+    [InlineData("Tx", "Text", "typed")]
+    public async Task Load_KeepsTemplateRuntimeProperty(string array, string property, string text)
+    {
+        var debug = await Run(RuntimeCopyArrays,
+            $"{array}(0).{property} = \"{text}\"\r\nLoad {array}(1)\r\nDebug.Print {array}(0).{property}\r\n");
+        debug.Should().Equal(new Vb6Value(text));
+    }
+
+    [AvaloniaFact]
+    public async Task Load_WithRuntimeChanges_StartsHidden()
+    {
+        var debug = await Run(RuntimeCopyArrays,
+            "Arr(0).Caption = \"changed\"\r\nLoad Arr(1)\r\nDebug.Print Arr(1).Visible\r\n");
+        debug.Should().Equal(new Vb6Value(false));
+    }
+
     [AvaloniaFact]
     public async Task Load_NewIndex_AddsElement_ClonedFromTemplate_Hidden()
     {
