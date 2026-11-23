@@ -137,6 +137,8 @@ internal static class FormMembers
     /// <summary>Read a method's result through the form's window.</summary>
     public static Vb6Value Call(VbObject form, string name, IReadOnlyList<Vb6Value> args, bool lateBound = false)
     {
+        if (name.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
+            throw new NotImplementedException("Refresh used as a value is not implemented (#991)");
         if (name.Equals("Cls", StringComparison.OrdinalIgnoreCase))
             throw RuntimeDrawing.Refused("Cls used as a value");
         var owner = Owner(form, name);
@@ -212,7 +214,11 @@ internal static class FormMembers
             throw new VBRunTimeException(VBStandardError.InvalidUseOfNull);
         var state = Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value,
             System.Globalization.CultureInfo.InvariantCulture);
+        var previous = window.WindowState;
         window.WindowState = AvaloniaWindowState(state) ?? throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+        // #991: a code restore raises Resize before its next statement; native notifications still settle together.
+        if (previous == Avalonia.Controls.WindowState.Minimized && window.WindowState != previous)
+            FormRoot.View(window)?.Context.WindowResized(paintGrowth: true);
     }
 
     /// <summary>VB6's WindowState as Avalonia's, or null for a value VB6 refuses.</summary>

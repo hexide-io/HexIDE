@@ -44,6 +44,14 @@ internal static class VBVisibility
             else view.HideForm();
             return;
         }
+        var changed = Get(control) != visible;
+        if (changed && RuntimePaint.Form(control) is { IsShown: true } parent)
+        {
+            if (!visible && parent.Context.Window is { } window)
+                RuntimePaint.Post(window);
+            else if (control is VBPictureBox)
+                RuntimePaint.Post(control);
+        }
         if (control is not IVBContainerControl)
         {
             control.IsVisible = visible;

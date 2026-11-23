@@ -7,12 +7,22 @@ using Avalonia.Media;
 using Classic.Avalonia.Theme;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.BuiltinTypes;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
 public class VBCommandButton : Button
 {
     protected override Type StyleKeyOverride => typeof(VBCommandButton);
+
+    internal static readonly StyledProperty<VBButtonStyle> StyleProperty =
+        AvaloniaProperty.Register<VBCommandButton, VBButtonStyle>("Style", VBButtonStyle.Standard);
+
+    internal VBButtonStyle Style
+    {
+        get => GetValue(StyleProperty);
+        set => SetValue(StyleProperty, value);
+    }
 
     private ContentPresenter? captionPresenter;
     private ClassicBorderDecorator? buttonEdge;
@@ -39,6 +49,8 @@ public class VBCommandButton : Button
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == StyleProperty)
+            AttachedProperties.UpdateBackColor(this);
         if (change.Property == IsEffectivelyEnabledProperty)
             UpdateCaptionEffect();
     }

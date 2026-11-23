@@ -414,7 +414,7 @@ public partial class ObjectBrowserToolViewModel : Document
         foreach (var component in components.Where(c => !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(c))))
             if (!references.Any(r => component.Names(r.Guid)))
                 references.Add(new VbReference(component.Guid, component.Version, component.Lcid, null,
-                    SerializedProject.FileNameWithoutExtensionOf(component.File)));
+                    Vb6ProjectPaths.FileNameWithoutExtensionOf(component.File)));
 
         var owned = projectReferences[project];
         foreach (var stale in owned.Where(l => !references.Contains(l.Reference!)).ToList())
@@ -428,7 +428,7 @@ public partial class ObjectBrowserToolViewModel : Document
             if (owned.Any(l => l.Reference == reference)) continue;
             var refName = !string.IsNullOrEmpty(reference.Name)
                 ? reference.Name!
-                : SerializedProject.FileNameWithoutExtensionOf(reference.LibPath!);
+                : Vb6ProjectPaths.FileNameWithoutExtensionOf(reference.LibPath!);
             var lib = new OBLibraryViewModel(refName, reference);
             owned.Add(lib);
             Libraries.Add(lib);

@@ -566,9 +566,9 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         Write("one.twinproj", "saved after opening");
         var before = File.ReadAllBytes(path);
         await tree.SynchronizeArchiveFolder();
-        var target = Path.Combine(directory, ".hexide", ".twinproj", "one.twinproj");
+        var target = Path.Combine(directory, ".hexide", "one.twinproj");
         File.ReadAllText(Path.Combine(target, "main.twin")).Should().Be("saved after opening");
-        Directory.Exists(Path.Combine(directory, ".hexide", ".twinproj", "two.twinproj")).Should().BeFalse();
+        Directory.Exists(Path.Combine(directory, ".hexide", "two.twinproj")).Should().BeFalse();
         File.ReadAllBytes(path).Should().Equal(before);
         tab.Document.Text.Should().Be("preview");
         tab.IsReadOnlyDocument.Should().BeTrue();
@@ -584,7 +584,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         var path = Write("one.twinproj", "saved");
         await archives.Open(path);
         await archives.SynchronizeFolder(path);
-        var member = Path.Combine(directory, ".hexide", ".twinproj", "one.twinproj", "main.twin");
+        var member = Path.Combine(directory, ".hexide", "one.twinproj", "main.twin");
         File.WriteAllText(member, "user edit");
         windows.ClearReceivedCalls();
         await archives.SynchronizeFolder(path);

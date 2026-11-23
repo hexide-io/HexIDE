@@ -8,6 +8,7 @@ public class RuntimeErrorViewModel : ObservableObject, IDialog
 {
     public string Title => HexIDE.IDE.Distribution.DisplayName;
     public bool CanResize => false;
+    public bool RefusesPersonClose => true;
     public event Action<bool>? CloseRequested;
     public string ErrorText { get; }
 

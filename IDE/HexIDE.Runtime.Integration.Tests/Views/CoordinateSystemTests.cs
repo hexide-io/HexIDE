@@ -126,6 +126,75 @@ public partial class CoordinateSystemTests
         return run;
     }
 
+    // #5162: a-pictureboxs-scalewidth-and-scaleheight-by-size-and-border.md in the fidelity oracle;
+    // half-twip rows and the pixel-scale row are also recorded in issue #5162.
+    [AvaloniaTheory]
+    [InlineData("3090", 1, 1, "", "3090|1590|3030|1530")]
+    [InlineData("3090", 1, 0, "", "3090|1590|3060|1560")]
+    [InlineData("3090", 0, 1, "", "3090|1590|3090|1590")]
+    [InlineData("3100", 1, 1, "", "3100|1600|3045|1545")]
+    [InlineData("3100", 1, 0, "", "3100|1600|3075|1575")]
+    [InlineData("3100", 0, 1, "", "3100|1600|3105|1605")]
+    [InlineData("3105", 1, 1, "", "3105|1605|3045|1545")]
+    [InlineData("3105", 1, 0, "", "3105|1605|3075|1575")]
+    [InlineData("3105", 0, 1, "", "3105|1605|3105|1605")]
+    [InlineData("3110", 1, 1, "", "3110|1610|3045|1545")]
+    [InlineData("3110", 1, 0, "", "3110|1610|3075|1575")]
+    [InlineData("3110", 0, 1, "", "3110|1610|3105|1605")]
+    [InlineData("3082.5", 1, 1, "", "3082|1582|3015|1515")]
+    [InlineData("3082.5", 1, 0, "", "3082|1582|3045|1545")]
+    [InlineData("3082.5", 0, 1, "", "3082|1582|3075|1575")]
+    [InlineData("3097.5", 1, 1, "", "3098|1598|3045|1545")]
+    [InlineData("3097.5", 1, 0, "", "3098|1598|3075|1575")]
+    [InlineData("3097.5", 0, 1, "", "3098|1598|3105|1605")]
+    [InlineData("3112.5", 1, 1, "", "3112|1612|3045|1545")]
+    [InlineData("3112.5", 1, 0, "", "3112|1612|3075|1575")]
+    [InlineData("3112.5", 0, 1, "", "3112|1612|3105|1605")]
+    [InlineData("3090", 1, 1, "Picture1.Width = 3082.5\nPicture1.Height = 3082.5 - 1500", "3082|1582|3015|1515")]
+    [InlineData("3090", 0, 1, "Picture1.Width = 3082.5\nPicture1.Height = 3082.5 - 1500", "3082|1582|3075|1575")]
+    [InlineData("3090", 1, 1, "Picture1.Width = 3097.5\nPicture1.Height = 3097.5 - 1500", "3098|1598|3045|1545")]
+    [InlineData("3090", 0, 1, "Picture1.Width = 3097.5\nPicture1.Height = 3097.5 - 1500", "3098|1598|3105|1605")]
+    [InlineData("3090", 1, 1, "Picture1.Width = 3112.5\nPicture1.Height = 3112.5 - 1500", "3112|1612|3045|1545")]
+    [InlineData("3090", 0, 1, "Picture1.Width = 3112.5\nPicture1.Height = 3112.5 - 1500", "3112|1612|3105|1605")]
+    [InlineData("3090", 1, 1, "Picture1.Width = 3090\nPicture1.Height = 3090 - 1500", "3090|1590|3030|1530")]
+    [InlineData("3090", 0, 1, "Picture1.Width = 3090\nPicture1.Height = 3090 - 1500", "3090|1590|3090|1590")]
+    [InlineData("3090", 1, 1, "Picture1.Width = 3105\nPicture1.Height = 3105 - 1500", "3105|1605|3045|1545")]
+    [InlineData("3090", 0, 1, "Picture1.Width = 3105\nPicture1.Height = 3105 - 1500", "3105|1605|3105|1605")]
+    public void PictureBox_inside_rounds_whole_twips_then_whole_pixels(
+        string width, int border, int appearance, string assignment, string expected)
+    {
+        var height = (double.Parse(width, System.Globalization.CultureInfo.InvariantCulture) - 1500)
+            .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var frm = Form.Replace("Width = 2415", "Width = " + width)
+            .Replace("Height = 1815", "Height = " + height)
+            .Replace("Left = 2160", $"BorderStyle = {border}\nAppearance = {appearance}\nLeft = 2160");
+        var run = RunLoad(frm, assignment + "\nDebug.Print CStr(Picture1.Width) & \"|\" & CStr(Picture1.Height) & \"|\" & CStr(Picture1.ScaleWidth) & \"|\" & CStr(Picture1.ScaleHeight)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1, 3100, "3045")]
+    [InlineData(1, 3110, "3045")]
+    [InlineData(0, 3110, "3105")]
+    public void PictureBox_assigned_width_rounds_its_inside(int border, int width, string expected)
+    {
+        var frm = Form.Replace("Left = 2160", $"BorderStyle = {border}\nLeft = 2160");
+        var run = RunLoad(frm, $"Picture1.Width = {width}\nDebug.Print CStr(Picture1.ScaleWidth)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected);
+    }
+
+    [AvaloniaFact]
+    public void PictureBox_pixel_scale_reads_the_measured_inside()
+    {
+        var frm = Form.Replace("Width = 2415", "Width = 3100")
+            .Replace("Left = 2160", "ScaleMode = 3\nLeft = 2160");
+        var run = RunLoad(frm, "Debug.Print CStr(Picture1.ScaleWidth)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("203");
+    }
+
     // Issue #990, round 2: SP6 native and p-code agree on each successive row of the flipped-scale probe.
     [AvaloniaTheory]
     [InlineData(0, "CStr(ScaleTop) & \"|\" & CStr(ScaleHeight)", "100|-100")]

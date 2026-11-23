@@ -8,7 +8,6 @@ using HexIDE.Lsp;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Language;
-using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Tests.ViewModels;
 

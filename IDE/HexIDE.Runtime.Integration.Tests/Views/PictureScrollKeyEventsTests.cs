@@ -206,6 +206,9 @@ public class PictureScrollKeyEventsTests
             : kind == "HScrollBar" ? HScrollBarComponentClass.Instance : VScrollBarComponentClass.Instance;
         component.Events.First().Name.Should().Be(kind == "PictureBox" ? "Click" : "Change");
         component.Events.Select(e => e.Name).Should().Contain(new[] { "KeyDown", "KeyPress", "KeyUp" });
+        // #991 declares both measured PictureBox events, without changing its default Click.
+        if (kind == "PictureBox")
+            component.Events.Select(e => e.Name).Should().Contain(new[] { "Paint", "Resize" });
     }
 
     private static int Code(Key key) => key switch

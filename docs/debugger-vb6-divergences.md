@@ -414,8 +414,11 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   Over runs Load without stopping. Over from Main's last statement stops at its `End Sub`.
   Measured in VB6 SP6 on 2026-11-18: [#4449](https://github.com/hexide-io/HexIDE/issues/4449), oracle PR #4651.
 - **HexIDE:** matches those measured positions, pinned through running forms in `FormInstanceTests` and
-  `IdleBreakTests`. Module-level variable declarations still run without a step stop. Direct procedure calls retain
-  their existing declaration handling; they were not measured here.
+  `IdleBreakTests`. Module-level variable declarations still run without a step stop. Direct calls to standard-module Subs now stop
+  at their declarations before their first statements on Step Into ([#5295](https://github.com/hexide-io/HexIDE/issues/5295),
+  [measured stops](vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md)).
+  Functions, Properties and class/form Subs (including Class_Initialize and Class_Terminate) retain their existing
+  direct-entry handling, unmeasured. Step Over and Step Out retain their existing depth rules, also unmeasured here.
 - **History:** #1010 fixed a startup split across dispatches that disarmed the starting step before Load. Its
   first-statement expectation, and #2172's startup End exception, were not measurements; #4449 overturns them.
 - **Startup form with no Initialize, and after Load:** measured in VB6 SP6 on 2026-11-18
@@ -557,23 +560,25 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   - **A faulting single-test `Case` expression runs again alone, fixed by #1079.** The selector and earlier `Case`s are
     not evaluated again, matching the same page. An error in the selector, and one in a comma-separated `Case` list,
     still run the whole `Select Case` again. VB6 wasn't measured on either.
-  - **A dialog closed without an answer** takes Debug. VB6's dialog can't be closed without one. It has no close box,
-    and Escape, `SC_CLOSE` and Alt+F4 leave it up (measured 2026-11-21,
-    `docs/vb6-fidelity-oracle/closing-the-run-time-error-dialog.md`, [#607](https://github.com/hexide-io/HexIDE/issues/607)).
+  - **A person cannot close the dialog without an answer — fixed by [#607](https://github.com/hexide-io/HexIDE/issues/607).**
+    Escape and a person's close leave it up, as measured in
+    [Closing the run-time error dialog](vb6-fidelity-oracle/closing-the-run-time-error-dialog.md).
+    HexIDE still shows a close box, refused, where VB6 has none. A close from code still takes Debug.
   - **Whether `Err` holds the error** at the break is unmeasured, and HexIDE leaves it as it was.
   - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate
     leaves unhandled is reported as before, and the run carries on.
 
-  D22 records the later compile-error halt at the executing statement; D27 is the case where HexIDE follows the
-  compiled program instead.
+  D22 records the later compile-error halt at the executing statement; D27 records the former class-error default
+  divergence and the unmeasured shapes that still differ.
 
-### D27. A class's error that its caller handles goes to the caller, where VB6's IDE stops in the class (deliberate)
+### D27. Error Trapping defaults to Break in Class Module (resolved for measured shapes)
 - **VB6:** under the IDE's default Error Trapping, *Break in Class Module*, a class method with no handler of its own
   that raises an error stops in the class, even when its caller has an active `On Error`. The caller's handler never
   runs. Under *Break on Unhandled Errors*, and in every compiled program, native and p-code, the caller's handler
   catches it (measured, `docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, c1). A form counts as a class module here.
-- **HexIDE:** by default, the caller's handler catches it, as a compiled program does. An error that nothing handles still breaks
-  at the innermost faulting line, a class's included, as the default does (#1011).
+- **HexIDE:** the default now follows VB6 for a class called directly from a standard module or form (#5303).
+  Break on Unhandled Errors restores caller handling; a made program retains that behaviour.
+  The original decision and its correction are recorded below.
 - **Why:** a deliberate exception to the rule that HexIDE matches the IDE where the two differ (decided 2026-10-15,
   recorded on #1011). The default stops code that handles its own errors, and following it would mean building
   "Continue from a break hands the error to the caller's handler".
@@ -581,11 +586,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
     (`docs/vb6-fidelity-oracle/the-error-trapping-option.md`): Continue from the in-class break retries the class's
     statement, and the caller's handler never runs.
   - **So following the default needs no hand-off,** only the break in the class.
-  - **The default decision stands.** #1070 adds the choice; #5303 tracks changing the default.
-- **Status:** Error Trapping is selectable in Tools > Options > Environment > General (#1070). The default stays
-  Break on Unhandled Errors. Break in Class Module implements the measured direct class-to-standard-module/form
-  caller shapes; Break on All Errors overrides standard-module handlers. Other shapes keep today's behaviour pending
-  measurement. Changing the default to VB6's is tracked separately in #5303.
+  - **The default decision was superseded by #5303** after #1070 added the choice.
+- **Status:** the default is Break in Class Module, matching VB6 for the measured direct class-to-standard-module/form
+  caller shapes. Unmeasured shapes still keep the caller's handler under the default, pending measurement.
+  Break on All Errors overrides standard-module handlers; Break on Unhandled Errors and made programs keep caller handling.
 - **Numbered D24 when the decision was recorded** on #1011's branch, and renumbered when merging main brought in main's
   D24, the header-line breakpoint, which came first.
 
@@ -612,13 +616,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   read-only line, and logs it (`UserSidecarService.OffReadOnlyLines`). Since #884, file-relative header
   marks from versions 2 and 3 are retained at their file lines; member Attribute marks are still dropped. What can still put
   one there is an edit making its line read-only, a whole-text replacement or a reload. In an open code
-  window, breakpoints now follow
-  their statements through edits, undo and redo (#1053); their conditions move with them. Bookmarks keep
-  their line numbers until #5334 measures them. `HeaderRefresher` still moves both stores by a header's
-  change in height, leaving an open window's breakpoint move to its document change. Three routes remain:
+  window, breakpoints and bookmarks follow their statements through edits, undo and redo (#1053, #5334).
+  Three routes remain:
   - a whole-text replacement (`ReplaceBody`, including `set_file_content`), or an add-in's edit with no
-    code window open, leaves breakpoint numbers unchanged. Bookmarks keep their numbers through ordinary
-    edits too, so a member's `Attribute` line can move under a bookmark;
+    code window open, leaves stored mark numbers unchanged;
   - an edit that makes the marked line itself read-only. An orphaned `Attribute` line is not a region, so it
     takes a mark, and it locks the moment it comes to describe a member (`ReadOnlyRegions.Verdict`). A
     procedure attribute describes any procedure declared on the line above, whatever its qualifier names. A
@@ -812,15 +813,14 @@ compiled backend over DAP. *(Landed since this list was written: Watches + Break
 + Set Next Statement + Immediate assignment/Set (P7), the Locals property/control surface incl. the form-`Me` +
 child-control tree (P8 + D7 residual-1/3, D7 now RESOLVED).)*
 
-### D38. Closed-document edits and bookmarks do not follow statements (#5334)
-- **VB6:** breakpoints followed their statements in the eight measured open-window edit rows, including
-  undo; deleting the line or joining it onto the preceding line removed the breakpoint. See
-  [the SP6 measurement](vb6-fidelity-oracle/a-breakpoint-through-edits-above-it.md). Bookmarks, edits with
-  the window closed, edits in break mode, another procedure and save/reload were not measured.
-- **HexIDE:** #1053 follows breakpoints and their conditions through an open window's document changes.
+### D38. Edits outside an open code window retain stored mark numbers
+- **VB6:** breakpoints and bookmarks followed statements through the measured inserts, deletes above,
+  paste, Enter, and undo. Deleting the marked line removed both. The measured join removed the breakpoint
+  and kept the bookmark on the joined line. See the [breakpoint measurement](vb6-fidelity-oracle/a-breakpoint-through-edits-above-it.md)
+  and [bookmark measurement PR](https://github.com/hexide-io/HexIDE/pull/5387). Closed-window edits, break
+  mode, edits in another procedure, and save/reload were unmeasured.
+- **HexIDE:** #1053 and #5334 follow breakpoints and bookmarks through an open window's document changes.
   An add-in's edit to a closed document and whole-text replacements retain the stored numbers. An active
-  external debugger owns its breakpoints, so those edits are not followed by the interpreter store.
-  Bookmarks retain their numbers through edits until #5334; the existing explicit header shifts still
-  move bookmarks and closed-document breakpoints.
-- **Scope:** the edit rule reproduces the measured rows and applies the same shapes elsewhere; those
-  other shapes are not additional VB6 measurements.
+  external debugger owns its breakpoints, so those edits are ignored by the interpreter breakpoint store.
+  Explicit header refreshes still shift marks in closed documents.
+- **Scope:** other edit shapes use the #1053 rule and have no additional VB6 measurements.

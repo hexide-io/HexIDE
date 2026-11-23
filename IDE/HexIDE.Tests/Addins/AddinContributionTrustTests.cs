@@ -99,7 +99,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
                 NullLogger<LanguageServerContributions>.Instance, null),
-            _launches, _types);
+            _launches, _types, new AddinResourceService());
     }
 
     public async ValueTask DisposeAsync()

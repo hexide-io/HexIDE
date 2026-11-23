@@ -80,20 +80,20 @@ public class OptionsViewModelTests
     [AvaloniaFact]
     public void ErrorTrappingLoadsSavesAndRestoresDefaults()
     {
-        _settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule;
+        _settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors;
         var page = new EnvironmentGeneralPageViewModel(_settings);
-        page.IsBreakInClassModule.Should().BeTrue();
+        page.IsBreakOnUnhandledErrors.Should().BeTrue();
         page.IsBreakOnAllErrors = true;
-        page.IsBreakInClassModule.Should().BeFalse();
+        page.IsBreakOnUnhandledErrors.Should().BeFalse();
         page.SaveToSettings();
         _settings.ErrorTrapping.Should().Be(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnAllErrors);
         page.RestoreDefaults();
-        page.IsBreakOnUnhandledErrors.Should().BeTrue();
+        page.IsBreakInClassModule.Should().BeTrue();
         page.SaveToSettings();
         _settings.ErrorTrapping.Should().Be(SettingsDefaults.ErrorTrapping);
-        _settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule;
+        _settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnUnhandledErrors;
         page.LoadFromSettings();
-        page.IsBreakInClassModule.Should().BeTrue();
+        page.IsBreakOnUnhandledErrors.Should().BeTrue();
     }
 
     [AvaloniaFact]

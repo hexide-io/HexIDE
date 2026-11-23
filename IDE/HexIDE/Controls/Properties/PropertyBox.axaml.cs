@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -15,6 +16,9 @@ namespace HexIDE.Controls;
 
 public class PropertyBox : TemplatedControl
 {
+    private static readonly FuncValueConverter<object?, string?> PictureValueConverter =
+        new(PropertiesToolViewModel.FormatPictureValue);
+
     private Panel? panel;
     public static readonly StyledProperty<IDataTemplate?> GenericTemplateProperty = AvaloniaProperty.Register<PropertyBox, IDataTemplate?>(nameof(GenericTemplate));
     public static readonly StyledProperty<IDataTemplate?> ColorTemplateProperty = AvaloniaProperty.Register<PropertyBox, IDataTemplate?>(nameof(ColorTemplate));
@@ -87,8 +91,18 @@ public class PropertyBox : TemplatedControl
     /// </remarks>
     private static void OnKeyDownTunnel(PropertyBox box, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None) return;
+        if (e.Key is not (Key.Enter or Key.Delete) || e.KeyModifiers != KeyModifiers.None) return;
         if ((e.Source as Visual)?.FindAncestorOfType<TextBox>(includeSelf: true) is not { } textBox) return;
+
+        if (e.Key == Key.Delete)
+        {
+            if (textBox.IsFocused && box.DataContext is PropertyViewModel { CanLoadPicture: true } row)
+            {
+                row.ClearPicture();
+                e.Handled = true;
+            }
+            return;
+        }
 
         BindingOperations.GetBindingExpressionBase(textBox, TextBox.TextProperty)?.UpdateSource();
         textBox.SelectAll();
@@ -133,9 +147,14 @@ public class PropertyBox : TemplatedControl
             var editor = GenericTemplate?.Build(null)!;
             if (editor is TextBox textBox && PropertiesToolViewModel.IsPicture(PropertyClass))
             {
-                // Picture rows display bytes; committing that text on focus loss is not a picture edit (#922).
+                // The VB6 value label is display-only. The property still holds the original picture record.
                 textBox.IsReadOnly = true;
-                textBox.Bind(TextBox.TextProperty, new Binding(nameof(Object)) { Source = this, Mode = BindingMode.OneWay });
+                textBox.Bind(TextBox.TextProperty, new Binding(nameof(Object))
+                {
+                    Source = this,
+                    Mode = BindingMode.OneWay,
+                    Converter = PictureValueConverter,
+                });
             }
             panel.Children.Add(editor);
         }
