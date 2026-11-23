@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -95,6 +96,9 @@ internal static class FormNativeMenu
         private readonly Action<Control> click;
         private readonly Action sync;
         private readonly Mirror? children;
+        // Each Opening's number, and the last one a Closed has ended: a posted Click runs only for an open no Closed has
+        // ended yet, so a read that opens and closes before the job runs raises none, even with a real open behind it.
+        private int openings, closedThrough;
 
         internal Entry(Control source, bool topLevel, Action<Control> click, Action sync)
         {
@@ -109,11 +113,10 @@ internal static class FormNativeMenu
                 {
                     children = new Mirror(menu, false, click);
                     item.Menu = children.Menu;
-                    // Opening, not NeedsUpdate: AppKit also raises NeedsUpdate on every menu the first time it searches
-                    // them for a key equivalent, which raised each top-level menu's Click on a run's first Cmd key. It
-                    // raises Opening only as a menu opens, and what a Click changes there still shows in that open
-                    // (#5065 review, Kronos).
+                    // AppKit also opens then closes menus during accessibility reads and Help searches. A posted
+                    // Click runs during a real open, but after Closed for those scans (#5379, #5011 K27/K28/K33).
                     children.Menu.Opening += Opening;
+                    children.Menu.Closed += Closed;
                 }
                 item.Click += Click;
                 Update();
@@ -150,14 +153,24 @@ internal static class FormNativeMenu
             Update(); // Native clicks must not toggle the program's Checked value.
             click(source);
         }
-        private void Opening(object? sender, EventArgs args) => click(source);
+        private void Opening(object? sender, EventArgs args)
+        {
+            var opening = ++openings;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (closedThrough < opening) click(source);
+            });
+        }
+        private void Closed(object? sender, EventArgs args) => closedThrough = openings;
         public void Dispose()
         {
             source.PropertyChanged -= Changed;
             if (Item is NativeMenuItem item) item.Click -= Click;
+            closedThrough = int.MaxValue; // A Click still posted belongs to a menu that's gone.
             if (children is not null)
             {
                 children.Menu.Opening -= Opening;
+                children.Menu.Closed -= Closed;
                 children.Dispose();
             }
         }
