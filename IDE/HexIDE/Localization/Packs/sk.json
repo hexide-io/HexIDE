@@ -2,6 +2,8 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Nie je možné uložiť '{0}': súbor sa na disku zmenil. Pred uložením ho znova načítajte.",
+    "Str.Archive.SaveRefused": "Nie je možné uložiť '{0}': kontajner sa nepodarilo bezpečne overiť a zapísať. Úprava zostáva neuložená.",
     "Str.Dialog.MakeProjectGroup.Projects": "Zostaviť nasledujúce projekty:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Použiť predvolené možnosti zostavenia",
     "Str.Dialog.MakeProjectGroup.Build": "Zostaviť",
@@ -1540,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "Server sa neinicializoval: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Test pripojenia jazykového servera",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE toto ešte nespustilo ani sa k tomu nepripojilo, alebo sa to odvtedy zmenilo. Súhlas spustí program v tomto počítači alebo vytvorí pripojenie k tejto adrese.",
-    "Str.Tool.LanguageServers.Trial.Run": "Spustiť"
+    "Str.Tool.LanguageServers.Trial.Run": "Spustiť",
+    "Str.Dialog.MenuEditor.Msg.NoName": "Ovládací prvok ponuky musí mať názov",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Neplatný názov objektu: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Prvok poľa ovládacích prvkov ponuky musí mať index",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indexy poľa ovládacích prvkov ponuky musia byť vo vzostupnom poradí",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' je názov ovládacieho prvku"
   }
 }

@@ -68,6 +68,7 @@ public sealed class ArchiveProjectDocument : ArchiveProjectEntry
 public sealed class ArchiveProjectSnapshot
 {
     private readonly ImmutableDictionary<ArchiveEntryIdentity, ArchiveProjectEntry> entries;
+    internal byte[] OriginalBytes { get; private init; } = [];
 
     private ArchiveProjectSnapshot(string containerPath, TwinBasicContainer container,
         ArchiveProjectFolder root, ImmutableDictionary<ArchiveEntryIdentity, ArchiveProjectEntry> entries)
@@ -95,7 +96,7 @@ public sealed class ArchiveProjectSnapshot
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(containerPath);
         var fullPath = Path.GetFullPath(containerPath);
-        var container = TwinBasicContainerReader.Read(input, limits, cancellationToken);
+        var (container, bytes) = TwinBasicContainerReader.ReadSnapshot(input, limits, cancellationToken);
         var entries = ImmutableDictionary.CreateBuilder<ArchiveEntryIdentity, ArchiveProjectEntry>();
         ArchiveProjectEntry Build(TwinBasicEntry source, ImmutableArray<string> segments)
         {
@@ -120,7 +121,7 @@ public sealed class ArchiveProjectSnapshot
 
         var root = (ArchiveProjectFolder)Build(container.Root, []);
         cancellationToken.ThrowIfCancellationRequested();
-        return new(fullPath, container, root, entries.ToImmutable());
+        return new(fullPath, container, root, entries.ToImmutable()) { OriginalBytes = bytes };
     }
 }
 

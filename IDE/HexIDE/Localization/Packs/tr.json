@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "'{0}' kaydedilemiyor: dosya diskte değişmiş. Kaydetmeden önce yeniden yükleyin.",
+    "Str.Archive.SaveRefused": "'{0}' kaydedilemiyor: kapsayıcı güvenli biçimde doğrulanıp yazılamadı. Düzenleme kaydedilmedi.",
     "Str.Dialog.MakeProjectGroup.Projects": "Aşağıdaki projeleri derle:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Varsayılan derleme seçeneklerini kullan",
     "Str.Dialog.MakeProjectGroup.Build": "Derle",
@@ -1540,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "Sunucu başlatılamadı: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Dil sunucusu bağlantısını sına",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE bunu daha önce başlatmadı veya buna bağlanmadı ya da o zamandan beri değişti. Onay vermek bu bilgisayarda bir program başlatır veya bu adrese bağlanır.",
-    "Str.Tool.LanguageServers.Trial.Run": "Çalıştır"
+    "Str.Tool.LanguageServers.Trial.Run": "Çalıştır",
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menü denetiminin bir adı olmalıdır",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Geçersiz nesne adı: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Menü denetim dizisinin öğesinin bir dizini olmalıdır",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Menü denetim dizisinin dizinleri artan sırada olmalıdır",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' bir denetim adıdır"
   }
 }

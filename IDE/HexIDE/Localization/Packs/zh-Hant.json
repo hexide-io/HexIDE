@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "無法儲存 '{0}'：磁碟上的檔案已變更。請先重新載入再儲存。",
+    "Str.Archive.SaveRefused": "無法儲存 '{0}'：無法安全驗證並寫入容器。編輯內容仍未儲存。",
     "Str.Dialog.MakeProjectGroup.Projects": "建置下列專案：",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "使用預設建置選項",
     "Str.Dialog.MakeProjectGroup.Build": "建置",
@@ -1540,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "伺服器未初始化：{0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "測試語言伺服器連線",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE 以前未啟動或連線過此項目，或者它自上次以來已變更。同意後，將在此電腦上啟動程式或連線至此位址。",
-    "Str.Tool.LanguageServers.Trial.Run": "執行"
+    "Str.Tool.LanguageServers.Trial.Run": "執行",
+    "Str.Dialog.MenuEditor.Msg.NoName": "功能表控制項必須有名稱",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "無效的物件名稱: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "功能表控制項陣列元素必須有索引",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "功能表控制項陣列索引必須按遞增順序排列",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' 是控制項名稱"
   }
 }

@@ -81,10 +81,10 @@ internal static class CompoundFolderProjectExtensions
 
 internal sealed class TwinBasicBrowserProject : IContainerProject, ICompoundFolderProject
 {
-    private readonly ArchiveProjectSnapshot snapshot;
+    internal ArchiveProjectSnapshot Snapshot { get; }
     private readonly Dictionary<ArchiveEntryIdentity, ContainerEntry> entries = new();
-    public string ContainerPath => snapshot.ContainerPath;
-    public string Name => snapshot.Name;
+    public string ContainerPath => Snapshot.ContainerPath;
+    public string Name => Snapshot.Name;
     public ContainerFolder Root { get; }
     public ICompoundFolderFormat FolderFormat => TwinBasicFolderFormat.Instance;
     public bool SupportsLanguageServers => true;
@@ -94,11 +94,11 @@ internal sealed class TwinBasicBrowserProject : IContainerProject, ICompoundFold
             ? DocumentLanguage.TwinBasic : null;
     public bool IsLocked => false;
     public string? NoticeKey => null;
-    public string? BuildType => TwinBasicCompilationConstants.BuildTypeOf(snapshot.Container);
+    public string? BuildType => TwinBasicCompilationConstants.BuildTypeOf(Snapshot.Container);
 
     public TwinBasicBrowserProject(ArchiveProjectSnapshot snapshot)
     {
-        this.snapshot = snapshot;
+        Snapshot = snapshot;
         Root = (ContainerFolder)ContainerEntry.FromArchive(snapshot.Root);
         void Add(ContainerEntry entry)
         {

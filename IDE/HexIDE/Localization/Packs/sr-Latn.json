@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Nije moguće sačuvati '{0}': datoteka je promenjena na disku. Ponovo je učitajte pre čuvanja.",
+    "Str.Archive.SaveRefused": "Nije moguće sačuvati '{0}': kontejner nije mogao bezbedno da se proveri i zapiše. Izmena ostaje nesačuvana.",
     "Str.Dialog.MakeProjectGroup.Projects": "Izgradi sledeće projekte:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Koristi podrazumevane opcije izgradnje",
     "Str.Dialog.MakeProjectGroup.Build": "Izgradi",
@@ -1540,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "Server nije inicijalizovan: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testiraj vezu sa jezičkim serverom",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ovo ranije nije pokretao niti se sa njim povezivao ili je u međuvremenu promenjeno. Prihvatanjem se pokreće program na ovom računaru ili uspostavlja veza sa ovom adresom.",
-    "Str.Tool.LanguageServers.Trial.Run": "Pokreni"
+    "Str.Tool.LanguageServers.Trial.Run": "Pokreni",
+    "Str.Dialog.MenuEditor.Msg.NoName": "Kontrola menija mora imati ime",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nevažeće ime objekta: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Element niza kontrola menija mora imati indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeksi niza kontrola menija moraju biti u rastućem redosledu",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' je ime kontrole"
   }
 }

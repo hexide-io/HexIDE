@@ -87,6 +87,8 @@ public class ChangedFileViewModel : ObservableObject
 
     internal ChangedFileViewModel(ModuleDefinition module, string name) : this(module) => Name = name;
 
+    internal ChangedFileViewModel(string name) => Name = name;
+
     public string Name { get; }
 
     public bool Indent { get; }

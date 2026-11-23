@@ -632,7 +632,7 @@ It uses the code window's 400 ms delay, cancellation and tooltip renderer, inclu
 code fences. Format Document and Format Selection use the claiming server's corresponding advertised
 provider, flush pending edits, and pass the configured Tab Width with spaces. Each reply applies as
 one undo step; a reply to an older buffer or detached view is discarded. A read-only editor refuses
-formatting with an explanation. Archive previews and project-file views remain read-only and have
+formatting with an explanation. Archive and project-file views have
 no formatting commands. Carried files do not format on save. The code window retains its guarded
 formatting and format-on-save paths, diagnostic tips and debugger data tips.
 
@@ -770,8 +770,8 @@ An available twinBASIC text preview opens a session with its text and closes it 
 (`.twin` and the VB6 source extensions, ignoring case) carry the `twinbasic` language label: only servers
 claiming the extension and declaring `languageId` `twinbasic` receive them (#1122). Other entries route by
 extension. Without a matching server, no diagnostics are produced. Reload recreates that session and its
-diagnostic markers. Entries stay read-only and send
-no `didChange`; no shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
+diagnostic markers. Read-only entries send no `didChange`; editable project-backed `.twin` sources send
+text changes through the same session (#5143). No shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
 The protocol inspector and `list_lsp_messages` record the conversation normally; pseudonymised exports redact
 both entry names and the nested container URI.
 
@@ -1136,6 +1136,15 @@ neither start for nor receive that document. Requests, changes, saves and closes
 If the owner is null, or none of its servers claims the extension, ordinary extension and membership
 routing applies. HexIDE's own projects (including `.vbp` groups) and carried files keep that routing.
 The registration's `AddinId` identifies the owner; `Origin` remains the display title.
+
+A configuration entry can also displace the bundled `hexide.vb6` entry
+([#5384](https://github.com/hexide-io/HexIDE/issues/5384)). After the project-owner route, for each extension,
+the bundled entry is excluded if another entry with no `AddinId` claims that extension, establishes VB6
+through `DocumentLanguage.EstablishesVb6`, and ranks above the bundled entry's current priority. Members
+and carried files use this rule before the membership and carried `.cls` content gates. Unclaimed
+extensions stay bundled; equal or lower priorities, a LaTeX `.cls` claim, and add-in entries outside their
+own project type keep ordinary routing. Overriding `hexide.vb6` itself displaces nothing. A displaced
+bundled entry never starts unless it still claims another opened document.
 
 ### The one place the identifier still counts: a project's class modules
 

@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Không thể lưu '{0}': tệp trên đĩa đã thay đổi. Hãy tải lại trước khi lưu.",
+    "Str.Archive.SaveRefused": "Không thể lưu '{0}': không thể xác minh và ghi vùng chứa một cách an toàn. Nội dung chỉnh sửa vẫn chưa được lưu.",
     "Str.Dialog.MakeProjectGroup.Projects": "Biên dịch các dự án sau:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Sử dụng tùy chọn biên dịch mặc định",
     "Str.Dialog.MakeProjectGroup.Build": "Biên dịch",
@@ -1540,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "Máy chủ không khởi tạo: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Kiểm tra kết nối máy chủ ngôn ngữ",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE chưa từng khởi động hoặc kết nối với mục này, hoặc mục này đã thay đổi kể từ đó. Việc đồng ý sẽ khởi động một chương trình trên máy tính này hoặc kết nối tới địa chỉ này.",
-    "Str.Tool.LanguageServers.Trial.Run": "Chạy"
+    "Str.Tool.LanguageServers.Trial.Run": "Chạy",
+    "Str.Dialog.MenuEditor.Msg.NoName": "Điều khiển trình đơn phải có tên",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Tên đối tượng không hợp lệ: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Phần tử mảng điều khiển trình đơn phải có chỉ số",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Các chỉ số mảng điều khiển trình đơn phải theo thứ tự tăng dần",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' là tên điều khiển"
   }
 }

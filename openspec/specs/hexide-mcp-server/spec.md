@@ -67,7 +67,7 @@ filesystem paths or language-server URIs.
 - **THEN** its automation path is `/a%2Fb.twin`, distinct from `b.twin` inside a folder named `a`
 
 ### Requirement: Open archive entries by their listed paths
-`open_file` SHALL open an archive entry by its listed path in the existing read-only inspector, without
+`open_file` SHALL open an archive entry by its listed path in the existing container editor, without
 writing files. Text previews SHALL use their opaque archive-entry URI for language servers. Its reply SHALL name the container path as `project` and
 the entry path as `document`. The optional `project` SHALL select an archive by its container path,
 file name or stored project name. Ambiguous matches SHALL refuse and list the matching containers
@@ -77,7 +77,7 @@ before opening anything.
 - **WHEN** `open_file` names an entry path present in two open archives without `project`
 - **THEN** nothing opens and the reply lists both container paths
 - **AND WHEN** the caller repeats the request with one container path as `project`
-- **THEN** that archive's entry opens read-only and the reply names it
+- **THEN** that archive's entry opens in the container editor and the reply names it
 
 ### Requirement: Carried file tab identities
 `get_document_tabs` SHALL report a carried file tab's owner project name as `project` and its
@@ -90,7 +90,7 @@ carried document name as `document`, matching the identity returned by `open_fil
 ### Requirement: Archive tab identities and type
 `get_document_tabs` SHALL report an archive entry tab with `type: archive`, `project` equal to its
 container path and `document` equal to the entry path returned by `open_file`. It SHALL omit
-`isModified` for these read-only previews. The tab activation and closing tools SHALL accept
+`isModified` for these previews (true only for an edited, writable `.twin` source). The tab activation and closing tools SHALL accept
 `archive` as a type filter.
 
 #### Scenario: Two archive tabs show the same entry path

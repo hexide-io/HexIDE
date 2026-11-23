@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
-// This file is part of HexIDE.Runtime.
+// This file is part of HexIDE.
 
 using System.Text.RegularExpressions;
 
-namespace HexIDE.Runtime.Editor;
+namespace HexIDE.Language;
 
 /// <summary>
 /// Provides auto-close logic for VB6 block statements.
@@ -16,7 +16,7 @@ namespace HexIDE.Runtime.Editor;
 /// This class is clean-room and self-contained — it does not reference or copy
 /// from the LSP server's own VbFoldingProvider/VbFormatter (a separate copy).
 /// </remarks>
-public static class VbAutoCloseProvider
+internal static class VbAutoCloseProvider
 {
     // ── Block opener patterns ────────────────────────────────────────────────
 

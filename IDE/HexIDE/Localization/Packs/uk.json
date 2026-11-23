@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Неможливо зберегти '{0}': файл на диску змінився. Завантажте його знову перед збереженням.",
+    "Str.Archive.SaveRefused": "Неможливо зберегти '{0}': не вдалося безпечно перевірити й записати контейнер. Зміна залишається незбереженою.",
     "Str.Dialog.MakeProjectGroup.Projects": "Зібрати такі проєкти:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Використовувати стандартні параметри збирання",
     "Str.Dialog.MakeProjectGroup.Build": "Зібрати",
@@ -1540,6 +1542,11 @@
     "Str.Tool.LanguageServers.Trial.Failed": "Сервер не ініціалізовано: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Перевірка підключення до мовного сервера",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ще не запускала цей елемент і не підключалася до нього, або він відтоді змінився. Згода запускає програму на цьому комп’ютері або підключає до цієї адреси.",
-    "Str.Tool.LanguageServers.Trial.Run": "Запустити"
+    "Str.Tool.LanguageServers.Trial.Run": "Запустити",
+    "Str.Dialog.MenuEditor.Msg.NoName": "Елемент меню повинен мати ім’я",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Неприпустиме ім’я об’єкта: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Елемент масиву елементів меню повинен мати індекс",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Індекси масиву елементів меню повинні йти в порядку зростання",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' — ім’я елемента керування"
   }
 }

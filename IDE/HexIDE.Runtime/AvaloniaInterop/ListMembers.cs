@@ -216,14 +216,16 @@ internal static class ListMembers
             list.Items.Add(text);
             return;
         }
-        // Avalonia drops the selection of an item replaced; VB6 keeps it. On a multi-select list each item keeps its own,
-        // which is not measured.
+        // VB6 keeps a selected item's selection and moves multi-select focus and anchor to it (#1424).
         if (list is VBListBox { IsMultiSelect: true } multi)
         {
             var wasSelected = multi.Selection.IsSelected(index);
             list.Items[index] = text;
             if (wasSelected)
+            {
                 multi.Selection.Select(index);
+                multi.ItemTextReplaced(index);
+            }
             return;
         }
         var selected = list.SelectedIndex;

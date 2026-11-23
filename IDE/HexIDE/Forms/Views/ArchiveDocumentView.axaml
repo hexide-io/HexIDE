@@ -9,7 +9,7 @@
             <TextBlock Text="{CompiledBinding Notice}" TextWrapping="Wrap" />
             <TextBlock Text="{CompiledBinding Metadata}" TextWrapping="Wrap" Opacity="0.7" />
         </StackPanel>
-        <edit:TextEditor Name="Editor" Document="{CompiledBinding Document}" IsReadOnly="True"
+        <edit:TextEditor Name="Editor" Document="{CompiledBinding Document}" IsReadOnly="{CompiledBinding IsReadOnlyDocument}"
                          FontFamily="Consolas,Courier New,Monospace" FontSize="13"
                          ShowLineNumbers="True" HorizontalScrollBarVisibility="Auto"
                          VerticalScrollBarVisibility="Auto" />

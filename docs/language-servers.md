@@ -141,8 +141,8 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | `initializationOptions` | no | Server-specific JSON passed unchanged in the `initialize` request. Omitted or null means the field is absent from the handshake; an empty object is sent as `{}`. |
 | `settings` | no | Server-owned JSON object. `workspace/configuration` resolves sections by dotted path; empty or absent sections return the whole object. Missing paths return `null`; `editor.tabSize` always comes from Tab Width. Saving or reloading entries sends changed settings to that server only. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
-| `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
-| `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
+| `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. A configuration entry serving VB6 above the bundled entry's priority also takes its claimed extensions from that entry. |
+| `enabled` | no | `false` switches an entry off entirely — no process, no registration. Switching off `hexide.vb6` is no longer needed to stop it serving beside a higher-priority configured VB6 server. |
 | `capture` | no | How much of this server's conversation the protocol capture may hold. See *Giving one server a bigger record* below. |
 | `restartOnProjectChange` | no | `true` restarts this connection when projects join or leave the group, reopening its documents. Off by default; use for servers that ignore workspace-folder notifications. |
 | `workspaceArtifact` | no | A workspace-relative `path`, registered `provider` id and provider-owned `settings`. Generation requires consent; see [Generated workspace files](#generated-workspace-files). |
@@ -201,6 +201,16 @@ file, header and designer block included. So a VB6 server receives the kinds who
 an entry claiming only `.bas` receives standard modules and nothing else. The bundled entry claims `.bas`,
 `.cls`, `.frm`, `.ctl`, `.pag`, `.dob` and `.dsr`, and declares `vb6`. How documents are named, and what
 happens when a name changes, is in [`lsp-client.md`](./lsp-client.md).
+
+**A configured VB6 server takes its extensions from the bundled server**
+([#5384](https://github.com/hexide-io/HexIDE/issues/5384)). For each extension, the bundled `hexide.vb6`
+entry stops claiming documents when another configuration entry claims that extension, establishes VB6
+(by a VB6 extension other than `.cls`, or `languageId: vb6`), and has a priority greater than the bundled
+entry's priority (normally -1000). This applies to members and carried files; the carried `.cls` content
+check below still applies. An entry claiming `.bas`, `.cls` and `.frm` leaves the other bundled extensions
+alone. Equal or lower priorities keep side-by-side routing, and a LaTeX `.cls` claim displaces nothing.
+An add-in's project-owner route takes precedence; its server outside its own project type does not
+displace the bundled entry. Overriding `hexide.vb6` itself remains the bundled entry.
 
 **A project's class modules also require a VB6 claim.** A `.cls` is a VB6 class module and
 equally a LaTeX class file, so claiming `.cls` is not enough to receive the project's classes; reading it as
