@@ -414,6 +414,7 @@
     "Str.Help.LogFolder.OpenFailed": "לא ניתן לפתוח את תיקיית היומנים. אפשר לפתוח אותה ידנית: {0}",
     "Str.Menu.Help.About": "אודות HexIDE...",
     "Str.Menu.MacApp.About": "אודות HexIDE",
+    "Str.Menu.MacApp.Settings": "אפשרויות…",
     "Str.Menu.GoToGithubRepo": "עבור אל מאגר github",
     "Str.NewProject.NoTemplates": "פרופיל זה אינו מציע תבניות לפרויקטים חדשים. יש לפתוח פרויקט קיים במקום זאת.",
     "Str.NewProject.Msg.NoStandardExe": "ב־{0} לא מותקן סוג פרויקט שיוצר פרויקט Standard EXE, ולכן ההפעלה בוצעה ללא פרויקט.",
@@ -772,6 +773,15 @@
     "Str.Dialog.Font.Label.Size": "גודל:",
     "Str.Dialog.Font.Label.Script": "מערכת כתב:",
     "Str.Dialog.Font.Script.Western": "מערבי",
+    "Str.Dialog.Font.Script.Hebrew": "עברית",
+    "Str.Dialog.Font.Script.Arabic": "ערבית",
+    "Str.Dialog.Font.Script.Greek": "יוונית",
+    "Str.Dialog.Font.Script.Turkish": "טורקית",
+    "Str.Dialog.Font.Script.Baltic": "בלטי",
+    "Str.Dialog.Font.Script.CentralEuropean": "מרכז אירופה",
+    "Str.Dialog.Font.Script.Cyrillic": "קירילי",
+    "Str.Dialog.Font.Script.Vietnamese": "וייטנאמית",
+    "Str.Dialog.Font.Script.Symbol": "סמלים",
     "Str.Dialog.Font.SizeNotNumber": "הגודל חייב להיות מספר.",
     "Str.Dialog.Font.SizeOutOfRange": "הגודל חייב להיות בין 1 ל־2236.",
     "Str.Dialog.Font.Button.Ok": "אישור",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "עדכון {0} בפרויקט {1} ימחק את השינויים שלא נשמרו באותו פרויקט. האם להמשיך?",
     "Str.Dialog.SharedFile.DiskChanged": "הקובץ '{0}' השתנה בדיסק מאז טעינת העותק של פרויקט {1} או שמירתו. האם להחליף אותו?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "הסימניות, נקודות העצירה והגדרות אחרות לכל משתמש של {0} לא ייטענו ולא יישמרו בהפעלה זו.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "כבר קיים פקד בשם '{0}'.  האם ליצור מערך פקדים?"
+    "Str.Naming.Msg.CreateControlArray": "כבר קיים פקד בשם '{0}'.  האם ליצור מערך פקדים?",
+    "Str.Options.Environment.ErrorTrapping.Header": "לכידת שגיאות",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "עצירה בכל שגיאה",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "עצירה במודול מחלקה",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "עצירה בשגיאות שלא טופלו"
   }
 }

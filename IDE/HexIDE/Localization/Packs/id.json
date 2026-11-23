@@ -381,6 +381,7 @@
     "Str.Help.LogFolder.OpenFailed": "Tidak dapat membuka folder log. Anda dapat membukanya secara manual: {0}",
     "Str.Menu.Help.About": "_Tentang HexIDE...",
     "Str.Menu.MacApp.About": "Tentang HexIDE",
+    "Str.Menu.MacApp.Settings": "Opsi…",
     "Str.Menu.GoToGithubRepo": "Buka repo github",
     "Str.NewProject.NoTemplates": "Profil ini tidak menyediakan templat proyek baru. Buka proyek yang sudah ada.",
     "Str.NewProject.Msg.NoStandardExe": "Tidak ada jenis proyek terpasang di {0} yang membuat proyek Standard EXE, sehingga aplikasi dimulai tanpa proyek.",
@@ -739,6 +740,15 @@
     "Str.Dialog.Font.Label.Size": "_Ukuran:",
     "Str.Dialog.Font.Label.Script": "_Sistem tulisan:",
     "Str.Dialog.Font.Script.Western": "Barat",
+    "Str.Dialog.Font.Script.Hebrew": "Ibrani",
+    "Str.Dialog.Font.Script.Arabic": "Arab",
+    "Str.Dialog.Font.Script.Greek": "Yunani",
+    "Str.Dialog.Font.Script.Turkish": "Turki",
+    "Str.Dialog.Font.Script.Baltic": "Baltik",
+    "Str.Dialog.Font.Script.CentralEuropean": "Eropa Tengah",
+    "Str.Dialog.Font.Script.Cyrillic": "Sirilik",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnam",
+    "Str.Dialog.Font.Script.Symbol": "Simbol",
     "Str.Dialog.Font.SizeNotNumber": "Ukuran harus berupa angka.",
     "Str.Dialog.Font.SizeOutOfRange": "Ukuran harus antara 1 dan 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Memperbarui {0} dalam proyek {1} akan membuang perubahan proyek tersebut yang belum disimpan. Apakah Anda ingin melanjutkan?",
     "Str.Dialog.SharedFile.DiskChanged": "Berkas '{0}' telah berubah di disk sejak salinan proyek {1} dimuat atau disimpan. Apakah Anda ingin menimpanya?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Penanda, breakpoint, dan pengaturan per pengguna lainnya untuk {0} tidak akan dimuat atau disimpan dalam sesi ini.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Kontrol bernama '{0}' sudah ada.  Apakah Anda ingin membuat larik kontrol?"
+    "Str.Naming.Msg.CreateControlArray": "Kontrol bernama '{0}' sudah ada.  Apakah Anda ingin membuat larik kontrol?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Penangkapan Kesalahan",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Hentikan pada Semua Kesalahan",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Hentikan dalam Modul Kelas",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Hentikan pada Kesalahan yang Tidak Ditangani"
   }
 }

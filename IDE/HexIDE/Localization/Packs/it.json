@@ -381,6 +381,7 @@
     "Str.Help.LogFolder.OpenFailed": "Impossibile aprire la cartella dei log. Puoi aprirla manualmente: {0}",
     "Str.Menu.Help.About": "_Informazioni su HexIDE...",
     "Str.Menu.MacApp.About": "Informazioni su HexIDE",
+    "Str.Menu.MacApp.Settings": "Opzioni…",
     "Str.Menu.GoToGithubRepo": "Vai al repository github",
     "Str.NewProject.NoTemplates": "Questo profilo non offre modelli per nuovi progetti. Aprire un progetto esistente.",
     "Str.NewProject.Msg.NoStandardExe": "In {0} non è installato alcun tipo di progetto che crei un progetto Standard EXE, quindi l’avvio è avvenuto senza un progetto.",
@@ -739,6 +740,15 @@
     "Str.Dialog.Font.Label.Size": "_Dimensione:",
     "Str.Dialog.Font.Label.Script": "Sist_ema di scrittura:",
     "Str.Dialog.Font.Script.Western": "Occidentale",
+    "Str.Dialog.Font.Script.Hebrew": "Ebraico",
+    "Str.Dialog.Font.Script.Arabic": "Arabo",
+    "Str.Dialog.Font.Script.Greek": "Greco",
+    "Str.Dialog.Font.Script.Turkish": "Turco",
+    "Str.Dialog.Font.Script.Baltic": "Baltico",
+    "Str.Dialog.Font.Script.CentralEuropean": "Europa centrale",
+    "Str.Dialog.Font.Script.Cyrillic": "Cirillico",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamita",
+    "Str.Dialog.Font.Script.Symbol": "Simboli",
     "Str.Dialog.Font.SizeNotNumber": "La dimensione deve essere un numero.",
     "Str.Dialog.Font.SizeOutOfRange": "La dimensione deve essere compresa tra 1 e 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "L'aggiornamento di {0} nel progetto {1} eliminerà le modifiche non salvate di quel progetto. Continuare?",
     "Str.Dialog.SharedFile.DiskChanged": "Il file '{0}' è stato modificato su disco da quando la copia del progetto {1} è stata caricata o salvata. Sovrascriverlo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "I segnalibri, i punti di interruzione e le altre impostazioni per utente di {0} non verranno caricati né salvati in questa sessione.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Esiste già un controllo denominato '{0}'.  Creare una matrice di controlli?"
+    "Str.Naming.Msg.CreateControlArray": "Esiste già un controllo denominato '{0}'.  Creare una matrice di controlli?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Intercettazione errori",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interrompi su tutti gli errori",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interrompi nel modulo di classe",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interrompi su errori non gestiti"
   }
 }

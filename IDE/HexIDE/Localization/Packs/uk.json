@@ -347,6 +347,7 @@
     "Str.Help.LogFolder.OpenFailed": "Не вдалося відкрити папку журналів. Ви можете відкрити її вручну: {0}",
     "Str.Menu.Help.About": "Про HexIDE...",
     "Str.Menu.MacApp.About": "Про HexIDE",
+    "Str.Menu.MacApp.Settings": "Параметри…",
     "Str.Menu.GoToGithubRepo": "Перейти до репозиторію github",
     "Str.NewProject.NoTemplates": "Цей профіль не пропонує шаблонів нових проєктів. Відкрийте наявний проєкт.",
     "Str.NewProject.Msg.NoStandardExe": "У {0} не встановлено типу проєкту, що створює проєкт Standard EXE, тому запуск виконано без проєкту.",
@@ -705,6 +706,15 @@
     "Str.Dialog.Font.Label.Size": "Розмір:",
     "Str.Dialog.Font.Label.Script": "Набір символів:",
     "Str.Dialog.Font.Script.Western": "Західний",
+    "Str.Dialog.Font.Script.Hebrew": "Іврит",
+    "Str.Dialog.Font.Script.Arabic": "Арабська",
+    "Str.Dialog.Font.Script.Greek": "Грецька",
+    "Str.Dialog.Font.Script.Turkish": "Турецька",
+    "Str.Dialog.Font.Script.Baltic": "Балтійська",
+    "Str.Dialog.Font.Script.CentralEuropean": "Центральноєвропейська",
+    "Str.Dialog.Font.Script.Cyrillic": "Кирилиця",
+    "Str.Dialog.Font.Script.Vietnamese": "В’єтнамська",
+    "Str.Dialog.Font.Script.Symbol": "Символи",
     "Str.Dialog.Font.SizeNotNumber": "Розмір має бути числом.",
     "Str.Dialog.Font.SizeOutOfRange": "Розмір має бути від 1 до 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Оновлення {0} у проєкті {1} призведе до втрати незбережених змін цього проєкту. Бажаєте продовжити?",
     "Str.Dialog.SharedFile.DiskChanged": "Файл '{0}' змінився на диску після завантаження або збереження копії проєкту {1}. Бажаєте перезаписати його?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Закладки, точки зупину та інші параметри користувача для {0} не буде завантажено чи збережено в цьому сеансі.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Елемент керування з іменем '{0}' уже існує.  Створити масив елементів керування?"
+    "Str.Naming.Msg.CreateControlArray": "Елемент керування з іменем '{0}' уже існує.  Створити масив елементів керування?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Перехоплення помилок",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Переривати за всіх помилок",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Переривати в модулі класу",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Переривати за необроблених помилок"
   }
 }

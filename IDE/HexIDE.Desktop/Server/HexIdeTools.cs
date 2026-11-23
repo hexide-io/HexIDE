@@ -1114,7 +1114,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return new MutateResult(true, null,
                 TabStateNote() + (entry.Archive is null
                     ? $" This VBA module is read-only. Language servers know it as {entry.Name}{entry.LanguageServerExtension}, the name VBA's Export File gives it. Office may run compiled p-code that differs from the stored source."
-                    : " This archive entry is read-only; available text previews attach language servers by extension."),
+                    : " This archive entry is read-only. A text preview goes to the language servers that claim its extension, and a twinBASIC source only to those that also declare the language twinbasic."),
                 Project: entry.Identity.ContainerPath, Document: ArchiveToolPaths.PathOf(entry),
                 Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null);
         }

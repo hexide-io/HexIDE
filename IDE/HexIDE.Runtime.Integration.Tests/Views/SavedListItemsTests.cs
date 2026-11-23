@@ -39,14 +39,15 @@ public class SavedListItemsTests
     }
 
     // A null data record leaves the ItemData line out, so the List record is cited alone.
-    private static FormDefinition Load(string type, int field, bool sorted, byte[] list, byte[]? data, string code = "")
+    private static FormDefinition Load(string type, int field, bool sorted, byte[] list, byte[]? data, string code = "",
+        IDeserializeErrorSink? sink = null)
     {
         var source = ListItemDataTests.Form(type, type == "ComboBox" ? 2 : 0, sorted, data is null
                 ? "List = \"Form1.frx\":0000"
                 : $"ItemData = \"Form1.frx\":0000\nList = \"Form1.frx\":{data.Length:X4}")
             + "\nPrivate Sub Form_Load()\n" + code + "\nEnd\nEnd Sub\n";
         var project = new ProjectDefinition(VBProjectType.EXE, "SavedLists");
-        var form = new FormDeserializer().Deserialize(project, source.ReplaceLineEndings("\r\n"), new Sink(),
+        var form = new FormDeserializer().Deserialize(project, source.ReplaceLineEndings("\r\n"), sink ?? new Sink(),
             frxBlobs: FrxDeserializer.Read([.. data ?? [], .. list], source))!;
         project.AddForm(form);
         return form;
@@ -213,13 +214,27 @@ public class SavedListItemsTests
         (await Run(Load("ComboBox", 0, sorted, Record(0, "b", "a", "c"), null,
             "For i = 0 To Items1.ListCount - 1\nDebug.Print Items1.List(i)\nNext"))).Should().Equal("b", "a", "c");
 
-    [AvaloniaFact]
-    public async Task A_truncated_List_stops_loading_with_the_measured_property_error()
+    private sealed class LoadLog : IDeserializeErrorSink
     {
-        var list = Record(0, "ab", "cde");
+        public List<string> Errors { get; } = [];
+        public void LogError(string error) => Errors.Add(error);
+    }
+
+    // #5147, VB6 SP6 IDE (oracle PR #5314).
+    [AvaloniaFact]
+    public async Task A_List_cut_at_the_end_of_the_companion_logs_the_error_and_runs()
+    {
+        var list = Record(3, "ab", "cde");
         list[0] = 3;
-        Func<Task> act = () => Run(Load("ListBox", 0, false, list, Record(0, "5", "6", "7")));
-        await act.Should().ThrowAsync<Exception>().WithMessage("Property List in Items1 could not be set");
+        var log = new LoadLog();
+        var form = Load("ListBox", 3, false, list, Record(3, "5", "6", "7"), """
+            Debug.Print Items1.ListCount
+            For i = 0 To Items1.ListCount - 1
+                Debug.Print Items1.List(i) & "=" & Items1.ItemData(i)
+            Next
+            """, log);
+        (await Run(form)).Should().Equal("2", "ab=5", "cde=6");
+        log.Errors.Should().ContainSingle().Which.Should().EndWith("Property List in Items1 could not be set.");
     }
 
     public static IEnumerable<object[]> InvalidRecords()

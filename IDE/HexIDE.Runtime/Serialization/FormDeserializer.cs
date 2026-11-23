@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
@@ -190,6 +191,11 @@ public class FormDeserializer
         // instance each time, and two properties may legitimately cite one offset, so counting references
         // rather than assignments is what makes "fewer out than in" mean what it says.
         var capturedBlobs = new HashSet<byte[]>(ReferenceEqualityComparer.Instance);
+        var citedOffsets = FrxDeserializer.CitedOffsets(source).Distinct().ToArray();
+        // Use the source offsets, since the blob reader drops citations beyond the file's end.
+        byte[]? lastRecord = null;
+        if (rootComponent.Type == "VB.Form" && frxBlobs is not null && citedOffsets.Length > 0)
+            frxBlobs.TryGetValue(citedOffsets.Max(), out lastRecord);
         // Preserved blocks are recorded on the container they came from, so reading them back per container
         // walks containers in turn rather than walking the file. This counter is what restores the file's
         // own order for the flat view.
@@ -202,6 +208,13 @@ public class FormDeserializer
         // what lets the writer put a preserved block back between the right two siblings.
         void LoadRecur(VBSerializedComponent serializedComponent, ComponentInstance? parent, int depth, int ordinal)
         {
+            void LogPropertyNotSet(string propertyName)
+            {
+                form.LoadedWithErrors = true;
+                errorSink.LogError("Str.ProjectLoad.PropertyNotSet", "Line {0}: Property {1} in {2} could not be set.",
+                    serializedComponent.BeginLine, propertyName, serializedComponent.Name);
+            }
+
             var known = componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass)
                 || extraComponents != null && extraComponents.TryGetValue(serializedComponent.Type, out componentClass);
             // The designer carries Toolbar and MonthView blocks verbatim; the runtime reads their property bags.
@@ -446,15 +459,20 @@ public class FormDeserializer
                     continue; // unknown property — preserved verbatim by OrderedRawProperties loop below
 
                 var val = serializedProperty.Value;
+                // Outside the measured six form styles, keep the raw line and its existing reader (#1596).
+                if (propertyClass == VBProperties.FormBorderStyleProperty && val is not (int and >= 0 and <= 5))
+                {
+                    unparsedKnownNames.Add(propertyName);
+                    continue;
+                }
+
                 // VB6 IDE load errors recover the size as zero, requiring Save As (#4179, PR #4350; #4422).
                 if (rootComponent.Type == "VB.Form" && parent is not null && TryReadNumber(val, out var size)
                     && (DesignerSizeValidation.Refuses(propertyClass, size)
                         || propertyClass == VBProperties.HeightProperty && (float)size >= 2147483648f))
                 {
                     val = 0;
-                    form.LoadedWithErrors = true;
-                    errorSink.LogError("Str.ProjectLoad.PropertyNotSet", "Line {0}: Property {1} in {2} could not be set.",
-                        serializedComponent.BeginLine, propertyName, serializedComponent.Name);
+                    LogPropertyNotSet(propertyName);
                 }
                 var rawText = assignmentIndex < serializedComponent.PropertyValueTexts.Count
                     ? serializedComponent.PropertyValueTexts[assignmentIndex] : null;
@@ -668,6 +686,13 @@ public class FormDeserializer
                 if (readSuccessfully)
                     readableNames.Add(serializedProperty.Key);
             }
+
+            // Style is known now even when it follows the record citations in the file.
+            if (lastRecord is not null
+                && (componentClass is ListBoxComponentClass
+                    || componentClass is ComboBoxComponentClass && ComboBoxComponentClass.IsDropdownList(instance))
+                && ListItemState.RecoverSavedRecords(instance, lastRecord) is { } recovered)
+                LogPropertyNotSet(recovered.Name);
 
             // The offset between the root's two rectangles, once both have been read. Recorded only when
             // the file declared an outer rectangle at all — nineteen of VB6's twenty-two designer files
@@ -889,7 +914,7 @@ public class FormDeserializer
         // file that may be the missing one. It also closes a case nobody had noticed: a TRUNCATED companion,
         // where an out-of-range offset is filtered out of the blob dictionary AND fails to extract, so the
         // two counts used to agree at a number lower than the form actually cites.
-        var citedBlobCount = FrxDeserializer.CitedOffsets(source).Distinct().Count();
+        var citedBlobCount = citedOffsets.Length;
         // Kept on the model as well: the save path needs it to tell a companion this form referenced from
         // one it never did, and only the latter must survive a save that produces no blobs (#148).
         form.RecordCitedCompanionBlobCount(citedBlobCount);

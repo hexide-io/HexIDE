@@ -347,6 +347,7 @@
     "Str.Help.LogFolder.OpenFailed": "Logmappen kunne ikke åbnes. Du kan åbne den manuelt: {0}",
     "Str.Menu.Help.About": "_Om HexIDE...",
     "Str.Menu.MacApp.About": "Om HexIDE",
+    "Str.Menu.MacApp.Settings": "Indstillinger…",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-lager",
     "Str.NewProject.NoTemplates": "Denne profil tilbyder ingen nye projektskabeloner. Åbn et eksisterende projekt i stedet.",
     "Str.NewProject.Msg.NoStandardExe": "{0} har ingen installeret projekttype, der opretter et Standard EXE-projekt, og startede derfor uden et projekt.",
@@ -705,6 +706,15 @@
     "Str.Dialog.Font.Label.Size": "St_ørrelse:",
     "Str.Dialog.Font.Label.Script": "S_kriftsystem:",
     "Str.Dialog.Font.Script.Western": "Vestlig",
+    "Str.Dialog.Font.Script.Hebrew": "Hebraisk",
+    "Str.Dialog.Font.Script.Arabic": "Arabisk",
+    "Str.Dialog.Font.Script.Greek": "Græsk",
+    "Str.Dialog.Font.Script.Turkish": "Tyrkisk",
+    "Str.Dialog.Font.Script.Baltic": "Baltisk",
+    "Str.Dialog.Font.Script.CentralEuropean": "Centraleuropæisk",
+    "Str.Dialog.Font.Script.Cyrillic": "Kyrillisk",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamesisk",
+    "Str.Dialog.Font.Script.Symbol": "Symboler",
     "Str.Dialog.Font.SizeNotNumber": "Størrelsen skal være et tal.",
     "Str.Dialog.Font.SizeOutOfRange": "Størrelsen skal være mellem 1 og 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Hvis du opdaterer {0} i projektet {1}, kasseres projektets ændringer, som ikke er gemt. Vil du fortsætte?",
     "Str.Dialog.SharedFile.DiskChanged": "Filen '{0}' er blevet ændret på disken, siden kopien i projektet {1} blev indlæst eller gemt. Vil du overskrive den?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Bogmærker, pausepunkter og andre brugerindstillinger for {0} hverken indlæses eller gemmes i denne session.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Der findes allerede et kontrolelement med navnet '{0}'.  Vil du oprette en matrix af kontrolelementer?"
+    "Str.Naming.Msg.CreateControlArray": "Der findes allerede et kontrolelement med navnet '{0}'.  Vil du oprette en matrix af kontrolelementer?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Fejlfangst",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Afbryd ved alle fejl",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Afbryd i klassemodul",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Afbryd ved uhåndterede fejl"
   }
 }

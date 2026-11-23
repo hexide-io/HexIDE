@@ -308,6 +308,7 @@
     "Str.Help.LogFolder.OpenFailed": "Logikausta ei saanud avada. Saate selle käsitsi avada: {0}",
     "Str.Menu.Help.About": "_Teave HexIDE kohta...",
     "Str.Menu.MacApp.About": "Teave HexIDE kohta",
+    "Str.Menu.MacApp.Settings": "Valikud…",
     "Str.Menu.GoToGithubRepo": "Ava GitHubi hoidla",
     "Str.ProjectType.StandardEXE": "Standardne EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
@@ -710,6 +711,15 @@
     "Str.Dialog.Font.Label.Size": "_Suurus:",
     "Str.Dialog.Font.Label.Script": "_Kirjasüsteem:",
     "Str.Dialog.Font.Script.Western": "Lääne",
+    "Str.Dialog.Font.Script.Hebrew": "Heebrea",
+    "Str.Dialog.Font.Script.Arabic": "Araabia",
+    "Str.Dialog.Font.Script.Greek": "Kreeka",
+    "Str.Dialog.Font.Script.Turkish": "Türgi",
+    "Str.Dialog.Font.Script.Baltic": "Balti",
+    "Str.Dialog.Font.Script.CentralEuropean": "Kesk-Euroopa",
+    "Str.Dialog.Font.Script.Cyrillic": "Kirillitsa",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnami",
+    "Str.Dialog.Font.Script.Symbol": "Sümbolid",
     "Str.Dialog.Font.SizeNotNumber": "Suurus peab olema arv.",
     "Str.Dialog.Font.SizeOutOfRange": "Suurus peab olema vahemikus 1 kuni 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Faili {0} värskendamine projektis {1} tühistab selle projekti salvestamata muudatused. Kas soovite jätkata?",
     "Str.Dialog.SharedFile.DiskChanged": "Fail '{0}' on kettal muutunud pärast projekti {1} koopia laadimist või salvestamist. Kas soovite selle üle kirjutada?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Projekti {0} järjehoidjaid, katkestuspunkte ega muid kasutajapõhiseid sätteid selles seansis ei laadita ega salvestata.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Juhtelement nimega '{0}' on juba olemas.  Kas soovite luua juhtelementide massiivi?"
+    "Str.Naming.Msg.CreateControlArray": "Juhtelement nimega '{0}' on juba olemas.  Kas soovite luua juhtelementide massiivi?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Vigade püüdmine",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Peata kõigi vigade korral",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Peata klassimoodulis",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Peata käsitlemata vigade korral"
   }
 }

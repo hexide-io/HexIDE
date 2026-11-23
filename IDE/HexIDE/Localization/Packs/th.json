@@ -308,6 +308,7 @@
     "Str.Help.LogFolder.OpenFailed": "ไม่สามารถเปิดโฟลเดอร์บันทึกได้ คุณสามารถเปิดด้วยตนเอง: {0}",
     "Str.Menu.Help.About": "เกี่ยวกับ HexIDE...",
     "Str.Menu.MacApp.About": "เกี่ยวกับ HexIDE",
+    "Str.Menu.MacApp.Settings": "ตัวเลือก…",
     "Str.Menu.GoToGithubRepo": "ไปที่คลัง GitHub",
     "Str.ProjectType.StandardEXE": "EXE มาตรฐาน",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
@@ -710,6 +711,15 @@
     "Str.Dialog.Font.Label.Size": "ขนาด:",
     "Str.Dialog.Font.Label.Script": "ชุดอักขระ:",
     "Str.Dialog.Font.Script.Western": "ตะวันตก",
+    "Str.Dialog.Font.Script.Hebrew": "ฮีบรู",
+    "Str.Dialog.Font.Script.Arabic": "อาหรับ",
+    "Str.Dialog.Font.Script.Greek": "กรีก",
+    "Str.Dialog.Font.Script.Turkish": "ตุรกี",
+    "Str.Dialog.Font.Script.Baltic": "บอลติก",
+    "Str.Dialog.Font.Script.CentralEuropean": "ยุโรปกลาง",
+    "Str.Dialog.Font.Script.Cyrillic": "ซีริลลิก",
+    "Str.Dialog.Font.Script.Vietnamese": "เวียดนาม",
+    "Str.Dialog.Font.Script.Symbol": "สัญลักษณ์",
     "Str.Dialog.Font.SizeNotNumber": "ขนาดต้องเป็นตัวเลข",
     "Str.Dialog.Font.SizeOutOfRange": "ขนาดต้องอยู่ระหว่าง 1 ถึง 2236",
     "Str.Dialog.Font.Button.Ok": "ตกลง",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "การอัปเดต {0} ในโครงการ {1} จะละทิ้งการเปลี่ยนแปลงที่ยังไม่ได้บันทึกของโครงการนั้น คุณต้องการดำเนินการต่อหรือไม่?",
     "Str.Dialog.SharedFile.DiskChanged": "ไฟล์ '{0}' บนดิสก์มีการเปลี่ยนแปลงนับตั้งแต่โหลดหรือบันทึกสำเนาของโครงการ {1} คุณต้องการเขียนทับไฟล์นี้หรือไม่?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "ที่คั่นหน้า จุดพัก และการตั้งค่าอื่นๆ ต่อผู้ใช้ของ {0} จะไม่ถูกโหลดหรือบันทึกในเซสชันนี้\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "มีตัวควบคุมชื่อ '{0}' อยู่แล้ว  คุณต้องการสร้างอาร์เรย์ตัวควบคุมหรือไม่?"
+    "Str.Naming.Msg.CreateControlArray": "มีตัวควบคุมชื่อ '{0}' อยู่แล้ว  คุณต้องการสร้างอาร์เรย์ตัวควบคุมหรือไม่?",
+    "Str.Options.Environment.ErrorTrapping.Header": "การดักจับข้อผิดพลาด",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "หยุดเมื่อเกิดข้อผิดพลาดทั้งหมด",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "หยุดในโมดูลคลาส",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "หยุดเมื่อเกิดข้อผิดพลาดที่ไม่ได้จัดการ"
   }
 }

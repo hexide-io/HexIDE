@@ -1878,6 +1878,7 @@ public partial class MainViewViewModel : ObservableObject
         // and Continue runs the statement again. Recorded before the dialog, as every run-time error is. A dialog closed
         // without an answer, as stop_project and shutdown_ide close it, takes Debug, which loses nothing: what VB6 does
         // then is not measured.
+        projectRunnerService.ErrorTrapping = settingsService.ErrorTrapping;
         projectRunnerService.HaltHost = async failure =>
         {
             RuntimeErrors.Record(failure.Text, failure.Location);
@@ -2164,6 +2165,8 @@ public partial class MainViewViewModel : ObservableObject
 
         settingsService.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(ISettingsService.ErrorTrapping))
+                projectRunnerService.ErrorTrapping = settingsService.ErrorTrapping;
             if (e.PropertyName == nameof(ISettingsService.LoadUnsignedAddins))
                 OnPropertyChanged(nameof(WindowTitle));
         };
