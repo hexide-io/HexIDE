@@ -11,9 +11,10 @@ verified runtime *semantics* (numeric types, errors, coercions — checked again
 [`mcp-server-gaps.md`](mcp-server-gaps.md). The debugger's design + phase status is in
 [`../openspec/specs/interpreter-debugger/spec.md`](../openspec/specs/interpreter-debugger/spec.md).
 
-**Why these exist.** The in-box interpreter is an *approximation* for out-of-box tyre-kicking, not a fidelity
-engine (that is a real language engine's job, behind the replaceable backend seam). Each divergence is a deliberate boundary marker, not a bug backlog — though
-some are refinements we may take. Format: **What → VB6 → HexIDE → Why → Status**.
+**Why these exist.** The interpreter is one engine among peers, behind the same seams as any other. It approximates
+VB6 only in when and how an error surfaces, never in a value, so each entry here is a place where its debugger
+knowingly differs from VB6's, by decision or for now. Some are refinements we may take. Format: **What → VB6 →
+HexIDE → Why → Status**.
 
 ---
 
@@ -254,7 +255,7 @@ property expansion remains unimplemented; the object is currently a leaf labelle
   `Nothing`/`Empty`/`Null`; objects/arrays/UDTs show their type and expand). An array of objects or of a class
   gives its element type and bounds in its header, `Class1(1 to 2)`, since #2700 (see D30), where it used to read
   `Variant()`. Whether a UDT-typed array's header still reads `Variant()` has not been re-checked.
-- **Why:** exact VBA value formatting is a rabbit hole not worth chasing for a tyre-kicking debugger.
+- **Why:** matching VB6's display format exactly is costly, and a display difference changes no value the program computes.
 - **Status:** **by design** (approximation). Arrays are capped at 500 shown elements with a "… N more" marker (a
   visible, non-silent cap).
 
