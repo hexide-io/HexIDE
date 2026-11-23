@@ -73,7 +73,7 @@ public class VBLoader
             AvaloniaInterop.ContainerMembers.Register(canvas, Vb6Value.NewObject(form));
         Menu menu = form?.FormWindow is Control ? new VBMenuBar() : new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
-        var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
+        var shortcuts = new List<(KeyGesture Gesture, Action<Action> Invoke)>();
         var menus = new List<(ComponentInstance Component, Control Control, ItemsControl Parent)>();
         var nativeMenus = form?.FormWindow is Window menuWindow && FormNativeMenu.ForWindow(menuWindow);
         BuildMenuBar(element, menu, shortcuts, menus, nativeMenus);
@@ -380,7 +380,35 @@ public class VBLoader
                     if (!gesture.Matches(e))
                         continue;
                     e.Handled = true;
-                    invoke();
+                    var focused = TopLevel.GetTopLevel(root)?.FocusManager?.GetFocusedElement();
+                    var target = controls.All.FirstOrDefault(c => AttachedEvents.OwnsThePointerEvent(c, focused));
+                    void Deliver(EventClass ev, int code, int? shift, Action<int> completed)
+                    {
+                        if (target is not null)
+                            TextBoxKeyEvents.Deliver(target, ev, code, shift, completed);
+                        else if (root.FindAncestorOfType<IModuleExecutionRoot>() is { } executionRoot)
+                        {
+                            IReadOnlyList<Vb6Value> args = shift is { } mask
+                                ? [new Vb6Value(code), new Vb6Value(mask)] : [new Vb6Value(code)];
+                            executionRoot.ExecuteKeyboardEvent($"Form_{ev.Name}", args, 0, completed);
+                        }
+                        else
+                            completed(code);
+                    }
+                    void Disabled()
+                    {
+                        if (e.KeyModifiers == KeyModifiers.Control && e.Key is >= Key.A and <= Key.Z)
+                            Deliver(ComponentBaseClass.KeyPressEvent, 1 + e.Key - Key.A, null, _ => { });
+                    }
+                    var code = TextBoxKeyEvents.KeyCode(e);
+                    var shift = (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 1 : 0)
+                        | (e.KeyModifiers.HasFlag(KeyModifiers.Control) ? 2 : 0)
+                        | (e.KeyModifiers.HasFlag(KeyModifiers.Alt) ? 4 : 0);
+                    // #5371: KeyDown completes before the menu chain; KeyCode = 0 still runs the shortcut.
+                    if (code != 0)
+                        Deliver(ComponentBaseClass.KeyDownEvent, code, shift, _ => invoke(Disabled));
+                    else
+                        invoke(Disabled);
                     return;
                 }
             }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
@@ -430,7 +458,7 @@ public class VBLoader
     /// canvas: a VB6 menu has no Left/Top/Width/Height, so every one of them used to land as a zero-sized
     /// child of the form's canvas while the bar itself stayed empty.
     /// </summary>
-    private static void BuildMenuBar(FormDefinition element, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts,
+    private static void BuildMenuBar(FormDefinition element, Menu menu, List<(KeyGesture Gesture, Action<Action> Invoke)> shortcuts,
         List<(ComponentInstance Component, Control Control, ItemsControl Parent)> built, bool nativeMenus)
     {
         foreach (var component in TopLevelMenus(element))
@@ -554,7 +582,7 @@ public class VBLoader
     /// window entirely and finds nothing, so every submenu item would silently do nothing while the
     /// top-level ones worked.
     /// </summary>
-    private static Control? BuildMenuItem(ComponentInstance component, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts,
+    private static Control? BuildMenuItem(ComponentInstance component, Menu menu, List<(KeyGesture Gesture, Action<Action> Invoke)> shortcuts,
         ItemsControl parent, List<(ComponentInstance Component, Control Control, ItemsControl Parent)> built)
     {
         var caption = component.GetPropertyOrDefault(VBProperties.CaptionProperty);
@@ -580,7 +608,7 @@ public class VBLoader
             {
                 // Displays right-aligned in the item, as VB6 draws it.
                 item.InputGesture = gesture;
-                shortcuts.Add((gesture, () => RaiseShortcut(item, name, menu)));
+                shortcuts.Add((gesture, disabled => RaiseShortcut(item, name, menu, disabled)));
             }
         }
 
@@ -625,7 +653,7 @@ public class VBLoader
     /// Each is asked at its turn, after the Clicks above it have run: vb6.exe raised an item a parent's Click had just
     /// enabled. That a menu between the two is asked late as well is assumed rather than measured.
     /// </remarks>
-    private static void RaiseShortcut(VBMenu item, string name, Menu menu)
+    private static void RaiseShortcut(VBMenu item, string name, Menu menu, Action disabled)
     {
         if (menu.FindAncestorOfType<IModuleExecutionRoot>() is not { } root)
             return;
@@ -636,6 +664,21 @@ public class VBLoader
         {
             var reached = chain.GetRange(0, i + 1);
             var linkName = i == chain.Count - 1 ? name : VBProps.GetName(chain[i]);
+            if (ReferenceEquals(chain[i], item))
+            {
+                Task CheckDisabled()
+                {
+                    if (item.IsVisible && !item.IsEnabled
+                        && chain.Take(chain.Count - 1).All(m => m.IsEnabled && m.IsVisible))
+                        disabled();
+                    return Task.CompletedTask;
+                }
+                // Even an item without a Click handler passes its Ctrl character on (#5371).
+                if (root.Events is { } events)
+                    events.Raise("MenuShortcut", CheckDisabled);
+                else
+                    _ = CheckDisabled();
+            }
             if (linkName is not null)
                 root.ExecuteSubIf($"{linkName}_Click", MenuArgs(chain[i]), () => reached.TrueForAll(m => m.IsEnabled && m.IsVisible));
         }
