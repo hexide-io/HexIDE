@@ -1,15 +1,15 @@
 using System.Text.Json;
 using HexIDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
 public sealed class ProfileResolverTests : IDisposable
 {
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-profiles-" + Guid.NewGuid());
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-profiles-");
     private string UserData => Path.Combine(root, "user");
     private ProfileResolver Resolver => new(UserData, root);
 
-    public ProfileResolverTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, true);
 
     private string Bundle(string manifest, string name = "custom")
