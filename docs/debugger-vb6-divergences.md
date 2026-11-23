@@ -553,9 +553,9 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   - **A condition runs again on its own,** an `ElseIf`'s, or a `Loop Until`'s without another pass through the body,
     and so does a statement of a single-line `If`'s tail. These were chosen as the closest reading of "the faulting
     statement". **VB6 does the same** (measured 2026-11-21, `docs/vb6-fidelity-oracle/what-f5-runs-again-after-debug.md`).
-  - **A `Case` expression runs again with its `Select Case`** and the `Case`s before it. That is a limit of the walk.
-    **VB6 runs only the faulting `Case`'s expression again** (the same page), so this differs:
-    [#1079](https://github.com/hexide-io/HexIDE/issues/1079).
+  - **A faulting single-test `Case` expression runs again alone, fixed by #1079.** The selector and earlier `Case`s are
+    not evaluated again, matching the same page. An error in the selector, and one in a comma-separated `Case` list,
+    still run the whole `Select Case` again. VB6 wasn't measured on either.
   - **A dialog closed without an answer** takes Debug. VB6's dialog can't be closed without one. It has no close box,
     and Escape, `SC_CLOSE` and Alt+F4 leave it up (measured 2026-11-21,
     `docs/vb6-fidelity-oracle/closing-the-run-time-error-dialog.md`, [#607](https://github.com/hexide-io/HexIDE/issues/607)).

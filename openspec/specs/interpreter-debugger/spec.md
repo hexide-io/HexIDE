@@ -533,6 +533,13 @@ class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 - **WHEN** the error was raised by the condition of an `ElseIf` or of a `Loop Until` or `Loop While`
 - **THEN** continuing asks that condition again, without the conditions before it and without another pass through the loop
 
+#### Scenario: A single-test Case expression that raised
+- **WHEN** a single-test `Case` expression raises an unhandled run-time error and the developer chooses Debug
+- **THEN** the debugger SHALL stop on that `Case` line
+- **AND** continuing SHALL evaluate that test again with the retained selector value, without repeating the selector
+  or earlier Case tests, as [measured in VB6's IDE](../../../docs/vb6-fidelity-oracle/what-f5-runs-again-after-debug.md) (#1079)
+- **AND** faults in the selector or a comma-separated Case list retain their existing whole-statement retry, pending measurement
+
 #### Scenario: End
 - **WHEN** the developer chooses End
 - **THEN** the program ends with no `QueryUnload`, `Unload` or `Terminate` event, as the End command ends it

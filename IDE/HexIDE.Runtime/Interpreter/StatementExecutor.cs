@@ -4073,14 +4073,31 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // A test that raises under Resume Next runs its own Case's body, and nothing after it is tested: the next
                 // statement is the first in that body (measured, #839, native and p-code alike).
                 bool matched;
-                try
+                while (true)
                 {
-                    matched = await CaseTestMatches(subCond, value);
-                }
-                catch (VBRunTimeException ex) when (ResumesNext)
-                {
-                    CaptureError(ex);
-                    matched = true;
+                    try
+                    {
+                        matched = await CaseTestMatches(subCond, value);
+                        break;
+                    }
+                    catch (Exception ex) when (condExpr.sC_CondExpr().Length == 1 && ErrorLocation.Note(ex, currentModule.Name, @case.Start.Line))
+                    {
+                        throw;
+                    }
+                    catch (VBRunTimeException ex) when (ResumesNext)
+                    {
+                        CaptureError(ex);
+                        matched = true;
+                        break;
+                    }
+                    // Single-test Cases retry alone (#1079, measured). List granularity is unmeasured;
+                    // retain its whole-statement retry until measured, rather than choosing a new rule.
+                    catch (VBRunTimeException ex) when (condExpr.sC_CondExpr().Length == 1 && HaltsHere(ex))
+                    {
+                        _suspendedAtTopLevel = false;
+                        if (!await Halt(ex, @case.Start.Line))
+                            throw;
+                    }
                 }
                 if (matched)
                     return await RunCaseBody(@case);
