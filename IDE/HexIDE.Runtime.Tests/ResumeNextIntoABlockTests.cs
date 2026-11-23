@@ -577,12 +577,41 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
         AssertLog(expected);
     }
 
-    [Fact]
-    public async Task A_raised_header_with_an_unmeasured_counter_type_is_refused()
+    // #984, oracle resume-next-into-a-block.md, "A String or Boolean counter, and a Variant one".
+    [Theory]
+    [InlineData("String", "\"7\"", "3")]
+    [InlineData("Boolean", "True", "3")]
+    [InlineData("String", "\"7\"", "Boom()")]
+    [InlineData("Boolean", "True", "Boom()")]
+    public async Task A_String_or_Boolean_For_counter_is_a_compile_error(string type, string preset, string limit)
     {
-        var run = () => RunResumingNext("Dim i As String\nFor i = 1 To Boom()\nNext\n");
+        var run = () => Run($"On Error Resume Next\nDim c As {type}\nc = {preset}\nFor c = 1 To {limit}\nDebug.Print c\nNext\n" + Procedures);
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*String counter*");
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Type mismatch");
+        AssertLog([]);
+    }
+
+    [Theory]
+    [InlineData("Variant", "\"7\"", "Boom()", "7 String", "7 String 92")]
+    [InlineData("Variant", "\"7\"", "3", "1 Integer", "4 Integer 0")]
+    [InlineData("Integer", "7", "Boom()", "7 Integer", "8 Integer 5")]
+    public async Task Measured_Variant_and_Integer_For_counters_keep_their_behaviour(
+        string type, string preset, string limit, string first, string after)
+    {
+        await Run($"""
+            On Error Resume Next
+            Dim c As {type}
+            c = {preset}
+            For c = 1 To {limit}
+                Debug.Print c & " " & TypeName(c)
+            Next
+            Debug.Print c & " " & TypeName(c) & " " & Err.Number
+            Function Boom() As Long
+                Err.Raise 5
+            End Function
+            """);
+
+        AssertLog(limit == "3" ? [first, "2 Integer", "3 Integer", after] : [first, after]);
     }
 
     [Theory]

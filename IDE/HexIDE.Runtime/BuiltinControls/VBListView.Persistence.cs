@@ -86,7 +86,12 @@ public sealed partial class VBListView
             if (!fontFields.TryGetValue("Name", out var family) || family is not string
                 || !fontFields.TryGetValue("Size", out var size) || size is not (int or double))
                 throw new NotImplementedException("ListView partial file Font is unmeasured (#1085)");
-            properties["Font"] = new(new ListViewFont((string)family, Convert.ToDouble(size, CultureInfo.InvariantCulture)));
+            int Metric(string name, int fallback) => fontFields.TryGetValue(name, out var value)
+                ? checked((int)Number(value)) : fallback;
+            AttachedProperties.SetFont(this, new VBFont((string)family, Convert.ToDouble(size, CultureInfo.InvariantCulture),
+                italic: Metric("Italic", 0) != 0, charset: Metric("Charset", 0),
+                underline: Metric("Underline", 0) != 0, strikethrough: Metric("Strikethrough", 0) != 0,
+                weight: Metric("Weight", VBFont.NormalWeight)));
         }
 
         for (var index = 1; fields.TryGetValue($"ColumnHeader({index})", out var block); index++)

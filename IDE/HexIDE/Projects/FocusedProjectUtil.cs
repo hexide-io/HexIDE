@@ -2,6 +2,8 @@ using System;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.AvaloniaInterop;
+using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
 using PropertyChanged.SourceGenerator;
 using R3;
@@ -80,25 +82,26 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
         if (formEditor == null)
             return;
 
-        // The container-relative value, which is what VB6 shows and what the Properties window reads off the
-        // model. Binding to the view-model's Left/Top would put the status bar on the far side of the
-        // relative/absolute boundary from the property grid, so the two would report different numbers for the
-        // same selection.
+        // Use the Properties window's units and precision, including the frame round a form (#1641).
         var left = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeLeft));
+            .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeLeft)
+                .Select(pixels => DesignPositions.Shown(formEditor.FormDefinition!, x!.Instance, VBProperties.LeftProperty, pixels)));
         var top = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeTop));
+            .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeTop)
+                .Select(pixels => DesignPositions.Shown(formEditor.FormDefinition!, x!.Instance, VBProperties.TopProperty, pixels)));
         var width = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.Width));
+            .SelectMany(x => x!.ObservePropertyChanged(y => y.Width)
+                .Select(pixels => DesignPositions.Shown(formEditor.FormDefinition!, x!.Instance, VBProperties.WidthProperty, pixels)));
         var height = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.Height));
+            .SelectMany(x => x!.ObservePropertyChanged(y => y.Height)
+                .Select(pixels => DesignPositions.Shown(formEditor.FormDefinition!, x!.Instance, VBProperties.HeightProperty, pixels)));
 
-        activeWindowDisposable = new CompositeDisposable(left.CombineLatest(top, (a, b) => $"{a:0}, {b:0}")
-            .Subscribe(position => FocusedComponentPosition = position), width.CombineLatest(height, (a, b) => $"{a:0}, {b:0}")
+        activeWindowDisposable = new CompositeDisposable(left.CombineLatest(top, (a, b) => $"{a}, {b}")
+            .Subscribe(position => FocusedComponentPosition = position), width.CombineLatest(height, (a, b) => $"{a} x {b}")
             .Subscribe(size => FocusedComponentSize = size));
     }
 }

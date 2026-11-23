@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 
@@ -13,10 +16,25 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 public class VBTextBox : TextBox
 {
-    protected override Type StyleKeyOverride => typeof(TextBox);
+    protected override Type StyleKeyOverride => VbBorderStyle == 0 ? typeof(TextBox) : typeof(VBTextBox);
+
+    internal static readonly StyledProperty<VBAppearance> AppearanceProperty =
+        AvaloniaProperty.Register<VBTextBox, VBAppearance>(nameof(Appearance), VBAppearance._3D);
+
+    internal VBAppearance Appearance
+    {
+        get => GetValue(AppearanceProperty);
+        set => SetValue(AppearanceProperty, value);
+    }
 
     static VBTextBox()
     {
+        AppearanceProperty.Changed.AddClassHandler<VBTextBox>((box, _) =>
+        {
+            if (box.VbBorderStyle != 0)
+                box.Theme = box.Appearance == VBAppearance._3D ? null
+                    : Application.Current?.FindResource("FlatVBTextBox") as ControlTheme;
+        });
         TextProperty.Changed.AddClassHandler<VBTextBox>((textBox, e) =>
         {
             textBox.ExecuteSub(TextBoxComponentClass.ChangeEvent);
@@ -35,14 +53,14 @@ public class VBTextBox : TextBox
         ApplyLayout(false, 0);
     }
 
-    // The saved border selects the measured minimum size (#1029); rendering is unchanged.
+    // BorderStyle 0 keeps the stock drawing: its edge has not been measured (#918).
     internal int VbBorderStyle { get; init; } = 1;
 
     protected override void OnTextInput(TextInputEventArgs e)
     {
         if (e.Handled || string.IsNullOrEmpty(e.Text))
             return;
-        if (System.Linq.Enumerable.Any(e.Text, character => character > 127))
+        if (e.Text.Any(character => character > 127))
         {
             base.OnTextInput(e);
             return;
@@ -60,6 +78,15 @@ public class VBTextBox : TextBox
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        // VB6 copies the selection on Cut in a locked TextBox (#5300).
+        if (!e.Handled && IsReadOnly && Application.Current?.PlatformSettings?.HotkeyConfiguration.Cut
+                .Any(gesture => gesture.Matches(e)) == true)
+        {
+            if (CanCopy)
+                Copy();
+            e.Handled = true;
+            return;
+        }
         if (!e.Handled && e.KeyModifiers == KeyModifiers.None && e.Key is Key.Enter or Key.Escape)
         {
             e.Handled = true;

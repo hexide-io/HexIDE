@@ -15,6 +15,7 @@ using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using Avalonia.Media;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.AvaloniaInterop;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
 
@@ -42,6 +43,210 @@ public class ListViewDrawingTests
         using var stream = new MemoryStream();
         bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
+    }
+
+    private static int HeaderInkWidth(VBListView list)
+    {
+        Draw(list);
+        using var bitmap = new RenderTargetBitmap(new PixelSize(320, 180));
+        bitmap.Render(list);
+        var region = new PixelRect(6, 4, 120, 10);
+        var pixels = new byte[region.Width * region.Height * 4];
+        var buffer = Marshal.AllocHGlobal(pixels.Length);
+        try
+        {
+            bitmap.CopyPixels(region, buffer, pixels.Length, region.Width * 4);
+            Marshal.Copy(buffer, pixels, 0, pixels.Length);
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+        var face = ((ISolidColorBrush)VBColor.FromSystemColor(VbSystemColor.Btnface).ToBrush()).Color;
+        var rgba = bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888;
+        var left = region.Width;
+        var right = -1;
+        for (var y = 0; y < region.Height; y++)
+            for (var x = 0; x < region.Width; x++)
+            {
+                var offset = (y * region.Width + x) * 4;
+                if (pixels[offset] == (rgba ? face.R : face.B) && pixels[offset + 1] == face.G
+                    && pixels[offset + 2] == (rgba ? face.B : face.R))
+                    continue;
+                left = Math.Min(left, x);
+                right = Math.Max(right, x);
+            }
+        return Math.Max(0, right - left + 1);
+    }
+
+    // VB6 SP6 native/p-code: docs/vb6-fidelity-oracle/in-box-controls-the-listview.md,
+    // "The font: items, sub-items, headers and the label editor" (#2895, oracle PR #5240).
+    private static VBListView SavedFont()
+    {
+        var (_, canvas, _, _) = ContainerRuntimeHarness.Spawn("""
+            VERSION 5.00
+            Begin VB.Form Form1
+               Begin MSComctlLib.ListView ListView1
+                  Height = 2700
+                  Width = 4800
+                  View = 3
+                  BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851}
+                     Name = "Courier New"
+                     Size = 14.25
+                     Charset = 0
+                     Weight = 700
+                     Italic = -1
+                     Underline = -1
+                     Strikethrough = -1
+                  EndProperty
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """);
+        var list = canvas.Children.OfType<VBListView>().Single();
+        canvas.Children.Remove(list);
+        return list;
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Bold")]
+    [InlineData("Italic")]
+    [InlineData("Underline")]
+    [InlineData("Strikethrough")]
+    public void Saved_font_attributes_read_back(string member)
+    {
+        var list = SavedFont();
+        list.TryGetProperty("Font", out var value);
+        ((ICSharpPropertyBag)value.Value!).TryGetProperty(member, out var attribute);
+        attribute.Value.Should().Be(true);
+    }
+
+    [AvaloniaFact]
+    public async Task Saved_font_drives_drawing_measurement_and_editor()
+    {
+        var list = SavedFont();
+        await list.Columns.CallAsync("Add", [Vb6Value.Missing, Vb6Value.Missing, new("Wide"), new(2000)]);
+        await list.Columns.CallAsync("Add", [Vb6Value.Missing, Vb6Value.Missing, new("Detail")]);
+        var item = await Add(list, "Alpha");
+        item.SetSubItem([new(1)], new("Subitem"));
+        var font = AttachedProperties.GetFont(list);
+        font.Should().Be(new VBFont("Courier New", 14.25, bold: true, italic: true, underline: true, strikethrough: true));
+        var window = new Window { Content = list, Width = 320, Height = 180 };
+        try
+        {
+            window.Show();
+            await list.CallAsync("StartLabelEdit", []);
+            var editor = (TextBox)list.Child!;
+            editor.FontFamily.Should().Be(font!.Value.ToFontFamily());
+            editor.FontSize.Should().Be(19);
+            editor.FontWeight.Should().Be(FontWeight.Bold);
+            editor.FontStyle.Should().Be(FontStyle.Italic);
+            Avalonia.Controls.Documents.Inline.GetTextDecorations(editor)!.Select(d => d.Location)
+                .Should().BeEquivalentTo(new[] { TextDecorationLocation.Underline, TextDecorationLocation.Strikethrough });
+            // Header-only pixels must use the same source as labels and the editor.
+            var measured = new FormattedText("Alpha", System.Globalization.CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight, new Typeface(font.Value.ToFontFamily(), FontStyle.Italic, FontWeight.Bold),
+                19, Brushes.Black);
+            list.GetItemLabelBounds(0).Width.Should().BeApproximately(measured.Width + 4, .01);
+            var header = HeaderInkWidth(list);
+            header.Should().BeGreaterThan(0);
+            AttachedProperties.SetFont(list, new VBFont("Arial", 8.25));
+            HeaderInkWidth(list).Should().NotBe(header);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    public async Task Runtime_font_change_repaints_resizes_and_keeps_second_row_hit_testing(double scaling)
+    {
+        var list = new VBListView();
+        list.TrySetProperty("View", new(3L));
+        await list.Columns.CallAsync("Add", [Vb6Value.Missing, Vb6Value.Missing, new("Name"), new(2000)]);
+        await Add(list, "Alpha");
+        var second = await Add(list, "Beta");
+        var window = new Window { Content = list, Width = 320, Height = 180 };
+        window.SetRenderScaling(scaling);
+        try
+        {
+            window.Show();
+            await list.CallAsync("StartLabelEdit", []);
+            var editor = (TextBox)list.Child!;
+            string Frame()
+            {
+                var context = System.Threading.ExecutionContext.Capture();
+                try { Dispatcher.UIThread.RunJobs(); }
+                finally { System.Threading.ExecutionContext.Restore(context!); }
+                using var bitmap = window.CaptureRenderedFrame();
+                bitmap.Should().NotBeNull();
+                using var stream = new MemoryStream();
+                bitmap!.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
+            }
+            var height = list.GetItemLabelBounds(1).Height;
+            var before = Frame();
+            list.TryGetProperty("Font", out var value);
+            var font = (ICSharpPropertyBag)value.Value!;
+            font.TrySetProperty("Name", new("Times New Roman"));
+            font.TrySetProperty("Size", new(18));
+            font.TrySetProperty("Bold", new(true));
+            editor.FontFamily.Should().Be(new VBFont("Times New Roman", 18).ToFontFamily());
+            editor.FontSize.Should().Be(24);
+            editor.FontWeight.Should().Be(FontWeight.Bold);
+            list.GetItemLabelBounds(1).Height.Should().BeGreaterThan(height);
+            Frame().Should().NotBe(before);
+            editor.RaiseEvent(new Avalonia.Input.KeyEventArgs
+                { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Escape });
+            window.UpdateLayout();
+            var point = list.GetItemLabelBounds(1).Center;
+            window.MouseDown(point, Avalonia.Input.MouseButton.Left);
+            window.MouseUp(point, Avalonia.Input.MouseButton.Left);
+            list.SelectedItem.Should().BeSameAs(second);
+            await list.CallAsync("StartLabelEdit", []);
+            ((TextBox)list.Child!).FontSize.Should().Be(24);
+            ((TextBox)list.Child!).FontWeight.Should().Be(FontWeight.Bold);
+        }
+        finally { window.Close(); }
+    }
+
+    // Scope guard, not a VB6 measurement: #2895 measured report view only.
+    [AvaloniaTheory]
+    [InlineData(0L)]
+    [InlineData(1L)]
+    [InlineData(2L)]
+    public async Task Unmeasured_views_keep_their_existing_drawing_font(long view)
+    {
+        var list = new VBListView();
+        list.TrySetProperty("View", new(view));
+        AttachedProperties.SetFont(list, new VBFont("Courier New", 14.25, bold: true, italic: true,
+            underline: true, strikethrough: true));
+        await Add(list, "Alpha");
+        var window = new Window { Content = list, Width = 320, Height = 180 };
+        try
+        {
+            window.Show();
+            await list.CallAsync("StartLabelEdit", []);
+            var editor = (TextBox)list.Child!;
+            editor.FontFamily.Should().Be(new FontFamily("Arial"));
+            editor.FontSize.Should().Be(11);
+            editor.FontWeight.Should().Be(FontWeight.Normal);
+            editor.FontStyle.Should().Be(FontStyle.Normal);
+            Avalonia.Controls.Documents.Inline.GetTextDecorations(editor).Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Default_font_keeps_existing_report_geometry()
+    {
+        var list = new VBListView();
+        list.TrySetProperty("View", new(3L));
+        await list.Columns.CallAsync("Add", []);
+        await Add(list, "Alpha");
+        await Add(list, "Beta");
+        Draw(list);
+        var first = list.GetItemLabelBounds(0);
+        var second = list.GetItemLabelBounds(1);
+        first.Y.Should().Be(3 + 18 + 1);
+        (second.Y - first.Y).Should().Be(18);
     }
 
     // Edge order and widths: docs/vb6-fidelity-oracle/in-box-controls-the-listview.md

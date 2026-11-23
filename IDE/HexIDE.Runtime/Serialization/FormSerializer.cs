@@ -85,7 +85,7 @@ public class FormSerializer
         // written in the order they appear here, which is the order of three unrelated lists rather than
         // any order VB6 has ever produced.
         vb.BeginSortedProperties();
-        WriteAllProperties(vb, form, citations);
+        WriteAllProperties(vb, form, citations, isFormRoot: element.RootVBTypeName == "VB.Form");
         if (element.LockControls)
             vb.WriteProperty("LockControls", typeof(bool), true);
         WriteFormMeasurements(vb, form, element.OuterRect, element.Scale);
@@ -308,7 +308,15 @@ public class FormSerializer
         WriteOuter("Width", VBProperties.WidthProperty, outerRect.WidthOffsetTwips);
     }
 
-    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations, bool isSubMenu = false)
+    // VB6's saved Line DrawMode comments are shifted by one (the-line-control.md, #5263).
+    private static readonly string[] LineDrawModeComments =
+    [
+        "Blackness", "Blackness", "Not Merge Pen", "Mask Not Pen", "Not Copy Pen", "Mask Pen Not",
+        "Invert", "Xor Pen", "Not Mask Pen", "Mask Pen", "Not Xor Pen", "Nop", "",
+        "Copy Pen", "Merge Pen Not", "Merge Pen"
+    ];
+
+    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations, bool isSubMenu = false, bool isFormRoot = false)
     {
         var inBox = instance.BaseClass as InBoxComponentClass;
         var userControl = instance.BaseClass as UserControlComponentClass;
@@ -369,10 +377,26 @@ public class FormSerializer
                 && instance.GetPropertyOrDefault(VBProperties.IntervalProperty) == 0)
                 continue;
 
+            // Standard is omitted even after switching back from Graphical (measured, #913).
+            if (prop == VBProperties.ButtonStyleProperty
+                && instance.GetPropertyOrDefault(VBProperties.ButtonStyleProperty) == VBButtonStyle.Standard)
+                continue;
+
             // VB6's designer never writes a Dropdown Combo's Style, even once it was set to another and back: #926's saved
             // form has neither combo's line (measured, #1428).
             if (prop == VBProperties.ComboStyleProperty
                 && instance.GetPropertyOrDefault(VBProperties.ComboStyleProperty) == VBComboStyle.DropdownCombo)
+                continue;
+
+            // The form's default style is omitted even when explicitly set (#1596).
+            if (prop == VBProperties.FormBorderStyleProperty
+                && instance.GetPropertyOrDefault(VBProperties.FormBorderStyleProperty) == VBFormBorderStyle.Sizable)
+                continue;
+
+            // VB6 saves these form properties only when False (#1596, oracle PR #5216).
+            if (isFormRoot && (prop == VBProperties.MinButtonProperty
+                || prop == VBProperties.MaxButtonProperty || prop == VBProperties.ShowInTaskbarProperty)
+                && Equals(instance.GetBoxedPropertyOrDefault(prop), true))
                 continue;
 
             // VB6's designer never writes a Dropdown List's Text, and its run time ignores one (measured, #926).
@@ -404,6 +428,15 @@ public class FormSerializer
             {
                 if (instance.TryGetBoxedProperty(prop, out var boxedValue))
                 {
+                    if (prop == VBProperties.DrawModeProperty && boxedValue is int drawMode)
+                    {
+                        if (drawMode != 13)
+                            vb.WriteRawProperty(prop.Name, drawMode.ToString(CultureInfo.InvariantCulture)
+                                + (drawMode >= 1 && drawMode <= LineDrawModeComments.Length
+                                    ? "  '" + LineDrawModeComments[drawMode - 1] : ""));
+                        continue;
+                    }
+
                     // Enums carry VB6's own name for the value as a trailing comment. Vb6EnumNames returns
                     // null for anything it cannot name — an unattributed member, or a number outside the
                     // enum, which a designer file may perfectly well contain — and the writer then emits a
@@ -417,7 +450,7 @@ public class FormSerializer
         // appended after them. VB6 has no notion of "the ones HexIDE understood" — it writes one
         // alphabetical run.
         //
-        // One of them may be a known property whose value HexIDE could not read (a palette colour, #786). It is kept
+        // One of them may be a known property whose value HexIDE could not read (an invalid system colour). It is kept
         // only while nothing replaced it: once the designer sets that property, the modelled value is written and the
         // raw line is not, or the file would carry the property twice.
         foreach (var raw in instance.UnknownRawProperties)

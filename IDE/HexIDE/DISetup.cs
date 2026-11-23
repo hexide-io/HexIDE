@@ -578,6 +578,7 @@ public partial class DISetup
                 return types;
             })
             .Bind().As(Singleton).To<AddinOptionsService>()
+            .Bind().As(Singleton).To<AddinResourceService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
             {

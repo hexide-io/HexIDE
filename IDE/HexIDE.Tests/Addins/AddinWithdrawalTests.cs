@@ -16,7 +16,7 @@ public sealed class AddinWithdrawalTests
         var components = new ComponentRegistry();
         var templates = new AddinProjectTemplateService();
         IHexIdeHost host = new HexIdeHost(null!, null!, null!, null!, null!, null!, null!, null!,
-            templates, null!, components, null!, null!, null!, null!);
+            templates, null!, components, null!, null!, null!, null!, new AddinResourceService());
         if (owned) host = new AddinOwnedHost(host, null!, new AddinOrigin("probe", "Probe"));
         object contribution = component ? Substitute.For<IComponentClass>() : Substitute.For<IAddinProjectTemplate>();
         // Reflection lets the regression run against the original void SDK signatures too.

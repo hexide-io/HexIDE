@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Projects;
 
@@ -24,10 +23,10 @@ internal static class ProjectOutputPath
             foreach (var raw in project.UnknownPreSectionLines.Select(line => line.Item2)
                          .Concat((project.ExtensionTail ?? "").ReplaceLineEndings("\n").Split('\n')))
             {
-                if (SerializedProject.ItemLineFile(raw) is not { } file
-                    || !file.Key.Equals(SerializedProject.MakePathKey, StringComparison.OrdinalIgnoreCase))
+                if (Vb6ProjectPaths.ItemLineFile(raw) is not { } file
+                    || !file.Key.Equals(Vb6ProjectPaths.MakePathKey, StringComparison.OrdinalIgnoreCase))
                     continue;
-                var folder = SerializedProject.ToHostPath(raw.Substring(file.Start, file.Length));
+                var folder = Vb6ProjectPaths.ToHostPath(raw.Substring(file.Start, file.Length));
                 directory = Path.Combine(directory, folder);
                 break;
             }

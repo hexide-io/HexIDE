@@ -164,6 +164,10 @@ public sealed class DebugController : IDebugGate
         return OnBreakpointPositionAsync(line, module, frame);
     }
 
+    public ValueTask OnDeclarationAsync(int line, string module, IDebugFrame frame)
+        => MatchesBreakpoint(line, module) || MatchesRunTo(line, module)
+            ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
+
     public ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame)
         => MatchesBreakpoint(line, module) ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
 
@@ -206,6 +210,9 @@ public sealed class DebugController : IDebugGate
 
     public Func<VBRunTimeException, Task<bool>>? HaltHost { get; set; }
 
+    // The IDE applies its setting at every run. Hosts that set nothing use compiled-program handling.
+    public ErrorTrapping ErrorTrapping { get; set; } = ErrorTrapping.BreakOnUnhandledErrors;
+
     public bool CanHalt => HaltHost is not null;
 
     public async ValueTask<bool> HaltAsync(VBRunTimeException error, int line, string module, IDebugFrame? frame)
@@ -213,6 +220,23 @@ public sealed class DebugController : IDebugGate
         if (_isAborting)
             throw new StopExecutionSignal();
         if (HaltHost is not { } host)
+            return false;
+        var session = _session;
+        var debug = await host(error);
+        // End, or the run ended some other way while the dialog was up: stop_project and shutdown_ide close it.
+        if (!debug || _isAborting || _session != session)
+            throw new StopExecutionSignal();
+        await SuspendAtBreakAsync(StopReason.RuntimeError, line, module, frame);
+        return true;
+    }
+
+    public Func<VBCompileErrorException, Task<bool>>? CompileHaltHost { get; set; }
+
+    public async ValueTask<bool> HaltOnCompileErrorAsync(VBCompileErrorException error, int line, string module, IDebugFrame? frame)
+    {
+        if (_isAborting)
+            throw new StopExecutionSignal();
+        if (CompileHaltHost is not { } host)
             return false;
         var session = _session;
         var debug = await host(error);

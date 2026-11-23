@@ -1376,6 +1376,24 @@ Its localized refusal SHALL name the file and the project or add-in that declare
 - **WHEN** the first non-blank line is `VERSION 1.0 CLASS`
 - **THEN** the existing module header split and writable save path remain available
 
+### Requirement: A Control project saves a PropertyPage as exposed
+
+When saving a PropertyPage in a project whose type is Control, the IDE SHALL replace an existing
+`Attribute VB_Exposed = False` in its leading attribute run with `Attribute VB_Exposed = True` in
+its module code, any open code buffer and saved file. Every other line in that leading run SHALL remain unchanged. This applies to
+an unedited page and a new page’s first save; creating a page SHALL retain the existing code defaults
+until saving (#1661, [measurement](../../../docs/vb6-fidelity-oracle/a-usercontrols-and-a-propertypages-own-events.md)).
+Other project types, a missing exposure attribute and UserControl exposure SHALL retain existing behaviour.
+
+#### Scenario: Save an unedited PropertyPage in a Control project
+- **WHEN** a PropertyPage loaded with `Attribute VB_Exposed = False` is saved without editing
+- **THEN** the file and module code contain `Attribute VB_Exposed = True`
+- **AND** the other attribute lines are unchanged
+
+#### Scenario: A UserControl keeps its exposure
+- **WHEN** a UserControl in a Control project is saved with `Attribute VB_Exposed = False`
+- **THEN** that attribute remains False
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.

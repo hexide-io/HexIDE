@@ -52,6 +52,8 @@
                               ExecutingCommand="{CompiledBinding OpenColorPaletteTool}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ReopenClosedDocumentCommand}"
                               ExecutingCommand="{CompiledBinding ReopenClosedDocumentCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.LastPositionCommand}"
+                              ExecutingCommand="{CompiledBinding LastPositionCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}"
                               ExecutingCommand="{CompiledBinding ResetWindowLayout}" />
 

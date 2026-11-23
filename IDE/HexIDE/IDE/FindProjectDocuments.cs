@@ -6,7 +6,6 @@ using AvaloniaEdit.Document;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.Serialization;
 using HexIDE.VisualDesigner;
 
 namespace HexIDE.IDE;
