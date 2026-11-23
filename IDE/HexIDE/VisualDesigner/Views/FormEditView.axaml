@@ -235,7 +235,7 @@
                                 <Menu.Styles>
                                     <Style Selector="MenuItem" x:DataType="visualDesigner:ComponentInstanceViewModel">
                                         <Setter Property="Header" Value="{CompiledBinding Caption}" />
-                                        <Setter Property="ItemsSource" Value="{CompiledBinding ., Converter={x:Static views:PropertyConverter.Instance}, ConverterParameter={x:Static components:MenuComponentClass.SubItemsProperty}}" />
+                                        <Setter Property="ItemsSource" Value="{CompiledBinding ., Converter={x:Static views:PropertyConverter.Instance}, ConverterParameter={x:Static visualDesigner:MenuPropertyNames.SubItems}}" />
                                     </Style>
                                 </Menu.Styles>
                             </Menu>

@@ -42,7 +42,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Components.ComboBoxComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.CommandButtonComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.ComponentBaseClass |
-| type | HexIDE | HexIDE.Runtime.Components.ContainerClasses |
 | type | HexIDE | HexIDE.Runtime.Components.FormComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.FrameComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.HScrollBarComponentClass |

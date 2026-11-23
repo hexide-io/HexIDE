@@ -47,7 +47,7 @@ internal class MoveResizeCommand : IDesignerCommand
         if (entries.Count == 1)
         {
             var target = entries[0].Vm;
-            if (target.Instance.BaseClass is FormComponentClass) return "Resize Form";
+            if (target.Instance.BaseClass.Role == ComponentRole.Form) return "Resize Form";
             if (anyResize && !anyMove) return $"Resize: {target.Name}";
             if (anyMove && !anyResize) return $"Move: {target.Name}";
             return $"Move/Resize: {target.Name}";

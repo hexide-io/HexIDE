@@ -15,6 +15,12 @@ public interface IComponentClass
     string VBTypeName { get; }
     string ClassName { get; }
 
+    /// <summary>The structural role the designer uses to recognise roots, menus and lines.</summary>
+    ComponentRole Role => ComponentRole.Control;
+
+    /// <summary>Whether this component can contain controls in the designer and form file.</summary>
+    bool IsContainer => false;
+
     /// <summary>
     /// True for controls with a visual footprint on the form. False for invisible/runtime-only controls
     /// (e.g. Timer), which in VB6 have no Width/Height/Visible — emitting those into the .frm makes

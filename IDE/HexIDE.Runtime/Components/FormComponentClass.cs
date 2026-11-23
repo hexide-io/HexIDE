@@ -172,6 +172,10 @@ public class FormComponentClass : ComponentBaseClass
 
     private static readonly EventClass[] RootEvents = [KeyDownEvent, KeyPressEvent, KeyUpEvent, ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
 
+    public override ComponentRole Role => ComponentRole.Form;
+
+    public override bool IsContainer => true;
+
     public override string Name => "Form";
     public override string VBTypeName => "VB.Form";
 
