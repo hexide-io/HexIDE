@@ -70,7 +70,10 @@ public partial class RegistrationGrantsTests
                     $"{grant.OwnerId}'s family {family} overlaps a family the trust code reads by name");
             }
 
-            BrandText.ProtectedKeys.Concat(BrandText.TrustVerdictKeys).Concat(BrandText.UpstreamKeys)
+            // HexIDE's credits and trust labels, and what says whether to trust an add-in. (BrandText.UpstreamKeys is a
+            // different question, which statements keep HexIDE's name when white-labelled: the provider's runner message is
+            // one, and moving it must keep that check covering it, #5395.)
+            BrandText.ProtectedKeys.Concat(BrandText.TrustVerdictKeys)
                 .Where(grant.CoversLanguagePackKey).Should().BeEmpty($"{grant.OwnerId}'s language packs must not reach a protected key");
         }
     }
