@@ -16,6 +16,9 @@ public interface IDebugGate : IDebugController
     /// <summary>Whether this host offers debugging, rather than only a fatal-error halt.</summary>
     bool CanBreak => true;
 
+    /// <summary>Which handled errors halt at the faulting statement.</summary>
+    ErrorTrapping ErrorTrapping { get; set; }
+
     /// <summary>True from the moment a reset (<see cref="Stop"/>) begins until the walk finishes unwinding. While
     /// set, the gate raises <see cref="StopExecutionSignal"/> and the interpreter suppresses <c>Class_Terminate</c>
     /// — VB6 <c>End</c> abruptly terminates and fires NO Terminate (oracle-verified).</summary>

@@ -1499,6 +1499,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Ao actualizar {0} no proxecto {1}, descartaranse os cambios sen gardar dese proxecto. Quere continuar?",
     "Str.Dialog.SharedFile.DiskChanged": "O ficheiro '{0}' cambiou no disco desde que se cargou ou gardou a copia do proxecto {1}. Quere sobrescribilo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os puntos de interrupción e outros axustes por usuario de {0} non se cargarán nin se gardarán nesta sesión.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Xa existe un control chamado '{0}'.  Quere crear unha matriz de controis?"
+    "Str.Naming.Msg.CreateControlArray": "Xa existe un control chamado '{0}'.  Quere crear unha matriz de controis?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Captura de erros",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interromper en todos os erros",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interromper no módulo de clase",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interromper nos erros non controlados"
   }
 }

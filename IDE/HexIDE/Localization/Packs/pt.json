@@ -1499,6 +1499,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "A atualização de {0} no projeto {1} irá descartar as alterações não guardadas desse projeto. Pretende continuar?",
     "Str.Dialog.SharedFile.DiskChanged": "O ficheiro '{0}' foi alterado no disco desde que a cópia do projeto {1} foi carregada ou guardada. Pretende substituí-lo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os pontos de interrupção e as outras definições por utilizador de {0} não serão carregados nem guardados nesta sessão.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Já existe um controlo chamado '{0}'.  Pretende criar uma matriz de controlos?"
+    "Str.Naming.Msg.CreateControlArray": "Já existe um controlo chamado '{0}'.  Pretende criar uma matriz de controlos?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Interceção de erros",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interromper em todos os erros",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interromper no módulo de classe",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interromper em erros não tratados"
   }
 }

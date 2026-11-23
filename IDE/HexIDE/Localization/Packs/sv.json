@@ -1499,6 +1499,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Om du uppdaterar {0} i projektet {1} försvinner projektets osparade ändringar. Vill du fortsätta?",
     "Str.Dialog.SharedFile.DiskChanged": "Filen '{0}' har ändrats på disken sedan kopian i projektet {1} lästes in eller sparades. Vill du skriva över den?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Bokmärken, brytpunkter och andra användarspecifika inställningar för {0} varken läses in eller sparas under den här sessionen.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Det finns redan en kontroll med namnet '{0}'.  Vill du skapa en kontrollmatris?"
+    "Str.Naming.Msg.CreateControlArray": "Det finns redan en kontroll med namnet '{0}'.  Vill du skapa en kontrollmatris?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Felhantering",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Bryt vid alla fel",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Bryt i klassmodul",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Bryt vid ohanterade fel"
   }
 }

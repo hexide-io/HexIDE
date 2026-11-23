@@ -1499,6 +1499,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "การอัปเดต {0} ในโครงการ {1} จะละทิ้งการเปลี่ยนแปลงที่ยังไม่ได้บันทึกของโครงการนั้น คุณต้องการดำเนินการต่อหรือไม่?",
     "Str.Dialog.SharedFile.DiskChanged": "ไฟล์ '{0}' บนดิสก์มีการเปลี่ยนแปลงนับตั้งแต่โหลดหรือบันทึกสำเนาของโครงการ {1} คุณต้องการเขียนทับไฟล์นี้หรือไม่?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "ที่คั่นหน้า จุดพัก และการตั้งค่าอื่นๆ ต่อผู้ใช้ของ {0} จะไม่ถูกโหลดหรือบันทึกในเซสชันนี้\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "มีตัวควบคุมชื่อ '{0}' อยู่แล้ว  คุณต้องการสร้างอาร์เรย์ตัวควบคุมหรือไม่?"
+    "Str.Naming.Msg.CreateControlArray": "มีตัวควบคุมชื่อ '{0}' อยู่แล้ว  คุณต้องการสร้างอาร์เรย์ตัวควบคุมหรือไม่?",
+    "Str.Options.Environment.ErrorTrapping.Header": "การดักจับข้อผิดพลาด",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "หยุดเมื่อเกิดข้อผิดพลาดทั้งหมด",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "หยุดในโมดูลคลาส",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "หยุดเมื่อเกิดข้อผิดพลาดที่ไม่ได้จัดการ"
   }
 }
