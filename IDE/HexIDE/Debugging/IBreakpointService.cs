@@ -71,9 +71,9 @@ public interface IBreakpointService
     /// Remove every breakpoint held, in every loaded project.
     /// </summary>
     /// <remarks>
-    /// Genuinely every one, not merely the startup project's: this is what Debug &gt; Clear All Breakpoints
-    /// does today with a group loaded, and what it has always done. Whether VB6 agrees is unmeasured
-    /// (hexide-io/HexIDE#492). Use <see cref="ClearProject"/> to forget one project's.
+    /// VB6 also clears every project in the group (SP6, measured 2026-11-21): see
+    /// docs/vb6-fidelity-oracle/clear-all-breakpoints-with-a-project-group-open.md.
+    /// Use <see cref="ClearProject"/> to forget one project's.
     /// </remarks>
     void ClearAll();
 
