@@ -39,7 +39,6 @@ public class LineSeparatorPositionTests : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-
     private readonly List<JsonDocument> _received = [];
     private static string? MethodOf(JsonElement frame) => frame.TryGetProperty("method", out var m) ? m.GetString() : null;
 
@@ -95,9 +94,8 @@ public class LineSeparatorPositionTests : IAsyncDisposable
         return client;
     }
 
-
     [AvaloniaFact]
-    public void EditorModelCountsOnlyCrLfAndCrLfPairsAsLineEnds()
+    public void EditorModelEndsLinesOnlyAtCrAndLf()
     {
         var document = new TextDocument(Source);
         var offset = Source.IndexOf("Target", StringComparison.Ordinal);
