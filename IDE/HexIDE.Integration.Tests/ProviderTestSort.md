@@ -43,6 +43,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/ClassicRenderTests.cs` | split |
 | `Controls/DockOpacityTests.cs` | split |
 | `Controls/DropdownListNameTests.cs` | split |
+| `Controls/ListBoxSelectionRenderTests.cs` | provider |
 | `Controls/MousePointerValuesTests.cs` | split |
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
 | `Debugging/CallStackReplyTests.cs` | split |
