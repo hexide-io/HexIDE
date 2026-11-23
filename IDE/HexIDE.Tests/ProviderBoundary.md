@@ -29,7 +29,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
 | type | HexIDE | HexIDE.Runtime.AvaloniaTextClipboard |
 | type | HexIDE | HexIDE.Runtime.BuiltinControls.AttachedProperties |
-| type | HexIDE | HexIDE.Runtime.BuiltinControls.VBCaption |
 | type | HexIDE | HexIDE.Runtime.BuiltinControls.VBCommonDialog |
 | type | HexIDE | HexIDE.Runtime.BuiltinControls.VBLine |
 | type | HexIDE | HexIDE.Runtime.BuiltinControls.VBMenu |
