@@ -76,11 +76,10 @@ public class ListBoxComponentClass : ComponentBaseClass
         return control;
     }
 
-    // Checks and columns keep the plain preview pending their designer measurements (#5133).
     public override Control InstantiateForDesigner(ComponentInstance instance)
     {
         var list = (VBListBox)Instantiate(instance);
-        list.UsePlainDesignerLayout();
+        list.UseDesignerLayout();
         // Only the designer shows the name when there are no saved items (measured, #5121).
         if (list.ItemCount == 0)
             list.Items.Add(instance.GetPropertyOrDefault(NameProperty));

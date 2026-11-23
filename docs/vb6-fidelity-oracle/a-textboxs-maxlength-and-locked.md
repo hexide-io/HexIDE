@@ -68,3 +68,32 @@
 - `MaxLength` between 32768 and 69999;
 - the right-click menu on a `Locked` box;
 - whether a typed character refused by `MaxLength` raises `KeyPress`.
+
+### MaxLength's range (2026-11-22, #5300, SP6)
+
+**The question.** The rows above took `-1` and `70000` as out of range and `2.6` as 3. Where exactly does the range
+end, how does a half round, and does a limit at the top of the range still let typing through?
+
+**The probe.** The same form and build as above, `/make` on vb6.exe SP6 as native code and as p-code, run on the
+guest's console. Under `On Error Resume Next`, for each value `v` in `Array(32767, 32768, 65535, 65536, 2147483647,
+1.5, 2.5, -0.4, True)`, `Sub Main` set `Text1.MaxLength = 7`, then `Text1.MaxLength = v`. It logged `Err.Number`,
+the `MaxLength` read back, and its `TypeName`. Then it logged `TypeName(Text1.Locked)`. Last, with `MaxLength` 65535 and
+the box empty and focused, it typed `abc` with `keybd_event`. The two builds logged the same.
+
+| `MaxLength = v` | `Err` | `MaxLength` reads back |
+|---|---|---|
+| 32767, 32768, 65535 | 0 | the value, a Long |
+| 65536, 2147483647 | **380** | 7: the old value kept |
+| `True` | **380** | 7 |
+| 1.5, 2.5 | 0 | 2 and 2: **half to even** |
+| -0.4 | 0 | 0 |
+
+- **`Locked` reads back as a Boolean.**
+- **Typing `abc` into a box with `MaxLength` 65535** put all three letters in.
+
+**What it shows.** **`MaxLength` takes a Long from 0 to 65535,** rounding a fraction half to even, as a Long store
+does. Anything outside that range raises 380 and changes nothing, and so does `True`, which is -1. The top of the range
+is a working limit, not a sentinel: 65535 still lets typing through.
+
+**Not measured:** `MaxLength` on a `MultiLine` box, and whether a limit above 32767 behaves differently with text
+that long.

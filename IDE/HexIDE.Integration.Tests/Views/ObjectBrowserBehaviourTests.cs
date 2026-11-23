@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -22,10 +23,10 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class ObjectBrowserBehaviourTests
 {
-    private static (ObjectBrowserToolViewModel Vm, ILspClient Client, IEditorService Editor, string Uri) Create(bool form)
+    private static (ObjectBrowserToolViewModel Vm, ILspClient Client, IEditorService Editor, string Uri) Create(bool form, ModuleKind moduleKind = ModuleKind.StandardModule)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "TestProject");
-        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        var module = new ModuleDefinition(project, "Module1", moduleKind);
         var definition = new FormDefinition(project, FormComponentClass.Instance, "Form1");
         if (form) project.AddForm(definition);
         else project.AddModule(module);
@@ -111,6 +112,94 @@ public class ObjectBrowserBehaviourTests
         new LspRange(new Position(7, 0), new Position(12, 0)),
         new LspRange(new Position(8, 11), new Position(8, 11 + name.Length)));
 
+    // Measured in VB6 SP6: docs/vb6-fidelity-oracle/the-object-browsers-library-list.md,
+    // "A form's members in the Object Browser"; arrays and menus: issue #1968, 2026-11-22.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FormListsControlsAndPropertiesAlongsideCodeInNameOrder(bool withCode)
+    {
+        var (vm, client, _, uri) = Create(true);
+        var type = vm.FilteredClasses.Single();
+        var form = type.FormDefinition!;
+        form.UpdateComponents([..form.Components,
+            new ComponentInstance(CommandButtonComponentClass.Instance, "Command1")]);
+        client.RequestDocumentSymbolsAsync(uri, Arg.Any<CancellationToken>())
+            .Returns(withCode ? [Symbol("NewThing"), Symbol("aaa"), Symbol("Caption")] : []);
+
+        vm.SelectedClass = type;
+
+        var control = vm.FilteredMembers.Single(m => m.Name == "Command1");
+        control.Kind.Should().Be(OBMemberKind.Property);
+        control.Signature.Should().Be("WithEvents Command1 As CommandButton");
+        control.DeclarationPosition.Should().BeNull();
+        vm.FilteredMembers.Should().Contain(m => m.Name == "Caption" && m.Signature == "Property Caption");
+        // VB6 lists the form's Name, not the Properties window's (Name) (oracle, "A form with no code").
+        vm.FilteredMembers.Should().Contain(m => m.Name == "Name" && m.Signature == "Property Name");
+        vm.FilteredMembers.Should().NotContain(m => m.Name.Contains('('));
+        vm.FilteredMembers.Should().NotContain(m => m.Name == "Load" || m.Name == "Click" || m.Name == "Form1");
+        vm.FilteredMembers.Select(m => m.Name).Should().BeInAscendingOrder(StringComparer.OrdinalIgnoreCase);
+        if (withCode)
+        {
+            vm.FilteredMembers.Should().Contain(m => m.Name == "NewThing");
+            vm.FilteredMembers.Count(m => m.Name == "Caption").Should().Be(2);
+        }
+    }
+
+    [AvaloniaFact]
+    public void ControlArraysAppearOnceAndEveryMenuLevelAppears()
+    {
+        var (vm, _, _, _) = Create(true);
+        var type = vm.FilteredClasses.Single();
+        var form = type.FormDefinition!;
+        var child = new ComponentInstance(MenuComponentClass.Instance, "mnuOpen");
+        var parent = new ComponentInstance(MenuComponentClass.Instance, "mnuFile")
+            .SetProperty(MenuComponentClass.SubItemsProperty, new List<ComponentInstance> { child });
+        form.UpdateComponents([..form.Components,
+            new ComponentInstance(CommandButtonComponentClass.Instance, "Command1").SetProperty(VBProperties.DesignIndexProperty, "0"),
+            new ComponentInstance(CommandButtonComponentClass.Instance, "command1").SetProperty(VBProperties.DesignIndexProperty, "1"),
+            parent, child]);
+
+        vm.SelectedClass = type;
+
+        vm.FilteredMembers.Count(m => m.Name.Equals("Command1", StringComparison.OrdinalIgnoreCase)).Should().Be(1);
+        foreach (var name in new[] { "Command1", "mnuFile", "mnuOpen" })
+        {
+            var member = vm.FilteredMembers.Single(m => m.Name == name);
+            member.Kind.Should().Be(OBMemberKind.Property);
+            member.Signature.Should().Be($"WithEvents {name} As {(name == "Command1" ? "CommandButton" : "Menu")}");
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(ModuleKind.UserControl)]
+    [InlineData(ModuleKind.PropertyPage)]
+    public void DesignerModuleUsesItsOwnRootProperties(ModuleKind kind)
+    {
+        var (vm, client, _, _) = Create(false, kind);
+        var type = vm.FilteredClasses.Single();
+        var module = type.ModuleDefinition!;
+        var root = kind == ModuleKind.UserControl
+            ? (IComponentClass)UserControlRootClass.Instance : PropertyPageRootClass.Instance;
+        var form = FormDefinition.NewDesignerHalf(module.Owner, root, module.Name, root.VBTypeName);
+        form.UpdateComponents([..form.Components, new ComponentInstance(TextBoxComponentClass.Instance, "Text1")]);
+        module.UpdateFormPart(form);
+        client.RequestDocumentSymbolsAsync(DocumentWireName.For(module), Arg.Any<CancellationToken>()).Returns([Symbol("Ping")]);
+
+        vm.SelectedClass = type;
+
+        // Code names, as VB6 lists them: Name rather than (Name), and no Properties-window pseudo-rows.
+        var rootNames = root.Properties
+            .Where(p => p.Category != PropertyCategory.Internal)
+            .Select(p => p == VBProperties.NameProperty ? "Name" : p.Name)
+            .Where(n => !n.Contains('(') && !n.Contains(')'));
+        vm.FilteredMembers.Select(m => m.Name).Should().BeEquivalentTo(rootNames.Concat(["Text1", "Ping"]));
+        vm.FilteredMembers.Should().Contain(m => m.Name == "Name");
+        vm.FilteredMembers.Should().Contain(m => m.Signature == "WithEvents Text1 As TextBox");
+        vm.FilteredMembers.Should().NotContain(m => m.Name == "Initialize" || m.Name == "ControlBox");
+        vm.FilteredMembers.Select(m => m.Name).Should().BeInAscendingOrder(StringComparer.OrdinalIgnoreCase);
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
@@ -120,12 +209,22 @@ public class ObjectBrowserBehaviourTests
         client.RequestDocumentSymbolsAsync(uri, Arg.Any<CancellationToken>()).Returns([Symbol("OldThing")]);
         var type = vm.FilteredClasses.Single();
         vm.SelectedClass = type;
-        vm.FilteredMembers.Select(m => m.Name).Should().Equal("OldThing");
+        if (form) vm.FilteredMembers.Should().Contain(m => m.Name == "OldThing");
+        else vm.FilteredMembers.Select(m => m.Name).Should().Equal("OldThing");
         vm.SelectedClass = null;
         client.RequestDocumentSymbolsAsync(uri, Arg.Any<CancellationToken>()).Returns([Symbol("NewThing")]);
         vm.SelectedClass = type;
-        vm.FilteredMembers.Select(m => m.Name).Should().Equal("NewThing");
-        type.Members.Select(m => m.Name).Should().Equal("NewThing");
+        if (form)
+        {
+            vm.FilteredMembers.Should().NotContain(m => m.Name == "OldThing");
+            vm.FilteredMembers.Should().Contain(m => m.Name == "NewThing");
+            type.Members.Should().Contain(m => m.Name == "Caption");
+        }
+        else
+        {
+            vm.FilteredMembers.Select(m => m.Name).Should().Equal("NewThing");
+            type.Members.Select(m => m.Name).Should().Equal("NewThing");
+        }
     }
 
     [AvaloniaTheory]
@@ -136,7 +235,7 @@ public class ObjectBrowserBehaviourTests
         var (vm, client, editor, uri) = Create(form);
         client.RequestDocumentSymbolsAsync(uri, Arg.Any<CancellationToken>()).Returns([Symbol("Thing")]);
         vm.SelectedClass = vm.FilteredClasses.Single();
-        vm.SelectedMember = vm.FilteredMembers.Single();
+        vm.SelectedMember = vm.FilteredMembers.Single(m => m.Name == "Thing");
         var view = new ObjectBrowserToolView { DataContext = vm };
         var window = new Window { Content = view };
         window.Show();

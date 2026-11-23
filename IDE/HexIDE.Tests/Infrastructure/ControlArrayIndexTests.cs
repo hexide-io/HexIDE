@@ -19,6 +19,63 @@ public class ControlArrayIndexTests : IDisposable
 
     public void Dispose() => Directory.Delete(directory, recursive: true);
 
+    // #1397 / oracle PR #5234: the tool cannot ask a question; it names the two-call route instead.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Rename_refuses_with_the_array_route_then_joins_and_saves(bool open)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P") { WorkingDirectory = directory };
+        var form = new FormDeserializer().Deserialize(project, """
+            VERSION 5.00
+            Begin VB.Form Form1
+               Begin VB.CommandButton Command1
+               End
+               Begin VB.CommandButton Command2
+                  Caption = "Command2"
+               End
+               Begin VB.CommandButton Command3
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """, Substitute.For<IDeserializeErrorSink>())!;
+        project.AddForm(form);
+        form.AbsolutePath = Path.Combine(directory, "Form1.frm");
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var dock = Substitute.For<IDocumentDockService>();
+        var events = new EventBus();
+        using var designer = open ? new FormEditViewModel(null!, events, null!, null!, null!,
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form) : null;
+        dock.OpenDocuments.Returns(designer is null ? [] : [designer]);
+        var writer = new ProjectService(() => throw new InvalidOperationException(),
+            Substitute.For<IWindowManager>(), events, projects, Substitute.For<IRecentProjectsService>(),
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
+            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, null!, writer, events,
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, Substitute.For<ILocalizationService>(), null!);
+        var tools = new HexIdeTools(context);
+        var before = new FormSerializer().Serialize(form, "Form1.frm").frmText;
+        var refused = await tools.SetControlPropertyAsync("Form1", "Command2", "Name", "Command1");
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("set_control_property").And.Contain("Command1").And.Contain("Index to 0").And.Contain("then rename");
+        new FormSerializer().Serialize(form, "Form1.frm").frmText.Should().Be(before);
+        File.Exists(form.AbsolutePath).Should().BeFalse();
+        (await tools.SetControlPropertyAsync("Form1", "Command1", "Index", "0")).Success.Should().BeTrue();
+        var joined = await tools.SetControlPropertyAsync("Form1", "Command2", "Name", "Command1");
+        joined.Success.Should().BeTrue(joined.Error);
+        joined.Note.Should().Contain("Command1(1)");
+        var third = await tools.SetControlPropertyAsync("Form1", "Command3", "Name", "Command1");
+        third.Success.Should().BeTrue(third.Error);
+        third.Note.Should().Contain("Command1(2)");
+        var ambiguous = await tools.SetControlPropertyAsync("Form1", "Command1", "Name", "Other");
+        ambiguous.Success.Should().BeFalse();
+        ambiguous.Error.Should().Contain("can rejoin").And.NotContain("nothing in the IDE joins it back");
+        var loaded = new FormDeserializer().Deserialize(project, File.ReadAllText(form.AbsolutePath), Substitute.For<IDeserializeErrorSink>())!;
+        loaded.Components.Where(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Command1")
+            .Select(PropertyText.ArrayIndexOf).Should().BeEquivalentTo(new int?[] { 0, 1, 2 });
+    }
+
     [AvaloniaTheory]
     [InlineData(false, "0")]
     [InlineData(false, "3")]

@@ -70,6 +70,46 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </summary>
     public bool HasWindowFrame => formDefinition?.RootVBTypeName is not ("VB.UserControl" or "VB.PropertyPage");
 
+    [Notify]
+    private Bitmap? captionIcon;
+
+    [Notify]
+    private bool hasCaptionIcon;
+
+    [Notify]
+    private bool hasCaptionGlyph;
+
+    // Designer measurements and the two stand-ins: #2716. The runtime and designer share the file-state reader.
+    internal void RefreshCaptionIcon()
+    {
+        var previous = CaptionIcon;
+        Bitmap? image = null;
+        var icon = VBLoader.ReadDesignerCaptionIcon(Form.Instance);
+        try
+        {
+            if (icon.Image is { } bytes)
+            {
+                using var stream = new MemoryStream(bytes, writable: false);
+                image = new Bitmap(stream);
+            }
+        }
+        catch (Exception)
+        {
+            // An unreadable picture must not prevent the form from opening.
+        }
+        CaptionIcon = image;
+        HasCaptionIcon = icon.Visible;
+        HasCaptionGlyph = icon.UseFormGlyph;
+        previous?.Dispose();
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        CaptionIcon?.Dispose();
+        CaptionIcon = null;
+    }
+
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Form");
 
     [Notify]
@@ -725,6 +765,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         foreach (var comp in DrawOrder(fileOrder))
             Components.Add(viewModels[comp]);
+
+        RefreshCaptionIcon();
 
         // Menus stay in the flat component list; SubItems identifies which belong under another menu.
         TopLevelMenu.Clear();
@@ -1521,9 +1563,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 newInstance.SetContainer(container);
 
             // What HexIDE carries without modelling goes with the control, or a cut and paste loses it (#1453). Its
-            // properties have no name to repeat, so a copy takes them too, as VB6 copies every property. A control
-            // inside it goes only where its names are free, which a cut leaves them: a copy's would be the original's
-            // again, and vb6.exe builds a form holding a name twice without either control (#854).
+            // properties have no name to repeat, so a copy takes them too, as VB6 copies every property. A single
+            // carried control whose name is taken gets the next default name (#1458's measured No answer for ImageList).
+            // Blocks declaring several controls still go only where every name is free.
             newInstance.UnknownRawProperties.AddRange(entry.UnknownProperties);
             if (carriesControls)
             {
@@ -1531,10 +1573,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 inUse.Add(newName);
                 foreach (var block in entry.PreservedChildren)
                 {
-                    var names = ComponentNaming.NamesDeclaredBy(block.Text).ToList();
+                    var text = block.Text;
+                    var names = ComponentNaming.NamesDeclaredBy(text).ToList();
                     if (names.Any(inUse.Contains))
-                        continue;
-                    newInstance.AddPreservedChildSubtree(block.Ordinal, documentOrder++, block.Text, block.Records);
+                    {
+                        if (ComponentNaming.RenameSingleCarriedControl(text, inUse) is not { } renamed)
+                            continue;
+                        text = renamed;
+                        names = ComponentNaming.NamesDeclaredBy(text).ToList();
+                    }
+                    newInstance.AddPreservedChildSubtree(block.Ordinal, documentOrder++, text, block.Records);
                     inUse.UnionWith(names);
                 }
             }
@@ -1604,6 +1652,32 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         }
     }
 
+    private readonly Dictionary<ComponentInstance, IDesignerCommand> joiningIndexChanges = new();
+
+    internal void BeginRename(ComponentInstance target) => joiningIndexChanges.Remove(target);
+
+    internal void AssignJoiningIndex(ComponentInstance target, int index)
+    {
+        var before = target.GetBoxedPropertyOrDefault(VBProperties.DesignIndexProperty);
+        var after = index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        target.SetUntypedProperty(VBProperties.DesignIndexProperty, after);
+        joiningIndexChanges[target] = new Commands.SetPropertyCommand(target, VBProperties.DesignIndexProperty, before, after);
+    }
+
+    internal void CreateControlArray(ComponentInstance holder, ComponentInstance target, string name)
+    {
+        var changes = new List<IDesignerCommand>
+        {
+            new Commands.SetPropertyCommand(holder, VBProperties.DesignIndexProperty, "", "0"),
+            new Commands.SetPropertyCommand(target, VBProperties.DesignIndexProperty, "", "1"),
+            new Commands.SetPropertyCommand(target, VBProperties.NameProperty,
+                target.GetPropertyOrDefault(VBProperties.NameProperty), name)
+        };
+        var command = new Commands.BatchCommand(changes[^1].Description, changes);
+        command.Execute(this);
+        UndoStack.Push(command);
+    }
+
     /// <summary>
     /// Record a property just set on <paramref name="target"/> as one undoable change, with what VB6's designer changes
     /// along with it, which this applies (<see cref="IComponentClass.ApplyDesignerConsequences"/>). Returns those.
@@ -1623,12 +1697,15 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             target.SetUntypedProperty(property, before);
             throw;
         }
-        if (consequences.Count == 0)
+        var indexChange = property == VBProperties.NameProperty && joiningIndexChanges.Remove(target, out var joined) ? joined : null;
+        if (consequences.Count == 0 && indexChange is null)
         {
             UndoStack.Push(command);
             return consequences;
         }
-        var inner = new List<IDesignerCommand> { command };
+        var inner = new List<IDesignerCommand>();
+        if (indexChange is not null) inner.Add(indexChange);
+        inner.Add(command);
         foreach (var change in consequences)
             inner.Add(new Commands.SetPropertyCommand(target, change.Property, change.Before, change.After));
         UndoStack.Push(new Commands.BatchCommand(command.Description, inner));

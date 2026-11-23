@@ -355,7 +355,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         // And each rule of the reader, and of what a line is, decides one run of the form, so a copy of the rule
         // that breaks one disagrees with the other on that run's lines.
         ProtectedLines(FormWithReaderShapes).Should().Equal(
-            Enumerable.Range(0, 9).Concat([11, 23, 25, 28, 30, 36, 44, 46, 47, 50, 53, 54, 55, 56, 76, 80]),
+            Enumerable.Range(0, 9).Concat([11, 23, 25, 28, 30, 36, 40, 44, 46, 47, 50, 53, 54, 55, 56, 76, 80]),
             "the lines the server's own tests pin for the same text (WholeFileFixtures.FormWithReaderShapes)");
     }
 
@@ -653,7 +653,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         "Public Spare1 As Long\r\n" +                                                             // 37
         "Attribute cmdGo.VB_VarDescription = \"names a control\"\r\n" +                           // 38 orphan
         "Public Spare2 As Long\r\n" +                                                             // 39
-        "Attribute Inner.VB_VarDescription = \"names a local\"\r\n" +                             // 40 orphan
+        "Attribute Inner.VB_VarDescription = \"names a local\"\r\n" +                             // 40 renamed variable
         "Public Spare3 As Long\r\n" +                                                             // 41
         "Attribute Lone.VB_VarDescription = \"names a procedure\"\r\n" +                          // 42 orphan
         "Public Spare4 As Long\r\n" +                                                             // 43

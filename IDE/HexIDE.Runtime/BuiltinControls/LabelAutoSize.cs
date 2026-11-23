@@ -19,6 +19,7 @@ internal static class LabelAutoSize
     {
         var previous = Get(label);
         Load(label, enabled);
+        label.UpdateStyle();
         if (enabled && !previous) Resize(label);
     }
 

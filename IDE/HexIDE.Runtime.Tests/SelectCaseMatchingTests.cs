@@ -472,6 +472,120 @@ public class SelectCaseMatchingTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(expected)]);
     }
 
+    // #985, oracle PR #5186: docs/vb6-fidelity-oracle/a-typed-selector-and-a-variant-one.md,
+    // "The rest of the intrinsics, and a test for Doubles" (native and p-code). Inspect the actual Debug.Print
+    // value: assigning to a Variant first would erase the intrinsic's fixed-type mark.
+    [Theory]
+    [InlineData("Rnd(1)", true)]
+    [InlineData("CDbl(5)", true)]
+    [InlineData("CDbl(v5)", true)]
+    [InlineData("Sqr(4)", true)]
+    [InlineData("Sqr(v5)", true)]
+    [InlineData("Sin(1)", true)]
+    [InlineData("Cos(1)", true)]
+    [InlineData("Tan(1)", true)]
+    [InlineData("Atn(1)", true)]
+    [InlineData("Exp(1)", true)]
+    [InlineData("Log(2)", true)]
+    [InlineData("Pmt(0.1, 10, 1000)", true)]
+    [InlineData("FV(0.1, 10, 100)", true)]
+    [InlineData("NPer(0, -100, 1000)", true)]
+    [InlineData("CCur(5)", true)]
+    [InlineData("CCur(v5)", true)]
+    [InlineData("CBool(5)", true)]
+    [InlineData("CBool(v5)", true)]
+    [InlineData("IsNumeric(5)", true)]
+    [InlineData("IsDate(5)", true)]
+    [InlineData("IsEmpty(5)", true)]
+    [InlineData("IsNull(5)", true)]
+    [InlineData("IsArray(5)", true)]
+    [InlineData("IsObject(5)", true)]
+    [InlineData("IsError(5)", true)]
+    [InlineData("FreeFile()", true)]
+    [InlineData("AscB(\"A\")", true)]
+    [InlineData("LenB(\"abcde\")", true)]
+    [InlineData("InStrRev(\"abcd5\", \"5\")", true)]
+    [InlineData("RGB(5, 0, 0)", true)]
+    [InlineData("QBColor(1)", true)]
+    [InlineData("VarType(5)", true)]
+    [InlineData("FormatNumber(10, 0)", true)]
+    [InlineData("FormatPercent(0.1, 0)", true)]
+    // vbShortDate is 2 in the measured in-box catalogue. Its built-in constant currently lacks HasFixedType,
+    // so the named-constant form remains untyped under the requested all-arguments-typed rule (#985).
+    [InlineData("FormatDateTime(#1/10/2000#, 2)", true)]
+    [InlineData("Join(Array(\"1\", \"0\"), \"\")", true)]
+    [InlineData("CInt(5)", true)]
+    [InlineData("CSng(5.2)", true)]
+    [InlineData("Timer", true)]
+    [InlineData("Abs(s)", true)]
+    [InlineData("Fix(s)", true)]
+    [InlineData("Val(\"5\")", true)]
+    [InlineData("Int(5.7)", true)]
+    [InlineData("Fix(5.7)", true)]
+    [InlineData("Int(d)", true)]
+    [InlineData("Abs(d)", true)]
+    [InlineData("Int(c)", true)]
+    [InlineData("Fix(c)", true)]
+    [InlineData("Abs(c)", true)]
+    [InlineData("CDate(5)", true)]
+    [InlineData("Int(dt)", true)]
+    [InlineData("AscW(\"A\")", true)]
+    [InlineData("Sgn(c)", true)]
+    [InlineData("Round(5.2)", false)]
+    [InlineData("Round(v5)", false)]
+    [InlineData("Round(n5)", false)]
+    [InlineData("Round(d)", false)]
+    [InlineData("Round(c)", false)]
+    [InlineData("Int(v5)", false)]
+    [InlineData("Fix(v5)", false)]
+    [InlineData("DateDiff(\"d\", #1/1/2000#, #1/6/2000#)", false)]
+    [InlineData("DatePart(\"d\", #1/5/2000#)", false)]
+    [InlineData("CDec(5)", false)]
+    [InlineData("CVar(5)", false)]
+    [InlineData("DateSerial(2000, 1, 5)", false)]
+    [InlineData("DateAdd(\"d\", 1, #1/5/2000#)", false)]
+    [InlineData("TimeSerial(5, 0, 0)", false)]
+    [InlineData("Now", false)]
+    [InlineData("Date", false)]
+    [InlineData("RTrim(\"10 \")", false)]
+    [InlineData("Str(5)", false)]
+    [InlineData("StrConv(\"10\", 1)", false)]
+    [InlineData("MidB(\"10\", 1)", false)]
+    [InlineData("Space(1)", false)]
+    [InlineData("Command", false)]
+    [InlineData("ChrW(53)", false)]
+    public async Task A_measured_intrinsic_reaches_Debug_Print_with_its_result_type(string expression, bool fixedType)
+    {
+        await Run(IntrinsicSetup + "Dim s As Single, d As Double, c As Currency, dt As Date\ns = 5: d = 5: c = 5: dt = 5\n"
+            + $"Debug.Print {expression}\n");
+
+        debug.Should().ContainSingle().Which.HasFixedType.Should().Be(fixedType);
+    }
+
+    [Theory]
+    [InlineData("CDbl(5)", "case | 0")]
+    [InlineData("Sqr(25)", "case | 0")]
+    [InlineData("CCur(5)", "case | 0")]
+    [InlineData("RGB(5, 0, 0)", "case | 0")]
+    [InlineData("VarType(5)", "case | 0")]
+    [InlineData("CVar(5)", "else | 0")]
+    public async Task A_measured_numeric_intrinsic_converts_a_text_Case_only_when_typed(string expression, string expected)
+    {
+        await Run(CaseProgram("", "", expression, "Is < \"10\""));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("CBool(5)")]
+    [InlineData("IsNumeric(5)")]
+    public async Task A_measured_typed_Boolean_intrinsic_overflows(string expression)
+    {
+        await Run($"On Error Resume Next\nDim x\nx = {expression} * 20000 * 2\nDebug.Print Err.Number\n");
+
+        AssertDebugLog([new Vb6Value(6L)]);
+    }
+
     // The round-two review's families, measured by the supervisor on vb6.exe as native code (the oracle's "Measured in the
     // review of round two"). Each is a source round two's rule got wrong. A Const is typed in Select Case, where it was
     // already right here; a member reached through a Variant is late-bound and a Variant's; an element of a Variant holding

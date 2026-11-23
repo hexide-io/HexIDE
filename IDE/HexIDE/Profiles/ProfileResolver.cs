@@ -14,7 +14,7 @@ internal sealed class ProfileResolver(string userDataDirectory, string invocatio
 {
     public ProfileSnapshot? Resolve(string? selector)
     {
-        selector ??= "vb6";
+        selector ??= ProfileCatalog.DefaultId;
         if (selector == "none")
             return null;
         if (IsPath(selector))

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Serialization;
