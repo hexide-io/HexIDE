@@ -580,10 +580,12 @@ jobs:
       # its tests were still making progress. the test runner holds the host's output until the run ends, so that step
       # kept nothing, not even --long-running's notices. HangDump 1.x's mutex made macOS count the whole run
       # (#3874); 2.x signals activity over the pipe, so the timer counts quiet time on every platform.
-      # Keep 40 minutes pending the macOS measurement. The step's 50 minutes cover build, run, timeout and dump.
+      # Keep 40 minutes pending the macOS measurement. The step's minutes cover build, run, timeout and dump: 70, not 50,
+      # because macOS on Intel ran this suite in 45 minutes on a healthy run, and its build sat inside the same 50
+      # (2026-11-23, #5564). A hang still ends at the 40 quiet minutes above, so the cap is only the backstop.
       - name: Run ViewModel Tests
         id: viewmodel
-        timeout-minutes: 50
+        timeout-minutes: 70
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
           HEXIDE_FOREIGN_LSP_NO_PATH: '1'
