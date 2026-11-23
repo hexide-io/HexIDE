@@ -20,6 +20,8 @@ internal static class ProviderBoundary
         ["HexIDE.Dap"] = ProjectKind.Product,
         ["HexIDE.AIChat"] = ProjectKind.Product,
         ["HexIDE.AddinPacker"] = ProjectKind.Product,
+        // hexide-pack (#5555): a command-line tool for publishers, built to an assembly of that name.
+        ["HexIDE.AddinPacker.Interactive"] = ProjectKind.Tool,
         ["HexIDE.LspGuard"] = ProjectKind.Product,
         ["HexIDE.Office"] = ProjectKind.Product,
         ["HexIDE.Repack"] = ProjectKind.Product,

@@ -16,6 +16,7 @@
         <!-- CI's ViewModel step names what was running when a run is too slow or hangs (#2128). -->
         <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
         <PackageReference Include="NSubstitute" />
+        <PackageReference Include="Spectre.Console.Testing" />
         <PackageReference Include="xunit.v3.mtp-v2" />
         <PackageReference Include="Microsoft.Testing.Extensions.Telemetry" />
         <PackageReference Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" />
@@ -52,6 +53,8 @@
         <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj" />
         <!-- PackageSigner is used to produce signed fixtures for the verifier tests. -->
         <ProjectReference Include="..\HexIDE.AddinPacker\HexIDE.AddinPacker.csproj" />
+        <!-- hexide-pack's prompts are driven through Spectre.Console.Testing's console (#5555). -->
+        <ProjectReference Include="..\HexIDE.AddinPacker.Interactive\HexIDE.AddinPacker.Interactive.csproj" />
         <ProjectReference Include="..\HexIDE.Repack\HexIDE.Repack.csproj" />
     </ItemGroup>
 
