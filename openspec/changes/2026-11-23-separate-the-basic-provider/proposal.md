@@ -108,8 +108,8 @@ dependency from the guard.
 | `ProjectElements/` (18 files) | `HexIDE.Runtime.ProjectElements` | `HexIDE.Projects`, the IDE's 22-file namespace | **Yes:** 11 files are under the public API guard (`IDE/HexIDE.Core/.editorconfig`, #4609). `IAddinProjectTemplate.Create` returns a `ProjectDefinition` |
 | `Debugging/` (2) | `HexIDE.Runtime.Debugging` | `HexIDE.Debugging`, the IDE's 13-file namespace | No |
 | `Serialization/` (2) | `HexIDE.Runtime.Serialization` | `HexIDE.Serialization`, which already holds `ReadableJsonEncoder` | **Yes:** `IDeserializeErrorSink` and `SerializedProjectGroup` |
-| `Components/` (10) | `HexIDE.Runtime.Components` | Settled by slice 4, which decides what stays as the component contract. The candidate is `HexIDE.Components` | **Yes:** `ComponentInstance`, `EventClass`, `IComponentClass` and `PropertyClass`. `IHexIdeHost.RegisterComponent` takes an `IComponentClass` |
-| `BuiltinTypes/` (22) | `HexIDE.Runtime.BuiltinTypes` | Settled by slice 7, since VB6's value types may go with the provider | No |
+| `Components/` (10) | `HexIDE.Runtime.Components` | Settled by slice 2.4, which decides what stays as the component contract. The candidate is `HexIDE.Components` | **Yes:** `ComponentInstance`, `EventClass`, `IComponentClass` and `PropertyClass`. `IHexIdeHost.RegisterComponent` takes an `IComponentClass` |
+| `BuiltinTypes/` (22) | `HexIDE.Runtime.BuiltinTypes` | Settled by slice 2.7, since VB6's value types may go with the provider | No |
 
 **Three of these are on the add-in contract,** so renaming them breaks the build of every add-in that names them. That makes the rename an API change:
 - the RDCore team hears about it through rdcore's desk before the release that carries it;
@@ -117,3 +117,40 @@ dependency from the guard.
 - the rename PR updates Core's public API baseline (`IDE/HexIDE.Core/PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`) as the analyzer requires.
 
 The contract was read from HexIDE's own public API guard, not from any add-in's source. The provider's own `HexIDE.Runtime` namespaces are a separate question for phase 4.
+
+## Decided since this record merged
+
+Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says otherwise.
+
+- **Registration is deny-by-default.** An owner-keyed grant in the IDE's source decides which owner may register
+  resources (#5396), a language pack area (#5394), or a component beyond a plain control. In phase 2 the grant names the
+  Desktop composition's origin, which isn't first-party-signed. Phase 3 switches it to a first-party signature with the
+  `hexide.basic` id. Task 3.1 says so, and the delta's requirement "A registration beyond a plain control needs the
+  provider's grant" pins it.
+- **Designer roles (2.4a, #5478).** `IComponentClass` gains `IsContainer` and a role: `Control` by default, then `Form`,
+  `Menu` and `Line`. Both are default interface members, so a component that names neither is a plain control.
+- **Component registration (2.4c).** This was agreed with hexide-frm, and the supervisor reviews the draft.
+  - `RegisterComponent` becomes owned, a toolbox item may be registered only by its component's owner, and
+    `ComponentRegistry` starts empty.
+  - Control libraries are first-party in phase 2, because a library writes `Object=` lines into users' files.
+  - `IControlLibrary` is public in Core. Designer-time hooks go on the designer contract, not on `IComponentClass`.
+- **Designer pictures (2.4b).** This was agreed with hexide-frm, and the supervisor reviews the draft.
+  - `RegisterDesignerPictures` is one service per host and is grant-gated, since it draws every form's controls. A
+    third-party component is drawn by that service through its own `IComponentClass`.
+  - A Line's units stay with the provider, and the picture reply carries the control's bounds. The designer contract
+    gains no unit member.
+  - **The precondition:** each in-box control renders byte-identically under the provider's host and under
+    `ControlRenderer`, with Skia at scaling 1 and 1.5.
+- **The picture decoders get a product assembly of their own (2.5b, #5474),** which the IDE, the provider and
+  `HexIDE.Standalone` reference.
+  - After phase 4 it stays in HexIDE and is consumed by HexIDE.Basic as Core is, so a decoder fix ships in HexIDE's
+    release.
+  - A program built with File > Make carries the decoder in its runner, so a decoder security fix reaches it only when
+    the program is made again. A changelog entry for such a fix says so.
+- **Text and editing helpers go where 11-16's rule puts them:**
+  - `ReadOnlyRegions` and `SourceLines` go to Core (2.5a, #5440), and so do the project file's keys and path helpers (2.5c, #5521);
+  - keyword casing and block auto-close go to the IDE (2.6, #5405).
+- **Still open: a public shape for a project's targets (2.12, #5404).** The draft is on #5404
+  (issuecomment-7092255114). It has `ProjectDefinition.Targets` and `AddinProjectContent.Targets` as lists of engine
+  ids, with rules for an empty list, one known id, an unknown id and several ids. Its wording waits on RDCore's
+  maintainer, and this record gains it once that's answered.

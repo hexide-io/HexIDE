@@ -62,3 +62,22 @@ same calls, and meet the same checks, as a third-party one.
 - **WHEN** the IDE starts the bundled Basic provider
 - **THEN** the provider registers its contributions through the host interface an add-in receives
 - **AND** each registration meets the same checks a third-party add-in's would
+
+### Requirement: A registration beyond a plain control needs the provider's grant
+The IDE SHALL keep, in its own source, a grant naming the owners that may register resources, a language pack area, or a
+component whose role is not `Control` or that is a container. A registration of any of these from an owner the grant
+doesn't name SHALL be refused, and the refusal SHALL be logged, naming the owner and what it tried to register. While the
+provider is composed from `HexIDE.Desktop`, the grant SHALL name that composition and nothing else.
+
+#### Scenario: An add-in registers a form component
+- **WHEN** an add-in the grant doesn't name registers a component whose role is `Form`
+- **THEN** the registration is refused and logged, naming the add-in and the component
+- **AND** the designer offers no such component
+
+#### Scenario: An add-in registers a container
+- **WHEN** an add-in the grant doesn't name registers a component that is a container
+- **THEN** the registration is refused and logged
+
+#### Scenario: The bundled provider registers its form component
+- **WHEN** the provider, composed from `HexIDE.Desktop`, registers a component whose role is `Form`
+- **THEN** the registration succeeds
