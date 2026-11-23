@@ -2014,7 +2014,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // positional evaluation.
         return await ControlMembers.Read(variable, MemberName(member), null, member.GetText().TrimStart('.'),
             MemberArgs(member) is { } controlArgs ? () => EvaluateCallArgs(controlArgs) : null,
-            () => EvaluateMemberArgs(variable, MemberName(member), MemberArgs(member)));
+            () => EvaluateMemberArgs(variable, MemberName(member), MemberArgs(member)), classifyMissing: true);
     }
 
     /// <summary>

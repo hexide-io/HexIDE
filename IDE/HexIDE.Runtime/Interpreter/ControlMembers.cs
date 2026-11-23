@@ -19,7 +19,7 @@ internal static class ControlMembers
 
     internal static async Task<Vb6Value> Read(Vb6Value variable, string memberIdentifier, IReadOnlyList<Vb6Value>? args,
         string? propertySpelling = null, Func<Task<List<Vb6Value>>>? evaluateArgs = null,
-        Func<Task<List<Vb6Value>>>? evaluateMemberArgs = null)
+        Func<Task<List<Vb6Value>>>? evaluateMemberArgs = null, bool classifyMissing = false)
     {
         var memberName = memberIdentifier;
         var hasArgs = args is not null || evaluateArgs is not null;
@@ -158,6 +158,7 @@ internal static class ControlMembers
         if (IdentityMembers.TryGet(control, memberIdentifier, out var identityMember))
             return identityMember;
 
+        if (classifyMissing) VB6ControlMembers.RefuseUnresolved(variable, memberName);
         throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
     }
 

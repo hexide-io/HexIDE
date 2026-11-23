@@ -416,6 +416,18 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ## Partial
 
+- **Intrinsic control missing members** ([#1433](https://github.com/hexide-io/HexIDE/issues/1433)):
+  reads, writes and calls through Object, Control or Variant reaching the shared unresolved-member fallback use the
+  21 intrinsic controls' measured member inventory, embedded directly from
+  `corpus/inbox-controls/typelib/VB6-members.jsonl` (oracle PR #5193).
+  An absent name raises trappable 438; a known but unimplemented member such as TextBox.LinkItem refuses
+  untrappably with its class and member name. Existing resolved members retain their dispatch, including hidden
+  AddItem. Early-bound reads keep the compile error. Forms, classes, UserControls, OCX controls and CallByName
+  keep their existing paths. Earlier specialized refusals, including TimerMembers refusing Timer.Foo before
+  the shared fallback, are unchanged under the issue's three-site scope; runtime GetIDsOfNames acceptance beyond
+  the recorded probes remains unmeasured.
+  See the [oracle](vb6-fidelity-oracle/a-controls-name-and-index-at-run-time.md#a-member-no-object-has-late-bound).
+
 - **Standalone `PropertyBag`** ([#4680](https://github.com/hexide-io/HexIDE/issues/4680), oracle PR #4686) supports the measured scalar, Byte-array and Nothing values and VB6 Contents layout. The measured standalone StdFont streams now persist ([font stream oracle](vb6-fidelity-oracle/a-propertybag-at-run-time.md), plus [#4741’s 2026-11-20 comment](https://github.com/hexide-io/HexIDE/issues/4741)): requested fields survive writes until a property read realizes them. Unmeasured font streams/realization combinations and other objects remain explicitly unimplemented; the UserControl bag is unchanged. Names supplied as objects, arrays or Error values retain their unmeasured refusal. The remaining standalone measurements in #4741 now support Error SCODE entries, verbatim UTF-16, VB name conversions, default conversion/comparison, early-bound compile errors at execution, late-bound 438/450/451 and atomic Contents type mismatch (p-code). Unmeasured array/object/Error default pairings and Boolean-to-String defaults beyond the measured `"True"`/True inequality remain refused: the actual converted String was inferred, not measured ([#4741](https://github.com/hexide-io/HexIDE/issues/4741)). Error 330 carries VB6's measured description.
 
 - **Source-class default members (#174):** async scalar reads execute the collected Function, Property Get or
