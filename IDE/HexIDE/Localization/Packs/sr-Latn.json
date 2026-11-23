@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Izgradi",
     "Str.Dialog.MakeProjectGroup.Cancel": "Otkaži",
     "Str.Dialog.MakeProjectGroup.Help": "_Pomoć",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Elementi niza kontrola menija moraju biti uzastopni i unutar istog podmenija",
     "Str.FilePicker.ReplaceExisting": "{0} već postoji. Želite li da ga zamenite?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je učitan sa greškama pa ne može da se sačuva preko izvorne datoteke. Izaberite novo ime datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Red {0}: svojstvo {1} u {2} nije moguće postaviti.",

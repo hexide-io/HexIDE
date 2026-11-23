@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "先にこのコンテナー内のソースの変更をすべて保存するか破棄してください。",
     "Str.Archive.StructureUnmeasured": "この操作は twinBASIC IDE で動作が測定されていないため拒否されます。",
     "Str.Archive.StructureName": "このフォルダー内で一意のASCII 識別子を使用してください（最大 255 バイト）。予約済みのデバイス名は使用できません。",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "メニューコントロール配列の要素は連続し、同じサブメニュー内にある必要があります",
     "Str.Dialog.MenuEditor.Msg.NoName": "メニュー コントロールには名前が必要です",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "オブジェクト名が不正です: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "メニュー コントロール配列の要素にはインデックスが必要です",

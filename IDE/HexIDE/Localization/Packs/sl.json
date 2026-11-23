@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Zgradi",
     "Str.Dialog.MakeProjectGroup.Cancel": "Prekliči",
     "Str.Dialog.MakeProjectGroup.Help": "_Pomoč",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Elementi polja menijskih kontrolnikov morajo biti zaporedni in v istem podmeniju",
     "Str.FilePicker.ReplaceExisting": "{0} že obstaja. Ali ga želite zamenjati?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je bil naložen z napakami, zato ne more prepisati izvirne datoteke. Izberite novo ime datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Vrstica {0}: lastnosti {1} v {2} ni bilo mogoče nastaviti.",

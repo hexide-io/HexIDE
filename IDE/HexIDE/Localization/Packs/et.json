@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Esmalt salvestage või hüljake kõik selle konteineri lähtekoodimuudatused.",
     "Str.Archive.StructureUnmeasured": "Sellest toimingust keeldutakse, sest selle käitumist pole twinBASIC IDE-s mõõdetud.",
     "Str.Archive.StructureName": "Kasutage selles kaustas kordumatut ASCII-identifikaatorit, kuni 255 baiti; reserveeritud seadmenimed pole lubatud.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Menüüjuhtelementide massiivi elemendid peavad olema järjestikku ja samas alammenüüs",
     "Str.Dialog.MenuEditor.Msg.NoName": "Menüüjuhtelemendil peab olema nimi",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Lubamatu objektinimi: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Menüüjuhtelementide massiivi elemendil peab olema indeks",

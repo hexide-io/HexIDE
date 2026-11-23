@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Prima salvare o scartare tutte le modifiche al codice sorgente in questo contenitore.",
     "Str.Archive.StructureUnmeasured": "Questa operazione viene rifiutata perché il suo comportamento non è stato misurato nell’IDE twinBASIC.",
     "Str.Archive.StructureName": "Usare un identificatore ASCII univoco in questa cartella, massimo 255 byte; i nomi di dispositivo riservati non sono consentiti.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Gli elementi della matrice di controlli di menu devono essere contigui e nello stesso sottomenu",
     "Str.Dialog.MenuEditor.Msg.NoName": "Il controllo di menu deve avere un nome",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nome di oggetto non valido: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "L’elemento della matrice di controlli di menu deve avere un indice",

@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Simpan atau buang semua perubahan kode sumber dalam kontainer ini terlebih dahulu.",
     "Str.Archive.StructureUnmeasured": "Operasi ini ditolak karena perilakunya belum diukur dalam IDE twinBASIC.",
     "Str.Archive.StructureName": "Gunakan pengenal ASCII unik dalam folder ini, paling banyak 255 byte; nama perangkat yang dicadangkan tidak diizinkan.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Elemen larik kontrol menu harus berurutan dan berada dalam submenu yang sama",
     "Str.Dialog.MenuEditor.Msg.NoName": "Kontrol menu harus memiliki nama",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nama objek tidak valid: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elemen larik kontrol menu harus memiliki indeks",

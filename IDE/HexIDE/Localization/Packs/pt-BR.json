@@ -9,6 +9,7 @@
     "Str.Archive.StructureUnsaved": "Primeiro salve ou descarte todas as alterações no código-fonte deste contêiner.",
     "Str.Archive.StructureUnmeasured": "Esta operação é recusada porque seu comportamento não foi medido no IDE twinBASIC.",
     "Str.Archive.StructureName": "Use um identificador ASCII exclusivo nesta pasta, no máximo 255 bytes; nomes de dispositivos reservados não são permitidos.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Os elementos da matriz de controles de menu devem ser contíguos e estar no mesmo submenu",
     "Str.Dialog.MenuEditor.Msg.NoName": "O controle de menu deve ter um nome",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "O elemento da matriz de controles de menu deve ter um índice",
     "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Os índices da matriz de controles de menu devem estar em ordem crescente",

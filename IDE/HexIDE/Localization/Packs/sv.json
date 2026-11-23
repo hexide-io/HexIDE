@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Bygg",
     "Str.Dialog.MakeProjectGroup.Cancel": "Avbryt",
     "Str.Dialog.MakeProjectGroup.Help": "_Hjälp",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Elementen i en menykontrollmatris måste vara sammanhängande och finnas i samma undermeny",
     "Str.FilePicker.ReplaceExisting": "{0} finns redan. Vill du ersätta den?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} lästes in med fel och kan därför inte sparas över originalfilen. Välj ett nytt filnamn.",
     "Str.ProjectLoad.PropertyNotSet": "Rad {0}: egenskapen {1} i {2} kunde inte anges.",

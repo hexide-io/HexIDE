@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Tallenna tai hylkää ensin kaikki tämän säilön lähdekoodimuutokset.",
     "Str.Archive.StructureUnmeasured": "Tämä toiminto evätään, koska sen käyttäytymistä ei ole mitattu twinBASIC IDE:ssä.",
     "Str.Archive.StructureName": "Käytä tässä kansiossa yksilöllistä ASCII-tunnistetta, enintään 255 tavua; varattuja laitenimiä ei sallita.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Valikko-ohjainmatriisin alkioiden on oltava peräkkäin ja samassa alivalikossa",
     "Str.Dialog.MenuEditor.Msg.NoName": "Valikkokomponentilla on oltava nimi",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Virheellinen objektin nimi: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Valikkokomponenttitaulukon alkiolla on oltava indeksi",

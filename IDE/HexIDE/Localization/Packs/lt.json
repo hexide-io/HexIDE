@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Pirmiausia įrašykite arba atmeskite visus šio konteinerio pirminio kodo pakeitimus.",
     "Str.Archive.StructureUnmeasured": "Ši operacija atmesta, nes jos elgsena nebuvo išmatuota twinBASIC IDE.",
     "Str.Archive.StructureName": "Šiame aplanke naudokite unikalų ASCII identifikatorių, iki 255 baitų; rezervuotieji įrenginių vardai neleidžiami.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Meniu valdiklių masyvo elementai turi eiti iš eilės ir būti tame pačiame submeniu",
     "Str.Dialog.MenuEditor.Msg.NoName": "Meniu valdiklis turi turėti pavadinimą",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Netinkamas objekto pavadinimas: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Meniu valdiklių masyvo elementas turi turėti indeksą",

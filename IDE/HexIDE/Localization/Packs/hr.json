@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Prvo spremite ili odbacite sve izmjene izvornog koda u ovom spremniku.",
     "Str.Archive.StructureUnmeasured": "Ova je radnja odbijena jer njezino ponašanje nije izmjereno u IDE-u twinBASIC.",
     "Str.Archive.StructureName": "Upotrijebite jedinstveni ASCII identifikator u ovoj mapi, najviše 255 bajtova; rezervirani nazivi uređaja nisu dopušteni.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Elementi polja kontrola izbornika moraju biti uzastopni i unutar istog podizbornika",
     "Str.Dialog.MenuEditor.Msg.NoName": "Kontrola izbornika mora imati naziv",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Neispravan naziv objekta: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Element polja kontrola izbornika mora imati indeks",

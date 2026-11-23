@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Biên dịch",
     "Str.Dialog.MakeProjectGroup.Cancel": "Hủy",
     "Str.Dialog.MakeProjectGroup.Help": "Trợ _giúp",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Các phần tử mảng điều khiển menu phải liền nhau và nằm trong cùng một menu con",
     "Str.FilePicker.ReplaceExisting": "{0} đã tồn tại. Bạn có muốn thay thế không?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} được tải với lỗi nên không thể lưu đè lên tệp gốc. Hãy chọn tên tệp mới.",
     "Str.ProjectLoad.PropertyNotSet": "Dòng {0}: không thể đặt thuộc tính {1} trong {2}.",
