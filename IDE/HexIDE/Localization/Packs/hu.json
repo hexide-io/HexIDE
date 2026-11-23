@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Több hely található a projekt helyi állapotához. Mindegyik más mentett állapotot tartalmazhat. Semmi sem lesz kiírva, amíg nem választ egyet ehhez a munkamenethez. Adja meg a számát, vagy szakítsa meg:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} hivatkozás vagy csatlakozási pont, vagy már nincs ott, ahol megtaláltuk, ezért sem olvasás, sem írás nem történik ezen a helyen.",
     "Str.Dialog.SharedFile.MultipleModified": "A(z) '{0}' megosztott fájl több példánya is módosult. A következő párbeszédpanelen válassza ki a menteni kívánt példányt.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "A fájl esetleg módosításokat tartalmazó példánya már meg van nyitva.",
+    "Str.Dialog.SharedFile.SaveOnClose": "A(z) {0} ({1}) más projektekben is használatban van. Szeretné menteni?",
     "Str.Dialog.SharedFile.Update": "Szeretné frissíteni a(z) {0} fájlt azokban a projektekben, amelyek a(z) {1} projekttel közösen használják?",
     "Str.Dialog.SharedFile.DiscardChanges": "A(z) {0} frissítése a(z) {1} projektben elveti a projekt nem mentett módosításait. Szeretné folytatni?",
     "Str.Dialog.SharedFile.DiskChanged": "A(z) '{0}' fájl megváltozott a lemezen a(z) {1} projekt példányának betöltése vagy mentése óta. Szeretné felülírni?",

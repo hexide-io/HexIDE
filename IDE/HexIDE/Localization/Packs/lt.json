@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Rastos kelios projekto vietinės būsenos vietos. Kiekvienoje gali būti skirtinga išsaugota būsena. Nieko nebus rašoma, kol nepasirinksite vienos šiam seansui. Įveskite jos numerį arba atšaukite:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} yra saitas arba jungties taškas, arba nebėra ten, kur buvo rastas, todėl iš jo nieko neskaitoma ir į jį nieko nerašoma.",
     "Str.Dialog.SharedFile.MultipleModified": "Pakeistos kelios bendrinamo failo „{0}“ kopijos. Kitame dialogo lange pasirinkite kopiją, kurią norite išsaugoti.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "Šio failo kopija, kurioje gali būti pakeitimų, jau atidaryta.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) bendrai naudojamas kituose projektuose. Ar norite jį įrašyti?",
     "Str.Dialog.SharedFile.Update": "Ar norite atnaujinti {0} projektuose, kurie jį bendrina su {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Atnaujinus {0} projekte {1}, bus atmesti to projekto neišsaugoti pakeitimai. Ar norite tęsti?",
     "Str.Dialog.SharedFile.DiskChanged": "Failas „{0}“ diske pasikeitė po to, kai projekto {1} kopija buvo įkelta arba išsaugota. Ar norite jį perrašyti?",

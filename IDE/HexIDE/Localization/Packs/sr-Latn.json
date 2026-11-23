@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Pronađeno je više lokacija lokalnog stanja projekta. Svaka može sadržati drugačije sačuvano stanje. Ništa se neće upisivati dok ne izaberete jednu za ovu sesiju. Unesite njen broj ili otkažite:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} je veza ili spoj direktorijuma ili više nije na mestu na kom je pronađeno, pa se iz njega ništa ne čita niti se u njega piše.",
     "Str.Dialog.SharedFile.MultipleModified": "Izmenjeno je više kopija deljene datoteke '{0}'. U sledećem dijalogu izaberite kopiju koju treba sačuvati.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "Kopija ove datoteke koja možda sadrži izmene već je otvorena.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) se deli sa drugim projektima. Želite li da je sačuvate?",
     "Str.Dialog.SharedFile.Update": "Želite li da ažurirate {0} u projektima koji ga dele sa projektom {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Ažuriranjem {0} u projektu {1} odbaciće se nesačuvane izmene tog projekta. Želite li da nastavite?",
     "Str.Dialog.SharedFile.DiskChanged": "Datoteka '{0}' je promenjena na disku nakon što je kopija projekta {1} učitana ili sačuvana. Želite li da je prepišete?",

@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Najdenih je več mest lokalnega stanja projekta. Vsako lahko vsebuje drugačno shranjeno stanje. Nič ne bo zapisano, dokler ne izberete enega za to sejo. Vnesite njegovo številko ali prekličite:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} je povezava ali stičišče ali pa ni več tam, kjer je bilo najdeno, zato se iz njega nič ne bere in vanj nič ne zapisuje.",
     "Str.Dialog.SharedFile.MultipleModified": "Spremenjenih je več kopij datoteke v skupni rabi '{0}'.  V naslednjem pogovornem oknu izberite kopijo, ki jo želite shraniti.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "Kopija te datoteke, ki morda vsebuje spremembe, je že odprta.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) je v skupni rabi z drugimi projekti. Jo želite shraniti?",
     "Str.Dialog.SharedFile.Update": "Ali želite posodobiti {0} v projektih, ki si jo delijo s projektom {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Posodobitev {0} v projektu {1} bo zavrgla neshranjene spremembe tega projekta. Ali želite nadaljevati?",
     "Str.Dialog.SharedFile.DiskChanged": "Datoteka '{0}' se je na disku spremenila, odkar je bila kopija projekta {1} naložena ali shranjena. Ali jo želite prepisati?",

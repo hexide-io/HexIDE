@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Ditemukan beberapa lokasi status lokal proyek. Masing-masing mungkin berisi status tersimpan yang berbeda. Tidak ada yang ditulis sampai Anda memilih satu untuk sesi ini. Masukkan nomornya, atau batalkan:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} adalah tautan atau junction, atau tidak lagi berada di tempat saat ditemukan, sehingga tidak ada data yang dibaca atau ditulis di sana.",
     "Str.Dialog.SharedFile.MultipleModified": "Beberapa salinan berkas bersama '{0}' telah diubah. Dalam dialog berikut, pilih salinan yang akan disimpan.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "Salinan berkas ini yang mungkin memiliki perubahan sudah terbuka.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) dipakai bersama oleh proyek lain. Apakah Anda ingin menyimpannya?",
     "Str.Dialog.SharedFile.Update": "Apakah Anda ingin memperbarui {0} dalam proyek yang berbagi berkas tersebut dengan {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Memperbarui {0} dalam proyek {1} akan membuang perubahan proyek tersebut yang belum disimpan. Apakah Anda ingin melanjutkan?",
     "Str.Dialog.SharedFile.DiskChanged": "Berkas '{0}' telah berubah di disk sejak salinan proyek {1} dimuat atau disimpan. Apakah Anda ingin menimpanya?",

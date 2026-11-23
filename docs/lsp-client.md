@@ -694,7 +694,10 @@ whichever count was behind, and either window's close closed the document for bo
 ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
 
 **Closing a dirty code window keeps its server document open** (#3064). The project holds an independent
-session with the edited text until save, discard/reload or removal. Closing still gives no save prompt.
+session with the edited text until save, discard/reload or removal. Closing normally gives no save prompt. A dirty
+shared copy asks whether to save when the person closes its code window, as
+[#2756 measured](vb6-fidelity-oracle/a-file-shared-by-two-projects-of-a-group.md); No keeps the edits in the
+project session.
 Pending edits are flushed before the window lets go; reopening joins the same document without a second
 `didOpen` or a version reset. A server starting later receives that retained text in `didOpen`.
 Saving a closed document updates its whole-file text and wire name, announces the save, then releases the

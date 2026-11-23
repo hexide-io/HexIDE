@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Našlo sa viacero umiestnení miestneho stavu projektu. Každé môže obsahovať iný uložený stav. Nič sa nezapíše, kým nevyberiete jedno pre túto reláciu. Zadajte jeho číslo alebo zrušte:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} je odkaz alebo spojenie priečinkov, alebo už nie je na mieste, kde bolo nájdené, preto sa z neho nič nečíta ani sa doň nič nezapisuje.",
     "Str.Dialog.SharedFile.MultipleModified": "Bolo upravených viacero kópií zdieľaného súboru '{0}'.  V nasledujúcom dialógovom okne vyberte kópiu, ktorá sa má uložiť.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "Kópia tohto súboru, ktorá môže obsahovať zmeny, je už otvorená.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) je zdieľaný s ďalšími projektmi. Chcete ho uložiť?",
     "Str.Dialog.SharedFile.Update": "Chcete aktualizovať {0} v projektoch, ktoré ho zdieľajú s projektom {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Aktualizácia {0} v projekte {1} zahodí neuložené zmeny tohto projektu. Chcete pokračovať?",
     "Str.Dialog.SharedFile.DiskChanged": "Súbor '{0}' sa na disku zmenil od načítania alebo uloženia kópie projektu {1}. Chcete ho prepísať?",

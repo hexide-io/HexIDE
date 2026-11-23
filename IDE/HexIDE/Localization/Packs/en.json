@@ -1505,6 +1505,8 @@
     "Str.ProjectLocalState.ChooseFormat": "Multiple project-local state locations were found. Each may contain different saved state. Nothing will be written until you choose one for this session. Enter its number, or cancel:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.",
     "Str.Dialog.SharedFile.MultipleModified": "Multiple copies of the shared file '{0}' have been modified.  In the following dialog, select the copy that should be saved.",
+    "Str.Dialog.SharedFile.AlreadyOpen": "The copy of this file which might have changes is already opened.",
+    "Str.Dialog.SharedFile.SaveOnClose": "{0} ({1}) is shared by other project(s). Would you like to save it?",
     "Str.Dialog.SharedFile.Update": "Would you like to update {0} in project(s) which share it with {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Updating {0} in project {1} will discard that project's unsaved changes. Would you like to continue?",
     "Str.Dialog.SharedFile.DiskChanged": "The file '{0}' has changed on disk since project {1}'s copy was loaded or saved. Would you like to overwrite it?",
