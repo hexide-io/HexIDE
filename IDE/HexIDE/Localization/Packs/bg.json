@@ -1058,6 +1058,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} е под минималната стойност {2}, затова се използва {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} е над максималната стойност {2}, затова се използва {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "„{0}“ ще изпълни команда, която HexIDE не е изпълнявал преди: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "„{0}“ ще се свърже с адрес, към който HexIDE не се е свързвал преди: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Конфигурационният файл е празен.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Конфигурацията декларира версия {0}, но тази версия на HexIDE разбира {1}. Тя е пренебрегната; използват се вградените сървъри.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Конфигурационният файл „{0}“ не може да бъде прочетен: {1}",

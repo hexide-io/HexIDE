@@ -1025,6 +1025,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} je ispod najmanje dozvoljene vrednosti {2}, pa se koristi {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} je iznad najveće dozvoljene vrednosti {2}, pa se koristi {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' će izvršiti naredbu koju HexIDE ranije nije izvršavao: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' će se povezati sa adresom sa kojom se HexIDE ranije nije povezivao: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Konfiguraciona datoteka je prazna.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Konfiguracija navodi verziju {0}, ali ovaj HexIDE razume {1}. Konfiguracija je zanemarena; koriste se ugrađeni serveri.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Nije moguće pročitati konfiguracionu datoteku '{0}': {1}",

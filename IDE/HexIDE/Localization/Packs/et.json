@@ -1025,6 +1025,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} on väiksem kui miinimum {2}, seega kasutatakse väärtust {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} on suurem kui maksimum {2}, seega kasutatakse väärtust {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' käivitab käsu, mida HexIDE pole varem käivitanud: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' loob ühenduse aadressiga, millega HexIDE pole varem ühendust loonud: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Seadistusfail on tühi.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Seadistus deklareerib versiooni {0}, kuid see HexIDE toetab versiooni {1}. Seadistust eirati; kasutusel on sisseehitatud serverid.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Seadistusfaili '{0}' ei saanud lugeda: {1}",

@@ -1025,6 +1025,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} gutxieneko {2} balioaren azpitik dago; beraz, {2} erabiltzen da.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} gehieneko {2} balioaren gainetik dago; beraz, {2} erabiltzen da.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' zerbitzariak HexIDEk aurretik exekutatu ez duen komando bat exekutatuko du: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' zerbitzaria HexIDE aurretik konektatu ez den helbide batera konektatuko da: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Konfigurazio-fitxategia hutsik dago.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Konfigurazioak {0} bertsioa deklaratzen du, baina HexIDE honek {1} ulertzen du. Konfigurazioa ez da kontuan hartu; integratutako zerbitzariak erabiltzen ari dira.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Ezin izan da '{0}' konfigurazio-fitxategia irakurri: {1}",

@@ -1093,6 +1093,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: הערך {1} נמוך מהמינימום {2}, ולכן נעשה שימוש ב־{2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: הערך {1} גבוה מהמקסימום {2}, ולכן נעשה שימוש ב־{2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' יפעיל פקודה ש־HexIDE טרם הפעיל: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' יתחבר לכתובת ש־HexIDE טרם התחבר אליה: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "קובץ התצורה ריק.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "התצורה מצהירה על גרסה {0}, אך גרסה זו של HexIDE מבינה את {1}. המערכת התעלמה מהתצורה; נעשה שימוש בשרתים המובנים.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "לא ניתן לקרוא את קובץ התצורה '{0}': {1}",

@@ -218,7 +218,7 @@ public sealed class LanguageServerEditorViewTests
             saved.Command.Should().Be("new-server");
             saved.Arguments!.Text.Should().Be("--flag two");
             new LanguageServerCommandStore(Path.Combine(directory, "seen.json"))
-                .IsNewOrChanged(id, LanguageServerConfigLoader.LaunchedCommandOf(saved)!).Should().BeFalse();
+                .IsNewOrChanged(id, LanguageServerConfigLoader.SeenIdentityOf(saved)!).Should().BeFalse();
             if (action == "customise")
             {
                 using var document = LanguageServerEditorStore.Parse(text);

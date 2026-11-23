@@ -1060,6 +1060,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} di bawah minimum {2}, sehingga {2} digunakan.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} di atas maksimum {2}, sehingga {2} digunakan.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' akan menjalankan perintah yang belum pernah dijalankan HexIDE: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' akan terhubung ke alamat yang belum pernah dihubungi HexIDE: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Berkas konfigurasi kosong.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Konfigurasi menyatakan versi {0}, tetapi HexIDE ini memahami {1}. Konfigurasi telah diabaikan; server bawaan digunakan.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Berkas konfigurasi '{0}' tidak dapat dibaca: {1}",

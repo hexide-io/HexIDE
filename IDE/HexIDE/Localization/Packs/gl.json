@@ -1058,6 +1058,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} está por debaixo do mínimo {2}, polo que se usa {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} está por riba do máximo {2}, polo que se usa {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' executará unha orde que HexIDE nunca executou: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' conectarase a un enderezo ao que HexIDE nunca se conectou: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "O ficheiro de configuración está baleiro.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "A configuración declara a versión {0}, pero este HexIDE admite a {1}. Ignorouse a configuración; úsanse os servidores integrados.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Non se puido ler o ficheiro de configuración '{0}': {1}",

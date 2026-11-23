@@ -1059,6 +1059,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: القيمة {1} أقل من الحد الأدنى {2}، لذا تُستخدم القيمة {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: القيمة {1} أعلى من الحد الأقصى {2}، لذا تُستخدم القيمة {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "سيشغّل '{0}' أمرًا لم يسبق لـ HexIDE تشغيله: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "سيتصل '{0}' بعنوان لم يسبق لـ HexIDE الاتصال به: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "ملف التكوين فارغ.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "يعلن التكوين عن الإصدار {0}، لكن هذا الإصدار من HexIDE يفهم الإصدار {1}. تم تجاهل التكوين؛ تُستخدم الخوادم المدمجة.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "تعذرت قراءة ملف التكوين '{0}': {1}",

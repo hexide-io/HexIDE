@@ -3335,8 +3335,10 @@ NOT clear its value.
 
 The client SHALL accept `transport: "tcp"` with a `tcp://host:port` endpoint and `tcpRole`
 `connect` (default) or `listen`, using Content-Length framed JSON-RPC in both directions.
-Listen SHALL bind IPv4 loopback for `localhost` and SHALL require an explicit IP literal for
-other bind addresses. Listener port 0 SHALL allocate an OS-selected port; connect SHALL require
+Listen SHALL bind IPv4 loopback for `localhost`, and SHALL otherwise require a loopback IP literal
+(`127.0.0.0/8` or `[::1]`); any other bind address SHALL be refused during configuration loading and by
+the transport, as a WebSocket listener's is, because whatever dials in first is taken as the server (#5465).
+Listener port 0 SHALL allocate an OS-selected port; connect SHALL require
 a nonzero port. Invalid endpoints and roles SHALL be rejected during configuration loading.
 The transport SHALL support the pipe launch fields and workspace placeholders, with `{host}`
 and `{port}` providing the host and actual port. A listener SHALL bind before launching its child.
@@ -3356,6 +3358,39 @@ the host and port. The transport inventory test SHALL enumerate all four support
 - **WHEN** the connection starts
 - **THEN** HexIDE binds loopback before launching and passes its allocated port to the child
 - **AND** receives the child's connection and exchanges framed language-server messages
+
+#### Scenario: A listener off this machine is refused
+
+- **GIVEN** a TCP listen entry whose endpoint is `tcp://0.0.0.0:6005` or another non-loopback address
+- **WHEN** the configuration loads
+- **THEN** the entry is refused with a problem naming `localhost`, `127.0.0.1` and `[::1]`, and nothing is bound
+
+### Requirement: A new command or address from the configuration file is announced
+
+`lsp-servers.json` is a file any process running as the user may write, so an entry's first launch or dial SHALL
+NOT be silent. The IDE SHALL keep, per entry id, the identity it last reached: the command it starts and, for
+a tcp or WebSocket `connect` entry, the address it dials. A new or changed identity SHALL be reported as an
+`UnseenCommand` problem and recorded, and the entry SHALL still load. A trial launch from the Language
+Servers window SHALL confirm an unseen identity first (#5465).
+
+#### Scenario: An entry that only connects is announced
+
+- **GIVEN** an entry with `transport` `tcp`, no `command`, and endpoint `tcp://192.168.0.100:47321`
+- **WHEN** the configuration loads for the first time
+- **THEN** a problem says the entry will connect to an address the IDE has not connected to before, naming it
+- **AND** the next load reports nothing, until the endpoint changes
+
+#### Scenario: Saving in the window records what the entry reaches
+
+- **GIVEN** an entry saved in the Language Servers window, whose endpoint the IDE dials
+- **WHEN** the configuration next loads
+- **THEN** it is not announced, because the save recorded its command and address as seen
+
+#### Scenario: A command already seen stays seen
+
+- **GIVEN** a stdio entry whose command line was recorded before addresses counted
+- **WHEN** the configuration loads
+- **THEN** it is not announced again, because an entry that only launches keeps the identity it had
 
 ### Requirement: A declared typing trigger owns the editor gesture
 

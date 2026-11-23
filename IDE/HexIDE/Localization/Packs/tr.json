@@ -1026,6 +1026,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1}, en düşük değer olan {2} değerinin altında; bu nedenle {2} kullanılıyor.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1}, en yüksek değer olan {2} değerinin üzerinde; bu nedenle {2} kullanılıyor.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}', HexIDE'nin daha önce çalıştırmadığı bir komutu çalıştıracak: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}', HexIDE'nin daha önce bağlanmadığı bir adrese bağlanacak: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Yapılandırma dosyası boş.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Yapılandırma, {0} sürümünü bildiriyor; ancak bu HexIDE, {1} sürümünü destekliyor. Yapılandırma yok sayıldı; yerleşik sunucular kullanılıyor.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "'{0}' yapılandırma dosyası okunamadı: {1}",
