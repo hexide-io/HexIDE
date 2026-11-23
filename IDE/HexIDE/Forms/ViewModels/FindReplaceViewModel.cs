@@ -356,6 +356,15 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             return;
         }
 
+        // VB6 refuses a malformed pattern in one box before anything is searched (#5312; oracle,
+        // find-next-where-the-next-search-starts.md). Checked once here: each document's search would report it again.
+        if (UsePatternMatching && PatternError() is { } error)
+        {
+            _windowManager.MessageBox(_localization.GetString(error),
+                _localization.GetString("Str.FindReplace.Msg.TitleFind"), MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            return;
+        }
+
         var result = FindInScope(editor);
         if (result is null)
         {
@@ -595,19 +604,32 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         return null;
     }
 
+    private string? PatternError()
+    {
+        try
+        {
+            FindWildcardPattern.Translate(SearchText);
+            return null;
+        }
+        catch (ArgumentException exception)
+        {
+            return exception.Message;
+        }
+    }
+
     private (int offset, int length)? FindNextRegex(TextDocument doc, int startOffset, int currentSelectionStart, int currentSelectionLength,
         bool allowWrap, Func<int, int, bool> isReadOnly)
     {
-        var options = MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
+        var options = RegexOptions.IgnoreCase;
         Regex regex;
         try
         {
-            regex = new Regex(SearchText, options);
+            regex = new Regex(FindWildcardPattern.Translate(SearchText), options);
         }
-        catch (ArgumentException)
+        catch (ArgumentException exception)
         {
             _windowManager.MessageBox(
-                _localization.GetString("Str.FindReplace.Msg.InvalidRegex"),
+                _localization.GetString(exception.Message),
                 _localization.GetString("Str.FindReplace.Msg.TitleFind"),
                 MessageBoxButtons.Ok,
                 MessageBoxIcon.Warning);
@@ -669,8 +691,8 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// <para>
     /// <b>A refused match is stepped past by one character, not by its length.</b> <c>NextMatch</c> resumes
     /// at the end of the match it was given, so a refused match hides any match overlapping it. A pattern
-    /// such as <c>\s*Private Sub</c> first matches from the header's last line break, which is refused, and
-    /// <c>NextMatch</c> then resumed after <c>Private Sub</c> and never saw it. The plain scan has always
+    /// such as <c>Total*</c> first matches inside <c>Subtotal = Total + 1</c>, which Whole Word refuses.
+    /// Resuming after it would miss the whole-word <c>Total</c> inside that match. The plain scan has always
     /// stepped by one, and this is the same stepping.
     /// </para>
     /// </remarks>
@@ -716,10 +738,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
 
         if (UsePatternMatching)
         {
-            var options = MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
+            var options = RegexOptions.IgnoreCase;
             try
             {
-                var regex = new Regex(SearchText, options);
+                var regex = new Regex(FindWildcardPattern.Translate(SearchText), options);
                 var matches = AcceptedMatches(regex, doc.Text, doc, isReadOnly);
                 for (int i = matches.Count - 1; i >= 0; i--)
                 {
@@ -779,10 +801,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     {
         if (UsePatternMatching)
         {
-            var options = MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
+            var options = RegexOptions.IgnoreCase;
             try
             {
-                return Regex.IsMatch(text, $"^{SearchText}$", options);
+                return Regex.IsMatch(text, $"^{FindWildcardPattern.Translate(SearchText)}$", options);
             }
             catch (ArgumentException)
             {
