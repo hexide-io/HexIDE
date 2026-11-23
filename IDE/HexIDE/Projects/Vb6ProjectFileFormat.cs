@@ -71,7 +71,7 @@ public sealed class Vb6ProjectFileFormat : IProjectFileFormat
         IDeserializeErrorSink problems)
     {
         var read = await new ProjectLoader { HostAnsi = hostAnsi, FileRead = fileRead }.LoadAsync(path, problems);
-        return new(read.Project, read.Serialized.SkippedUserDocumentPaths, read.ReadByteForByte, read.ProjectFileBytes);
+        return new(read.Project, read.SkippedUserDocumentPaths, read.ReadByteForByte, read.ProjectFileBytes);
     }
 
     /// <inheritdoc/>
@@ -79,7 +79,7 @@ public sealed class Vb6ProjectFileFormat : IProjectFileFormat
         Vb6TextEncoding hostAnsi, IDeserializeErrorSink problems)
     {
         var read = await new ProjectLoader { HostAnsi = hostAnsi }.LoadTextAsync(path, text, encoding, problems);
-        return new(read.Project, read.Serialized.SkippedUserDocumentPaths, read.ReadByteForByte, read.ProjectFileBytes);
+        return new(read.Project, read.SkippedUserDocumentPaths, read.ReadByteForByte, read.ProjectFileBytes);
     }
 
     /// <inheritdoc/>

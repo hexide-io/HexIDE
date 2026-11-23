@@ -166,9 +166,9 @@ public class InBoxToolboxTests
 
         InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib,
             ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
-        var shape = toolbox.Components.ToList().FindIndex(c => c.BaseClass is ShapeComponentClass);
-        toolbox.Components[shape + 1].BaseClass.Should().BeSameAs(ProgressBarComponentClass.Instance);
-        toolbox.Components[shape + 1].Name.Should().Be("ProgressBar");
+        var image = toolbox.Components.ToList().FindIndex(c => c.BaseClass is ImageComponentClass);
+        toolbox.Components[image + 1].BaseClass.Should().BeSameAs(ProgressBarComponentClass.Instance);
+        toolbox.Components[image + 1].Name.Should().Be("ProgressBar");
         toolbox.Components.Where(c => c.Library is not null).Select(c => c.VBTypeName)
             .Should().Equal("MSComctlLib.ProgressBar", "MSComctlLib.ListView", "MSComctlLib.Slider", "MSComctlLib.StatusBar", "MSComctlLib.ImageList", "ComctlLib.ProgressBar");
     }

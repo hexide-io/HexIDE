@@ -38,6 +38,23 @@ public class BookmarkService : IBookmarkService
         BookmarksChanged?.Invoke(document);
     }
 
+    public void Remap(DocumentIdentity document, Func<int, int?> newLineOf)
+    {
+        if (!_bookmarks.TryGetValue(document, out var set))
+            return;
+        var moved = new SortedSet<int>();
+        foreach (var line in set)
+            if (newLineOf(line) is { } newLine)
+                moved.Add(newLine);
+        if (moved.Count == 0)
+            _bookmarks.Remove(document);
+        if (set.SetEquals(moved))
+            return;
+        if (moved.Count > 0)
+            _bookmarks[document] = moved;
+        BookmarksChanged?.Invoke(document);
+    }
+
     public bool IsBookmarked(DocumentIdentity document, int line)
         => _bookmarks.TryGetValue(document, out var set) && set.Contains(line);
 

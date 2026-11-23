@@ -141,3 +141,59 @@ A property's get, let and set count as one member name here.
 - **Every control's member at ID 0 is `_Default`.** Which property it stands for is in "Each intrinsic control's default member" (#790), on `a-control-where-a-value-is-wanted-is-its-default-member.md`.
 
 **Not measured:** whether `GetIDsOfNames` on a running control accepts exactly these names and no others. The 438 rows above were measured for `Foo` only.
+
+### Does a running control answer a name its list leaves out? (2026-11-23, #5443, SP6)
+
+**The question.** The section above left one thing unmeasured: whether a running control answers exactly its VB6.OLB
+names late-bound. #1433 relies on it, raising 438 for a name absent from the control's list. If the running object
+answered a name its type library omits, VB6 would return a value there, and HexIDE would raise 438.
+
+**The probe.**
+- **Setup:** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle guest. The project was built with `/make` as native code
+  and as p-code, and each exe was run in session 0. The two logs matched line for line.
+- **The form** held one control of each of the 21 classes, and a menu.
+- **Each control** was passed to a procedure as `o As Object`. Under `On Error Resume Next`, the procedure read every
+  name that's in another class's list in `VB6-members.jsonl` but not in the control's own.
+- **Each read** was `v = o.Name` into a Variant. Where that raised 438, `Set ob = o.Name` was tried too, so that a name
+  answering with an object without a default member couldn't pass as absent.
+- **`Line`, `Circle`, `PSet` and `Scale`** don't parse as `v = o.Line`, so those four went through
+  `CallByName(o, "Line", VbMethod)` and `CallByName(..., VbGet)`.
+- **As positive controls,** each class's own `Name` and `Tag` were read the same way first, and the Timer's `Left`,
+  `Top`, `Enabled`, `Index`, `Parent` and `Container`.
+
+**What VB6 gave:**
+
+| Class | Unlisted names read | Answered |
+|---|---|---|
+| PictureBox | 121 | none: 438 for every one, read and `Set` |
+| Label | 150 | none |
+| TextBox | 139 | none |
+| Frame | 165 | none |
+| CommandButton, OptionButton | 156 each | none |
+| CheckBox, FileListBox | 151 each | none |
+| ComboBox, ListBox | 145 each | none |
+| HScrollBar, VScrollBar | 173 each | none |
+| DriveListBox | 161 | none |
+| DirListBox | 160 | none |
+| Shape | 183 | none |
+| Line | 189 | none |
+| Image | 172 | none |
+| Data | 157 | none |
+| OLE | 131 | none |
+| Menu | 199 | none |
+| Timer | 200 | **`Left` and `Top`: 393**, "'Left' property cannot be read at run time". The other 198 are 438 |
+
+The positive controls:
+- **Every class's `Name` and `Tag`** read back with no error: `Picture1`, `Label1` and so on, and `""`.
+- **The Timer:** `Enabled` read True, `Index` raised 343 "Object not an array", and `Parent` raised 450.
+  `Container`, absent from its list, raised 438.
+
+**Readings:**
+- **For the 20 classes other than the Timer,** the running control answers none of the names its list leaves out, among
+  the 210 names any intrinsic class has. So a name absent from a control's list is 438 late-bound, as #1433 has it.
+- **The Timer's `Left` and `Top`** are the exception the list's dump flagged: they're answered, with 393, as
+  `a-controls-position-at-run-time.md` already records.
+
+**Not measured:**
+- **Names in no intrinsic class's list,** other than `Foo` above: a Form's own `Hide` or `Show`, say.
+- **Writes and calls** of the unlisted names. The reads above were value reads and `Set`s.

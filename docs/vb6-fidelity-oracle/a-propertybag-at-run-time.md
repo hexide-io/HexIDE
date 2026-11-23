@@ -116,7 +116,7 @@ FFFF00001100040064B10EE4180000006200790074006500070000000E000300
 - **Not decoded:** the Byte array's and the font's own fields, and how a read chooses between the two `dup` entries. No rule is offered for them: the bytes are recorded for a format test to match.
 
 **Not measured:**
-- a PropertyBag passed to a UserControl's `ReadProperties` and `WriteProperties` (MISSING_LANGUAGE's rows have their own measurements);
+- a PropertyBag passed to a UserControl's `ReadProperties` and `WriteProperties` (MISSING_LANGUAGE's rows have their own measurements). Since measured: [A UserControl's own PropertyBag](a-usercontrols-own-propertybag.md#a-usercontrols-own-propertybag-2026-11-23-4741-sp6);
 - a long String or one outside ASCII;
 - a Variant holding an object that is persistable but not a `StdFont`;
 

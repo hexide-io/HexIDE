@@ -55,6 +55,38 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
         lib.Printed.Should().Equal(new Vb6Value(6L));
     }
 
+    // #827: docs/vb6-fidelity-oracle/rgb-qbcolor-and-msgboxs-style.md, Enter/Escape table.
+    [Theory]
+    [InlineData(0, 0, MessageBoxLayout.None)]
+    [InlineData(0, 256, MessageBoxLayout.SecondButtonDefault)]
+    [InlineData(0, 512, MessageBoxLayout.None)]
+    [InlineData(0, 768, MessageBoxLayout.None)]
+    [InlineData(1, 0, MessageBoxLayout.None)]
+    [InlineData(1, 256, MessageBoxLayout.SecondButtonDefault)]
+    [InlineData(1, 512, MessageBoxLayout.None)]
+    [InlineData(1, 768, MessageBoxLayout.None)]
+    [InlineData(2, 0, MessageBoxLayout.None)]
+    [InlineData(2, 256, MessageBoxLayout.SecondButtonDefault)]
+    [InlineData(2, 512, MessageBoxLayout.ThirdButtonDefault)]
+    [InlineData(2, 768, MessageBoxLayout.None)]
+    [InlineData(3, 0, MessageBoxLayout.None)]
+    [InlineData(3, 256, MessageBoxLayout.SecondButtonDefault)]
+    [InlineData(3, 512, MessageBoxLayout.ThirdButtonDefault)]
+    [InlineData(3, 768, MessageBoxLayout.None)]
+    [InlineData(4, 0, MessageBoxLayout.None)]
+    [InlineData(4, 256, MessageBoxLayout.SecondButtonDefault)]
+    [InlineData(4, 512, MessageBoxLayout.None)]
+    [InlineData(4, 768, MessageBoxLayout.None)]
+    [InlineData(5, 0, MessageBoxLayout.None)]
+    [InlineData(5, 256, MessageBoxLayout.SecondButtonDefault)]
+    [InlineData(5, 512, MessageBoxLayout.None)]
+    [InlineData(5, 768, MessageBoxLayout.None)]
+    public async Task Default_button_bits_reach_the_host(int buttons, int bits, MessageBoxLayout expected)
+    {
+        var lib = await RunMsgBox($"MsgBox \"probe\", {buttons + bits}\n");
+        lib.Layout.Should().Be(expected);
+    }
+
     // ── MsgBox's style ───────────────────────────────────────────────────────────────────────────
 
     [Theory]

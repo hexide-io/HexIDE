@@ -43,9 +43,12 @@ public enum MessageBoxLayout
     /// <summary>
     /// Not a layout: the second button is the default, which Enter presses and which has the focus, as VB6's
     /// <c>vbDefaultButton2</c> makes it. For a question whose safe answer is the second, such as No to running code
-    /// from outside this computer (#1121). The IDE's own boxes read it; a program's box ignores it.
+    /// from outside this computer (#1121). The IDE's own boxes and a program's box both read it.
     /// </summary>
     SecondButtonDefault = 4,
+
+    /// <summary>The third button is the default and takes the focus in a program’s box (#827).</summary>
+    ThirdButtonDefault = 16,
 
     /// <summary>
     /// Not a layout: the box asks the person a security question, such as whether to run code from outside this

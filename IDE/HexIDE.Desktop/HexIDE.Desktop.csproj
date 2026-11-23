@@ -50,6 +50,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
+    <!-- The Basic provider, named only by BasicProviderComposition.cs until phase 3 loads it as an add-in (#3411, #5396). -->
+    <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
     <!-- Signing tool that packages the first-party add-ins (build-only; not shipped). -->
     <ProjectReference Include="..\HexIDE.AddinPacker\HexIDE.AddinPacker.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

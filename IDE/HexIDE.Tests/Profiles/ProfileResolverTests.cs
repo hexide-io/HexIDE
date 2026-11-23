@@ -51,7 +51,6 @@ public sealed class ProfileResolverTests : IDisposable
     }
 
     [Theory]
-    [InlineData(null, "vb6", 8, true)]
     [InlineData("vb6", "vb6", 8, true)]
     [InlineData("vbaode", "vbaode", 1, false)]
     [InlineData("vba", "vba", 0, false)]
@@ -74,6 +73,18 @@ public sealed class ProfileResolverTests : IDisposable
                 "application-wizard", "wizard-manager", "data-project", "enterprise-controls");
         if (count == 1)
             profile.ProjectTypes.Value.Should().Equal("standard-exe");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("neutral")]
+    public void NeutralHasNoOfferingOrVisibilityOverrides(string? selector)
+    {
+        var profile = Resolver.Resolve(selector)!;
+        profile.Id.Should().Be("neutral");
+        profile.Source.Should().Be("embedded:neutral");
+        profile.ProjectTypes.Should().BeNull();
+        profile.MenuVisibility.Should().BeEmpty();
     }
 
     [Fact]

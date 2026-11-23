@@ -97,14 +97,15 @@ public sealed partial class VBListView
             labelEditor.Padding = new Thickness(0);
             labelEditor.BorderThickness = new Thickness(1);
             labelEditor.VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center;
-            labelEditor.Height = 17;
+            labelEditor.Height = 17 + FontHeightGrowth;
             labelEditor.TextChanged += (sender, _) =>
             {
                 var editor = (TextBox)sender!;
                 if (editor.Text != originalLabel)
-                    editor.Height = 21;
+                    editor.Height = 21 + FontHeightGrowth;
             };
         }
+        UpdateLabelEditorFont();
         ScrollViewer.SetHorizontalScrollBarVisibility(labelEditor, ScrollBarVisibility.Disabled);
         ScrollViewer.SetVerticalScrollBarVisibility(labelEditor, ScrollBarVisibility.Disabled);
         labelEditor.AddHandler(KeyDownEvent, (_, e) =>
@@ -120,6 +121,22 @@ public sealed partial class VBListView
         InvalidateMeasure();
         labelEditor.Focus();
         labelEditor.SelectAll();
+    }
+
+    private void UpdateLabelEditorFont()
+    {
+        if (labelEditor is { } editor)
+        {
+            editor.FontFamily = LabelTypeface.FontFamily;
+            editor.FontSize = LabelFontSize;
+            editor.FontWeight = LabelTypeface.Weight;
+            editor.FontStyle = LabelTypeface.Style;
+            Avalonia.Controls.Documents.Inline.SetTextDecorations(editor, LabelTextDecorations);
+            if (Number("View") == 3)
+                editor.Height = (editor.Text == originalLabel ? 17 : 21) + FontHeightGrowth;
+        }
+        InvalidateMeasure();
+        InvalidateVisual();
     }
 
     private async Task FinishLabelEdit(bool commit)

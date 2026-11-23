@@ -158,6 +158,12 @@ public class FormDeserializer
             return null;
         }
 
+        // VB6's 4.00 form upgrade preserves UseZOrder (#5274; file-format fidelity oracle, Q11).
+        using var sourceLines = new System.IO.StringReader(source);
+        if (sourceLines.ReadLine() == "VERSION 4.00" && rootComponent.Type == "VB.Form"
+            && !rootComponent.OrderedRawProperties.Any(p => p.Name.Equals("PaletteMode", StringComparison.OrdinalIgnoreCase)))
+            rootComponent.OrderedRawProperties.Add(("PaletteMode", ["   PaletteMode     =   1  'UseZOrder"]));
+
         rootComponent.Type = rootType;
 
         // Nor is a form that holds another form, or a UserControl or PropertyPage block, which read as one. Loading it
@@ -493,8 +499,8 @@ public class FormDeserializer
                         form.LoadedWithErrors = true;
                         return;
                     }
-                    // Kept as written, so a save puts it back rather than losing it: a palette colour
-                    // (&H02C0C0C0&) is a value VB6 accepts that HexIDE cannot hold yet (#786).
+                    // Kept as written, so a save puts it back rather than losing it: for example,
+                    // an invalid system colour outside &H80000000 to &H80000018.
                     unparsedKnownNames.Add(serializedProperty.Key);
                     if (duplicatedNames.Contains(serializedProperty.Key))
                         form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreadableDuplicateProperty,

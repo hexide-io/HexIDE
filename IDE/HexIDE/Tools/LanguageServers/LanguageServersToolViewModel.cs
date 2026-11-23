@@ -68,6 +68,7 @@ public partial class LanguageServersToolViewModel : Document
 
     private readonly LanguageServerEditorStore? _editorStore;
     private readonly ILspWorkspace? _workspace;
+    private readonly LanguageServerTrial? _trial;
     public ObservableCollection<LanguageServerDefinitionViewModel> Definitions { get; } = [];
     [Notify] private LanguageServerEditorViewModel? editor;
 
@@ -94,6 +95,7 @@ public partial class LanguageServersToolViewModel : Document
     private void RefreshDefinitions()
     {
         if (_editorStore is null) return;
+        var existing = Definitions.ToDictionary(row => row.Id, StringComparer.Ordinal);
         Definitions.Clear();
         try
         {
@@ -103,8 +105,17 @@ public partial class LanguageServersToolViewModel : Document
             foreach (var id in _editorStore.Defaults.Select(e => e.Id!).Concat(userIds).Distinct(StringComparer.Ordinal))
             {
                 var user = userIds.Contains(id);
-                Definitions.Add(new LanguageServerDefinitionViewModel(id, user,
-                    new HexIDE.Utils.DelegateCommand(() => OpenEditor(id, !user))));
+                if (existing.TryGetValue(id, out var row))
+                {
+                    row.UpdateSource(user);
+                    Definitions.Add(row);
+                }
+                else
+                {
+                    Definitions.Add(new LanguageServerDefinitionViewModel(id, user,
+                        new HexIDE.Utils.DelegateCommand(() => OpenEditor(id, !Definitions.Single(row => row.Id == id).IsUser)),
+                        _localization, () => TestDefinitionAsync(id), _events));
+                }
             }
         }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or System.IO.IOException
@@ -119,6 +130,20 @@ public partial class LanguageServersToolViewModel : Document
                 });
             HasProblems = Problems.Count > 0;
         }
+    }
+
+    public override bool OnClose()
+    {
+        if (!base.OnClose()) return false;
+        foreach (var row in Definitions) row.ClearResult();
+        return true;
+    }
+
+    private async Task<LanguageServerTrialResult?> TestDefinitionAsync(string id)
+    {
+        if (_editorStore is null || _trial is null || !Definitions.Any(row => row.Id == id)) return null;
+        var entry = _editorStore.Load().Entries.FirstOrDefault(entry => entry.Id == id);
+        return entry is null ? null : await _trial.RunAsync(entry);
     }
 
     [Notify] private bool hasProblems;
@@ -161,6 +186,14 @@ public partial class LanguageServersToolViewModel : Document
         ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture,
         IEventBus events, Pseudonymiser pseudonyms, IProjectManager? projects = null,
         LanguageServerEditorStore? editorStore = null, ILspWorkspace? workspace = null)
+        : this(registry, localization, capture, events, pseudonyms, projects, editorStore, workspace, null)
+    {
+    }
+
+    internal LanguageServersToolViewModel(
+        ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture,
+        IEventBus events, Pseudonymiser pseudonyms, IProjectManager? projects,
+        LanguageServerEditorStore? editorStore, ILspWorkspace? workspace, LanguageServerTrial? trial)
     {
         _registry = registry;
         _localization = localization;
@@ -170,6 +203,7 @@ public partial class LanguageServersToolViewModel : Document
         _projects = projects;
         _editorStore = editorStore;
         _workspace = workspace;
+        _trial = trial;
 
         ShowAllMessagesCommand = new HexIDE.Utils.DelegateCommand(
             () => _events.Publish(new OpenProtocolInspectorEvent()));
@@ -252,6 +286,7 @@ public partial class LanguageServersToolViewModel : Document
             foreach (var row in Groups.SelectMany(g => g.Rows)) row.LanguageChanged();
             RefreshProblems();
             Editor?.LanguageChanged();
+            foreach (var row in Definitions) row.LanguageChanged();
             LanguageChanged?.Invoke();
         }
     }
@@ -368,12 +403,4 @@ public partial class LanguageServersToolViewModel : Document
 
         return string.Join(Environment.NewLine, lines);
     }
-}
-
-public sealed class LanguageServerDefinitionViewModel(string id, bool isUser, System.Windows.Input.ICommand editCommand)
-{
-    public string Id { get; } = id;
-    public bool IsUser { get; } = isUser;
-    public bool IsBundled => !IsUser;
-    public System.Windows.Input.ICommand EditCommand { get; } = editCommand;
 }

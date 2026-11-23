@@ -218,8 +218,8 @@ public class ToolTipTextTests
         ran.Printed.Should().Equal(Has(what));
     }
 
-    // VB6 has none on these. Reached late-bound, vb6.exe answers 438; HexIDE stops with the compile error there too, which is
-    // #1433's. Named directly it is the compile error in VB6 as well: `Form2.HScroll1.ToolTipText` failed vb6.exe's build.
+    // VB6 has none on these. Named directly it is the compile error:
+    // `Form2.HScroll1.ToolTipText` failed vb6.exe's build. #1433 changes only the late-bound shared lookup.
     [AvaloniaTheory]
     [InlineData("HScroll1")]
     [InlineData("VScroll1")]

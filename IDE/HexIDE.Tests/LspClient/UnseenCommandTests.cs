@@ -185,14 +185,18 @@ public class UnseenCommandTests : IDisposable
     }
 
     [Fact]
-    public void AWebSocketEntryIsNeverAnnouncedBecauseItStartsNothing()
+    public void AWebSocketEntryIsAnnouncedAsAnAddressNotAsACommand()
     {
+        // It starts nothing, so it isn't announced as a program. But it dials the address and sends the server the
+        // project's folder, so a new address is announced as one (#5465). This test used to say the opposite.
         var result = Loader("""
             {"version":1,"servers":[{"id":"ws","extensions":[".bas"],"languageId":"vba",
              "transport":"websocket","endpoint":"ws://localhost:1234/"}]}
             """).Load([], Store());
 
-        result.Problems.Should().NotContain(p => p.Kind == LanguageServerConfigProblemKind.UnseenCommand);
+        var problem = result.Problems.Should().ContainSingle(p => p.Kind == LanguageServerConfigProblemKind.UnseenCommand).Subject;
+        problem.Code.Should().Be("UnseenEndpoint");
+        problem.Message.Should().Contain("connect to an address").And.NotContain("run a command");
     }
 
     [Fact]
@@ -215,16 +219,20 @@ public class UnseenCommandTests : IDisposable
     }
 
     [Fact]
-    public void AnEndpointHexideMerelyConnectsToIsNotAnnounced()
+    public void AnEndpointHexideMerelyConnectsToIsAnnouncedOnce()
     {
-        // Only stdio starts a process. A WebSocket endpoint is someone else's decision to have run
-        // something, and reporting it would be announcing a program the IDE did not launch.
-        var result = Loader("""
+        // Starting the program behind it was someone else's decision. Dialling it is the IDE's, and it sends that
+        // server the project's folder and the open documents, so a new address is announced once, as a new command
+        // is (#5465). This used to assert no notice at all, which is how a written file could point the IDE at
+        // another machine unannounced.
+        var json = """
             {"version":1,"servers":[{"id":"remote","extensions":[".md"],"languageId":"markdown",
              "transport":"websocket","endpoint":"ws://localhost:1234"}]}
-            """).Load([], Store());
+            """;
+        var store = Store();
 
-        result.Problems.Should().BeEmpty();
+        Loader(json).Load([], store).Problems.Should().ContainSingle(p => p.Code == "UnseenEndpoint");
+        Loader(json).Load([], store).Problems.Should().BeEmpty();
     }
 
     [Fact]

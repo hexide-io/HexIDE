@@ -92,6 +92,13 @@ with lexical fallback items while parsing is pending; those were plain even with
 function completion through the shipping client, inserts it in the editor, edits its argument stop,
 and checks Tab's final caret. This test uses headless Avalonia and runs on Linux too.
 
+## Completion item resolution (2026-11-23, #5445)
+
+Texlab 5.26.0 advertises `completionProvider.resolveProvider: true`. In a `.tex` document,
+completing `\usepackage{amsm}` offers `amsmath` with `data: "package"`. Resolving that item returns
+the same label and plaintext package documentation. `CompletionForeignTests` checks the reply
+label on the wire and the documentation through the client.
+
 ## Normal teardown and document close (2026-11-04, #491)
 
 `RealServerShutdownTests` drives the normal HexIDE client over stdio on Linux, with the pinned
