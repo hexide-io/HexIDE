@@ -588,6 +588,7 @@ added afterwards.
 - [A Label's colours, read back and painted (2026-10-12, #795)](a-labels-colours-read-back-and-painted.md#a-labels-colours-read-back-and-painted-2026-10-12-795)
 - [A Label's colours: re-measured on SP6, with a game's order (2026-11-19, #4965)](a-labels-colours-read-back-and-painted.md#re-measured-on-sp6-with-a-games-order-2026-11-19-4965)
 - [Seven system colours (2026-10-22, #908)](seven-system-colours.md#seven-system-colours-2026-10-22-908)
+- [All 25 system colours on Windows 10 (2026-11-23, #5410, SP6)](all-25-system-colours-on-windows-10.md#all-25-system-colours-on-windows-10-2026-11-23-5410-sp6)
 - [The fonts a form names (2026-10-17, #1132, #1133)](the-fonts-a-form-names.md#the-fonts-a-form-names-2026-10-17-1132-1133)
 - [A Label's border (2026-10-17, #1077)](a-labels-border.md#a-labels-border-2026-10-17-1077)
 - [The 3-D and flat edges of a CheckBox, OptionButton, TextBox and CommandButton (2026-11-21, #918, SP6)](the-3-d-and-flat-edges-of-a-checkbox-optionbutton-textbox-and-commandbutton.md#the-3-d-and-flat-edges-of-a-checkbox-optionbutton-textbox-and-commandbutton-2026-11-21-918-sp6)
