@@ -412,7 +412,7 @@ public class FormSerializer
         // appended after them. VB6 has no notion of "the ones HexIDE understood" — it writes one
         // alphabetical run.
         //
-        // One of them may be a known property whose value HexIDE could not read (a palette colour, #786). It is kept
+        // One of them may be a known property whose value HexIDE could not read (an invalid system colour). It is kept
         // only while nothing replaced it: once the designer sets that property, the modelled value is written and the
         // raw line is not, or the file would carry the property twice.
         foreach (var raw in instance.UnknownRawProperties)

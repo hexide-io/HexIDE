@@ -10,8 +10,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A known property whose value HexIDE cannot read is kept as written and saved back, rather than dropped (#802).
-/// A palette colour is the case: VB6 accepts <c>&amp;H02C0C0C0&amp;</c>, HexIDE has no colour that holds one (#786),
-/// and the line used to survive on a TextBox only because TextBox did not model BackColor at all.
+/// An invalid system colour is the case: its index is outside the supported system palette.
 /// </summary>
 public class UnreadableColourRoundTripTests
 {
@@ -52,9 +51,6 @@ public class UnreadableColourRoundTripTests
         frm.Split('\n').Select(l => l.Trim()).SingleOrDefault(l => l.StartsWith("BackColor", System.StringComparison.Ordinal));
 
     [Theory]
-    [InlineData("TextBox", "&H02C0C0C0&")]   // a palette-relative colour, #786
-    [InlineData("Label", "&H02C0C0C0&")]
-    [InlineData("CommandButton", "&H02C0C0C0&")]
     [InlineData("TextBox", "&H80000019&")]   // a system index past &H18, which VB6 refuses at run time with 380
     [InlineData("Label", "&H80000019&")]
     public void A_colour_HexIDE_cannot_read_is_saved_back_as_written(string control, string colour)
@@ -66,10 +62,31 @@ public class UnreadableColourRoundTripTests
         BackColorLine(saved).Should().NotBeNull().And.Contain(colour, "the line is kept as written, not dropped");
     }
 
+    // #786; docs/vb6-fidelity-oracle/assigning-to-a-control-property.md.
+    [Theory]
+    [InlineData("TextBox")]
+    [InlineData("Label")]
+    [InlineData("CommandButton")]
+    public void A_palette_colour_is_read_and_saved_as_given(string control)
+    {
+        var (form, sink) = Load(Form(control, "&H02C0C0C0&"));
+
+        sink.Errors.Should().BeEmpty();
+        form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Control1")
+            .GetPropertyOrDefault(VBProperties.BackColorProperty).ToOle().Should().Be(0x02C0C0C0);
+        BackColorLine(Save(form)).Should().Be("BackColor       =   &H02C0C0C0&");
+    }
+
+    [Fact]
+    public void A_palette_index_above_FFFF_does_not_parse()
+    {
+        VBColor.TryParse("&H01010000&", out _).Should().BeFalse();
+    }
+
     [Fact]
     public void A_colour_set_in_the_designer_replaces_the_line_it_could_not_read()
     {
-        var (form, _) = Load(Form("TextBox", "&H02C0C0C0&"));
+        var (form, _) = Load(Form("TextBox", "&H80000019&"));
         var textBox = form.Components.Single(c => c.BaseClass is TextBoxComponentClass);
 
         textBox.SetUntypedProperty(VBProperties.BackColorProperty, VBColor.FromOle(0xFF));
