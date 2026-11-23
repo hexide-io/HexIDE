@@ -77,6 +77,7 @@ public class HaltOnErrorTests
 
     private sealed class Run : IDisposable
     {
+        public required ProjectDefinition Project { get; init; }
         public required ProjectRunnerService Runner { get; init; }
         public required DebugController Controller { get; init; }
         public VBFormRuntime? Window { get; init; }
@@ -114,6 +115,9 @@ public class HaltOnErrorTests
         Start(formCode, subMain: false, modules);
 
     private static Run Start(string formCode, bool subMain, params (string Name, ModuleKind Kind, string Code)[] modules)
+        => Start(formCode, subMain, ErrorTrapping.BreakOnUnhandledErrors, modules);
+
+    private static Run Start(string formCode, bool subMain, ErrorTrapping errorTrapping, params (string Name, ModuleKind Kind, string Code)[] modules)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, Header + formCode.ReplaceLineEndings("\r\n"), new NullSink())!;
@@ -165,10 +169,12 @@ public class HaltOnErrorTests
         VBDebugConsole.Output += print;
         runner.StartFailed += failed.Add;
         runner.RunFailed += failed.Add;
+        runner.ErrorTrapping = errorTrapping;
         runner.RunProject(project);
         Pump();
         return new Run
         {
+            Project = project,
             Runner = runner,
             Controller = controller,
             Window = window,
@@ -179,6 +185,170 @@ public class HaltOnErrorTests
             Pending = pending,
             Detach = () => VBDebugConsole.Output -= print,
         };
+    }
+
+    // #1070, docs/vb6-fidelity-oracle/the-error-trapping-option.md: G1, G2 and G3.
+    [AvaloniaTheory]
+    [InlineData("G1", ErrorTrapping.BreakOnAllErrors)]
+    [InlineData("G2", ErrorTrapping.BreakOnAllErrors)]
+    [InlineData("G3", ErrorTrapping.BreakOnAllErrors)]
+    [InlineData("G3", ErrorTrapping.BreakInClassModule)]
+    public void Error_trapping_halts_and_Continue_retries(string program, ErrorTrapping mode)
+    {
+        var code = ErrorTrappingProgram(program);
+        using var run = Start("", true, mode, ("Module1", ModuleKind.StandardModule, code),
+            ("Class1", ModuleKind.ClassModule, FailingClass));
+        run.Halts.Should().HaveCount(1);
+        run.Answer(debug: true);
+        var stop = run.Controller.CurrentStop!.Value;
+        stop.Module.Should().Be(program == "G3" ? "Class1" : "Module1");
+        var fault = FormCodeText.WholeFile(run.Project.Modules.Single(m => m.Name == stop.Module));
+        var marker = program == "G3" ? "z = 1" : "x = 1";
+        var lines = fault.ReplaceLineEndings("\n").Split('\n').ToList();
+        var start = program == "G3" ? 0 : lines.FindIndex(l => l.Contains("Private Sub " + program));
+        stop.Line.Should().Be(lines.FindIndex(start, l => l.Contains(marker)) + 1);
+        run.Controller.Continue();
+        Pump();
+        run.Halts.Should().HaveCount(2);
+        run.Printed.Should().NotContain(p => p.Contains("after") || p.Contains("handler"));
+        run.Failed.Should().BeEmpty();
+    }
+
+    private const string FailingClass = """
+        Public Sub Fail()
+            Dim z As Long
+            Debug.Print "in fail"
+            z = 1 \ z
+            Debug.Print "fail after"
+        End Sub
+        """;
+
+    private static string ErrorTrappingProgram(string program) => $$"""
+        Private zero As Long
+        Private x As Long
+        Public Sub Main()
+            {{program}}
+        End Sub
+        Private Sub G1()
+            On Error Resume Next
+            Debug.Print "g1 start"
+            x = 1 \ zero
+            Debug.Print "g1 after, err " & Err.Number
+        End Sub
+        Private Sub G2()
+            On Error GoTo h2
+            Debug.Print "g2 start"
+            x = 1 \ zero
+            Debug.Print "g2 after"
+            Exit Sub
+        h2:
+            Debug.Print "g2 handler " & Err.Number
+        End Sub
+        Private Sub G3()
+            Dim c As Class1
+            Set c = New Class1
+            On Error GoTo h3
+            Debug.Print "g3 call"
+            c.Fail
+            Debug.Print "g3 after"
+            Exit Sub
+        h3:
+            Debug.Print "g3 handler " & Err.Number
+        End Sub
+        """;
+
+    [AvaloniaTheory]
+    [InlineData("G1", "g1 after, err 11")]
+    [InlineData("G2", "g2 handler 11")]
+    [InlineData("G3", "g3 handler 11")]
+    public void Unhandled_default_keeps_main_programs_results(string program, string expected)
+    {
+        using var run = Start("", true, ("Module1", ModuleKind.StandardModule, ErrorTrappingProgram(program)),
+            ("Class1", ModuleKind.ClassModule, FailingClass));
+        run.Halts.Should().BeEmpty();
+        run.Printed.Should().Contain(expected);
+        run.Failed.Should().BeEmpty();
+    }
+
+    // #1070: unmeasured shapes deliberately preserve today's handling, not claims about VB6.
+    [AvaloniaTheory]
+    [InlineData(ErrorTrapping.BreakInClassModule, "own")]
+    [InlineData(ErrorTrapping.BreakOnAllErrors, "own")]
+    [InlineData(ErrorTrapping.BreakOnAllErrors, "formOwn")]
+    [InlineData(ErrorTrapping.BreakInClassModule, "classCaller")]
+    [InlineData(ErrorTrapping.BreakInClassModule, "longChain")]
+    [InlineData(ErrorTrapping.BreakInClassModule, "form")]
+    [InlineData(ErrorTrapping.BreakInClassModule, "standard")]
+    public void Unmeasured_shapes_keep_their_handler(ErrorTrapping mode, string shape)
+    {
+        const string handler = "On Error GoTo handled";
+        const string tail = "Exit Sub\nhandled:\n    Debug.Print \"handled \" & Err.Number\nEnd Sub";
+        var mainCall = shape is "form" or "formOwn" ? "Form1.Fail" : shape == "standard" ? "Class1.Fail" : "Dim c As Class1\n    Set c = New Class1\n    c.Fail";
+        var main = "Sub Main()\n    " + handler + "\n    " + mainCall + "\n" + tail;
+        var own = shape == "own";
+        var nested = shape is "classCaller" or "longChain";
+        var body = nested ? "Dim b As ClassB\n    Set b = New ClassB\n    b.Fail" : "Dim z As Long\n    z = 1 \\ z";
+        var classCode = "Public Sub Fail()\n    " + (own || shape == "classCaller" ? handler + "\n    " : "") + body + "\n" + tail;
+        var formCode = shape == "formOwn" ? classCode.Replace("Public Sub Fail()", "Public Sub Fail()\n    " + handler) : classCode;
+        using var run = Start(formCode, true, mode,
+            ("Module1", ModuleKind.StandardModule, main),
+            ("Class1", shape == "standard" ? ModuleKind.StandardModule : ModuleKind.ClassModule, classCode),
+            ("ClassB", ModuleKind.ClassModule, FailingClass));
+        run.Halts.Should().BeEmpty();
+        run.Printed.Should().Equal(nested ? new[] { "in fail", "handled 11" } : new[] { "handled 11" });
+        run.Failed.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void Class_module_setting_halts_for_a_form_direct_caller()
+    {
+        // c1: docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                On Error GoTo handled
+                Dim c As Class1
+                Set c = New Class1
+                c.Fail
+                Exit Sub
+            handled:
+                Debug.Print "handled " & Err.Number
+            End Sub
+            """, ("Class1", ModuleKind.ClassModule, FailingClass));
+        run.Runner.ErrorTrapping = ErrorTrapping.BreakInClassModule;
+        run.Click("Command1");
+        Pump();
+        run.Halts.Should().HaveCount(1);
+        run.Answer(debug: true);
+        run.Controller.CurrentStop!.Value.Module.Should().Be("Class1");
+        run.Controller.Continue();
+        Pump();
+        run.Halts.Should().HaveCount(2);
+        run.Printed.Should().Equal("in fail");
+        run.Failed.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void Error_trapping_changes_apply_during_a_run()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                On Error GoTo handled
+                Dim c As Class1
+                Set c = New Class1
+                c.Fail
+                Exit Sub
+            handled:
+                Debug.Print "handled " & Err.Number
+            End Sub
+            """, ("Class1", ModuleKind.ClassModule, FailingClass));
+        run.Controller.ErrorTrapping.Should().Be(ErrorTrapping.BreakOnUnhandledErrors);
+        run.Runner.ErrorTrapping = ErrorTrapping.BreakInClassModule;
+        run.Click("Command1");
+        Pump();
+        run.Halts.Should().HaveCount(1);
+        run.Answer(debug: true);
+        run.Controller.CurrentStop!.Value.Module.Should().Be("Class1");
+        run.Controller.ErrorTrapping.Should().Be(ErrorTrapping.BreakInClassModule);
     }
 
     // The file line of the code line holding marker: the form's header comes first, as the code window counts.

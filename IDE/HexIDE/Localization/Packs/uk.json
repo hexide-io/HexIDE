@@ -2,6 +2,10 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Перехоплення помилок",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Переривати за всіх помилок",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Переривати в модулі класу",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Переривати за необроблених помилок",
     "Str.FilePicker.ReplaceExisting": "{0} уже існує. Замінити його?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} завантажено з помилками, тому його не можна зберегти поверх початкового файлу. Виберіть нове ім’я файлу.",
     "Str.ProjectLoad.PropertyNotSet": "Рядок {0}: не вдалося встановити властивість {1} у {2}.",

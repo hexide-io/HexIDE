@@ -2,6 +2,10 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Fejlfangst",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Afbryd ved alle fejl",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Afbryd i klassemodul",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Afbryd ved uhåndterede fejl",
     "Str.FilePicker.ReplaceExisting": "{0} findes allerede. Vil du erstatte den?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} blev indlæst med fejl og kan derfor ikke overskrive den oprindelige fil. Vælg et nyt filnavn.",
     "Str.ProjectLoad.PropertyNotSet": "Linje {0}: Egenskaben {1} i {2} kunne ikke angives.",

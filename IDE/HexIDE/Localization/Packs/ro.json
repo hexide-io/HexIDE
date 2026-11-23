@@ -2,6 +2,10 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Interceptarea erorilor",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Întrerupe la toate erorile",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Întrerupe în modulul de clasă",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Întrerupe la erorile netratate",
     "Str.FilePicker.ReplaceExisting": "{0} există deja. Doriți să îl înlocuiți?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a fost încărcat cu erori și nu poate fi salvat peste fișierul original. Alegeți un nume de fișier nou.",
     "Str.ProjectLoad.PropertyNotSet": "Linia {0}: proprietatea {1} din {2} nu a putut fi setată.",

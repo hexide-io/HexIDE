@@ -2,6 +2,10 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "エラー トラップ",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "すべてのエラーで中断(_A)",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "クラス モジュールで中断(_C)",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "処理されないエラーで中断(_U)",
     "Str.FilePicker.ReplaceExisting": "{0} は既に存在します。置き換えますか？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} はエラーを伴って読み込まれたため、元のファイルに上書き保存できません。新しいファイル名を選択してください。",
     "Str.ProjectLoad.PropertyNotSet": "行 {0}: {2} のプロパティ {1} を設定できませんでした。",

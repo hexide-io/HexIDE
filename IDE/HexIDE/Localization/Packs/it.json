@@ -2,6 +2,10 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Intercettazione errori",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interrompi su tutti gli errori",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interrompi nel modulo di classe",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interrompi su errori non gestiti",
     "Str.FilePicker.ReplaceExisting": "{0} esiste già. Sostituirlo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} è stato caricato con errori e non può quindi sovrascrivere il file originale. Scegliere un nuovo nome di file.",
     "Str.ProjectLoad.PropertyNotSet": "Riga {0}: impossibile impostare la proprietà {1} in {2}.",

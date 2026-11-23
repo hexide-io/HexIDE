@@ -2,6 +2,10 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Klaidų perėmimas",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Stabdyti įvykus bet kuriai klaidai",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Stabdyti klasės modulyje",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Stabdyti įvykus neapdorotai klaidai",
     "Str.FilePicker.ReplaceExisting": "{0} jau yra. Ar norite jį pakeisti?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} įkeltas su klaidomis, todėl negalima jo įrašyti vietoje pradinio failo. Pasirinkite naują failo vardą.",
     "Str.ProjectLoad.PropertyNotSet": "{0} eilutė: nepavyko nustatyti {2} ypatybės {1}.",

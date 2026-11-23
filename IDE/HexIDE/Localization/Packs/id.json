@@ -2,6 +2,10 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Penangkapan Kesalahan",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Hentikan pada Semua Kesalahan",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Hentikan dalam Modul Kelas",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Hentikan pada Kesalahan yang Tidak Ditangani",
     "Str.FilePicker.ReplaceExisting": "{0} sudah ada. Apakah Anda ingin menggantinya?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} dimuat dengan kesalahan sehingga tidak dapat disimpan menimpa berkas aslinya. Pilih nama berkas baru.",
     "Str.ProjectLoad.PropertyNotSet": "Baris {0}: properti {1} di {2} tidak dapat ditetapkan.",

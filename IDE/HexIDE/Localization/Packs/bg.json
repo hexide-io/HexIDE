@@ -2,6 +2,10 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Прихващане на грешки",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Прекъсване при всички грешки",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Прекъсване в модул на клас",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Прекъсване при необработени грешки",
     "Str.FilePicker.ReplaceExisting": "{0} вече съществува. Искате ли да го замените?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} е зареден с грешки и не може да бъде записан върху оригиналния файл. Изберете ново име на файл.",
     "Str.ProjectLoad.PropertyNotSet": "Ред {0}: свойството {1} в {2} не можа да бъде зададено.",

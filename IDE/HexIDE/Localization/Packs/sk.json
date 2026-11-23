@@ -2,6 +2,10 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Zachytávanie chýb",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prerušiť pri všetkých chybách",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prerušiť v module triedy",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prerušiť pri neošetrených chybách",
     "Str.FilePicker.ReplaceExisting": "{0} už existuje. Chcete ho nahradiť?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} bol načítaný s chybami, preto nemôže prepísať pôvodný súbor. Vyberte nový názov súboru.",
     "Str.ProjectLoad.PropertyNotSet": "Riadok {0}: vlastnosť {1} v {2} sa nepodarilo nastaviť.",

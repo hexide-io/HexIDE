@@ -2,6 +2,10 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Error Trapping",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Break on All Errors",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Break in Class Module",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Break on Unhandled Errors",
     "Str.FilePicker.ReplaceExisting": "{0} already exists. Do you want to replace it?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} loaded with errors, so it can't be saved over its original file. Choose a new file name.",
     "Str.ProjectLoad.PropertyNotSet": "Line {0}: Property {1} in {2} could not be set.",

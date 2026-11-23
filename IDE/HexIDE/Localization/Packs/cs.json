@@ -2,6 +2,10 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Zachytávání chyb",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Přerušit při všech chybách",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Přerušit v modulu třídy",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Přerušit při neošetřených chybách",
     "Str.FilePicker.ReplaceExisting": "{0} již existuje. Chcete jej nahradit?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} byl načten s chybami, a proto nemůže přepsat původní soubor. Zvolte nový název souboru.",
     "Str.ProjectLoad.PropertyNotSet": "Řádek {0}: vlastnost {1} v {2} se nepodařilo nastavit.",

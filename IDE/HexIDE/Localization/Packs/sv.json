@@ -2,6 +2,10 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Felhantering",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Bryt vid alla fel",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Bryt i klassmodul",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Bryt vid ohanterade fel",
     "Str.FilePicker.ReplaceExisting": "{0} finns redan. Vill du ersätta den?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} lästes in med fel och kan därför inte sparas över originalfilen. Välj ett nytt filnamn.",
     "Str.ProjectLoad.PropertyNotSet": "Rad {0}: egenskapen {1} i {2} kunde inte anges.",

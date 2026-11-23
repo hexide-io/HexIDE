@@ -2,6 +2,10 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Interception des erreurs",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Arrêt sur toutes les erreurs",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Arrêt dans le module de classe",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Arrêt sur les erreurs non gérées",
     "Str.FilePicker.ReplaceExisting": "{0} existe déjà. Voulez-vous le remplacer ?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a été chargé avec des erreurs et ne peut donc pas remplacer son fichier d’origine. Choisissez un nouveau nom de fichier.",
     "Str.ProjectLoad.PropertyNotSet": "Ligne {0} : la propriété {1} de {2} n’a pas pu être définie.",

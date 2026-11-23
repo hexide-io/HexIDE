@@ -571,7 +571,7 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   that raises an error stops in the class, even when its caller has an active `On Error`. The caller's handler never
   runs. Under *Break on Unhandled Errors*, and in every compiled program, native and p-code, the caller's handler
   catches it (measured, `docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, c1). A form counts as a class module here.
-- **HexIDE:** the caller's handler catches it, as a compiled program does. An error that nothing handles still breaks
+- **HexIDE:** by default, the caller's handler catches it, as a compiled program does. An error that nothing handles still breaks
   at the innermost faulting line, a class's included, as the default does (#1011).
 - **Why:** a deliberate exception to the rule that HexIDE matches the IDE where the two differ (decided 2026-10-15,
   recorded on #1011). The default stops code that handles its own errors, and following it would mean building
@@ -580,9 +580,11 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
     (`docs/vb6-fidelity-oracle/the-error-trapping-option.md`): Continue from the in-class break retries the class's
     statement, and the caller's handler never runs.
   - **So following the default needs no hand-off,** only the break in the class.
-  - **The decision stands as recorded.** #1070 is where it gets revisited.
-- **Status:** **by design.** An Error Trapping option, which would let a developer choose VB6's default, is
-  [#1070](https://github.com/hexide-io/HexIDE/issues/1070).
+  - **The default decision stands.** #1070 adds the choice; #5303 tracks changing the default.
+- **Status:** Error Trapping is selectable in Tools > Options > Environment > General (#1070). The default stays
+  Break on Unhandled Errors. Break in Class Module implements the measured direct class-to-standard-module/form
+  caller shapes; Break on All Errors overrides standard-module handlers. Other shapes keep today's behaviour pending
+  measurement. Changing the default to VB6's is tracked separately in #5303.
 - **Numbered D24 when the decision was recorded** on #1011's branch, and renumbered when merging main brought in main's
   D24, the header-line breakpoint, which came first.
 

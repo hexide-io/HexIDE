@@ -95,6 +95,7 @@ public class ProfileBundleTests
     [Theory]
     [InlineData("loadUnsignedAddins", "true")]
     [InlineData("revocationListUrl", "\"\"")]
+    [InlineData("errorTrapping", "0")]
     [InlineData("reloadFilesChangedOutsideIde", "false")]
     [InlineData("editorColorOverrides", "{}")]
     [InlineData("serverChatTools", "{}")]

@@ -2,6 +2,10 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Vigade püüdmine",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Peata kõigi vigade korral",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Peata klassimoodulis",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Peata käsitlemata vigade korral",
     "Str.FilePicker.ReplaceExisting": "{0} on juba olemas. Kas soovite selle asendada?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} laaditi vigadega, seega ei saa seda algse faili peale salvestada. Valige uus failinimi.",
     "Str.ProjectLoad.PropertyNotSet": "Rida {0}: omadust {1} elemendis {2} ei saanud määrata.",

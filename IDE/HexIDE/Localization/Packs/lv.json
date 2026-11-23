@@ -2,6 +2,10 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Kļūdu pārtveršana",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Apturēt pie visām kļūdām",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Apturēt klases modulī",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Apturēt pie neapstrādātām kļūdām",
     "Str.FilePicker.ReplaceExisting": "{0} jau pastāv. Vai vēlaties to aizstāt?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} tika ielādēts ar kļūdām, tāpēc to nevar saglabāt, pārrakstot sākotnējo failu. Izvēlieties jaunu faila nosaukumu.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. rinda: neizdevās iestatīt {2} rekvizītu {1}.",

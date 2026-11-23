@@ -78,6 +78,25 @@ public class OptionsViewModelTests
         => Flatten(sut.RootNodes).Select(n => n.Page).OfType<AddinOptionsPageViewModel>().First(p => p.Title == title);
 
     [AvaloniaFact]
+    public void ErrorTrappingLoadsSavesAndRestoresDefaults()
+    {
+        _settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule;
+        var page = new EnvironmentGeneralPageViewModel(_settings);
+        page.IsBreakInClassModule.Should().BeTrue();
+        page.IsBreakOnAllErrors = true;
+        page.IsBreakInClassModule.Should().BeFalse();
+        page.SaveToSettings();
+        _settings.ErrorTrapping.Should().Be(HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnAllErrors);
+        page.RestoreDefaults();
+        page.IsBreakOnUnhandledErrors.Should().BeTrue();
+        page.SaveToSettings();
+        _settings.ErrorTrapping.Should().Be(SettingsDefaults.ErrorTrapping);
+        _settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule;
+        page.LoadFromSettings();
+        page.IsBreakInClassModule.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
     public void LinkedEditingLoadsAppliesAndResets()
     {
         _settings.LinkedEditing.Returns(true);

@@ -2,6 +2,10 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Hata yakalama",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Tüm hatalarda kes",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Sınıf modülünde kes",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "İşlenmeyen hatalarda kes",
     "Str.FilePicker.ReplaceExisting": "{0} zaten var. Değiştirmek istiyor musunuz?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} hatalarla yüklendiği için özgün dosyasının üzerine kaydedilemez. Yeni bir dosya adı seçin.",
     "Str.ProjectLoad.PropertyNotSet": "Satır {0}: {2} içindeki {1} özelliği ayarlanamadı.",

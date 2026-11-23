@@ -2,6 +2,10 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Captura d’errors",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interromp en tots els errors",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interromp en el mòdul de classe",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interromp en els errors no gestionats",
     "Str.FilePicker.ReplaceExisting": "{0} ja existeix. Voleu substituir-lo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} s’ha carregat amb errors i no es pot desar sobre el fitxer original. Trieu un nom de fitxer nou.",
     "Str.ProjectLoad.PropertyNotSet": "Línia {0}: no s’ha pogut definir la propietat {1} de {2}.",

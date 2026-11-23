@@ -2,6 +2,10 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Captura de errores",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interrumpir en todos los errores",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interrumpir en módulo de clase",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interrumpir en errores no controlados",
     "Str.FilePicker.ReplaceExisting": "{0} ya existe. ¿Desea reemplazarlo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} se cargó con errores, por lo que no puede guardarse sobre su archivo original. Elija un nuevo nombre de archivo.",
     "Str.ProjectLoad.PropertyNotSet": "Línea {0}: no se pudo establecer la propiedad {1} en {2}.",

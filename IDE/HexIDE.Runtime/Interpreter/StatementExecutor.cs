@@ -10,6 +10,7 @@ using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.IDE;
+using HexIDE.Runtime.Debugging;
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
 
@@ -68,7 +69,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private bool Traps => errorMode != ErrorMode.None && !inHandler;
 
     // Whether an error raised now continues with the next statement: On Error Resume Next, and no handler running.
-    private bool ResumesNext => errorMode == ErrorMode.ResumeNext && !inHandler;
+    private bool ResumesNext => errorMode == ErrorMode.ResumeNext && !inHandler && !OverriddenByAllErrors();
 
     // Object-holding slots this activation OWNS (its own `Dim` locals, appended in declaration order), released by
     // RunProcedure at scope-exit for reference counting (Phase 4.2). Non-null only for a PROCEDURE-body executor —
@@ -6326,7 +6327,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 };
                 faultPc = -1;
             }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.GoToLabel && !inHandler)
+            catch (VBRunTimeException ex) when (errorMode == ErrorMode.GoToLabel && !inHandler && !OverriddenByAllErrors())
             {
                 CaptureError(ex);
                 faultPc = pc;
@@ -6422,12 +6423,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return found.ToArray();
         });
 
+    private bool OverriddenByAllErrors()
+    {
+        // Only standard-module handlers were measured under All Errors (#1070). A class's or form's own
+        // handler keeps today's behaviour until measured. These exception filters leave the normal path alone.
+        if (interpreter.DebugController is not { CanHalt: true, ErrorTrapping: ErrorTrapping.BreakOnAllErrors }
+            || currentModule.Kind != InterpreterModuleKind.Standard)
+            return false;
+        foreach (var frame in interpreter.ActivationStack)
+            if (ReferenceEquals(frame, this))
+                return true;
+        return false;
+    }
+
     /// <summary>
     /// Whether a run-time error raised in this activation is one nothing handles, so the program halts at the statement
     /// that raised it (#1011). Asked where the error is caught, before anything has unwound. It is handled when this
     /// activation would trap it, or a caller below would, as far down as the activation the program was entered at:
     /// a handler in the code that raised an event never sees the event's error (measured, b1 to b3 in the oracle).
-    /// A class's error that its caller traps goes to the caller, as a compiled program does (decided on #1011, D27).
+    /// Error Trapping can override the measured handled-error shapes (#1070); its default keeps #1011 / D27.
     /// </summary>
     private bool HaltsHere(VBRunTimeException error)
     {
@@ -6446,10 +6460,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A module's declarations, or code the host ran without entering the program, which halting has no frame for.
         if (at < 0)
             return false;
+        // #1070: only a non-trapping class with a trapping direct standard-module/form caller is measured.
+        // Forms/standard modules raising, class callers, longer chains and own handlers keep today's result.
+        // The cached decision above must win as an error unwinds through a longer chain.
+        if (interpreter.DebugController.ErrorTrapping == ErrorTrapping.BreakInClassModule
+            && currentModule.Kind == InterpreterModuleKind.Class && !Traps && at > 0
+            && stack[at - 1].Traps
+            && stack[at - 1].currentModule.Kind is InterpreterModuleKind.Standard or InterpreterModuleKind.Form)
+            return true;
         for (var i = at; i >= 0; i--)
         {
             if (stack[i].Traps)
             {
+                if (interpreter.DebugController.ErrorTrapping == ErrorTrapping.BreakOnAllErrors
+                    && stack[i].currentModule.Kind == InterpreterModuleKind.Standard)
+                    return true;
                 error.TrappedBy = stack[i];
                 return false;
             }

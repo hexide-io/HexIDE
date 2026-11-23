@@ -2,6 +2,10 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "Перехват ошибок",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Прерывать при всех ошибках",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Прерывать в модуле класса",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Прерывать при необработанных ошибках",
     "Str.FilePicker.ReplaceExisting": "{0} уже существует. Заменить его?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} загружен с ошибками, поэтому сохранить его поверх исходного файла нельзя. Выберите новое имя файла.",
     "Str.ProjectLoad.PropertyNotSet": "Строка {0}: не удалось задать свойство {1} в {2}.",

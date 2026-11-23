@@ -2,6 +2,10 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Options.Environment.ErrorTrapping.Header": "לכידת שגיאות",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "עצירה בכל שגיאה",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "עצירה במודול מחלקה",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "עצירה בשגיאות שלא טופלו",
     "Str.FilePicker.ReplaceExisting": "{0} כבר קיים. האם ברצונך להחליף אותו?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} נטען עם שגיאות, ולכן לא ניתן לשמור אותו על גבי הקובץ המקורי. יש לבחור שם קובץ חדש.",
     "Str.ProjectLoad.PropertyNotSet": "שורה {0}: לא ניתן להגדיר את המאפיין {1} ב־{2}.",
