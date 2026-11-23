@@ -97,7 +97,10 @@ highlight. Four copies of the rule would drift.
     qualifiers name** — VB6 gives them by position;
   - `VB_Var…` lines under a module-level variable's or constant's declaration are that line's when they name
     what it declares, or, on a line declaring one name, when they name something nothing in the module
-    declares, which is what retyping the variable's name leaves behind.
+    declares, which is what retyping the variable's name leaves behind. For this check, procedure names
+    count wherever they occur; variables and constants count only before the first body-opening line,
+    and designer names count. Procedure locals do not count ([#1013](https://github.com/hexide-io/HexIDE/issues/1013);
+    [oracle measurement](vb6-fidelity-oracle/member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#a-local-of-the-stale-name-changes-nothing-2026-11-21-1013-ide-sp6)).
 - **Anything else is an orphan**: a run under a blank line, a comment or a body statement, a run mixing the
   two kinds, a variable attribute away from its variable. An orphan is ordinary text here as it is in the
   IDE, and a damaged one is reported like any other line.
@@ -109,7 +112,7 @@ attributes to the procedure above whatever they name, binds a `VB_Var…` line b
 every procedure renamed by retyping lost its run's protection.
 
 **The rule is the IDE's, ported rather than shared.** The IDE's copy is `ReadOnlyRegions`
-(`IDE/HexIDE.Runtime/Serialization/ReadOnlyRegions.cs`), and the two halves of the repository do not
+(`IDE/HexIDE.Core/Language/ReadOnlyRegions.cs`), and the two halves of the repository do not
 reference each other, for the same reasons the two grammar copies are separate; the server only ever has
 text, so it carries that file's text-only branch. **One file is the exception, and it is shared, not ported**:
 the directive scanner (`IDE/HexIDE.Core/Language/ConditionalCompilation.cs`), which the server compiles by a
@@ -121,10 +124,6 @@ comparison would pass over the inline files and the demos alone. The inline file
 orphan and no rename's leftover, and each of the reader's rules is decided by one shape in them. Formatting
 is checked exactly: every line is given two trailing spaces, so the lines the answer changes must be exactly
 the non-empty lines outside the IDE's regions.
-
-- ◐ A local declared anywhere in the module counts as a name the module declares, so a `Dim Count` inside
-  any procedure turns a renamed variable's `Attribute Count.VB_VarDescription` from that variable's run into
-  an orphan, in both copies of the rule ([#1013](https://github.com/hexide-io/HexIDE/issues/1013)).
 
 ---
 
@@ -294,8 +293,10 @@ to stop flicker.
 
 **`textDocument/documentSymbol`**
 
-Drives the two combo boxes at the top of the code editor, matching classic VB6 behaviour: the left lists
-form controls plus `(General)`, the right is context-sensitive. Selecting a missing event stub generates it.
+Drives the two combo boxes at the top of the code editor: the left lists form controls plus `(General)`,
+the right is context-sensitive. Both follow the caret, including blank lines and comments before a procedure,
+as [measured in VB6](vb6-fidelity-oracle/the-object-and-procedure-boxes-follow-the-caret.md) (#936).
+Selecting a missing event stub generates it.
 
 Extracts `Sub`, `Function`, `Property Get/Let/Set` (with accessor label), `Enum` and `Type`.
 

@@ -438,6 +438,8 @@ public partial class EditorService : IEditorService
         }
 
         Log.Debug("EditorService: EditCode(form={FormName})", form.Name);
+        if (projects?.Invoke() is ProjectService service && service.ActivateOtherSharedCode(form, documentDockService))
+            return;
         if (documentDockService.TryActivate<CodeEditorViewModel>(vm => vm.FormDefinition == form, takeFocus))
         {
             Log.Debug("EditorService: EditCode — existing editor activated");
@@ -453,6 +455,8 @@ public partial class EditorService : IEditorService
     {
         if (module == null) return;
         Log.Debug("EditorService: EditCode(module={ModuleName})", module.Name);
+        if (projects?.Invoke() is ProjectService service && service.ActivateOtherSharedCode(module, documentDockService))
+            return;
         if (documentDockService.TryActivate<CodeEditorViewModel>(vm => vm.ModuleDefinition == module, takeFocus))
         {
             Log.Debug("EditorService: EditCode — existing editor activated");

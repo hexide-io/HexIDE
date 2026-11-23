@@ -19,8 +19,11 @@ namespace HexIDE.Runtime.Interpreter;
 /// </list>
 /// <para>
 /// The rows (VbTextCompare.Table.cs) are vb6.exe's, for the characters Chr(0) to Chr(255) give. Any other character sorts
-/// after all of them, by its invariant lower case. That is unmeasured, and so is every locale but en-GB, where a Windows
-/// sort may order letters differently (interpreter-gaps.md).
+/// after all of them, by its invariant lower case, except the measured full-width digits and letters, and kana.
+/// Comparison folds those widths and hiragana/katakana, with small/plain/voiced/semi-voiced secondary weights;
+/// the prolonged and iteration marks sort last (#5253, oracle PR #5252:
+/// docs/vb6-fidelity-oracle/text-compare-beyond-latin-1-width-kana-and-the-double-byte-locales.md).
+/// Other Unicode order and locale tailoring remain unmeasured here (interpreter-gaps.md).
 /// </para>
 /// </summary>
 internal static partial class VbTextCompare
@@ -129,7 +132,7 @@ internal static partial class VbTextCompare
             }
             while (index < s.Length)
             {
-                var c = s[index++];
+                var c = FoldComparisonCharacter(s[index++]);
                 if (LettersOf.TryGetValue(c, out var letters))
                 {
                     expansion = letters;
@@ -147,6 +150,17 @@ internal static partial class VbTextCompare
         }
     }
 
+    private static char FoldComparisonCharacter(char c)
+    {
+        // The full-width digits, and every full-width letter in either case (oracle PRs #5252 and #5344); full-width
+        // punctuation is unmeasured and keeps its existing order.
+        if (c is >= '０' and <= '９' or >= 'Ａ' and <= 'Ｚ' or >= 'ａ' and <= 'ｚ')
+            return (char)(c - 0xFEE0);
+        if (c is >= 'ｦ' and <= 'ﾝ')
+            return "ヲァィゥェォャュョッーアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン"[c - 'ｦ'];
+        return c is >= 'ぁ' and <= 'ゖ' ? (char)(c + 0x60) : c;
+    }
+
     private static void Weigh(char c, out int weight, out int accent)
     {
         if (ByCharacter.TryGetValue(c, out var row))
@@ -155,8 +169,34 @@ internal static partial class VbTextCompare
             accent = row.Accent;
             return;
         }
-        weight = Unmeasured + char.ToLowerInvariant(c);
+        if (c is >= 'ー' and <= 'ヾ')
+        {
+            weight = int.MaxValue;
+            accent = 0;
+            return;
+        }
         accent = 0;
+        if (c is >= 'ァ' and <= 'ヺ')
+        {
+            const string small = "ァィゥェォッャュョヮヵヶ";
+            const string full = "アイウエオツヤユヨワカケ";
+            var smallIndex = small.IndexOf(c);
+            if (smallIndex >= 0)
+            {
+                c = full[smallIndex];
+                accent = -1;
+            }
+            else
+            {
+                var decomposed = c.ToString().Normalize(System.Text.NormalizationForm.FormD);
+                if (decomposed.Length == 2 && decomposed[1] is '゙' or '゚')
+                {
+                    c = decomposed[0];
+                    accent = decomposed[1] == '゙' ? 1 : 2;
+                }
+            }
+        }
+        weight = Unmeasured + char.ToLowerInvariant(c);
     }
 
     // The word-sort characters of a string, each with its position: how many letters come before it, an expansion counting
@@ -170,7 +210,7 @@ internal static partial class VbTextCompare
         {
             while (index < s.Length)
             {
-                var c = s[index++];
+                var c = FoldComparisonCharacter(s[index++]);
                 if (LettersOf.TryGetValue(c, out var expansion))
                 {
                     letters += expansion.Length;

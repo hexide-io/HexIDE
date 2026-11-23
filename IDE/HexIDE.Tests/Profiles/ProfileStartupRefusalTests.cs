@@ -1,4 +1,5 @@
 using HexIDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 using DesktopProgram = HexIDE.Desktop.Program;
 
 namespace HexIDE.Tests.Profiles;
@@ -10,10 +11,8 @@ namespace HexIDE.Tests.Profiles;
 /// </summary>
 public sealed class ProfileStartupRefusalTests : IDisposable
 {
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(),
-        "hexide-profile-refusal-" + Guid.NewGuid());
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-profile-refusal-");
 
-    public ProfileStartupRefusalTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, true);
 
     private ProfileResolver Resolver => new(Path.Combine(root, "user"), root);

@@ -60,6 +60,9 @@ public readonly struct VBColor : IEquatable<VBColor>
         if (type == (int)ColorType.SystemColor && (blue != 0 || green != 0 || red > (int)VbSystemColor.Infobk))
             return false;
 
+        if (type == (int)ColorType.PaletteIndex && blue != 0)
+            return false;
+
         result = new VBColor((ColorType)type, red, green, blue);
         return true;
     }
@@ -75,27 +78,33 @@ public readonly struct VBColor : IEquatable<VBColor>
     }
 
     /// <summary>Convert a numeric VB6 OLE_COLOR to a <see cref="VBColor"/>: high byte 0x80 selects a system
-    /// colour (low byte = index), otherwise it is a raw 0x00BBGGRR value. This is the property-boundary
+    /// colour (low byte = index), 0x01/0x02 select palette colours, otherwise it is raw RGB. This is the property-boundary
     /// conversion for <c>ctrl.BackColor = &amp;HFF0000</c>, now that &amp;H literals evaluate as numbers.</summary>
     public static VBColor FromOle(long ole)
     {
         uint u = (uint)ole;
         if ((u >> 24) == 0x80)
             return FromSystemColor((VbSystemColor)(byte)(u & 0xFF));
-        return FromColor((byte)(u & 0xFF), (byte)((u >> 8) & 0xFF), (byte)((u >> 16) & 0xFF));   // 0x00BBGGRR
+        var type = (u >> 24) switch
+        {
+            0x01 => ColorType.PaletteIndex,
+            0x02 => ColorType.PaletteRelative,
+            _ => ColorType.Raw,
+        };
+        return new VBColor(type, (byte)(u & 0xFF), (byte)((u >> 8) & 0xFF), (byte)((u >> 16) & 0xFF));
     }
 
     /// <summary>
     /// The OLE_COLOR this colour is, as VB6's Long: <c>&amp;H8000000F</c> (negative) for a system colour, and
-    /// <c>&amp;H00BBGGRR</c> for an RGB one. The inverse of <see cref="FromOle"/>.
+    /// <c>&amp;H00BBGGRR</c> for an RGB one, retaining the 0x01/0x02 high byte for palette colours. The inverse of <see cref="FromOle"/>.
     /// </summary>
-    public int ToOle() => Type == ColorType.SystemColor
-        ? unchecked((int)(0x80000000u | R))
-        : (B << 16) | (G << 8) | R;
+    public int ToOle() => ((int)Type << 24) | (B << 16) | (G << 8) | R;
 
     public enum ColorType
     {
         Raw = 0,
+        PaletteIndex = 0x01,
+        PaletteRelative = 0x02,
         SystemColor = 0x80
     }
 

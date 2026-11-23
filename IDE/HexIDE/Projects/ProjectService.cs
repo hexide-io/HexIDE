@@ -64,6 +64,7 @@ public partial class ProjectService : IProjectService
         this.templates = templates;
         this.trust = trust;
         this.documents = documents;
+        if (documents is DocumentDockService dock) dock.SharedCodeClosing = SaveSharedCodeOnClose;
         // A ProjectService made without the IDE's project types, which only a test makes, has VB6's type alone, registered
         // as the composition registers it.
         this.contributed = contributed ?? Vb6ProjectType.Alone();
@@ -172,12 +173,12 @@ public partial class ProjectService : IProjectService
     /// is never loaded, so no member joining the project takes its place.
     /// </summary>
     private static string? KeptLinePath(string line) =>
-        SerializedProject.ItemLineFile(line) is { } file
-        && (file.Key.Equals(SerializedProject.FormKey, StringComparison.OrdinalIgnoreCase)
-            || file.Key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
-            || file.Key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase)
-            || file.Key.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
-            || file.Key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
+        Vb6ProjectPaths.ItemLineFile(line) is { } file
+        && (file.Key.Equals(Vb6ProjectPaths.FormKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(Vb6ProjectPaths.ModuleKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(Vb6ProjectPaths.ClassKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(Vb6ProjectPaths.UserControlKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(Vb6ProjectPaths.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
             ? line.Substring(file.Start, file.Length)
             : null;
 
@@ -816,7 +817,7 @@ public partial class ProjectService : IProjectService
     // System.IO.Path.GetFileName on a raw RelatedDoc= value and name a document after its directory on
     // Linux. One rule, one place.
     internal static string ToLocalRelativePath(string relativePath) =>
-        SerializedProject.ToHostPath(relativePath);
+        Vb6ProjectPaths.ToHostPath(relativePath);
 
     private async Task LoadProjectFromDisk(string projectPath, ContributedProjectType type, IProjectFileFormat own)
     {
@@ -962,7 +963,7 @@ public partial class ProjectService : IProjectService
             // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
             // success unconditionally, which told an agent a file had been written when it had not — and an
             // agent, unlike a developer, has no dialog to read and will build on the answer.
-            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true, rewrites: rewrites, userSave: interactive), interactive)).Count > 0;
+            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true, rewrites: rewrites, userSave: interactive, interactive: interactive), interactive)).Count > 0;
         }
         finally
         {
@@ -991,6 +992,12 @@ public partial class ProjectService : IProjectService
         try
         {
             return await operation();
+        }
+        catch (SharedFileSaveRefusal refusal)
+        {
+            Log.Warning("Not saving: {Reason}", refusal.Message);
+            refusing?.Invoke(refusal.Message, interactive);
+            throw;
         }
         catch (ProjectGroupKindRefusal refusal)
         {
@@ -1099,7 +1106,7 @@ public partial class ProjectService : IProjectService
     /// If one stops holding, each writer's own encode still refuses, but files written before it stay written.
     /// </remarks>
     private async Task<IReadOnlyList<Destination>> SaveFiles(
-        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false, SaveRewriteReport? rewrites = null, bool userSave = true)
+        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false, SaveRewriteReport? rewrites = null, bool userSave = true, bool interactive = true)
     {
         // A UserControl's or PropertyPage's designer half is one file with its module, and the file the project names is
         // the module's. Saved as a form, a new one has no path (#500) and asked for a .frm, and wrote the edit there
@@ -1130,6 +1137,7 @@ public partial class ProjectService : IProjectService
 
         // A question, as a picker is, so before the decision below that nothing awaits after.
         await ResolveOutsideChanges(destinations);
+        await ResolveSharedSaves(destinations, interactive);
 
         // The gate in DestinationOf keeps a picker from asking about a file that will not be written; this one
         // keeps a reload during a later picker from slipping a file past it (see the remarks).
@@ -1153,6 +1161,10 @@ public partial class ProjectService : IProjectService
                     await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(destination.Path)).AbsoluteUri]);
             }
         }
+
+        foreach (var destination in written)
+            if (MemberPath(destination.Document) is not null)
+                await UpdateSharedCopies(destination);
 
         foreach (var destination in written)
         {
@@ -1604,7 +1616,7 @@ public partial class ProjectService : IProjectService
         var members = projectManager.LoadedProjects
             .Select(project => (Project: project, Path: pathOf(project) ?? project.AbsolutePath))
             .Where(member => member.Path is { } path && !path.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase))
-            .Select(member => $"{member.Project.Name} ({SerializedProject.FileNameOf(member.Path!)})").ToList();
+            .Select(member => $"{member.Project.Name} ({Vb6ProjectPaths.FileNameOf(member.Path!)})").ToList();
         if (members.Count > 0)
             throw new ProjectGroupKindRefusal(group.Name, members);
     }
@@ -1896,7 +1908,32 @@ public partial class ProjectService : IProjectService
         await windowManager.ShowDialog(vm);
     }
 
-    public async Task MakeProject(ProjectDefinition projectDefinition)
+    public async Task MakeProjectGroup()
+    {
+        var dialog = new MakeProjectGroupViewModel(projectManager.LoadedProjects);
+        if (!await windowManager.ShowDialog(dialog))
+            return;
+
+        foreach (var item in dialog.Projects.Where(dialog.SelectedProjects.Contains))
+        {
+            var project = item.Project;
+            var directory = string.IsNullOrEmpty(project.AbsolutePath) ? null : Path.GetDirectoryName(project.AbsolutePath);
+            // VB6's unsaved-project case is unmeasured; keep HexIDE's picker when there is no project folder.
+            var exePath = dialog.UseDefaultBuildOptions && directory is not null
+                ? ProjectOutputPath.OutputExePath(project) : null;
+            try
+            {
+                await MakeProject(project, exePath, directory);
+            }
+            catch (Exception)
+            {
+                // Make already reports a failure or refusal. Cancel and failure both end the group build.
+                return;
+            }
+        }
+    }
+
+    public async Task MakeProject(ProjectDefinition projectDefinition, string? exePath = null, string? startIn = null)
     {
         // Begun before the first await, so an automation caller that ran the menu command knows a Make started (#2671).
         var make = MakeOutcomes.Begin();
@@ -1905,7 +1942,7 @@ public partial class ProjectService : IProjectService
             // The warning every other save shows. The refusal is an OperationCanceledException, so it then leaves
             // through the cancellation arm below. A form or the project file used to reach the fatal-error box
             // instead, with .NET's message in place of the document and the code page.
-            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition, make), refusing: make.NotMade);
+            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition, make, exePath, startIn), refusing: make.NotMade);
         }
         catch (OperationCanceledException)
         {
@@ -1921,7 +1958,7 @@ public partial class ProjectService : IProjectService
         }
     }
 
-    private async Task MakeProjectInternal(ProjectDefinition projectDefinition, MakeOutcomes.Make make)
+    private async Task MakeProjectInternal(ProjectDefinition projectDefinition, MakeOutcomes.Make make, string? exePath, string? startIn)
     {
         // Make writes the project's own file into the package, which for a project an add-in read would be a .vbp
         // in place of the file the add-in owns.
@@ -1971,13 +2008,16 @@ public partial class ProjectService : IProjectService
             new Destination(projectDefinition, Path.Join(tempPath, projectDefinition.Name + ".vbp"))
         ]);
 
-        make.Reached(MakeOutcomes.Stage.AtPicker);
-        var exePath = await ChooseSavePath(new FilePickerSaveOptions()
+        if (exePath is null)
         {
-            DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
-            SuggestedFileName = projectDefinition.Name + (OperatingSystem.IsWindows() ? ".exe" : ""),
-            FileTypeChoices = OperatingSystem.IsWindows() ? [new("Windows EXE") { Patterns = ["*.exe"] }] : [new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
-        }, make: make);
+            make.Reached(MakeOutcomes.Stage.AtPicker);
+            exePath = await ChooseSavePath(new FilePickerSaveOptions()
+            {
+                DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
+                SuggestedFileName = projectDefinition.Name + (OperatingSystem.IsWindows() ? ".exe" : ""),
+                FileTypeChoices = OperatingSystem.IsWindows() ? [new("Windows EXE") { Patterns = ["*.exe"] }] : [new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
+            }, directory: startIn, make: make);
+        }
 
         if (exePath == null)
             throw new OperationCanceledException();
@@ -2218,16 +2258,24 @@ public partial class ProjectService : IProjectService
                     string.Join(Environment.NewLine, existing)),
                 buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
             throw new OperationCanceledException();
+        await ResolveSharedSaves(files, interactive: true);
         Directory.CreateDirectory(directory);
+        var sharedWritten = new List<Destination>();
         // Not each member's own Save: a member written to a file other than its own has its attribute qualifiers
         // rewritten for that reason alone, as VB6's Save As writes them, and one written back to its own file is a
         // project save's member like any other (RewrittenQualifiers, #273 task 4.4).
         foreach (var file in files)
         {
             var existed = File.Exists(file.Path);
-            if (Write(file, announceSave: true) && !existed && lspClient is not null)
-                await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(file.Path)).AbsoluteUri]);
+            if (Write(file, announceSave: true))
+            {
+                if (MemberPath(file.Document) is not null) sharedWritten.Add(file);
+                if (!existed && lspClient is not null)
+                    await lspClient().DidCreateFilesAsync([new Uri(Path.GetFullPath(file.Path)).AbsoluteUri]);
+            }
         }
+        foreach (var file in sharedWritten)
+            await UpdateSharedCopies(file);
         if (lspClient is not null)
             await lspClient().WorkspaceChangedAsync();
     });
@@ -2548,6 +2596,14 @@ public partial class ProjectService : IProjectService
                 .. changedFilesVm.SelectedFiles.Where(f => f.Module != null).Select(f => ((object)f.Module!, false)),
                 .. changedFilesVm.SelectedFiles.Where(f => f.Project != null).Select(f => ((object)f.Project!, false))
             ]));
+            // A close or reload follows this save. A declined shared save must not become an implicit discard.
+            foreach (var file in changedFilesVm.SelectedFiles)
+            {
+                var member = (object?)file.Form ?? file.Module;
+                if (member is not null && MemberPath(member) is { } path
+                    && SharedCopies(path).Count > 1 && MemberDirty(member))
+                    throw new OperationCanceledException();
+            }
         }
         finally
         {
@@ -2722,6 +2778,7 @@ public partial class ProjectService : IProjectService
         // Neither is correct, but a crash should fail towards the one the developer is told about.
         WriteCompanionBinary(formPath, frxContent, form);
         AtomicWriteText(formPath, frmText, encodedText);
+        if (adoptHeader) RememberCopy(form, formPath, frmText, frxContent);
         Saved(form.AbsolutePath, formPath);
         form.AbsolutePath = formPath;
         if (adoptHeader)
@@ -2906,7 +2963,7 @@ public partial class ProjectService : IProjectService
     {
         try
         {
-            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs, rewrites: rewrites, userSave: interactive), interactive);
+            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs, rewrites: rewrites, userSave: interactive, interactive: interactive), interactive);
         }
         finally
         {
@@ -2931,13 +2988,24 @@ public partial class ProjectService : IProjectService
     /// way, because a write that adopts no header rewrites no qualifier.
     /// </para>
     /// </remarks>
-    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true, SaveRewriteReport? rewrites = null, bool userSave = true) =>
-        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true, rewrites: rewrites, userSave: userSave && announceSave)).Count > 0;
+    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true, SaveRewriteReport? rewrites = null, bool userSave = true, bool interactive = true) =>
+        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true, rewrites: rewrites, userSave: userSave && announceSave, interactive: interactive)).Count > 0;
 
     /// <summary>Writes a module the caller has decided HexIDE can reproduce, and repoints it there.</summary>
     /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the module is written by its own Save or Save As.</param>
     private void WriteModule(ModuleDefinition module, string modulePath, bool adoptHeader, bool ownCommand, SaveRewriteReport? rewrites = null)
     {
+        // Any save of a Control project's PropertyPage exposes it (#1661, oracle PR #5244).
+        // Change the model before rendering, leaving absent attributes and all other header text alone.
+        if (adoptHeader && module.Kind == ModuleKind.PropertyPage && module.Owner.ProjectType == VBProjectType.Control)
+        {
+            var exposure = System.Text.RegularExpressions.Regex.Match(FormCodeText.AttributeBlock(module.Code),
+                @"(?:\A|(?<=[\r\n]))Attribute VB_Exposed = False(?=[\r\n]|\z)");
+            if (exposure.Success)
+                module.UpdateCode(module.Code.Remove(exposure.Index, exposure.Length)
+                    .Insert(exposure.Index, "Attribute VB_Exposed = True"));
+        }
+
         // As SerializeFormToFile: before the render and the repointing, and not for a copy (#273 task 4.4).
         if (adoptHeader
             && RewrittenQualifiers(module, modulePath, ownCommand, FormatOf(module.Owner).CodePrefix(module), module.Code, rewrites) is { } requalified)
@@ -2951,6 +3019,7 @@ public partial class ProjectService : IProjectService
         if (DesignerPartOf(module) is { } designerPart)
             WriteCompanionBinary(modulePath, companion, designerPart);
         AtomicWriteText(modulePath, text, encodedText);
+        if (adoptHeader) RememberCopy(module, modulePath, text, companion);
         Saved(module.AbsolutePath, modulePath);
         module.AbsolutePath = modulePath;
         // Both halves are the one file, as every load gives them (#474).
@@ -3326,7 +3395,9 @@ public partial class ProjectService : IProjectService
         try
         {
             var (text, binary) = RenderForm(form, path);
-            return Answered(form, form.Owner, !BaselineMatches(path, text) || CompanionWouldChange(form.Owner, path, binary));
+            return Answered(form, form.Owner, SharedCopies(path).Count > 1
+                ? !CopyMatches(form, text, binary)
+                : !BaselineMatches(path, text) || CompanionWouldChange(form.Owner, path, binary));
         }
         catch (RenderRefusal)
         {
@@ -3347,9 +3418,10 @@ public partial class ProjectService : IProjectService
         try
         {
             var (text, binary) = RenderModule(module, path);
-            return DesignerPartOf(module) is null
-                ? !BaselineMatches(path, text)
-                : Answered(module, module.Owner, !BaselineMatches(path, text) || CompanionWouldChange(module.Owner, path, binary));
+            var edited = SharedCopies(path).Count > 1
+                ? !CopyMatches(module, text, binary)
+                : !BaselineMatches(path, text) || (DesignerPartOf(module) is not null && CompanionWouldChange(module.Owner, path, binary));
+            return DesignerPartOf(module) is null ? edited : Answered(module, module.Owner, edited);
         }
         catch (RenderRefusal)
         {
@@ -3424,6 +3496,7 @@ public partial class ProjectService : IProjectService
         {
             var (text, binary) = RenderForm(form, path);
             RecordRender(form.Owner, path, text, binary);
+            RememberCopy(form, path, text, binary);
             Answered(form, form.Owner, edited: false);
         }
         catch (RenderRefusal refusal)
@@ -3453,6 +3526,7 @@ public partial class ProjectService : IProjectService
             RefusedAtRead(designerPart, refusal);
             return;
         }
+        RememberCopy(module, path, rendered.Text, rendered.Companion);
         if (DesignerPartOf(module) is not null)
         {
             RecordRender(module.Owner, path, rendered.Text, rendered.Companion);

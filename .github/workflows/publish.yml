@@ -393,6 +393,9 @@ jobs:
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ inputs.tag }}
+          # The commit this run built and signed. Without it a draft records its target as the default branch, and the
+          # tag is created at publish wherever that branch has moved to by then (#5409).
+          target_commitish: ${{ github.sha }}
           name: ${{ inputs.tag }}
           draft: ${{ inputs.draft }}
           prerelease: ${{ inputs.prerelease }}

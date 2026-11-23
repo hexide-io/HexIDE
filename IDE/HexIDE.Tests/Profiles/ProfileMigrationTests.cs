@@ -2,20 +2,21 @@ using HexIDE.Runtime.Serialization;
 using System.Reflection;
 using HexIDE.Desktop;
 using HexIDE.IDE;
+using HexIDE.IDE.Profiles;
 using HexIDE.Projects;
 using HexIDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
 public sealed class ProfileMigrationTests : IDisposable
 {
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-profile-launch-" + Guid.NewGuid());
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-profile-launch-");
     private readonly Dictionary<PropertyInfo, object?> previous = typeof(ServerOptions).GetProperties(BindingFlags.Public | BindingFlags.Static)
         .Where(p => p.SetMethod != null).ToDictionary(p => p, p => p.GetValue(null));
 
     public ProfileMigrationTests()
     {
-        Directory.CreateDirectory(root);
         foreach (var property in previous.Keys)
             property.SetValue(null, property.PropertyType.IsValueType ? Activator.CreateInstance(property.PropertyType) : null);
     }
@@ -40,6 +41,19 @@ public sealed class ProfileMigrationTests : IDisposable
         snapshot.SettingsDefaults.Should().BeNull();
         snapshot.LanguageOverrides.Should().BeEmpty();
         snapshot.ToolbarVisibility.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void BareProfilePreservesVb6OfferingsAndReferencesVisibility()
+    {
+        File.WriteAllText(Path.Combine(root, "profile.json"), """{"schemaVersion":1,"id":"bare-test"}""");
+        var resolver = new ProfileResolver(root, root);
+        var bare = new ProfileService(resolver.Resolve(root));
+        var vb6 = new ProfileService(resolver.Resolve("vb6"));
+
+        bare.AvailableProjectTypes.Should().Equal(vb6.AvailableProjectTypes);
+        bare.IsProjectReferencesVisible.Should().Be(vb6.IsProjectReferencesVisible);
+        bare.IsToolsReferencesVisible.Should().Be(vb6.IsToolsReferencesVisible);
     }
 
     [Theory]
@@ -92,7 +106,7 @@ public sealed class ProfileMigrationTests : IDisposable
     }
 
     [Theory]
-    [InlineData(null, "embedded:vb6")]
+    [InlineData(null, "embedded:" + ProfileCatalog.DefaultId)]
     [InlineData("vb6", "embedded:vb6")]
     [InlineData("none", null)]
     [InlineData("./bundle", "bundle")]
@@ -102,6 +116,7 @@ public sealed class ProfileMigrationTests : IDisposable
         File.WriteAllText(Path.Combine(root, "bundle", "profile.json"), """{"schemaVersion":1,"id":"vb6"}""");
         ServerOptions.ParseArgs(selector == null ? [] : ["--profile", selector], root);
         var snapshot = ServerOptions.ResolveProfile(root, root);
+        if (selector == null) snapshot!.Id.Should().Be(ProfileCatalog.DefaultId);
         (snapshot?.Source).Should().Be(source == "bundle" ? Path.Combine(root, source) : source);
         if (selector == "none") snapshot.Should().BeNull();
     }

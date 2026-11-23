@@ -192,6 +192,11 @@ public static class AvaloniaInteroperability
         Register<VBOptionButton, VBAppearance>(VBProperties.AppearanceProperty, VBOptionButton.AppearanceProperty);
         Register<VBOptionButton, bool>(VBProperties.OptionValueProperty, VBOptionButton.ValueProperty);
 
+        // Shape's measured default reads and Object writes (#790, oracle PR #5194).
+        Register<VBShape, ShapeTypes>(VBProperties.ShapeProperty, VBShape.ShapeTypeProperty);
+
+        Register<VBCommandButton, VBButtonStyle>(VBProperties.ButtonStyleProperty, button => button.Style,
+            (_, _) => throw TextBoxMembers.ReadOnlyAtRunTime("Style"));
         Register<VBCommandButton, bool>(VBProperties.DefaultProperty, button => button.Default, (button, value) => button.Default = value);
         Register<VBCommandButton, bool>(VBProperties.CancelProperty, button => button.Cancel, (button, value) => button.Cancel = value);
 
@@ -204,16 +209,14 @@ public static class AvaloniaInteroperability
         });
 
         Register<VBLabel, string>(VBProperties.CaptionProperty, label => label.Text ?? "", LabelAutoSize.Caption);
+        Register<VBFrame, string, object?>(VBProperties.CaptionProperty, HeaderedContentControl.HeaderProperty,
+            x => x, x => x as string ?? "");
         Register<VBCheckBox, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBOptionButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBCommandButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
 
         // Setting Text from code puts the caret at the start (measured, #1150); typing, which sets it too, does not come here.
-        Register<VBTextBox, string>(VBProperties.TextProperty, box => box.Text ?? "", (box, text) =>
-        {
-            box.Text = text;
-            TextBoxMembers.TextSet(box);
-        });
+        Register<VBTextBox, string>(VBProperties.TextProperty, box => box.Text ?? "", TextBoxMembers.SetText);
 
         Register<VBScrollBar, int>(VBProperties.ValueProperty, bar => bar.VbValue, (bar, value) => bar.VbValue = value);
 
@@ -299,6 +302,9 @@ public static class AvaloniaInteroperability
         VBProps.RefuseIfRemoved(control);
         if (control is VBTimer && !TimerMembers.HasProperty(property.Name))
             return false;
+        // Style shares its name with other controls' properties; refuse before their conversion/checks (#913).
+        if (control is VBCommandButton && property.Name.Equals("Style", StringComparison.OrdinalIgnoreCase))
+            throw TextBoxMembers.ReadOnlyAtRunTime("Style");
         RefuseUnmeasuredColour(control, property);
         if (control is VBTimer && ControlPositions.IsPosition(property))
             throw IdentityMembers.ReadOnlyAtRunTime(property.Name);
@@ -514,8 +520,7 @@ public static class AvaloniaInteroperability
     /// &amp;H19 to &amp;H20 were each probed and refused. Every other high byte is refused here; five were probed,
     /// &amp;H03, &amp;H04, &amp;H7F, &amp;HC0 and &amp;HFF, and VB6 refused each, so the rest are inferred. A negative
     /// number that is not a system colour is refused too (`BackColor = True` is -1). The palette kinds, 0x01 (an index, 0 to
-    /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given; HexIDE has no colour that
-    /// can hold one, so they are refused as not implemented rather than stored as the RGB of their low bytes (#786).
+    /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given (#786).
     /// </summary>
     internal static long OleColor(Vb6Value value)
     {
@@ -532,9 +537,6 @@ public static class AvaloniaInteroperability
         };
         if (!valid)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
-        if ((bits >> 24) is 0x01 or 0x02)
-            throw new NotImplementedException(
-                $"A palette colour (&H{bits:X8}) is not implemented (#786)");
         return ole;
     }
 
@@ -589,12 +591,6 @@ public static class AvaloniaInteroperability
             return lineMember;
         if (MenuMembers.IsMenu(c) && MenuMembers.TryGet(c, property, out value) is { } menuMember)
             return menuMember;
-        // A Frame keeps its caption in Header; only the read is measured (#2063).
-        if (c is VBFrame frame && ReferenceEquals(property, VBProperties.CaptionProperty))
-        {
-            value = new Vb6Value(frame.Header as string ?? "");
-            return true;
-        }
         // A form a modal form holds reads Enabled False (measured, #822). The hold is apart from its own Enabled, which is
         // what it reads once the modal form has gone.
         if (FormRoot.View(c) is { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))
@@ -630,6 +626,33 @@ public static class AvaloniaInteroperability
         }
 
         value = default!;
+        return false;
+    }
+
+    // #807: the .frm model stores pixels and a VBFont descriptor, whereas TryGet exposes container units and a Font
+    // object. Use the same binding's stored value for instantiation, after checking that the run-time read is supported.
+    internal static bool TryGetForInstantiation(Control control, PropertyClass property, out object? value)
+    {
+        value = null;
+        if (property == VBProperties.NameProperty || property == VBProperties.DesignIndexProperty
+            || property == VBProperties.VisibleProperty || property == VBProperties.TabIndexProperty
+            || property == VBProperties.MultiSelectProperty || property == VBProperties.ComboStyleProperty
+            || control is VBComboBox && property == VBProperties.HeightProperty)
+            return false;
+        try
+        {
+            if (!TryGet(control, property, out _) || !bindingsByProperty.TryGetValue(property, out var candidates))
+                return false;
+            foreach (var binding in candidates)
+            {
+                if (!binding.IsValidControl(control))
+                    continue;
+                value = binding.GetUntyped(control);
+                return true;
+            }
+        }
+        catch (VBRunTimeException) { }       // An unreadable property keeps its .frm value.
+        catch (NotImplementedException) { }
         return false;
     }
 

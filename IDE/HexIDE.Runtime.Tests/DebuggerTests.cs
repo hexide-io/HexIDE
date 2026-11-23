@@ -15,7 +15,13 @@ public class DebuggerTests : BaseVBTestFixture
     public async Task SynchronousResume_DeepRecursionUnwindsTheStack()
     {
         // #4433: a Continue that completes the break before the walk awaits it must still unwind the walk's stack.
-        var (vb, dbg) = NewDebuggable("Work 1000\nSub Work(ByVal n As Long)\nDebug.Print n\nIf n > 0 Then Work n - 1\nEnd Sub\n");
+        // 545 deep, not 1,000, as a mitigation (#5449). The test timed out under full-suite load during GC pauses of
+        // 15 to 20 s. Its own share of that is small: alone, a 1,000-deep run allocated 36 MB, 35 MB of it the walk's own
+        // with no breakpoint set, and paused for GC for about 30 ms of its 0.8 to 1.3 s. So the pause is the loaded
+        // run's, and a shorter walk only spends less time exposed to it. 545 still fails with #4433's fix reverted:
+        // Error 28, three runs of three on WSL and on Windows.
+        const int depth = 545;
+        var (vb, dbg) = NewDebuggable($"Work {depth}\nSub Work(ByVal n As Long)\nDebug.Print n\nIf n > 0 Then Work n - 1\nEnd Sub\n");
         dbg.SetBreakpoints("Module1", [3]);
         var stops = 0;
         dbg.Stopped += _ => { stops++; dbg.Continue(); };
@@ -24,8 +30,8 @@ public class DebuggerTests : BaseVBTestFixture
         // ended 3,304 to 4,102 frames deep. A test inheriting that stack fails its first call with Error 28.
         await Task.Run(() => vb.Execute(), TestContext.Current.CancellationToken).Guarded();
         await Task.Yield();
-        stops.Should().Be(1001);
-        AssertDebugLog(Enumerable.Range(0, 1001).Reverse().Select(n => new Vb6Value((long)n)).ToList());
+        stops.Should().Be(depth + 1);
+        AssertDebugLog(Enumerable.Range(0, depth + 1).Reverse().Select(n => new Vb6Value((long)n)).ToList());
     }
 
     [Fact]
@@ -513,16 +519,77 @@ public class DebuggerTests : BaseVBTestFixture
         (await stop.Guarded()).Line.Should().Be(2);
         debug.Select(v => v.Value?.ToString()).Should().Equal("main-before");
 
-        // Step Into the call → break at Foo's first body statement (line 5), not "main-after".
+        // #5295: VB6 stops at the standard module Sub declaration first.
+        // Measured: docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md.
         var s2 = NextStop(dbg);
         dbg.StepInto();
         var inFoo = await s2.Guarded();
-        inFoo.Line.Should().Be(5);
+        inFoo.Line.Should().Be(4);
         inFoo.Reason.Should().Be(StopReason.Step);
+        debug.Select(v => v.Value?.ToString()).Should().Equal("main-before");
+
+        var body = NextStop(dbg);
+        dbg.StepInto();
+        var firstStatement = await body.Guarded();
+        firstStatement.Line.Should().Be(5);
+        firstStatement.Reason.Should().Be(StopReason.Step);
+        debug.Select(v => v.Value?.ToString()).Should().Equal("main-before");
 
         dbg.Continue();
         await run.Guarded();
         AssertDebugLog(["main-before", "in-foo", "main-after"]);
+    }
+
+    [Fact]
+    public async Task StepOver_CalledSub_ReturnsToCaller()
+    {
+        // #5295: preserve today's Step Over behaviour; only Step Into was measured in VB6.
+        var (vb, dbg) = NewDebuggable(
+            "Debug.Print \"main-before\"\nFoo\nDebug.Print \"main-after\"\n" +
+            "Sub Foo()\nDebug.Print \"in-foo\"\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", [2]);
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(2);
+
+        var next = NextStop(dbg);
+        dbg.StepOver();
+        var info = await next.Guarded();
+        info.Line.Should().Be(3);
+        info.Reason.Should().Be(StopReason.Step);
+        debug.Select(v => v.Value?.ToString()).Should().Equal("main-before", "in-foo");
+
+        dbg.Continue();
+        await run.Guarded();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StepInto_ClassSub_KeepsFirstStatementStop(bool initialize)
+    {
+        // #5295: main's stops, not a VB6 measurement. Class methods and lifecycle Subs remain unmeasured.
+        var (vb, dbg) = NewDebuggable(
+            "Dim c As C\nSet c = New C\nc.Go\nDebug.Print \"after\"\n", "M",
+            ("C", initialize
+                ? "Private Sub Class_Initialize()\nDebug.Print \"initialize\"\nEnd Sub\nPublic Sub Go()\nDebug.Print \"go\"\nEnd Sub\n"
+                : "Public Sub Go()\nDebug.Print \"go\"\nEnd Sub\n"));
+        dbg.SetBreakpoints("M", [initialize ? 2 : 3]);
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(initialize ? 2 : 3);
+
+        var next = NextStop(dbg);
+        dbg.StepInto();
+        var info = await next.Guarded();
+        info.Module.Should().Be("C");
+        info.Line.Should().Be(2);
+        info.Reason.Should().Be(StopReason.Step);
+        debug.Should().BeEmpty();
+
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog(initialize ? ["initialize", "go", "after"] : ["go", "after"]);
     }
 
     [Fact]
@@ -548,6 +615,110 @@ public class DebuggerTests : BaseVBTestFixture
         dbg.Continue();
         await run.Guarded();
         AssertDebugLog([42]);
+    }
+
+    // #4326: docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md.
+    [Fact]
+    public async Task DeclarationLines_StepInto_matches_the_measured_probe()
+    {
+        var (vb, dbg) = NewDebuggable(
+            "n = 1\nProcDim\nProcStatic\nProcConst\nProcReDim\nProcMid\nProcOnlyDim\nn = 99\n" +
+            "Private Sub ProcDim()\nDim dimA As Integer\ndimA = 11\nEnd Sub\n" +
+            "Private Sub ProcStatic()\nStatic stB As Integer\nstB = 22\nEnd Sub\n" +
+            "Private Sub ProcConst()\nConst kC = 33\nn = kC\nEnd Sub\n" +
+            "Private Sub ProcReDim()\nReDim rD(2) As Integer\nrD(1) = 44\nEnd Sub\n" +
+            "Private Sub ProcMid()\nn = 55\nDim midE As Integer\nmidE = 66\nStatic midF As Integer\nmidF = 77\nConst midG = 88\nn = midG\nEnd Sub\n" +
+            "Private Sub ProcOnlyDim()\nDim onlyZ As Integer\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", [1]);
+        var lines = new List<int>();
+        dbg.Stopped += info => { lines.Add(info.Line); dbg.StepInto(); };
+        await vb.Execute().Guarded();
+        // Each procedure's declaration is a stop as well (#5295): the page's table lists them first.
+        lines.Should().Equal(1, 2, 9, 11, 12, 3, 13, 15, 16, 4, 17, 19, 20, 5, 21, 22, 23, 24,
+            6, 25, 26, 28, 30, 32, 33, 7, 34, 36, 8);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DeclarationLines_explicit_targets_still_pause(bool runToCursor)
+    {
+        // These are existing HexIDE behaviours, not measured VB6 results (#4326).
+        var (vb, dbg) = NewDebuggable("Go\nSub Go()\nDim a As Integer\nConst b = 5\na = b\nDebug.Print a\nEnd Sub\n", "M");
+        if (runToCursor)
+            dbg.RunToCursor("M", 3);
+        else
+            dbg.SetBreakpoints("M", [3]);
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        var info = await stop.Guarded();
+        info.Line.Should().Be(3);
+        info.Reason.Should().Be(StopReason.Breakpoint);
+        var next = NextStop(dbg);
+        dbg.StepInto();
+        (await next.Guarded()).Line.Should().Be(5);
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog([5]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DeclarationLines_StepOver_passes_over_declarations(bool nested)
+    {
+        var body = "Debug.Print 1\nDim a As Integer\nStatic b As Integer\nConst c = 5\na = c\nDebug.Print a\n";
+        var (vb, dbg) = NewDebuggable("Go\nSub Go()\n" + (nested ? "If True Then\n" + body + "End If\n" : body) + "End Sub\n", "M");
+        var first = nested ? 4 : 3;
+        dbg.SetBreakpoints("M", [first]);
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(first);
+        var next = NextStop(dbg);
+        dbg.StepOver();
+        (await next.Guarded()).Line.Should().Be(first + 4);
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog([1, 5]);
+    }
+
+    [Fact]
+    public async Task DeclarationLines_same_line_statement_stops_once_before_assignment()
+    {
+        var (vb, dbg) = NewDebuggable("Go\nSub Go()\nDim a As Integer: a = 5\nDebug.Print a\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", [1]);
+        var lines = new List<int>();
+        dbg.Stopped += info =>
+        {
+            lines.Add(info.Line);
+            if (info.Line == 3)
+                dbg.EvaluateAsync("a").GetAwaiter().GetResult().Should().Be("0");
+            dbg.StepInto();
+        };
+        await vb.Execute().Guarded();
+        // Line 2, Go's declaration, is Step Into's first stop in it (#5295).
+        lines.Should().Equal(1, 2, 3, 4, 5);
+        AssertDebugLog([5]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DeclarationLines_watch_waits_for_the_next_statement(bool nested)
+    {
+        // #4326: break-type watches use statement positions too; only F8 was pressed in the oracle.
+        var body = "Dim a As Integer\na = 1\nDim b As Integer\nStatic c As Integer\nConst d = 5\nDebug.Print a\n";
+        var (vb, dbg) = NewDebuggable("Go\nSub Go()\n" + (nested ? "If True Then\n" + body + "End If\n" : body) + "End Sub\n", "M");
+        dbg.SetWatchBreaks([new WatchBreakSpec("a = 1", BreakOnChange: false)]);
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        var info = await stop.Guarded();
+        info.Line.Should().Be(nested ? 9 : 8);
+        info.Reason.Should().Be(StopReason.Watch);
+        dbg.SetWatchBreaks([]);
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog([1]);
     }
 
     [Fact]

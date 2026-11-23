@@ -13,33 +13,39 @@ copied out of the VB98 Template tree because that tree is Microsoft's, and this 
 
 ## Provenance, stated exactly
 
-**Authored here and compiled by the real compiler; not written by the VB6 IDE.**
+**Written by VB6 SP6's IDE (VB6.EXE 6.00.9782), 2026-11-21.**
 
-`vb6.exe /make` on the oracle VM, 2026-09-20, answered:
+On a clone of the oracle guest, the IDE opened the hand-authored `PagProbe.vbp`, added a CommandButton to
+`Gauge` and a Label to `GaugeGeneral` by double-clicking their toolbox icons, then saved with the toolbar's
+Save Project button. All three files here are the resulting CRLF bytes, including the trailing spaces on
+`Begin` lines. The files and their SHA-256 hashes are recorded in
+[#485's measurements](https://github.com/hexide-io/HexIDE/issues/485).
+
+The hand-authored versions had three things wrong that VB6 corrected:
+
+- `PagProbe.vbp` was missing `Command32=""`, which VB6 added after `HelpFile=""`.
+- `PagProbe.vbp` had `StartMode=0`; VB6 wrote `StartMode=1`.
+- `GaugeGeneral.pag` had `Attribute VB_Exposed = False`; VB6 wrote `True`.
+
+VB6 also made the OLE Automation reference's path relative to the guest folder it saved in:
+`..\..\Windows\SysWOW64\stdole2.tlb`. The `UserControl=` and `PropertyPage=` item lines kept their order.
+`Gauge.ctl` changed only by gaining the `Command1` block; `GaugeGeneral.pag` also gained the `Label1` block.
+The headers and code otherwise survived, including the `PaletteMode = 0  'Halftone` comment that exposed
+[grammar fix 7](../../docs/vb6-grammar-fixes.md).
+
+The earlier hand-authored versions were compiler-validated: `vb6.exe /make` on the oracle VM, 2026-09-20,
+answered:
 
 ```
 Build of 'PagProbe.ocx' succeeded.
 ```
 
-So VB6 accepts every line of these files, which is the property the grammar tests turn on. What cannot be
-claimed is that these are byte-for-byte what VB6's *editor* would write, because the editor cannot be
-driven on that VM: a GUI needs an interactive session, and PowerShell Direct lands in session 0 with no
-desktop (measured — a process started there has no window handle and `AppActivate` cannot find it).
-
-The shapes that actually matter to a parser were put in deliberately, taken from what real VB6 output
-looks like: the trailing space after the identifier on a `Begin` line, and a decoded enumerated value
-carrying its comment (`PaletteMode = 0  'Halftone`). That second one is the whole of
-[grammar fix 7](../../docs/vb6-grammar-fixes.md) — it is what every `.cls` VB6 writes, and both grammars
-rejected it until 2026-09-20.
-
-Upgrading these to IDE-written files needs an interactive session in the VM (autologon, or a login at the
-console, then `schtasks /IT`). Worth doing the next time a question is "what does VB6 *write*" rather than
-"what does VB6 *accept*".
+That is the 2026-09-20 compile result, not a new compile of the IDE-saved files.
 
 ## Files
 
 | File | What it is for |
 |---|---|
-| `Gauge.ctl` | A UserControl with a persisted property, so `ReadProperties`/`WriteProperties` and a `Property Get`/`Let` pair are in the body |
-| `GaugeGeneral.pag` | The PropertyPage — the only `.pag` anywhere in the corpus |
-| `PagProbe.vbp` | `Type=Control`, so the two above are reachable as a project and the build above is reproducible |
+| `Gauge.ctl` | A UserControl with a persisted property, so `ReadProperties`/`WriteProperties` and a `Property Get`/`Let` pair are in the body, and one CommandButton nested in its designer block |
+| `GaugeGeneral.pag` | The PropertyPage — the only `.pag` anywhere in the corpus — with one Label nested in its designer block |
+| `PagProbe.vbp` | `Type=Control`, so the two above are reachable as a project |

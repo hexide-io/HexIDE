@@ -73,8 +73,19 @@ public class HarnessMatchesTheAppTests
             .Select(r => r.Source?.ToString()).ToList();
 
         sources.Should().Contain("avares://HexIDE/Themes/Classic.axaml");
+        // The provider's control themes, which it registers itself as the IDE's startup has it do (#5396): every one it
+        // names, through the same checks, and none refused.
         sources.Should().Contain("avares://HexIDE.Runtime/BuiltinControls/VBTimer.axaml");
         sources.Should().Contain("avares://HexIDE.Runtime/BuiltinControls/VBLabel.axaml");
         sources.Should().Contain("avares://HexIDE.Runtime/BuiltinControls/Resources.axaml");
+    }
+
+    [Fact]
+    public void The_application_names_none_of_the_provider_s_resources_itself()
+    {
+        // The provider registers its themes through the add-in host (#5396). App.axaml naming one again would merge it
+        // outside the checks every registration goes through, and put a reference into the provider back in HexIDE.dll.
+        var app = System.IO.File.ReadAllText(System.IO.Path.Combine(RepoTree.Root(), "IDE", "HexIDE", "App.axaml"));
+        app.Should().NotContain("avares://HexIDE.Runtime");
     }
 }

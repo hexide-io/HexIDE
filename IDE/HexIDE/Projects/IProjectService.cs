@@ -184,7 +184,8 @@ public interface IProjectService
     Task<ProjectDefinition?> RestoreUnsavedProject(HexIDE.Recovery.UnsavedProject backup);
 
     Task MakeProject();
-    Task MakeProject(ProjectDefinition project);
+    Task MakeProject(ProjectDefinition project, string? exePath = null, string? startIn = null);
+    Task MakeProjectGroup();
     Task EditProjectProperties(ProjectDefinition project);
     Task EditProjectReferences(ProjectDefinition project);
     Task EditProjectComponents(ProjectDefinition project);

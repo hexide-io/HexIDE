@@ -87,6 +87,7 @@ public class ViewLocator : IDataTemplate
         Register<FileConflictViewModel, FileConflictView>();
         Register<ProjectPropertiesViewModel, ProjectPropertiesView>();
         Register<ReferencesViewModel, ReferencesView>();
+        Register<MakeProjectGroupViewModel, MakeProjectGroupView>();
         Register<ComponentsViewModel, ComponentsView>();
     }
 

@@ -303,7 +303,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     {
         var single = Scope is FindScope.CurrentModule or FindScope.CurrentProcedure or FindScope.SelectedText;
 
-        var here = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: single,
+        var here = FindNext(active.Document, active.CaretOffset, active.SelectionStart, active.SelectionLength, allowWrap: single,
             active.IsReadOnlyRegion);
         if (here is not null) return (active, here.Value.offset, here.Value.length);
         if (single) return null;
@@ -313,11 +313,11 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             // Entered at the end for an upward search, so the LAST match in that document is the first
             // one an Up search meets — the same order the user would see stepping through by hand.
             var from = Direction == FindDirection.Down ? 0 : other.Document.TextLength;
-            var found = FindNext(other.Document, from, 0, allowWrap: false, other.IsReadOnlyRegion);
+            var found = FindNext(other.Document, from, 0, 0, allowWrap: false, other.IsReadOnlyRegion);
             if (found is not null) return (other, found.Value.offset, found.Value.length);
         }
 
-        var wrapped = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: true,
+        var wrapped = FindNext(active.Document, active.CaretOffset, active.SelectionStart, active.SelectionLength, allowWrap: true,
             active.IsReadOnlyRegion);
         return wrapped is null ? null : (active, wrapped.Value.offset, wrapped.Value.length);
     }
@@ -325,11 +325,15 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// <summary>Shows the match, bringing its document to the front first when it is not the active one.</summary>
     private void SelectMatch(ISearchableDocument target, int offset, int length)
     {
+        var source = _documentDockService.ActiveDocument as CodeEditorViewModel;
+        var destination = Direction == FindDirection.Down ? offset + length : offset;
         if (target is FindProjectDocuments.UnopenedDocument unopened)
         {
             target = unopened.Open()!;
             if (target is null) return;
         }
+        if (source is not null && (!ReferenceEquals(source, target) || source.CaretOffset != destination))
+            source.RecordLastPosition();
         if (!ReferenceEquals(target, _documentDockService.ActiveDocument)
             && target is BaseEditorWindowViewModel window)
         {
@@ -349,6 +353,15 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         if (editor is null)
         {
             ReportNothingToSearch();
+            return;
+        }
+
+        // VB6 refuses a malformed pattern in one box before anything is searched (#5312; oracle,
+        // find-next-where-the-next-search-starts.md). Checked once here: each document's search would report it again.
+        if (UsePatternMatching && PatternError() is { } error)
+        {
+            _windowManager.MessageBox(_localization.GetString(error),
+                _localization.GetString("Str.FindReplace.Msg.TitleFind"), MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             return;
         }
 
@@ -522,23 +535,23 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// multi-document search is still working through the other documents — see <see cref="FindInScope"/>.
     /// </param>
     /// <param name="isReadOnly">The document's read-only regions; see <see cref="Accepts"/>.</param>
-    private (int offset, int length)? FindNext(TextDocument doc, int startOffset, int currentSelectionLength,
+    private (int offset, int length)? FindNext(TextDocument doc, int startOffset, int currentSelectionStart, int currentSelectionLength,
         bool allowWrap, Func<int, int, bool> isReadOnly)
     {
         if (SearchText.Length == 0) return null;
 
         if (UsePatternMatching)
-            return FindNextRegex(doc, startOffset, currentSelectionLength, allowWrap, isReadOnly);
+            return FindNextRegex(doc, startOffset, currentSelectionStart, currentSelectionLength, allowWrap, isReadOnly);
 
         var comparison = MatchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
         int searchStart;
         if (Direction == FindDirection.Down)
         {
-            // Start after current selection to avoid re-finding same match
+            // Resume at the selection end, regardless of which end holds the caret.
             searchStart = startOffset;
             if (currentSelectionLength > 0)
-                searchStart = Math.Min(startOffset + 1, doc.TextLength);
+                searchStart = Math.Min(currentSelectionStart + currentSelectionLength, doc.TextLength);
 
             // Search forward, skipping matches Accepts refuses
             var pos = searchStart;
@@ -591,19 +604,32 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         return null;
     }
 
-    private (int offset, int length)? FindNextRegex(TextDocument doc, int startOffset, int currentSelectionLength,
+    private string? PatternError()
+    {
+        try
+        {
+            FindWildcardPattern.Translate(SearchText);
+            return null;
+        }
+        catch (ArgumentException exception)
+        {
+            return exception.Message;
+        }
+    }
+
+    private (int offset, int length)? FindNextRegex(TextDocument doc, int startOffset, int currentSelectionStart, int currentSelectionLength,
         bool allowWrap, Func<int, int, bool> isReadOnly)
     {
-        var options = MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
+        var options = RegexOptions.IgnoreCase;
         Regex regex;
         try
         {
-            regex = new Regex(SearchText, options);
+            regex = new Regex(FindWildcardPattern.Translate(SearchText), options);
         }
-        catch (ArgumentException)
+        catch (ArgumentException exception)
         {
             _windowManager.MessageBox(
-                _localization.GetString("Str.FindReplace.Msg.InvalidRegex"),
+                _localization.GetString(exception.Message),
                 _localization.GetString("Str.FindReplace.Msg.TitleFind"),
                 MessageBoxButtons.Ok,
                 MessageBoxIcon.Warning);
@@ -612,7 +638,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
 
         var text = doc.Text;
         int searchFrom = Direction == FindDirection.Down
-            ? (currentSelectionLength > 0 ? Math.Min(startOffset + 1, text.Length) : startOffset)
+            ? (currentSelectionLength > 0 ? Math.Min(currentSelectionStart + currentSelectionLength, text.Length) : startOffset)
             : 0;
 
         if (Direction == FindDirection.Down)
@@ -665,8 +691,8 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// <para>
     /// <b>A refused match is stepped past by one character, not by its length.</b> <c>NextMatch</c> resumes
     /// at the end of the match it was given, so a refused match hides any match overlapping it. A pattern
-    /// such as <c>\s*Private Sub</c> first matches from the header's last line break, which is refused, and
-    /// <c>NextMatch</c> then resumed after <c>Private Sub</c> and never saw it. The plain scan has always
+    /// such as <c>Total*</c> first matches inside <c>Subtotal = Total + 1</c>, which Whole Word refuses.
+    /// Resuming after it would miss the whole-word <c>Total</c> inside that match. The plain scan has always
     /// stepped by one, and this is the same stepping.
     /// </para>
     /// </remarks>
@@ -712,10 +738,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
 
         if (UsePatternMatching)
         {
-            var options = MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
+            var options = RegexOptions.IgnoreCase;
             try
             {
-                var regex = new Regex(SearchText, options);
+                var regex = new Regex(FindWildcardPattern.Translate(SearchText), options);
                 var matches = AcceptedMatches(regex, doc.Text, doc, isReadOnly);
                 for (int i = matches.Count - 1; i >= 0; i--)
                 {
@@ -775,10 +801,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     {
         if (UsePatternMatching)
         {
-            var options = MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
+            var options = RegexOptions.IgnoreCase;
             try
             {
-                return Regex.IsMatch(text, $"^{SearchText}$", options);
+                return Regex.IsMatch(text, $"^{FindWildcardPattern.Translate(SearchText)}$", options);
             }
             catch (ArgumentException)
             {

@@ -31,7 +31,8 @@ success.
 
 **Two descriptions were corrected rather than fixed.** `clear_all_breakpoints` said "Removes every
 breakpoint in the project"; it removes every breakpoint in *every loaded project*, and has always done so.
-Whether VB6 agrees is unmeasured and is filed as #492. And `set_bookmarks(name, [])` promised to clear a
+VB6's group scope was subsequently [measured to agree](../../vb6-fidelity-oracle/clear-all-breakpoints-with-a-project-group-open.md)
+(SP6, 2026-11-21, #492). And `set_bookmarks(name, [])` promised to clear a
 document's bookmarks: it emptied the store and raised no change event, so the gutter kept its dots and the
 sidecar was never rewritten — the cleared bookmarks came back on the next load. That one was a real defect
 and is fixed with the rest.

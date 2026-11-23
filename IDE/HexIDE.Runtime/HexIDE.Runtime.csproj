@@ -56,6 +56,9 @@
         <!-- The members of VB6's Form class, read out of VB6.OLB by scripts/dump-typelib-members.ps1, and
              embedded for the same reasons: which bare names in a form are the form's own (#995). -->
         <EmbeddedResource Include="Interpreter\Data\vb6-form-members.json" />
+        <!-- The intrinsic controls' measured members, linked so the corpus remains the source (#1433). -->
+        <EmbeddedResource Include="..\..\corpus\inbox-controls\typelib\VB6-members.jsonl"
+                          Link="Interpreter\Data\VB6-members.jsonl" LogicalName="HexIDE.Runtime.VB6-members.jsonl" />
 
     </ItemGroup>
 

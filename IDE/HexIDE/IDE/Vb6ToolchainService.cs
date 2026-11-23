@@ -6,7 +6,9 @@ using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HexIDE.Events;
+using HexIDE.Language;
 using HexIDE.Localization;
+using HexIDE.Projects;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
@@ -44,11 +46,6 @@ public class Vb6ToolchainService : IVb6ToolchainService
     // message may contain both a colon and an apostrophe and a path may contain either.
     private static readonly Regex ErrorRegex = new(
         @"^Compile Error in File '(?<path>.+)', Line (?<line>\d+) : (?<message>.*)$",
-        RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    // A .vbp may override the output name:  ExeName32="MyApp.exe"  (value may be unquoted).
-    private static readonly Regex ExeName32Regex = new(
-        @"^\s*ExeName32\s*=\s*""?([^""\r\n]+?)""?\s*$",
         RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private readonly ILspClient lspClient;
@@ -98,7 +95,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
             return false;
         }
 
-        var exePath = OutputExePath(project);
+        var exePath = ProjectOutputPath.OutputExePath(project);
         if (File.Exists(exePath) && !(forRun && IsLastRunExe(project, exePath)))
         {
             if (await windowManager.MessageBox(
@@ -414,7 +411,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
             return;
 
         // /make uses Path32 only with ExeName32; otherwise the EXE sits beside the .vbp (#4538).
-        var exePath = OutputExePath(project);
+        var exePath = ProjectOutputPath.OutputExePath(project);
 
         if (!File.Exists(exePath))
         {
@@ -451,48 +448,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
         }
     }
 
-    private static string OutputExePath(ProjectDefinition project)
-    {
-        var directory = Path.GetDirectoryName(project.AbsolutePath!)!;
-        var name = ResolveOutputExeName(project);
-        if (name is not null)
-        {
-            // Read the quoted path exactly as the serializer does, then resolve on the host filesystem.
-            foreach (var raw in project.UnknownPreSectionLines.Select(line => line.Item2)
-                         .Concat((project.ExtensionTail ?? "").ReplaceLineEndings("\n").Split('\n')))
-            {
-                if (SerializedProject.ItemLineFile(raw) is not { } file
-                    || !file.Key.Equals(SerializedProject.MakePathKey, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                var folder = SerializedProject.ToHostPath(raw.Substring(file.Start, file.Length));
-                directory = Path.Combine(directory, folder);
-                break;
-            }
-        }
-        return Path.Combine(directory, name ?? project.Name + ".exe");
-    }
-
     private static string GetFormUri(FormDefinition form) => DocumentWireName.For(form);
-
-    // The compiled EXE's file name: a .vbp may specify ExeName32="Foo.exe"; otherwise VB6 names the
-    // output after the project. ExeName32 is a top-level .vbp key, preserved verbatim among the unparsed
-    // lines (and, defensively, scanned in the preserved section tail too).
-    private static string? ResolveOutputExeName(ProjectDefinition project)
-    {
-        foreach (var (_, raw) in project.UnknownPreSectionLines)
-        {
-            var m = ExeName32Regex.Match(raw);
-            if (m.Success && m.Groups[1].Value.Trim() is { Length: > 0 } name)
-                return name;
-        }
-        if (project.ExtensionTail is { } tail)
-        {
-            var m = ExeName32Regex.Match(tail);
-            if (m.Success && m.Groups[1].Value.Trim() is { Length: > 0 } name)
-                return name;
-        }
-        return null;
-    }
 
     private static string ReadAndDeleteLog(string logPath)
     {

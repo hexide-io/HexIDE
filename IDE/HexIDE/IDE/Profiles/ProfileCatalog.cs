@@ -9,6 +9,9 @@ internal sealed record InstalledProfileCandidate(string Id, string DirectoryPath
 
 internal static class ProfileCatalog
 {
+    /// <summary>The profile omission selects; #5393 changes this to the neutral built-in.</summary>
+    internal const string DefaultId = "vb6";
+
     // Explicit resource index: never enumerate an avares directory or search the working directory.
     private static readonly ImmutableArray<string> BuiltinIds = ["vb6", "vbaode", "vba"];
 

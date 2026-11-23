@@ -3,18 +3,17 @@ using Avalonia.Input;
 using HexIDE.IDE;
 using HexIDE.Keymaps;
 using HexIDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 using HexIDE.Tests.Sidecar;
 
 namespace HexIDE.Tests.Profiles;
 
 public sealed class ProfileKeymapTests : IDisposable
 {
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-profile-keymap-" + Guid.NewGuid());
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-profile-keymap-");
     private readonly Dictionary<string, KeyGesture[]> gestures = CommandKeyMapping.Table
         .ToDictionary(pair => pair.Key, pair => pair.Value.Gestures.ToArray());
     private string SettingsPath => Path.Combine(root, "user-settings.json");
-
-    public ProfileKeymapTests() => Directory.CreateDirectory(root);
 
     private ProfileSnapshot Profile(string bindings = "\"CopyCommand\":\"Shift+F12\",\"CutCommand\":\"\"")
     {
