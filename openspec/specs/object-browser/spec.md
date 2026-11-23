@@ -77,6 +77,12 @@ rather than its default instance-name prefix, for listing, search, member headin
 - **WHEN** the developer browses the VB library or searches for `CommandButton`
 - **THEN** the class is listed as `CommandButton`, rather than `Command`
 
+#### Scenario: Browsing the Form class
+- **WHEN** the developer browses `Form` in the `VB` library
+- **THEN** the browser SHALL list its 64 properties, 22 methods and 31 events in case-insensitive alphabetical order
+- **AND** the names and kinds SHALL match the [SP6 measurement](../../../docs/vb6-fidelity-oracle/the-object-browsers-library-list.md#the-vb-librarys-form-class-2026-11-22-5293-design-time-ide-sp6) for #5293
+- **AND** UserControl and PropertyPage SHALL retain their existing property/event listing
+
 #### Scenario: Narrowing to one library
 - **WHEN** the developer selects a single library
 - **THEN** only that library's types are listed
