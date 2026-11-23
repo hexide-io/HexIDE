@@ -52,6 +52,10 @@ public class VBListBox : ListBox
     private int anchorIndex;
     // A Shift press on an Extended list, whose range comes at the release.
     private bool shiftPressed;
+    private HashSet<int>? shiftSelection;
+    private int? rangeEnd;
+    // The modifiers of the last key down, for a letter's search, which comes with its character after KeyPress.
+    private KeyModifiers lastKeyModifiers;
 
     private int? pointerTop;
     private bool scrollIntoViewOnLayout;
@@ -197,6 +201,7 @@ public class VBListBox : ListBox
         // Take keys on the way down: a focused item takes Space, and its ScrollViewer takes paging first.
         KeyDownEvent.AddClassHandler<VBListBox>((list, e) =>
         {
+            list.lastKeyModifiers = e.KeyModifiers;
             // What it takes raises Click, changed or not (measured).
             if (list.IsMultiSelect && list.KeyMulti(e.Key, e.KeyModifiers))
             {
@@ -249,12 +254,22 @@ public class VBListBox : ListBox
                 UpdateLayout();
             }
         };
-        // Clear leaves a multi-select list's focus at 0 (measured). What RemoveItem does to it is not measured; it is
-        // kept on an item while there is one.
+        // Clear leaves the focus at 0; removal keeps its index unless that item was removed (#1424).
         Items.CollectionChanged += (_, e) =>
         {
             if (e.Action == NotifyCollectionChangedAction.Reset)
+            {
                 focusIndex = anchorIndex = 0;
+                rangeEnd = null;
+                shiftSelection = null;
+            }
+            else if (e.Action == NotifyCollectionChangedAction.Remove && IsMultiSelect)
+            {
+                if (e.OldStartingIndex == focusIndex || focusIndex >= ItemCount)
+                    focusIndex = Math.Clamp(focusIndex - 1, 0, Math.Max(0, ItemCount - 1));
+                anchorIndex = -1;
+                rangeEnd = null;
+            }
             else if (focusIndex >= ItemCount)
                 focusIndex = Math.Max(0, ItemCount - 1);
             if (ItemCount == 0)
@@ -500,25 +515,38 @@ public class VBListBox : ListBox
             return;
         focusIndex = index;
         shiftPressed = false;
+        shiftSelection = null;
         if (multiSelect == VBMultiSelect.Simple)
+        {
             Toggle(index);
+            anchorIndex = index;
+        }
         else if (modifiers.HasFlag(KeyModifiers.Shift))
         {
-            // The press leaves only the anchor's own state, and the range comes at the release (measured).
             var anchor = Anchor();
-            var anchorSelected = Selection.IsSelected(anchor);
-            SelectOnly(anchorSelected ? anchor : -1);
+            if ((modifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
+            {
+                // A previous Shift range is replaced, but other selections survive (#1413, #1424).
+                if (rangeEnd is { } end)
+                    for (var i = Math.Min(anchor, end); i <= Math.Max(anchor, end); i++)
+                        if (i != anchor) Selection.Deselect(i);
+                shiftSelection = new HashSet<int>(Selection.SelectedIndexes);
+            }
+            // The range comes at release; keep the existing press state.
+            SelectOnly(Selection.IsSelected(anchor) ? anchor : -1);
             shiftPressed = true;
         }
         else if ((modifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
         {
             Toggle(index);
             anchorIndex = index;
+            rangeEnd = null;
         }
         else
         {
             SelectOnly(index);
             anchorIndex = index;
+            rangeEnd = null;
         }
     }
 
@@ -539,7 +567,11 @@ public class VBListBox : ListBox
                 return;
             focusIndex = index;
             if (multiSelect == VBMultiSelect.Extended)
+            {
+                // Ctrl+Shift drags are unmeasured; keep their existing plain range (#1424).
+                shiftSelection = null;
                 SelectRange(index);
+            }
         }
         else if (index != SelectedIndex)
             SelectedIndex = index;
@@ -563,6 +595,18 @@ public class VBListBox : ListBox
 
     protected override void OnTextInput(TextInputEventArgs e)
     {
+        if (IsMultiSelect)
+        {
+            // A letter searches with its character, after KeyPress has had it, as a single-select list's does (measured
+            // there, key-events-keydown-keypress-and-keyup.md, #2325): KeyAscii = 0 cancels it, and Alt+letter, which
+            // types nothing, stays an access key (#1424).
+            if (e.Text is { Length: 1 } text && char.IsAsciiLetter(text[0]) && LetterMulti(text[0]))
+            {
+                e.Handled = true;
+                this.ExecuteSub(ComponentBaseClass.ClickEvent);
+            }
+            return;
+        }
         var before = SelectedIndex;
         base.OnTextInput(e);
         if (SelectedIndex != before)
@@ -626,25 +670,64 @@ public class VBListBox : ListBox
             this.ExecuteSub(ListBoxComponentClass.ScrollEvent);
     }
 
-    // Up, Down and Space, the keys measured. Others do nothing on a multi-select list.
+    // Navigation measured on Simple and Extended lists (#1413, #1424). Letters come through OnTextInput.
     private bool KeyMulti(Key key, KeyModifiers modifiers)
     {
-        if (key is not (Key.Up or Key.Down or Key.Space) || ItemCount == 0)
+        if (ItemCount == 0 || key is not (Key.Up or Key.Down or Key.Space or Key.Home or Key.End or Key.PageUp or Key.PageDown))
             return false;
         if (key == Key.Space)
         {
             // Simple toggles the focused item, and Extended changes nothing, with Ctrl or without (measured).
             if (multiSelect == VBMultiSelect.Simple && focusIndex >= 0 && focusIndex < ItemCount)
+            {
                 Toggle(focusIndex);
+                anchorIndex = focusIndex;
+            }
             return true;
         }
-        focusIndex = Math.Clamp(focusIndex + (key == Key.Down ? 1 : -1), 0, ItemCount - 1);
+        shiftSelection = null;
+        var page = Math.Max(1, (int)Math.Floor((Scroll?.Viewport.Height ?? 0) / RowHeight()) - 1);
+        focusIndex = key switch
+        {
+            Key.Home => 0,
+            Key.End => ItemCount - 1,
+            Key.PageUp => Math.Max(0, focusIndex - page),
+            Key.PageDown => Math.Min(ItemCount - 1, focusIndex + page),
+            _ => Math.Clamp(focusIndex + (key == Key.Down ? 1 : -1), 0, ItemCount - 1)
+        };
+        MoveFocusMulti(modifiers);
+        return true;
+    }
+
+    // A letter finds the next item after the focus that starts with it, wrapping round (measured, #1424).
+    private bool LetterMulti(char letter)
+    {
+        if (ItemCount == 0)
+            return false;
+        var prefix = letter.ToString();
+        for (var step = 1; step <= ItemCount; step++)
+        {
+            var index = (Math.Max(-1, focusIndex) + step) % ItemCount;
+            if (Items[index] is string text && text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                shiftSelection = null;
+                focusIndex = index;
+                MoveFocusMulti(lastKeyModifiers);
+                return true;
+            }
+        }
+        // Unmatched letters were not measured; retain the existing no-op.
+        return false;
+    }
+
+    private void MoveFocusMulti(KeyModifiers modifiers)
+    {
         // The focused item comes into view and takes the keyboard focus, as with the mouse. Not by a directional move,
         // which would have Avalonia select it.
         ScrollIntoView(focusIndex);
         ContainerFromIndex(focusIndex)?.Focus(NavigationMethod.Unspecified);
         if (multiSelect == VBMultiSelect.Simple)
-            return true;
+            return;
         if (modifiers.HasFlag(KeyModifiers.Shift))
             SelectRange(focusIndex);
         else
@@ -652,11 +735,11 @@ public class VBListBox : ListBox
             // With Ctrl too: Ctrl+Up selected the item alone, as Up does (measured).
             SelectOnly(focusIndex);
             anchorIndex = focusIndex;
+            rangeEnd = null;
         }
-        return true;
     }
 
-    // From the anchor to target, with the anchor keeping its own state, and nothing else selected (measured).
+    // Shift ranges keep the anchor's state; Ctrl+Shift also keeps the outside selection (#1424).
     private void SelectRange(int target)
     {
         var anchor = Anchor();
@@ -665,9 +748,12 @@ public class VBListBox : ListBox
         try
         {
             Selection.Clear();
+            if (shiftSelection is not null)
+                foreach (var index in shiftSelection) Selection.Select(index);
             for (var i = Math.Min(anchor, target); i <= Math.Max(anchor, target); i++)
-                if (i != anchor || anchorSelected)
+                if (shiftSelection is null ? i != anchor || anchorSelected : anchorSelected)
                     Selection.Select(i);
+            rangeEnd = target;
         }
         finally
         {
@@ -779,12 +865,20 @@ public class VBListBox : ListBox
         if (selected)
         {
             Selection.Select(index);
-            focusIndex = index;
+            focusIndex = anchorIndex = index;
+            rangeEnd = null;
             ScrollIntoViewFromCode(index);
         }
         else
             Selection.Deselect(index);
         this.ExecuteSub(ComponentBaseClass.ClickEvent);
+    }
+
+    internal void ItemTextReplaced(int index)
+    {
+        if (!IsMultiSelect) return;
+        focusIndex = anchorIndex = index;
+        rangeEnd = null;
     }
 
     /// <summary>
