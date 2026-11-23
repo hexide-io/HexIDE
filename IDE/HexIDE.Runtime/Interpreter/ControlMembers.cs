@@ -100,6 +100,8 @@ internal static class ControlMembers
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
+        if (control is VBPictureBox && memberName.Equals("Image", StringComparison.OrdinalIgnoreCase))
+            throw new NotImplementedException("PictureBox.Image is not implemented (#991, #992)");
         if (throughObject && control is (VBTextBox or VBUserControl) && RuntimeScale.IsConversion(memberName))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (control is VBPictureBox && RuntimeDrawing.IsMethod(memberName))
