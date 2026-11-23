@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Zachytávání chyb",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Přerušit při všech chybách",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Přerušit v modulu třídy",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Přerušit při neošetřených chybách"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Přerušit při neošetřených chybách",
+    "Str.Tool.LanguageServers.Trial.Test": "Otestovat",
+    "Str.Tool.LanguageServers.Trial.Testing": "Probíhá test…",
+    "Str.Tool.LanguageServers.Trial.Result": "Výsledek testu připojení",
+    "Str.Tool.LanguageServers.Trial.Declined": "Nic nebylo spuštěno.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Tuto položku odsud nelze spustit.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Tento server potřebuje otevřený projekt.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Server byl inicializován.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Server neuvedl název ani verzi.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Údaje oznámené serverem: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Oznámené schopnosti: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Odmítnuté schopnosti klienta: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Server se připojil, ale neodpověděl na initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Tato položka deklaruje soubor pracovního prostoru, který se vytvoří pouze při skutečném spuštění se souhlasem. Jeho nepřítomnost může vysvětlovat toto selhání.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Tato položka je vypnutá. IDE ji nespustí, dokud ji nezapnete.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Zastavení dokončeno.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Zastavení selhalo: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Server nebyl inicializován: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Otestovat připojení k jazykovému serveru",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE toto dosud nespustilo ani se k tomu nepřipojilo, nebo se to od té doby změnilo. Souhlas spustí program na tomto počítači nebo se připojí k této adrese.",
+    "Str.Tool.LanguageServers.Trial.Run": "Spustit"
   }
 }

@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Hvatanje pogrešaka",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prekini pri svim pogreškama",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prekini u modulu klase",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini pri neobrađenim pogreškama"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini pri neobrađenim pogreškama",
+    "Str.Tool.LanguageServers.Trial.Test": "Testiraj",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testiranje…",
+    "Str.Tool.LanguageServers.Trial.Result": "Rezultat testa veze",
+    "Str.Tool.LanguageServers.Trial.Declined": "Ništa nije pokrenuto.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Ovu stavku nije moguće pokrenuti odavde.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Ovaj poslužitelj zahtijeva otvoren projekt.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Poslužitelj je inicijaliziran.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Poslužitelj nije prijavio naziv ni verziju.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Podaci koje je prijavio poslužitelj: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Najavljene mogućnosti: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Odbijene mogućnosti klijenta: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Poslužitelj se povezao, ali nije odgovorio na initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Ova stavka deklarira datoteku radnog prostora koja se stvara samo pri stvarnom pokretanju, uz pristanak. Njezin izostanak može objasniti ovaj neuspjeh.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Ova je stavka isključena. IDE je neće pokrenuti dok se ne uključi.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Zaustavljanje je dovršeno.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Zaustavljanje nije uspjelo: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Poslužitelj nije inicijaliziran: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testiraj vezu s jezičnim poslužiteljem",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ovo još nije pokrenuo niti se s time povezao ili je u međuvremenu promijenjeno. Pristankom se pokreće program na ovom računalu ili se uspostavlja veza s ovom adresom.",
+    "Str.Tool.LanguageServers.Trial.Run": "Pokreni"
   }
 }

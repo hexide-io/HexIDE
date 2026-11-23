@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Zachytávanie chýb",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prerušiť pri všetkých chybách",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prerušiť v module triedy",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prerušiť pri neošetrených chybách"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prerušiť pri neošetrených chybách",
+    "Str.Tool.LanguageServers.Trial.Test": "Testovať",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testovanie…",
+    "Str.Tool.LanguageServers.Trial.Result": "Výsledok testu pripojenia",
+    "Str.Tool.LanguageServers.Trial.Declined": "Nič sa nespustilo.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Túto položku odtiaľto nemožno spustiť.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Tento server potrebuje otvorený projekt.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Server sa inicializoval.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Server neuviedol názov ani verziu.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Server uviedol: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Oznámené možnosti: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Odmietnuté možnosti klienta: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Server sa pripojil, ale neodpovedal na initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Táto položka deklaruje súbor pracovného priestoru, ktorý sa so súhlasom vytvorí iba pri skutočnom spustení. Jeho neprítomnosť môže vysvetľovať toto zlyhanie.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Táto položka je vypnutá. IDE ju nespustí, kým ju nezapnete.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Zastavenie dokončené.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Zastavenie zlyhalo: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Server sa neinicializoval: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Test pripojenia jazykového servera",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE toto ešte nespustilo ani sa k tomu nepripojilo, alebo sa to odvtedy zmenilo. Súhlas spustí program v tomto počítači alebo vytvorí pripojenie k tejto adrese.",
+    "Str.Tool.LanguageServers.Trial.Run": "Spustiť"
   }
 }

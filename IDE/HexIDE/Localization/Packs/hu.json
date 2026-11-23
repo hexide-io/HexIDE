@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Hibák elfogása",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Megszakítás minden hibánál",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Megszakítás az osztálymodulban",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Megszakítás a kezeletlen hibáknál"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Megszakítás a kezeletlen hibáknál",
+    "Str.Tool.LanguageServers.Trial.Test": "Tesztelés",
+    "Str.Tool.LanguageServers.Trial.Testing": "Tesztelés…",
+    "Str.Tool.LanguageServers.Trial.Result": "Kapcsolatteszt eredménye",
+    "Str.Tool.LanguageServers.Trial.Declined": "Semmi sem futott le.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Ez a bejegyzés innen nem indítható el.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Ehhez a kiszolgálóhoz nyitott projekt szükséges.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "A kiszolgáló inicializálása megtörtént.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "A kiszolgáló nem közölt nevet vagy verziót.",
+    "Str.Tool.LanguageServers.Trial.Identity": "A kiszolgáló által közölt adatok: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Meghirdetett képességek: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Elutasított ügyfélképességek: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "A kiszolgáló csatlakozott, de nem válaszolt az initialize kérésre.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Ez a bejegyzés olyan munkaterületfájlt határoz meg, amely csak tényleges indításkor, beleegyezéssel jön létre. A hiánya magyarázhatja ezt a hibát.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Ez a bejegyzés ki van kapcsolva. Az IDE nem indítja el, amíg be nem kapcsolják.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "A leállítás befejeződött.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "A leállítás sikertelen: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "A kiszolgáló inicializálása nem történt meg: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Nyelvi kiszolgáló kapcsolatának tesztelése",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "Az IDE ezt korábban még nem indította el, illetve nem csatlakozott hozzá, vagy azóta megváltozott. A beleegyezés egy programot indít el ezen a számítógépen, vagy csatlakozik ehhez a címhez.",
+    "Str.Tool.LanguageServers.Trial.Run": "Futtatás"
   }
 }

@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Перехват ошибок",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Прерывать при всех ошибках",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Прерывать в модуле класса",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Прерывать при необработанных ошибках"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Прерывать при необработанных ошибках",
+    "Str.Tool.LanguageServers.Trial.Test": "Проверить",
+    "Str.Tool.LanguageServers.Trial.Testing": "Проверка…",
+    "Str.Tool.LanguageServers.Trial.Result": "Результат проверки подключения",
+    "Str.Tool.LanguageServers.Trial.Declined": "Ничего не было запущено.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Эту запись нельзя запустить отсюда.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Для этого сервера нужен открытый проект.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Сервер инициализирован.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Сервер не сообщил имя или версию.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Сервер сообщил: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Заявленные возможности: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Отклонённые возможности клиента: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Сервер подключился, но не ответил на initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Эта запись объявляет файл рабочей области, создаваемый с согласия только при настоящем запуске. Его отсутствие может объяснять этот сбой.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Эта запись отключена. IDE не запустит её, пока она не будет включена.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Остановка завершена.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Ошибка остановки: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Сервер не инициализирован: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Проверка подключения к языковому серверу",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ещё не запускала этот элемент и не подключалась к нему, либо он с тех пор изменился. Согласие запускает программу на этом компьютере или подключает к этому адресу.",
+    "Str.Tool.LanguageServers.Trial.Run": "Запустить"
   }
 }

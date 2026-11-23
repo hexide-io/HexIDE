@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Hvatanje grešaka",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prekini pri svim greškama",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prekini u modulu klase",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini pri neobrađenim greškama"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini pri neobrađenim greškama",
+    "Str.Tool.LanguageServers.Trial.Test": "Testiraj",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testiranje…",
+    "Str.Tool.LanguageServers.Trial.Result": "Rezultat testiranja veze",
+    "Str.Tool.LanguageServers.Trial.Declined": "Ništa nije pokrenuto.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Ova stavka ne može da se pokrene odavde.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Ovom serveru je potreban otvoren projekat.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Server je inicijalizovan.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Server nije prijavio naziv ni verziju.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Server je prijavio: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Oglašene mogućnosti: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Odbijene mogućnosti klijenta: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Server se povezao, ali nije odgovorio na initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Ova stavka navodi datoteku radnog prostora koja se, uz saglasnost, generiše samo pri stvarnom pokretanju. Njeno odsustvo može da objasni ovaj neuspeh.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Ova stavka je isključena. IDE je neće pokrenuti dok se ne uključi.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Zaustavljanje je završeno.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Zaustavljanje nije uspelo: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Server nije inicijalizovan: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testiraj vezu sa jezičkim serverom",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ovo ranije nije pokretao niti se sa njim povezivao ili je u međuvremenu promenjeno. Prihvatanjem se pokreće program na ovom računaru ili uspostavlja veza sa ovom adresom.",
+    "Str.Tool.LanguageServers.Trial.Run": "Pokreni"
   }
 }

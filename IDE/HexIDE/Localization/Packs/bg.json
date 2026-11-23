@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Прихващане на грешки",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Прекъсване при всички грешки",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Прекъсване в модул на клас",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Прекъсване при необработени грешки"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Прекъсване при необработени грешки",
+    "Str.Tool.LanguageServers.Trial.Test": "Тест",
+    "Str.Tool.LanguageServers.Trial.Testing": "Тестване…",
+    "Str.Tool.LanguageServers.Trial.Result": "Резултат от теста на връзката",
+    "Str.Tool.LanguageServers.Trial.Declined": "Нищо не е изпълнено.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Този запис не може да бъде стартиран оттук.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Този сървър изисква отворен проект.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Сървърът е инициализиран.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Сървърът не съобщи име или версия.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Съобщено от сървъра: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Обявени възможности: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Отказани възможности на клиента: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Сървърът се свърза, но не отговори на initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Този запис декларира файл на работната област, който се генерира само при реално стартиране, със съгласие. Липсата му може да обясни този неуспех.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Този запис е изключен. IDE няма да го стартира, докато не бъде включен.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Спирането завърши.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Неуспешно спиране: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Сървърът не се инициализира: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Тест на връзката с езиковия сървър",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE не е стартирала това или не се е свързвала с него преди, или то е променено оттогава. Съгласието стартира програма на този компютър или установява връзка с този адрес.",
+    "Str.Tool.LanguageServers.Trial.Run": "Изпълнение"
   }
 }

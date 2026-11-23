@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Penangkapan Kesalahan",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Hentikan pada Semua Kesalahan",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Hentikan dalam Modul Kelas",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Hentikan pada Kesalahan yang Tidak Ditangani"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Hentikan pada Kesalahan yang Tidak Ditangani",
+    "Str.Tool.LanguageServers.Trial.Test": "Uji",
+    "Str.Tool.LanguageServers.Trial.Testing": "Menguji…",
+    "Str.Tool.LanguageServers.Trial.Result": "Hasil uji koneksi",
+    "Str.Tool.LanguageServers.Trial.Declined": "Tidak ada yang dijalankan.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Entri ini tidak dapat dimulai dari sini.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Server ini memerlukan proyek yang terbuka.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Server telah diinisialisasi.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Server tidak melaporkan nama atau versi.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Dilaporkan oleh server: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Kemampuan yang diumumkan: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Kemampuan klien yang ditolak: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Server terhubung tetapi tidak menjawab initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Entri ini mendeklarasikan berkas ruang kerja yang hanya dibuat saat benar-benar dimulai, dengan persetujuan. Ketiadaannya mungkin menjelaskan kegagalan ini.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Entri ini dinonaktifkan. IDE tidak akan memulainya hingga diaktifkan.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Penghentian selesai.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Penghentian gagal: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Server tidak diinisialisasi: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Uji koneksi server bahasa",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE belum pernah memulai atau terhubung ke ini, atau ini telah berubah sejak saat itu. Persetujuan akan memulai program di komputer ini atau menghubungkan ke alamat ini.",
+    "Str.Tool.LanguageServers.Trial.Run": "Jalankan"
   }
 }

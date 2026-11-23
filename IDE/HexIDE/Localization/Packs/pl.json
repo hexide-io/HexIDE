@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Przechwytywanie błędów",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Przerwij przy wszystkich błędach",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Przerwij w module klasy",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Przerwij przy nieobsłużonych błędach"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Przerwij przy nieobsłużonych błędach",
+    "Str.Tool.LanguageServers.Trial.Test": "Testuj",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testowanie…",
+    "Str.Tool.LanguageServers.Trial.Result": "Wynik testu połączenia",
+    "Str.Tool.LanguageServers.Trial.Declined": "Nic nie zostało uruchomione.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Tego wpisu nie można uruchomić z tego miejsca.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Ten serwer wymaga otwartego projektu.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Serwer został zainicjowany.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Serwer nie podał nazwy ani wersji.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Dane podane przez serwer: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Deklarowane możliwości: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Odrzucone możliwości klienta: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Serwer połączył się, ale nie odpowiedział na initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Ten wpis deklaruje plik obszaru roboczego, który jest tworzony za zgodą tylko podczas rzeczywistego uruchomienia. Jego brak może wyjaśniać ten błąd.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Ten wpis jest wyłączony. IDE nie uruchomi go, dopóki nie zostanie włączony.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Zatrzymanie zakończone.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Zatrzymanie nie powiodło się: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Serwer nie został zainicjowany: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Test połączenia z serwerem językowym",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE nie uruchamiało tego elementu ani nie łączyło się z nim wcześniej lub element zmienił się od tego czasu. Zgoda uruchamia program na tym komputerze lub łączy z tym adresem.",
+    "Str.Tool.LanguageServers.Trial.Run": "Uruchom"
   }
 }

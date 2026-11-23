@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "错误捕获",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "遇到所有错误时中断(_A)",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "在类模块中中断(_C)",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "遇到未处理的错误时中断(_U)"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "遇到未处理的错误时中断(_U)",
+    "Str.Tool.LanguageServers.Trial.Test": "测试",
+    "Str.Tool.LanguageServers.Trial.Testing": "正在测试…",
+    "Str.Tool.LanguageServers.Trial.Result": "连接测试结果",
+    "Str.Tool.LanguageServers.Trial.Declined": "未运行任何内容。",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "无法从此处启动此条目。",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "此服务器需要打开一个项目。",
+    "Str.Tool.LanguageServers.Trial.Initialized": "服务器已初始化。",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "服务器未报告名称或版本。",
+    "Str.Tool.LanguageServers.Trial.Identity": "服务器报告：{0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "声明的功能：{0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "被拒绝的客户端功能：{0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "服务器已连接，但未响应 initialize。",
+    "Str.Tool.LanguageServers.Trial.Artifact": "此条目声明了一个工作区文件，只有在获得同意后实际启动时才会生成。该文件缺失可能是此次失败的原因。",
+    "Str.Tool.LanguageServers.Trial.Disabled": "此条目已关闭。开启之前，IDE 不会启动它。",
+    "Str.Tool.LanguageServers.Trial.Stopped": "停止已完成。",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "停止失败：{0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "服务器未初始化：{0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "测试语言服务器连接",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE 以前未启动或连接过此条目，或者它自上次以来已更改。同意后，将在此计算机上启动程序或连接到此地址。",
+    "Str.Tool.LanguageServers.Trial.Run": "运行"
   }
 }

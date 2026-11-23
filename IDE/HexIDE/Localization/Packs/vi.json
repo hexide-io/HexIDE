@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Bẫy lỗi",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Ngắt khi có bất kỳ lỗi nào",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Ngắt trong mô-đun lớp",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Ngắt khi có lỗi chưa được xử lý"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Ngắt khi có lỗi chưa được xử lý",
+    "Str.Tool.LanguageServers.Trial.Test": "Kiểm tra",
+    "Str.Tool.LanguageServers.Trial.Testing": "Đang kiểm tra…",
+    "Str.Tool.LanguageServers.Trial.Result": "Kết quả kiểm tra kết nối",
+    "Str.Tool.LanguageServers.Trial.Declined": "Không có gì được chạy.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Không thể khởi động mục này từ đây.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Máy chủ này cần một dự án đang mở.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Máy chủ đã khởi tạo.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Máy chủ không báo tên hoặc phiên bản.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Máy chủ báo: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Các khả năng được công bố: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Các khả năng của máy khách bị từ chối: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Máy chủ đã kết nối nhưng không trả lời initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Mục này khai báo một tệp không gian làm việc chỉ được tạo khi khởi động thực sự và có sự đồng ý. Việc thiếu tệp có thể giải thích lỗi này.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Mục này đang tắt. IDE sẽ không khởi động mục này cho đến khi được bật.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Đã dừng xong.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Dừng không thành công: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Máy chủ không khởi tạo: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Kiểm tra kết nối máy chủ ngôn ngữ",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE chưa từng khởi động hoặc kết nối với mục này, hoặc mục này đã thay đổi kể từ đó. Việc đồng ý sẽ khởi động một chương trình trên máy tính này hoặc kết nối tới địa chỉ này.",
+    "Str.Tool.LanguageServers.Trial.Run": "Chạy"
   }
 }

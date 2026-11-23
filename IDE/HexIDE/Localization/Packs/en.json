@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Error Trapping",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Break on All Errors",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Break in Class Module",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Break on Unhandled Errors"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Break on Unhandled Errors",
+    "Str.Tool.LanguageServers.Trial.Test": "Test",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testing…",
+    "Str.Tool.LanguageServers.Trial.Result": "Connection test result",
+    "Str.Tool.LanguageServers.Trial.Declined": "Nothing was run.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "This entry cannot be started from here.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "This server needs an open project.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "The server initialized.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "The server reported no name or version.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Reported by the server: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Advertised capabilities: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Client capabilities declined: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "The server connected but did not answer initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "This entry declares a workspace file that only a real start generates, with consent. Its absence may explain this failure.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "This entry is switched off. The IDE will not start it until it is switched on.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Stop completed.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Stop failed: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "The server did not initialize: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Test language server connection",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "The IDE has not started or connected to this before, or it has changed since. Agreeing starts a program on this computer or connects to this address.",
+    "Str.Tool.LanguageServers.Trial.Run": "Run"
   }
 }

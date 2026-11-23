@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Captura de erros",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interromper en todos os erros",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interromper no módulo de clase",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interromper nos erros non controlados"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interromper nos erros non controlados",
+    "Str.Tool.LanguageServers.Trial.Test": "Probar",
+    "Str.Tool.LanguageServers.Trial.Testing": "Probando…",
+    "Str.Tool.LanguageServers.Trial.Result": "Resultado da proba de conexión",
+    "Str.Tool.LanguageServers.Trial.Declined": "Non se executou nada.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Esta entrada non se pode iniciar desde aquí.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Este servidor precisa un proxecto aberto.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "O servidor inicializouse.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "O servidor non indicou nome nin versión.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Indicado polo servidor: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Capacidades anunciadas: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Capacidades do cliente rexeitadas: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "O servidor conectouse pero non respondeu a initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Esta entrada declara un ficheiro do espazo de traballo que só se xera nun inicio real, con consentimento. A súa ausencia pode explicar este fallo.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Esta entrada está desactivada. O IDE non a iniciará ata que se active.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Detención completada.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Fallou a detención: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "O servidor non se inicializou: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Probar a conexión co servidor de linguaxe",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "O IDE non iniciou isto nin se conectou antes, ou cambiou desde entón. Ao aceptar, iníciase un programa neste computador ou conéctase a este enderezo.",
+    "Str.Tool.LanguageServers.Trial.Run": "Executar"
   }
 }

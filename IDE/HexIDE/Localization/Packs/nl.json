@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Fouten afvangen",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Onderbreken bij alle fouten",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Onderbreken in klassenmodule",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Onderbreken bij niet-afgehandelde fouten"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Onderbreken bij niet-afgehandelde fouten",
+    "Str.Tool.LanguageServers.Trial.Test": "Testen",
+    "Str.Tool.LanguageServers.Trial.Testing": "Bezig met testen…",
+    "Str.Tool.LanguageServers.Trial.Result": "Resultaat van verbindingstest",
+    "Str.Tool.LanguageServers.Trial.Declined": "Er is niets uitgevoerd.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Dit item kan hier niet worden gestart.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Deze server heeft een geopend project nodig.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "De server is geïnitialiseerd.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "De server heeft geen naam of versie gemeld.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Gemeld door de server: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Aangekondigde mogelijkheden: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Geweigerde clientmogelijkheden: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "De server heeft verbinding gemaakt maar heeft initialize niet beantwoord.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Dit item declareert een werkruimtebestand dat alleen bij een echte start met toestemming wordt gegenereerd. Het ontbreken ervan kan deze fout verklaren.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Dit item is uitgeschakeld. De IDE start het pas als het is ingeschakeld.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Stoppen voltooid.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Stoppen mislukt: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "De server is niet geïnitialiseerd: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Verbinding met taalserver testen",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "De IDE heeft dit nog niet gestart of er verbinding mee gemaakt, of het is sindsdien gewijzigd. Met uw toestemming wordt een programma op deze computer gestart of verbinding met dit adres gemaakt.",
+    "Str.Tool.LanguageServers.Trial.Run": "Uitvoeren"
   }
 }

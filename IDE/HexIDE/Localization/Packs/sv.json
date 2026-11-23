@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Felhantering",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Bryt vid alla fel",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Bryt i klassmodul",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Bryt vid ohanterade fel"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Bryt vid ohanterade fel",
+    "Str.Tool.LanguageServers.Trial.Test": "Testa",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testar…",
+    "Str.Tool.LanguageServers.Trial.Result": "Resultat av anslutningstest",
+    "Str.Tool.LanguageServers.Trial.Declined": "Ingenting kördes.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Den här posten kan inte startas härifrån.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Den här servern behöver ett öppet projekt.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Servern initierades.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Servern angav inget namn eller versionsnummer.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Angivet av servern: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Annonserade funktioner: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Avvisade klientfunktioner: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Servern anslöt men svarade inte på initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Den här posten anger en arbetsytefil som bara skapas vid en riktig start, med samtycke. Att den saknas kan förklara felet.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Den här posten är avstängd. IDE:n startar den inte förrän den slås på.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Stopp slutfört.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Stopp misslyckades: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Servern initierades inte: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testa anslutning till språkserver",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE:n har inte startat eller anslutit till detta tidigare, eller så har det ändrats sedan dess. Om du godkänner startas ett program på den här datorn eller en anslutning till den här adressen.",
+    "Str.Tool.LanguageServers.Trial.Run": "Kör"
   }
 }

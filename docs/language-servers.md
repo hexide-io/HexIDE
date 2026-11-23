@@ -67,6 +67,24 @@ and the remaining fields in the order below. New properties added to existing en
 own lines and documentation order. New entries use inline arrays when neighboring entries do.
 Cancel writes nothing. Test connection and automatic refresh of hand-edits are not available yet.
 
+## Testing an entry
+
+Press **Test** beside a bundled or user definition to check its current resolved entry without opening
+a document. A command the IDE has not seen, or whose arguments or environment have changed, is shown
+in full for confirmation first. **Run** agrees; Cancel, Escape and closing the dialog run nothing.
+Disabled entries can be tested too; the result explains that normal starts remain disabled.
+
+While the trial runs, its button reads **Testing…** and is disabled. The result stays beneath the row:
+reported identity, advertised and declined capabilities, or the startup steps and where they stopped.
+A connected server that never answers initialize is called out explicitly, as is a server needing an
+open project. The stop outcome is included. When the test started or reached a server, **Show its
+messages** opens the trial's separate `test:<id>` protocol capture.
+
+Nothing the server asks to do in the editor is allowed during a test: it cannot open documents,
+apply edits or ask editor questions, and it is never registered for documents. A declared workspace
+file is not written; a failure may therefore mean the server needs that file from a real start,
+which generates it with consent.
+
 ## A worked example
 
 ```jsonc

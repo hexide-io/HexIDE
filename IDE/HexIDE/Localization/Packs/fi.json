@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Virheiden sieppaus",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Keskeytä kaikissa virheissä",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Keskeytä luokkamoduulissa",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Keskeytä käsittelemättömissä virheissä"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Keskeytä käsittelemättömissä virheissä",
+    "Str.Tool.LanguageServers.Trial.Test": "Testaa",
+    "Str.Tool.LanguageServers.Trial.Testing": "Testataan…",
+    "Str.Tool.LanguageServers.Trial.Result": "Yhteystestin tulos",
+    "Str.Tool.LanguageServers.Trial.Declined": "Mitään ei suoritettu.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Tätä määritystä ei voi käynnistää tästä.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Tämä palvelin tarvitsee avoimen projektin.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Palvelin alustettiin.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Palvelin ei ilmoittanut nimeä eikä versiota.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Palvelimen ilmoittama: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Ilmoitetut ominaisuudet: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Hylätyt asiakasominaisuudet: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Palvelin yhdistettiin, mutta se ei vastannut initialize-pyyntöön.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Tämä määritys ilmoittaa työtilatiedoston, joka luodaan suostumuksella vain varsinaisen käynnistyksen yhteydessä. Sen puuttuminen voi selittää tämän virheen.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Tämä määritys on poistettu käytöstä. IDE ei käynnistä sitä ennen sen käyttöönottoa.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Pysäytys valmistui.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Pysäytys epäonnistui: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Palvelinta ei alustettu: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testaa kielipalvelimen yhteys",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "IDE ei ole aiemmin käynnistänyt tätä tai yhdistänyt tähän, tai tämä on muuttunut sen jälkeen. Hyväksyminen käynnistää ohjelman tällä tietokoneella tai muodostaa yhteyden tähän osoitteeseen.",
+    "Str.Tool.LanguageServers.Trial.Run": "Suorita"
   }
 }

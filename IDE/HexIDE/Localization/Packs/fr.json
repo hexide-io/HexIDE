@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Interception des erreurs",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Arrêt sur toutes les erreurs",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Arrêt dans le module de classe",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Arrêt sur les erreurs non gérées"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Arrêt sur les erreurs non gérées",
+    "Str.Tool.LanguageServers.Trial.Test": "Tester",
+    "Str.Tool.LanguageServers.Trial.Testing": "Test en cours…",
+    "Str.Tool.LanguageServers.Trial.Result": "Résultat du test de connexion",
+    "Str.Tool.LanguageServers.Trial.Declined": "Rien n’a été exécuté.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Cette entrée ne peut pas être démarrée ici.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Ce serveur nécessite un projet ouvert.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "Le serveur s’est initialisé.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "Le serveur n’a indiqué ni nom ni version.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Indiqué par le serveur : {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Fonctionnalités annoncées : {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Fonctionnalités client refusées : {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "Le serveur s’est connecté mais n’a pas répondu à initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Cette entrée déclare un fichier d’espace de travail que seul un démarrage réel génère, avec votre accord. Son absence peut expliquer cet échec.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Cette entrée est désactivée. L’IDE ne la démarrera pas tant qu’elle ne sera pas activée.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Arrêt terminé.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Échec de l’arrêt : {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "Le serveur ne s’est pas initialisé : {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Tester la connexion au serveur de langage",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "L’IDE n’a encore jamais démarré ceci ni ne s’y est connecté, ou cela a changé depuis. Votre accord démarre un programme sur cet ordinateur ou établit une connexion à cette adresse.",
+    "Str.Tool.LanguageServers.Trial.Run": "Exécuter"
   }
 }

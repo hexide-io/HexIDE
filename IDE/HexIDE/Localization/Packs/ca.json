@@ -1520,6 +1520,26 @@
     "Str.Options.Environment.ErrorTrapping.Header": "Captura d’errors",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interromp en tots els errors",
     "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Interromp en el mòdul de classe",
-    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interromp en els errors no gestionats"
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Interromp en els errors no gestionats",
+    "Str.Tool.LanguageServers.Trial.Test": "Prova",
+    "Str.Tool.LanguageServers.Trial.Testing": "S’està provant…",
+    "Str.Tool.LanguageServers.Trial.Result": "Resultat de la prova de connexió",
+    "Str.Tool.LanguageServers.Trial.Declined": "No s’ha executat res.",
+    "Str.Tool.LanguageServers.Trial.NotLaunchable": "Aquesta entrada no es pot iniciar des d’aquí.",
+    "Str.Tool.LanguageServers.Trial.WaitingForWorkspace": "Aquest servidor necessita un projecte obert.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "El servidor s’ha inicialitzat.",
+    "Str.Tool.LanguageServers.Trial.NoIdentity": "El servidor no ha indicat cap nom ni versió.",
+    "Str.Tool.LanguageServers.Trial.Identity": "Indicat pel servidor: {0} {1}",
+    "Str.Tool.LanguageServers.Trial.Capabilities": "Capacitats anunciades: {0}",
+    "Str.Tool.LanguageServers.Trial.DeclinedCapabilities": "Capacitats del client rebutjades: {0}",
+    "Str.Tool.LanguageServers.Trial.Silent": "El servidor s’ha connectat però no ha respost a initialize.",
+    "Str.Tool.LanguageServers.Trial.Artifact": "Aquesta entrada declara un fitxer de l’espai de treball que només es genera en un inici real, amb consentiment. La seva absència pot explicar aquest error.",
+    "Str.Tool.LanguageServers.Trial.Disabled": "Aquesta entrada està desactivada. L’IDE no la iniciarà fins que s’activi.",
+    "Str.Tool.LanguageServers.Trial.Stopped": "Aturada completada.",
+    "Str.Tool.LanguageServers.Trial.StopFailed": "Ha fallat l’aturada: {0}",
+    "Str.Tool.LanguageServers.Trial.Failed": "El servidor no s’ha inicialitzat: {0}",
+    "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Prova la connexió amb el servidor de llenguatge",
+    "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "L’IDE no ha iniciat això ni s’hi ha connectat abans, o ha canviat des d’aleshores. Si accepteu, s’inicia un programa en aquest ordinador o s’estableix una connexió amb aquesta adreça.",
+    "Str.Tool.LanguageServers.Trial.Run": "Executa"
   }
 }
