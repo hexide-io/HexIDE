@@ -81,3 +81,24 @@ clicking it would belong to whichever of those lines the click happened to map t
 #### Scenario: Toggling a bookmark on a folded header
 - **WHEN** the developer toggles a bookmark on a form's folded header
 - **THEN** no bookmark is set
+
+### Requirement: Open-window bookmarks follow statements through edits
+
+Open-window bookmarks SHALL follow their statements through edits, undo and redo, including during external
+debugging. Whole-text replacements SHALL keep stored line numbers. A header refresh SHALL shift bookmarks
+once, whether the window is open or closed.
+
+See the [measured SP6 rows](https://github.com/hexide-io/HexIDE/pull/5387/files). Other edit shapes follow
+the #1053 mark rule and remain unmeasured for bookmarks.
+
+#### Scenario: Inserting a line above a bookmarked statement
+- **WHEN** the developer inserts a line above a bookmarked statement
+- **THEN** the bookmark moves down with the statement
+
+#### Scenario: Deleting the bookmarked line
+- **WHEN** the developer deletes the entire bookmarked line
+- **THEN** the bookmark is removed
+
+#### Scenario: Joining a bookmarked statement onto the preceding line
+- **WHEN** the developer deletes from the preceding statement's start to the bookmarked statement's start
+- **THEN** the bookmark follows the surviving statement onto the joined line

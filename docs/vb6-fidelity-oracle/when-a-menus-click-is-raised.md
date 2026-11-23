@@ -45,3 +45,54 @@ being the moment, so `interact` with `expand` raises it too. A shortcut queues e
 its turn whether it, and every menu above it, is still enabled and visible. Not measured, and assumed to match: whether
 a menu between the top and the item is also asked late, and opening a menu with the mouse.
 
+
+## A menu shortcut's key events (2026-11-23, #5011, `/make`, SP6)
+
+**The question.** Does a form's or a control's KeyDown, KeyPress or KeyUp see a key that a menu's Shortcut takes, and in
+what order against the menu Clicks? #5011 needed it: on a Mac, a native menu that claims a shortcut takes the key
+before the window sees its KeyDown.
+
+**The probe.**
+- **The form:** KeyPreview True, holding Text1 (focused) and a Timer. It has one menu, Top, with two items:
+  - Alpha, shortcut Ctrl+Q;
+  - Dis, shortcut Ctrl+E, disabled at design time.
+- **The log:** every Form and Text1 KeyDown, KeyPress and KeyUp, with KeyCode, Shift or KeyAscii, and every Click.
+- **The keys:** the Timer sends one set of keys per tick with `SendKeys`.
+- **The runs:** built native and p-code with `/make`, and run in the console session of the Win10-D oracle clone. The
+  form was the foreground window with Text1 focused. Both builds logged the same lines, so one column is given.
+
+| Keys | Events, in order |
+|---|---|
+| Ctrl+Q (Alpha's shortcut) | Form KeyDown 17/2, Text1 KeyDown 17/2, **Form KeyDown 81/2, Text1 KeyDown 81/2**, Top Click, Alpha Click, Form KeyUp 81/2, Text1 KeyUp 81/2, Form KeyUp 17/0, Text1 KeyUp 17/0 |
+| Ctrl+E (Dis's shortcut, Dis disabled) | Form KeyDown 17/2, Text1 KeyDown 17/2, **Form KeyDown 69/2, Text1 KeyDown 69/2**, Top Click, **Form KeyPress 5, Text1 KeyPress 5**, Form KeyUp 69/2, Text1 KeyUp 69/2, Form KeyUp 17/0, Text1 KeyUp 17/0 |
+| Ctrl+K (no shortcut) | Form KeyDown 17/2, Text1 KeyDown 17/2, Form KeyDown 75/2, Text1 KeyDown 75/2, Form KeyPress 11, Text1 KeyPress 11, Form KeyUp 75/2, Text1 KeyUp 75/2, Form KeyUp 17/0, Text1 KeyUp 17/0 |
+| Ctrl+Q, KeyPreview set False first | Text1 KeyDown 17/2, Text1 KeyDown 81/2, Top Click, Alpha Click, Text1 KeyUp 81/2, Text1 KeyUp 17/0 |
+| Ctrl+K, KeyPreview False | Text1 KeyDown 17/2, Text1 KeyDown 75/2, Text1 KeyPress 11, Text1 KeyUp 75/2, Text1 KeyUp 17/0 |
+
+Text1 was still empty at the end.
+
+**So:**
+- **A shortcut's key still raises KeyDown, before the Clicks,** on the form when KeyPreview is on, and on the focused
+  control either way. It raises KeyUp after them. The shortcut takes only the KeyPress.
+- **When the shortcut's item doesn't run, the key goes on as a character.** With Dis disabled, Top's Click came, and then
+  KeyPress 5 (Ctrl+E's character) on the form and Text1, as for a key with no shortcut. The text box ignored the
+  character.
+
+**The obvious guess was that a shortcut hides its key from the program entirely,** since the menu takes it. It is wrong
+for KeyDown and KeyUp.
+
+**Not measured:**
+- whether a KeyDown handler that sets KeyCode to 0 stops the shortcut;
+- an item made unreachable another way: Visible False, or Top disabled or hidden. Those raise fewer Clicks (#1344's
+  table), and whether they then raise KeyPress is unknown.
+
+**In HexIDE** (a Windows Debug build of `ef65c5d96`, 2026-11-23): the same form, with the user32 call the probe used
+for its foreground check taken out and the keys pressed with `press_key`, since HexIDE has no SendKeys:
+- **Ctrl+Q:** gave both Clicks and every KeyUp, but no KeyDown 81 on the form or Text1.
+- **Ctrl+E:** gave Top's Click, but no KeyDown 69 and no KeyPress 5.
+- **Ctrl+K:** gave its KeyDowns and KeyUps, and no KeyPress 11, which #2325's measured table lists and HexIDE raises
+  only for Ctrl+A.
+
+Reading the code: the runtime matches shortcuts in the tunnel phase on the form's content and marks the key handled
+(`IDE/HexIDE.Runtime/VBLoader.cs:365-385`). The handlers that raise a control's KeyDown skip a handled key
+(`IDE/HexIDE.Runtime/BuiltinControls/TextBoxKeyEvents.cs:22-25`).

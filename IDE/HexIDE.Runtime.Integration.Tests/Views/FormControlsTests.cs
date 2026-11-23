@@ -237,6 +237,19 @@ public class FormControlsTests
 
     private static string Loop(string body = "") => "\r\ns = \"\"\r\nFor Each c In Controls\r\n" + NameOf + "\r\n" + body + "\r\nNext\r\n";
 
+    // #913, oracle PR #5217: the collection is a late-bound route to the same read-only Style.
+    [AvaloniaFact]
+    public void CommandButton_Style_through_Me_Controls_is_382_and_unchanged()
+    {
+        Printed("""
+            On Error Resume Next
+            Me.Controls("Command1").Style = 1
+            Debug.Print CStr(Err.Number)
+            Debug.Print Err.Description
+            Debug.Print CStr(Me.Controls("Command1").Style)
+            """).Should().Equal("382", "'Style' property cannot be set at run time", "0");
+    }
+
     // ── what it holds, and in what order ─────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]

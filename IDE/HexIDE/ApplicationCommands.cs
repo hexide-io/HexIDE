@@ -70,14 +70,15 @@ public class ApplicationCommands
     public static readonly RoutedCommand ListConstantsCommand = new RoutedCommand(nameof(ListConstantsCommand), new KeyGesture(Key.J, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand QuickInfoCommand = new RoutedCommand(nameof(QuickInfoCommand), new KeyGesture(Key.I, GetPlatformCommandKey()));
     public static readonly RoutedCommand ParameterInfoCommand = new RoutedCommand(nameof(ParameterInfoCommand), new KeyGesture(Key.I, GetPlatformCommandKey() | KeyModifiers.Shift));
-    public static readonly RoutedCommand CompleteWordCommand = new RoutedCommand(nameof(CompleteWordCommand), new KeyGesture(Key.Space, GetPlatformCommandKey()));
+    public static readonly RoutedCommand CompleteWordCommand = new RoutedCommand(nameof(CompleteWordCommand), GetCompleteWordKeyGesture(OperatingSystem.IsMacOS()));
     public static readonly RoutedCommand BookmarksCommand = new RoutedCommand(nameof(BookmarksCommand));
     public static readonly RoutedCommand SplitWindowCommand = new RoutedCommand(nameof(SplitWindowCommand));
     public static readonly RoutedCommand ToggleFoldCommand = new RoutedCommand(nameof(ToggleFoldCommand), GetToggleFoldKeyGestures(RuntimeInformation.IsOSPlatform(OSPlatform.OSX)));
     public static readonly RoutedCommand ToggleBookmarkCommand = new RoutedCommand(nameof(ToggleBookmarkCommand), new KeyGesture(Key.F2, GetPlatformCommandKey()));
     public static readonly RoutedCommand NextBookmarkCommand = new RoutedCommand(nameof(NextBookmarkCommand));
     public static readonly RoutedCommand PreviousBookmarkCommand = new RoutedCommand(nameof(PreviousBookmarkCommand));
-    public static readonly RoutedCommand ClearAllBookmarksCommand = new RoutedCommand(nameof(ClearAllBookmarksCommand), new KeyGesture(Key.F2, GetPlatformCommandKey() | KeyModifiers.Shift));
+    public static readonly RoutedCommand ClearAllBookmarksCommand = new RoutedCommand(nameof(ClearAllBookmarksCommand));
+    public static readonly RoutedCommand LastPositionCommand = new RoutedCommand(nameof(LastPositionCommand), new KeyGesture(Key.F2, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand CallHierarchyCommand = new RoutedCommand(nameof(CallHierarchyCommand));
     public static readonly RoutedCommand TypeHierarchyCommand = new RoutedCommand(nameof(TypeHierarchyCommand));
     public static readonly RoutedCommand RunCodeLensCommand = new RoutedCommand(nameof(RunCodeLensCommand));
@@ -154,15 +155,14 @@ public class ApplicationCommands
         return command;
     }
 
-    private static KeyModifiers GetPlatformCommandKey()
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            return KeyModifiers.Meta;
-        }
+    private static KeyModifiers GetPlatformCommandKey() =>
+        GetPlatformCommandKey(RuntimeInformation.IsOSPlatform(OSPlatform.OSX));
 
-        return KeyModifiers.Control;
-    }
+    private static KeyModifiers GetPlatformCommandKey(bool isMacOS) =>
+        isMacOS ? KeyModifiers.Meta : KeyModifiers.Control;
+
+    internal static KeyGesture GetCompleteWordKeyGesture(bool isMacOS) =>
+        new(Key.Space, isMacOS ? KeyModifiers.Control : GetPlatformCommandKey(isMacOS));
 
     internal static List<KeyGesture> GetToggleFoldKeyGestures(bool isMacOS)
     {

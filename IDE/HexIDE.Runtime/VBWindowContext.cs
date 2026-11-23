@@ -353,7 +353,10 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </summary>
     public void Shown()
     {
-        if (shownSinceLoad || instance is not { FormLoaded: true } || FormRoot.View(Window) is not { } view)
+        if (instance is not { FormLoaded: true } || FormRoot.View(Window) is not { } view)
+            return;
+        RuntimePaint.PostForm(this, includePictures: true);
+        if (shownSinceLoad)
             return;
         ShowControls();
         shownSinceLoad = true;
@@ -380,10 +383,11 @@ public class VBWindowContext : IModuleExecutionRoot
         // Mixed growth and shrinkage was not measured; keep its existing lack of Paint (#2389).
         var grew = now.Size.Width >= resizedAt.Size.Width && now.Size.Height >= resizedAt.Size.Height
             && (now.Size.Width > resizedAt.Size.Width || now.Size.Height > resizedAt.Size.Height);
+        var restored = resizedAt.State == WindowState.Minimized && now.State != WindowState.Minimized;
         resizedAt = now;
         ExecuteSub("Form_Resize");
-        if (paintGrowth && grew)
-            ExecuteSub("Form_Paint");
+        if (shownSinceLoad && (restored || grew && (paintGrowth || sizeSet)))
+            RuntimePaint.PostForm(this, includePictures: restored);
     }
 
     /// <summary>Run the form's Terminate, as the program does at its end for a form whose instance it still holds.</summary>

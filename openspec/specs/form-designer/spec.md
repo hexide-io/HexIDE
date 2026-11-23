@@ -13,12 +13,53 @@ and everything else is expressed in terms of it.
 Undoing these operations is a separate capability (`form-designer-undo-redo`); this one covers what the
 operations do.
 
-> **Known divergence.** "Copying a container SHALL copy what it holds" is not met for a control HexIDE does not
-> model: a copy is pasted without it, since its name would repeat the original's, and a container cut into another
-> form is pasted without it unless that form declares the libraries the first one did. Tracked in
-> [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
+> **Known divergence.** "Copying a container SHALL copy what it holds" is still not met when a carried
+> block declares several controls and any name is taken, or when the target form does not declare the source's
+> libraries (case 2). Tracked in [#1458](https://github.com/hexide-io/HexIDE/issues/1458).
+> A single carried control whose name is taken now gets its class's next free default name, matching the
+> [measured No answer for ImageList](../../../docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md).
+> Applying the class's last segment to other carried classes is the naming decision recorded in #1458,
+> reasoned rather than measured. The control-array question remains unimplemented for modelled and carried controls.
 
 ## Requirements
+
+### Requirement: Changing a form's BorderStyle applies the measured designer consequences
+
+A form's Properties window SHALL offer BorderStyle values 0 through 5, defaulting to 2 (Sizable).
+Changing to a different style SHALL apply the table below as one undoable edit, leaving ControlBox
+unchanged. Choosing the existing style SHALL preserve hand-set values and add no undo step.
+A VB.Form root SHALL save MinButton, MaxButton and ShowInTaskbar only when False.
+
+#### Scenario: A form changes to a different style
+
+- **WHEN** a form's BorderStyle changes in the Properties window
+- **THEN** these consequences apply, as [measured on VB6 SP6](../../../docs/vb6-fidelity-oracle/a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md) (#1596, oracle PR #5216):
+
+| BorderStyle | MinButton | MaxButton | ShowInTaskbar |
+|---|---|---|---|
+| 0 None | unchanged | unchanged | False |
+| 1 Fixed Single | False | False | True |
+| 2 Sizable | True | True | True |
+| 3 Fixed Dialog | False | False | False |
+| 4 Fixed ToolWindow | False | False | False |
+| 5 Sizable ToolWindow | False | False | False |
+
+- **AND** one undo restores BorderStyle and all three consequences to their earlier values
+- **AND** a save omits Sizable's BorderStyle line and writes other styles with their VB6 names in property order
+
+#### Scenario: A form changes from Sizable to another style and back
+
+- **WHEN** a Sizable form changes to each other style and then back to Sizable
+- **THEN** each intermediate save writes only the False consequences from the table
+- **AND** the save back at Sizable omits BorderStyle, MinButton, MaxButton and ShowInTaskbar
+- **AND** undoing a change from Sizable to Fixed Dialog also saves none of the three boolean lines
+
+#### Scenario: A form holds an explicit True
+
+- **WHEN** MinButton, MaxButton or ShowInTaskbar is True, whether loaded from a file or set by hand
+- **THEN** a save omits that property line
+
+Client-origin movement is not specified here: the oracle measured only one starting position.
 
 ### Requirement: Windowless controls draw below windowed siblings regardless of file order
 
@@ -545,9 +586,8 @@ It SHALL open the IDE file-dialog service's single-file picker and validate the 
 companion picture decoder. An accepted picture SHALL replace the property's record as one undoable designer
 change and save through the existing companion writer. Cancelling SHALL change nothing. A file the reader cannot
 read SHALL be refused with a localized message naming the file, retaining the old picture.
-This is the scoped decision in [#2653](https://github.com/hexide-io/HexIDE/issues/2653); clearing and file-type
-filters remain unchanged. Record framing is measured in
-[the serialization oracle](../../../docs/vb6-fidelity-oracle/serialization--file-format-fidelity.md).
+The picker follows the scope in [#2653](https://github.com/hexide-io/HexIDE/issues/2653).
+Record framing is measured in [the serialization oracle](../../../docs/vb6-fidelity-oracle/serialization--file-format-fidelity.md).
 
 #### Scenario: Replace a picture and undo
 - **WHEN** a picture file the decoder accepts is chosen from a picture row's ellipsis button
@@ -558,6 +598,21 @@ filters remain unchanged. Record framing is measured in
 - **WHEN** the picker is cancelled or the chosen file cannot be read as a picture
 - **THEN** the property and undo history remain unchanged
 - **AND** a refused file produces a message naming it
+
+### Requirement: Show and clear pictures in the Properties window
+The read-only value cells for Picture, Icon, DragIcon and MouseIcon SHALL show the VB6 value labels
+`(None)` for no picture, `(Bitmap)` for BMP, GIF and JPEG, `(Icon)` for ICO and `(Metafile)` for EMF.
+These labels SHALL stay the same across IDE languages. Other payloads retain their existing display.
+See the [VB6 SP6 measurement](../../../docs/vb6-fidelity-oracle/a-picture-in-the-properties-window-and-the-save-and-the-designers-caption-icon.md).
+
+#### Scenario: Delete from the picture value cell
+- **WHEN** Delete is pressed with keyboard focus in a picture row's value cell
+- **THEN** the property clears as one undoable edit and the cell reads `(None)`
+- **AND** saving the form omits the cleared picture property
+
+#### Scenario: Delete from a selected row
+- **WHEN** Delete is pressed with a picture row selected and its value cell out of focus
+- **THEN** the picture stays in place
 
 ### Requirement: Confirm picture export replacement
 The Properties window's picture export SHALL ask an explicit Yes/No question naming an existing destination
@@ -717,3 +772,47 @@ that is abandoned and let go where it began leaves its control where it was.
 
 - **WHEN** focus moves through the designer
 - **THEN** the form's minimize, maximize and close buttons never take it
+
+### Requirement: The designer caption follows the form Icon
+
+The form designer SHALL draw the form's own Icon at 16 × 16 in the caption. With no Icon line it SHALL
+use the shared neutral `form.ico`; with `(None)` it SHALL use `Geo.Form` as the generic window stand-in.
+It SHALL suppress the icon for Fixed ToolWindow, Sizable ToolWindow and ControlBox False. Icon-row
+changes, undo and redo SHALL update the caption.
+
+The designer measurements are in [the caption oracle](../../../docs/vb6-fidelity-oracle/a-picture-in-the-properties-window-and-the-save-and-the-designers-caption-icon.md).
+The stand-ins and suppression for ControlBox False across styles are product decisions in #2716.
+The smaller tool-window caption and removal of the caption for BorderStyle None are deferred frame work.
+
+#### Scenario: Loading and undoing a form icon
+
+- **GIVEN** a sizable form with no Icon line
+- **WHEN** an icon is loaded through the Icon row
+- **THEN** the caption draws that icon instead of the neutral form icon
+- **WHEN** the edit is undone
+- **THEN** the caption draws the neutral form icon again
+
+#### Scenario: A tool window has no caption icon
+
+- **GIVEN** a form with an Icon of its own
+- **WHEN** its saved BorderStyle is Fixed ToolWindow or Sizable ToolWindow, or ControlBox is False
+- **THEN** its designer caption has no icon
+
+### Requirement: CommandButton Style selects its face
+
+A CommandButton SHALL expose Style in Properties, defaulting to Standard (0). Its preview SHALL paint
+Standard with the button-face system colour regardless of stored BackColor, and Graphical (1) with
+BackColor. Changing either property SHALL refresh the preview without changing the stored BackColor.
+Saving SHALL omit Standard and write Graphical as `Style = 1  'Graphical`, after Picture and before
+TabIndex.
+
+#### Scenario: A red Standard button becomes Graphical
+
+- **GIVEN** a Standard CommandButton with BackColor `&H000000FF&`
+- **THEN** its designer face is the button-face colour
+- **WHEN** Style changes to Graphical
+- **THEN** its face is red and saving writes Style with the Graphical comment
+- **WHEN** Style changes back to Standard
+- **THEN** its face is the button-face colour and saving omits Style
+
+Authority: [#913 measurements](../../../docs/vb6-fidelity-oracle/a-commandbuttons-style-assigned-from-code-and-painted-in-the-designer.md).

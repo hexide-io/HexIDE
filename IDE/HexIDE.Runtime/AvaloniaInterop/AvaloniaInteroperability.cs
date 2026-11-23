@@ -195,6 +195,8 @@ public static class AvaloniaInteroperability
         // Shape's measured default reads and Object writes (#790, oracle PR #5194).
         Register<VBShape, ShapeTypes>(VBProperties.ShapeProperty, VBShape.ShapeTypeProperty);
 
+        Register<VBCommandButton, VBButtonStyle>(VBProperties.ButtonStyleProperty, button => button.Style,
+            (_, _) => throw TextBoxMembers.ReadOnlyAtRunTime("Style"));
         Register<VBCommandButton, bool>(VBProperties.DefaultProperty, button => button.Default, (button, value) => button.Default = value);
         Register<VBCommandButton, bool>(VBProperties.CancelProperty, button => button.Cancel, (button, value) => button.Cancel = value);
 
@@ -300,6 +302,9 @@ public static class AvaloniaInteroperability
         VBProps.RefuseIfRemoved(control);
         if (control is VBTimer && !TimerMembers.HasProperty(property.Name))
             return false;
+        // Style shares its name with other controls' properties; refuse before their conversion/checks (#913).
+        if (control is VBCommandButton && property.Name.Equals("Style", StringComparison.OrdinalIgnoreCase))
+            throw TextBoxMembers.ReadOnlyAtRunTime("Style");
         RefuseUnmeasuredColour(control, property);
         if (control is VBTimer && ControlPositions.IsPosition(property))
             throw IdentityMembers.ReadOnlyAtRunTime(property.Name);
@@ -515,8 +520,7 @@ public static class AvaloniaInteroperability
     /// &amp;H19 to &amp;H20 were each probed and refused. Every other high byte is refused here; five were probed,
     /// &amp;H03, &amp;H04, &amp;H7F, &amp;HC0 and &amp;HFF, and VB6 refused each, so the rest are inferred. A negative
     /// number that is not a system colour is refused too (`BackColor = True` is -1). The palette kinds, 0x01 (an index, 0 to
-    /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given; HexIDE has no colour that
-    /// can hold one, so they are refused as not implemented rather than stored as the RGB of their low bytes (#786).
+    /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given (#786).
     /// </summary>
     internal static long OleColor(Vb6Value value)
     {
@@ -533,9 +537,6 @@ public static class AvaloniaInteroperability
         };
         if (!valid)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
-        if ((bits >> 24) is 0x01 or 0x02)
-            throw new NotImplementedException(
-                $"A palette colour (&H{bits:X8}) is not implemented (#786)");
         return ole;
     }
 

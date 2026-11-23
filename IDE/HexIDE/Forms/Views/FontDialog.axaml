@@ -79,12 +79,10 @@
             <Label Target="{CompiledBinding #ScriptBox}" Padding="0">
                 <AccessText x:Name="ScriptCaption" Text="{DynamicResource Str.Dialog.Font.Label.Script}" />
             </Label>
-            <ComboBox x:Name="ScriptBox" PlaceholderText="{DynamicResource Str.Shell.NotImplemented}" SelectedIndex="{CompiledBinding SelectedScriptIndex}"
+            <ComboBox x:Name="ScriptBox" SelectedIndex="{CompiledBinding SelectedScriptIndex}"
                       AutomationProperties.LabeledBy="{CompiledBinding #ScriptCaption}"
                       AutomationProperties.Name="{CompiledBinding #ScriptCaption.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
-                      HorizontalAlignment="Stretch">
-                <ComboBoxItem Content="{DynamicResource Str.Dialog.Font.Script.Western}" />
-            </ComboBox>
+                      HorizontalAlignment="Stretch" />
         </StackPanel>
 
         <!-- Buttons -->
