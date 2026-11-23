@@ -25,3 +25,5 @@ not yet explained marked as unexplained, and never tidy an odd result into a rul
 
 - [The `.twinproj` container, version 1](twinproj-container-v1.md) (#5140). Its layout, what each field showed on
   BETA 1044, what an unchanged save rewrites, and what is still unexplained.
+- [A container HexIDE wrote, opened in the twinBASIC IDE](a-container-hexide-wrote.md) (#5143). HexIDE's write
+  matches the IDE's own save, the IDE reads it, and a file replaced while the IDE has it open is lost.

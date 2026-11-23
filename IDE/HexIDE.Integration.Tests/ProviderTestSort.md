@@ -101,6 +101,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ForegroundWindowLifetimeTests.cs` | split |
 | `Views/ForegroundWindowTests.cs` | split |
 | `Views/FormActivationTests.cs` | split |
+| `Views/FormBorderStyleTests.cs` | split |
 | `Views/FormEditViewModelContainerTests.cs` | split |
 | `Views/FormLayoutToolViewTests.cs` | split |
 | `Views/FormPreviewTests.cs` | split |

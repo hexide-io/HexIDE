@@ -303,7 +303,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     {
         var single = Scope is FindScope.CurrentModule or FindScope.CurrentProcedure or FindScope.SelectedText;
 
-        var here = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: single,
+        var here = FindNext(active.Document, active.CaretOffset, active.SelectionStart, active.SelectionLength, allowWrap: single,
             active.IsReadOnlyRegion);
         if (here is not null) return (active, here.Value.offset, here.Value.length);
         if (single) return null;
@@ -313,11 +313,11 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             // Entered at the end for an upward search, so the LAST match in that document is the first
             // one an Up search meets — the same order the user would see stepping through by hand.
             var from = Direction == FindDirection.Down ? 0 : other.Document.TextLength;
-            var found = FindNext(other.Document, from, 0, allowWrap: false, other.IsReadOnlyRegion);
+            var found = FindNext(other.Document, from, 0, 0, allowWrap: false, other.IsReadOnlyRegion);
             if (found is not null) return (other, found.Value.offset, found.Value.length);
         }
 
-        var wrapped = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: true,
+        var wrapped = FindNext(active.Document, active.CaretOffset, active.SelectionStart, active.SelectionLength, allowWrap: true,
             active.IsReadOnlyRegion);
         return wrapped is null ? null : (active, wrapped.Value.offset, wrapped.Value.length);
     }
@@ -522,23 +522,23 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// multi-document search is still working through the other documents — see <see cref="FindInScope"/>.
     /// </param>
     /// <param name="isReadOnly">The document's read-only regions; see <see cref="Accepts"/>.</param>
-    private (int offset, int length)? FindNext(TextDocument doc, int startOffset, int currentSelectionLength,
+    private (int offset, int length)? FindNext(TextDocument doc, int startOffset, int currentSelectionStart, int currentSelectionLength,
         bool allowWrap, Func<int, int, bool> isReadOnly)
     {
         if (SearchText.Length == 0) return null;
 
         if (UsePatternMatching)
-            return FindNextRegex(doc, startOffset, currentSelectionLength, allowWrap, isReadOnly);
+            return FindNextRegex(doc, startOffset, currentSelectionStart, currentSelectionLength, allowWrap, isReadOnly);
 
         var comparison = MatchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
         int searchStart;
         if (Direction == FindDirection.Down)
         {
-            // Start after current selection to avoid re-finding same match
+            // Resume at the selection end, regardless of which end holds the caret.
             searchStart = startOffset;
             if (currentSelectionLength > 0)
-                searchStart = Math.Min(startOffset + 1, doc.TextLength);
+                searchStart = Math.Min(currentSelectionStart + currentSelectionLength, doc.TextLength);
 
             // Search forward, skipping matches Accepts refuses
             var pos = searchStart;
@@ -591,7 +591,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         return null;
     }
 
-    private (int offset, int length)? FindNextRegex(TextDocument doc, int startOffset, int currentSelectionLength,
+    private (int offset, int length)? FindNextRegex(TextDocument doc, int startOffset, int currentSelectionStart, int currentSelectionLength,
         bool allowWrap, Func<int, int, bool> isReadOnly)
     {
         var options = MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
@@ -612,7 +612,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
 
         var text = doc.Text;
         int searchFrom = Direction == FindDirection.Down
-            ? (currentSelectionLength > 0 ? Math.Min(startOffset + 1, text.Length) : startOffset)
+            ? (currentSelectionLength > 0 ? Math.Min(currentSelectionStart + currentSelectionLength, text.Length) : startOffset)
             : 0;
 
         if (Direction == FindDirection.Down)

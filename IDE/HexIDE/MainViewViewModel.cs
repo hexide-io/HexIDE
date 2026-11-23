@@ -1878,6 +1878,7 @@ public partial class MainViewViewModel : ObservableObject
         // and Continue runs the statement again. Recorded before the dialog, as every run-time error is. A dialog closed
         // without an answer, as stop_project and shutdown_ide close it, takes Debug, which loses nothing: what VB6 does
         // then is not measured.
+        projectRunnerService.ErrorTrapping = settingsService.ErrorTrapping;
         projectRunnerService.HaltHost = async failure =>
         {
             RuntimeErrors.Record(failure.Text, failure.Location);
@@ -2164,6 +2165,8 @@ public partial class MainViewViewModel : ObservableObject
 
         settingsService.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(ISettingsService.ErrorTrapping))
+                projectRunnerService.ErrorTrapping = settingsService.ErrorTrapping;
             if (e.PropertyName == nameof(ISettingsService.LoadUnsignedAddins))
                 OnPropertyChanged(nameof(WindowTitle));
         };
@@ -2227,16 +2230,7 @@ public partial class MainViewViewModel : ObservableObject
         windowManager.MessageBox(localization.GetString("Str.Shell.NotImplemented"), null, MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
-    /// <summary>
-    /// VB6's Make Project Group builds the group's projects, through a "Build the following projects" dialog (measured,
-    /// #746). HexIDE has no build of a group yet (#1515), so it says so and writes nothing. It used to save every project
-    /// and the group, which is Save Project Group's job, under a Make label.
-    /// </summary>
-    private void MakeProjectGroup()
-    {
-        Log.Information("Make Project Group: building a project group is not implemented yet (#1515); nothing is written");
-        NYI();
-    }
+    private void MakeProjectGroup() => projectService.MakeProjectGroup().ListenErrors();
 
     private void SaveActiveForm(bool saveAs)
     {

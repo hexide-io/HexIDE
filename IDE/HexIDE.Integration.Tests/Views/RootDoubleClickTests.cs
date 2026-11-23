@@ -188,7 +188,7 @@ public class RootDoubleClickTests
     [AvaloniaTheory]
     [InlineData("(Declarations)")]
     [InlineData("Existing")]
-    public async Task Symbol_refresh_preserves_the_procedure_selection_without_moving_the_caret(string procedure)
+    public async Task Symbol_refresh_preserves_the_caret_and_its_current_procedure(string procedure)
     {
         var bus = new EventBus();
         var lsp = Substitute.For<ILspClient>();
@@ -235,8 +235,8 @@ public class RootDoubleClickTests
             editor.CaretOffset.Should().Be(caret);
             editor.Document.Text.Should().Be(before);
             editor.IsModified.Should().BeFalse();
-            editor.SelectedProcedure.Should().Be(procedure);
-            combo.SelectedItem.Should().Be(procedure);
+            editor.SelectedProcedure.Should().Be("Existing");
+            combo.SelectedItem.Should().Be("Existing");
         }
         finally { window.Close(); }
     }

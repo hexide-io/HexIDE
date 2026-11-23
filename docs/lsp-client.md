@@ -24,6 +24,11 @@ Launch-file breakpoint options and their DAP capability gating are described in 
 A pinned foreign-server download with a checksum mismatch fails an ordinary guard test even outside CI;
 the affected protocol tests skip visibly with a checksum-specific reason (#487).
 
+LSP positions use the editor's CR, LF and CRLF line boundaries. U+2028, U+2029 and U+0085
+remain within a line, and the full document text is sent unchanged. `LineSeparatorPositionTests`
+pins the editor model, outgoing definition positions and incoming prepare-rename ranges through the
+rename prompt ([#5287](https://github.com/hexide-io/HexIDE/issues/5287)).
+
 Signature help accepts parameter labels as strings or UTF-16 offset pairs into the signature label.
 The popup bolds the active parameter range without changing the signature label or its optional-parameter
 brackets ([#2632](https://github.com/hexide-io/HexIDE/issues/2632)), and uses its text for parameter documentation. String labels
@@ -739,8 +744,11 @@ Each ordinal entry name segment is percent-encoded independently, including embe
 the container's complete `file:` URI is percent-encoded as the query value. `ArchiveEntryUri`, beside
 `LspDocumentUri`, builds and parses it. Containers compare as host file paths (case-insensitively on Windows),
 while entry segments remain case-sensitive. Distinct containers never share document identity.
-An available twinBASIC text preview opens a session with its text, routed by the entry's extension, and closes it
-with the tab. Reload recreates that session and its diagnostic markers. Entries stay read-only and send
+An available twinBASIC text preview opens a session with its text and closes it with the tab. Source entries
+(`.twin` and the VB6 source extensions, ignoring case) carry the `twinbasic` language label: only servers
+claiming the extension and declaring `languageId` `twinbasic` receive them (#1122). Other entries route by
+extension. Without a matching server, no diagnostics are produced. Reload recreates that session and its
+diagnostic markers. Entries stay read-only and send
 no `didChange`; no shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
 The protocol inspector and `list_lsp_messages` record the conversation normally; pseudonymised exports redact
 both entry names and the nested container URI.

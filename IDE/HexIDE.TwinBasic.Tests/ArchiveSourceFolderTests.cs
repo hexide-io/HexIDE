@@ -4,12 +4,13 @@ using System.Text.Json;
 using HexIDE.IDE;
 using System.Text;
 using System.Text.Json.Nodes;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.TwinBasic.Tests;
 
 public sealed class ArchiveSourceFolderTests : IDisposable
 {
-    private readonly string directory = Path.Combine(Path.GetTempPath(), "hexide-folder-" + Guid.NewGuid().ToString("N"));
+    private readonly string directory = Path.Combine(ResolvedTemp.Root, "hexide-folder-" + Guid.NewGuid().ToString("N"));
     private string Source => Path.Combine(directory, "project.twinproj");
     private string Target => Path.Combine(directory, ".hexide", "project.twinproj");
     private string Manifest => Path.Combine(directory, ".hexide", ".manifests", "project.twinproj.json");
@@ -36,9 +37,7 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         {
             Identity = new HexIDE.IDE.DistributionIdentity("rdcore", "RDCore") { ProjectFolder = ".rdcore" }
         };
-        // The result names the project's directory with its links resolved, so on macOS it starts /private/var where
-        // the temporary directory starts /var. Check where it ends and that the folder is there.
-        engine.Synchronize(Source, Token).Directory.Should().EndWith(Path.Combine(".hexide", "project.twinproj"));
+        engine.Synchronize(Source, Token).Directory.Should().Be(Target);
         Directory.Exists(Target).Should().BeTrue();
         Directory.Exists(Path.Combine(directory, ".rdcore")).Should().BeFalse();
     }
@@ -51,9 +50,9 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         {
             Identity = new HexIDE.IDE.DistributionIdentity("rdcore", "RDCore") { ProjectFolder = ".rdcore" }
         };
-        // Links resolved in the result, as above.
-        engine.Synchronize(Source, Token).Directory.Should().EndWith(Path.Combine(".rdcore", "project.twinproj"));
-        Directory.Exists(Path.Combine(directory, ".rdcore", "project.twinproj")).Should().BeTrue();
+        var target = Path.Combine(directory, ".rdcore", "project.twinproj");
+        engine.Synchronize(Source, Token).Directory.Should().Be(target);
+        Directory.Exists(target).Should().BeTrue();
         File.Exists(Path.Combine(directory, ".rdcore", "project-state.json")).Should().BeTrue();
         Directory.Exists(Path.Combine(directory, ".hexide")).Should().BeFalse();
     }

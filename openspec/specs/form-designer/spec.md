@@ -20,6 +20,44 @@ operations do.
 
 ## Requirements
 
+### Requirement: Changing a form's BorderStyle applies the measured designer consequences
+
+A form's Properties window SHALL offer BorderStyle values 0 through 5, defaulting to 2 (Sizable).
+Changing to a different style SHALL apply the table below as one undoable edit, leaving ControlBox
+unchanged. Choosing the existing style SHALL preserve hand-set values and add no undo step.
+A VB.Form root SHALL save MinButton, MaxButton and ShowInTaskbar only when False.
+
+#### Scenario: A form changes to a different style
+
+- **WHEN** a form's BorderStyle changes in the Properties window
+- **THEN** these consequences apply, as [measured on VB6 SP6](../../../docs/vb6-fidelity-oracle/a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md) (#1596, oracle PR #5216):
+
+| BorderStyle | MinButton | MaxButton | ShowInTaskbar |
+|---|---|---|---|
+| 0 None | unchanged | unchanged | False |
+| 1 Fixed Single | False | False | True |
+| 2 Sizable | True | True | True |
+| 3 Fixed Dialog | False | False | False |
+| 4 Fixed ToolWindow | False | False | False |
+| 5 Sizable ToolWindow | False | False | False |
+
+- **AND** one undo restores BorderStyle and all three consequences to their earlier values
+- **AND** a save omits Sizable's BorderStyle line and writes other styles with their VB6 names in property order
+
+#### Scenario: A form changes from Sizable to another style and back
+
+- **WHEN** a Sizable form changes to each other style and then back to Sizable
+- **THEN** each intermediate save writes only the False consequences from the table
+- **AND** the save back at Sizable omits BorderStyle, MinButton, MaxButton and ShowInTaskbar
+- **AND** undoing a change from Sizable to Fixed Dialog also saves none of the three boolean lines
+
+#### Scenario: A form holds an explicit True
+
+- **WHEN** MinButton, MaxButton or ShowInTaskbar is True, whether loaded from a file or set by hand
+- **THEN** a save omits that property line
+
+Client-origin movement is not specified here: the oracle measured only one starting position.
+
 ### Requirement: Windowless controls draw below windowed siblings regardless of file order
 
 Within each container, the designer SHALL draw Label, Shape, Line and Image below windowed siblings,
@@ -624,7 +662,36 @@ or saving. Automation replies SHALL name the resulting element or plain control.
   control outside the array, Index raises 343), not measured VB6 IDE behaviour; reverse file order and
   IDE prompts remain unmeasured
 - **AND** existing event signatures and new handler stubs remain unchanged, tracked by
-  [#4205](https://github.com/hexide-io/HexIDE/issues/4205); renaming to join an array remains #1397
+  [#4205](https://github.com/hexide-io/HexIDE/issues/4205); renaming to join an array follows the requirement below
+
+### Requirement: Renaming can create or join a control array
+
+The Properties window SHALL ask before renaming an unindexed control to the name of exactly one other
+unindexed modelled control of the same type, following the [VB6 SP6 measurement](../../../docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md)
+(#1397, measuring PR #5234). The localized question SHALL name the holder and use a Warning icon,
+the product display name as title, and Yes (default) then No. HexIDE offers no Help button.
+
+#### Scenario: Accept or decline array creation
+
+- **WHEN** Command2 is renamed to Command1 and neither control has an Index
+- **THEN** the question precedes the rename
+- **AND** Yes gives the original Index 0 and the renamed control Index 1, preserving Caption, position and TabIndex
+- **AND** one Undo restores both controls; Redo reapplies the change
+- **BUT** No changes nothing and shows no further message
+
+#### Scenario: Join an existing array
+
+- **WHEN** an unindexed control is renamed to the name of an indexed array of the same type
+- **THEN** every rename route joins it without a question, at one more than the highest Index
+- **AND** the Properties window records the Index and name together for undo
+- **AND** this allocation rule is the explicit #1397 decision; VB6 was measured only for 0..1 becoming 0..2
+- **BUT** unindexed cross-type renames, preserved holders, multiple unindexed holders and unavailable Index values remain refused
+
+#### Scenario: Automation cannot confirm
+
+- **WHEN** set_control_property would create an array from two unindexed controls
+- **THEN** it refuses before mutation or save and explains in English that the caller can set the holder's
+  Index to 0 first, then rename the other control to join it
 
 ### Requirement: Assign TabIndex when adding or pasting a control
 

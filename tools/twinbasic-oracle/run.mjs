@@ -13,10 +13,17 @@
 //   add-folder      Sources > Add > Add Folder, keeping the name the IDE offers
 //   add-form        Sources > Add > Add Windows Form, keeping the name the IDE offers
 //   setting         Project Settings: "Use Project ID for type library ID" to Yes, then Apply Changes (which saves)
+//   show            no change: reports Form1.twin's [Description(...)] line as the editor holds it, then saves
+//   external        replaces the project file on disk while the IDE has it open, as an atomic save does: the file
+//                   named by TBORACLE_EXTERNAL (default C:\tbo\runs\external.twinproj) is copied beside the project
+//                   and renamed over it. Reports whether the rename was allowed and, if not, whether writing the
+//                   file in place was. Then waits 10 s, keeps a screenshot as <out>/<n>-external.png and reports
+//                   the editor's line as "show" does. It saves nothing; the step's kept file is what landed on disk
+// The two steps above measure what the IDE does with a container HexIDE wrote (#5143).
 // Only the IDE's front end is driven: tree, menus and dialogs through the DOM with real pointer clicks, text through
 // the editor's API. The compiler is launch-and-watch only.
-import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { chromium } from 'playwright-core';
 
 const port = process.env.TBORACLE_PORT ?? '9341';
@@ -45,6 +52,16 @@ async function addToSources(page, item) {
   await page.waitForTimeout(1000);
   await page.keyboard.press('Enter'); // keep the name the IDE offers in its inline box
   await page.waitForTimeout(1500);
+}
+
+// Form1.twin's [Description(...)] line, as the editor's model holds it.
+async function descriptionLine(page) {
+  await page.locator('.tabItemText', { hasText: 'Form1.twin' }).first().click();
+  await page.waitForFunction(() => monaco.editor.getEditors().some((e) => e.getModel()?.getValue().includes('[Description(')),
+    null, { timeout: 20000 });
+  return page.evaluate(() => monaco.editor.getEditors().map((e) => e.getModel())
+    .find((m) => m?.getValue().includes('[Description('))
+    .getLinesContent().find((l) => l.includes('[Description(')));
 }
 
 async function treeCommand(page, name, command) {
@@ -110,6 +127,31 @@ const changes = {
     await page.waitForTimeout(3000);
     return 'project.useProjectIdForTypeLibraryId set to Yes through Project Settings';
   },
+  async show(page) {
+    return { editor: await descriptionLine(page) };
+  },
+  async external(page) {
+    const source = process.env.TBORACLE_EXTERNAL ?? 'C:\\tbo\\runs\\external.twinproj';
+    const temp = join(dirname(project), '.external-tmp.twinproj');
+    copyFileSync(source, temp);
+    let replaced = 'renamed over the open file';
+    try {
+      renameSync(temp, project); // MoveFileExW with MOVEFILE_REPLACE_EXISTING, as File.Move(overwrite) does
+    } catch (e) {
+      replaced = `rename refused (${e.code})`;
+      rmSync(temp, { force: true });
+      try {
+        copyFileSync(source, project);
+        replaced += '; written in place';
+      } catch (e2) {
+        replaced += `; writing in place refused too (${e2.code})`;
+      }
+    }
+    await page.waitForTimeout(10000);
+    const shot = join(out, `${steps.indexOf('external') + 1}-external.png`);
+    await page.screenshot({ path: shot });
+    return { replaced, editor: await descriptionLine(page), screenshot: shot };
+  },
 };
 
 if (steps.indexOf('new') > 0) throw new Error('new can only be the first step');
@@ -130,7 +172,8 @@ try {
     const note = await changes[s](page);
     await page.waitForTimeout(1500);
     // Some changes make the IDE save on its own (Apply Changes in Project Settings). Then that save is the step's.
-    const savedBy = mtime(project) !== unchanged ? 'the IDE, during the change' : 'CTRL+S';
+    // "external" saves nothing: what it keeps is what landed on disk.
+    const savedBy = s === 'external' ? 'nobody' : mtime(project) !== unchanged ? 'the IDE, during the change' : 'CTRL+S';
     if (savedBy === 'CTRL+S') {
       await page.keyboard.press('Control+S');
       const deadline = Date.now() + 60000;

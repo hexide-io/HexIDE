@@ -62,8 +62,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // Val, CDate and Timer, and Space, DateSerial, Now, Date and Time, were measured with #1646 by what Put writes, which is
     // the static type itself: a Variant's goes with its type first, a typed value bare (Val("2") is 8 bytes of Double, and
     // Space(1) is 08 00 01 00 20).
+    // #985 (oracle PR #5186), a-typed-selector-and-a-variant-one.md, "The rest of the intrinsics, and a test for
+    // Doubles": always-typed results go here; results measured only with literals go in TypedArgumentIntrinsics.
+    // Variant arguments to the latter remain unmeasured and keep today's behaviour.
     private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
-        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CLngLng", "CLngPtr", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse", "Val", "CDate", "Timer" };
+        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CLngLng", "CLngPtr", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse", "Val", "CDate", "Timer", "CDbl", "CCur", "CBool", "Sqr", "FreeFile", "Join" };
 
     private static readonly HashSet<string> VariantIntrinsics = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -76,7 +79,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // `Abs(v)` widen, `Len("abcde")`, `Abs(n)` and `InStr("abcd5", "5")` overflow). `Int` and `Fix` of a typed Integer
     // are typed too; of a Variant they were not run.
     private static readonly HashSet<string> ArgumentTypedIntrinsics = new(StringComparer.OrdinalIgnoreCase) { "Len", "InStr", "Abs" };
-    private static readonly HashSet<string> TypedArgumentIntrinsics = new(StringComparer.OrdinalIgnoreCase) { "Int", "Fix" };
+    private static readonly HashSet<string> TypedArgumentIntrinsics = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Int", "Fix", "Rnd", "Sin", "Cos", "Tan", "Atn", "Exp", "Log", "Pmt", "FV", "NPer",
+        "IsNumeric", "IsDate", "IsEmpty", "IsNull", "IsArray", "IsObject", "IsError",
+        "AscB", "LenB", "InStrRev", "RGB", "QBColor", "VarType", "FormatNumber", "FormatPercent", "FormatDateTime",
+    };
 
     private static Vb6Value IntrinsicAsRead(string name, List<Vb6Value> args, Vb6Value result)
     {

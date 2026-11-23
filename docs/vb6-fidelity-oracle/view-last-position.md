@@ -111,3 +111,39 @@ the IDE was back in design mode. The presses were read from the toolbar's `Ln, C
 
 **Still not measured:** lines deleted above an entry; the Procedure box, Next Bookmark and the Call Stack as moves;
 whether the history survives closing and reopening the project.
+
+### The rest of the edges, and the history's lifetime (2026-11-23, #69, SP6)
+
+The items both lists above left open, apart from the Procedure box, Next Bookmark and the Call Stack. VB6.EXE 6.00.9782
+(SP6) on a clone of the oracle guest, driven on its console, with a fresh vb6.exe for each case. The module is the one
+at the top of this page, so `Foo` is on Ln 4, `Debug.Print 1` on Ln 9 and `Debug.Print 2` on Ln 13. An edit is text
+typed at the end of a line. Where each press landed was read from the Procedure box. Where the table says so, it was
+also read from a final `Q` typed and copied, or from the toolbar's `Ln, Col` in a screenshot.
+
+| Case | Presses of Ctrl+Shift+F2 |
+|---|---|
+| An edit on Ln 13, left; then text typed on Ln 4, **not left** | `Bar`, `Main`, `Bar`, ending on Ln 13 |
+| An edit on Ln 4, left; Ln 4 edited again, left; an edit on Ln 9, left; then Ctrl+Home | `Foo`, `Main`, `Foo` |
+| Edits on Ln 4, 9 and 13, then Ctrl+Home and two presses (`Bar`, `Foo`); then an edit on Ln 5, left | the third press went to Ln 5 |
+| An edit on Ln 13; then the blank Ln 7 deleted whole (Shift+Down, Delete); then Ctrl+Home | `Bar`, `Bar`, ending on Ln 13, which now reads `End Sub` |
+| An edit on Ln 13; then Ln 2 to 9 deleted, leaving six lines and an empty last line | Ln 7, Col 1, the last line, on both presses |
+| Module1 and Module2: an edit in Module2, then one in Module1; then Project > Remove Module2, answering No to saving it | Module1's Ln 4, Col 1, on both presses |
+| An edit, then File > Remove Project (No to saving), then the project reopened from the File menu's recent list | Last Position greyed out on the View menu, and a press did nothing (Ln 1, Col 1) |
+| Ten procedures, `P1` to `P10`: one edit in each of `P1` to `P8`; then, from Ln 1, Find `Print 10`; then ten presses | `(Declarations)`, `P8`, `P7` and so on to `P2`, then `(Declarations)` and `P8` again |
+
+**Readings:**
+- **An edited line becomes an entry when the caret leaves it, and a Last Position press leaving it counts.** That press
+  still goes to the entry made before it. The line it left is then the newest entry, so the next press goes there.
+- **Deleting a whole line made no entry,** as Enter at the start of a line made none in the first table.
+- **The same line edited twice in a row is one entry.**
+- **After some presses, a new entry starts the presses again from the most recent.**
+- **An entry is a line number when lines are deleted above it too.** A number past the end goes to the module's last
+  line, at column 1.
+- **A removed module's entries are gone.**
+- **The history doesn't survive closing the project.**
+- **Find's entries and edits share the eight.** `P1`'s entry was the ninth back, and it was dropped.
+
+The first attempt at the reopening case chose the project already open from the recent list, and VB6 reloaded
+nothing, so that case was run again with the project removed first.
+
+**Still not measured:** the Procedure box, Next Bookmark and the Call Stack as moves.

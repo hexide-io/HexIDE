@@ -198,7 +198,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             editor.Text.Should().Contain(file == "userform.xlsm" ? "CommandButton1_Click" : "Option Explicit");
             view.GetLogicalDescendants().OfType<TextBlock>().Should().Contain(b => b.Text == tab.Notice);
             FluentActions.Invoking(() => tab.Document.Insert(0, "bad")).Should().Throw<InvalidOperationException>();
-            await lsp.Received(1).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true);
+            await lsp.Received(1).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true, languageId: null);
             lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
                 new PublishDiagnosticsParams(tab.DocumentUri, [new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 6)), "problem", DiagnosticSeverity.Error)]));
             Dispatcher.UIThread.RunJobs();
@@ -206,7 +206,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             editor.TextArea.TextView.BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers.Should().ContainSingle();
             await archives.Reload(OfficeFile(file));
             await lsp.Received(1).CloseDocumentAsync(tab.DocumentUri);
-            await lsp.Received(2).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true);
+            await lsp.Received(2).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true, languageId: null);
             tab.Markers.Should().BeEmpty();
             await archives.Close(OfficeFile(file));
             await lsp.Received(2).CloseDocumentAsync(tab.DocumentUri);
@@ -281,7 +281,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         archives.OpenDocument(archives.Projects[0].Root.Children[0]);
         var tab = tabs.OfType<ArchiveDocumentViewModel>().Single();
         var uri = "archive-entry:/Module%20%23%201.twin?container=" + Uri.EscapeDataString(LspDocumentUri.ForFile(path));
-        await lsp.Received(1).OpenDocumentAsync(uri, "Module Main", false);
+        await lsp.Received(1).OpenDocumentAsync(uri, "Module Main", false, languageId: DocumentLanguage.TwinBasic);
         var view = new ArchiveDocumentView { DataContext = tab };
         var window = new Window { Content = view, Width = 600, Height = 400 };
         window.Show();
@@ -302,7 +302,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             Write("one.twinproj", "replacement", name: "Module # 1.twin");
             await archives.Reload(path);
             await lsp.Received(1).CloseDocumentAsync(uri);
-            await lsp.Received(1).OpenDocumentAsync(uri, "replacement", false);
+            await lsp.Received(1).OpenDocumentAsync(uri, "replacement", false, languageId: DocumentLanguage.TwinBasic);
             tab.Markers.Should().BeEmpty();
             lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
                 new PublishDiagnosticsParams(uri, [new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 3)), "new", DiagnosticSeverity.Error)]));

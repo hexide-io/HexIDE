@@ -1,7 +1,10 @@
 using System.Text.Json;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Threading;
 using HexIDE.Automation;
+using HexIDE.VisualDesigner.Views;
 
 namespace HexIDE.Integration.Tests.Automation;
 
@@ -20,6 +23,26 @@ public class KeyboardFocusTests
             moved.Should().Be(1);
             reply.Detail.Should().NotContain("moved focus");
         });
+    }
+
+    [AvaloniaFact]
+    public void Tab_moves_focus_within_the_Properties_window()
+    {
+        var properties = new PropertiesToolView();
+        var window = new Window { Content = properties, Width = 400, Height = 600 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var selector = properties.FindControl<ComboBox>("ObjectSelector")!;
+            selector.Focus().Should().BeTrue();
+
+            window.KeyPressQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+            window.KeyReleaseQwerty(PhysicalKey.Tab, RawInputModifiers.None);
+
+            properties.FindControl<TextBox>("PropertyFilter")!.IsFocused.Should().BeTrue();
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]

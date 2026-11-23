@@ -1189,6 +1189,28 @@ public sealed class UserSidecarSaveTests : IDisposable
     }
 
     [Fact]
+    public async Task ClearAllBreakpointsWritesBothProjectsSidecarsAfterTheDebounce()
+    {
+        var p = Project("P");
+        var q = Project("Q");
+        const string sidecarText = """{ "version": 3, "codeBreakpoints": { "Module1": [3] } }""";
+        File.WriteAllText(SidecarOf(p), sidecarText);
+        File.WriteAllText(SidecarOf(q), sidecarText);
+        var breakpoints = new BreakpointService();
+        var sidecar = Service(new BookmarkService(), breakpoints);
+        await sidecar.LoadAsync(p);
+        await sidecar.LoadAsync(q);
+        breakpoints.GetBreakpoints(Module1(p)).Should().Equal(4);
+        breakpoints.GetBreakpoints(Module1(q)).Should().Equal(4);
+
+        breakpoints.ClearAll();
+        await debounce.ElapseAsync(sidecar);
+
+        Read(SidecarOf(p))["codeBreakpoints"].Should().BeNull();
+        Read(SidecarOf(q))["codeBreakpoints"].Should().BeNull();
+    }
+
+    [Fact]
     public async Task AProjectClosedWhileItsSidecarIsReadGetsNoneOfIt()
     {
         // The stores outlive the project. Marks put there for a closed project would stay, and the next change to
