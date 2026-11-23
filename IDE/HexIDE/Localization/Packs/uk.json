@@ -2,6 +2,11 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Зібрати такі проєкти:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Використовувати стандартні параметри збирання",
+    "Str.Dialog.MakeProjectGroup.Build": "Зібрати",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Скасувати",
+    "Str.Dialog.MakeProjectGroup.Help": "Довідка",
     "Str.FilePicker.ReplaceExisting": "{0} уже існує. Замінити його?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} завантажено з помилками, тому його не можна зберегти поверх початкового файлу. Виберіть нове ім’я файлу.",
     "Str.ProjectLoad.PropertyNotSet": "Рядок {0}: не вдалося встановити властивість {1} у {2}.",

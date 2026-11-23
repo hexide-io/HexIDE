@@ -2,6 +2,11 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Bygg följande projekt:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Använd standardalternativ för bygge",
+    "Str.Dialog.MakeProjectGroup.Build": "Bygg",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Avbryt",
+    "Str.Dialog.MakeProjectGroup.Help": "_Hjälp",
     "Str.FilePicker.ReplaceExisting": "{0} finns redan. Vill du ersätta den?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} lästes in med fel och kan därför inte sparas över originalfilen. Välj ett nytt filnamn.",
     "Str.ProjectLoad.PropertyNotSet": "Rad {0}: egenskapen {1} i {2} kunde inte anges.",

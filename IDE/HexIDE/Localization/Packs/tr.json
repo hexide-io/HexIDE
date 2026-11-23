@@ -2,6 +2,11 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Aşağıdaki projeleri derle:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Varsayılan derleme seçeneklerini kullan",
+    "Str.Dialog.MakeProjectGroup.Build": "Derle",
+    "Str.Dialog.MakeProjectGroup.Cancel": "İptal",
+    "Str.Dialog.MakeProjectGroup.Help": "_Yardım",
     "Str.FilePicker.ReplaceExisting": "{0} zaten var. Değiştirmek istiyor musunuz?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} hatalarla yüklendiği için özgün dosyasının üzerine kaydedilemez. Yeni bir dosya adı seçin.",
     "Str.ProjectLoad.PropertyNotSet": "Satır {0}: {2} içindeki {1} özelliği ayarlanamadı.",

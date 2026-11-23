@@ -2,6 +2,11 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Kompiluj następujące projekty:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Użyj domyślnych opcji kompilacji",
+    "Str.Dialog.MakeProjectGroup.Build": "Kompiluj",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Anuluj",
+    "Str.Dialog.MakeProjectGroup.Help": "Pomo_c",
     "Str.FilePicker.ReplaceExisting": "{0} już istnieje. Czy chcesz go zastąpić?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} został wczytany z błędami, więc nie można nim nadpisać oryginalnego pliku. Wybierz nową nazwę pliku.",
     "Str.ProjectLoad.PropertyNotSet": "Wiersz {0}: nie można ustawić właściwości {1} w {2}.",

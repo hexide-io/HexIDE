@@ -2,6 +2,11 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Compila i seguenti progetti:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Usa le opzioni di compilazione predefinite",
+    "Str.Dialog.MakeProjectGroup.Build": "Compila",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Annulla",
+    "Str.Dialog.MakeProjectGroup.Help": "_Guida",
     "Str.FilePicker.ReplaceExisting": "{0} esiste già. Sostituirlo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} è stato caricato con errori e non può quindi sovrascrivere il file originale. Scegliere un nuovo nome di file.",
     "Str.ProjectLoad.PropertyNotSet": "Riga {0}: impossibile impostare la proprietà {1} in {2}.",

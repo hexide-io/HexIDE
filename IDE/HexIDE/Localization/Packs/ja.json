@@ -2,6 +2,11 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "次のプロジェクトをビルド:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "既定のビルド オプションを使用する",
+    "Str.Dialog.MakeProjectGroup.Build": "ビルド",
+    "Str.Dialog.MakeProjectGroup.Cancel": "キャンセル",
+    "Str.Dialog.MakeProjectGroup.Help": "ヘルプ(_H)",
     "Str.FilePicker.ReplaceExisting": "{0} は既に存在します。置き換えますか？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} はエラーを伴って読み込まれたため、元のファイルに上書き保存できません。新しいファイル名を選択してください。",
     "Str.ProjectLoad.PropertyNotSet": "行 {0}: {2} のプロパティ {1} を設定できませんでした。",

@@ -2,6 +2,11 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Būvēt šādus projektus:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Izmantot noklusējuma būvēšanas opcijas",
+    "Str.Dialog.MakeProjectGroup.Build": "Būvēt",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Atcelt",
+    "Str.Dialog.MakeProjectGroup.Help": "_Palīdzība",
     "Str.FilePicker.ReplaceExisting": "{0} jau pastāv. Vai vēlaties to aizstāt?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} tika ielādēts ar kļūdām, tāpēc to nevar saglabāt, pārrakstot sākotnējo failu. Izvēlieties jaunu faila nosaukumu.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. rinda: neizdevās iestatīt {2} rekvizītu {1}.",

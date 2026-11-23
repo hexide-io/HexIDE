@@ -2,6 +2,11 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Biên dịch các dự án sau:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Sử dụng tùy chọn biên dịch mặc định",
+    "Str.Dialog.MakeProjectGroup.Build": "Biên dịch",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Hủy",
+    "Str.Dialog.MakeProjectGroup.Help": "Trợ _giúp",
     "Str.FilePicker.ReplaceExisting": "{0} đã tồn tại. Bạn có muốn thay thế không?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} được tải với lỗi nên không thể lưu đè lên tệp gốc. Hãy chọn tên tệp mới.",
     "Str.ProjectLoad.PropertyNotSet": "Dòng {0}: không thể đặt thuộc tính {1} trong {2}.",

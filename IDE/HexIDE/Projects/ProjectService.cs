@@ -1896,7 +1896,32 @@ public partial class ProjectService : IProjectService
         await windowManager.ShowDialog(vm);
     }
 
-    public async Task MakeProject(ProjectDefinition projectDefinition)
+    public async Task MakeProjectGroup()
+    {
+        var dialog = new MakeProjectGroupViewModel(projectManager.LoadedProjects);
+        if (!await windowManager.ShowDialog(dialog))
+            return;
+
+        foreach (var item in dialog.Projects.Where(dialog.SelectedProjects.Contains))
+        {
+            var project = item.Project;
+            var directory = string.IsNullOrEmpty(project.AbsolutePath) ? null : Path.GetDirectoryName(project.AbsolutePath);
+            // VB6's unsaved-project case is unmeasured; keep HexIDE's picker when there is no project folder.
+            var exePath = dialog.UseDefaultBuildOptions && directory is not null
+                ? ProjectOutputPath.OutputExePath(project) : null;
+            try
+            {
+                await MakeProject(project, exePath, directory);
+            }
+            catch (Exception)
+            {
+                // Make already reports a failure or refusal. Cancel and failure both end the group build.
+                return;
+            }
+        }
+    }
+
+    public async Task MakeProject(ProjectDefinition projectDefinition, string? exePath = null, string? startIn = null)
     {
         // Begun before the first await, so an automation caller that ran the menu command knows a Make started (#2671).
         var make = MakeOutcomes.Begin();
@@ -1905,7 +1930,7 @@ public partial class ProjectService : IProjectService
             // The warning every other save shows. The refusal is an OperationCanceledException, so it then leaves
             // through the cancellation arm below. A form or the project file used to reach the fatal-error box
             // instead, with .NET's message in place of the document and the code page.
-            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition, make), refusing: make.NotMade);
+            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition, make, exePath, startIn), refusing: make.NotMade);
         }
         catch (OperationCanceledException)
         {
@@ -1921,7 +1946,7 @@ public partial class ProjectService : IProjectService
         }
     }
 
-    private async Task MakeProjectInternal(ProjectDefinition projectDefinition, MakeOutcomes.Make make)
+    private async Task MakeProjectInternal(ProjectDefinition projectDefinition, MakeOutcomes.Make make, string? exePath, string? startIn)
     {
         // Make writes the project's own file into the package, which for a project an add-in read would be a .vbp
         // in place of the file the add-in owns.
@@ -1971,13 +1996,16 @@ public partial class ProjectService : IProjectService
             new Destination(projectDefinition, Path.Join(tempPath, projectDefinition.Name + ".vbp"))
         ]);
 
-        make.Reached(MakeOutcomes.Stage.AtPicker);
-        var exePath = await ChooseSavePath(new FilePickerSaveOptions()
+        if (exePath is null)
         {
-            DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
-            SuggestedFileName = projectDefinition.Name + (OperatingSystem.IsWindows() ? ".exe" : ""),
-            FileTypeChoices = OperatingSystem.IsWindows() ? [new("Windows EXE") { Patterns = ["*.exe"] }] : [new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
-        }, make: make);
+            make.Reached(MakeOutcomes.Stage.AtPicker);
+            exePath = await ChooseSavePath(new FilePickerSaveOptions()
+            {
+                DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
+                SuggestedFileName = projectDefinition.Name + (OperatingSystem.IsWindows() ? ".exe" : ""),
+                FileTypeChoices = OperatingSystem.IsWindows() ? [new("Windows EXE") { Patterns = ["*.exe"] }] : [new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
+            }, directory: startIn, make: make);
+        }
 
         if (exePath == null)
             throw new OperationCanceledException();

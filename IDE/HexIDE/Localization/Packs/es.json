@@ -2,6 +2,11 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Compilar los siguientes proyectos:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Usar las opciones de compilación predeterminadas",
+    "Str.Dialog.MakeProjectGroup.Build": "Compilar",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Cancelar",
+    "Str.Dialog.MakeProjectGroup.Help": "A_yuda",
     "Str.FilePicker.ReplaceExisting": "{0} ya existe. ¿Desea reemplazarlo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} se cargó con errores, por lo que no puede guardarse sobre su archivo original. Elija un nuevo nombre de archivo.",
     "Str.ProjectLoad.PropertyNotSet": "Línea {0}: no se pudo establecer la propiedad {1} en {2}.",
