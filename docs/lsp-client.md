@@ -86,6 +86,7 @@ the production formatter and source-generated context to guard absence and prese
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
 | Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `inlineValue`, `semanticTokens/full`, `selectionRange`, `prepareCallHierarchy`, `prepareTypeHierarchy` |
+| Completion resolve | `completionItem/resolve` |
 | Actions | `codeLens/resolve`, `codeAction/resolve`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`, `typeHierarchy/subtypes`, `typeHierarchy/supertypes`, `workspace/executeCommand` — see *Commands and lenses* |
 | Workspace | `workspace/symbol`, `didChangeWorkspaceFolders`, `didChangeConfiguration`, `didCreateFiles`, `didRenameFiles`, `didDeleteFiles` |
 | Protocol | `$/setTrace`, `$/cancelRequest` |
@@ -94,7 +95,8 @@ the production formatter and source-generated context to guard absence and prese
 Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
 `documentationFormat: ["plaintext"]`, `snippetSupport: true`, `insertReplaceSupport: true`,
 `insertTextModeSupport` with modes 1 and 2, and default `insertTextMode: 1` (`asIs`). List item defaults advertise only `insertTextMode`.
-Resolve, commit characters, context and other list item defaults are not advertised.
+Completion resolve advertises `resolveSupport.properties: ["documentation", "detail"]`. Commit
+characters, context and other list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
 while the displayed label and insertion fallback remain the label. The full list stays visible. Matching
@@ -113,6 +115,13 @@ match immediately (#3056). Descriptions show detail alongside string or MarkupCo
 rendered as plain text (including markdown
 source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
 glyphs; kinds without a counterpart have none.
+
+Selecting an item sends `completionItem/resolve` only to the server that supplied it, and only when
+that server advertises `completionProvider.resolveProvider: true`. The request preserves the item's
+opaque `data`. Only returned detail and documentation update the tooltip. Each item is requested at
+most once per list. Moving the selection or closing the list cancels the pending request, and accepting
+an item uses the insertion supplied in the list without waiting for resolve ([#5445](https://github.com/hexide-io/HexIDE/issues/5445)).
+
 The VB code editor suppresses completion in comments and string literals, independently of the server
 (#3577). It also dismisses an existing list before accepting a key there and checks late replies against
 the current caret context. A caret immediately after `Rem` remains in code until a following delimiter
@@ -1903,7 +1912,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 65 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 66 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -2033,11 +2042,11 @@ than inferred.
 | ○ | `notebookDocument/didOpen` | → |  |
 | ○ | `notebookDocument/didSave` | → |  |
 
-### `completionItem/*` — 0 of 1
+### `completionItem/*` — 1 of 1
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `completionItem/resolve` | → |  |
+| ✅ | `completionItem/resolve` | → | Selected item, routed to its server for detail and documentation |
 
 ### `codeAction/*` — 1 of 1
 

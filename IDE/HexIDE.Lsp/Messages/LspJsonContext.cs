@@ -71,6 +71,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(CompletionParams))]
 [JsonSerializable(typeof(CompletionList))]
 [JsonSerializable(typeof(CompletionItem[]))]
+[JsonSerializable(typeof(CompletionItem))]
+[JsonSerializable(typeof(CompletionItemResolveSupport))]
 [JsonSerializable(typeof(SignatureHelpParams))]
 [JsonSerializable(typeof(SignatureHelp))]
 [JsonSerializable(typeof(SignatureInformation[]))]

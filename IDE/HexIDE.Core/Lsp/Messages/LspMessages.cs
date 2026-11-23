@@ -343,7 +343,14 @@ public record CompletionItemClientCapabilities(
     [property: JsonPropertyName("insertReplaceSupport")] bool InsertReplaceSupport = true,
     [property: JsonPropertyName("snippetSupport")] bool SnippetSupport = true,
     [property: JsonPropertyName("insertTextModeSupport")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InsertTextModeClientCapabilities? InsertTextModeSupport = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InsertTextModeClientCapabilities? InsertTextModeSupport = null)
+{
+    [JsonPropertyName("resolveSupport")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CompletionItemResolveSupport? ResolveSupport { get; init; }
+}
+
+public record CompletionItemResolveSupport([property: JsonPropertyName("properties")] string[] Properties);
 
 public record InsertTextModeClientCapabilities([property: JsonPropertyName("valueSet")] int[] ValueSet);
 public record CompletionListClientCapabilities([property: JsonPropertyName("itemDefaults")] string[] ItemDefaults);
@@ -708,6 +715,13 @@ public record ServerCapabilities(
             c.ValueKind == System.Text.Json.JsonValueKind.String
             && string.Equals(c.GetString(), command, StringComparison.Ordinal));
 
+    public static bool ResolvesCompletionItems(JsonElement? capabilities) =>
+        capabilities is { ValueKind: JsonValueKind.Object } caps
+        && caps.TryGetProperty("completionProvider", out var provider)
+        && provider.ValueKind == JsonValueKind.Object
+        && provider.TryGetProperty("resolveProvider", out var resolve)
+        && resolve.ValueKind == JsonValueKind.True;
+
     /// <summary>
     /// True when the server asks to be called back for <c>codeLens/resolve</c>.
     /// </summary>
@@ -928,7 +942,13 @@ public record CompletionItem(
     [property: JsonPropertyName("documentation"), JsonConverter(typeof(CompletionDocumentationConverter))]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MarkupContent? Documentation = null,
     [property: JsonPropertyName("insertTextMode")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextMode = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextMode = null)
+{
+    [JsonPropertyName("data")]
+    [JsonConverter(typeof(DiagnosticDataConverter))]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Data { get; init; }
+}
 
 public record CompletionTextEdit(
     [property: JsonPropertyName("newText")] string NewText,
