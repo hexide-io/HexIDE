@@ -1,5 +1,5 @@
 using System.IO;
-using HexIDE.Runtime.Serialization;
+using HexIDE.Language;
 
 namespace HexIDE.Tests.Serialization;
 

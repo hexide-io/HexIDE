@@ -118,7 +118,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/LockControlsSaveTests.cs` | split |
 | `Views/MarkGutterOnReadOnlyLineTests.cs` | split |
 | `Views/MemberRunFoldTests.cs` | split |
-| `Views/MemberRunFollowsItsLineTests.cs` | split |
 | `Views/MenuMembersTests.cs` | split |
 | `Views/MessageBoxAcrossRestartTests.cs` | split |
 | `Views/MinesweeperFormsDemoTests.cs` | split |

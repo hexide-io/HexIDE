@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using HexIDE.Language;
 
-namespace HexIDE.Runtime.Serialization;
+namespace HexIDE.Language;
 
 /// <summary>
 /// A run of <c>Attribute</c> lines below a file's header, and the line above it that it may describe

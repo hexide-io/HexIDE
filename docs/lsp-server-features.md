@@ -109,7 +109,7 @@ attributes to the procedure above whatever they name, binds a `VB_Var…` line b
 every procedure renamed by retyping lost its run's protection.
 
 **The rule is the IDE's, ported rather than shared.** The IDE's copy is `ReadOnlyRegions`
-(`IDE/HexIDE.Runtime/Serialization/ReadOnlyRegions.cs`), and the two halves of the repository do not
+(`IDE/HexIDE.Core/Language/ReadOnlyRegions.cs`), and the two halves of the repository do not
 reference each other, for the same reasons the two grammar copies are separate; the server only ever has
 text, so it carries that file's text-only branch. **One file is the exception, and it is shared, not ported**:
 the directive scanner (`IDE/HexIDE.Core/Language/ConditionalCompilation.cs`), which the server compiles by a
