@@ -191,6 +191,10 @@ internal static class ControlMembers
         var control = (Control)variable.Value!;
         var throughObject = variable.HeldAsVariant || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
         if (control is VBCommonDialog dialog && dialog.TrySetProperty(memberIdentifier, value, throughObject)) return true;
+        // FlatScrollBar's typed stores report Null differently through Object (#1097, oracle PR #5507).
+        if (control is VBFlatScrollBar && throughObject && value.IsNull
+            && memberIdentifier.ToLowerInvariant() is "value" or "_value" or "[_value]" or "min" or "max" or "smallchange" or "largechange" or "enabled")
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (control is ICSharpPropertyBag bag && bag.TrySetProperty(memberIdentifier, value)) return true;
         VBProps.RefuseIfRemoved(control);
         if (ListMembers.IsList(control) && args is not null)
