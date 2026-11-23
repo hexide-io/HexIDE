@@ -1717,8 +1717,8 @@ the assigned whole twips when the rounded size reaches the floor (#4071, oracle 
 Assigning either dimension SHALL enforce both dimensions on those controls; loaded zero sizes SHALL remain
 unchanged until assignment. Negative CommandButton, Label or form Width or Height assignments SHALL raise 380, "Invalid property value",
 without changing the size; Move with a negative size SHALL raise 5 before changing any position or size.
-Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
-font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383.
+Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped except for the measured Simple Combo rule below. TextBox and CommandButton floors SHALL use only the recorded
+font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383 except for the measured Simple Combo rule below.
 The form's desktop-dependent floor and the absent DriveListBox, DirListBox, FileListBox and Data runtime controls
 remain outside this implementation.
 
@@ -1748,8 +1748,43 @@ remain outside this implementation.
 - **WHEN** Width 7 and Height 7 are assigned to a CheckBox or OptionButton, a ListBox, either scroll bar,
   or a Frame, PictureBox, Image, Shape or Label
 - **THEN** their sizes read 75 × 195, 135 × 255, 30 × 30, or 15 × 15 respectively
-- **WHEN** a ComboBox is assigned Width 7 or Height 7
+- **WHEN** a Dropdown Combo or Dropdown List is assigned Width 7 or Height 7
 - **THEN** its Width reads 390, and the Height assignment raises 383
+
+### Requirement: Simple Combo Height uses measured font metrics
+
+A Simple Combo SHALL use only the seven plain font/size metrics measured at 96 dpi in
+[the #1655 oracle](../../../docs/vb6-fidelity-oracle/a-simple-combos-height-by-font.md) to snap loaded and
+assigned Height. Its edit box and list rows SHALL use the recorded heights; its list SHALL hide when no row fits.
+The next designer save SHALL write the snapped Height. Other fonts, bold/italic faces and dropdown styles
+SHALL retain existing behaviour, without inferring metrics for another dpi.
+
+#### Scenario: Snapping a loaded Simple Combo
+
+- **WHEN** a Simple Combo in one of the seven measured fonts, with normal weight and no italic face, loads Height H
+- **THEN** in pixels, with recorded edit height E and row height R, `n = floor((H - E - 4) / R)` and Height is E
+  when n is zero or less, otherwise `E + 4 + R * n`
+- **AND** the runtime and designer use the same rule; applying it in the designer to all seven fonts is the decision
+  recorded in #1655, whose designer measurement covers MS Sans Serif 8.25
+
+#### Scenario: Assigning a Height in a measured font
+
+- **WHEN** a runtime Height assignment is at least `E + 4 + R` pixels
+- **THEN** it snaps by the load rule without error
+- **WHEN** an assignment is below E
+- **THEN** Height remains unchanged without error
+- **WHEN** an assignment is in the unmeasured interval from E to one row
+- **THEN** it retains error 383
+
+#### Scenario: Loading and saving a default Simple Combo
+
+- **WHEN** a Simple Combo in MS Sans Serif 8.25 is loaded with saved Height 1500 twips
+- **THEN** its designer and runtime Height read 1350, and the next designer save writes Height 1350
+
+#### Scenario: Assigning a measured Height
+
+- **WHEN** a Simple Combo in Arial 12 receives Height 1500, then Height 300, then Height 0
+- **THEN** its Height reads 1260 after each assignment, without error
 
 ### Requirement: Object array stores SHALL distinguish declarations from Variant values
 A Function returning Object(), Collection() or a project class array SHALL accept an array of objects through a

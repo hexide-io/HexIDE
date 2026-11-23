@@ -2,6 +2,11 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Zgradi naslednje projekte:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Uporabi privzete možnosti gradnje",
+    "Str.Dialog.MakeProjectGroup.Build": "Zgradi",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Prekliči",
+    "Str.Dialog.MakeProjectGroup.Help": "_Pomoč",
     "Str.FilePicker.ReplaceExisting": "{0} že obstaja. Ali ga želite zamenjati?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je bil naložen z napakami, zato ne more prepisati izvirne datoteke. Izberite novo ime datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Vrstica {0}: lastnosti {1} v {2} ni bilo mogoče nastaviti.",
@@ -1489,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Neveljavno ime lokalnega stanja projekta v '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Najdenih je več mest lokalnega stanja projekta. Vsako lahko vsebuje drugačno shranjeno stanje. Nič ne bo zapisano, dokler ne izberete enega za to sejo. Vnesite njegovo številko ali prekličite:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} je povezava ali stičišče ali pa ni več tam, kjer je bilo najdeno, zato se iz njega nič ne bere in vanj nič ne zapisuje.",
+    "Str.Dialog.SharedFile.MultipleModified": "Spremenjenih je več kopij datoteke v skupni rabi '{0}'.  V naslednjem pogovornem oknu izberite kopijo, ki jo želite shraniti.",
+    "Str.Dialog.SharedFile.Update": "Ali želite posodobiti {0} v projektih, ki si jo delijo s projektom {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Posodobitev {0} v projektu {1} bo zavrgla neshranjene spremembe tega projekta. Ali želite nadaljevati?",
+    "Str.Dialog.SharedFile.DiskChanged": "Datoteka '{0}' se je na disku spremenila, odkar je bila kopija projekta {1} naložena ali shranjena. Ali jo želite prepisati?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Zaznamki, prekinitvene točke in druge uporabniške nastavitve za {0} v tej seji ne bodo naloženi niti shranjeni.\n\n{1}"
   }
 }

@@ -256,16 +256,14 @@ public class RuntimeMenuTests : WindowTestFixture
         // VB6 marks a menu's access key with an ampersand: "&File" is drawn as File with the F underlined,
         // and Alt+F opens it. Until the header went through the access-text template, every menu on every
         // running form read "&File" with the ampersand printed.
-        //
-        // The underline itself follows the Windows convention rather than being painted permanently — it
-        // appears once access keys are being shown, which is what pressing Alt does. That is what VB6 does
-        // on a modern Windows too, since both defer to the same system setting.
+        // HexIDE's runtime menu follows Alt. VB6's menu bar with keyboard cues off is unmeasured (#919).
         var access = file.GetVisualDescendants().OfType<AccessText>().FirstOrDefault();
         access.Should().NotBeNull("the caption must render through AccessText for Alt to reach it");
 
         // "_File" is AccessText's marker form: it draws "File" and underlines the F. What matters is that no
         // ampersand survives into what is drawn, and that the letter after the marker is the access key.
-        access!.Text.Should().Be("_File");
+        access!.ShowAccessKey.Should().BeFalse();
+        access.Text.Should().Be("_File");
         access.Text.Should().NotContain("&", "an ampersand in a VB6 caption marks a key, it is not printed");
     }
 

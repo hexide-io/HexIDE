@@ -294,8 +294,10 @@ to stop flicker.
 
 **`textDocument/documentSymbol`**
 
-Drives the two combo boxes at the top of the code editor, matching classic VB6 behaviour: the left lists
-form controls plus `(General)`, the right is context-sensitive. Selecting a missing event stub generates it.
+Drives the two combo boxes at the top of the code editor: the left lists form controls plus `(General)`,
+the right is context-sensitive. Both follow the caret, including blank lines and comments before a procedure,
+as [measured in VB6](vb6-fidelity-oracle/the-object-and-procedure-boxes-follow-the-caret.md) (#936).
+Selecting a missing event stub generates it.
 
 Extracts `Sub`, `Function`, `Property Get/Let/Set` (with accessor label), `Enum` and `Type`.
 

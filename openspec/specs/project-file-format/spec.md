@@ -8,7 +8,54 @@ interpreter and the run-time forms engine can move out to an optional provider (
 implementation stand behind any of them. Which parts move is decided on #3411, not here. An add-in's own project type is
 specified in `contributed-projects`, and what the code window does with read-only text in `code-editor`.
 
+The #2756 shared-file save questions are measured in [the shared-file oracle](../../../docs/vb6-fidelity-oracle/a-file-shared-by-two-projects-of-a-group.md)
+and [the multiple-copy save oracle](../../../docs/vb6-fidelity-oracle/a-module-shared-by-two-projects-in-a-group.md).
+
 ## Requirements
+
+### Requirement: Shared member saves SHALL preserve each project's copy
+Loaded forms and modules naming the same normalized host path SHALL retain separate project copies. A save batch
+containing several copies SHALL write only its one modified copy, write none if unchanged, and require a choice when
+several are modified. The choice SHALL label each copy with its file and project. Cancel SHALL leave that shared file
+untouched while the rest of the save continues (#2756, round 1).
+
+#### Scenario: One edited copy in a group save
+- **WHEN** only one of the selected copies has changes
+- **THEN** its content alone is written
+- **AND** the IDE asks whether to update the other projects' copies from the saved file
+- **AND** No leaves their text and their own baselines unchanged
+
+#### Scenario: Both copies are edited
+- **WHEN** a group save selects two modified copies of one file
+- **THEN** the IDE warns and shows a save list with project-qualified names
+- **AND** selecting both warns again without writing that file
+- **AND** choosing one writes only that copy, followed by the update question
+
+### Requirement: Shared copy overwrites and updates SHALL guard against lost edits
+HexIDE deliberately exceeds VB6's protection: it SHALL require consent before overwriting disk content changed since
+that copy was loaded or saved, and before an update discards another copy's unsaved changes. Each copy SHALL retain its
+own disk and render baselines after No to an update. A close or reload SHALL be cancelled if a selected shared copy
+remains unsaved after saving (#2756).
+
+#### Scenario: A stale copy or unsaved update target
+- **WHEN** a shared copy's disk baseline differs from the file before a save
+- **THEN** No to the overwrite guard preserves the file and the unsaved copy
+- **WHEN** Yes to the update question would replace another project's unsaved changes
+- **THEN** a separate confirmation names that project before its model and open views are reloaded
+
+#### Scenario: A selected shared copy remains unsaved during closing
+- **WHEN** the developer declines a shared overwrite, cancels the copy choice, or keeps another selected copy's edits
+- **THEN** other selected files can finish saving, but the close or reload is cancelled
+- **AND** the group keeps its name, project order and startup project, with unsaved copies still loaded
+
+### Requirement: Unattended shared saves SHALL refuse when consent is needed
+An unattended save SHALL refuse before writing a shared file that needs a question, with an English reason for its
+program caller (#2756).
+
+#### Scenario: A shared copy saved without a person
+- **WHEN** an unattended save would require a copy choice, overwrite confirmation or update question
+- **THEN** no question is shown and no shared file is written
+- **AND** the caller receives a refusal naming the reason
 
 ### Requirement: Save pickers SHALL ask explicitly before replacement
 The IDE SHALL ask its own localized Yes/No replacement question, with No the default, after a form, module, project,

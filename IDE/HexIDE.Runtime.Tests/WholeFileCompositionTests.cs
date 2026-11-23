@@ -113,7 +113,7 @@ public class WholeFileCompositionTests
     public void TheDesignerHalfEndsAtTheRootEndAndTheBodyBeginsAtTheAttributeRun()
     {
         // The boundary the whole phase turns on, asserted rather than assumed. Ground truth is
-        // corpus/designer/Gauge.ctl, whose root End is line 9 and whose Attribute VB_Name is line 10.
+        // corpus/designer/Gauge.ctl, whose root End is line 17 and whose Attribute VB_Name is line 18.
         var form = Load(Crlf);
 
         form.DesignerText.Should().EndWith("End\r\n");

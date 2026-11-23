@@ -2,6 +2,11 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Build the following projects:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Use Default Build Options",
+    "Str.Dialog.MakeProjectGroup.Build": "Build",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Cancel",
+    "Str.Dialog.MakeProjectGroup.Help": "_Help",
     "Str.FilePicker.ReplaceExisting": "{0} already exists. Do you want to replace it?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} loaded with errors, so it can't be saved over its original file. Choose a new file name.",
     "Str.ProjectLoad.PropertyNotSet": "Line {0}: Property {1} in {2} could not be set.",
@@ -1489,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Invalid project-local state name in '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Multiple project-local state locations were found. Each may contain different saved state. Nothing will be written until you choose one for this session. Enter its number, or cancel:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.",
+    "Str.Dialog.SharedFile.MultipleModified": "Multiple copies of the shared file '{0}' have been modified.  In the following dialog, select the copy that should be saved.",
+    "Str.Dialog.SharedFile.Update": "Would you like to update {0} in project(s) which share it with {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Updating {0} in project {1} will discard that project's unsaved changes. Would you like to continue?",
+    "Str.Dialog.SharedFile.DiskChanged": "The file '{0}' has changed on disk since project {1}'s copy was loaded or saved. Would you like to overwrite it?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Bookmarks, breakpoints and other per-user settings for {0} won't be loaded or saved in this session.\n\n{1}"
   }
 }

@@ -210,6 +210,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 Debugging.DebugInspector.NodeFor(expr, result, interpreter.ExecutionContext))
             {
                 ChangeKey = ChangeKeyOf(result),
+                BreaksWhenTrue = Debugging.DebugInspector.BreaksWhenTrue(result),
             };
         }
         catch (Debugging.ImmediateEvalException ex) { return EvalErr(expr, ex.Message); }
@@ -2473,6 +2474,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             upDown.TrySetProperty("Value", value);
             return true;
         }
+        if (ControlMembers.DefaultMember(oldLet) is { } defaultMember
+            && (oldLet.Value is not VBShape || string.Equals(letView, "Object", StringComparison.OrdinalIgnoreCase))
+            && ControlMembers.TryWrite(oldLet, defaultMember, null, value))
+            return true;
         RefuseLetIntoObject(oldLet, identifier, context, letView);
         return false;
     }
@@ -2637,8 +2642,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             value = await interpreter.ResolveDefaultMember(value, callerFrames: stmtFrames);
             // Returned controls and Container follow the measured Let-value reads (#4520).
-            if (value.Value is VBTextBox)
-                value = await ControlMembers.Read(value, "Text", null);
+            if (ControlMembers.DefaultMember(value) is { } defaultMember)
+                value = await ControlMembers.Read(value, defaultMember, null);
             if (value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } formValue
                 && !formValue.ClassDef.PrePass.DeclaresDefaultMember)
                 throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
@@ -2657,7 +2662,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         // A control on the right of a Let stands for its default member in VB6: `s = Text1` reads Text1.Text,
         // `v = Command1` reads its Value, `n = Check1` its Value (all measured). TextBox is resolved above (#4520),
-        // and Slider below (#1091); other intrinsic control defaults still refuse (#790). Storing the reference gave
+        // and the other measured intrinsic defaults are resolved above (#790); Slider remains below (#1091). Storing the reference gave
         // a wrong value: a String took the .NET type name, a Variant kept the control. A Let never stores a
         // reference in VB6, even into an object variable, where it assigns that object's default member. Set, For
         // Each and argument passing do not come here. The in-box objects (Err, App, Debug, a control array) were
@@ -4073,14 +4078,31 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // A test that raises under Resume Next runs its own Case's body, and nothing after it is tested: the next
                 // statement is the first in that body (measured, #839, native and p-code alike).
                 bool matched;
-                try
+                while (true)
                 {
-                    matched = await CaseTestMatches(subCond, value);
-                }
-                catch (VBRunTimeException ex) when (ResumesNext)
-                {
-                    CaptureError(ex);
-                    matched = true;
+                    try
+                    {
+                        matched = await CaseTestMatches(subCond, value);
+                        break;
+                    }
+                    catch (Exception ex) when (condExpr.sC_CondExpr().Length == 1 && ErrorLocation.Note(ex, currentModule.Name, @case.Start.Line))
+                    {
+                        throw;
+                    }
+                    catch (VBRunTimeException ex) when (ResumesNext)
+                    {
+                        CaptureError(ex);
+                        matched = true;
+                        break;
+                    }
+                    // Single-test Cases retry alone (#1079, measured). List granularity is unmeasured;
+                    // retain its whole-statement retry until measured, rather than choosing a new rule.
+                    catch (VBRunTimeException ex) when (condExpr.sC_CondExpr().Length == 1 && HaltsHere(ex))
+                    {
+                        _suspendedAtTopLevel = false;
+                        if (!await Halt(ex, @case.Start.Line))
+                            throw;
+                    }
                 }
                 if (matched)
                     return await RunCaseBody(@case);

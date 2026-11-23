@@ -2,6 +2,11 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Būvēt šādus projektus:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Izmantot noklusējuma būvēšanas opcijas",
+    "Str.Dialog.MakeProjectGroup.Build": "Būvēt",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Atcelt",
+    "Str.Dialog.MakeProjectGroup.Help": "_Palīdzība",
     "Str.FilePicker.ReplaceExisting": "{0} jau pastāv. Vai vēlaties to aizstāt?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} tika ielādēts ar kļūdām, tāpēc to nevar saglabāt, pārrakstot sākotnējo failu. Izvēlieties jaunu faila nosaukumu.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. rinda: neizdevās iestatīt {2} rekvizītu {1}.",
@@ -1489,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nederīgs projekta lokālā stāvokļa nosaukums laukā '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Atrastas vairākas projekta lokālā stāvokļa atrašanās vietas. Katrā var būt atšķirīgs saglabātais stāvoklis. Nekas netiks rakstīts, līdz izvēlēsieties vienu šai sesijai. Ievadiet tās numuru vai atceliet:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} ir saite vai savienojuma punkts, vai vairs neatrodas vietā, kur tas tika atrasts, tāpēc no tā nekas netiek lasīts un tajā nekas netiek rakstīts.",
+    "Str.Dialog.SharedFile.MultipleModified": "Ir mainītas vairākas koplietotā faila '{0}' kopijas. Nākamajā dialoglodziņā atlasiet saglabājamo kopiju.",
+    "Str.Dialog.SharedFile.Update": "Vai vēlaties atjaunināt {0} projektos, kas to koplieto ar {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Atjauninot {0} projektā {1}, tiks atmestas šī projekta nesaglabātās izmaiņas. Vai vēlaties turpināt?",
+    "Str.Dialog.SharedFile.DiskChanged": "Fails '{0}' diskā ir mainījies kopš projekta {1} kopijas ielādes vai saglabāšanas. Vai vēlaties to pārrakstīt?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} grāmatzīmes, pārtraukumpunkti un citi lietotāja iestatījumi šajā sesijā netiks ne ielādēti, ne saglabāti.\n\n{1}"
   }
 }

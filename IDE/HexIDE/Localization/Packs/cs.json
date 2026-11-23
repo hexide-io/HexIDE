@@ -2,6 +2,11 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Sestavit následující projekty:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Použít výchozí možnosti sestavení",
+    "Str.Dialog.MakeProjectGroup.Build": "Sestavit",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Storno",
+    "Str.Dialog.MakeProjectGroup.Help": "_Nápověda",
     "Str.FilePicker.ReplaceExisting": "{0} již existuje. Chcete jej nahradit?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} byl načten s chybami, a proto nemůže přepsat původní soubor. Zvolte nový název souboru.",
     "Str.ProjectLoad.PropertyNotSet": "Řádek {0}: vlastnost {1} v {2} se nepodařilo nastavit.",
@@ -1489,6 +1494,10 @@
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Neplatný název místního stavu projektu v '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Bylo nalezeno více umístění místního stavu projektu. Každé může obsahovat jiný uložený stav. Dokud nevyberete jedno pro tuto relaci, nic se nezapíše. Zadejte jeho číslo nebo zrušte:\n{0}",
     "Str.ProjectLocalState.UnavailableFormat": "{0} je odkaz nebo spojení adresářů, nebo už není na místě, kde bylo nalezeno, proto se z něj nic nečte ani se do něj nic nezapisuje.",
+    "Str.Dialog.SharedFile.MultipleModified": "Bylo změněno více kopií sdíleného souboru '{0}'. V následujícím dialogu vyberte kopii, která se má uložit.",
+    "Str.Dialog.SharedFile.Update": "Chcete aktualizovat {0} v projektech, které jej sdílejí s projektem {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Aktualizace {0} v projektu {1} zahodí neuložené změny tohoto projektu. Chcete pokračovat?",
+    "Str.Dialog.SharedFile.DiskChanged": "Soubor '{0}' se na disku změnil od načtení nebo uložení kopie projektu {1}. Chcete jej přepsat?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Záložky, zarážky a další uživatelská nastavení pro {0} se v této relaci nenačtou ani neuloží.\n\n{1}"
   }
 }

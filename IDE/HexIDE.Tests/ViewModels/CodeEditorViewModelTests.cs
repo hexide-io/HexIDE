@@ -52,6 +52,148 @@ public class CodeEditorViewModelTests : IDisposable
         _sut?.Dispose();
     }
 
+    // Measured in VB6 SP6: docs/vb6-fidelity-oracle/the-object-and-procedure-boxes-follow-the-caret.md.
+    private const string CaretProbe = "Option Explicit\nDim m As Long\n\nPrivate Sub Command1_Click()\n    m = 1\nEnd Sub\n\nPrivate Sub Foo()\n    m = 2\nEnd Sub\n\n' comment above Form_Load\nPrivate Sub Form_Load()\n    m = 3\nEnd Sub";
+
+    private async Task<CodeEditorViewModel> CaretProbeEditor(bool refresh = true)
+    {
+        var form = new FormDefinition(TestHelpers.CreateProject(),
+            [new(HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1"),
+             new(HexIDE.Runtime.Components.CommandButtonComponentClass.Instance, "Command1")], CaretProbe);
+        var editor = CreateSut().Initialize(form);
+        var first = editor.Document.GetLineByOffset(editor.Document.Text.IndexOf("Option Explicit", StringComparison.Ordinal)).LineNumber - 1;
+        DocumentSymbol Symbol(string name, int start, int end)
+        {
+            var range = new HexIDE.Lsp.Messages.Range(new Position(first + start - 1, 0), new Position(first + end - 1, 7));
+            var selection = new HexIDE.Lsp.Messages.Range(range.Start, range.Start);
+            return new(name, SymbolKind.Method, range, selection);
+        }
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [Symbol("Command1_Click", 4, 6), Symbol("Foo", 8, 10), Symbol("Form_Load", 13, 15)]);
+        if (refresh)
+        {
+            await editor.RefreshSymbolsAsync();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        }
+        return editor;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1, "(General)", "(Declarations)")]
+    [InlineData(2, "(General)", "(Declarations)")]
+    [InlineData(3, "Command1", "Click")]
+    [InlineData(4, "Command1", "Click")]
+    [InlineData(5, "Command1", "Click")]
+    [InlineData(6, "Command1", "Click")]
+    [InlineData(7, "(General)", "Foo")]
+    [InlineData(8, "(General)", "Foo")]
+    [InlineData(9, "(General)", "Foo")]
+    [InlineData(10, "(General)", "Foo")]
+    [InlineData(11, "Form", "Load")]
+    [InlineData(12, "Form", "Load")]
+    [InlineData(13, "Form", "Load")]
+    [InlineData(14, "Form", "Load")]
+    [InlineData(15, "Form", "Load")]
+    public async Task CaretSelectsOracleProcedureWithoutSideEffects(int line, string obj, string procedure)
+    {
+        var editor = await CaretProbeEditor();
+        var before = editor.Document.Text;
+        var first = editor.Document.GetLineByOffset(before.IndexOf("Option Explicit", StringComparison.Ordinal)).LineNumber;
+        var offset = editor.Document.GetLineByNumber(first + line - 1).Offset;
+        var focus = 0;
+        editor.FocusWindowRequest += () => focus++;
+
+        editor.CaretOffset = offset;
+
+        editor.SelectedObject.Should().Be(obj);
+        editor.SelectedProcedure.Should().Be(procedure);
+        editor.CaretOffset.Should().Be(offset);
+        editor.Document.Text.Should().Be(before);
+        focus.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public async Task CaretSelectionUpdatesWhenSymbolsArrive()
+    {
+        var editor = await CaretProbeEditor(refresh: false);
+        editor.CaretOffset = editor.Document.Text.IndexOf("m = 1", StringComparison.Ordinal);
+        var before = editor.Document.Text;
+        var offset = editor.CaretOffset;
+        var focus = 0;
+        editor.FocusWindowRequest += () => focus++;
+
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        editor.SelectedObject.Should().Be("Command1");
+        editor.SelectedProcedure.Should().Be("Click");
+        editor.CaretOffset.Should().Be(offset);
+        editor.Document.Text.Should().Be(before);
+        focus.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public async Task CaretMovingAwayAllowsPickingEarlierHandlerAgain()
+    {
+        var editor = await CaretProbeEditor();
+        editor.SelectedObject = "Command1";
+        editor.SelectedProcedure = "Click";
+        editor.CaretOffset = editor.Document.Text.IndexOf("m = 2", StringComparison.Ordinal);
+        editor.SelectedObject = "Command1";
+        editor.SelectedProcedure = "Click";
+
+        editor.CaretOffset.Should().Be(editor.Document.GetLineByOffset(
+            editor.Document.Text.IndexOf("Private Sub Command1_Click", StringComparison.Ordinal)).EndOffset);
+    }
+
+    [AvaloniaFact]
+    public async Task CaretInBasSelectsGeneralProcedure()
+    {
+        var module = TestHelpers.CreateModule();
+        module.UpdateCode("Option Explicit\nPrivate Sub Foo()\n    Beep\nEnd Sub");
+        var editor = CreateSut().Initialize(module);
+        var line = editor.Document.GetLineByOffset(editor.Document.Text.IndexOf("Private Sub", StringComparison.Ordinal)).LineNumber - 1;
+        var range = new HexIDE.Lsp.Messages.Range(new Position(line, 0), new Position(line + 2, 7));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol("Foo", SymbolKind.Method, range, range)]);
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        editor.CaretOffset = editor.Document.Text.IndexOf("Beep", StringComparison.Ordinal);
+
+        editor.SelectedObject.Should().Be("(General)");
+        editor.SelectedProcedure.Should().Be("Foo");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Command1_Name_Click", null, SymbolKind.Method, "Command1_Name", "Click")]
+    [InlineData("Command1_NotAnEvent", null, SymbolKind.Method, "(General)", "Command1_NotAnEvent")]
+    [InlineData("Value", "Property Let", SymbolKind.Property, "(General)", "Value [PropertyLet]")]
+    public async Task CaretSelectsTheListedEntry(string name, string? detail, SymbolKind kind, string obj, string procedure)
+    {
+        var form = new FormDefinition(TestHelpers.CreateProject(),
+            [new(HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1"),
+             new(HexIDE.Runtime.Components.CommandButtonComponentClass.Instance, "Command1"),
+             new(HexIDE.Runtime.Components.CommandButtonComponentClass.Instance, "Command1_Name")], "Option Explicit\n");
+        var editor = CreateSut().Initialize(form);
+        editor.Document.Text = "Option Explicit\nPrivate Sub " + name + "()\n    Beep\nEnd Sub";
+        var range = new HexIDE.Lsp.Messages.Range(new Position(1, 0), new Position(3, 7));
+        var outer = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(3, 7));
+        _lspClient.IsRunning.Returns(true);
+        _lspClient.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol("Outer", SymbolKind.Method, outer, outer, Children:
+                [new(name, kind, range, range, Detail: detail)])]);
+        await editor.RefreshSymbolsAsync();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        editor.CaretOffset = editor.Document.Text.IndexOf("Beep", StringComparison.Ordinal);
+
+        editor.SelectedObject.Should().Be(obj);
+        editor.SelectedProcedure.Should().Be(procedure);
+        editor.ProcedureNames.Should().Contain(procedure);
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

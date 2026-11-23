@@ -48,6 +48,21 @@ public class CollectionTests : BaseVBTestFixture
 
         """;
 
+    // #5253's key cases use the text equality measured in oracle PR #5252.
+    [Theory]
+    [InlineData("Ａ", "a")]
+    [InlineData("あ", "ｱ")]
+    public async Task Width_and_kana_equivalent_keys_find_the_item(string key, string lookup)
+    {
+        await Run($"""
+            Dim c As Collection
+            Set c = New Collection
+            c.Add 1, "{key}"
+            Debug.Print c("{lookup}")
+            """);
+        AssertDebugLog([new Vb6Value(1)]);
+    }
+
     [Fact]
     public async Task The_issues_own_program_runs()
     {
