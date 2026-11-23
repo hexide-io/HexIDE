@@ -12,6 +12,7 @@ using Avalonia.Media.Imaging;
 using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
