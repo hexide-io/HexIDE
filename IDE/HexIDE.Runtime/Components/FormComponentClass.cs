@@ -20,7 +20,7 @@ public class FormComponentClass : ComponentBaseClass
     StartUpPositionProperty,
     KeyPreviewProperty,
     MaxButtonProperty,
-    MinButtonProperty], [.. RootEvents, new EventClass("Load"), new EventClass("Resize")])
+    MinButtonProperty], [.. RootEvents, new EventClass("Load"), new EventClass("Resize"), AvaloniaInterop.RuntimePaint.PaintEvent])
     {
         Members = CreateMembers();
     }
@@ -121,7 +121,7 @@ public class FormComponentClass : ComponentBaseClass
         new("PrintForm", InBox.MemberKind.Method, InBox.MemberOrigin.VB6, false, false),
         new("PSet", InBox.MemberKind.Method, InBox.MemberOrigin.VB6, false, true),
         new("QueryUnload", InBox.MemberKind.Event, InBox.MemberOrigin.VB6, false, true),
-        new("Refresh", InBox.MemberKind.Method, InBox.MemberOrigin.VB6, false, false),
+        new("Refresh", InBox.MemberKind.Method, InBox.MemberOrigin.VB6, false, true),
         new("Resize", InBox.MemberKind.Event, InBox.MemberOrigin.VB6, false, true),
         new("RightToLeft", InBox.MemberKind.Property, InBox.MemberOrigin.VB6, false, true),
         new("Scale", InBox.MemberKind.Method, InBox.MemberOrigin.VB6, false, true),

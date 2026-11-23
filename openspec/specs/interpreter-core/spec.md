@@ -3267,7 +3267,36 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** execution refuses with NotImplementedException naming #988
 - **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
 - **AND** an unrepresentable saved FillColor refuses instead of silently using black
-- **AND** AutoRedraw assignments are retained; persistence and Paint-event timing remain #991, and text drawing #989
+- **AND** text drawing remains #989; Image and Picture = Image remain #992
+
+#### Scenario: AutoRedraw keeps a picture independently of the window
+- **WHEN** a form or PictureBox draws with AutoRedraw True
+- **THEN** it SHALL draw into its kept picture and display that picture
+- **WHEN** it draws with AutoRedraw False
+- **THEN** only the window SHALL change; Point SHALL read the window until Refresh
+- **AND** turning AutoRedraw off SHALL keep the picture
+- **WHEN** Refresh runs with no arguments
+- **THEN** the window SHALL reset to the kept picture and only that object's Paint SHALL run before the next statement if AutoRedraw is False
+- **AND** with AutoRedraw True no Paint SHALL run
+- **AND** Refresh used as a value and CallByName Refresh SHALL refuse explicitly with #991, pending measurement of their results
+
+#### Scenario: Paint follows measured visibility and growth changes
+- **WHEN** a form first shows
+- **THEN** Resize SHALL run once synchronously, followed by posted Activate, form Paint and visible PictureBox Paint
+- **WHEN** a form shows after Hide or restores from minimized
+- **THEN** form Paint and visible PictureBox Paint SHALL be posted, after Resize on restore
+- **WHEN** a form's client area grows by a native resize or code size assignment
+- **THEN** its Paint SHALL be posted after Resize; a pure shrink or position-only Move SHALL raise no Paint
+- **WHEN** a control is hidden, or a PictureBox is shown or grows
+- **THEN** form Paint, or that PictureBox's Paint respectively, SHALL be posted
+- **AND** a PictureBox size change while shown SHALL raise Resize synchronously
+- **AND** AutoRedraw True SHALL suppress that object's Paint on all these paths
+- **AND** drawing, Cls, Caption and BackColor SHALL raise no Paint
+- **AND** these posted Paints SHALL retain window drawing; exposure by another application SHALL neither raise Paint nor discard drawing
+
+These #991 scenarios use the [drawing oracle's console measurements](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md).
+Retaining drawing for posted Paint, and ignoring other applications' exposure, are the issue's explicit fidelity decisions.
+The conflicting AutoRedraw-toggle Paint sequences and Cls's effect on each layer remain unpinned.
 
 #### Scenario: Drawing and readback use distinct rounding paths
 - **WHEN** a form draws PSet (7.5, 7.5) in twips

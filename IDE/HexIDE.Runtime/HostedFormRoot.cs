@@ -24,7 +24,7 @@ public sealed class HostedFormRoot : Decorator, IModuleExecutionRoot, IFormView
         this.hosted = hosted;
         Context = new VBWindowContext(standardLibrary) { Window = (Control)hosted.Window };
         hosted.SetContent(this);
-        hosted.Resized += () => Context.WindowResized();
+        hosted.Resized += () => Context.WindowResized(paintGrowth: true);
         hosted.SizeSet += () => Context.WindowResized(sizeSet: true);
         hosted.Shown += () => Context.Shown();
         hosted.Activated += () =>
