@@ -64,6 +64,9 @@ public partial class UserSidecarService : IUserSidecarService
     private readonly Dictionary<ProjectDefinition, ProjectState> projects = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, string> sessionChoices = new(HexIDE.IO.HostFilePath.Comparer);
 
+    // Projects whose refused sidecar the person has been told about this session, by full path (#5163).
+    private readonly HashSet<string> toldUnavailable = new(HexIDE.IO.HostFilePath.Comparer);
+
     // Projects whose stores this service is filling or emptying, so the change events are its own and save nothing.
     private readonly HashSet<ProjectDefinition> quiet = new(ReferenceEqualityComparer.Instance);
 
@@ -108,6 +111,13 @@ public partial class UserSidecarService : IUserSidecarService
 
     internal DistributionIdentity Identity { get; init; } = Distribution.Current;
     internal Func<IReadOnlyList<string>, Task<string?>>? Choose { get; init; }
+
+    /// <summary>
+    /// Tells the person that a project's sidecar is refused, with the project's path and the refused path: a link, a
+    /// junction, or a chosen sidecar no longer where it was found. Called once per project per session (#5163).
+    /// </summary>
+    /// <remarks>Called with <see cref="gate"/> held, so it must not wait for anything: the IDE posts a message.</remarks>
+    internal Action<string, string>? Unavailable { get; init; }
 
     private sealed class ProjectState
     {
@@ -1094,6 +1104,10 @@ public partial class UserSidecarService : IUserSidecarService
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Log.Warning(ex, "Project-local sidecar is unavailable for {Path}", project.AbsolutePath);
+            // The refusal stands (#5149), but every mark set in this project is now lost unseen, so say so once (#5163).
+            // A conflict the person declined to choose is not told again: they were just asked.
+            if (ex is ProjectLocalStatePathException refused && toldUnavailable.Add(Path.GetFullPath(project.AbsolutePath)))
+                Unavailable?.Invoke(project.AbsolutePath, refused.StatePath);
             return null;
         }
     }

@@ -2,6 +2,11 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "إنشاء المشاريع التالية:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "استخدام خيارات الإنشاء الافتراضية",
+    "Str.Dialog.MakeProjectGroup.Build": "إنشاء",
+    "Str.Dialog.MakeProjectGroup.Cancel": "إلغاء",
+    "Str.Dialog.MakeProjectGroup.Help": "تعليمات",
     "Str.FilePicker.ReplaceExisting": "{0} موجود بالفعل. هل تريد استبداله؟",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "تم تحميل {0} مع وجود أخطاء، لذا لا يمكن حفظه فوق ملفه الأصلي. اختر اسم ملف جديدًا.",
     "Str.ProjectLoad.PropertyNotSet": "السطر {0}: تعذر تعيين الخاصية {1} في {2}.",
@@ -1488,6 +1493,12 @@
     "Str.Options.Addin.ReportedFailure": "تم الإبلاغ عن مشكلة في {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: اسم حالة المشروع المحلية غير صالح في '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "عُثر على مواقع متعددة لحالة المشروع المحلية. قد يحتوي كل منها على حالة محفوظة مختلفة. لن تتم الكتابة حتى تختار واحدًا لهذه الجلسة. أدخل رقمه أو ألغِ:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} رابط أو نقطة وصل، أو لم يعد في الموقع الذي عُثر عليه فيه، لذلك لا تتم قراءة أي شيء منه أو الكتابة إليه."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} رابط أو نقطة وصل، أو لم يعد في الموقع الذي عُثر عليه فيه، لذلك لا تتم قراءة أي شيء منه أو الكتابة إليه.",
+    "Str.Dialog.SharedFile.MultipleModified": "عُدّلت نسخ متعددة من الملف المشترك '{0}'. في مربع الحوار التالي، حدد النسخة التي ينبغي حفظها.",
+    "Str.Dialog.SharedFile.Update": "هل تريد تحديث {0} في المشاريع التي تشاركه مع {1}؟",
+    "Str.Dialog.SharedFile.DiscardChanges": "سيؤدي تحديث {0} في المشروع {1} إلى تجاهل التغييرات غير المحفوظة في ذلك المشروع. هل تريد المتابعة؟",
+    "Str.Dialog.SharedFile.DiskChanged": "تغيّر الملف '{0}' على القرص منذ تحميل نسخة المشروع {1} أو حفظها. هل تريد الكتابة فوقه؟",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "لن يتم تحميل الإشارات المرجعية ونقاط التوقف والإعدادات الأخرى الخاصة بالمستخدم لـ {0} أو حفظها في هذه الجلسة.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "يوجد بالفعل عنصر تحكم باسم '{0}'.  هل تريد إنشاء مصفوفة عناصر تحكم؟"
   }
 }

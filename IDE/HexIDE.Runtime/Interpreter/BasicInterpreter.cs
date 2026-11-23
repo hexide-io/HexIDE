@@ -98,20 +98,20 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public ModuleRegistry Modules { get; } = new();
 
     private Debugging.IDebugGate? debugController;
-    private long debugSuspensions;
+    private long walkSuspensions;
 
     // Count suspensions, including gates supplied by another host. Synchronous gates leave the count alone.
     internal ValueTask ObserveDebugGate(ValueTask gate)
     {
         if (!gate.IsCompleted)
-            debugSuspensions++;
+            walkSuspensions++;
         return gate;
     }
 
     internal ValueTask<T> ObserveDebugGate<T>(ValueTask<T> gate)
     {
         if (!gate.IsCompleted)
-            debugSuspensions++;
+            walkSuspensions++;
         return gate;
     }
 
@@ -349,10 +349,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             return await BuiltIns.EvaluateBuiltInFunction(name, args, compareText);
         if (args.Count == 0 && string.Equals(name, "DoEvents", StringComparison.OrdinalIgnoreCase))
         {
-            await events.DoEvents();
+            var pending = events.DoEvents();
+            if (!pending.IsCompleted)
+                walkSuspensions++;
+            await pending;
             return new Vb6Value(0);
         }
-        return await events.WhileWaitingOnWindow(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
+        var window = events.WhileWaitingOnWindow(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
+        if (!window.IsCompleted)
+            walkSuspensions++;
+        return await window;
     }
 
     internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
@@ -367,7 +373,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             return null;
         }
         var pending = asyncProxy.CallAsync(name, args);
-        return Events is { } events ? await events.WhileSuspended(pending) : await pending;
+        var suspended = Events is { } events ? events.WhileSuspended(pending) : pending;
+        if (Events is not null && !suspended.IsCompleted)
+            walkSuspensions++;
+        return await suspended;
     }
 
     // Resolved after project names, rather than seeded over user variables or functions (#1156).
@@ -2142,7 +2151,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var fixedStringCopies = new List<(int Slot, IByRefTarget Target)>();
         Vb6Value? ret = null;
         bool completed = false;
-        var suspensionsAtEntry = debugSuspensions;
+        var suspensionsAtEntry = walkSuspensions;
         bool holdsMe = false;
         bool hasReturnSlot = false;
         var walk = Events?.Current;
@@ -2255,7 +2264,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             completed = true;
             // A suspended walk's waiting callers otherwise resume inline inside one another on normal return (#5152).
             // A synchronous call must not pay a dispatcher round trip merely because it sits at this depth.
-            if (debugSuspensions != suspensionsAtEntry && DebugController is not null
+            if (walkSuspensions != suspensionsAtEntry && DebugController is not null
                 && SynchronizationContext.Current is not null
                 && activationStack.Count is > 0 and var below && below % UnwindYieldEvery == 0)
                 await Task.Yield();

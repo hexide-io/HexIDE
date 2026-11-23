@@ -2,6 +2,11 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Собрать следующие проекты:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Использовать параметры сборки по умолчанию",
+    "Str.Dialog.MakeProjectGroup.Build": "Собрать",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Отмена",
+    "Str.Dialog.MakeProjectGroup.Help": "Справка",
     "Str.FilePicker.ReplaceExisting": "{0} уже существует. Заменить его?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} загружен с ошибками, поэтому сохранить его поверх исходного файла нельзя. Выберите новое имя файла.",
     "Str.ProjectLoad.PropertyNotSet": "Строка {0}: не удалось задать свойство {1} в {2}.",
@@ -1488,6 +1493,12 @@
     "Str.Options.Addin.ReportedFailure": "Сообщение о проблеме в {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Недопустимое имя локального состояния проекта в '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Найдено несколько расположений локального состояния проекта. Каждое может содержать разное сохранённое состояние. Запись не будет выполняться, пока вы не выберете одно для этого сеанса. Введите его номер или отмените:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} является ссылкой или точкой соединения либо больше не находится там, где было обнаружено, поэтому чтение и запись не выполняются."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} является ссылкой или точкой соединения либо больше не находится там, где было обнаружено, поэтому чтение и запись не выполняются.",
+    "Str.Dialog.SharedFile.MultipleModified": "Изменены несколько копий общего файла '{0}'.  В следующем диалоговом окне выберите копию для сохранения.",
+    "Str.Dialog.SharedFile.Update": "Обновить {0} в проектах, которые используют этот файл совместно с {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "При обновлении {0} в проекте {1} несохранённые изменения этого проекта будут потеряны. Продолжить?",
+    "Str.Dialog.SharedFile.DiskChanged": "Файл '{0}' изменился на диске после загрузки или сохранения копии проекта {1}. Перезаписать его?",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Закладки, точки останова и другие пользовательские параметры для {0} не будут загружены или сохранены в этом сеансе.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Элемент управления с именем '{0}' уже существует.  Создать массив элементов управления?"
   }
 }

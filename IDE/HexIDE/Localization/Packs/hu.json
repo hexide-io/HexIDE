@@ -2,6 +2,11 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "A következő projektek fordítása:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Alapértelmezett fordítási beállítások használata",
+    "Str.Dialog.MakeProjectGroup.Build": "Fordítás",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Mégse",
+    "Str.Dialog.MakeProjectGroup.Help": "Sú_gó",
     "Str.FilePicker.ReplaceExisting": "{0} már létezik. Szeretné lecserélni?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} hibákkal töltődött be, ezért nem írhatja felül az eredeti fájlt. Válasszon új fájlnevet.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. sor: a(z) {2} {1} tulajdonságát nem sikerült beállítani.",
@@ -1488,6 +1493,12 @@
     "Str.Options.Addin.ReportedFailure": "Probléma jelentve ekkor: {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Érvénytelen projekt-helyi állapotnév itt: '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Több hely található a projekt helyi állapotához. Mindegyik más mentett állapotot tartalmazhat. Semmi sem lesz kiírva, amíg nem választ egyet ehhez a munkamenethez. Adja meg a számát, vagy szakítsa meg:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} hivatkozás vagy csatlakozási pont, vagy már nincs ott, ahol megtaláltuk, ezért sem olvasás, sem írás nem történik ezen a helyen."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} hivatkozás vagy csatlakozási pont, vagy már nincs ott, ahol megtaláltuk, ezért sem olvasás, sem írás nem történik ezen a helyen.",
+    "Str.Dialog.SharedFile.MultipleModified": "A(z) '{0}' megosztott fájl több példánya is módosult. A következő párbeszédpanelen válassza ki a menteni kívánt példányt.",
+    "Str.Dialog.SharedFile.Update": "Szeretné frissíteni a(z) {0} fájlt azokban a projektekben, amelyek a(z) {1} projekttel közösen használják?",
+    "Str.Dialog.SharedFile.DiscardChanges": "A(z) {0} frissítése a(z) {1} projektben elveti a projekt nem mentett módosításait. Szeretné folytatni?",
+    "Str.Dialog.SharedFile.DiskChanged": "A(z) '{0}' fájl megváltozott a lemezen a(z) {1} projekt példányának betöltése vagy mentése óta. Szeretné felülírni?",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "A(z) {0} könyvjelzői, töréspontjai és egyéb felhasználónkénti beállításai ebben a munkamenetben nem töltődnek be, és nem is mentődnek.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Már létezik egy '{0}' nevű vezérlő.  Szeretne létrehozni egy vezérlőtömböt?"
   }
 }

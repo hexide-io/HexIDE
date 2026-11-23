@@ -19,8 +19,7 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A Let into a variable holding a control, <c>t = "x"</c> with <c>t As TextBox</c> (#1493), assigns the control's default
-/// member, its Text, in VB6. HexIDE has no default members for controls yet (#790), so the Let is refused by name, and the
-/// control is left as it was rather than the variable being stored over.
+/// member, its Text, in VB6. Measured default-member writes (#790) preserve the control reference.
 /// </summary>
 public class LetIntoControlVariableTests
 {
@@ -75,7 +74,7 @@ public class LetIntoControlVariableTests
         """;
 
     [AvaloniaFact]
-    public void A_Let_into_a_TextBox_variable_is_refused_naming_790_and_leaves_its_Text()
+    public void A_Let_into_a_TextBox_variable_writes_its_Text()
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Probe");
         var form = new FormDeserializer().Deserialize(project, Form1.ReplaceLineEndings("\r\n"), new NullSink())!;
@@ -104,11 +103,9 @@ public class LetIntoControlVariableTests
             top.MouseUp(point, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
 
-            printed.Should().Equal("before orig");
-            errors.Should().ContainSingle()
-                .Which.Should().BeOfType<NotImplementedException>()
-                .Which.Message.Should().Contain("`t = …`").And.Contain("#790");
-            text1.Text.Should().Be("orig");
+            printed.Should().Equal("before orig", "after x");
+            errors.Should().BeEmpty();
+            text1.Text.Should().Be("x");
         }
         finally
         {

@@ -44,6 +44,7 @@ public sealed class DebugController : IDebugGate
         public bool BreakOnChange { get; }
         public string? LastValue { get; set; }   // Break-When-Changed baseline
         public bool HasBaseline { get; set; }
+        public bool WasTrue { get; set; }
     }
     private List<WatchBreakState> _watchBreaks = new();
     private bool _anyWatchBreaks;
@@ -163,6 +164,10 @@ public sealed class DebugController : IDebugGate
         return OnBreakpointPositionAsync(line, module, frame);
     }
 
+    public ValueTask OnDeclarationAsync(int line, string module, IDebugFrame frame)
+        => MatchesBreakpoint(line, module) || MatchesRunTo(line, module)
+            ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
+
     public ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame)
         => MatchesBreakpoint(line, module) ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
 
@@ -212,6 +217,23 @@ public sealed class DebugController : IDebugGate
         if (_isAborting)
             throw new StopExecutionSignal();
         if (HaltHost is not { } host)
+            return false;
+        var session = _session;
+        var debug = await host(error);
+        // End, or the run ended some other way while the dialog was up: stop_project and shutdown_ide close it.
+        if (!debug || _isAborting || _session != session)
+            throw new StopExecutionSignal();
+        await SuspendAtBreakAsync(StopReason.RuntimeError, line, module, frame);
+        return true;
+    }
+
+    public Func<VBCompileErrorException, Task<bool>>? CompileHaltHost { get; set; }
+
+    public async ValueTask<bool> HaltOnCompileErrorAsync(VBCompileErrorException error, int line, string module, IDebugFrame? frame)
+    {
+        if (_isAborting)
+            throw new StopExecutionSignal();
+        if (CompileHaltHost is not { } host)
             return false;
         var session = _session;
         var debug = await host(error);
@@ -367,12 +389,11 @@ public sealed class DebugController : IDebugGate
             : (true, expression, result.UndefinedName ? "Variable not defined" : result.Display);
     }
 
-    // Evaluate each break-type watch against the executing frame. Break-When-True trips whenever the expression
-    // coerces to True (level-triggered — VB6: "break when the expression evaluates to True"); Break-When-Changed
-    // trips when the displayed value differs from the previous statement's, then updates the baseline. A watch that
-    // can't evaluate here (out of scope / error) doesn't trip and leaves its baseline untouched. Every watch is
-    // evaluated (not short-circuited) so a Break-When-Changed baseline stays current even when another already
-    // tripped. Snapshots the list so a mid-evaluation re-push (SetWatchBreaks replaces the field) is safe.
+    // Break-When-True is edge-triggered (docs/vb6-fidelity-oracle/break-when-value-is-true.md, #869).
+    // Break-When-Changed compares the value key with its previous baseline. Evaluate every watch so all baselines
+    // stay current even when another trips. Unmeasured choices: a new watch starts false, so an already-true value
+    // breaks next statement; a failed evaluation neither trips nor resets its state.
+    // Snapshot the list so a mid-evaluation re-push (SetWatchBreaks replaces the field) is safe.
     private async ValueTask<bool> EvaluateWatchBreaksAsync(IDebugFrame frame)
     {
         var watches = _watchBreaks;
@@ -392,9 +413,11 @@ public sealed class DebugController : IDebugGate
                 w.LastValue = value;
                 w.HasBaseline = true;
             }
-            else if (r.Truthy)
+            else
             {
-                tripped = true;
+                if (r.BreaksWhenTrue && !w.WasTrue)
+                    tripped = true;
+                w.WasTrue = r.BreaksWhenTrue;
             }
         }
         return tripped;

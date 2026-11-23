@@ -1717,8 +1717,8 @@ the assigned whole twips when the rounded size reaches the floor (#4071, oracle 
 Assigning either dimension SHALL enforce both dimensions on those controls; loaded zero sizes SHALL remain
 unchanged until assignment. Negative CommandButton, Label or form Width or Height assignments SHALL raise 380, "Invalid property value",
 without changing the size; Move with a negative size SHALL raise 5 before changing any position or size.
-Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
-font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383.
+Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped except for the measured Simple Combo rule below. TextBox and CommandButton floors SHALL use only the recorded
+font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383 except for the measured Simple Combo rule below.
 The form's desktop-dependent floor and the absent DriveListBox, DirListBox, FileListBox and Data runtime controls
 remain outside this implementation.
 
@@ -1748,8 +1748,43 @@ remain outside this implementation.
 - **WHEN** Width 7 and Height 7 are assigned to a CheckBox or OptionButton, a ListBox, either scroll bar,
   or a Frame, PictureBox, Image, Shape or Label
 - **THEN** their sizes read 75 × 195, 135 × 255, 30 × 30, or 15 × 15 respectively
-- **WHEN** a ComboBox is assigned Width 7 or Height 7
+- **WHEN** a Dropdown Combo or Dropdown List is assigned Width 7 or Height 7
 - **THEN** its Width reads 390, and the Height assignment raises 383
+
+### Requirement: Simple Combo Height uses measured font metrics
+
+A Simple Combo SHALL use only the seven plain font/size metrics measured at 96 dpi in
+[the #1655 oracle](../../../docs/vb6-fidelity-oracle/a-simple-combos-height-by-font.md) to snap loaded and
+assigned Height. Its edit box and list rows SHALL use the recorded heights; its list SHALL hide when no row fits.
+The next designer save SHALL write the snapped Height. Other fonts, bold/italic faces and dropdown styles
+SHALL retain existing behaviour, without inferring metrics for another dpi.
+
+#### Scenario: Snapping a loaded Simple Combo
+
+- **WHEN** a Simple Combo in one of the seven measured fonts, with normal weight and no italic face, loads Height H
+- **THEN** in pixels, with recorded edit height E and row height R, `n = floor((H - E - 4) / R)` and Height is E
+  when n is zero or less, otherwise `E + 4 + R * n`
+- **AND** the runtime and designer use the same rule; applying it in the designer to all seven fonts is the decision
+  recorded in #1655, whose designer measurement covers MS Sans Serif 8.25
+
+#### Scenario: Assigning a Height in a measured font
+
+- **WHEN** a runtime Height assignment is at least `E + 4 + R` pixels
+- **THEN** it snaps by the load rule without error
+- **WHEN** an assignment is below E
+- **THEN** Height remains unchanged without error
+- **WHEN** an assignment is in the unmeasured interval from E to one row
+- **THEN** it retains error 383
+
+#### Scenario: Loading and saving a default Simple Combo
+
+- **WHEN** a Simple Combo in MS Sans Serif 8.25 is loaded with saved Height 1500 twips
+- **THEN** its designer and runtime Height read 1350, and the next designer save writes Height 1350
+
+#### Scenario: Assigning a measured Height
+
+- **WHEN** a Simple Combo in Arial 12 receives Height 1500, then Height 300, then Height 0
+- **THEN** its Height reads 1260 after each assignment, without error
 
 ### Requirement: Object array stores SHALL distinguish declarations from Variant values
 A Function returning Object(), Collection() or a project class array SHALL accept an array of objects through a
@@ -2655,7 +2690,7 @@ Columns above zero SHALL arrange items down each column then across. TopIndex SH
 to a column start and clamp to the last page. Measured navigation SHALL raise Click then
 Scroll when the top changes; code selection SHALL scroll without Scroll.
 Unmeasured mouse checkbox toggling, Style 1 with MultiSelect, runtime Style/Columns
-assignments, horizontal-bar dragging and designer drawing retain their existing behaviour.
+assignments and horizontal-bar dragging retain their existing behaviour.
 
 #### Scenario: Unchecking preserves the current position
 - **WHEN** items 1 and 3 are checked, ListIndex is 3, and code sets Selected(1) = False
@@ -2777,9 +2812,17 @@ The designer SHALL draw saved ListBox and Simple ComboBox items in file order, i
 Sorted lists, using the runtime font, row height and text insets, with no selection or focus rectangle
 ([#5121's designer measurements](https://github.com/hexide-io/HexIDE/issues/5121), oracle PR #5131).
 An empty ListBox SHALL show its current Name on the first row only in the designer. Overflowing
-ListBoxes SHALL show a vertical scroll bar. Simple ComboBoxes SHALL show Text above the list.
-Checkbox and column designer layouts remain plain pending #5133; Styles 0 and 2 ComboBox drawing
-is unchanged.
+ListBoxes with Columns 0 SHALL show a vertical scroll bar. Simple ComboBoxes SHALL show Text above the list.
+Style 1 ListBoxes without MultiSelect SHALL draw unchecked boxes in the designer, using the runtime glyph.
+Columns above zero SHALL flow down then across at a 120-DIP pitch in the designer, including Columns 1,
+with a horizontal scroll bar on overflow. Columns 0 SHALL retain the plain layout.
+Runtime Columns greater than 1 SHALL use a pitch of `(W - 3) \ Columns`, truncated, where W is Width
+in twips divided by 15 and rounded half up; Columns 1 SHALL retain full-width columns
+([#5133 measurements](../../../docs/vb6-fidelity-oracle/a-lists-saved-items-in-the-designer-and-at-load.md)).
+By decision in #5133, pitches at other scaling factors are DIPs, Style 1 with Columns takes both layouts,
+and regenerated designer previews use the same rule. IntegralHeight False and partial rows retain the
+existing row count. The first checkbox item's selection colours and the glyph's unmeasured pixels remain
+unchanged. Styles 0 and 2 ComboBox drawing is unchanged.
 
 #### Scenario: Saved items appear in the designer picture
 - **WHEN** the designer draws a ListBox saved with s2, s1, s3

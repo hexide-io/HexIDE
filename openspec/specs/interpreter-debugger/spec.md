@@ -533,6 +533,13 @@ class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 - **WHEN** the error was raised by the condition of an `ElseIf` or of a `Loop Until` or `Loop While`
 - **THEN** continuing asks that condition again, without the conditions before it and without another pass through the loop
 
+#### Scenario: A single-test Case expression that raised
+- **WHEN** a single-test `Case` expression raises an unhandled run-time error and the developer chooses Debug
+- **THEN** the debugger SHALL stop on that `Case` line
+- **AND** continuing SHALL evaluate that test again with the retained selector value, without repeating the selector
+  or earlier Case tests, as [measured in VB6's IDE](../../../docs/vb6-fidelity-oracle/what-f5-runs-again-after-debug.md) (#1079)
+- **AND** faults in the selector or a comma-separated Case list retain their existing whole-statement retry, pending measurement
+
 #### Scenario: End
 - **WHEN** the developer chooses End
 - **THEN** the program ends with no `QueryUnload`, `Unload` or `Terminate` event, as the End command ends it
@@ -555,6 +562,22 @@ The IDE SHALL show localized design, run and break title tags, with break select
 - **THEN** the title shows the break tag and the running status message is cleared
 - **WHEN** execution continues
 - **THEN** the title shows the run tag and the running status message returns
+
+### Requirement: Declaration lines are not step positions
+
+The debugger SHALL skip `Dim`, `Static` and `Const` when stepping or checking break-type watches,
+including inside nested blocks. `ReDim` SHALL remain a statement position. Existing declaration breakpoints
+and Run To Cursor targets SHALL still pause (#4326).
+F8 is measured in [the oracle](../../../docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md).
+
+#### Scenario: Step past declarations
+- **WHEN** Step Into resumes before a `Dim`, `Static` or `Const` line
+- **THEN** it pauses at the next statement or the procedure's natural End line
+- **AND** the declarations still execute
+
+#### Scenario: Declaration and assignment on one line
+- **WHEN** stepping reaches `Dim a As Integer: a = 5`
+- **THEN** it pauses once on that line, before the assignment
 
 ### Requirement: Procedure boundary stop positions
 
@@ -638,3 +661,21 @@ as such and an engine fault SHALL report Internal error (51).
 #### Scenario: Startup or event failure
 - **WHEN** Sub Main or an event procedure leaves a run-time error unhandled
 - **THEN** the host shows the fatal warning and holds execution until dismissal
+
+### Requirement: A compile error met during an IDE run halts at the executing statement
+With the IDE's compile-error halt host set, a `VBCompileErrorException` met in a program activation SHALL
+halt through the existing run-time error dialog, regardless of On Error handlers. Debug SHALL suspend at
+that statement with reason RuntimeError; Continue SHALL retry it, meeting the error again. End SHALL end
+the run. Without that host the existing reporting route SHALL remain, including standalone runs; syntax
+errors found before a run starts SHALL remain failed starts.
+
+This is #833's execution-time translation of VB6's Compile On Demand behaviour, measured in
+`docs/vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md`: VB6 compiles at procedure entry and
+breaks at its declaration; the walk reaches the offending statement after earlier statements have run.
+
+#### Scenario: Continue from a compile-error break
+- **GIVEN** a click handler prints "before", calls a missing Sub, then prints "after"
+- **WHEN** the IDE runs it and the developer chooses Debug at the halt
+- **THEN** it breaks at the missing call, with only "before" printed
+- **WHEN** the developer continues
+- **THEN** the same error halts again and "after" never prints

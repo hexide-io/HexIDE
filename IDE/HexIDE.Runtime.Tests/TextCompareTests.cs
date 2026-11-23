@@ -10,6 +10,44 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class TextCompareTests
 {
+    // #5253, SP6 native/p-code: see WidthAndKanaOrder's oracle citation.
+    [Fact]
+    public void Every_pair_of_the_measured_width_and_kana_order_compares_as_vb6_exe_compared_it() =>
+        Mismatches(TextCompareMeasurements.WidthAndKanaOrder).Should().BeEmpty();
+
+    [Theory]
+    [InlineData("一")]
+    [InlineData("門")]
+    [InlineData("가")]
+    public void The_prolonged_and_iteration_marks_sort_above_the_measured_samples(string other)
+    {
+        foreach (var mark in new[] { "ー", "ヽ", "ヾ", "ｰ" })
+            VbTextCompare.Compare(mark, other).Should().Be(1);
+    }
+
+    [Fact]
+    public void Width_and_kana_equals_hash_alike()
+    {
+        foreach (var group in TextCompareMeasurements.WidthAndKanaOrder)
+            foreach (var text in group)
+                VbTextCompare.Comparer.GetHashCode(text).Should().Be(VbTextCompare.Comparer.GetHashCode(group[0]));
+    }
+
+    [Theory]
+    [InlineData("か", "が")]
+    [InlineData("う", "ヴ")]
+    [InlineData("ぁ", "あ")]
+    [InlineData("あ", "あい")]
+    [InlineData("あい", "ぃ")]
+    [InlineData("z", "ぁ")]
+    [InlineData("Z", "ァ")]
+    [InlineData("ば", "ぱ")]
+    [InlineData("は", "ば")]
+    [InlineData("ん", "ㄱ")]
+    [InlineData("a", "b")]
+    public void The_measured_order_already_matching_main_stays(string a, string b) =>
+        VbTextCompare.Compare(a, b).Should().Be(-1);
+
     [Fact]
     public void Every_pair_of_the_measured_Text_order_compares_as_vb6_exe_compared_it() =>
         Mismatches(TextCompareMeasurements.FullOrder).Should().BeEmpty();
