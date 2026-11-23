@@ -145,6 +145,8 @@
     "Str.LspArtifact.ResetGrant": "Reset {0} for {1} in {2}",
     "Str.Archive.ProjectFormat": "{0} (read-only archive)",
     "Str.Archive.Hidden": "Show hidden archive entries",
+    "Str.Archive.SaveChanged": "Cannot save '{0}': the file has changed on disk. Reload it before saving.",
+    "Str.Archive.SaveRefused": "Cannot save '{0}': the container could not be verified and written safely. The edit remains unsaved.",
     "Str.Archive.ReadOnly": "Read-only archive preview. Editing, build and run are unavailable.",
     "Str.Archive.UnsupportedType": "Text preview is unavailable for this file type.",
     "Str.Archive.InvalidUtf8": "Text preview is unavailable: invalid UTF-8.",

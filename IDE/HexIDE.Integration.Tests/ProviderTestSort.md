@@ -53,6 +53,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ActiveFormSaveTests.cs` | split |
 | `Views/AddWatchDialogTests.cs` | split |
 | `Views/ArchiveProjectBrowsingTests.cs` | split |
+| `Views/ArchiveProjectSavingTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
 | `Views/BrandWindowIconTests.cs` | split |

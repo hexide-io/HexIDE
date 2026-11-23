@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "'{0}' kaydedilemiyor: dosya diskte değişmiş. Kaydetmeden önce yeniden yükleyin.",
+    "Str.Archive.SaveRefused": "'{0}' kaydedilemiyor: kapsayıcı güvenli biçimde doğrulanıp yazılamadı. Düzenleme kaydedilmedi.",
     "Str.Dialog.MakeProjectGroup.Projects": "Aşağıdaki projeleri derle:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Varsayılan derleme seçeneklerini kullan",
     "Str.Dialog.MakeProjectGroup.Build": "Derle",

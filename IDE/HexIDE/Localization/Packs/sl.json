@@ -2,6 +2,8 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Ni mogoče shraniti '{0}': datoteka se je na disku spremenila. Pred shranjevanjem jo znova naložite.",
+    "Str.Archive.SaveRefused": "Ni mogoče shraniti '{0}': vsebnika ni bilo mogoče varno preveriti in zapisati. Sprememba ostaja neshranjena.",
     "Str.Dialog.MakeProjectGroup.Projects": "Zgradi naslednje projekte:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Uporabi privzete možnosti gradnje",
     "Str.Dialog.MakeProjectGroup.Build": "Zgradi",

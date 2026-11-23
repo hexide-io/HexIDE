@@ -14,7 +14,7 @@ using HexIDE.Utils;
 
 namespace HexIDE.Projects;
 
-/// <summary>UI-owned read-only container lifecycle. Serialized file operations run on a worker thread.</summary>
+/// <summary>UI-owned container lifecycle. Serialized file operations run on a worker thread.</summary>
 public sealed class ArchiveProjectService
 {
     /// <summary>The project archives this service reads, which no project type may take (#3411 slice 10b).</summary>
@@ -84,6 +84,8 @@ public sealed class ArchiveProjectService
 
     public async Task Reload(string path)
     {
+        foreach (var tab in Tabs(Path.GetFullPath(path)))
+            if (!await ConfirmClose(tab)) throw new OperationCanceledException();
         await gate.WaitAsync();
         try
         {
@@ -104,6 +106,8 @@ public sealed class ArchiveProjectService
     public async Task Close(string? path = null)
     {
         if (path != null) path = Path.GetFullPath(path);
+        foreach (var tab in Tabs(path))
+            if (!await ConfirmClose(tab)) throw new OperationCanceledException();
         await gate.WaitAsync();
         try
         {
@@ -170,7 +174,74 @@ public sealed class ArchiveProjectService
         }
         if (current.Archive == null && !current.IsDocument) return;
         if (!dock.TryActivate<ArchiveDocumentViewModel>(vm => vm.Entry.Identity.Equals(current.Identity)))
-            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, conditionalCode, project.BuildType, project.SupportsLanguageServers ? lspClient?.Invoke() : null, project.LanguageOf(current)));
+        {
+            var tab = new ArchiveDocumentViewModel(current, localization, conditionalCode, project.BuildType,
+                project.SupportsLanguageServers ? lspClient?.Invoke() : null, project.LanguageOf(current));
+            if (project is TwinBasicBrowserProject) tab.EnableSaving(this);
+            dock.OpenDocument(tab);
+        }
+    }
+
+    internal async Task<bool> Save(ArchiveDocumentViewModel tab)
+    {
+        if (tab.IsReadOnlyDocument) return false;
+        string? failure = null;
+        await gate.WaitAsync();
+        var tabs = Tabs(tab.Entry.Identity.ContainerPath);
+        try
+        {
+            if (!projects.TryGetValue(tab.Entry.Identity.ContainerPath, out var project)
+                || project is not TwinBasicBrowserProject twin || !tabs.Contains(tab)) return false;
+            var edits = tabs.Where(t => t.IsModified).ToDictionary(t => t.Entry.Identity, t => t.Document.Text);
+            if (edits.Count == 0) return true;
+            foreach (var document in tabs) document.SetSaving(true);
+            var snapshot = await Task.Run(() => ArchiveProjectSave.Save(twin.Snapshot, edits));
+            var replacement = new TwinBasicBrowserProject(snapshot);
+            projects[project.ContainerPath] = replacement;
+            foreach (var document in tabs)
+                if (replacement.TryGetEntry(document.Entry.Identity, out var entry))
+                {
+                    var caret = document.CaretOffset;
+                    var start = document.SelectionStart;
+                    var length = document.SelectionLength;
+                    document.Update(entry, replacement.BuildType, replacement.LanguageOf(entry));
+                    document.CaretOffset = Math.Min(caret, document.Document.TextLength);
+                    document.SelectionStart = Math.Min(start, document.Document.TextLength);
+                    document.SelectionLength = Math.Min(length, document.Document.TextLength - document.SelectionStart);
+                }
+            dock.RecentlyClosed?.RefreshArchive(replacement);
+            Publish();
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            var key = ex is ArchiveSaveException { Failure: ArchiveSaveFailure.ChangedOnDisk }
+                ? "Str.Archive.SaveChanged" : "Str.Archive.SaveRefused";
+            failure = string.Format(localization.GetString(key), tab.Entry.Identity.ContainerPath);
+        }
+        finally
+        {
+            foreach (var document in tabs) document.SetSaving(false);
+            gate.Release();
+        }
+        await windows.MessageBox(failure, icon: MessageBoxIcon.Warning);
+        return false;
+    }
+
+    internal async Task<bool> ConfirmClose(ArchiveDocumentViewModel tab)
+    {
+        if (tab.Saving) return false;
+        if (!tab.IsModified) return true;
+        var changed = new SaveChangesViewModel();
+        var file = new ChangedFileViewModel(tab.Entry.Identity.ContainerPath + " / " + tab.Entry.Name);
+        changed.ChangedFiles.Add(file);
+        changed.SelectedFiles.Add(file);
+        if (!await windows.ShowDialog(changed)) return false;
+        if (changed.SaveChanges && changed.SelectedFiles.Count > 0)
+            return await Save(tab) && !tab.IsModified;
+        var project = Projects.First(p => p.ContainerPath == tab.Entry.Identity.ContainerPath);
+        tab.Update(tab.Entry, project.BuildType, project.LanguageOf(tab.Entry));
+        return true;
     }
 
     private ArchiveDocumentViewModel[] Tabs(string? path) => dock.OpenDocuments

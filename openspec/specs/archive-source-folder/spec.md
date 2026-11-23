@@ -75,7 +75,7 @@ Project Explorer SHALL offer source-folder synchronization for an archive projec
 
 #### Scenario: Saved content differs from the preview
 - **WHEN** the saved archive changes after it was opened and the user invokes synchronization
-- **THEN** the physical folder reflects saved content while the existing read-only previews remain unchanged
+- **THEN** the physical folder reflects saved content while the existing document buffers remain unchanged
 - **AND** the completion message explains that explicit reload refreshes previews and folder edits are not imported
 
 ### Requirement: Responsive and serialized synchronization

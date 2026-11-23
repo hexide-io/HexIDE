@@ -323,8 +323,8 @@ public partial class ProjectService : IProjectService
                 await SaveSelected(changedFilesVm);
         }
 
-        projectManager.UnloadAllProjects();
         if (archives != null) await archives.Close();
+        projectManager.UnloadAllProjects();
     }
 
     public async Task RemoveDocument(DocumentIdentity document)

@@ -1,12 +1,12 @@
 # archive-project-browsing Specification
 
 ## Purpose
-Allow offline inspection of archive projects without modifying project content or invoking a compiler.
+Allow offline inspection of archive projects and safe source editing without invoking a compiler.
 
 ## Requirements
 
 ### Requirement: Open archive projects independently of VB6 models
-The IDE MUST route supported archive project paths to the archive reader from normal project opening and recent-project reopening. It MUST show the stored hierarchy and a persistent read-only indication without registering VB6 modules. twinBASIC text previews MAY attach language servers by extension under opaque archive-entry URIs.
+The IDE MUST route supported archive project paths to the archive reader from normal project opening and recent-project reopening. It MUST show the stored hierarchy and a read-only indication for entries without an edit path without registering VB6 modules. twinBASIC text previews MAY attach language servers by extension under opaque archive-entry URIs.
 
 #### Scenario: Open an archive project
 - **WHEN** a user opens a supported archive project
@@ -33,7 +33,7 @@ container drive letter's case on Windows. Reload MUST recreate sessions and mark
 #### Scenario: Reload an open text entry
 - **WHEN** a validated replacement updates an open entry
 - **THEN** its old session closes and a new session opens with the replacement text
-- **AND** diagnostics reach the new buffer while edits remain refused
+- **AND** diagnostics reach the new buffer while read-only entries continue to refuse edits
 
 ### Requirement: Record archive document conversations
 Protocol recording and inspection MUST retain the archive-entry URI as sent.
@@ -45,9 +45,9 @@ Pseudonymised exports MUST redact entry and container names, and their disclosur
 - **AND** the disclosure preview shows the entry name
 
 ### Requirement: Inspect content without mutations
-Known text documents MUST support Find and copy. Editing and replacement MUST NOT change their buffers or source bytes. Unsupported text previews MUST show an explanatory status. Entry metadata and hidden entries MUST be available through explicit inspection controls. The Project Explorer's Show hidden archive entries toggle MUST be visible only when a twinBASIC archive root or node is selected.
+Known text documents MUST support Find and copy. Except for editable project-backed `.twin` sources, editing and replacement MUST NOT change their buffers or source bytes. Unsupported text previews MUST show an explanatory status. Entry metadata and hidden entries MUST be available through explicit inspection controls. The Project Explorer's Show hidden archive entries toggle MUST be visible only when a twinBASIC archive root or node is selected.
 
-#### Scenario: Find and replace in an archive tab
+#### Scenario: Find and replace in a read-only archive tab
 - **WHEN** the user finds text and invokes replacement
 - **THEN** Find selects the text and replacement leaves the document unchanged
 
@@ -56,7 +56,7 @@ Known text documents MUST support Find and copy. Editing and replacement MUST NO
 - **THEN** the tab shows metadata and explains that text preview is unavailable
 
 ### Requirement: Reload and close archive documents consistently
-Explicit reload MUST publish only a validated replacement and update retained open entries by identity. Removed entries MUST close. Failed reload MUST preserve the last good tree and tabs. Closing an archive MUST close its tabs without saving content.
+Explicit reload MUST publish only a validated replacement and update retained open entries by identity. Removed entries MUST close. Failed reload MUST preserve the last good tree and tabs. Closing an archive MUST resolve modified source tabs through the ordinary save-changes prompt before closing its tabs. Reload MUST also resolve unsaved edits before replacing the snapshot.
 
 #### Scenario: Reload fails validation
 - **WHEN** an external replacement is invalid and the user reloads
@@ -98,7 +98,7 @@ The IDE MUST report a refused archive open with the selected file name and the r
 - **AND** the refused archive is not added to recent projects
 
 ### Requirement: Browse Office documents through the container seam
-The IDE MUST use a shared read-only container abstraction for twinBASIC and Office documents, without
+The IDE MUST use a shared container abstraction for twinBASIC and Office documents, without
 adding a writable Office project type. Opening an Office document from the picker, recent list or path
 MUST preserve the loaded workspace and group. A missing VBA project MUST name the file; an unreadable
 project MUST show the reader's reason. Failed opens MUST NOT enter recent projects.
@@ -162,3 +162,22 @@ execute its code or events.
 #### Scenario: Read Office source beside a loaded startup project
 - **WHEN** an Office source tab is active
 - **THEN** diagnostics are shown as markers and implicit build and run commands are unavailable
+
+### Requirement: Save editable twinBASIC sources safely
+Available UTF-8 `.twin` entries in a `.twinproj` project MUST be editable with an unsaved marker. Ordinary
+Save MUST collect that container's modified sources, preserve their UTF-8 BOM choices and increase each
+changed file's revision by 2. Other entries and metadata MUST remain unchanged. The proposed container
+MUST be written in memory and read back equal before any disk write. Save MUST refuse externally changed
+disk bytes, retain edits on refusal, and use a flushed atomic replacement with recovery of the previous bytes.
+On success the project MUST publish a snapshot read from the written bytes and clear the saved markers.
+Standalone previews, Office entries and non-`.twin` entries MUST remain read-only. Modified tab close MUST
+ask whether to save, discard or cancel. Detecting another IDE with the project open is outside this capability.
+
+#### Scenario: Save a source edit
+- **WHEN** an editable source changes and the user invokes ordinary Save
+- **THEN** the checked container replaces the unchanged disk baseline with a recovery sibling
+- **AND** the snapshot refreshes and the unsaved marker clears
+
+#### Scenario: Another program saved the container
+- **WHEN** Save finds disk bytes different from the snapshot's baseline
+- **THEN** it refuses with a localized reason naming the file, preserving the disk bytes and unsaved edit

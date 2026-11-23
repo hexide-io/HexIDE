@@ -2,6 +2,8 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Nie je možné uložiť '{0}': súbor sa na disku zmenil. Pred uložením ho znova načítajte.",
+    "Str.Archive.SaveRefused": "Nie je možné uložiť '{0}': kontajner sa nepodarilo bezpečne overiť a zapísať. Úprava zostáva neuložená.",
     "Str.Dialog.MakeProjectGroup.Projects": "Zostaviť nasledujúce projekty:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Použiť predvolené možnosti zostavenia",
     "Str.Dialog.MakeProjectGroup.Build": "Zostaviť",

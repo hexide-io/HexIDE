@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Nije moguće sačuvati '{0}': datoteka je promenjena na disku. Ponovo je učitajte pre čuvanja.",
+    "Str.Archive.SaveRefused": "Nije moguće sačuvati '{0}': kontejner nije mogao bezbedno da se proveri i zapiše. Izmena ostaje nesačuvana.",
     "Str.Dialog.MakeProjectGroup.Projects": "Izgradi sledeće projekte:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Koristi podrazumevane opcije izgradnje",
     "Str.Dialog.MakeProjectGroup.Build": "Izgradi",

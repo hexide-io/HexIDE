@@ -2,6 +2,8 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Nu se poate salva '{0}': fișierul s-a modificat pe disc. Reîncărcați-l înainte de salvare.",
+    "Str.Archive.SaveRefused": "Nu se poate salva '{0}': containerul nu a putut fi verificat și scris în siguranță. Modificarea rămâne nesalvată.",
     "Str.Dialog.MakeProjectGroup.Projects": "Compilează următoarele proiecte:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Utilizează opțiunile de compilare implicite",
     "Str.Dialog.MakeProjectGroup.Build": "Compilează",

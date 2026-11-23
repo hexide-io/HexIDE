@@ -13,6 +13,10 @@ public static class TwinBasicContainerReader
 {
     public static TwinBasicContainer Read(
         Stream input, TwinBasicReadLimits? limits = null, CancellationToken cancellationToken = default)
+        => ReadSnapshot(input, limits, cancellationToken).Container;
+
+    internal static (TwinBasicContainer Container, byte[] Bytes) ReadSnapshot(
+        Stream input, TwinBasicReadLimits? limits = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
         limits ??= new();
@@ -35,7 +39,8 @@ public static class TwinBasicContainerReader
                 throw new TwinBasicFormatException(snapshot.Length + count, "/", "Container exceeds byte limit");
             snapshot.Write(buffer, 0, count);
         }
-        return new Parser(snapshot.ToArray(), limits, cancellationToken).Parse();
+        var bytes = snapshot.ToArray();
+        return (new Parser(bytes, limits, cancellationToken).Parse(), bytes);
     }
 
     private sealed class Parser(byte[] bytes, TwinBasicReadLimits limits, CancellationToken cancellationToken)

@@ -150,6 +150,8 @@
     "Str.LspArtifact.ResetGrant": "Restablecer {0} para {1} en {2}",
     "Str.Archive.ProjectFormat": "{0} (arquivo de só lectura)",
     "Str.Archive.Hidden": "Mostrar as entradas ocultas do arquivo",
+    "Str.Archive.SaveChanged": "Non se pode gardar '{0}': o ficheiro cambiou no disco. Cárgueo de novo antes de gardar.",
+    "Str.Archive.SaveRefused": "Non se pode gardar '{0}': non se puido verificar e escribir o contedor con seguridade. O cambio segue sen gardar.",
     "Str.Archive.ReadOnly": "Vista previa do arquivo de só lectura. A edición, a compilación e a execución non están dispoñibles.",
     "Str.Archive.UnsupportedType": "A vista previa de texto non está dispoñible para este tipo de ficheiro.",
     "Str.Archive.InvalidUtf8": "A vista previa de texto non está dispoñible: UTF-8 non válido.",

@@ -632,7 +632,7 @@ It uses the code window's 400 ms delay, cancellation and tooltip renderer, inclu
 code fences. Format Document and Format Selection use the claiming server's corresponding advertised
 provider, flush pending edits, and pass the configured Tab Width with spaces. Each reply applies as
 one undo step; a reply to an older buffer or detached view is discarded. A read-only editor refuses
-formatting with an explanation. Archive previews and project-file views remain read-only and have
+formatting with an explanation. Archive and project-file views have
 no formatting commands. Carried files do not format on save. The code window retains its guarded
 formatting and format-on-save paths, diagnostic tips and debugger data tips.
 
@@ -770,8 +770,8 @@ An available twinBASIC text preview opens a session with its text and closes it 
 (`.twin` and the VB6 source extensions, ignoring case) carry the `twinbasic` language label: only servers
 claiming the extension and declaring `languageId` `twinbasic` receive them (#1122). Other entries route by
 extension. Without a matching server, no diagnostics are produced. Reload recreates that session and its
-diagnostic markers. Entries stay read-only and send
-no `didChange`; no shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
+diagnostic markers. Read-only entries send no `didChange`; editable project-backed `.twin` sources send
+text changes through the same session (#5143). No shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
 The protocol inspector and `list_lsp_messages` record the conversation normally; pseudonymised exports redact
 both entry names and the nested container URI.
 

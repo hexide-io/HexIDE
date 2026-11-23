@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "無法儲存 '{0}'：磁碟上的檔案已變更。請先重新載入再儲存。",
+    "Str.Archive.SaveRefused": "無法儲存 '{0}'：無法安全驗證並寫入容器。編輯內容仍未儲存。",
     "Str.Dialog.MakeProjectGroup.Projects": "建置下列專案：",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "使用預設建置選項",
     "Str.Dialog.MakeProjectGroup.Build": "建置",

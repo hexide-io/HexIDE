@@ -2,6 +2,8 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Невозможно сохранить '{0}': файл на диске изменён. Загрузите его заново перед сохранением.",
+    "Str.Archive.SaveRefused": "Невозможно сохранить '{0}': не удалось безопасно проверить и записать контейнер. Изменение остаётся несохранённым.",
     "Str.Dialog.MakeProjectGroup.Projects": "Собрать следующие проекты:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Использовать параметры сборки по умолчанию",
     "Str.Dialog.MakeProjectGroup.Build": "Собрать",

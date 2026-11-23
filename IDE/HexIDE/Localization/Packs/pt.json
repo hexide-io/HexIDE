@@ -111,6 +111,8 @@
     "Str.LspArtifact.ResetGrant": "Repor {0} para {1} em {2}",
     "Str.Archive.ProjectFormat": "{0} (arquivo só de leitura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas do arquivo",
+    "Str.Archive.SaveChanged": "Não é possível guardar '{0}': o ficheiro foi alterado no disco. Volte a carregá-lo antes de guardar.",
+    "Str.Archive.SaveRefused": "Não é possível guardar '{0}': não foi possível verificar e escrever o contentor em segurança. A alteração continua por guardar.",
     "Str.Archive.ReadOnly": "Visualização do arquivo só de leitura. Edição, compilação e execução não estão disponíveis.",
     "Str.Archive.UnsupportedType": "A visualização de texto não está disponível para este tipo de ficheiro.",
     "Str.Archive.InvalidUtf8": "Visualização de texto indisponível: UTF-8 inválido.",

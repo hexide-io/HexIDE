@@ -2,6 +2,8 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Não é possível salvar '{0}': o arquivo foi alterado no disco. Recarregue-o antes de salvar.",
+    "Str.Archive.SaveRefused": "Não é possível salvar '{0}': não foi possível verificar e gravar o contêiner com segurança. A edição continua sem salvar.",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Usar as opções de compilação padrão",
     "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edição vinculada (renomear os outros usos de uma variável ao digitar)",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao digitar",
