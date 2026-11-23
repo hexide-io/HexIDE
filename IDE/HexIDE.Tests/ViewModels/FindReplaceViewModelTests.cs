@@ -1261,7 +1261,7 @@ public partial class FindReplaceViewModelTests
         var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var editorService = Substitute.For<IEditorService>();
         var projectService = Substitute.For<IProjectService>();
-        var projectExplorer = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, loc);
+        var projectExplorer = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), projectManager, eventBus, projectService, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(mockDocDock, loc);
         var objectBrowser = new ObjectBrowserToolViewModel(projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
             Substitute.For<ILanguageConnectionRegistry>());

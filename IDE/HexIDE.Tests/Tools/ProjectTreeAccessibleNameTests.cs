@@ -36,7 +36,7 @@ public class ProjectTreeAccessibleNameTests
         var definition = TestHelpers.CreateProjectWithForm("Project1");
         // Saved, so the rename leaves the file name alone: an unsaved project shows its name in both places.
         definition.AbsolutePath = Path.Combine(Path.GetTempPath(), "Project1.vbp");
-        var tool = new ProjectToolViewModel(Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
+        var tool = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), Substitute.For<ILocalizationService>());
         var node = new ProjectViewModel(tool, definition);
         var raised = new List<string?>();

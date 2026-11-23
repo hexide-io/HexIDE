@@ -11,6 +11,26 @@ namespace HexIDE.Tests.Infrastructure;
 
 public class ExternalRunControlTests : CompositionTestBase
 {
+    // Before #870 the bindings targeted methods without predicates. Read both shapes so this external-session
+    // regression guard also runs against that baseline, where it passes.
+    private static bool DesignerViewCommandEnabled(MainViewViewModel root, HexIDE.Forms.ViewModels.CodeEditorViewModel code, string name)
+    {
+        var file = name == "ViewObject" ? "Forms/Views/CodeEditorView.axaml" : "MainView.axaml";
+        var view = System.Xml.Linq.XDocument.Load(Path.Combine(RepoTree.Root(), "IDE", "HexIDE", file));
+        var binding = view.Descendants().Single(e => e.Name.LocalName == "CommandBinding"
+            && (string?)e.Attribute("Command") == "{x:Static vb:ApplicationCommands." + name + "Command}");
+        var member = binding.Attribute("ExecutingCommand")!.Value["{CompiledBinding ".Length..^1];
+        if (name == "ViewObject")
+        {
+            var editor = typeof(HexIDE.Forms.ViewModels.CodeEditorViewModel);
+            return editor.GetMethod(member) is not null
+                || ((System.Windows.Input.ICommand)editor.GetProperty(member)!.GetValue(
+                    code)!).CanExecute(null);
+        }
+        return typeof(MainViewViewModel).GetMethod(member) is not null
+            || ((System.Windows.Input.ICommand)typeof(MainViewViewModel).GetProperty(member)!.GetValue(root)!).CanExecute(null);
+    }
+
     [Fact]
     public void Source_paths_resolve_symlinked_parent_directories()
     {
@@ -61,7 +81,17 @@ public class ExternalRunControlTests : CompositionTestBase
         var projects = Substitute.For<IProjectManager>();
         var project = TestHelpers.CreateProjectWithModule("P", "ChangedModule");
         projects.LoadedProjects.Returns([project]);
+        var root = composition.Root;
+        var form = new HexIDE.Runtime.ProjectElements.FormDefinition(project,
+            HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1");
+        project.AddForm(form);
         composition.ProjectManager.AddProject(project);
+        composition.EditorService.EditForm(form);
+        var designer = composition.DocumentDockService.AllTabs.Single(tab => tab is HexIDE.VisualDesigner.FormEditViewModel);
+        composition.EditorService.EditCode(form);
+        var code = composition.DocumentDockService.OpenDocuments.OfType<HexIDE.Forms.ViewModels.CodeEditorViewModel>()
+            .Single(tab => tab.FormDefinition == form);
+
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, composition.ProjectRunnerService, null!, null!, null!, null!,
             composition.DebugController, composition.Root, null!, null!, null!, null!, composition.Capture,
@@ -74,6 +104,9 @@ public class ExternalRunControlTests : CompositionTestBase
         try
         {
             await ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            composition.DocumentDockService.AllTabs.Should().Contain(designer);
+            foreach (var command in new[] { "ViewObject", "OpenProperties", "OpenFormLayout", "OpenToolBox" })
+                DesignerViewCommandEnabled(root, code, command).Should().BeTrue(command);
             printed.Take().Should().BeEmpty("an external session also begins with a fresh output buffer");
             printed.Append("pending\r\n");
             var state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
@@ -117,6 +150,7 @@ public class ExternalRunControlTests : CompositionTestBase
         {
             await external.StopAsync();
             await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            composition.ProjectManager.UnloadAllProjects();
             Directory.Delete(directory, true);
         }
     }

@@ -44,8 +44,20 @@ public interface IRunScope
 /// <inheritdoc cref="IRunScope"/>
 public sealed class RunScope : IRunScope
 {
+    private ProjectDefinition? runningProject;
+    internal event Action? InBoxRunChanged;
+
     /// <summary>Set by the project runner as a run starts and ends. Nothing else writes it.</summary>
-    public ProjectDefinition? RunningProject { get; set; }
+    public ProjectDefinition? RunningProject
+    {
+        get => runningProject;
+        set
+        {
+            if (ReferenceEquals(runningProject, value)) return;
+            runningProject = value;
+            InBoxRunChanged?.Invoke();
+        }
+    }
 
     private readonly HashSet<DocumentIdentity> changed = [];
     private readonly List<Action> unsubscribe = [];

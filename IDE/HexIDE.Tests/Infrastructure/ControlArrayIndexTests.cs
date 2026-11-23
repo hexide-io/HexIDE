@@ -52,7 +52,7 @@ public class ControlArrayIndexTests : IDisposable
             Substitute.For<IWindowManager>(), events, projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
             new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
-        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, null!, writer, events,
+        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(), writer, events,
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, Substitute.For<ILocalizationService>(), null!);
         var tools = new HexIdeTools(context);
         var before = new FormSerializer().Serialize(form, "Form1.frm").frmText;
@@ -133,7 +133,7 @@ public class ControlArrayIndexTests : IDisposable
             Substitute.For<IWindowManager>(), events, projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
             new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
-        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, null!, writer, events,
+        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(), writer, events,
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, Substitute.For<ILocalizationService>(), null!);
         var tools = new HexIdeTools(context);
         var before = new FormSerializer().Serialize(form, "Form1.frm").frmText;

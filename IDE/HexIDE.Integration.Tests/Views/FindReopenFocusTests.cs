@@ -73,7 +73,7 @@ public class FindReopenFocusTests
         var localization = Substitute.For<ILocalizationService>();
         var projects = Substitute.For<IProjectManager>();
         var editors = Substitute.For<IEditorService>();
-        var explorer = new ProjectToolViewModel(projects, Substitute.For<IEventBus>(),
+        var explorer = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), projects, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), editors, localization);
         var service = new FindReplaceService(new WindowManager(localization),
             Substitute.For<IDocumentDockService>(), localization, projects, editors, () => explorer);

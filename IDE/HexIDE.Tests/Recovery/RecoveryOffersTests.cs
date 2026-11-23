@@ -68,7 +68,7 @@ public sealed class RecoveryOffersTests : IDisposable
             Dock.OpenDocuments.Returns(Tabs);
             Dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>()))
                 .Do(ci => Tabs.Add(ci.Arg<BaseEditorWindowViewModel>()));
-            Editors = new EditorService(Dock, null!, null!, null!, null!, () => Manager,
+            Editors = new EditorService(new HexIDE.Debugging.RunScope(), Dock, null!, null!, null!, null!, () => Manager,
                 Substitute.For<ILocalizationService>(), Bus, () => Service!);
             if (realManager)
                 Manager = new ProjectManager(Editors, Bus);

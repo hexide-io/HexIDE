@@ -67,7 +67,8 @@ public partial class DISetup
                 ctx.Inject<IEditorService>(out var editorService);
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<ArchiveProjectService>(out var archives);
-                return new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization, archives);
+                ctx.Inject<RunScope>(out var scope);
+                return new ProjectToolViewModel(scope, projectManager, eventBus, projectService, editorService, localization, archives);
             })
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
             .Bind<FindReferencesToolViewModel>().As(Singleton).To<FindReferencesToolViewModel>()
@@ -189,7 +190,8 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<IEventBus>(out var events);
                 ctx.Inject<Func<IProjectService>>(out var projects);
-                return new EditorService(documentDock, codeEditors, relatedDocuments, projectDocuments, formEditors, projectManager, localization, events, projects);
+                ctx.Inject<IRunScope>(out var scope);
+                return new EditorService(scope, documentDock, codeEditors, relatedDocuments, projectDocuments, formEditors, projectManager, localization, events, projects);
             })
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()

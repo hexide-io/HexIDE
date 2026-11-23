@@ -92,7 +92,7 @@ public class AutomationNameGuardTests
             var documents = Substitute.For<IDocumentDockService>();
             documents.ActiveDocument.Returns(designer);
             var properties = new PropertiesToolViewModel(documents, bus, Substitute.For<IWindowManager>(), loc);
-            var explorer = new ProjectToolViewModel(manager, bus, Substitute.For<IProjectService>(), editor, loc);
+            var explorer = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), manager, bus, Substitute.For<IProjectService>(), editor, loc);
             var browser = new ObjectBrowserToolViewModel(manager, Substitute.For<ILspClient>(), editor,
                 new ComponentRegistry(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(),
                 loc, Substitute.For<ILanguageConnectionRegistry>());

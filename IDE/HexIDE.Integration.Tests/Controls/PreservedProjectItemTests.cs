@@ -33,7 +33,7 @@ public class PreservedProjectItemTests
             };
             var line = unsupported ? "UserDocument=Doc; Doc.dob" : "Form=Lost.frm";
             if (exists) File.WriteAllText(System.IO.Path.Combine(anchor, "Doc.dob"), "");
-            var tool = new ProjectToolViewModel(Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
+            var tool = new ProjectToolViewModel(new HexIDE.Debugging.RunScope(), Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(),
                 Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), Substitute.For<ILocalizationService>());
             using var project = new ProjectViewModel(tool, definition);
             var node = new PreservedItemViewModel(project, line);

@@ -680,7 +680,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a form or UserControl control property and saves it. SSTab Tab selects a page (0 to Tabs - 1) without undo; a page naming an unmodelled control is refused unchanged. Searches loaded projects without regard to case; pass `project` for duplicate document names, otherwise ambiguity is refused and the reply lists them. 'value' uses Properties window notation; its description lists the forms. get_form_controls lists controls and, with 'controlName', each property and value. Properties match without regard to case, ignoring parentheses: 'Name' reaches '(Name)'. Names must be valid VB6 names, unique by name and Index; a form's must also be free among the project's forms and modules. An unindexed control joins an array of its type at highest Index + 1 without asking. Creating an array from two unindexed controls of one type is refused: set the holder's Index to 0 first, then rename the other. Refused renames change nothing. The save writes the whole file, including earlier unsaved text. If its code page cannot hold a character, the value changes in the IDE but nothing is written and no dialog appears; the reply names the document, code page, character and line. A project started with --newproject has a form working copy in the temp folder, written without a picker. Pathless writes need a folder and answer_next_file_dialog; the refusal gives the save route. The reply's note gives the stored value; project and document name the form as the IDE spells them. Refuses writes outside the project's folder or through links, including armed destinations. Before replacing source or companion bytes, preserves a recovery file; the reply names it and how to restore it.")]
+    [Description("Refused during an in-box run; use stop_project first. Sets a form or UserControl control property and saves it. SSTab Tab selects a page (0 to Tabs - 1) without undo; a page naming an unmodelled control is refused unchanged. Searches loaded projects without regard to case; pass `project` for duplicate document names, otherwise ambiguity is refused and the reply lists them. 'value' uses Properties window notation; its description lists the forms. get_form_controls lists controls and, with 'controlName', each property and value. Properties match without regard to case, ignoring parentheses: 'Name' reaches '(Name)'. Names must be valid VB6 names, unique by name and Index; a form's must also be free among the project's forms and modules. An unindexed control joins an array of its type at highest Index + 1 without asking. Creating an array from two unindexed controls of one type is refused: set the holder's Index to 0 first, then rename the other. Refused renames change nothing. The save writes the whole file, including earlier unsaved text. If its code page cannot hold a character, the value changes in the IDE but nothing is written and no dialog appears; the reply names the document, code page, character and line. A project started with --newproject has a form working copy in the temp folder, written without a picker. Pathless writes need a folder and answer_next_file_dialog; the refusal gives the save route. The reply's note gives the stored value; project and document name the form as the IDE spells them. Refuses writes outside the project's folder or through links, including armed destinations. Before replacing source or companion bytes, preserves a recovery file; the reply names it and how to restore it.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName,
         [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
@@ -712,6 +712,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         DocumentIdentity? target = null;
         var (form, ownerModule, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
         {
+            if (DesignerRunRefusal() is { } runRefusal) return (null, null, runRefusal);
             // In every loaded project, as every other tool that takes a document's name looks (#273). This one
             // looked in the startup project only, so a form in a group's other project was "not found", and the
             // replies quoted the caller's spelling of the form rather than the form's.
@@ -1122,11 +1123,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "view_designer")]
-    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. The designer gets keyboard focus, as opening it by hand gives it. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open.")]
+    [Description("Refused during an in-box run; use stop_project first. Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. The designer gets keyboard focus, as opening it by hand gives it. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> ViewDesignerAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (DesignerRunRefusal() is { } runRefusal) return new MutateResult(false, runRefusal);
             var named = FindDesigner(name, project);
             if (named.Form is not { } form)
                 return new MutateResult(false, named.Error);
@@ -1697,11 +1699,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "; " + (designer.UndoStack.RedoDescription is { } redo ? $"next redo: '{redo}'." : "nothing to redo.");
 
     [McpServerTool(Name = "invoke_designer_undo")]
-    [Description("Invokes Undo on the active form designer. The reply's project and document identify it. Returns an error if no form designer is active or nothing is on the undo stack. The reply's 'note' names the step undone and what Undo and Redo would do next.")]
+    [Description("Refused during an in-box run; use stop_project first. Invokes Undo on the active form designer. The reply's project and document identify it. Returns an error if no form designer is active or nothing is on the undo stack. The reply's 'note' names the step undone and what Undo and Redo would do next.")]
     public async Task<MutateResult> InvokeDesignerUndoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (DesignerRunRefusal() is { } runRefusal) return new MutateResult(false, runRefusal);
             if (ctx.DocumentDockService.ActiveDocument is not HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new MutateResult(false, "Active window is not a form designer");
             if (!designer.CanUndo)
@@ -1713,11 +1716,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "invoke_designer_redo")]
-    [Description("Invokes Redo on the active form designer. The reply's project and document identify it. Returns an error if no form designer is active or nothing is on the redo stack. The reply's 'note' names the step redone and what Undo and Redo would do next.")]
+    [Description("Refused during an in-box run; use stop_project first. Invokes Redo on the active form designer. The reply's project and document identify it. Returns an error if no form designer is active or nothing is on the redo stack. The reply's 'note' names the step redone and what Undo and Redo would do next.")]
     public async Task<MutateResult> InvokeDesignerRedoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (DesignerRunRefusal() is { } runRefusal) return new MutateResult(false, runRefusal);
             if (ctx.DocumentDockService.ActiveDocument is not HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new MutateResult(false, "Active window is not a form designer");
             if (!designer.CanRedo)
@@ -1727,6 +1731,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return Naming(new MutateResult(true, null, $"Redid '{redone}'. " + UndoStackNote(designer)), designer.OpenDocument);
         });
     }
+
+    private string? DesignerRunRefusal() => ctx.ProjectRunnerService.RunningProject is not null
+        ? "A project is running. The designer is shut until it ends; use stop_project to end the run."
+        : null;
 
     // Assignment refusal: oracle PR #4069. Saved-size recovery: VB6 IDE measurements in #4179 / PR #4350.
     // The reply names the issue rather than linking a page that may not be installed.
@@ -1741,7 +1749,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + $"Height {PropertyText.Display(control.GetPropertyOrDefault(VBProperties.HeightProperty))}, in pixels relative to its container.";
 
     [McpServerTool(Name = "move_control")]
-    [Description("Moves or resizes a control on a form designer canvas by simulating a drag transaction. " +
+    [Description("Refused during an in-box run; use stop_project first. Moves or resizes a control on a form designer canvas by simulating a drag transaction. " +
         "Calls BeginDrag on the active designer, updates only the supplied position/size values on the ViewModel, " +
         "then calls EndDrag — so the operation lands as a single undo step on the designer undo stack. " +
         "The form must already be open in the visual designer (call view_designer first). " +
@@ -1765,6 +1773,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (DesignerRunRefusal() is { } runRefusal) return new MutateResult(false, runRefusal);
             // The name resolves to a document first, in every loaded project, and only then to the designer
             // open on it (#273). Matching open designers by name took the first of two forms of one name in a
             // group, which may not be the one the caller meant, and named a module "not open in the designer"
@@ -1819,7 +1828,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "add_control")]
-    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and writes the form to disk. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Returns the auto-generated control name (e.g. 'Command1'), with 'project' and 'document' naming the form as the IDE spells them. A project started with --newproject has a form working copy in the temp folder, written without a picker. Pathless writes need a folder and answer_next_file_dialog; the refusal gives the save route. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included. Refuses writes outside the project's folder or through links, including armed destinations. Before replacing source or companion bytes, preserves a recovery file; the reply names it and how to restore it.")]
+    [Description("Refused during an in-box run; use stop_project first. Places a control of the given type on a named form's designer canvas at the given position and size, and writes the form to disk. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Returns the auto-generated control name (e.g. 'Command1'), with 'project' and 'document' naming the form as the IDE spells them. A project started with --newproject has a form working copy in the temp folder, written without a picker. Pathless writes need a folder and answer_next_file_dialog; the refusal gives the save route. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included. Refuses writes outside the project's folder or through links, including armed destinations. Before replacing source or companion bytes, preserves a recovery file; the reply names it and how to restore it.")]
     public async Task<AddControlResult> AddControlAsync(
         string formName,
         [Description("A class as get_toolbox_items lists it, such as CommandButton or VB.CommandButton. An in-box control is offered only while the project references its library, which Project > Components sets, and once for each such library: its type name picks the library, as ComctlLib.ProgressBar does, and a bare ProgressBar takes the first.")] string type,
@@ -1834,6 +1843,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string recoveryNote = "";
         var spawned = await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (DesignerRunRefusal() is { } runRefusal) return new AddControlResult(false, null, runRefusal);
             // The name resolves to a document first, in every loaded project, and only then to the designer
             // open on it, as move_control does and for the same reasons (#273).
             var named = FindDesigner(formName, project);
@@ -2010,7 +2020,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             : ctx.ProjectManager.LoadedProjects.SelectMany(p => p.Modules).FirstOrDefault(m => m.FormPart == form);
 
     [McpServerTool(Name = "invoke_format_command")]
-    [Description("Invokes a Format menu command on the active form designer, named by project and document in the reply, which lands as one undo step. " +
+    [Description("Refused during an in-box run; use stop_project first. Invokes a Format menu command on the active form designer, named by project and document in the reply, which lands as one undo step. " +
         "Commands: AlignLefts, AlignRights, AlignTops, AlignBottoms, AlignCentersH, AlignCentersV, " +
         "MakeSameWidth, MakeSameHeight, MakeSameSize, MakeHorizontalSpacingEqual, IncreaseHorizontalSpacing, " +
         "DecreaseHorizontalSpacing, RemoveHorizontalSpacing, MakeVerticalSpacingEqual, IncreaseVerticalSpacing, " +
@@ -2019,6 +2029,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (DesignerRunRefusal() is { } runRefusal) return new MutateResult(false, runRefusal);
             if (ctx.DocumentDockService.ActiveDocument is not HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new MutateResult(false, "Active window is not a form designer");
 

@@ -204,7 +204,7 @@ public sealed class SplitDocumentTabsTests
             factory.InitLayout(factory.CreateLayout());
             using var service = new DocumentDockService(new DockFactoryReference { Value = factory }, new EventBus());
             var loc = Substitute.For<ILocalizationService>();
-            var editors = new EditorService(service, () => throw new InvalidOperationException(),
+            var editors = new EditorService(new HexIDE.Debugging.RunScope(), service, () => throw new InvalidOperationException(),
                 () => throw new InvalidOperationException(), () => new ProjectDocumentViewModel(loc),
                 () => throw new InvalidOperationException(), () => Substitute.For<IProjectManager>(), loc)
                 { DocumentSessions = new DocumentSessionStore(Path.Combine(directory, "sessions")) };
