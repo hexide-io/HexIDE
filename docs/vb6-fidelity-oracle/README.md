@@ -927,6 +927,7 @@ added afterwards.
 - [A watch and its context, in the IDE's Watches window (2026-10-27, #2290)](a-watch-and-its-context.md#a-watch-and-its-context-in-the-ides-watches-window-2026-10-27-2290)
 - [View > Last Position (2026-11-21, #69, design-time, IDE, SP6)](view-last-position.md#view--last-position-2026-11-21-69-design-time-ide-sp6)
 - [A closed code window, and a run (2026-11-21, #69, SP6)](view-last-position.md#a-closed-code-window-and-a-run-2026-11-21-69-sp6)
+- [The rest of the edges, and the history's lifetime (2026-11-23, #69, SP6)](view-last-position.md#the-rest-of-the-edges-and-the-historys-lifetime-2026-11-23-69-sp6)
 - [Add Watch's Module and Procedure lists, for a property (2026-11-17, #4401)](a-watch-and-its-context.md#add-watchs-module-and-procedure-lists-for-a-property-2026-11-17-4401)
 - [A watch scoped to one accessor, and a watch on (All Modules) (2026-11-17, #4401, #4452)](a-watch-and-its-context.md#a-watch-scoped-to-one-accessor-and-a-watch-on-all-modules-2026-11-17-4401-4452)
 - [A watch scoped to another module, and the Watches window's row order (2026-11-17, #4481)](a-watch-and-its-context.md#a-watch-scoped-to-another-module-and-the-watches-windows-row-order-2026-11-17-4481)
