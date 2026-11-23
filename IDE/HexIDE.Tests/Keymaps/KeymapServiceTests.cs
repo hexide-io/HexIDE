@@ -42,7 +42,7 @@ public sealed class KeymapServiceTests : IDisposable
         {
             CommandKeyMapping.Table.Should().ContainKey(name);
             var expected = string.IsNullOrEmpty(text) ? [] : new[] { KeyGesture.Parse(text) };
-            if (OperatingSystem.IsMacOS())
+            if (OperatingSystem.IsMacOS() && name != nameof(ApplicationCommands.CompleteWordCommand))
             {
                 expected = expected.Select(gesture => new KeyGesture(gesture.Key,
                     gesture.KeyModifiers.HasFlag(KeyModifiers.Control)

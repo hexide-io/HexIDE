@@ -376,6 +376,7 @@
     "Str.Help.LogFolder.OpenFailed": "Nie można otworzyć folderu dzienników. Możesz otworzyć go ręcznie: {0}",
     "Str.Menu.Help.About": "_O programie HexIDE...",
     "Str.Menu.MacApp.About": "O programie HexIDE",
+    "Str.Menu.MacApp.Settings": "Opcje…",
     "Str.Menu.GoToGithubRepo": "Przejdź do repozytorium github",
     "Str.NewProject.NoTemplates": "Ten profil nie oferuje szablonów nowych projektów. Otwórz istniejący projekt.",
     "Str.NewProject.Msg.NoStandardExe": "W {0} nie zainstalowano typu projektu tworzącego projekt Standard EXE, więc program uruchomiono bez projektu.",

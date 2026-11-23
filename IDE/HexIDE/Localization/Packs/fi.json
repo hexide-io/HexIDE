@@ -342,6 +342,7 @@
     "Str.Help.LogFolder.OpenFailed": "Lokikansiota ei voitu avata. Voit avata sen käsin: {0}",
     "Str.Menu.Help.About": "_Tietoja: HexIDE...",
     "Str.Menu.MacApp.About": "Tietoja: HexIDE",
+    "Str.Menu.MacApp.Settings": "Asetukset…",
     "Str.Menu.GoToGithubRepo": "Siirry GitHub-säilöön",
     "Str.NewProject.NoTemplates": "Tämä profiili ei tarjoa uusien projektien malleja. Avaa sen sijaan olemassa oleva projekti.",
     "Str.NewProject.Msg.NoStandardExe": "Ohjelmaan {0} ei ole asennettu projektityyppiä, joka luo Standard EXE -projektin, joten ohjelma käynnistyi ilman projektia.",

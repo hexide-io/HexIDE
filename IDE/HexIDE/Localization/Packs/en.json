@@ -332,6 +332,7 @@
     "Str.Help.LogFolder.OpenFailed": "Could not open the log folder. You can open it manually: {0}",
     "Str.Menu.Help.About": "_About HexIDE...",
     "Str.Menu.MacApp.About": "About HexIDE",
+    "Str.Menu.MacApp.Settings": "Settings…",
     "Str.Menu.GoToGithubRepo": "Go to github repo",
     "Str.NewProject.NoTemplates": "This profile offers no new project templates. Open an existing project instead.",
     "Str.NewProject.Msg.NoStandardExe": "{0} has no project type installed that makes a Standard EXE project, so it started without one.",

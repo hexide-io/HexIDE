@@ -409,6 +409,7 @@
     "Str.Help.LogFolder.OpenFailed": "ログフォルダーを開けませんでした。手動で開くことができます: {0}",
     "Str.Menu.Help.About": "HexIDE のバージョン情報(_A)...",
     "Str.Menu.MacApp.About": "HexIDE のバージョン情報",
+    "Str.Menu.MacApp.Settings": "オプション…",
     "Str.Menu.GoToGithubRepo": "github リポジトリへ移動",
     "Str.NewProject.NoTemplates": "このプロファイルには新規プロジェクトのテンプレートがありません。既存のプロジェクトを開いてください。",
     "Str.NewProject.Msg.NoStandardExe": "{0} には Standard EXE プロジェクトを作成するプロジェクトの種類がインストールされていないため、プロジェクトなしで起動しました。",
