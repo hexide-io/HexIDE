@@ -117,3 +117,35 @@ Search scope was the dialog's default, Current Module. Each case started with th
 
 **Still not measured:** Find Whole Word Only, Match Case, Replace, and the Yes of either prompt when another match lies
 before the starting point.
+
+### The wrap prompt's Yes and No (2026-11-22, #5307, SP6)
+
+Measured the same way with VB6.EXE 6.00.9782 (SP6), in a clone of the oracle guest: scope Current Module, Direction
+Down, Find What `ab`. The line was `s = "abab"`, and each case started with the caret before the second `ab`, at
+string offset 2, by End and three Lefts.
+
+| Keys after the first Find Next | The line read back, or the message | Found |
+|---|---|---|
+| Esc | `s = "abQ"` | offset 2, the match at the caret |
+| Esc, F3 | "End of search scope has been reached; do you want to continue from the beginning?" | |
+| Esc, F3, Yes | `s = "Qab"` | **offset 0**, before where the search began |
+| Esc, F3, Yes, F3 | "The specified region has been searched." | **not offset 2 again** |
+| Esc, F3, No | `s = "abQ"` | the selection unchanged, and no message |
+
+**Readings:**
+- **Yes wraps to the scope's start and finds a match before the starting point.**
+- **The next F3 stops where the search began,** with "The specified region has been searched.", rather than finding
+  the first match again.
+- **No leaves the selection as it was.**
+
+The caret's starting point and the first match were both at offset 2, so which of the two the search stops at isn't
+told apart.
+
+**Two other scopes,** with Direction Down and a screenshot of the dialog confirming each:
+- **Current Procedure,** `aaa` and `aa`, from the line above: F3 past the first match gave the same "End of search
+  scope has been reached; do you want to continue from the beginning?"
+- **Current Project,** two modules, each with one `"ab"`, starting in Module2's procedure: Find Next found Module2's,
+  F3 switched to Module1 and found its one, and the next F3 gave **"The specified region has been searched."**, with no
+  prompt before it. So a project search goes on through the other modules without asking, and stops where it began.
+
+**Still not measured:** Selected Text, and a project search that started with matches before the caret.
