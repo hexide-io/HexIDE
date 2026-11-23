@@ -53,6 +53,7 @@ public class VBComboBox : ComboBox
     private bool textFromCode;
     private TextBox? editBox;
     private Border? listBorder;
+    private bool measuredRowsStyled;
 
     static VBComboBox()
     {
@@ -103,15 +104,15 @@ public class VBComboBox : ComboBox
     private const double SimpleEditHeight = 21;
 
     /// <summary>
-    /// A Simple Combo: its edit box, with its list under it, always shown, and no button (measured, #1603). The list
-    /// scrolls when its items don't fit. Avalonia's ComboBox requires a popup, which is there and never opens.
+    /// A Simple Combo: its edit box, with its list under it when rows fit, and no button (measured, #1603, #1655).
+    /// The list scrolls when its items don't fit. Avalonia's ComboBox requires a popup, which is there and never opens.
     /// </summary>
     private static readonly FuncControlTemplate<VBComboBox> SimpleTemplate = new((combo, scope) =>
     {
         var edit = new TextBox
         {
             Name = "PART_EditableTextBox",
-            Height = SimpleEditHeight,
+            Height = SimpleComboHeights.Find(AttachedProperties.GetFont(combo) ?? VBFont.Default)?.Edit ?? SimpleEditHeight,
             [DockPanel.DockProperty] = Dock.Top,
             [!!TextBox.TextProperty] = combo[!!TextProperty],
             [!TextBox.BackgroundProperty] = combo[!BackgroundProperty],
@@ -196,6 +197,7 @@ public class VBComboBox : ComboBox
         editBox = e.NameScope.Find<TextBox>("PART_EditableTextBox");
         listBorder = e.NameScope.Find<Border>("PART_List");
         UpdateEditDecorations();
+        UpdateSimpleLayout();
         if (editBox is not { } box)
             return;
         box.MinHeight = 0;
@@ -203,6 +205,28 @@ public class VBComboBox : ComboBox
         box.VerticalContentAlignment = VerticalAlignment.Center;
         ScrollViewer.SetVerticalScrollBarVisibility(box, ScrollBarVisibility.Disabled);
         ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Hidden);
+    }
+
+    private void UpdateSimpleLayout()
+    {
+        if (!IsSimpleCombo || SimpleComboHeights.Find(AttachedProperties.GetFont(this) ?? VBFont.Default) is not { } metrics)
+            return;
+        if (editBox is { } edit)
+            edit.Height = metrics.Edit;
+        if (listBorder is { } list)
+        {
+            list.BorderThickness = new Thickness(list.BorderThickness.Left, 2, list.BorderThickness.Right, 2);
+            list.IsVisible = double.IsNaN(Height) || Height > metrics.Edit;
+        }
+        // The four-pixel border and row heights are VB6's, not the host font's (#1655).
+        if (!measuredRowsStyled)
+        {
+            measuredRowsStyled = true;
+            Styles.Add(new Style(x => x.OfType<ComboBoxItem>())
+            {
+                Setters = { new Setter(HeightProperty, (double)metrics.Row) },
+            });
+        }
     }
 
     internal void UpdateEditDecorations()
@@ -241,11 +265,13 @@ public class VBComboBox : ComboBox
             return;
         }
         base.OnPropertyChanged(change);
+        if (change.Property == HeightProperty)
+            UpdateSimpleLayout();
         if (change.Property == TextProperty && IsEditable && !textFromSelection && !textFromCode)
             this.ExecuteSub(TextBoxComponentClass.ChangeEvent);
         else if (change.Property == IsDropDownOpenProperty && change.GetNewValue<bool>())
         {
-            // A Simple Combo's list is always shown: it has nothing to drop, and raises no DropDown (measured, #1603).
+            // A Simple Combo has nothing to drop, and raises no DropDown (measured, #1603).
             if (IsSimpleCombo)
                 SetCurrentValue(IsDropDownOpenProperty, false);
             else
