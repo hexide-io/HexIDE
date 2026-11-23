@@ -55,4 +55,63 @@ public class ForeignAdapterAcquisitionTests
         finally { File.Delete(archive); File.Delete(archive + ".partial"); }
     }
 
+    private static string[] PythonCandidates() =>
+        (OperatingSystem.IsWindows() ? new[] { "python.exe", "python3.exe" } : ["python3", "python"])
+        .SelectMany(name => new[] { "first", "second" }.Select(directory => Path.Combine(Path.GetFullPath(directory), name))).ToArray();
+
+    [Fact]
+    public void Python_search_continues_after_a_timeout()
+    {
+        var candidates = PythonCandidates();
+        var tried = new List<string>();
+        var result = ForeignAdapterAcquisition.FindPython(
+            [Path.GetFullPath("first"), Path.GetFullPath("second")], _ => true, path =>
+            {
+                tried.Add(path);
+                return path == candidates[0] ? (false, 0, "") : (true, 0, "Python 3.14.0");
+            });
+        result.Path.Should().Be(candidates[1]);
+        result.Unavailable.Should().BeNull();
+        tried.Should().Equal(candidates.Take(2));
+    }
+
+    [Fact]
+    public void Python_search_reports_every_rejection_in_search_order()
+    {
+        var candidates = PythonCandidates();
+        var result = ForeignAdapterAcquisition.FindPython(
+            [Path.GetFullPath("first"), Path.GetFullPath("second")], _ => true, path =>
+            {
+                if (path == candidates[0]) return (false, 0, "");
+                if (path == candidates[1]) return (true, 9009, "");
+                if (path == candidates[2]) return (true, 0, "Python 2.7.18\r\nignored");
+                throw new Win32Exception("probe refused");
+            });
+        result.Path.Should().BeNull();
+        result.Unavailable.Should().Be("debugpy requires Python 3 on PATH (CI installs 3.14). Tried: " +
+            $"{candidates[0]}: no exit within 5 s; {candidates[1]}: exit code 9009; " +
+            $"{candidates[2]}: printed \"Python 2.7.18\"; {candidates[3]}: failed to start: Win32Exception: probe refused");
+    }
+
+    [Fact]
+    public void Python_search_distinguishes_no_candidate_files()
+    {
+        var result = ForeignAdapterAcquisition.FindPython([Path.GetFullPath("absent")], _ => false,
+            _ => throw new InvalidOperationException("No file should be probed."));
+        result.Path.Should().BeNull();
+        result.Unavailable.Should().Be("debugpy requires Python 3 on PATH (CI installs 3.14). No " +
+            (OperatingSystem.IsWindows() ? "python.exe or python3.exe" : "python3 or python") + " on PATH.");
+    }
+
+    [Theory]
+    [InlineData(199)]
+    [InlineData(201)]
+    public void Python_search_caps_printed_text(int length)
+    {
+        var candidate = PythonCandidates()[0];
+        var result = ForeignAdapterAcquisition.FindPython(["first"], path => Path.GetFullPath(path) == candidate,
+            _ => (true, 0, new string('x', length) + "\nignored"));
+        result.Unavailable.Should().EndWith($"{candidate}: printed \"{new string('x', Math.Min(length, 200))}\"");
+    }
+
 }
