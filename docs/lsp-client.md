@@ -45,6 +45,19 @@ requests ranges after a 500 ms caret/edit debounce and a document flush, and mir
 by the server. Escape, leaving the ranges, an outside change or a failed `wordPattern` ends the link.
 Each mirrored edit is one undo step. The separate carried-file editor does not use this code-window path.
 
+## Document links
+
+HexIDE caches capable servers' `textDocument/documentLink` answers per document version,
+including carried files, and invalidates them on analysis refresh or connection changes. Hold the platform's
+command modifier (Ctrl, or ⌘ on Mac) over a returned range to underline it, show its tooltip
+(or target), and use a hand cursor. Command-click follows without moving the source caret.
+Loaded project members and carried files open through the `window/showDocument` navigation
+path; `#L<n>` and `#<n>` fragments select a one-based target line, and `,<column>` after either a
+one-based column, as vscode-json-language-server writes a `$ref`'s. Other targets go through
+the unchanged external-document policy: http, https and mailto ask every time; other schemes,
+including unloaded file URIs, are refused. A status message identifies a target not open in
+HexIDE. Links without targets do nothing; `documentLink/resolve` remains unsupported (#5446).
+
 ## The design claim this document is accountable to
 
 > The backend is replaceable. Any conformant language server should work, and where one does not, that is a
@@ -1922,7 +1935,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 67 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 68 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1944,7 +1957,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 32 of 41
+### `textDocument/*` — 33 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1961,7 +1974,7 @@ than inferred.
 | ✅ | `textDocument/didSave` | → |  |
 | ○ | `textDocument/documentColor` | → |  |
 | ✅ | `textDocument/documentHighlight` | → |  |
-| ○ | `textDocument/documentLink` | → |  |
+| ✅ | `textDocument/documentLink` | → | Per-version links in both editors; command-click follows loaded targets or the existing external prompt policy (#5446). |
 | ✅ | `textDocument/documentSymbol` | → | Both answers are read. The client declares `hierarchicalDocumentSymbolSupport`, because a server that honours it sends the flat form to a client that does not, and the outline loses its nesting ([#463](https://github.com/hexide-io/HexIDE/issues/463)). The code window asks again after each diagnostics publish, from any server; a request for the same text that is still waiting answers a later publish too, and one for older text is cancelled ([#4162](https://github.com/hexide-io/HexIDE/issues/4162)) |
 | ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. Character offsets are honoured, defaulting to each line’s length when absent. The temporary `lineFoldingOnly` declaration (#1363) is removed; same-start folds retain state by range ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)) |
 | ✅ | `textDocument/formatting` | → |  |

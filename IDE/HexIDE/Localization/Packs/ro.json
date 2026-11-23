@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Nu este disponibil niciun editor al spațiului de lucru.",
     "Str.Menu.Edit.CallHierarchy": "I_erarhia apelurilor",
     "Str.CodeEditor.Context.CallHierarchy": "Ierar_hia apelurilor",
+    "Str.Lsp.LinkTargetNotOpen": "Destinația legăturii nu este deschisă în HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Deschideți acest URI în afara HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ierarhia apelurilor",
     "Str.Menu.Edit.TypeHierarchy": "Ierar_hia tipurilor",

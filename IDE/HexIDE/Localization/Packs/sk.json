@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Nie je dostupný žiadny editor pracovného priestoru.",
     "Str.Menu.Edit.CallHierarchy": "H_ierarchia volaní",
     "Str.CodeEditor.Context.CallHierarchy": "_Hierarchia volaní",
+    "Str.Lsp.LinkTargetNotOpen": "Cieľ odkazu nie je otvorený v HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Otvoriť tento identifikátor URI mimo HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarchia volaní",
     "Str.Menu.Edit.TypeHierarchy": "Hi_erarchia typov",

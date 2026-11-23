@@ -88,6 +88,7 @@
     "Str.Lsp.NoWorkspaceEditor": "No hi ha cap editor de l’espai de treball disponible.",
     "Str.Menu.Edit.CallHierarchy": "_Jerarquia de crides",
     "Str.CodeEditor.Context.CallHierarchy": "_Jerarquia de crides",
+    "Str.Lsp.LinkTargetNotOpen": "La destinació de l’enllaç no està oberta a HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Voleu obrir aquest URI fora del HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Jerarquia de crides",
     "Str.Menu.Edit.TypeHierarchy": "Jerar_quia de tipus",

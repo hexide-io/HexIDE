@@ -89,6 +89,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Nėra pasiekiamo darbo srities redaktoriaus.",
     "Str.Menu.Edit.CallHierarchy": "Iškvi_etimų hierarchija",
     "Str.CodeEditor.Context.CallHierarchy": "I_škvietimų hierarchija",
+    "Str.Lsp.LinkTargetNotOpen": "Nuorodos tikslas neatvertas „HexIDE“: {0}",
     "Str.Lsp.OpenExternalUri": "Atverti šį URI už HexIDE ribų?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Iškvietimų hierarchija",
     "Str.Menu.Edit.TypeHierarchy": "Tipų _hierarchija",

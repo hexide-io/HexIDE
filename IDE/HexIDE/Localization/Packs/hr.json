@@ -122,6 +122,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Nijedan uređivač radnog prostora nije dostupan.",
     "Str.Menu.Edit.CallHierarchy": "_Hijerarhija poziva",
     "Str.CodeEditor.Context.CallHierarchy": "_Hijerarhija poziva",
+    "Str.Lsp.LinkTargetNotOpen": "Odredište poveznice nije otvoreno u HexIDE-u: {0}",
     "Str.Lsp.OpenExternalUri": "Otvoriti ovaj URI izvan HexIDE-a?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hijerarhija poziva",
     "Str.Menu.Edit.TypeHierarchy": "Hijerarhija _tipova",

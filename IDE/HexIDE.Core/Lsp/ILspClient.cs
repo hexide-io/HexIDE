@@ -258,6 +258,8 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Returns the server's enclosing range chains at the supplied positions.</summary>
     Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken cancellationToken = default);
 
+    Task<DocumentLink[]?> RequestDocumentLinksAsync(string uri, CancellationToken cancellationToken = default);
+
     Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/completion and returns completion items, or empty.</summary>

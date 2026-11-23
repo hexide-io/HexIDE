@@ -88,6 +88,7 @@
     "Str.Lsp.NoWorkspaceEditor": "لا يتوفر محرر لمساحة العمل.",
     "Str.Menu.Edit.CallHierarchy": "التسلسل الهرمي للاستدعاءات",
     "Str.CodeEditor.Context.CallHierarchy": "التسلسل الهرمي للاستدعاءات",
+    "Str.Lsp.LinkTargetNotOpen": "هدف الرابط غير مفتوح في HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "هل تريد فتح هذا العنوان خارج HexIDE؟\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "التسلسل الهرمي للاستدعاءات",
     "Str.Menu.Edit.TypeHierarchy": "التسلسل الهرمي للأنواع",

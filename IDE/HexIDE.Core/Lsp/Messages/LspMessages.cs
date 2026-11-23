@@ -316,6 +316,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("rangeFormatting")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null)
 {
+    [JsonPropertyName("documentLink"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DocumentLinkClientCapabilities? DocumentLink { get; init; }
     [JsonPropertyName("linkedEditingRange")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public LinkedEditingRangeClientCapabilities? LinkedEditingRange { get; init; }
@@ -1606,3 +1608,12 @@ public sealed class InlineValueConverter : JsonConverter<InlineValue>
         }
     }
 }
+
+public record DocumentLinkClientCapabilities([property: JsonPropertyName("tooltipSupport")] bool TooltipSupport = true);
+
+public record DocumentLinkParams([property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
+
+public record DocumentLink(
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("target"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Target = null,
+    [property: JsonPropertyName("tooltip"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Tooltip = null);

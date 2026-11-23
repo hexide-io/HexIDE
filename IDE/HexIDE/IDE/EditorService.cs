@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp;
@@ -23,6 +24,8 @@ public partial class EditorService : IEditorService
     private readonly ILocalizationService localization;
     private readonly IEventBus? events;
     private readonly Func<IProjectService>? projects;
+    private readonly Func<string, Task<bool>>? followExternalLink;
+    private readonly IStatusBarService? linkStatus;
 
     /// <param name="projectManager">
     /// Resolved lazily, and that is load-bearing rather than stylistic: <c>ProjectManager</c> takes an
@@ -36,7 +39,8 @@ public partial class EditorService : IEditorService
         Func<ProjectDocumentViewModel> projectDocumentViewModelFactory,
         Func<FormEditViewModel> formEditViewModelFactory,
         Func<IProjectManager> projectManager, ILocalizationService localization, IEventBus? events = null,
-        Func<IProjectService>? projects = null)
+        Func<IProjectService>? projects = null,
+        Func<string, Task<bool>>? followExternalLink = null, IStatusBarService? linkStatus = null)
     {
         this.documentDockService = documentDockService;
         this.codeEditorViewModelFactory = codeEditorViewModelFactory;
@@ -47,6 +51,8 @@ public partial class EditorService : IEditorService
         this.localization = localization;
         this.events = events;
         this.projects = projects;
+        this.followExternalLink = followExternalLink;
+        this.linkStatus = linkStatus;
     }
 
     public string? DocumentNameForUri(string uri)
@@ -190,6 +196,33 @@ public partial class EditorService : IEditorService
                     editor.Document.Replace(change.Offset, change.Length, change.Text);
         }
         return null;
+    }
+
+    private static int? OneBased(string text) =>
+        int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value)
+        && value > 0 ? value : null;
+
+    public async Task FollowDocumentLinkAsync(string target)
+    {
+        var uri = target;
+        int line = 0, character = 0;
+        if (Uri.TryCreate(target, UriKind.Absolute, out var parsed) && parsed.Fragment is { Length: > 0 } fragment)
+        {
+            uri = target[..target.IndexOf('#')];
+            // #L<line>, #<line>, and either with ",<column>": one-based, as vscode-json-language-server writes a $ref's.
+            var parts = (fragment.StartsWith("#L", StringComparison.Ordinal) ? fragment[2..] : fragment[1..]).Split(',', 2);
+            if (OneBased(parts[0]) is { } oneBased)
+            {
+                line = oneBased - 1;
+                if (parts.Length == 2 && OneBased(parts[1]) is { } column) character = column - 1;
+            }
+        }
+        var position = new Position(line, character);
+        if (ShowDocument(new(uri, TakeFocus: true, Selection: new(position, position)))) return;
+        // Only a link that went nowhere is reported: one the external gate launched is open outside HexIDE.
+        if (followExternalLink is not null && await followExternalLink(target)) return;
+        linkStatus?.SetTemporaryMessage(string.Format(localization.GetString("Str.Lsp.LinkTargetNotOpen"), target),
+            TimeSpan.FromSeconds(6));
     }
 
     public bool ShowDocument(ShowDocumentParams request)

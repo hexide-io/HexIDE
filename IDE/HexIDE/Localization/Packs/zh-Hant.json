@@ -88,6 +88,7 @@
     "Str.Lsp.NoWorkspaceEditor": "沒有可用的工作區編輯器。",
     "Str.Menu.Edit.CallHierarchy": "呼叫階層(_Y)",
     "Str.CodeEditor.Context.CallHierarchy": "呼叫階層(_A)",
+    "Str.Lsp.LinkTargetNotOpen": "連結目標未在 HexIDE 中開啟：{0}",
     "Str.Lsp.OpenExternalUri": "在 HexIDE 外部開啟此 URI？\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "呼叫階層",
     "Str.Menu.Edit.TypeHierarchy": "類型階層",

@@ -89,6 +89,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Er is geen editor voor de werkruimte beschikbaar.",
     "Str.Menu.Edit.CallHierarchy": "Aan_roephiërarchie",
     "Str.CodeEditor.Context.CallHierarchy": "Aan_roephiërarchie",
+    "Str.Lsp.LinkTargetNotOpen": "Het linkdoel is niet geopend in HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Deze URI buiten HexIDE openen?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Aanroephiërarchie",
     "Str.Menu.Edit.TypeHierarchy": "_Typehiërarchie",

@@ -635,6 +635,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // ── First-answer features ───────────────────────────────────────────────────────────────────────
     // Nothing here can usefully merge two answers into one, but any claimant may legitimately have it, so
     // the highest-priority server that actually answers wins rather than the highest-priority server alone.
+    public async Task<DocumentLink[]?> RequestDocumentLinksAsync(string uri, CancellationToken ct = default) =>
+        await FirstAnswerAsync<DocumentLink[]>(uri, async c => c.SupportsCapability(uri, "documentLinkProvider")
+            ? await c.RequestDocumentLinksAsync(uri, ct) : null, ct);
+
     public Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestHoverAsync(uri, position, ct), ct);
 

@@ -20,7 +20,7 @@ internal sealed class CodeEditorAnalysis : IDisposable
         refresh = new EditorAnalysisRefresh(client, owner.GetDocumentUriPublic, async token =>
         {
             Invalidate(resetLenses: false);
-            var requests = Task.WhenAll(Tokens(token), Hints(token));
+            var requests = Task.WhenAll(Tokens(token), Hints(token), Links(token));
             Refreshed?.Invoke(this, EventArgs.Empty);
             await requests;
         });
@@ -42,6 +42,7 @@ internal sealed class CodeEditorAnalysis : IDisposable
     private CancellationTokenSource lifetime = new();
     private Task<SemanticTokenResult?>? tokens;
     private Task<FoldingRange[]>? folds;
+    private Task<DocumentLink[]>? links;
     private Task<InlayHint[]>? hints;
     private CodeLensSession? lenses;
 
@@ -60,6 +61,12 @@ internal sealed class CodeEditorAnalysis : IDisposable
     {
         CheckDocument();
         return (tokens ??= owner.RequestSemanticTokensAsync(lifetime.Token)).WaitAsync(token);
+    }
+
+    public Task<DocumentLink[]> Links(CancellationToken token)
+    {
+        CheckDocument();
+        return (links ??= owner.RequestDocumentLinksAsync(lifetime.Token)).WaitAsync(token);
     }
 
     public Task<FoldingRange[]> Folds(CancellationToken token)
@@ -110,6 +117,7 @@ internal sealed class CodeEditorAnalysis : IDisposable
         lifetime = new();
         tokens = null;
         folds = null;
+        links = null;
         hints = null;
         if (resetLenses)
         {

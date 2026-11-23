@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Редактор робочої області недоступний.",
     "Str.Menu.Edit.CallHierarchy": "Ієрархія викликів",
     "Str.CodeEditor.Context.CallHierarchy": "Ієрархія викликів",
+    "Str.Lsp.LinkTargetNotOpen": "Ціль посилання не відкрита в HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Відкрити цей URI поза HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ієрархія викликів",
     "Str.Menu.Edit.TypeHierarchy": "Ієрархія типів",

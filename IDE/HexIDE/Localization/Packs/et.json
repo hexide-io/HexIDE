@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Ükski tööruumi redaktor pole saadaval.",
     "Str.Menu.Edit.CallHierarchy": "K_utsete hierarhia",
     "Str.CodeEditor.Context.CallHierarchy": "K_utsete hierarhia",
+    "Str.Lsp.LinkTargetNotOpen": "Lingi sihtkoht pole HexIDE-s avatud: {0}",
     "Str.Lsp.OpenExternalUri": "Kas avada see URI väljaspool HexIDE-d?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kutsete hierarhia",
     "Str.Menu.Edit.TypeHierarchy": "Tüüpide _hierarhia",

@@ -64,6 +64,9 @@ public class OptionalMembersWireShapeTests
     [InlineData("DocumentHighlight", "kind")]
     [InlineData("WorkspaceEdit", "changes")]
     [InlineData("FormattingOptions", "trimTrailingWhitespace")]
+    [InlineData("DocumentLink", "target")]
+    [InlineData("DocumentLink", "tooltip")]
+    [InlineData("TextDocumentClientCapabilities", "documentLink")]
     [InlineData("FoldingRange", "startCharacter")]
     [InlineData("FoldingRange", "endCharacter")]
     [InlineData("FoldingRange", "kind")]
@@ -93,6 +96,7 @@ public class OptionalMembersWireShapeTests
             "DocumentHighlight" => new DocumentHighlight(Span),
             "WorkspaceEdit" => new WorkspaceEdit(),
             "FormattingOptions" => new FormattingOptions(4, true),
+            "DocumentLink" => new DocumentLink(Span),
             "FoldingRange" => new FoldingRange(0, 1),
             "ParameterInformation" => new ParameterInformation("parameter"),
             "SignatureInformation" => new SignatureInformation("signature"),

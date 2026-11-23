@@ -190,7 +190,15 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<IEventBus>(out var events);
                 ctx.Inject<Func<IProjectService>>(out var projects);
-                return new EditorService(documentDock, codeEditors, relatedDocuments, projectDocuments, formEditors, projectManager, localization, events, projects);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<Func<IProjectRunnerService>>(out var runners);
+                ctx.Inject<IStatusBarService>(out var status);
+                var prompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
+                var navigation = new ServerDocumentNavigation(prompts, localization,
+                    (uri, _) => Avalonia.Controls.TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(uri));
+                return new EditorService(documentDock, codeEditors, relatedDocuments, projectDocuments, formEditors,
+                    projectManager, localization, events, projects,
+                    target => navigation.ShowExternalAsync(Distribution.DisplayName, target, default), status);
             })
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()
