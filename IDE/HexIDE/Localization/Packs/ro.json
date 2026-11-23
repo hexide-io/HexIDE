@@ -1499,6 +1499,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Actualizarea {0} în proiectul {1} va elimina modificările nesalvate ale acelui proiect. Doriți să continuați?",
     "Str.Dialog.SharedFile.DiskChanged": "Fișierul '{0}' s-a modificat pe disc de când copia proiectului {1} a fost încărcată sau salvată. Doriți să îl suprascrieți?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Semnele de carte, punctele de întrerupere și celelalte setări per utilizator pentru {0} nu vor fi încărcate și nici salvate în această sesiune.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Există deja un control numit '{0}'.  Doriți să creați o matrice de controale?"
+    "Str.Naming.Msg.CreateControlArray": "Există deja un control numit '{0}'.  Doriți să creați o matrice de controale?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Interceptarea erorilor",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Întrerupe la toate erorile",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Întrerupe în modulul de clasă",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Întrerupe la erorile netratate"
   }
 }

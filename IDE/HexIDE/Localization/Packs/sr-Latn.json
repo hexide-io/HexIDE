@@ -1499,6 +1499,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Ažuriranjem {0} u projektu {1} odbaciće se nesačuvane izmene tog projekta. Želite li da nastavite?",
     "Str.Dialog.SharedFile.DiskChanged": "Datoteka '{0}' je promenjena na disku nakon što je kopija projekta {1} učitana ili sačuvana. Želite li da je prepišete?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Obeleživači, tačke prekida i ostala korisnička podešavanja za {0} neće biti učitani ni sačuvani u ovoj sesiji.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Već postoji kontrola pod nazivom '{0}'.  Želite li da napravite niz kontrola?"
+    "Str.Naming.Msg.CreateControlArray": "Već postoji kontrola pod nazivom '{0}'.  Želite li da napravite niz kontrola?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Hvatanje grešaka",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prekini pri svim greškama",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prekini u modulu klase",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini pri neobrađenim greškama"
   }
 }

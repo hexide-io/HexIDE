@@ -3,6 +3,23 @@ namespace HexIDE.Tests;
 public class StartupCompositionTests : CompositionTestBase
 {
     [AvaloniaFact]
+    public void ErrorTrappingReachesTheRunnerInitiallyAndWhenSettingsChange()
+    {
+        var settings = Composition.SettingsService;
+        var saved = settings.ErrorTrapping;
+        try
+        {
+            settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakInClassModule;
+            _ = Composition.Root;
+            Composition.ProjectRunnerService.ErrorTrapping.Should().Be(settings.ErrorTrapping);
+            settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnAllErrors;
+            Composition.ProjectRunnerService.ErrorTrapping.Should().Be(settings.ErrorTrapping);
+            ((HexIDE.Runtime.Debugging.IDebugGate)Composition.DebugController).ErrorTrapping.Should().Be(settings.ErrorTrapping);
+        }
+        finally { settings.ErrorTrapping = saved; }
+    }
+
+    [AvaloniaFact]
     public void DesignerFactoryUsesRuntimeConstructorAndSharedToolbox()
     {
         _ = Composition.Root;

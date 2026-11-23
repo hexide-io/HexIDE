@@ -118,6 +118,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Sidecar/SidecarMigrationTests.cs` | split |
 | `Sidecar/UserSidecarBreakpointTests.cs` | split |
 | `Sidecar/UserSidecarSaveTests.cs` | split |
+| `StartupCompositionTests.cs` | split |
 | `TestHelpers.cs` | provider |
 | `TestRunners.cs` | split |
 | `Tools/PreservedItemTreeTests.cs` | split |
