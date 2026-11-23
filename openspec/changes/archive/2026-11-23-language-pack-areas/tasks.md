@@ -9,7 +9,9 @@
 
 ## 2. Host
 
-- [ ] 2.1 `IHexIdeHost.RegisterLanguagePacks`, from the caller's own assembly
-- [ ] 2.2 Deny by default; the provider's grant names its families and the Desktop composition's origin
-- [ ] 2.3 The provider's entry type registers its area
-- [ ] 2.4 No grant's family covers a key the consent and trust dialogs read
+- [x] 2.1 `IHexIdeHost.RegisterLanguagePacks`, from the caller's own assembly
+- [x] 2.2 Deny by default; the provider's grant names its families and the Desktop composition's origin
+- [x] 2.3 No grant's family covers a key the consent and trust dialogs read, a family their code reads by name, or a
+  protected key
+
+The provider's entry type registers its area in #5395, when the provider has one.

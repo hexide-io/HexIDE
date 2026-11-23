@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using HexIDE.Addins;
+using HexIDE.Localization;
 
 namespace HexIDE.Integration.Tests.Addins;
 
@@ -44,15 +45,49 @@ public partial class RegistrationGrantsTests
     {
         var keys = KeysTheTrustViewsRead();
         foreach (var grant in RegistrationGrants.All)
+        {
             keys.Where(grant.CoversResourceKey).Should().BeEmpty($"{grant.OwnerId}'s grant must not reach the trust views' keys");
+            keys.Where(grant.CoversLanguagePackKey).Should().BeEmpty(
+                $"{grant.OwnerId}'s language packs must not reach the trust views' text (#5394)");
+        }
+    }
+
+    // The trust and consent code reads these families by building a key from a name at run time, so no view names every
+    // member: TrustChainViewModel.Text and AddinOptionsPageViewModel.Text. A family that overlapped one could fill a key
+    // the IDE reads there but doesn't define.
+    private static readonly string[] TrustFamiliesReadByName = ["Str.Dialog.TrustChain.", "Str.Options.Addin.", "Str.Dialog.AddinConsent."];
+
+    [Fact]
+    public void No_grants_language_packs_reach_a_trust_family_or_a_protected_key()
+    {
+        foreach (var grant in RegistrationGrants.All)
+        {
+            foreach (var family in grant.LanguagePackKeys)
+            {
+                var prefix = family.EndsWith('*') ? family[..^1] : family;
+                TrustFamiliesReadByName.Should().NotContain(trust => trust.StartsWith(prefix, StringComparison.Ordinal)
+                    || prefix.StartsWith(trust, StringComparison.Ordinal),
+                    $"{grant.OwnerId}'s family {family} overlaps a family the trust code reads by name");
+            }
+
+            BrandText.ProtectedKeys.Concat(BrandText.TrustVerdictKeys).Concat(BrandText.UpstreamKeys)
+                .Where(grant.CoversLanguagePackKey).Should().BeEmpty($"{grant.OwnerId}'s language packs must not reach a protected key");
+        }
     }
 
     [Fact]
     public void No_grant_covers_the_IDEs_text_or_everything()
     {
         foreach (var grant in RegistrationGrants.All)
+        {
             grant.ResourceKeys.Should().NotContain(family => family.StartsWith("Str", StringComparison.Ordinal) || family == "*"
                 || family.Length < 3, $"{grant.OwnerId}'s grant names a family wide enough to reach the IDE's text");
+
+            // Text is granted by area: Str., an area, then a whole key or the area's own keys. Never Str.* or an area's
+            // name without its dot, which would also reach every area whose name starts the same.
+            grant.LanguagePackKeys.Should().AllSatisfy(family => family.Should().MatchRegex(@"^Str\.[A-Za-z0-9]+\.(\*|[A-Za-z0-9_.]*[A-Za-z0-9_])$",
+                $"{grant.OwnerId}'s language-pack family must name one area of the IDE's text"));
+        }
     }
 
     [Fact]

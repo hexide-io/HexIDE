@@ -31,6 +31,15 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     /// <summary>Whether <paramref name="key"/> is a string key this grant covers.</summary>
     public bool CoversResourceKey(string key) => ResourceKeys.Any(family => Matches(family, key));
 
+    /// <summary>
+    /// The text keys its language packs may supply (#5394): whole keys, or prefixes that end in <c>*</c>. Each is a
+    /// <c>Str.</c> key under an area of the IDE's text it alone holds.
+    /// </summary>
+    public IReadOnlyList<string> LanguagePackKeys { get; init; } = [];
+
+    /// <summary>Whether <paramref name="key"/> is a text key this grant's language packs may supply.</summary>
+    public bool CoversLanguagePackKey(string key) => LanguagePackKeys.Any(family => Matches(family, key));
+
     /// <summary>Whether a type declared in <paramref name="assembly"/> may key one of its resources.</summary>
     public bool CoversResourceType(string? assembly) =>
         assembly is not null && ResourceTypeAssemblies.Contains(assembly, StringComparer.Ordinal);
@@ -55,6 +64,13 @@ internal static class RegistrationGrants
         {
             ResourceTypeAssemblies = ["HexIDE.Runtime"],
             ResourceKeys = ["FlatVB*"],
+            // Its text (#5394, #5395): VB6's property descriptions, project type names and load messages, Make and Make
+            // with VB6, and the one runner message only programs it runs raise. The IDE's own keys among these stay refused.
+            LanguagePackKeys =
+            [
+                "Str.PropDesc.*", "Str.ProjectType.*", "Str.ProjectLoad.*", "Str.MakeProject.*", "Str.Vb6Toolchain.*",
+                "Str.ProjectRunner.NotImplementedYet",
+            ],
         },
     ];
 

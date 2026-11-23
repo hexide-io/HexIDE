@@ -578,6 +578,7 @@ public partial class DISetup
             })
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind().As(Singleton).To<AddinResourceService>()
+            .Bind().As(Singleton).To<AddinLanguagePackService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
             {
