@@ -2731,16 +2731,32 @@ only on their ranges; read-only region and diagnostic colours SHALL retain their
 
 An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
 permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
-version or detached view SHALL NOT be applied. Delta and range requests are not supported.
+version or detached view SHALL NOT be applied. Range requests are not supported.
+
+The client SHALL declare full delta support and retain the last result ID and data per document per
+connection. If the server advertises `full.delta` and a previous result ID is held, it SHALL request
+`textDocument/semanticTokens/full/delta` with that ID. Delta edits SHALL index the previous array; a full
+reply SHALL replace the held array. A failed delta or out-of-range edit SHALL clear the held result,
+log once and fall back to a full request. Close, reopen, reconnect, server restart and errors SHALL clear
+held results. Callers SHALL continue to receive the complete array.
 
 Content Modified (`-32801`) replies SHALL retry with exponential backoff from 250 ms to a 4-second cap,
 without spending the per-document warning. Cancellation, a changed or closed document, or a changed
 connection SHALL stop the retry.
 
 #### Scenario: A semantic answer was overtaken
-- **WHEN** a full semantic-token request receives Content Modified
+- **WHEN** a full or delta semantic-token request receives Content Modified
 - **THEN** the client asks again without requiring an edit
 - **AND** applies the eventual successful answer if the request is still current
+
+#### Scenario: A delta updates several parts of the array
+- **WHEN** the server returns several edits against the previous result
+- **THEN** each edit uses the original array indices, including deletion-only edits and insertion at its end
+- **AND** the reply's result ID is used by the next delta request
+
+#### Scenario: A delta cannot be applied
+- **WHEN** a delta edit lies outside the previous array
+- **THEN** the client discards that result and requests full tokens
 
 #### Scenario: A server colours a name differently from the lexical rules
 - **WHEN** a full response classifies a range as a class

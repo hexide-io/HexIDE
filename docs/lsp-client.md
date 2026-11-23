@@ -80,7 +80,7 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `inlineValue`, `semanticTokens/full`, `selectionRange`, `prepareCallHierarchy`, `prepareTypeHierarchy` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `inlineValue`, `semanticTokens/full`, `semanticTokens/full/delta`, `selectionRange`, `prepareCallHierarchy`, `prepareTypeHierarchy` |
 | Actions | `codeLens/resolve`, `codeAction/resolve`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`, `typeHierarchy/subtypes`, `typeHierarchy/supertypes`, `workspace/executeCommand` — see *Commands and lenses* |
 | Workspace | `workspace/symbol`, `didChangeWorkspaceFolders`, `didChangeConfiguration`, `didCreateFiles`, `didRenameFiles`, `didDeleteFiles` |
 | Protocol | `$/setTrace`, `$/cancelRequest` |
@@ -166,8 +166,9 @@ The #2204 result-union audit used the pinned LSP metamodel. Among implemented re
 `definition` and `declaration` already normalize single locations, location arrays and location-link
 arrays; `documentSymbol` and `workspace/symbol` already normalize both symbol shapes. Hover's
 nested content union is handled by its converter. Diagnostic reports are read by `kind`, and
-`workspace/executeCommand` retains arbitrary JSON. Folding ranges, semantic tokens (full), signature
-help, highlights, rename, formatting and code lenses accept their single non-null result shape or
+`workspace/executeCommand` retains arbitrary JSON. Semantic-token deltas accept either edits or a
+replacement full result. Folding ranges, full semantic tokens, signature help, highlights, rename,
+formatting and code lenses accept their single non-null result shape or
 `null`. Resolve requests have a single result shape.
 
 `textDocument/codeAction` accepts its mixed Command/CodeAction array or null (#453). Other unimplemented
@@ -447,13 +448,20 @@ an answer. Cancellation sends `$/cancelRequest` best effort; returning never dep
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
 
-Full semantic-token requests answered with Content Modified (`-32801`) retry after 250 ms,
+Semantic-token requests declare `full: {"delta": true}`. The client retains a result ID and data per
+open document on a connection. When the server offers `full.delta`, subsequent requests send
+`textDocument/semanticTokens/full/delta` with `previousResultId`. Edits index the previous integer array
+and are applied in descending start order; a full reply replaces it. A failed delta or invalid edit
+clears the held result, logs once and falls back to full. Close/reopen and reconnect clear held results.
+Callers still receive a complete token array (#5447).
+
+Full and delta semantic-token requests answered with Content Modified (`-32801`) retry after 250 ms,
 with exponential backoff capped at 4 seconds (#2913). These replies do not spend the document's
 once-only warning. Cancellation, a document change or close, or a connection change stops the retry.
 The backoff uses an injectable `TimeProvider` (system time by default); retry tests advance it by hand.
-Semantic-token refresh requests remain unsupported.
+Semantic-token refresh requests invalidate attached editors’ analysis (#4254).
 
-Before a document change, the client cancels outstanding diagnostic pulls, full semantic-token requests
+Before a document change, the client cancels outstanding diagnostic pulls, semantic-token requests
 and folding requests for that document and waits for their cancellation frames to be sent before
 `didChange` (#2365). Hover, completion and other user requests are left alone, as are requests for other
 documents. The change starts a fresh diagnostic pull; editor refreshes request fresh tokens and folds.
@@ -1892,7 +1900,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 65 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 66 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1914,7 +1922,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 31 of 41
+### `textDocument/*` — 32 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1953,7 +1961,7 @@ than inferred.
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
 | ✅ | `textDocument/selectionRange` | → | Expand/Shrink Selection commands and server parent chains (#3076) |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
-| ○ | `textDocument/semanticTokens/full/delta` | → |  |
+| ✅ | `textDocument/semanticTokens/full/delta` | → | Per-document result IDs; applies edits against the previous array, with full fallback (#5447) |
 | ○ | `textDocument/semanticTokens/range` | → |  |
 | ✅ | `textDocument/signatureHelp` | → |  |
 | ✅ | `textDocument/typeDefinition` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
@@ -2219,7 +2227,7 @@ awaiting effort, they are **server** features awaiting a server.
 |---|---|---|
 | Find all references | `textDocument/references` | Shift+F12 and menus; grouped, navigable results and per-server errors (#2907) |
 | Code actions / quick fixes | `textDocument/codeAction` | Relays server quick fixes, refactorings and source actions on request; computes none (#453, #4256) |
-| Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
+| Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full and delta requests, with refresh; range remains unwired (#2054, #4254, #5447) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
 | Type hierarchy | `textDocument/prepareTypeHierarchy`, `typeHierarchy/*` | Provider-gated code context and Edit commands; each prepared item has lazy Subtypes and Supertypes groups, empty/error states and selection-range navigation (#4056). Items retain their owning server and opaque data. Shows server answers; computes none |
