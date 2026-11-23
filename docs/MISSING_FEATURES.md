@@ -63,7 +63,7 @@
 | Find… | Ctrl+F | Done | |
 | Find Next | F3 | Done | Down searches resume at the selected match's end, including adjacent plain-text and pattern matches (#704). An Up search can still find a match overlapping the selected one (#5308), and a single-module search wraps without VB6's "continue from the beginning?" prompt (#5307). |
 | Replace… | Ctrl+H | Done | |
-| Indent | Ctrl+Tab | Done | AvaloniaEdit indent |
+| Indent | Tab | Done | AvaloniaEdit indent. [VB6 measurement](vb6-fidelity-oracle/indent-outdent-and-ctrl-tab-in-the-code-window.md) |
 | Outdent | Shift+Tab | Done | AvaloniaEdit outdent |
 | Insert File… | — | Done | Puts a text file's contents in place of the selection, or, when the selection is in the header or a member's `Attribute` lines, after them on lines of its own (#273). Its picker is the window manager's, so automation's `answer_next_file_dialog` answers it ([#532](https://github.com/hexide-io/HexIDE/issues/532)). **This row said `Stub`, "no file-insertion handler wired", until 2026-10-14, though the handler (`CodeEditorView.InsertFile`) has been wired since the repository's first commit** |
 | List Properties/Methods | Ctrl+J | Done | Triggers LSP completion |
@@ -526,7 +526,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Ctrl+F | Find | Done | |
 | F3 | Find Next | Done | |
 | Ctrl+H | Replace | Done | |
-| Ctrl+Tab | Indent | Done | |
+| Tab | Indent | Done | Ctrl+Tab switches documents. [VB6 measurement](vb6-fidelity-oracle/indent-outdent-and-ctrl-tab-in-the-code-window.md) |
 | Shift+Tab | Outdent | Done | |
 | Ctrl+J | List Properties/Methods | Done | |
 | Ctrl+Shift+J | List Constants | Done | |
