@@ -22,6 +22,17 @@ internal static class ControlMembers
         _ => null,
     };
 
+    internal static ValueTask<Vb6Value> ReadDefaultValue(Vb6Value value, string expression, bool intrinsicOnly = true)
+    {
+        if (DefaultMember(value) is { } member)
+            return new(Read(value, member, null));
+        if (value.Type == Vb6Value.ValueType.Control && value.Value is Control control
+            && (!intrinsicOnly || ControlObjectType.IsIntrinsic(VB6BuiltIns.ControlTypeName(control))))
+            throw new NotImplementedException($"`{expression}` reads a default member, which is not implemented (#790). "
+                + "Name the property, or use Set to keep the reference.");
+        return new(value);
+    }
+
     // VB.Control declarations also reach dispatch with the bare Control view.
     private static bool IsLateBoundListReference(Vb6Value variable) =>
         variable.ReadFromControlSlot && (variable.HeldAsVariant
@@ -104,6 +115,8 @@ internal static class ControlMembers
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (control is VBPictureBox && RuntimeDrawing.IsMethod(memberName))
         {
+            if (memberName.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException("Refresh used as a value is not implemented (#991)");
             if (memberName.Equals("Cls", StringComparison.OrdinalIgnoreCase))
                 throw RuntimeDrawing.Refused("Cls used as a value");
             return RuntimeDrawing.Call(control, memberName, await Arguments());

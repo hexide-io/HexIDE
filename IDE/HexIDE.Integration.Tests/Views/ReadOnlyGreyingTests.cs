@@ -891,8 +891,10 @@ public class ReadOnlyGreyingTests : IDisposable
     [AvaloniaFact]
     public void AnEditFarFromARunThatTurnsItIntoAnOrphanRedrawsIt()
     {
-        // The renamed kind reads every name the module declares, so a run under a line declaring one variable becomes an
-        // orphan when the name it carries is declared anywhere, here in a procedure four lines below it.
+        // The renamed kind reads the procedure names the module declares, wherever they are, so a run under a line declaring
+        // one variable becomes an orphan when a procedure takes the name it carries, here four lines below it. A local of
+        // that name changes nothing, in a class module too: VB6 never matches a VB_Var line against a procedure's locals
+        // (oracle, "A local of the stale name changes nothing", and #1013's class-module rows of 2026-11-23).
         var themes = new ThemeService();
         using var _ = TheIdesThemes(themes);
         var vm = OpenModule(ModuleKind.ClassModule, "Order",
@@ -909,6 +911,12 @@ public class ReadOnlyGreyingTests : IDisposable
         ColoursOn(editor, run).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "the premise: the run is Tally's, renamed");
 
         editor.Document.Insert(editor.Document.GetLineByNumber(LineOf(editor, "Debug.Print")).Offset, "    Dim Count As Long\r\n");
+        RunJobsKeepingContext();
+        ColoursOn(editor, run).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "a local of the stale name is no declaration a run is matched against");
+        editor.Document.UndoStack.Undo();
+        RunJobsKeepingContext();
+
+        editor.Document.Insert(editor.Document.TextLength, "\r\nPublic Sub Count()\r\nEnd Sub\r\n");
         RunJobsKeepingContext();
         ColoursOn(editor, run).Should().NotBeEmpty().And.NotContain(ClassicGrey, "Count is declared now, so the run is no rename's");
 

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.IDE;
+using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using Serilog;

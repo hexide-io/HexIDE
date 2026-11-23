@@ -1,5 +1,4 @@
 using HexIDE.Language;
-using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Tests.Serialization;
 
@@ -395,12 +394,10 @@ public class MemberRunsTests
     [InlineData("Public Count As Long\r\n", "another variable of the module")]
     [InlineData("Private Const Count = 1\r\n", "a constant")]
     [InlineData("Public Sub Count()\r\nEnd Sub\r\n", "a procedure")]
-    [InlineData("Public Sub Other1()\r\n    Dim Count As Long\r\nEnd Sub\r\n", "a procedure's own local")]
     public void ARunNamingANameTheModuleDeclaresElsewhereIsNotOneARenameLeft(string elsewhere, string because)
     {
         // VB6 binds a VB_Var line by name wherever it sits, so this run is the other Count's. Reading it as Tally's
-        // would hand that description to Tally at the next save. A local is not a VB_Var line's target, but the
-        // module's names err towards too many, which errs towards an orphan.
+        // would hand that description to Tally at the next save. Only module-level members count.
         var code =
             "Public Tally As Long\r\n" +
             "Attribute Count.VB_VarDescription = \"x\"\r\n" +
@@ -410,6 +407,24 @@ public class MemberRunsTests
 
         run.Kind.Should().Be(MemberRunKind.Orphan, because);
         RegionsOf(code).Should().NotContain(r => r.Start == run.Region.Start, because);
+    }
+
+    [Theory]
+    [InlineData("Dim Count As Long")]
+    [InlineData("Static Count As Long")]
+    [InlineData("Const Count = 1")]
+    [InlineData("End Sub\r\nPublic Count As Long\r\nPublic Sub Other()")]
+    public void ALocalOrAVariableAfterTheFirstBodyDoesNotPreventARenamedRun(string declaration)
+    {
+        // Oracle: "A local of the stale name changes nothing" (#1013). The last row pins the
+        // declarations-section rule on text VB6 refuses.
+        var code = "Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\n" +
+                   "Public Sub Reset()\r\n    " + declaration + "\r\nEnd Sub\r\n";
+
+        var run = RunsOf(code).Should().ContainSingle().Subject;
+        run.Kind.Should().Be(MemberRunKind.RenamedVariable);
+        run.Member.Should().Be(new DeclaredName("Tally", At(code, "Tally"), DeclarationKind.Variable));
+        RegionsOf(code).Should().Contain(run.Region);
     }
 
     [Fact]
