@@ -136,12 +136,7 @@ public static class FrxDeserializer
     /// Template tree and false of every <c>List</c>/<c>ItemData</c> record, so no table of property names
     /// is needed — and a record shape nobody has seen yet is treated as opaque, which is the safe default.
     /// </summary>
-    public static int PayloadOffset(byte[] record)
-    {
-        if (record.Length < 4) return 0;
-        var declared = BitConverter.ToInt32(record, 0);
-        return declared == record.Length - 4 ? 4 : 0;
-    }
+    public static int PayloadOffset(byte[] record) => HexIDE.Imaging.FrxImageHelper.RecordPayloadOffset(record);
 
     /// <summary>
     /// Where a line's <c>"name.frx":HHHH</c> citation sits and the offset it names, or null when it has none. The

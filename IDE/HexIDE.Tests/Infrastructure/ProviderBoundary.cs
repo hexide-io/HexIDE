@@ -14,6 +14,7 @@ internal static class ProviderBoundary
     {
         ["HexIDE"] = ProjectKind.Product,
         ["HexIDE.Core"] = ProjectKind.Product,
+        ["HexIDE.Imaging"] = ProjectKind.Product,
         ["HexIDE.Desktop"] = ProjectKind.Product,
         ["HexIDE.Browser"] = ProjectKind.Product,
         ["HexIDE.Lsp"] = ProjectKind.Product,

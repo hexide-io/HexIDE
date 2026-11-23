@@ -24,6 +24,7 @@ using Dock.Model.Mvvm.Controls;
 using PropertyChanged.SourceGenerator;
 using R3;
 using Serilog;
+using HexIDE.Imaging;
 
 namespace HexIDE.VisualDesigner;
 

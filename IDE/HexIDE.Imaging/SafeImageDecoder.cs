@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using Avalonia.Media.Imaging;
 
-namespace HexIDE.Runtime.Serialization;
+namespace HexIDE.Imaging;
 
 /// <summary>
 /// Decodes a small, untrusted PNG (e.g. an add-in's publisher logo) into an Avalonia <see cref="Bitmap"/>,

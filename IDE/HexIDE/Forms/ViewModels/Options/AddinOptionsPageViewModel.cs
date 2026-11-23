@@ -11,6 +11,7 @@ using HexIDE.Addins;
 using HexIDE.Localization;
 using HexIDE.Runtime.Serialization;
 using Serilog;
+using HexIDE.Imaging;
 
 namespace HexIDE.Forms.ViewModels.Options;
 
