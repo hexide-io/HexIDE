@@ -169,12 +169,12 @@ internal static class WholeFileFixtures
     /// <remarks>
     /// Lines 0-8 are the header. Protected below it, each by the rule named: 11 (<c>PtrSafe</c> read as
     /// <c>Declare</c>), 23 (a bracketed name), 25 (a comma inside bounds), 28 (a continuation inside a comma
-    /// list), 30 (every statement read), 36 (a string as one token), 44 (a run a rename left, naming nothing),
-    /// 46-47 (the same, its lines naming the old name in two cases), 50 (a name ending in an underscore
+    /// list), 30 (every statement read), 36 (a string as one token), 40 (a stale name also declared as a local),
+    /// 44 (a run a rename left, naming nothing), 46-47 (the same, its lines naming the old name in two cases), 50 (a name ending in an underscore
     /// continuing nothing), 53-56 (attribute lines continued with <c> _</c>), 76 (<c>AttributeCount</c> below it
     /// starting with another word) and 80 (<c>attribute</c> in lower case). Orphans, each by the rule named: 14,
     /// 16 and 19 (an <c>Enum</c>, an enum's member and a <c>Type</c> declaring nothing), 32 (a comment ending the
-    /// line), 34 (<c>rem</c>, in lower case, after a <c>:</c> ending it), 38, 40 and 42 (naming a control, a local
+    /// line), 34 (<c>rem</c>, in lower case, after a <c>:</c> ending it), 38 and 42 (naming a control
     /// and a procedure, which the module declares), 65 (an underscore alone in column 1 continuing nothing), 69 (a
     /// local's, below the first procedure) and 72-73 (<c>Attribute(1)</c> starting with the reserved word, so one
     /// of the run, and naming nothing). Line 59 is no attribute line at all: it continues the declaration above
@@ -222,7 +222,7 @@ internal static class WholeFileFixtures
         "Public Spare1 As Long\r\n" +                                                             // 37
         "Attribute cmdGo.VB_VarDescription = \"names a control\"\r\n" +                           // 38 orphan
         "Public Spare2 As Long\r\n" +                                                             // 39
-        "Attribute Inner.VB_VarDescription = \"names a local\"\r\n" +                             // 40 orphan
+        "Attribute Inner.VB_VarDescription = \"names a local\"\r\n" +                             // 40 renamed variable
         "Public Spare3 As Long\r\n" +                                                             // 41
         "Attribute Lone.VB_VarDescription = \"names a procedure\"\r\n" +                          // 42 orphan
         "Public Spare4 As Long\r\n" +                                                             // 43
@@ -267,7 +267,7 @@ internal static class WholeFileFixtures
 
     public const int FormWithReaderShapesHeaderLines = 9;
 
-    public static readonly int[] FormWithReaderShapesDescribingLines = [11, 23, 25, 28, 30, 36, 44, 46, 47, 50, 53, 54, 55, 56, 76, 80];
+    public static readonly int[] FormWithReaderShapesDescribingLines = [11, 23, 25, 28, 30, 36, 40, 44, 46, 47, 50, 53, 54, 55, 56, 76, 80];
 
     /// <summary>The lines of <paramref name="text"/>, split as the server splits them.</summary>
     public static string[] Lines(string text) =>

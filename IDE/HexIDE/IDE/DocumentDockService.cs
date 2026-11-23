@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Core.Events;
@@ -20,6 +21,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     private readonly List<BaseEditorWindowViewModel> openDocuments = new();
     private bool subscribedToDock;
     private BaseEditorWindowViewModel? activeDocument;
+    internal Func<CodeEditorViewModel, Task>? SharedCodeClosing { get; set; }
     // The document area that last held focus, so focus moving to a tool pane doesn't hand the active tab back to the first area.
     private IDocumentDock? lastFocusedArea;
     private readonly List<(BaseEditorWindowViewModel Tab, IDocumentDock Area, int Index, IDockable[] Following)> suspendedDesigners = [];
@@ -140,15 +142,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         var match = AllTabs.FirstOrDefault(predicate);
         if (match?.Owner is not IDocumentDock) return false;
 
-        // An editor goes through the service's own path, which keeps its bookkeeping and its events
-        // intact. Anything else is a document the shell added straight to the dock, so it leaves the same
-        // way it arrived.
-        if (match is BaseEditorWindowViewModel editor)
-        {
-            CloseDocument(editor);
-            return true;
-        }
-
+        // Automation stands in for a person: use the same close command as the tab's close box.
         factory.Value!.CloseDockable(match);
         return true;
     }
@@ -212,6 +206,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         if (subscribedToDock) return;
         // Collection removal also happens during a split or a move. Only a real close disposes an editor.
         factory.Value!.DockableClosed += OnDockableClosed;
+        factory.Value.SharedCodeClosing = editor => SharedCodeClosing?.Invoke(editor) ?? Task.CompletedTask;
         factory.Value.FocusedDockableChanged += OnFocusedDockableChanged;
         dock.PropertyChanged += OnDockPropertyChanged;
         subscribedToDock = true;
@@ -233,7 +228,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     private void OnCloseRequest(IMdiWindow window)
     {
         if (window is BaseEditorWindowViewModel vm && Dock is not null)
-            factory.Value!.CloseDockable(vm);
+            CloseDocument(vm);
     }
 
     private void OnDockableClosed(object? sender, DockableClosedEventArgs e)
@@ -254,7 +249,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     public void CloseDocument(BaseEditorWindowViewModel vm)
     {
         if (Dock is not null)
-            factory.Value!.CloseDockable(vm);
+            factory.Value!.CloseWithoutSharedQuestion(vm);
     }
 
     public void CloseAll()
@@ -263,7 +258,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         foreach (var doc in docs)
         {
             if (Dock is not null)
-                factory.Value!.CloseDockable(doc);
+                CloseDocument(doc);
         }
     }
 
@@ -274,6 +269,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         if (subscribedToDock && factory.Value is { } f)
         {
             f.DockableClosed -= OnDockableClosed;
+            f.SharedCodeClosing = null;
             f.FocusedDockableChanged -= OnFocusedDockableChanged;
         }
         if (Dock is { } dock)

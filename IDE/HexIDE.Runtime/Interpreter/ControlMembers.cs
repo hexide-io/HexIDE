@@ -22,6 +22,17 @@ internal static class ControlMembers
         _ => null,
     };
 
+    internal static ValueTask<Vb6Value> ReadDefaultValue(Vb6Value value, string expression, bool intrinsicOnly = true)
+    {
+        if (DefaultMember(value) is { } member)
+            return new(Read(value, member, null));
+        if (value.Type == Vb6Value.ValueType.Control && value.Value is Control control
+            && (!intrinsicOnly || ControlObjectType.IsIntrinsic(VB6BuiltIns.ControlTypeName(control))))
+            throw new NotImplementedException($"`{expression}` reads a default member, which is not implemented (#790). "
+                + "Name the property, or use Set to keep the reference.");
+        return new(value);
+    }
+
     // VB.Control declarations also reach dispatch with the bare Control view.
     private static bool IsLateBoundListReference(Vb6Value variable) =>
         variable.ReadFromControlSlot && (variable.HeldAsVariant
@@ -30,7 +41,7 @@ internal static class ControlMembers
 
     internal static async Task<Vb6Value> Read(Vb6Value variable, string memberIdentifier, IReadOnlyList<Vb6Value>? args,
         string? propertySpelling = null, Func<Task<List<Vb6Value>>>? evaluateArgs = null,
-        Func<Task<List<Vb6Value>>>? evaluateMemberArgs = null)
+        Func<Task<List<Vb6Value>>>? evaluateMemberArgs = null, bool classifyMissing = false)
     {
         var memberName = memberIdentifier;
         var hasArgs = args is not null || evaluateArgs is not null;
@@ -104,6 +115,8 @@ internal static class ControlMembers
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (control is VBPictureBox && RuntimeDrawing.IsMethod(memberName))
         {
+            if (memberName.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException("Refresh used as a value is not implemented (#991)");
             if (memberName.Equals("Cls", StringComparison.OrdinalIgnoreCase))
                 throw RuntimeDrawing.Refused("Cls used as a value");
             return RuntimeDrawing.Call(control, memberName, await Arguments());
@@ -169,6 +182,7 @@ internal static class ControlMembers
         if (IdentityMembers.TryGet(control, memberIdentifier, out var identityMember))
             return identityMember;
 
+        if (classifyMissing) VB6ControlMembers.RefuseUnresolved(variable, memberName);
         throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
     }
 
@@ -177,6 +191,10 @@ internal static class ControlMembers
         var control = (Control)variable.Value!;
         var throughObject = variable.HeldAsVariant || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
         if (control is VBCommonDialog dialog && dialog.TrySetProperty(memberIdentifier, value, throughObject)) return true;
+        // FlatScrollBar's typed stores report Null differently through Object (#1097, oracle PR #5507).
+        if (control is VBFlatScrollBar && throughObject && value.IsNull
+            && memberIdentifier.ToLowerInvariant() is "value" or "_value" or "[_value]" or "min" or "max" or "smallchange" or "largechange" or "enabled")
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (control is ICSharpPropertyBag bag && bag.TrySetProperty(memberIdentifier, value)) return true;
         VBProps.RefuseIfRemoved(control);
         if (ListMembers.IsList(control) && args is not null)

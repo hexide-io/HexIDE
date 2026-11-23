@@ -43,16 +43,19 @@ public class AttachedProperties
         }
     }
 
+    internal static void UpdateBackColor(TemplatedControl control)
+    {
+        // Standard keeps BackColor for reads, but only Graphical paints it (measured, #913 / #752).
+        var color = control is VBCommandButton { Style: VBButtonStyle.Standard }
+            ? VBColor.FromSystemColor(VbSystemColor.Btnface)
+            : GetBackColor(control);
+        control.Background = color is { } value ? value.ToBrush() : Brushes.Transparent;
+    }
+
     static AttachedProperties()
     {
         FontDecorationDrawing.AttachToTextPresenters();
-        BackColorProperty.Changed.AddClassHandler<TemplatedControl>((control, e) =>
-        {
-            if (e.NewValue is VBColor color)
-                control.Background = color.ToBrush();
-            else
-                control.Background = Brushes.Transparent;
-        });
+        BackColorProperty.Changed.AddClassHandler<TemplatedControl>((control, _) => UpdateBackColor(control));
         ForeColorProperty.Changed.AddClassHandler<TemplatedControl>((control, e) =>
         {
             if (e.NewValue is VBColor color)

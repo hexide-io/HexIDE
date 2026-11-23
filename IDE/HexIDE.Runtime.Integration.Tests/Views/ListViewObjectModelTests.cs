@@ -30,6 +30,19 @@ public class ListViewObjectModelTests
             .Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture) ?? "").ToArray();
     }
 
+    // Runtime object-member path requested by #2895; the drawn font is measured in
+    // docs/vb6-fidelity-oracle/in-box-controls-the-listview.md (font section, oracle PR #5240).
+    [AvaloniaFact]
+    public async Task Runtime_font_members_use_the_control_font_object()
+    {
+        (await Run("""
+            ListView1.Font.Name = "Times New Roman"
+            ListView1.Font.Size = 18
+            ListView1.Font.Bold = True
+            Debug.Print ListView1.Font.Name, ListView1.Font.Size, ListView1.Font.Bold
+            """)).Should().Equal("Times New Roman", "18", "True");
+    }
+
     [AvaloniaFact]
     public async Task Columns_have_measured_defaults_types_and_Text_default()
     {

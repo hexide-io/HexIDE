@@ -79,9 +79,14 @@ something this project can offer outward rather than something it must ask for.
 | 13 | Option lines directly before a broken procedure (#939) | parser (server only) | `moduleOptions? NEWLINE* moduleBody?` → `(moduleOptions \| moduleBody)?` |
 | 14 | A member statement with an unspaced parenthesised argument (`Form2.Show(0)`, `Text1.Move(100)`) | parser | permit the missing `WS` in `iCS_B_MemberProcedureCall` only when the next token is `LPAREN`; retain `argsCall` so the parentheses remain an expression and pass a copy (#1064, oracle "Several forms", measurement 13) |
 | 15 | `Call` with empty parentheses (`Call Helper()`, `Call obj.Method()`) | parser | make `argsCall` optional inside the parentheses in `eCS_ProcedureCall` and `eCS_MemberProcedureCall`: `(WS? LPAREN WS? (argsCall WS?)? RPAREN)?` (#3779) |
+| 16 | A signed exponent on a whole number (`1E+30`, `1E-30`) | lexer (server) | add `(PLUS \| MINUS)?` after the marker in `INTEGERLITERAL`, matching the interpreter (#482, [oracle](vb6-fidelity-oracle/a-d-exponent-in-a-source-literal.md#a-signed-exponent-and-a-lowercase-e-2026-11-21-482-sp6)) |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.
+
+**Fix 16:** the interpreter already takes the exponent sign; only the server lexer changes. Both lexers
+still accept repeated exponents such as `1E+30E+2`; vb6.exe refuses these, and the interpreter checks
+them when reading the literal (#1611). Range refusals remain outside the server lexer too.
 
 **Fix 15:** provenance is the VB6 Language Reference's Call statement and the vb6.exe SP6 native/p-code
 [measurement in #3780](https://github.com/hexide-io/HexIDE/pull/3780), recorded under

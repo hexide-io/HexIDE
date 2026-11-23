@@ -533,7 +533,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 .OfType<HexIDE.VisualDesigner.FormEditViewModel>()
                 .FirstOrDefault(d => d.FormDefinition == form);
             var components = designerVm is not null
-                ? designerVm.Components.Select(v => v.Instance).Prepend(designerVm.Form.Instance).ToList()
+                ? designerVm.AllComponents.Select(v => v.Instance).ToList()
                 : form.Components.ToList();
             const string carriedNote = "HexIDE draws this carried control but does not model it; it cannot be moved, sized or set.";
             ControlInfo Info(ComponentInstance c)
@@ -594,9 +594,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     var child = children[i];
                     // File order is top first; live Components and DrawIndex are bottom first.
                     var fileIndex = written.IndexOf(child);
+                    var drawn = designerVm?.Components.FirstOrDefault(c => ReferenceEquals(c.Instance, child));
                     var order = designerVm is null ? -(fileIndex + before.Count(n => n <= fileIndex))
-                        : designerVm.Components.Single(c => ReferenceEquals(c.Instance, child)).DrawIndex;
-                    siblings.Add((child, summaries[child], order));
+                        : drawn?.DrawIndex ?? int.MaxValue;
+                    var row = summaries[child];
+                    if (designerVm is not null && drawn is null)
+                        row = row with { Note = "The designer does not draw this component." };
+                    siblings.Add((child, row, order));
                 }
                 var boxes = designerVm?.UnmodelledControls
                     .Where(c => ReferenceEquals(c.Container?.Instance ?? root, parent)).ToList();
@@ -633,7 +637,21 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 }
             }
             ListChildren(root);
-            // Menus are not drawn. Retain any unplaced model entries rather than silently lose them.
+            // Menus are not drawn; the Menu Editor's tree owns their live order.
+            void ListMenu(ComponentInstance menu)
+            {
+                if (!visited.Add(menu))
+                    return;
+                if (summaries.TryGetValue(menu, out var row))
+                    rows.Add(row);
+                if (menu.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } items)
+                    foreach (var item in items)
+                        ListMenu(item);
+            }
+            if (designerVm is not null)
+                foreach (var menu in designerVm.TopLevelMenu)
+                    ListMenu(menu.Instance);
+            // Retain any unplaced model entries rather than silently lose them.
             rows.AddRange(components.Where(c => !visited.Contains(c)).Select(c => summaries[c]));
 
             // One control, with every row the Properties window shows for it (#923): set_control_property sent
@@ -641,8 +659,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (controlName is not null)
             {
                 // Keep a bare control-array name's existing first-element lookup independent of draw order.
-                var all = designerVm?.AllComponents.Select(c => c.Instance).ToList() ?? form.Components.ToList();
-                var matches = PropertyText.Named(all, controlName);
+                var matches = PropertyText.Named(components, controlName);
                 if (matches.Count == 0)
                 {
                     var carriedControl = carried.FirstOrDefault(c => c.Name.Equals(controlName, StringComparison.OrdinalIgnoreCase));
@@ -651,7 +668,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             Note: carriedNote);
                     return new FormControlsResult(
                         $"No control named '{controlName}' on {document.Display}; its controls are "
-                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty))
+                        + string.Join(", ", components.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty))
                             .Concat(carried.Select(c => c.Name)).Distinct(StringComparer.OrdinalIgnoreCase)),
                         [], document.Project.Name, document.Name);
                 }
@@ -672,7 +689,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         new("Tabs", PropertyText.Display(tabs.DesignerTabs(control)), false, "Saved page count.")];
                     properties = [.. properties.OrderBy(p => p.Name)];
                 }
-                return new FormControlsResult(null, [summaries[control]], document.Project.Name, document.Name,
+                return new FormControlsResult(null, [summaries.TryGetValue(control, out var summary) ? summary : Info(control)], document.Project.Name, document.Name,
                     properties, note);
             }
             return new FormControlsResult(null, rows.ToArray(), document.Project.Name, document.Name);
@@ -1115,7 +1132,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return new MutateResult(true, null,
                 TabStateNote() + (entry.Archive is null
                     ? $" This VBA module is read-only. Language servers know it as {entry.Name}{entry.LanguageServerExtension}, the name VBA's Export File gives it. Office may run compiled p-code that differs from the stored source."
-                    : " This archive entry is read-only; available text previews attach language servers by extension."),
+                    : " This archive entry is read-only. A text preview goes to the language servers that claim its extension, and a twinBASIC source only to those that also declare the language twinbasic."),
                 Project: entry.Identity.ContainerPath, Document: ArchiveToolPaths.PathOf(entry),
                 Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null);
         }
@@ -3589,7 +3606,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; with 'value' on a closed ComboBox, opens the list first and closes it after selecting or a miss; an already-open list closes on selection as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); wheel (turn the mouse wheel over the target as a person does, so its own wheel handling runs; the reply says what moved); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; with 'value' on a closed ComboBox, opens the list first and closes it after selecting or a miss; an already-open list closes on selection as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); wheel (turn the mouse wheel over the target as a person does, so its own wheel handling runs; the reply says what moved); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox or the run-time error dialog refuses, a form's QueryUnload may; not the IDE's main window).")]
         string action,
         [Description("For set_value: text; set_range_value: number; scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. For wheel: up, down, left or right, then notches (default 1) and an optional x,y, as 'down 3'. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double; add hold to a drag to stop before its release, with the button still down at the to point until action release. While it is held, every reply's heldButton says where, a snapshot or a dump shows the drag in progress, click, double_click and hover are refused, and keys still go. For release: x,y relative to the target, or <path>:x,y, moves the held button there first; with no value it lets go where it is held. Code windows, text and margins also take 1-based line:N or line:N,col:M for click/double_click; off-screen lines scroll into view; invalid lines report the line count. With no call for 120 s a hold is abandoned; heldButton says how, and the next reply what it did.")]
         string? value = null,

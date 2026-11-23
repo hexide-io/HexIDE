@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Components;
 
 public class TextBoxComponentClass : ComponentBaseClass
 {
-    public TextBoxComponentClass() : base([TextProperty, EnabledProperty,
+    public TextBoxComponentClass() : base([TextProperty, EnabledProperty, AppearanceProperty,
         BackColorProperty, ForeColorProperty, FontProperty,
         TabStopProperty,
         MousePointerProperty,
@@ -36,6 +36,7 @@ public class TextBoxComponentClass : ComponentBaseClass
             MaxLength = VBLoader.RawNumber(instance, "MaxLength") ?? 0,
             IsReadOnly = VBLoader.RawDouble(instance, "Locked") is { } locked && locked != 0,
             VbBorderStyle = VBLoader.RawNumber(instance, "BorderStyle") ?? 1,
+            Appearance = instance.GetPropertyOrDefault(AppearanceProperty),
             // Loaded, so a form's colours are drawn and a program reads them back (#795). They were not modelled.
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),

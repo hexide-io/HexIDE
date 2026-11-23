@@ -162,15 +162,37 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
             "italic" => new Vb6Value(font.Italic),
             "weight" => new Vb6Value(standalone && font.Weight is 350 or 500 ? font.Weight : font.Weight > 550 ? 700 : 400),
             "charset" => new Vb6Value(font.Charset),
-            "underline" when standalone => new Vb6Value(font.Underline),
-            "strikethrough" when standalone => new Vb6Value(font.Strikethrough),
+            "underline" when standalone || HasListViewOwner => new Vb6Value(font.Underline),
+            "strikethrough" when standalone || HasListViewOwner => new Vb6Value(font.Strikethrough),
             _ => throw new NotImplementedException($"Font.{name} is not implemented (#934)"),
         };
         return true;
     }
 
+    private bool HasListViewOwner => owners.Exists(owner => owner.TryGetTarget(out var control) && control is VBListView);
+
     public bool TrySetProperty(string name, Vb6Value value)
     {
+        // A ListView's Name and Size, the two values measured in #2895 (oracle PR #5240, Times New Roman 18). Others stay
+        // refused, as for the intrinsic controls' Font below (#934): a size VB6 would snap isn't guessed.
+        if (HasListViewOwner)
+        {
+            if (name.Equals("Name", StringComparison.OrdinalIgnoreCase)
+                && value.Type == Vb6Value.ValueType.String && value.Value is "Times New Roman")
+            {
+                font = new VBFont("Times New Roman", font.Size, italic: font.Italic, charset: 0,
+                    underline: font.Underline, strikethrough: font.Strikethrough, weight: font.Weight);
+                Publish();
+                return true;
+            }
+            if (name.Equals("Size", StringComparison.OrdinalIgnoreCase)
+                && value.Type == Vb6Value.ValueType.Integer && value.Value is 18)
+            {
+                font = FontMembers.With(font, size: 18);
+                Publish();
+                return true;
+            }
+        }
         if (standalone && TrySetStandalone(name, value))
         {
             if (!propertiesRead) requested = requested?.Assigned(name, value);

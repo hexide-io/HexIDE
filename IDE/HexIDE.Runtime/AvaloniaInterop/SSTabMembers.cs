@@ -150,9 +150,8 @@ internal static class SSTabMembers
             return new Vb6Value((float)Math.Round(himetric * 1440 / 2540));
         if (mode == VBScaleMode.Pixel)
             return new Vb6Value((float)Math.Round(himetric * 96 / 2540));
-        if (mode is not (VBScaleMode.Point or VBScaleMode.Character or VBScaleMode.Inch)
-            || himetric != Math.Truncate(himetric))
-            throw new NotImplementedException("SSTab dimension reads in this scale or at half HIMETRIC are not implemented (#4970)");
+        if (mode is not (VBScaleMode.Point or VBScaleMode.Character or VBScaleMode.Inch))
+            throw new NotImplementedException("SSTab dimension reads in this scale are not implemented (#5439)");
         var host = tab.Parent as Control;
         var unit = host is not null && RuntimeScale.Of(host) is { } scale
             ? scale.TwipsPerUnit(false) : RuntimeScale.Unit(mode, false);
@@ -165,16 +164,14 @@ internal static class SSTabMembers
         if (height ? n <= 0 : n < 0)
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
         var mode = DimensionScale(tab);
-        if (mode is not (VBScaleMode.Twip or VBScaleMode.Pixel))
-            throw new NotImplementedException("SSTab dimension assignments in this scale are not implemented (#4970)");
-        var himetric = n * (mode == VBScaleMode.Pixel ? 15 : 1) * 2540 / 1440;
-        // Exact-half storage rounding is unmeasured; retain the half for twip/pixel reads.
-        if (himetric - Math.Truncate(himetric) == 0.5)
-            return himetric;
-        var rounded = Math.Round(himetric);
-        if (n > 0 && rounded == 0)
-            throw new NotImplementedException("SSTab positive dimensions rounding to zero HIMETRIC are not implemented (#4970)");
-        return rounded;
+        var host = tab.Parent as Control;
+        var unit = host is not null && RuntimeScale.Of(host) is { } scale
+            ? scale.TwipsPerUnit(false) : RuntimeScale.Unit(mode, false);
+        var himetric = n * unit * 2540 / 1440;
+        // #4970: nearest whole HIMETRIC, exact halves down; a positive input may keep zero. Ceiling gives -0 for
+        // values just under a half, so a kept zero is made +0: VB6 stores a whole number, with no sign on zero.
+        var kept = Math.Ceiling(himetric - 0.5);
+        return kept == 0 ? 0 : kept;
     }
 
     private static bool Boolean(Vb6Value value) => value.Value is bool b ? b

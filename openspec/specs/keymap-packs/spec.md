@@ -132,7 +132,7 @@ impractical. Live rebinding also means a conflict is discovered immediately rath
 ### Requirement: The default keymap SHALL require no pack
 The IDE SHALL have a working set of shortcuts with no keymap file loaded.
 Every binding documented in `Default.json` SHALL match the declared factory gesture, accounting for
-the platform command modifier and the existing macOS Replace and Toggle Fold exceptions.
+the platform command modifier and the macOS Replace, Toggle Fold and Complete Word exceptions.
 
 Factory gestures are the baseline, so a missing or malformed file cannot leave the IDE without shortcuts.
 
@@ -150,6 +150,11 @@ Factory gestures are the baseline, so a missing or malformed file cannot leave t
 - **WHEN** Default is in force
 - **THEN** Components uses the platform command modifier plus T
 - **AND** Project → Components displays that gesture
+
+#### Scenario: Default Complete Word shortcut
+
+- **WHEN** Default is in force
+- **THEN** Complete Word uses Control+Space on macOS, Windows and Linux (#5383)
 
 ### Requirement: Windows Break accepts the keyboard Cancel key
 After applying factory, profile, pack and user bindings, Break SHALL also match Control+Cancel on
