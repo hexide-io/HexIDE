@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.Dialogs;
 
 namespace HexIDE.Runtime;
 
@@ -21,6 +22,7 @@ public sealed class HostedFormRoot : Decorator, IModuleExecutionRoot, IFormView
 
     public HostedFormRoot(IHostedForm hosted, IBasicStandardLibrary standardLibrary)
     {
+        MessageBoxFormHold.HoldInput(this);
         this.hosted = hosted;
         Context = new VBWindowContext(standardLibrary) { Window = (Control)hosted.Window };
         hosted.SetContent(this);
