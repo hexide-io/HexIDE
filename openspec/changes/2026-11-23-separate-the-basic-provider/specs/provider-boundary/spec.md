@@ -81,3 +81,13 @@ provider is composed from `HexIDE.Desktop`, the grant SHALL name that compositio
 #### Scenario: The bundled provider registers its form component
 - **WHEN** the provider, composed from `HexIDE.Desktop`, registers a component whose role is `Form`
 - **THEN** the registration succeeds
+
+### Requirement: A granted registration still only adds
+A registration from an owner the grant names SHALL still only add: it SHALL be refused, and logged naming both
+owners, where any key or component it carries is already held by the IDE or another owner, and no grant SHALL
+cover a key the consent or trust views read. The detailed rules arrive with the add-in system's delta (#5415) and
+the localization delta (#5453).
+
+#### Scenario: The bundled provider registers a key the IDE holds
+- **WHEN** the provider, composed from `HexIDE.Desktop`, registers a resource key the IDE already holds
+- **THEN** the registration is refused and logged, naming the IDE as the holder

@@ -125,8 +125,8 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
 - **Registration is deny-by-default.** An owner-keyed grant in the IDE's source decides which owner may register
   resources (#5396), a language pack area (#5394), or a component beyond a plain control. In phase 2 the grant names the
   Desktop composition's origin, which isn't first-party-signed. Phase 3 switches it to a first-party signature with the
-  `hexide.basic` id. Task 3.1 says so, and the delta's requirement "A registration beyond a plain control needs the
-  provider's grant" pins it.
+  `hexide.basic` id. Task 3.1 says so. The delta's requirements "A registration beyond a plain control needs the
+  provider's grant" and "A granted registration still only adds" pin it.
 - **Designer roles (2.4a, #5478).** `IComponentClass` gains `IsContainer` and a role: `Control` by default, then `Form`,
   `Menu` and `Line`. Both are default interface members, so a component that names neither is a plain control.
 - **Component registration (2.4c).** This was agreed with hexide-frm, and the supervisor reviews the draft.
