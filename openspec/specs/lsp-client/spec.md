@@ -12,6 +12,32 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Document links in both editors
+
+HexIDE SHALL declare document-link tooltip support and request links only from capable servers,
+using the highest-priority claimant that answers. The code window and carried-file editor SHALL cache
+links per document version, flush pending edits before each request, and invalidate them on analysis refresh. With the platform command modifier
+held over a link, the editor SHALL underline its range, show its tooltip or target and use a hand cursor.
+
+#### Scenario: Follow a loaded target
+
+- **WHEN** a user command-clicks a link to a loaded member or carried file
+- **THEN** HexIDE opens it through its show-document navigation path without moving the source caret
+- **AND** a `#L<n>` or `#<n>` fragment places the target caret on the one-based line
+
+#### Scenario: External or unresolved target
+
+- **WHEN** a user command-clicks a link to a target no loaded document holds
+- **THEN** the existing external-document policy applies unchanged, asking for web and mail links and refusing other schemes
+- **AND** the status bar identifies the target as not open in HexIDE
+- **WHEN** the link has no target
+- **THEN** nothing is followed and no resolve request is sent
+
+#### Scenario: Ordinary pointer use
+
+- **WHEN** the command modifier is not held
+- **THEN** links do not change the editor's pointer appearance or plain-click caret placement
+
 ### Requirement: Contributed server settings belong to the user's layer
 A contributed server registration SHALL resolve settings per id: the user's whole object, otherwise a
 profile default, otherwise the add-in entry's own `settings`, otherwise none. Profile files SHALL stay untouched. `workspace/configuration` SHALL

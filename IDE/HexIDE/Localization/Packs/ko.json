@@ -89,6 +89,7 @@
     "Str.Lsp.NoWorkspaceEditor": "사용 가능한 작업 영역 편집기가 없습니다.",
     "Str.Menu.Edit.CallHierarchy": "호출 계층 구조",
     "Str.CodeEditor.Context.CallHierarchy": "호출 계층 구조",
+    "Str.Lsp.LinkTargetNotOpen": "링크 대상이 HexIDE에서 열려 있지 않습니다: {0}",
     "Str.Lsp.OpenExternalUri": "이 URI를 HexIDE 외부에서 여시겠습니까?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "호출 계층 구조",
     "Str.Menu.Edit.TypeHierarchy": "형식 계층 구조",

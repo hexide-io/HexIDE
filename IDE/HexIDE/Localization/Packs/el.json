@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Δεν υπάρχει διαθέσιμο πρόγραμμα επεξεργασίας χώρου εργασίας.",
     "Str.Menu.Edit.CallHierarchy": "Ιεραρχία κλήσεων",
     "Str.CodeEditor.Context.CallHierarchy": "Ιεραρχία κλήσεων",
+    "Str.Lsp.LinkTargetNotOpen": "Ο προορισμός του συνδέσμου δεν είναι ανοιχτός στο HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Άνοιγμα αυτού του URI εκτός του HexIDE;\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ιεραρχία κλήσεων",
     "Str.Menu.Edit.TypeHierarchy": "Ιεραρχία τύπων",

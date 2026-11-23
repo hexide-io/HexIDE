@@ -89,6 +89,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Ingen redigerer for arbeidsområdet er tilgjengelig.",
     "Str.Menu.Edit.CallHierarchy": "Kallhie_rarki",
     "Str.CodeEditor.Context.CallHierarchy": "K_allhierarki",
+    "Str.Lsp.LinkTargetNotOpen": "Lenkemålet er ikke åpent i HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Åpne denne URI-en utenfor HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kallhierarki",
     "Str.Menu.Edit.TypeHierarchy": "_Typehierarki",

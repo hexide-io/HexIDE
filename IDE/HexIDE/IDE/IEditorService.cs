@@ -56,5 +56,8 @@ public interface IEditorService
     /// <summary>Opens a loaded member with the server-requested range and focus; refuses external URIs.</summary>
     string? ApplyWorkspaceEdit(HexIDE.Lsp.Messages.WorkspaceEdit edit, System.Func<string, HexIDE.Lsp.RenameDocumentSnapshot?> documentFor);
 
+    /// <summary>Follows a server link through loaded-document navigation or the external-document gate.</summary>
+    System.Threading.Tasks.Task FollowDocumentLinkAsync(string target);
+
     bool ShowDocument(HexIDE.Lsp.Messages.ShowDocumentParams request);
 }

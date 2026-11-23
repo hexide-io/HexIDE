@@ -122,6 +122,7 @@
     "Str.Lsp.NoWorkspaceEditor": "אין עורך זמין לסביבת העבודה.",
     "Str.Menu.Edit.CallHierarchy": "היררכיית קריאות",
     "Str.CodeEditor.Context.CallHierarchy": "היררכיית קריאות",
+    "Str.Lsp.LinkTargetNotOpen": "יעד הקישור אינו פתוח ב־HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "לפתוח כתובת זו מחוץ ל־HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "היררכיית קריאות",
     "Str.Menu.Edit.TypeHierarchy": "היררכיית טיפוסים",

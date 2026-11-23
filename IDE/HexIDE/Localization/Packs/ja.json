@@ -122,6 +122,7 @@
     "Str.Lsp.NoWorkspaceEditor": "利用可能なワークスペースエディターがありません。",
     "Str.Menu.Edit.CallHierarchy": "呼び出し階層(_Y)",
     "Str.CodeEditor.Context.CallHierarchy": "呼び出し階層(_A)",
+    "Str.Lsp.LinkTargetNotOpen": "リンク先は HexIDE で開かれていません: {0}",
     "Str.Lsp.OpenExternalUri": "この URI を HexIDE の外部で開きますか？\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "呼び出し階層",
     "Str.Menu.Edit.TypeHierarchy": "型階層",

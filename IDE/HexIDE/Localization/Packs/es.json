@@ -88,6 +88,7 @@
     "Str.Lsp.NoWorkspaceEditor": "No hay ningún editor del espacio de trabajo disponible.",
     "Str.Menu.Edit.CallHierarchy": "_Jerarquía de llamadas",
     "Str.CodeEditor.Context.CallHierarchy": "_Jerarquía de llamadas",
+    "Str.Lsp.LinkTargetNotOpen": "El destino del enlace no está abierto en HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "¿Abrir este URI fuera de HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Jerarquía de llamadas",
     "Str.Menu.Edit.TypeHierarchy": "Jerar_quía de tipos",

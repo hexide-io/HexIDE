@@ -88,6 +88,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Kein Arbeitsbereichseditor verfügbar.",
     "Str.Menu.Edit.CallHierarchy": "A_ufrufhierarchie",
     "Str.CodeEditor.Context.CallHierarchy": "Aufrufhierar_chie",
+    "Str.Lsp.LinkTargetNotOpen": "Das Linkziel ist nicht in HexIDE geöffnet: {0}",
     "Str.Lsp.OpenExternalUri": "Diese URI außerhalb von HexIDE öffnen?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Aufrufhierarchie",
     "Str.Menu.Edit.TypeHierarchy": "_Typhierarchie",

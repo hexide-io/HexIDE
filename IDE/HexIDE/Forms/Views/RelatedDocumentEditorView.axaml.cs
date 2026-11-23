@@ -20,6 +20,8 @@ namespace HexIDE.Forms.Views;
 public partial class RelatedDocumentEditorView : UserControl
 {
     private EditorLanguageFeatures? _languageFeatures;
+    private EditorDocumentLinks? _documentLinks;
+    private void RefreshLinks(object? sender, EventArgs args) => _documentLinks?.Refresh();
     internal Task? PendingLanguageRequests => _languageFeatures?.PendingRequests is { IsCompleted: false } pending
         ? pending : null;
     internal IReadOnlyList<Avalonia.Controls.Primitives.Popup> OpenLanguagePopups => _languageFeatures?.OpenPopups ?? [];
@@ -124,6 +126,9 @@ public partial class RelatedDocumentEditorView : UserControl
         OnMarkersChanged(vm.Markers);
 
         AttachCaretSync(editor, vm);
+        _documentLinks = new EditorDocumentLinks(editor, vm.RequestDocumentLinksAsync, vm.FollowDocumentLinkAsync,
+            () => _languageFeatures?.Hover?.Dismiss(), position => _languageFeatures?.Hover?.ConfigurePlacement(position));
+        vm.LinksRefreshed += RefreshLinks;
         _languageFeatures = new EditorLanguageFeatures(editor.TextArea, vm, new CarriedFileCompletionRules(vm));
         _languageFeatures.AttachHover(editor, () => vm.Markers, marker => new TextBlock { Text = marker.Message }, uri =>
         {
@@ -324,6 +329,9 @@ public partial class RelatedDocumentEditorView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _documentLinks?.Dispose();
+        _documentLinks = null;
+        if (DataContext is RelatedDocumentEditorViewModel linksOwner) linksOwner.LinksRefreshed -= RefreshLinks;
         _languageFeatures?.Dispose();
         _languageFeatures = null;
         _foldCts?.Cancel();

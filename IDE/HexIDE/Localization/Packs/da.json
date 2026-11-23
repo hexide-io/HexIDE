@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Ingen editor til arbejdsområdet er tilgængelig.",
     "Str.Menu.Edit.CallHierarchy": "Kal_dhierarki",
     "Str.CodeEditor.Context.CallHierarchy": "Kal_dhierarki",
+    "Str.Lsp.LinkTargetNotOpen": "Linkmålet er ikke åbent i HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Åbn denne URI uden for HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kaldhierarki",
     "Str.Menu.Edit.TypeHierarchy": "_Typehierarki",

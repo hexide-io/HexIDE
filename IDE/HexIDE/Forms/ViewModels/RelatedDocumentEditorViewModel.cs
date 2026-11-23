@@ -34,9 +34,20 @@ namespace HexIDE.Forms.ViewModels;
 /// </para>
 /// </summary>
 public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindowManager windowManager,
-    ILocalizationService localization, ISettingsService settings)
+    ILocalizationService localization, ISettingsService settings, Func<IEditorService>? editors = null)
     : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument, HexIDE.Forms.Views.IEditorDocumentQueries
 {
+    internal event EventHandler? LinksRefreshed;
+
+    internal Task FollowDocumentLinkAsync(string target) => editors?.Invoke().FollowDocumentLinkAsync(target) ?? Task.CompletedTask;
+    private readonly DocumentLinkAnalysis links = new();
+    internal Task<DocumentLink[]> RequestDocumentLinksAsync(CancellationToken ct) => links.GetAsync(Document,
+        DocumentUri, async token =>
+        {
+            await FlushDocumentAsync(token);
+            return DocumentUri is { } uri ? await lspClient.RequestDocumentLinksAsync(uri, token) ?? [] : [];
+        }, ct);
+
     internal ISettingsService Settings => settings;
     internal ILspClient LanguageClient => lspClient;
     public string? DocumentUri => session is { IsOpen: true } open ? open.Uri : null;
@@ -187,6 +198,7 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
 
     public RelatedDocumentEditorViewModel Initialize(RelatedDocumentDefinition relatedDocument)
     {
+        AutoDispose(links);
         document = relatedDocument;
 
         if (relatedDocument.AbsolutePath is { } path && File.Exists(path))
@@ -272,11 +284,20 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
         var uiThread = Avalonia.Threading.Dispatcher.UIThread;
         EventHandler stateChanged = (_, _) => uiThread.Post(() =>
         {
+            links.Invalidate();
+            LinksRefreshed?.Invoke(this, EventArgs.Empty);
             LanguageServerStateChanged?.Invoke();
             Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
         });
         lspClient.StateChanged += stateChanged;
         AutoDispose(new ActionDisposable(() => lspClient.StateChanged -= stateChanged));
+        var linkRefresh = new EditorAnalysisRefresh(lspClient, () => DocumentUri, token =>
+        {
+            links.Invalidate();
+            LinksRefreshed?.Invoke(this, EventArgs.Empty);
+            return RequestDocumentLinksAsync(token);
+        });
+        AutoDispose(linkRefresh);
         session.Start();
     }
 

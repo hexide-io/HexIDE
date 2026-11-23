@@ -89,6 +89,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Brak dostępnego edytora obszaru roboczego.",
     "Str.Menu.Edit.CallHierarchy": "_Hierarchia wywołań",
     "Str.CodeEditor.Context.CallHierarchy": "_Hierarchia wywołań",
+    "Str.Lsp.LinkTargetNotOpen": "Cel łącza nie jest otwarty w HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Otworzyć ten identyfikator URI poza HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarchia wywołań",
     "Str.Menu.Edit.TypeHierarchy": "H_ierarchia typów",

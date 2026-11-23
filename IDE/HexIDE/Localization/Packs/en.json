@@ -89,6 +89,7 @@
     "Str.Lsp.NoWorkspaceEditor": "No workspace editor is available.",
     "Str.Menu.Edit.CallHierarchy": "Call Hierarch_y",
     "Str.CodeEditor.Context.CallHierarchy": "C_all Hierarchy",
+    "Str.Lsp.LinkTargetNotOpen": "The link target is not open in HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Open this URI outside HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Call Hierarchy",
     "Str.Menu.Edit.TypeHierarchy": "Type Hierarchy",

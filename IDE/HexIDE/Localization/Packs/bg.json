@@ -88,6 +88,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Няма наличен редактор за работната област.",
     "Str.Menu.Edit.CallHierarchy": "Йерархия на извикванията",
     "Str.CodeEditor.Context.CallHierarchy": "Йерархия на извикванията",
+    "Str.Lsp.LinkTargetNotOpen": "Целта на връзката не е отворена в HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Отваряне на този URI извън HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Йерархия на извикванията",
     "Str.Menu.Edit.TypeHierarchy": "Йерархия на типовете",

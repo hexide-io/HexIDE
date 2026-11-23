@@ -773,6 +773,7 @@ public sealed class VBLspClient : ILspClient
                         ["declaration", "definition", "readonly", "static", "deprecated", "abstract",
                          "async", "modification", "documentation", "defaultLibrary"], ["relative"]))
                 {
+                    DocumentLink = new DocumentLinkClientCapabilities(),
                     LinkedEditingRange = new LinkedEditingRangeClientCapabilities(),
                     InlineValue = new InlineValueClientCapabilities(),
                 },
@@ -1878,6 +1879,22 @@ public sealed class VBLspClient : ILspClient
         {
             WarnRequestFailedOnce("textDocument/selectionRange", ex, cancellationToken);
             return [];
+        }
+    }
+
+    public async Task<DocumentLink[]?> RequestDocumentLinksAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("documentLinkProvider")) return null;
+        try
+        {
+            return await InvokeRequestAsync<DocumentLink[]>(_rpc, "textDocument/documentLink",
+                new DocumentLinkParams(new TextDocumentIdentifier(uri)), cancellationToken,
+                supersededUri: uri, documentUri: uri);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/documentLink", ex, cancellationToken);
+            return null;
         }
     }
 
@@ -3283,6 +3300,7 @@ public sealed class VBLspClient : ILspClient
         "documentOnTypeFormattingProvider",
         "documentRangeFormattingProvider",
         "documentHighlightProvider",
+        "documentLinkProvider",
         "linkedEditingRangeProvider",
         "documentSymbolProvider",
         // Read by the command-routing reader rather than a gate: a command is routed to the server that

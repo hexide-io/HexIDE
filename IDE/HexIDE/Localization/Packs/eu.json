@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Ez dago laneko areako editorerik erabilgarri.",
     "Str.Menu.Edit.CallHierarchy": "D_eien hierarkia",
     "Str.CodeEditor.Context.CallHierarchy": "Deie_n hierarkia",
+    "Str.Lsp.LinkTargetNotOpen": "Estekaren helburua ez dago irekita HexIDE-n: {0}",
     "Str.Lsp.OpenExternalUri": "URI hau HexIDE-tik kanpo ireki?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Deien hierarkia",
     "Str.Menu.Edit.TypeHierarchy": "Moten hierarkia",

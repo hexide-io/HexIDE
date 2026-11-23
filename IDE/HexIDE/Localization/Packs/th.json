@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "ไม่มีตัวแก้ไขพื้นที่ทำงานที่พร้อมใช้งาน",
     "Str.Menu.Edit.CallHierarchy": "ลำดับชั้นการเรียก",
     "Str.CodeEditor.Context.CallHierarchy": "ลำดับชั้นการเรียก",
+    "Str.Lsp.LinkTargetNotOpen": "เป้าหมายของลิงก์ไม่ได้เปิดอยู่ใน HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "เปิด URI นี้ภายนอก HexIDE หรือไม่?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "ลำดับชั้นการเรียก",
     "Str.Menu.Edit.TypeHierarchy": "ลำดับชั้นชนิด",

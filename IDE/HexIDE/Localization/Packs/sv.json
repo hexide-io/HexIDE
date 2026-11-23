@@ -55,6 +55,7 @@
     "Str.Lsp.NoWorkspaceEditor": "Ingen redigerare för arbetsytan är tillgänglig.",
     "Str.Menu.Edit.CallHierarchy": "Anro_pshierarki",
     "Str.CodeEditor.Context.CallHierarchy": "_Anropshierarki",
+    "Str.Lsp.LinkTargetNotOpen": "Länkmålet är inte öppet i HexIDE: {0}",
     "Str.Lsp.OpenExternalUri": "Öppna denna URI utanför HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Anropshierarki",
     "Str.Menu.Edit.TypeHierarchy": "T_yphierarki",

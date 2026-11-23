@@ -2369,6 +2369,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<SemanticTokenResult?> RequestSemanticTokensAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestSemanticTokensAsync(uri, ct) : Task.FromResult<SemanticTokenResult?>(null);
 
+    internal async Task<DocumentLink[]> RequestDocumentLinksAsync(CancellationToken ct = default)
+    {
+        if (LiveDocumentUri is not { } uri) return [];
+        await FlushDocumentAsync(ct);
+        return await lspClient.RequestDocumentLinksAsync(uri, ct) ?? [];
+    }
+
+    internal Task FollowDocumentLinkAsync(string target) => editorService.FollowDocumentLinkAsync(target);
+
     public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFoldingRangesAsync(uri, ct) : Task.FromResult<FoldingRange[]>([]);
 

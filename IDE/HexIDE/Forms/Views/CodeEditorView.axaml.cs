@@ -40,6 +40,7 @@ public partial class CodeEditorView : UserControl
     private IDisposable? sub;
     private CodeLensDisplay? codeLenses;
     private LspTextMarkerService? _markerService;
+    private EditorDocumentLinks? _documentLinks;
     private LspDiagnosticsColorizer? _colorizer;
     private BracketDepthColorizer? _bracketDepthColorizer;
     private ReadOnlyRegionColorizer? _readOnlyColorizer;
@@ -58,6 +59,7 @@ public partial class CodeEditorView : UserControl
     private CompletionWindow? _completionWindow;
     private int _onTypeGeneration;
     internal Task PendingOnTypeFormatting { get; private set; } = Task.CompletedTask;
+    internal Task PendingDocumentLinks => _documentLinks?.PendingRequest ?? Task.CompletedTask;
     private EditorLanguageFeatures? _languageFeatures;
 
     /// <summary>
@@ -513,6 +515,8 @@ public partial class CodeEditorView : UserControl
             };
             vm.Settings.PropertyChanged += _inlaySettingsChanged;
             vm.Analysis.Refreshed += OnAnalysisRefreshed;
+            _documentLinks = new EditorDocumentLinks(TextEditor, vm.Analysis.Links, vm.FollowDocumentLinkAsync,
+                DismissHover, position => _languageFeatures?.Hover?.ConfigurePlacement(position));
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
@@ -813,6 +817,8 @@ public partial class CodeEditorView : UserControl
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
             vm.Analysis.Refreshed -= OnAnalysisRefreshed;
+            _documentLinks?.Dispose();
+            _documentLinks = null;
             if (_fontSettingsChanged is not null) vm.Settings.PropertyChanged -= _fontSettingsChanged;
             _fontSettingsChanged = null;
             if (_inlaySettingsChanged is not null)
@@ -1401,6 +1407,7 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
+        _documentLinks?.Refresh();
         ResetSelectionChain();
         ExpandSelection.RaiseCanExecutedChanged();
         ShrinkSelection.RaiseCanExecutedChanged();
@@ -1417,6 +1424,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnAnalysisRefreshed(object? sender, EventArgs args)
     {
+        _documentLinks?.Refresh();
         if (DataContext is not CodeEditorViewModel vm) return;
         ++_semanticVersion;
         if (_semanticColorizer is not null) _semanticColorizer.Tokens = [];
