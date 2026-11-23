@@ -118,7 +118,7 @@ public partial class FontDialogViewModel
                 size!.Value.ToString(CultureInfo.InvariantCulture) == SizeText);
             if (BigInteger.TryParse(SizeText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var typed)
                 && typed >= 1 && typed <= 2236)
-                SelectedSize = VBFontExtensions.SnapDialogSize((double)typed);
+                SelectedSize = VBFontSizing.SnapDialogSize((double)typed);
         }
         finally { _synchronizingSize = false; }
     }
@@ -151,7 +151,7 @@ public partial class FontDialogViewModel
                     return "Str.Dialog.Font.SizeNotNumber";
                 if (typed == 0) size = _initialSize;
                 else if (typed < 1 || typed > 2236) return "Str.Dialog.Font.SizeOutOfRange";
-                else size = VBFontExtensions.SnapDialogSize((double)typed);
+                else size = VBFontSizing.SnapDialogSize((double)typed);
             }
         }
         var result = new FontDialogResult(
