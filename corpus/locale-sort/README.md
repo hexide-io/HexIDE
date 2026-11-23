@@ -15,10 +15,12 @@ The findings drawn from them are in two pages:
 
 Every file has the same shape: UTF-8, one line per group, in ascending order.
 - **The first line** is the program's own header: the user locale it ran under, as `GetUserDefaultLCID` read it, and
-  the number of strings.
+  the number of strings it sorted. A `.sbcs.txt` file holds five fewer, as below.
 - **A group** is the strings that compare equal under text compare. Its members are separated by tabs, in code-point
   order.
 - **No string in any file** holds a tab, a line break, a NUL or a C1 control.
+- **Split lines on LF alone.** Some strings are other control characters, VT (U+000B), FF (U+000C) and U+001C to
+  U+001E among them, which some line readers, such as Python's `str.splitlines`, also treat as line breaks.
 
 ## The single-byte set, under 46 locales: `<locale>.sbcs.txt`
 
@@ -111,6 +113,6 @@ End If
 Adjacent strings were put in one group when `StrComp(a(i), a(i - 1), vbTextCompare)` was 0.
 
 **Checked against earlier measurements:**
-- **en-GB's single-byte order** agrees with #1567's `FullOrder` on all 310 strings both hold, with no pair ordered
-  differently.
+- **en-GB's single-byte order** agrees with #1567's `FullOrder` on all 311 strings both hold, with no pair ordered
+  differently. That was checked on the program's output, before the C1 controls came out.
 - **The 48 ideographs of the double-byte sample** keep that sample's order.

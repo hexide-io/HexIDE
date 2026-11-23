@@ -139,10 +139,11 @@ this run sorts one set that holds all of those pieces, under all 46 locales.
 **What it shows:**
 - **19 locales besides en-GB sort the whole set exactly as en-GB does:** ar-SA, ca-ES, de-DE, el-GR, en-AU, en-US, eu-ES, fr-CA,
   fr-FR, gl-ES, he-IL, id-ID, it-IT, nl-NL, pt-BR, pt-PT, th-TH, zh-CN and zh-TW. Above, 22 besides en-GB did so on
-  #1567's strings alone. bg-BG, ru-RU and uk-UA leave en-GB's order once their own Cyrillic is in the set, as "Each locale's own script"
-  found around Й.
-- **en-GB's order agrees with #1567's** on all 310 strings the two sets share, with no pair ordered differently.
-- **The tailorings recorded above all hold in the full set.** These were checked:
+  #1567's strings alone. bg-BG, ru-RU and uk-UA leave en-GB's order once their own Cyrillic is in the set. Only Й, І and Ї change places,
+  with their small letters, and in uk-UA also Ъ, Ы and Ь, as "Each locale's own script" found.
+- **en-GB's order agrees with #1567's** on all 311 strings the two sets share, with no pair ordered differently. That
+  was checked on the program's output, before the five C1 controls came out.
+- **Each tailoring checked here holds in the full set:**
   - sv-SE: Å after Ž, and Ä after Å;
   - da-DK: `"aa"` after Å;
   - tr-TR: Ç after `"cop"` and before D;
