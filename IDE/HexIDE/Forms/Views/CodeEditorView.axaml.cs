@@ -24,7 +24,6 @@ using HexIDE.Bookmarks;
 using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp.Messages;
-using HexIDE.Runtime.Editor;
 using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Themes;

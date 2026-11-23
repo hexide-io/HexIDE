@@ -77,8 +77,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Debugging.ImmediateEvalException |
 | type | HexIDE | HexIDE.Runtime.Dialogs.InputBox |
 | type | HexIDE | HexIDE.Runtime.Dialogs.MessageBox |
-| type | HexIDE | HexIDE.Runtime.Editor.VbAutoCloseProvider |
-| type | HexIDE | HexIDE.Runtime.Editor.VbKeywordNormalizer |
 | type | HexIDE | HexIDE.Runtime.EventPump |
 | type | HexIDE | HexIDE.Runtime.FormRoot |
 | type | HexIDE | HexIDE.Runtime.HostedFormRoot |
