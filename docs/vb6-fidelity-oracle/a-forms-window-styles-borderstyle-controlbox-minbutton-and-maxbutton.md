@@ -173,3 +173,79 @@ So a form that goes to Fixed Dialog and back comes back as it started, and a val
 - **The Properties window at every step.** Only the MaxButton rows above were looked at; the rest is the saved file.
 - **A form that is an MDI child,** or one with a menu.
 - **The designer at a DPI other than 96,** which would move the ClientLeft and ClientTop values.
+## Where the client origin goes when a form's BorderStyle changes (2026-11-22, #1596, design-time, IDE, SP6)
+
+**The question.** The section above saw ClientLeft and ClientTop change with the style. From the one starting point it
+measured, (60, 345), the fixed styles gave -15, 270, None gave -60, -120, and the sizable styles kept 60, 345. Is that a
+fixed offset, or something that depends on where the form is?
+
+**The probe.** A project of two forms from hand-written `.frm` files, opened in VB6's designer on the guest's console
+(VB6.EXE 6.00.9782, SP6, 96 dpi). Both were Sizable with ClientLeft 3000, ClientTop 2000, ClientWidth 3600 and
+ClientHeight 2400. Form1 had `StartUpPosition = 3 'Windows Default` and Form2 `0 'Manual`. Each step clicked the
+BorderStyle row's value cell, typed the number, pressed Return and saved with Ctrl+S, and the saved `.frm` was read back.
+Before the first step, the designer's position box on the toolbar read 2880, 1530 for the selected form.
+
+**From ClientLeft 3000, ClientTop 2000, one change after another, on Form2.** Form1 gave the same values for each
+style it was changed to.
+
+| Changed to | ClientLeft | ClientTop |
+|---|---|---|
+| 3 Fixed Dialog | 2925 | 1920 |
+| 2 Sizable | 3000 | **1995** |
+| 0 None | 2880 | 1530 |
+| 2 Sizable | 3000 | 1995 |
+| 4 Fixed ToolWindow | 2925 | 1920 |
+| 5 Sizable ToolWindow | 3000 | 1995 |
+| 1 Fixed Single | 2925 | 1920 |
+| 2 Sizable | 3000 | 1995 |
+
+The client size never changed. MinButton, MaxButton and ShowInTaskbar followed the section above's table at every
+step, for Fixed Single and both tool windows as well.
+
+**One more starting point, to tell rounding from truncation.** Form1 was edited on disk to ClientLeft 3010 and
+ClientTop 2008, and the project reopened. The position box read 2895, 1545.
+
+| Changed to | ClientLeft | ClientTop |
+|---|---|---|
+| 3 Fixed Dialog | 2940 | 1935 |
+| 2 Sizable | 3015 | 2010 |
+
+**So VB6 keeps the window's outer corner where it is, in whole pixels, and puts the client area inside the new frame.**
+Every row above fits this, and so does the earlier section's start at (60, 345):
+
+1. **The outer corner** is the client origin less the current style's frame, in pixels, rounded to the nearest whole
+   pixel. From 3000, 2000 at Sizable, that's (3000 − 120) / 15 = 192 and (2000 − 465) / 15 = 102.33, so 102. That gives
+   2880, 1530, which is what the position box showed.
+2. **The new client origin** is that corner in twips, plus the new style's frame:
+
+| BorderStyle | Left | Top |
+|---|---|---|
+| 0 None | 0 | 0 |
+| 1 Fixed Single, 3 Fixed Dialog, 4 Fixed ToolWindow | 45 | 390 |
+| 2 Sizable, 5 Sizable ToolWindow | 120 | 465 |
+
+These are the twips VB6's designer used at 96 dpi, read from the rows. They aren't a rule for other frames or DPI
+settings.
+
+- **The corner is rounded, not truncated.** From 3010, 2008 the corner is 192.67 and 102.87 pixels. Truncating gives
+  2880, 1530 and Fixed Dialog at 2925, 1920. VB6 showed 2895, 1545 and saved 2940, 1935, which is rounding.
+- **A change and its reverse needn't come back to the start.** 2000 less Sizable's 465 is 102⅓ pixels. The corner
+  became 102, so Sizable came back as 1995, and stayed 1995 for every later round trip. A start that is a whole pixel from
+  its corner, such as (60, 345), came back exactly.
+- **StartUpPosition makes no difference** in the designer. Form1 (Windows Default) and Form2 (Manual) gave the same rows.
+
+**What was overturned.** The section above said a form that goes to Fixed Dialog and back "comes back as it started".
+For the three properties in its table that's true. For the client origin it holds only when the start is a whole pixel
+from the outer corner, which (60, 345), the start it measured, happens to be.
+
+**What resisted explanation.** The vertical frames: a Sizable form's 465 twips is 31 pixels and a fixed one's 390 is 26.
+Neither was matched to a system metric. Sizable ToolWindow takes Sizable's numbers and Fixed ToolWindow the fixed ones,
+though a tool window's caption is shorter. These are VB6's designer numbers as read, not an account of them.
+
+### Not measured
+
+- **A corner exactly half a pixel from the grid,** so how a tie rounds.
+- **A form with a menu,** or an MDI child.
+- **The designer at a DPI other than 96.**
+- **Left and Top in the Properties window** after each change. Only the position box's reading before the first change
+  was taken, and the saved file holds only the client values.

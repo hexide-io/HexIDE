@@ -2,6 +2,11 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Compilar os seguintes proxectos:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Usar as opcións de compilación predeterminadas",
+    "Str.Dialog.MakeProjectGroup.Build": "Compilar",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Cancelar",
+    "Str.Dialog.MakeProjectGroup.Help": "_Axuda",
     "Str.FilePicker.ReplaceExisting": "{0} xa existe. Quere substituílo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} cargouse con erros, polo que non se pode gardar sobre o ficheiro orixinal. Escolla un nome de ficheiro novo.",
     "Str.ProjectLoad.PropertyNotSet": "Liña {0}: non se puido definir a propiedade {1} en {2}.",
@@ -1491,6 +1496,12 @@
     "Str.Options.Addin.ReportedFailure": "Informouse dun problema ás {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nome de estado local do proxecto non válido en '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Atopáronse varias localizacións do estado local do proxecto. Cada unha pode conter un estado gardado diferente. Non se escribirá nada ata que escolla unha para esta sesión. Introduza o seu número ou cancele:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} é unha ligazón ou unha unión, ou xa non está onde se atopou, polo que non se le nin se escribe nada nesa localización."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} é unha ligazón ou unha unión, ou xa non está onde se atopou, polo que non se le nin se escribe nada nesa localización.",
+    "Str.Dialog.SharedFile.MultipleModified": "Modificáronse varias copias do ficheiro compartido '{0}'. No seguinte diálogo, seleccione a copia que se debe gardar.",
+    "Str.Dialog.SharedFile.Update": "Quere actualizar {0} nos proxectos que o comparten con {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Ao actualizar {0} no proxecto {1}, descartaranse os cambios sen gardar dese proxecto. Quere continuar?",
+    "Str.Dialog.SharedFile.DiskChanged": "O ficheiro '{0}' cambiou no disco desde que se cargou ou gardou a copia do proxecto {1}. Quere sobrescribilo?",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os puntos de interrupción e outros axustes por usuario de {0} non se cargarán nin se gardarán nesta sesión.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Xa existe un control chamado '{0}'.  Quere crear unha matriz de controis?"
   }
 }

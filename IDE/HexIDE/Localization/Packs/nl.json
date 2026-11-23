@@ -2,6 +2,11 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "De volgende projecten bouwen:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Standaardbouwopties gebruiken",
+    "Str.Dialog.MakeProjectGroup.Build": "Bouwen",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Annuleren",
+    "Str.Dialog.MakeProjectGroup.Help": "_Help",
     "Str.FilePicker.ReplaceExisting": "{0} bestaat al. Wilt u het vervangen?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} is met fouten geladen en kan daarom het oorspronkelijke bestand niet overschrijven. Kies een nieuwe bestandsnaam.",
     "Str.ProjectLoad.PropertyNotSet": "Regel {0}: eigenschap {1} in {2} kon niet worden ingesteld.",
@@ -1491,6 +1496,12 @@
     "Str.Options.Addin.ReportedFailure": "Probleem gemeld op {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Ongeldige naam voor lokale projectstatus in '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Er zijn meerdere locaties voor lokale projectstatus gevonden. Elke locatie kan een andere opgeslagen status bevatten. Er wordt niets geschreven totdat u er een voor deze sessie kiest. Voer het nummer in of annuleer:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} is een koppeling of knooppunt, of staat niet meer op de gevonden locatie. Daarom wordt daar niets gelezen of geschreven."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} is een koppeling of knooppunt, of staat niet meer op de gevonden locatie. Daarom wordt daar niets gelezen of geschreven.",
+    "Str.Dialog.SharedFile.MultipleModified": "Er zijn meerdere kopieën van het gedeelde bestand '{0}' gewijzigd. Selecteer in het volgende dialoogvenster de kopie die u wilt opslaan.",
+    "Str.Dialog.SharedFile.Update": "Wilt u {0} bijwerken in projecten die het bestand delen met {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Als u {0} in project {1} bijwerkt, gaan de niet-opgeslagen wijzigingen van dat project verloren. Wilt u doorgaan?",
+    "Str.Dialog.SharedFile.DiskChanged": "Het bestand '{0}' is op schijf gewijzigd sinds de kopie van project {1} is geladen of opgeslagen. Wilt u het overschrijven?",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bladwijzers, onderbrekingspunten en andere gebruikersinstellingen voor {0} worden in deze sessie niet geladen of opgeslagen.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Er bestaat al een besturingselement met de naam '{0}'.  Wilt u een besturingselementenmatrix maken?"
   }
 }

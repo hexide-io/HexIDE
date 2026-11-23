@@ -325,7 +325,10 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 return new UserSidecarService(bookmarks, breakpoints, projectManager, runChoices)
                 {
-                    Choose = candidates => ProjectLocalStateChoice.Ask(windows, localization, candidates)
+                    Choose = candidates => ProjectLocalStateChoice.Ask(windows, localization, candidates),
+                    // Posted: the service calls this under its lock, from whichever thread is saving.
+                    Unavailable = (project, statePath) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        _ = ProjectLocalStateChoice.SidecarUnavailable(windows, localization, project, statePath))
                 };
             })
             .Bind<IFindReplaceService>().As(Singleton).To<FindReplaceService>()

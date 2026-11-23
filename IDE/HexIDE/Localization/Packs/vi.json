@@ -2,6 +2,11 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Biên dịch các dự án sau:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Sử dụng tùy chọn biên dịch mặc định",
+    "Str.Dialog.MakeProjectGroup.Build": "Biên dịch",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Hủy",
+    "Str.Dialog.MakeProjectGroup.Help": "Trợ _giúp",
     "Str.FilePicker.ReplaceExisting": "{0} đã tồn tại. Bạn có muốn thay thế không?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} được tải với lỗi nên không thể lưu đè lên tệp gốc. Hãy chọn tên tệp mới.",
     "Str.ProjectLoad.PropertyNotSet": "Dòng {0}: không thể đặt thuộc tính {1} trong {2}.",
@@ -1491,6 +1496,12 @@
     "Str.Options.Addin.ReportedFailure": "Đã báo cáo sự cố lúc {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Tên trạng thái cục bộ của dự án không hợp lệ trong '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Tìm thấy nhiều vị trí trạng thái cục bộ của dự án. Mỗi vị trí có thể chứa trạng thái đã lưu khác nhau. Sẽ không ghi gì cho đến khi bạn chọn một vị trí cho phiên này. Nhập số của vị trí hoặc hủy:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} là liên kết hoặc điểm nối, hoặc không còn ở vị trí đã tìm thấy, nên không có dữ liệu nào được đọc hoặc ghi tại đó."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} là liên kết hoặc điểm nối, hoặc không còn ở vị trí đã tìm thấy, nên không có dữ liệu nào được đọc hoặc ghi tại đó.",
+    "Str.Dialog.SharedFile.MultipleModified": "Nhiều bản sao của tệp dùng chung '{0}' đã được sửa đổi.  Trong hộp thoại tiếp theo, hãy chọn bản sao cần lưu.",
+    "Str.Dialog.SharedFile.Update": "Bạn có muốn cập nhật {0} trong các dự án dùng chung tệp này với {1} không?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Việc cập nhật {0} trong dự án {1} sẽ loại bỏ các thay đổi chưa lưu của dự án đó. Bạn có muốn tiếp tục không?",
+    "Str.Dialog.SharedFile.DiskChanged": "Tệp '{0}' đã thay đổi trên đĩa kể từ khi bản sao của dự án {1} được tải hoặc lưu. Bạn có muốn ghi đè tệp này không?",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Dấu trang, điểm dừng và các thiết lập riêng của người dùng khác cho {0} sẽ không được tải hoặc lưu trong phiên này.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Đã có điều khiển tên '{0}'.  Bạn có muốn tạo một mảng điều khiển không?"
   }
 }

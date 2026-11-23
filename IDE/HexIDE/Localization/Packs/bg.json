@@ -2,6 +2,11 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Компилиране на следните проекти:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Използване на опциите за компилиране по подразбиране",
+    "Str.Dialog.MakeProjectGroup.Build": "Компилиране",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Отказ",
+    "Str.Dialog.MakeProjectGroup.Help": "Помощ",
     "Str.FilePicker.ReplaceExisting": "{0} вече съществува. Искате ли да го замените?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} е зареден с грешки и не може да бъде записан върху оригиналния файл. Изберете ново име на файл.",
     "Str.ProjectLoad.PropertyNotSet": "Ред {0}: свойството {1} в {2} не можа да бъде зададено.",
@@ -1491,6 +1496,12 @@
     "Str.Options.Addin.ReportedFailure": "Докладван проблем в {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Невалидно име за локалното състояние на проекта в '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Намерени са няколко местоположения за локалното състояние на проекта. Всяко може да съдържа различно запазено състояние. Няма да се записва, докато не изберете едно за тази сесия. Въведете номера му или откажете:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} е връзка или съединение, или вече не е там, където е намерено, затова нищо не се чете от него и не се записва в него."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} е връзка или съединение, или вече не е там, където е намерено, затова нищо не се чете от него и не се записва в него.",
+    "Str.Dialog.SharedFile.MultipleModified": "Няколко копия на споделения файл '{0}' са променени. В следващия диалог изберете копието, което да се запише.",
+    "Str.Dialog.SharedFile.Update": "Искате ли да обновите {0} в проектите, които го споделят с {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Обновяването на {0} в проект {1} ще отхвърли незаписаните промени в този проект. Искате ли да продължите?",
+    "Str.Dialog.SharedFile.DiskChanged": "Файлът '{0}' е променен на диска след зареждането или записването на копието на проект {1}. Искате ли да го презапишете?",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Отметките, точките на прекъсване и другите потребителски настройки за {0} няма да бъдат заредени или записани в тази сесия.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Вече има контрола с име '{0}'.  Искате ли да създадете масив от контроли?"
   }
 }

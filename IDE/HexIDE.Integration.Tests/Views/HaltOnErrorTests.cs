@@ -196,6 +196,86 @@ public class HaltOnErrorTests
             Dispatcher.UIThread.RunJobs();
     }
 
+    // #833's in-bounds translation of the measured Compile On Demand break:
+    // docs/vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md.
+    // The walk reaches the statement after printing "before", rather than compiling at procedure entry.
+    [AvaloniaTheory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    public void A_compile_error_halts_and_Continue_meets_it_again(int nesting, bool resumeNext)
+    {
+        var code = $$"""
+            Private Sub Command1_Click()
+                {{(resumeNext ? "On Error Resume Next" : "")}}
+                Debug.Print "before"
+                {{(nesting == 1 ? "If True Then" : "")}}
+                {{(nesting == 2 ? "If True Then NoSuchSub" : "NoSuchSub")}}
+                {{(nesting == 1 ? "End If" : "")}}
+                Debug.Print "after"
+            End Sub
+            """;
+        using var run = Start(code);
+
+        run.Click("Command1");
+        Pump();
+        run.Halts.Should().ContainSingle().Which.Should().Contain("Sub or Function not defined");
+        run.Printed.Should().Equal("before");
+        run.Answer(debug: true);
+        run.Controller.CurrentStop.Should().Be(new StoppedInfo(StopReason.RuntimeError, "Form1", LineOf(code, "NoSuchSub")));
+        run.Controller.Continue();
+        Pump();
+        run.Halts.Should().HaveCount(2);
+        run.Printed.Should().Equal("before");
+        run.Answer(debug: false);
+        run.Runner.IsRunning.Should().BeFalse();
+        run.Failed.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void End_from_a_compile_error_halt_ends_the_run()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                NoSuchSub
+                Debug.Print "after"
+            End Sub
+            """);
+        run.Click("Command1");
+        Pump();
+        run.Halts.Should().ContainSingle();
+        run.Answer(debug: false);
+        run.Runner.IsRunning.Should().BeFalse();
+        run.Printed.Should().BeEmpty();
+        run.Failed.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void A_compile_error_in_Sub_Main_halts()
+    {
+        using var run = Start("", subMain: true, ("Module1", ModuleKind.StandardModule, """
+            Public Sub Main()
+                Debug.Print "before"
+                NoSuchSub
+                Debug.Print "after"
+            End Sub
+            """));
+        run.Halts.Should().ContainSingle().Which.Should().Contain("Sub or Function not defined");
+        run.Printed.Should().Equal("before");
+        run.Answer(debug: true);
+        // ModuleDefinition adds its Attribute header, so the call is whole-file line 4.
+        run.Controller.CurrentStop.Should().Be(new StoppedInfo(StopReason.RuntimeError, "Module1", 4));
+        run.Controller.Continue();
+        Pump();
+        run.Halts.Should().HaveCount(2);
+        run.Answer(debug: false);
+        run.Runner.IsRunning.Should().BeFalse();
+        run.Printed.Should().Equal("before");
+    }
+
     // ---- Nothing runs behind it: the review's three cases, each a wait inside a nested handler ---------------------
 
     [AvaloniaFact]
@@ -405,6 +485,42 @@ public class HaltOnErrorTests
 
         run.Halts.Should().ContainSingle();
         run.Printed.Last().Should().Be("n 1");
+        run.Failed.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void Continue_retries_only_the_faulting_Case_test()
+    {
+        // Measured: docs/vb6-fidelity-oracle/what-f5-runs-again-after-debug.md (#1079).
+        const string code = """
+            Private d As Integer
+            Private n As Integer
+            Private Function Counted() As Integer
+                n = n + 1
+                Counted = 5
+            End Function
+            Private Sub Command1_Click()
+                Select Case Counted()
+                    Case Is < Counted() - 10
+                        Debug.Print "first"
+                    Case Is > 1 \ d
+                        Debug.Print "second"
+                End Select
+                Debug.Print "n " & n
+            End Sub
+            """;
+        using var run = Start(code);
+
+        run.Click("Command1");
+        Pump();
+        run.Answer(debug: true);
+        run.Controller.CurrentStop.Should().Be(new StoppedInfo(StopReason.RuntimeError, "Form1", LineOf(code, "Case Is >")));
+        run.Controller.EvaluateAsync("d = 1").GetAwaiter().GetResult();
+        run.Controller.Continue();
+        Pump();
+
+        run.Halts.Should().ContainSingle();
+        run.Printed.Should().Equal("second", "n 2");
         run.Failed.Should().BeEmpty();
     }
 

@@ -4,18 +4,18 @@ using HexIDE.Desktop;
 using HexIDE.IDE;
 using HexIDE.Projects;
 using HexIDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
 public sealed class ProfileMigrationTests : IDisposable
 {
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-profile-launch-" + Guid.NewGuid());
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-profile-launch-");
     private readonly Dictionary<PropertyInfo, object?> previous = typeof(ServerOptions).GetProperties(BindingFlags.Public | BindingFlags.Static)
         .Where(p => p.SetMethod != null).ToDictionary(p => p, p => p.GetValue(null));
 
     public ProfileMigrationTests()
     {
-        Directory.CreateDirectory(root);
         foreach (var property in previous.Keys)
             property.SetValue(null, property.PropertyType.IsValueType ? Activator.CreateInstance(property.PropertyType) : null);
     }

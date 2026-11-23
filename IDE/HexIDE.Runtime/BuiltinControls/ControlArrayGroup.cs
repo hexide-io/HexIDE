@@ -98,6 +98,18 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         if (template is not { } tmpl || !hosts.TryGetValue(templateIndex, out var parent))
             throw new VBRunTimeException(VBStandardError.CantLoadOrUnloadThisObject);      // 361 (defensive)
 
+        if (elements[templateIndex] is not (VBUserControl or VBLine))
+        {
+            var snapshot = new ComponentInstance(tmpl.BaseClass, Name);
+            foreach (var (property, value) in tmpl.GetAllSetProperties())
+                snapshot.SetUntypedProperty(property, value);
+            snapshot.UnknownRawProperties.AddRange(tmpl.UnknownRawProperties);
+            foreach (var property in tmpl.BaseClass.Properties)
+                if (AvaloniaInterop.AvaloniaInteroperability.TryGetForInstantiation(elements[templateIndex], property, out var value))
+                    snapshot.SetUntypedProperty(property, value);
+            tmpl = snapshot;
+        }
+
         // The clone is the control alone: if the template is itself a container, its contents are NOT
         // cloned with it. Pinned as a test rather than asserted as correct — what VB6 does when you Load a
         // new element of a Frame array is an open oracle question (see the change's open list).

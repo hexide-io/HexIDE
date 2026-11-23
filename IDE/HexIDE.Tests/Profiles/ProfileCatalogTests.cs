@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using HexIDE.IDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
@@ -67,7 +68,7 @@ public class ProfileCatalogTests
     [Fact]
     public void DiscoveryUsesOnlyInstalledFolderNamesAndDoesNotReadUnvalidatedManifests()
     {
-        var root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-profiles-" + Guid.NewGuid());
+        var root = Path.Combine(ResolvedTemp.Root, "hexide-profiles-" + Guid.NewGuid());
         try
         {
             ProfileCatalog.DiscoverInstalled(root).Should().BeEmpty();
