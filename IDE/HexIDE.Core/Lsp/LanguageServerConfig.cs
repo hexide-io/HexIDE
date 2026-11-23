@@ -356,7 +356,8 @@ public enum LanguageServerConfigProblemKind
     UnrecognisedField,
 
     /// <summary>
-    /// This entry names a command the IDE has not launched before, or has changed since it last did.
+    /// This entry names a command the IDE has not launched before, or an address it has not dialled before (#5465),
+    /// or one of them has changed since it last did. The problem's code says which: <c>UnseenCommand</c> or <c>UnseenEndpoint</c>.
     /// Not an error — the ordinary case is a user who just wrote it — but the one problem here that is
     /// about trust rather than syntax.
     /// </summary>

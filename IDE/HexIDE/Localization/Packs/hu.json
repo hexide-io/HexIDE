@@ -1062,6 +1062,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: a(z) {1} kisebb a(z) {2} minimumnál, ezért a használt érték {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: a(z) {1} nagyobb a(z) {2} maximumnál, ezért a használt érték {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "A(z) '{0}' olyan parancsot fog futtatni, amelyet a HexIDE még nem futtatott: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "A(z) '{0}' olyan címhez fog csatlakozni, amelyhez a HexIDE még nem csatlakozott: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "A konfigurációs fájl üres.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "A konfiguráció a(z) {0} verziót adja meg, de ez a HexIDE a(z) {1} verziót ismeri. A konfiguráció figyelmen kívül lett hagyva; a beépített kiszolgálók vannak használatban.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "A(z) '{0}' konfigurációs fájl nem olvasható: {1}",

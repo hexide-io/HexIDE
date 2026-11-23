@@ -1029,6 +1029,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} меньше минимального значения {2}, поэтому используется {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} больше максимального значения {2}, поэтому используется {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "«{0}» выполнит команду, которую HexIDE ещё не выполняла: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "«{0}» подключится к адресу, к которому HexIDE ещё не подключалась: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Файл конфигурации пуст.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "В конфигурации указана версия {0}, но эта версия HexIDE поддерживает {1}. Конфигурация проигнорирована; используются встроенные серверы.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Не удалось прочитать файл конфигурации «{0}»: {1}",

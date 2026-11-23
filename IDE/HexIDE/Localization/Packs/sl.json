@@ -1028,6 +1028,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} je pod najmanjšo vrednostjo {2}, zato se uporabi {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} je nad največjo vrednostjo {2}, zato se uporabi {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' bo izvedel ukaz, ki ga HexIDE še ni izvedel: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' se bo povezal z naslovom, s katerim se HexIDE še ni povezal: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Nastavitvena datoteka je prazna.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Nastavitve navajajo različico {0}, ta HexIDE pa razume {1}. Nastavitve so bile prezrte; uporabljajo se vgrajeni strežniki.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Nastavitvene datoteke '{0}' ni bilo mogoče prebrati: {1}",

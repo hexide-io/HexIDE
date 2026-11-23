@@ -1028,6 +1028,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} este sub minimul {2}, deci se folosește {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} depășește maximul {2}, deci se folosește {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' va executa o comandă pe care HexIDE nu a mai executat-o: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' se va conecta la o adresă la care HexIDE nu s-a mai conectat: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Fișierul de configurare este gol.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Configurația declară versiunea {0}, dar această versiune de HexIDE înțelege {1}. Configurația a fost ignorată; se folosesc serverele încorporate.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Fișierul de configurare '{0}' nu a putut fi citit: {1}",

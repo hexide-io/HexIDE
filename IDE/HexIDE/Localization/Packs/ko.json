@@ -1063,6 +1063,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1}이(가) 최솟값 {2}보다 작으므로 {2}을(를) 사용합니다.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1}이(가) 최댓값 {2}보다 크므로 {2}을(를) 사용합니다.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}'에서 HexIDE가 이전에 실행한 적 없는 명령을 실행합니다: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}'에서 HexIDE가 이전에 연결한 적 없는 주소에 연결합니다: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "구성 파일이 비어 있습니다.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "구성에 선언된 버전은 {0}이지만 이 HexIDE가 지원하는 버전은 {1}입니다. 구성을 무시하고 기본 제공 서버를 사용합니다.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "구성 파일 '{0}'을(를) 읽을 수 없습니다: {1}",

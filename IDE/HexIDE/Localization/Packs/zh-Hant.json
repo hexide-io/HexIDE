@@ -1062,6 +1062,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}：{1} 低於最小值 {2}，因此使用 {2}。",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}：{1} 高於最大值 {2}，因此使用 {2}。",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "「{0}」將執行 HexIDE 從未執行過的命令：{1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "「{0}」將連線到 HexIDE 從未連線過的位址：{1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "設定檔是空的。",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "設定宣告的版本為 {0}，但此 HexIDE 支援的是 {1}。此設定已忽略；目前使用內建伺服器。",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "無法讀取設定檔「{0}」：{1}",

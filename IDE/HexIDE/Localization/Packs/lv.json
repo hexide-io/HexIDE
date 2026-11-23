@@ -1062,6 +1062,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} ir mazāks par minimumu {2}, tāpēc tiek izmantots {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} ir lielāks par maksimumu {2}, tāpēc tiek izmantots {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' izpildīs komandu, kuru HexIDE iepriekš nav izpildījis: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' izveidos savienojumu ar adresi, ar kuru HexIDE iepriekš nav savienojies: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Konfigurācijas fails ir tukšs.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Konfigurācijā norādīta versija {0}, bet šis HexIDE atbalsta {1}. Konfigurācija ir ignorēta; tiek izmantoti iebūvētie serveri.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Konfigurācijas failu '{0}' neizdevās nolasīt: {1}",

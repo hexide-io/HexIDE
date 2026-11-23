@@ -1029,6 +1029,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: το {1} είναι μικρότερο από το ελάχιστο {2}, οπότε χρησιμοποιείται το {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: το {1} είναι μεγαλύτερο από το μέγιστο {2}, οπότε χρησιμοποιείται το {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "Το '{0}' θα εκτελέσει μια εντολή που το HexIDE δεν έχει εκτελέσει ξανά: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "Το '{0}' θα συνδεθεί σε μια διεύθυνση στην οποία το HexIDE δεν έχει συνδεθεί ξανά: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Το αρχείο ρυθμίσεων είναι κενό.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Οι ρυθμίσεις δηλώνουν έκδοση {0}, αλλά αυτή η έκδοση του HexIDE κατανοεί την {1}. Οι ρυθμίσεις αγνοήθηκαν· χρησιμοποιούνται οι ενσωματωμένοι διακομιστές.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Δεν ήταν δυνατή η ανάγνωση του αρχείου ρυθμίσεων '{0}': {1}",

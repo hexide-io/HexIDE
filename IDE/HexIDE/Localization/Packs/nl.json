@@ -1063,6 +1063,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} ligt onder het minimum {2}, dus wordt {2} gebruikt.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} ligt boven het maximum {2}, dus wordt {2} gebruikt.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' zal een opdracht uitvoeren die HexIDE nog niet eerder heeft uitgevoerd: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' zal verbinding maken met een adres waarmee HexIDE nog niet eerder verbinding heeft gemaakt: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Het configuratiebestand is leeg.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "De configuratie geeft versie {0} op, maar deze HexIDE begrijpt {1}. De configuratie is genegeerd; de ingebouwde servers worden gebruikt.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Het configuratiebestand '{0}' kon niet worden gelezen: {1}",

@@ -1063,6 +1063,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} jest poniżej minimum {2}, więc używana jest wartość {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} jest powyżej maksimum {2}, więc używana jest wartość {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' uruchomi polecenie, którego HexIDE jeszcze nie uruchamiało: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' połączy się z adresem, z którym HexIDE jeszcze się nie łączyło: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Plik konfiguracji jest pusty.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Konfiguracja deklaruje wersję {0}, ale ta wersja HexIDE obsługuje {1}. Konfiguracja została zignorowana; używane są wbudowane serwery.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Nie można odczytać pliku konfiguracji '{0}': {1}",

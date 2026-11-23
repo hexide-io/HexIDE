@@ -1062,6 +1062,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0} : {1} est inférieur au minimum {2} ; {2} est donc utilisé.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0} : {1} est supérieur au maximum {2} ; {2} est donc utilisé.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "« {0} » exécutera une commande que HexIDE n’a encore jamais exécutée : {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "« {0} » se connectera à une adresse à laquelle HexIDE ne s’est encore jamais connecté : {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Le fichier de configuration est vide.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "La configuration déclare la version {0}, mais ce HexIDE comprend la version {1}. Elle a été ignorée ; les serveurs intégrés sont utilisés.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Le fichier de configuration « {0} » n’a pas pu être lu : {1}",

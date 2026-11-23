@@ -1029,6 +1029,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} är lägre än minimivärdet {2}, så {2} används.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} är högre än maximivärdet {2}, så {2} används.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "'{0}' kommer att köra ett kommando som HexIDE inte har kört tidigare: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' kommer att ansluta till en adress som HexIDE inte har anslutit till tidigare: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Konfigurationsfilen är tom.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Konfigurationen anger version {0}, men denna version av HexIDE förstår {1}. Den har ignorerats; de inbyggda servrarna används.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Konfigurationsfilen '{0}' kunde inte läsas: {1}",

@@ -1062,6 +1062,7 @@
     "Str.Tool.LanguageServers.Problem.CaptureBelow": "{0}: {1} yra mažiau už mažiausią reikšmę {2}, todėl naudojama {2}.",
     "Str.Tool.LanguageServers.Problem.CaptureAbove": "{0}: {1} yra daugiau už didžiausią reikšmę {2}, todėl naudojama {2}.",
     "Str.Tool.LanguageServers.Problem.UnseenCommand": "„{0}“ vykdys komandą, kurios HexIDE dar nevykdė: {1}",
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "„{0}“ prisijungs prie adreso, prie kurio HexIDE dar nesijungė: {1}",
     "Str.Tool.LanguageServers.Problem.EmptyFile": "Konfigūracijos failas tuščias.",
     "Str.Tool.LanguageServers.Problem.FutureVersion": "Konfigūracijoje nurodyta versija {0}, bet ši HexIDE versija supranta {1}. Konfigūracijos nepaisoma; naudojami įtaisytieji serveriai.",
     "Str.Tool.LanguageServers.Problem.ReadFailed": "Nepavyko perskaityti konfigūracijos failo „{0}“: {1}",

@@ -254,14 +254,17 @@ Nothing here can stop the IDE starting.
 
 Use `"transport": "tcp"` with `"endpoint": "tcp://localhost:6005"` to connect to a running
 server. Set `"tcpRole": "listen"` to wait for a server to dial HexIDE instead. Use `localhost`
-for the default loopback listener (IPv4), or name an explicit IPv4 or IPv6 bind address. A listener
-requires `localhost` or an IP literal; connect also accepts DNS names. Port 0 on a listener asks the
-OS for a free port. Connect requires a nonzero port. Credentials, paths, queries and fragments are
-not accepted in a TCP endpoint.
+for the default loopback listener (IPv4), or `127.0.0.1` or `[::1]`. Connect also accepts DNS names.
+Port 0 on a listener asks the OS for a free port. Connect requires a nonzero port. Credentials, paths,
+queries and fragments are not accepted in a TCP endpoint.
 
-**Naming a non-loopback address exposes the language-server connection to that network.**
-For example, `tcp://0.0.0.0:6005` accepts connections on every IPv4 interface. TCP has no TLS
-or authentication here; only use such a bind deliberately on a trusted network. Even on loopback, any process on this machine can dial a listener first. HexIDE talks to whichever connects first, and accepts only that one.
+**HexIDE listens on this machine only.** Whatever dials a listener first is taken as the language
+server, and a language server can edit your documents, so any other bind address, such as
+`tcp://0.0.0.0:6005`, is refused when the file is read, as it is for a WebSocket listener. A server on
+another machine is reached with `connect` instead. Even on loopback, any process on this machine can
+dial a listener first. HexIDE talks to whichever connects first, and accepts only that one. Before
+#5465 a non-loopback bind was accepted with a warning; an entry that used one now shows a
+configuration problem and is ignored until its endpoint is changed.
 
 An optional `command` launches the server, as for pipes, with `arguments`, `workingDirectory`
 and `environment`. `{host}` and `{port}` in arguments receive the endpoint host and actual bound
@@ -406,6 +409,22 @@ a fact about a program the IDE did not start.
 
 Nothing is refused — refusing to run what you typed into your own file would be theatre. The launch is
 simply not silent.
+
+### An address you have not connected to before
+
+An entry that only connects starts nothing, but it still reaches something: HexIDE sends the server your
+project's folder in `initialize`, which is a path under your user profile, and then the text of each open
+document it claims. A `tcp` or `websocket` entry with role `connect` can name another machine. So the
+address it dials is part of its identity too, and the first time an entry dials an address, or after the
+address changes, it is announced the same way, as *will connect to an address HexIDE has not connected to
+before*. An entry that launches a command and then connects is announced once if either changes.
+
+A pipe isn't counted: HexIDE only dials a pipe on this machine. Until #5465, an entry that only connected
+was never announced, so after upgrading, each such entry is announced once, and so is a `tcp` entry that
+has both a command and a `connect` endpoint.
+
+Testing an entry from the Language Servers window asks before it starts or dials anything new, and records
+it when you agree.
 
 ## Tools for AI Chat
 
