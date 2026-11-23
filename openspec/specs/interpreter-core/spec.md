@@ -2690,7 +2690,7 @@ Columns above zero SHALL arrange items down each column then across. TopIndex SH
 to a column start and clamp to the last page. Measured navigation SHALL raise Click then
 Scroll when the top changes; code selection SHALL scroll without Scroll.
 Unmeasured mouse checkbox toggling, Style 1 with MultiSelect, runtime Style/Columns
-assignments, horizontal-bar dragging and designer drawing retain their existing behaviour.
+assignments and horizontal-bar dragging retain their existing behaviour.
 
 #### Scenario: Unchecking preserves the current position
 - **WHEN** items 1 and 3 are checked, ListIndex is 3, and code sets Selected(1) = False
@@ -2812,9 +2812,17 @@ The designer SHALL draw saved ListBox and Simple ComboBox items in file order, i
 Sorted lists, using the runtime font, row height and text insets, with no selection or focus rectangle
 ([#5121's designer measurements](https://github.com/hexide-io/HexIDE/issues/5121), oracle PR #5131).
 An empty ListBox SHALL show its current Name on the first row only in the designer. Overflowing
-ListBoxes SHALL show a vertical scroll bar. Simple ComboBoxes SHALL show Text above the list.
-Checkbox and column designer layouts remain plain pending #5133; Styles 0 and 2 ComboBox drawing
-is unchanged.
+ListBoxes with Columns 0 SHALL show a vertical scroll bar. Simple ComboBoxes SHALL show Text above the list.
+Style 1 ListBoxes without MultiSelect SHALL draw unchecked boxes in the designer, using the runtime glyph.
+Columns above zero SHALL flow down then across at a 120-DIP pitch in the designer, including Columns 1,
+with a horizontal scroll bar on overflow. Columns 0 SHALL retain the plain layout.
+Runtime Columns greater than 1 SHALL use a pitch of `(W - 3) \ Columns`, truncated, where W is Width
+in twips divided by 15 and rounded half up; Columns 1 SHALL retain full-width columns
+([#5133 measurements](../../../docs/vb6-fidelity-oracle/a-lists-saved-items-in-the-designer-and-at-load.md)).
+By decision in #5133, pitches at other scaling factors are DIPs, Style 1 with Columns takes both layouts,
+and regenerated designer previews use the same rule. IntegralHeight False and partial rows retain the
+existing row count. The first checkbox item's selection colours and the glyph's unmeasured pixels remain
+unchanged. Styles 0 and 2 ComboBox drawing is unchanged.
 
 #### Scenario: Saved items appear in the designer picture
 - **WHEN** the designer draws a ListBox saved with s2, s1, s3
