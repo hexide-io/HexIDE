@@ -1498,6 +1498,7 @@
     "Str.Dialog.SharedFile.Update": "Wilt u {0} bijwerken in projecten die het bestand delen met {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Als u {0} in project {1} bijwerkt, gaan de niet-opgeslagen wijzigingen van dat project verloren. Wilt u doorgaan?",
     "Str.Dialog.SharedFile.DiskChanged": "Het bestand '{0}' is op schijf gewijzigd sinds de kopie van project {1} is geladen of opgeslagen. Wilt u het overschrijven?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bladwijzers, onderbrekingspunten en andere gebruikersinstellingen voor {0} worden in deze sessie niet geladen of opgeslagen.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bladwijzers, onderbrekingspunten en andere gebruikersinstellingen voor {0} worden in deze sessie niet geladen of opgeslagen.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Er bestaat al een besturingselement met de naam '{0}'.  Wilt u een besturingselementenmatrix maken?"
   }
 }

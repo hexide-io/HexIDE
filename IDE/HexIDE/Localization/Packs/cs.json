@@ -1498,6 +1498,7 @@
     "Str.Dialog.SharedFile.Update": "Chcete aktualizovat {0} v projektech, které jej sdílejí s projektem {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Aktualizace {0} v projektu {1} zahodí neuložené změny tohoto projektu. Chcete pokračovat?",
     "Str.Dialog.SharedFile.DiskChanged": "Soubor '{0}' se na disku změnil od načtení nebo uložení kopie projektu {1}. Chcete jej přepsat?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Záložky, zarážky a další uživatelská nastavení pro {0} se v této relaci nenačtou ani neuloží.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Záložky, zarážky a další uživatelská nastavení pro {0} se v této relaci nenačtou ani neuloží.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Ovládací prvek s názvem '{0}' již existuje.  Chcete vytvořit pole ovládacích prvků?"
   }
 }

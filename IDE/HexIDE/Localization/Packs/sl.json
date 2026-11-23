@@ -1498,6 +1498,7 @@
     "Str.Dialog.SharedFile.Update": "Ali želite posodobiti {0} v projektih, ki si jo delijo s projektom {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Posodobitev {0} v projektu {1} bo zavrgla neshranjene spremembe tega projekta. Ali želite nadaljevati?",
     "Str.Dialog.SharedFile.DiskChanged": "Datoteka '{0}' se je na disku spremenila, odkar je bila kopija projekta {1} naložena ali shranjena. Ali jo želite prepisati?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Zaznamki, prekinitvene točke in druge uporabniške nastavitve za {0} v tej seji ne bodo naloženi niti shranjeni.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Zaznamki, prekinitvene točke in druge uporabniške nastavitve za {0} v tej seji ne bodo naloženi niti shranjeni.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Kontrolnik z imenom '{0}' že obstaja.  Ali želite ustvariti polje kontrolnikov?"
   }
 }

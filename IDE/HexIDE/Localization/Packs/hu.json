@@ -1498,6 +1498,7 @@
     "Str.Dialog.SharedFile.Update": "Szeretné frissíteni a(z) {0} fájlt azokban a projektekben, amelyek a(z) {1} projekttel közösen használják?",
     "Str.Dialog.SharedFile.DiscardChanges": "A(z) {0} frissítése a(z) {1} projektben elveti a projekt nem mentett módosításait. Szeretné folytatni?",
     "Str.Dialog.SharedFile.DiskChanged": "A(z) '{0}' fájl megváltozott a lemezen a(z) {1} projekt példányának betöltése vagy mentése óta. Szeretné felülírni?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "A(z) {0} könyvjelzői, töréspontjai és egyéb felhasználónkénti beállításai ebben a munkamenetben nem töltődnek be, és nem is mentődnek.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "A(z) {0} könyvjelzői, töréspontjai és egyéb felhasználónkénti beállításai ebben a munkamenetben nem töltődnek be, és nem is mentődnek.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Már létezik egy '{0}' nevű vezérlő.  Szeretne létrehozni egy vezérlőtömböt?"
   }
 }
