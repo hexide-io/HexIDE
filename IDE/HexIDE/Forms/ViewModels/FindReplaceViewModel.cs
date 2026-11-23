@@ -572,6 +572,8 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             for (int i = searchStart; i >= 0; i--)
             {
                 if (i + SearchText.Length > text.Length) continue;
+                // With a selection, resume before it without accepting an overlapping match (#5308).
+                if (currentSelectionLength > 0 && i + SearchText.Length > currentSelectionStart) continue;
                 var candidate = text.Substring(i, SearchText.Length);
                 if (string.Equals(candidate, SearchText, comparison) && Accepts(doc, i, SearchText.Length, isReadOnly))
                     return (i, SearchText.Length);

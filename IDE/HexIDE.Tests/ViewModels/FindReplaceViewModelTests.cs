@@ -286,6 +286,39 @@ public partial class FindReplaceViewModelTests
         editor.SelectionLength.Should().Be(5);
     }
 
+    // Measured in docs/vb6-fidelity-oracle/find-next-where-the-next-search-starts.md,
+    // Direction Up (#5308). Wrapping is tracked separately by #5307.
+    [AvaloniaTheory]
+    [InlineData("abab", "ab", 2, 0)]
+    [InlineData("aaaa", "aa", 2, 0)]
+    [InlineData("aaa", "aa", 1, null)]
+    public void FindNext_DirectionUp_ResumesBeforeSelectedMatch(string text, string searchText,
+        int firstOffset, int? nextOffset)
+    {
+        var editor = CreateMockEditor(text);
+        SetActiveEditor(editor);
+        editor.CaretOffset = text.Length;
+        var sut = CreateSut();
+        sut.SearchText = searchText;
+        sut.Direction = FindDirection.Up;
+        sut.Scope = FindScope.CurrentModule;
+
+        sut.FindNextCommand.Execute(null);
+
+        editor.SelectionStart.Should().Be(firstOffset);
+        editor.SelectionLength.Should().Be(searchText.Length);
+
+        sut.FindNextCommand.Execute(null);
+
+        if (nextOffset is { } offset)
+        {
+            editor.SelectionStart.Should().Be(offset);
+            editor.SelectionLength.Should().Be(searchText.Length);
+        }
+        else
+            editor.SelectionStart.Should().NotBe(0);
+    }
+
     // --- Replace ---
 
     [AvaloniaFact]
