@@ -20,6 +20,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Components/FlexGridSortTests.cs` | provider |
 | `Components/PropertyTextTests.cs` | split |
 | `Controls/Vb6FoldingAdapterTests.cs` | split |
+| `Converters/VBColorBrushesTests.cs` | split |
 | `Corpus/ProjectCorpusSmokeTests.cs` | split |
 | `Corpus/ProjectSmokeHarness.cs` | provider |
 | `Corpus/ProjectSmokeHarnessTests.cs` | provider |

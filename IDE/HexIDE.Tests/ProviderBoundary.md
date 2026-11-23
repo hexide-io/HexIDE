@@ -36,7 +36,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.BuiltinControls.VBProps |
 | type | HexIDE | HexIDE.Runtime.BuiltinControls.VBTimer |
 | type | HexIDE | HexIDE.Runtime.BuiltinTypes.VBColorAvaloniaExtensions |
-| type | HexIDE | HexIDE.Runtime.BuiltinTypes.VBColorExtensions |
 | type | HexIDE | HexIDE.Runtime.BuiltinTypes.VBCursorTypeExtensions |
 | type | HexIDE | HexIDE.Runtime.BuiltinTypes.VBFontExtensions |
 | type | HexIDE | HexIDE.Runtime.Components.CheckBoxComponentClass |
