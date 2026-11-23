@@ -1137,6 +1137,15 @@ If the owner is null, or none of its servers claims the extension, ordinary exte
 routing applies. HexIDE's own projects (including `.vbp` groups) and carried files keep that routing.
 The registration's `AddinId` identifies the owner; `Origin` remains the display title.
 
+A configuration entry can also displace the bundled `hexide.vb6` entry
+([#5384](https://github.com/hexide-io/HexIDE/issues/5384)). After the project-owner route, for each extension,
+the bundled entry is excluded if another entry with no `AddinId` claims that extension, establishes VB6
+through `DocumentLanguage.EstablishesVb6`, and ranks above the bundled entry's current priority. Members
+and carried files use this rule before the membership and carried `.cls` content gates. Unclaimed
+extensions stay bundled; equal or lower priorities, a LaTeX `.cls` claim, and add-in entries outside their
+own project type keep ordinary routing. Overriding `hexide.vb6` itself displaces nothing. A displaced
+bundled entry never starts unless it still claims another opened document.
+
 ### The one place the identifier still counts: a project's class modules
 
 The `.cls` collision ([#279](https://github.com/hexide-io/HexIDE/issues/279)) is the worked example: a `.cls`
