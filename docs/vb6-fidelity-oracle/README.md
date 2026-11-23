@@ -924,6 +924,7 @@ added afterwards.
 - [A reference's LCID is lowercase hex, unpadded (2026-10-27, #2273)](a-references-lcid-is-lowercase-hex.md#a-references-lcid-is-lowercase-hex-unpadded-2026-10-27-2273)
 - [A reference's path, and the line order a save writes (2026-10-27, #2274)](a-references-path-and-the-line-order-a-save-writes.md#a-references-path-and-the-line-order-a-save-writes-2026-10-27-2274)
 - [In-box controls: the Slider (2026-10-27, #1091)](in-box-controls-the-slider.md#in-box-controls-the-slider-2026-10-27-1091)
+- [The Slider's conversions, Enabled, SelectRange, Text and MousePointer (2026-11-23, #1091, SP6)](in-box-controls-the-slider.md#the-sliders-conversions-enabled-selectrange-text-and-mousepointer-2026-11-23-1091-sp6)
 - [In-box controls: the UpDown (2026-10-27, #1093)](in-box-controls-the-updown.md#in-box-controls-the-updown-2026-10-27-1093)
 - [The buddy's Change comes first wherever Value is assigned (2026-11-21, #2458, SP6)](in-box-controls-the-updown.md#the-buddys-change-comes-first-wherever-value-is-assigned-2026-11-21-2458-sp6)
 - [In-box controls: the DTPicker (2026-10-27, #1094)](in-box-controls-the-dtpicker.md#in-box-controls-the-dtpicker-2026-10-27-1094)
