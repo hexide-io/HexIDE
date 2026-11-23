@@ -53,6 +53,10 @@ public class TestApp : Application
         {
             Source = new Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml"),
         }) ; Console.Error.WriteLine("1085 probe: resource 2");
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/CompletionDescriptions.axaml"),
+        });
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://HexIDE/Themes/EditorLinks.axaml"),
