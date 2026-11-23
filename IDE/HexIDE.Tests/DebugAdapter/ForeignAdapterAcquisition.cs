@@ -61,8 +61,9 @@ internal static class ForeignAdapterAcquisition
         if (adapter == "netcoredbg" && OperatingSystem.IsWindows() && RuntimeInformation.OSArchitecture == Architecture.Arm64)
             return new(null, "netcoredbg publishes no Windows Arm build, and its x64 build crashes with an access violation launching an Arm program (#3548).",
                 NoBuildForPlatform: true);
-        var python = adapter == "debugpy" ? FindPython() : null;
-        if (adapter == "debugpy" && python is null) return new(null, "debugpy requires Python 3 on PATH (CI installs 3.14).");
+        var pythonSearch = adapter == "debugpy" ? FindPython() : default;
+        var python = pythonSearch.Path;
+        if (adapter == "debugpy" && python is null) return new(null, pythonSearch.Unavailable);
         var os = OperatingSystem.IsWindows() ? "win" : OperatingSystem.IsMacOS() ? "osx" : "linux";
         var arch = RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant();
         var asset = Asset(adapter, $"{os}-{arch}");
@@ -127,23 +128,53 @@ internal static class ForeignAdapterAcquisition
             throw new InvalidDataException($"Checksum mismatch for {Path.GetFileName(file)}: expected {expected}, got {actual}. Refusing to run it.");
     }
 
-    private static string? FindPython()
+    private static (string? Path, string? Unavailable) FindPython() =>
+        FindPython((Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator), File.Exists, ProbePython);
+
+    internal static (string? Path, string? Unavailable) FindPython(IEnumerable<string> directories,
+        Func<string, bool> exists, Func<string, (bool Exited, int ExitCode, string Output)> probe)
     {
-        foreach (var name in OperatingSystem.IsWindows() ? new[] { "python.exe", "python3.exe" } : ["python3", "python"])
-        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+        var paths = directories.ToArray();
+        var names = OperatingSystem.IsWindows() ? new[] { "python.exe", "python3.exe" } : ["python3", "python"];
+        var rejected = new List<string>();
+        foreach (var name in names)
+        foreach (var directory in paths)
         {
             var candidate = Path.Combine(directory.Trim('"'), name);
-            if (!File.Exists(candidate)) continue;
+            if (!exists(candidate)) continue;
+            string reason;
             try
             {
-                using var process = Process.Start(new ProcessStartInfo(candidate, "--version")
-                { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true });
-                if (process is null) continue;
-                if (!process.WaitForExit(5000)) { process.Kill(entireProcessTree: true); continue; }
-                if (process.ExitCode == 0 && process.StandardOutput.ReadToEnd().StartsWith("Python 3.", StringComparison.Ordinal)) return candidate;
+                var result = probe(candidate);
+                if (!result.Exited) reason = "no exit within 5 s";
+                else if (result.ExitCode != 0) reason = $"exit code {result.ExitCode}";
+                else if (result.Output.StartsWith("Python 3.", StringComparison.Ordinal)) return (candidate, null);
+                else
+                {
+                    var firstLine = result.Output.ReplaceLineEndings("\n").Split('\n')[0];
+                    reason = $"printed \"{firstLine[..Math.Min(firstLine.Length, 200)]}\"";
+                }
             }
-            catch (Exception error) when (error is System.ComponentModel.Win32Exception or IOException) { }
+            catch (Exception error) when (error is System.ComponentModel.Win32Exception or IOException)
+            { reason = $"failed to start: {error.GetType().Name}: {error.Message}"; }
+            rejected.Add($"{Path.GetFullPath(candidate)}: {reason}");
         }
-        return null;
+        const string unavailable = "debugpy requires Python 3 on PATH (CI installs 3.14).";
+        return (null, unavailable + (rejected.Count == 0
+            ? $" No {names[0]} or {names[1]} on PATH."
+            : " Tried: " + string.Join("; ", rejected)));
+    }
+
+    private static (bool Exited, int ExitCode, string Output) ProbePython(string candidate)
+    {
+        using var process = Process.Start(new ProcessStartInfo(candidate, "--version")
+        { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true });
+        if (process is null) throw new IOException("Process.Start returned null.");
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(5000)) { process.Kill(entireProcessTree: true); return (false, 0, ""); }
+        var output = stdout.GetAwaiter().GetResult();
+        var error = stderr.GetAwaiter().GetResult();
+        return (true, process.ExitCode, output.Length == 0 ? error : output);
     }
 }
