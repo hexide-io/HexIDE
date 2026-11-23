@@ -95,6 +95,142 @@ public class IntrinsicDefaultMemberTests
         values.Should().ContainSingle().Which.Value.Should().Be("x");
     }
 
+    // VB6 SP6 native and p-code, #5504's 2026-11-23 measurements (oracle PR #5535).
+    // Mod follows p-code where native code disagrees.
+    [AvaloniaTheory]
+    [InlineData("TextBox", "12", "Ctl + 2", "Double", 14d, 0)]
+    [InlineData("TextBox", "12", "Ctl + \"1\"", "String", "121", 0)]
+    [InlineData("TextBox", "12", "2 \\ Ctl", "Long", 0L, 0)]
+    [InlineData("TextBox", "12", "Not Ctl", "Long", -13L, 0)]
+    [InlineData("TextBox", "12", "Ctl > 2", "Boolean", true, 0)]
+    [InlineData("TextBox", "12", "Ctl Like \"1*\"", "Boolean", true, 0)]
+    [InlineData("TextBox", "T1", "Ctl + 2", "Empty", null, 13)]
+    [InlineData("TextBox", "T1", "Ctl + \"1\"", "String", "T11", 0)]
+    [InlineData("TextBox", "T1", "Ctl = 2", "Empty", null, 13)]
+    [InlineData("TextBox", "T1", "o = 2", "Boolean", false, 0)]
+    [InlineData("TextBox", "12", "2 * o", "Double", 24d, 0)]
+    [InlineData("Label", "", "Ctl + 2", "Double", 5d, 0)]
+    [InlineData("CommandButton", "", "Ctl + 2", "Integer", (short)2, 0)]
+    [InlineData("CommandButton", "", "Not Ctl", "Boolean", true, 0)]
+    [InlineData("CommandButton", "", "2 / Ctl", "Empty", null, 11)]
+    [InlineData("CommandButton", "", "Ctl Eqv 2", "Integer", (short)-3, 0)]
+    [InlineData("CheckBox", "", "Ctl + 2", "Integer", (short)3, 0)]
+    [InlineData("CheckBox", "", "Not Ctl", "Integer", (short)-2, 0)]
+    [InlineData("CheckBox", "", "Ctl Xor 2", "Integer", (short)3, 0)]
+    [InlineData("CheckBox", "", "2 Imp Ctl", "Integer", (short)-3, 0)]
+    [InlineData("CheckBox", "", "o + 2", "Integer", (short)3, 0)]
+    [InlineData("OptionButton", "", "Ctl + 2", "Integer", (short)1, 0)]
+    [InlineData("OptionButton", "", "Ctl Mod 2", "Integer", (short)-1, 0)]
+    [InlineData("ListBox", "", "Ctl + 2", "Double", 7d, 0)]
+    [InlineData("ComboBox", "", "Ctl + 2", "Double", 9d, 0)]
+    [InlineData("HScrollBar", "", "Ctl + 2", "Integer", (short)-3, 0)]
+    [InlineData("HScrollBar", "", "Ctl Mod 2", "Integer", (short)-1, 0)]
+    [InlineData("HScrollBar", "", "-Ctl", "Integer", (short)5, 0)]
+    [InlineData("VScrollBar", "", "Ctl + 2", "Integer", (short)10, 0)]
+    [InlineData("Shape", "", "Ctl + 2", "Integer", (short)5, 0)]
+    public async Task Control_operand_uses_its_default(string kind, string text, string expression,
+        string type, object? expected, int error)
+    {
+        var properties = kind switch
+        {
+            "TextBox" => $"Text = \"{text}\"",
+            "Label" => "Caption = \"3\"",
+            "HScrollBar" => "Min = -10\nMax = 10",
+            "VScrollBar" => "Max = 100",
+            _ => "",
+        };
+        var setup = kind switch
+        {
+            "CheckBox" => "Ctl.Value = 1",
+            "OptionButton" => "Ctl.Value = True",
+            "ListBox" => "Ctl.AddItem \"5\"\nCtl.AddItem \"6\"\nCtl.ListIndex = 0",
+            "ComboBox" => "Ctl.Text = \"7\"",
+            "HScrollBar" => "Ctl.Value = -5",
+            "VScrollBar" => "Ctl.Value = 8",
+            "Shape" => "Ctl.Shape = 3",
+            _ => "",
+        };
+        var values = await Run(kind, properties,
+            $"{setup}\nDim o As Object\nSet o = Ctl\n{OperandResult(expression)}");
+        values.ConvertAll(v => v.Value).Should().Equal(type, expected, error);
+    }
+
+    private static string OperandResult(string expression) =>
+        $"On Error Resume Next\nDim v As Variant\nv = {expression}\nDebug.Print TypeName(v)\nDebug.Print v\nDebug.Print Err.Number";
+
+    public static IEnumerable<object[]> BinaryControlOperandCases()
+    {
+        foreach (var op in new[] { "+", "-", "*", "/", "\\", "Mod", "^", "=", "<>", "<", ">", "<=", ">=", "And", "Or", "Xor", "Eqv", "Imp" })
+        {
+            yield return [$"Ctl {op} 2"];
+            yield return [$"2 {op} Ctl"];
+        }
+        yield return ["\"12\" Like Ctl"];
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(BinaryControlOperandCases))]
+    public async Task Control_operand_matches_the_written_member_on_either_side(string expression)
+    {
+        // All 614 measured expressions match the member written out (#5504).
+        var actual = await Run("TextBox", "Text = \"12\"", OperandResult(expression));
+        var explicitMember = await Run("TextBox", "Text = \"12\"", OperandResult(expression.Replace("Ctl", "Ctl.Text")));
+        actual.ConvertAll(v => v.Value).Should().Equal(explicitMember.ConvertAll(v => v.Value));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Text1 + Label1", "String", "123")]
+    [InlineData("Check1 + HScroll1", "Integer", (short)-4)]
+    [InlineData("Text1 + Check1", "Double", 13d)]
+    public async Task Two_control_operands_read_each_default(string expression, string type, object expected)
+    {
+        var values = await Run("""
+            Begin VB.TextBox Text1
+            Text = "12"
+            End
+            Begin VB.Label Label1
+            Caption = "3"
+            End
+            Begin VB.CheckBox Check1
+            End
+            Begin VB.HScrollBar HScroll1
+            Min = -10
+            Max = 10
+            End
+            """, $"Check1.Value = 1\nHScroll1.Value = -5\n{OperandResult(expression)}");
+        values.ConvertAll(v => v.Value).Should().Equal(type, expected, 0);
+    }
+
+    [AvaloniaFact]
+    public async Task Frame_operand_matches_its_Caption()
+    {
+        var actual = await Run("Frame", "Caption = \"4\"", OperandResult("Ctl + 2"));
+        var explicitMember = await Run("Frame", "Caption = \"4\"", OperandResult("Ctl.Caption + 2"));
+        actual.ConvertAll(v => v.Value).Should().Equal(explicitMember.ConvertAll(v => v.Value));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Object")]
+    [InlineData("Control")]
+    [InlineData("Variant")]
+    public async Task Late_bound_control_operand_compares_as_a_Variant(string declaration)
+    {
+        var values = await Run("TextBox", "Text = \"T1\"",
+            $"Dim o As {declaration}\nSet o = Ctl\n{OperandResult("o = 2")}");
+        values.ConvertAll(v => v.Value).Should().Equal("Boolean", false, 0);
+    }
+
+    [AvaloniaFact]
+    public async Task PictureBox_operand_refuses_its_unmodeled_handle()
+    {
+        var form = "VERSION 5.00\nBegin VB.Form Form1\nBegin VB.PictureBox Ctl\nEnd\nEnd\nAttribute VB_Name = \"Form1\"\n";
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(form.ReplaceLineEndings("\r\n"));
+        var library = Substitute.For<IBasicStandardLibrary>();
+        var act = () => new BasicInterpreter(library, ctx, env, OperandResult("Ctl + 2")).Execute();
+        (await act.Should().ThrowAsync<System.NotImplementedException>()).WithMessage("*`+`*#790*");
+        library.DidNotReceiveWithAnyArgs().DebugPrint(default);
+    }
+
     // VB6 SP6 native and p-code, issue #5385 (2026-11-23, oracle PR #5498).
     public static IEnumerable<object[]> ControlOutputCases()
     {
