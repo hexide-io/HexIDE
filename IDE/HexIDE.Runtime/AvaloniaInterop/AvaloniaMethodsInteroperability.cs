@@ -73,7 +73,10 @@ public static class AvaloniaMethodsInteroperability
         return null;
     }
 
-    public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
+    public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args) =>
+        Call(c, method, args, null);
+
+    private static Vb6Value Call(Control c, string method, IReadOnlyList<Vb6Value> args, Vb6Value? receiver)
     {
         VBProps.RefuseIfRemoved(c);
         if (RuntimeDrawing.Of(c) is not null && RuntimeDrawing.IsMethod(method))
@@ -166,8 +169,9 @@ public static class AvaloniaMethodsInteroperability
         // A method VB6 has and HexIDE does not, such as Refresh, SetFocus or Cls. This was a
         // plain Exception, which the IDE reports as an internal fault. It is HexIDE's gap, not the program's, so
         // it says so, and it is never trappable: On Error Resume Next stepping over a Move that never happened
-        // would leave the program believing the control had moved (#754). A member VB6 itself lacks is a
-        // trappable 438 in VB6, and telling the two apart needs each control's VB6 method list.
+        // would leave the program believing the control had moved (#754). Intrinsic controls reached late-bound
+        // distinguish a member VB6 itself lacks (438) using the measured inventory (#1433).
+        if (receiver is { } reference) VB6ControlMembers.RefuseUnresolved(reference, method);
         var target = VBProps.GetName(c) ?? c.GetType().Name;
         throw new NotImplementedException($"The {method} method is not implemented for {target}");
     }
@@ -307,7 +311,14 @@ public static class AvaloniaMethodsInteroperability
     public static ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args) =>
         c.CallAsync(method, args, null);
 
-    internal static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args, VbObject? callingForm)
+    internal static ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args, VbObject? callingForm) =>
+        CallAsync(c, method, args, callingForm, null);
+
+    internal static ValueTask<Vb6Value> CallAsync(this Vb6Value receiver, string method, IReadOnlyList<Vb6Value> args, VbObject? callingForm) =>
+        CallAsync((Control)receiver.Value!, method, args, callingForm, receiver);
+
+    private static async ValueTask<Vb6Value> CallAsync(Control c, string method, IReadOnlyList<Vb6Value> args,
+        VbObject? callingForm, Vb6Value? receiver)
     {
         VBProps.RefuseIfRemoved(c);
         if (c is VBListView list && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
@@ -333,7 +344,7 @@ public static class AvaloniaMethodsInteroperability
                 ? window : null);
             return Vb6Value.Nothing;
         }
-        return c.Call(method, args);
+        return Call(c, method, args, receiver);
     }
 
     // Show's style: 0 is modeless and 1 modal, converted as CInt converts it, so 0.6 is modal and 1.5 is 2. Anything else is

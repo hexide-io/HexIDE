@@ -81,6 +81,56 @@ public class LabelColourTests : WindowTestFixture
         Attribute VB_Name = "Form1"
         """;
 
+    // Palette read-back and painting: #786, assigning-to-a-control-property.md in the fidelity oracle.
+    private const string PaletteForm = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           BackColor = &H01000005&
+           Begin VB.PictureBox Picture1
+              BackColor = &H02808080&
+              AutoRedraw = -1
+              Left = 120
+              Top = 120
+              Width = 1800
+              Height = 1800
+           End
+           Begin VB.Label Label1
+              BackColor = &H02FFFFFF&
+              ForeColor = &H01000001&
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    [AvaloniaTheory]
+    [InlineData("Form1.BackColor", 0x1000005L)]
+    [InlineData("Picture1.BackColor", 0x2808080L)]
+    [InlineData("Label1.BackColor", 0x2FFFFFFL)]
+    [InlineData("Label1.ForeColor", 0x1000001L)]
+    public void A_saved_palette_colour_reads_back_as_given(string property, long expected)
+    {
+        var (printed, errors) = ControlsAddTests.Run($"Debug.Print {property}", "", PaletteForm);
+
+        errors.Should().BeEmpty();
+        printed.Should().ContainSingle().Which.Trim().Should()
+            .Be(expected.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("&H2808080", 128, 128, 128, false)]
+    [InlineData("&H1000001", 1, 0, 0, false)]
+    [InlineData("&H2808080", 128, 128, 128, true)]
+    public async Task A_PictureBox_palette_colour_paints_its_low_RGB_bytes(string ole, byte r, byte g, byte b, bool saved)
+    {
+        var (canvas, window, ctx, env) = ContainerRuntimeHarness.Laid(PaletteForm);
+        if (!saved)
+            await ContainerRuntimeHarness.Run(ctx, env, $"Picture1.BackColor = {ole}\r\n");
+        await ContainerRuntimeHarness.Run(ctx, env, "Picture1.Cls\r\n");
+
+        PaintedNearBottomLeft(window, ContainerRuntimeHarness.Child(canvas, "Picture1"))
+            .Should().Be(Color.FromRgb(r, g, b));
+    }
+
     private static readonly Color Red = Color.FromRgb(255, 0, 0);
     private static readonly Color Green = Color.FromRgb(0, 255, 0);
     private static readonly Color Blue = Color.FromRgb(0, 0, 255);

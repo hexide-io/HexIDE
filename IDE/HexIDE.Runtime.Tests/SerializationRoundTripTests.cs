@@ -33,6 +33,75 @@ public class SerializationRoundTripTests
             .Should().Be("VBGROUP 5.0\r\nStartupProject=Upper.VBP\r\n");
     }
 
+    // #5274; VB6 SP6's F11 save, oracle serialization--file-format-fidelity.md, Q11.
+    private const string Version4Form = "VERSION 4.00\r\n"
+        + "Begin VB.Form F11 \r\n"
+        + "   Caption         =   \"F11\"\r\n"
+        + "   ClientHeight    =   3000\r\n"
+        + "   ClientLeft      =   60\r\n"
+        + "   ClientTop       =   345\r\n"
+        + "   ClientWidth     =   4500\r\n"
+        + "   LinkTopic       =   \"F11\"\r\n"
+        + "   ScaleHeight     =   3000\r\n"
+        + "   ScaleWidth      =   4500\r\n"
+        + "   StartUpPosition =   3  'Windows Default\r\n"
+        + "   Begin VB.CommandButton Command1 \r\n"
+        + "      Caption         =   \"Command1\"\r\n"
+        + "      Height          =   495\r\n"
+        + "      Left            =   240\r\n"
+        + "      TabIndex        =   0\r\n"
+        + "      Top             =   240\r\n"
+        + "      Width           =   1215\r\n"
+        + "   End\r\n"
+        + "End\r\n";
+
+    [Fact]
+    public void FormSerializer_Version4Form_AddsMeasuredPaletteMode()
+    {
+        var form = new FormDeserializer().Deserialize(MakeProject(), Version4Form, NullSink.Instance)!;
+        form.DesignerText.Should().Be(Version4Form);
+        var (written, _) = new FormSerializer().Serialize(form, "F11.frm");
+        const string expected = "VERSION 5.00\r\n"
+            + "Begin VB.Form F11 \r\n"
+            + "   Caption         =   \"F11\"\r\n"
+            + "   ClientHeight    =   3000\r\n"
+            + "   ClientLeft      =   60\r\n"
+            + "   ClientTop       =   345\r\n"
+            + "   ClientWidth     =   4500\r\n"
+            + "   LinkTopic       =   \"F11\"\r\n"
+            + "   PaletteMode     =   1  'UseZOrder\r\n"
+            + "   ScaleHeight     =   3000\r\n"
+            + "   ScaleWidth      =   4500\r\n"
+            + "   StartUpPosition =   3  'Windows Default\r\n"
+            + "   Begin VB.CommandButton Command1 \r\n"
+            + "      Caption         =   \"Command1\"\r\n"
+            + "      Height          =   495\r\n"
+            + "      Left            =   240\r\n"
+            + "      TabIndex        =   0\r\n"
+            + "      Top             =   240\r\n"
+            + "      Width           =   1215\r\n"
+            + "   End\r\n"
+            + "End\r\n";
+        written.Should().Be(expected);
+    }
+
+    [Fact]
+    public void FormSerializer_Version5Form_DoesNotAddPaletteMode()
+    {
+        var input = Version4Form.Replace("VERSION 4.00", "VERSION 5.00");
+        var form = new FormDeserializer().Deserialize(MakeProject(), input, NullSink.Instance)!;
+        new FormSerializer().Serialize(form, "F11.frm").frmText.Should().Be(input);
+    }
+
+    [Fact]
+    public void FormSerializer_Version4Form_KeepsExistingPaletteMode()
+    {
+        var input = Version4Form.Replace("   ScaleHeight", "   PaletteMode     =   0  'Halftone\r\n   ScaleHeight");
+        var form = new FormDeserializer().Deserialize(MakeProject(), input, NullSink.Instance)!;
+        new FormSerializer().Serialize(form, "F11.frm").frmText.Should()
+            .Be(input.Replace("VERSION 4.00", "VERSION 5.00"));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     // Use an OS-native temp directory so Path.GetDirectoryName / Path.GetRelativePath behave on every

@@ -59,6 +59,7 @@ public class FormNativeMenuTests
         Private Sub mnuTop_Click()
             Debug.Print "Top"
             mnuLeaf.Enabled = True
+            mnuLeaf.Caption = "&Ready"
         End Sub
         Private Sub mnuSub_Click()
             Debug.Print "Sub"
@@ -166,6 +167,7 @@ public class FormNativeMenuTests
     }
 
     private static MethodInfo OpeningBridge() => MenuBridge("RaiseOpening");
+    private static MethodInfo ClosedBridge() => MenuBridge("RaiseClosed");
     private static MethodInfo NeedsUpdateBridge() => MenuBridge("RaiseNeedsUpdate");
 
     [Fact]
@@ -173,6 +175,7 @@ public class FormNativeMenuTests
     {
         OpeningBridge().Should().NotBeNull();
         NeedsUpdateBridge().Should().NotBeNull();
+        ClosedBridge().Should().NotBeNull();
     }
 
     [AvaloniaFact]
@@ -262,15 +265,64 @@ public class FormNativeMenuTests
     }
 
     [AvaloniaFact]
-    public void Opening_dispatches_holding_menu_before_showing_its_updated_children()
+    public void Opening_posts_holding_menu_Click_and_updates_its_native_children()
     {
         Run(rig =>
         {
             var sub = (NativeMenuItem)rig.Top.Menu!.Items[2];
-            rig.Step(() => OpeningBridge().Invoke(rig.Top.Menu, null)).Should().Equal("Top");
+            rig.Step(() =>
+            {
+                OpeningBridge().Invoke(rig.Top.Menu, null);
+                ((NativeMenuItem)sub.Menu!.Items[0]).IsEnabled.Should().BeFalse();
+                ((NativeMenuItem)sub.Menu.Items[0]).Header.Should().Be("Leaf");
+            }).Should().Equal("Top");
             ((NativeMenuItem)sub.Menu!.Items[0]).IsEnabled.Should().BeTrue();
+            ((NativeMenuItem)sub.Menu.Items[0]).Header.Should().Be("Ready");
             rig.Step(() => OpeningBridge().Invoke(sub.Menu, null)).Should().Equal("Sub");
             rig.Step(() => OpeningBridge().Invoke(((NativeMenuItem)rig.Native.Items[1]).Menu, null)).Should().Equal("Solo");
+        });
+    }
+
+    // #5379, #5011 K27/K28/K33: reads and Help searches close before the dispatcher job runs.
+    // https://github.com/hexide-io/HexIDE/issues/5379
+    [AvaloniaFact]
+    public void Opening_then_Closed_before_dispatch_raises_no_Click()
+    {
+        Run(rig =>
+        {
+            rig.Step(() =>
+            {
+                OpeningBridge().Invoke(rig.Top.Menu, null);
+                ClosedBridge().Invoke(rig.Top.Menu, null);
+            }).Should().BeEmpty();
+        });
+    }
+
+    [AvaloniaFact]
+    public void Two_Openings_without_Closed_post_two_Clicks()
+    {
+        Run(rig =>
+        {
+            rig.Step(() =>
+            {
+                OpeningBridge().Invoke(rig.Top.Menu, null);
+                OpeningBridge().Invoke(rig.Top.Menu, null);
+            }).Should().Equal("Top", "Top");
+        });
+    }
+
+    // A read that opens and closes, then a real open, all before the dispatcher runs: one Click, for the real open.
+    [AvaloniaFact]
+    public void A_read_then_a_real_open_before_dispatch_raise_one_Click()
+    {
+        Run(rig =>
+        {
+            rig.Step(() =>
+            {
+                OpeningBridge().Invoke(rig.Top.Menu, null);
+                ClosedBridge().Invoke(rig.Top.Menu, null);
+                OpeningBridge().Invoke(rig.Top.Menu, null);
+            }).Should().Equal("Top");
         });
     }
 

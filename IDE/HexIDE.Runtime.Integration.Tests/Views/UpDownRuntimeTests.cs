@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
@@ -12,10 +14,12 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
+using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -61,6 +65,115 @@ public class UpDownRuntimeTests
         End
         Attribute VB_Name = "Form1"
         """;
+
+    private const string BindTextBuddy = """
+        Set UpDown1.BuddyControl = Text1
+        UpDown1.SyncBuddy = True
+        UpDown1.Min = 0
+        UpDown1.Max = 10
+        """;
+
+    // VB6 SP6 native and p-code, in-box-controls-the-updown.md, "The buddy's Change comes first wherever Value is assigned" (#2458).
+    [AvaloniaTheory]
+    [InlineData("Form_Load", "", 4, "T[4] U4")]
+    [InlineData("Form_Load", "UpDown1.Value = 4", 6, "U4 T[6] U6")]
+    [InlineData("Label_Load", "", 4, "L[4] U4")]
+    [InlineData("Form_Activate", "", 7, "T[7] U7")]
+    [InlineData("Command1_Click", "", 10, "T[10] U10")]
+    [InlineData("Module", "", 9, "T[9] U9")]
+    public void Code_assigning_Value_raises_the_buddy_Change_first(string where, string beforeBinding, int value, string expected)
+    {
+        var load = beforeBinding + "\n" + BindTextBuddy;
+        var assignment = $"UpDown1.Value = {value}";
+        var main = "Form1.Show";
+        var handlers = "";
+        switch (where)
+        {
+            case "Form_Load":
+                load += "\n" + assignment;
+                break;
+            case "Label_Load":
+                load = load.Replace("Set UpDown1.BuddyControl = Text1", "UpDown1.BuddyControl = \"Label1\"") + "\n" + assignment;
+                break;
+            case "Form_Activate":
+            case "Command1_Click":
+                handlers = $"Private Sub {where}()\n{assignment}\nEnd Sub";
+                if (where == "Command1_Click")
+                    main += "\nForm1.Command1.Value = True";
+                break;
+            case "Module":
+                main += "\nForm1." + assignment;
+                break;
+        }
+
+        var source = Form.Replace("Begin VB.TextBox Text2", """
+            Begin VB.CommandButton Command1
+               Left = 120
+               Top = 1800
+               Width = 1200
+               Height = 315
+            End
+            Begin VB.TextBox Text2
+            """) + $$"""
+
+            Private Sub Form_Load()
+                {{load}}
+            End Sub
+            {{handlers}}
+            Private Sub Text1_Change()
+                Dim text As String
+                text = Text1.Text
+                Debug.Print "T[" & text & "]"
+            End Sub
+            Private Sub Label1_Change()
+                Debug.Print "L[" & Label1.Caption & "]"
+            End Sub
+            Private Sub UpDown1_Change()
+                Debug.Print "U" & CStr(UpDown1.Value)
+            End Sub
+            """;
+        var project = new ProjectDefinition(VBProjectType.EXE, "P")
+        {
+            StartsAtSubMain = where is "Form_Activate" or "Command1_Click" or "Module",
+        };
+        project.AddForm(new FormDeserializer().Deserialize(project, source.ReplaceLineEndings("\r\n"), new Sink())!);
+        if (project.StartsAtSubMain)
+        {
+            var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+            module.UpdateCode($"Public Sub Main()\r\n{main.ReplaceLineEndings("\r\n")}\r\nEnd Sub\r\n");
+            project.AddModule(module);
+        }
+
+        var printed = new List<string>();
+        var errors = new List<Exception>();
+        void OnFaulted(VBWindowContext _, Exception error) => errors.Add(error);
+        void OnRunTimeError(VBWindowContext _, VBRunTimeException error) => errors.Add(error);
+        void OnCompileError(VBWindowContext _, VBCompileErrorException error) => errors.Add(error);
+        VBDebugConsole.Output += printed.Add;
+        VBWindowContext.Faulted += OnFaulted;
+        VBWindowContext.RunTimeError += OnRunTimeError;
+        VBWindowContext.CompileError += OnCompileError;
+        using var cancel = new CancellationTokenSource();
+        try
+        {
+            // Let the TextBox handler suspend before printing, as it can during a debugger time slice.
+            var debug = new DebugController { TimeSliceMs = -1 };
+            debug.Reset();
+            _ = VBLoader.RunMadeProgram(project, cancel.Token, out _, debug);
+            Dispatcher.UIThread.RunJobs();
+            errors.Should().BeEmpty();
+            printed.Should().Equal(expected.Split(' '));
+        }
+        finally
+        {
+            cancel.Cancel();
+            Dispatcher.UIThread.RunJobs();
+            VBDebugConsole.Output -= printed.Add;
+            VBWindowContext.Faulted -= OnFaulted;
+            VBWindowContext.RunTimeError -= OnRunTimeError;
+            VBWindowContext.CompileError -= OnCompileError;
+        }
+    }
 
     private static string CorpusSource()
     {
