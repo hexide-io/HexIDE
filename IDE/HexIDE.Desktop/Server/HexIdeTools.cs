@@ -533,7 +533,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 .OfType<HexIDE.VisualDesigner.FormEditViewModel>()
                 .FirstOrDefault(d => d.FormDefinition == form);
             var components = designerVm is not null
-                ? designerVm.Components.Select(v => v.Instance).Prepend(designerVm.Form.Instance).ToList()
+                ? designerVm.AllComponents.Select(v => v.Instance).ToList()
                 : form.Components.ToList();
             const string carriedNote = "HexIDE draws this carried control but does not model it; it cannot be moved, sized or set.";
             ControlInfo Info(ComponentInstance c)
@@ -594,9 +594,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     var child = children[i];
                     // File order is top first; live Components and DrawIndex are bottom first.
                     var fileIndex = written.IndexOf(child);
+                    var drawn = designerVm?.Components.FirstOrDefault(c => ReferenceEquals(c.Instance, child));
                     var order = designerVm is null ? -(fileIndex + before.Count(n => n <= fileIndex))
-                        : designerVm.Components.Single(c => ReferenceEquals(c.Instance, child)).DrawIndex;
-                    siblings.Add((child, summaries[child], order));
+                        : drawn?.DrawIndex ?? int.MaxValue;
+                    var row = summaries[child];
+                    if (designerVm is not null && drawn is null)
+                        row = row with { Note = "The designer does not draw this component." };
+                    siblings.Add((child, row, order));
                 }
                 var boxes = designerVm?.UnmodelledControls
                     .Where(c => ReferenceEquals(c.Container?.Instance ?? root, parent)).ToList();
@@ -633,7 +637,21 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 }
             }
             ListChildren(root);
-            // Menus are not drawn. Retain any unplaced model entries rather than silently lose them.
+            // Menus are not drawn; the Menu Editor's tree owns their live order.
+            void ListMenu(ComponentInstance menu)
+            {
+                if (!visited.Add(menu))
+                    return;
+                if (summaries.TryGetValue(menu, out var row))
+                    rows.Add(row);
+                if (menu.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } items)
+                    foreach (var item in items)
+                        ListMenu(item);
+            }
+            if (designerVm is not null)
+                foreach (var menu in designerVm.TopLevelMenu)
+                    ListMenu(menu.Instance);
+            // Retain any unplaced model entries rather than silently lose them.
             rows.AddRange(components.Where(c => !visited.Contains(c)).Select(c => summaries[c]));
 
             // One control, with every row the Properties window shows for it (#923): set_control_property sent
@@ -641,8 +659,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (controlName is not null)
             {
                 // Keep a bare control-array name's existing first-element lookup independent of draw order.
-                var all = designerVm?.AllComponents.Select(c => c.Instance).ToList() ?? form.Components.ToList();
-                var matches = PropertyText.Named(all, controlName);
+                var matches = PropertyText.Named(components, controlName);
                 if (matches.Count == 0)
                 {
                     var carriedControl = carried.FirstOrDefault(c => c.Name.Equals(controlName, StringComparison.OrdinalIgnoreCase));
@@ -651,7 +668,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             Note: carriedNote);
                     return new FormControlsResult(
                         $"No control named '{controlName}' on {document.Display}; its controls are "
-                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty))
+                        + string.Join(", ", components.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty))
                             .Concat(carried.Select(c => c.Name)).Distinct(StringComparer.OrdinalIgnoreCase)),
                         [], document.Project.Name, document.Name);
                 }
@@ -672,7 +689,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         new("Tabs", PropertyText.Display(tabs.DesignerTabs(control)), false, "Saved page count.")];
                     properties = [.. properties.OrderBy(p => p.Name)];
                 }
-                return new FormControlsResult(null, [summaries[control]], document.Project.Name, document.Name,
+                return new FormControlsResult(null, [summaries.TryGetValue(control, out var summary) ? summary : Info(control)], document.Project.Name, document.Name,
                     properties, note);
             }
             return new FormControlsResult(null, rows.ToArray(), document.Project.Name, document.Name);
