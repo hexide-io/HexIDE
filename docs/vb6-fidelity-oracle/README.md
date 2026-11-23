@@ -632,6 +632,7 @@ added afterwards.
 - [A ListBox's Scroll event: what raises it, and what doesn't (2026-11-06, #3275)](a-listboxs-scroll-event.md#a-listboxs-scroll-event-what-raises-it-and-what-doesnt-2026-11-06-3275)
 - [A MultiSelect list's TopIndex, and TopIndex before the form is shown (2026-11-15, #3986)](a-listboxs-scroll-event.md#a-multiselect-lists-topindex-and-topindex-before-the-form-is-shown-2026-11-15-3986)
 - [A ListBox's Page Up, Selected and Text, checkboxes and columns (2026-11-16, #3986)](a-listboxs-page-up-checkboxes-and-columns.md#a-listboxs-page-up-selected-and-text-checkboxes-and-columns-2026-11-16-3986)
+- [A ListBox's selected and focused items, drawn (2026-11-23, #5473, SP6)](a-listboxs-selected-and-focused-items-drawn.md#a-listboxs-selected-and-focused-items-drawn-2026-11-23-5473-sp6)
 - [A checkbox list's SelCount, Selected and ListIndex through AddItem and RemoveItem (2026-11-20, #4209's review)](a-listboxs-page-up-checkboxes-and-columns.md#a-checkbox-lists-selcount-selected-and-listindex-through-additem-and-removeitem-2026-11-20-4209s-review)
 - [Selected on a MultiSelect ListBox scrolls the item into view (2026-11-16, #4229, SP6 native and p-code)](selected-on-a-multiselect-listbox-scrolls-the-item-into-view.md#selected-on-a-multiselect-listbox-scrolls-the-item-into-view-2026-11-16-4229-sp6-native-and-p-code)
 - [A list member's error called directly or through As Object (2026-11-20, #5117, SP6)](a-lists-members-listcount-list.md#called-directly-or-through-as-object-2026-11-20-5117-sp6)
