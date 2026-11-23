@@ -543,8 +543,11 @@ jobs:
     needs: [build, revocations]
     runs-on: ubuntu-latest
     steps:
+      # Only the release's own artifacts, which are all named hexide-*. Without a pattern this fetches every artifact of
+      # the run, and the packer and the unsigned add-in would become release assets.
       - uses: actions/download-artifact@v8
         with:
+          pattern: hexide-*
           path: artifacts
           merge-multiple: true
 

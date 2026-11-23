@@ -88,7 +88,8 @@ same commands without a `dotnet` prefix. No CI artifact is added by this command
 - `signing/public/publisher.sig` → `IDE/HexIDE.AddinPacker/firstparty/publisher.sig`
 - `signing/firstparty/firstparty.key` → `HEXIDE_FIRSTPARTY_KEY` in the `addin-signing` environment, not the repository's secrets.
   Only `publish.yml`'s `sign-addins` job reads it, and that job builds nothing. `build.yml` packs with a throwaway chain it
-  generates and deletes in each run (#4740)
+  generates and deletes in each run (#4740). What remains trusted with the key is the packer binary, built in a job of its
+  own whose build-time code is only the SDK's and HexIDE.Core's one analyzer package.
 - `IDE/HexIDE.AddinPacker/firstparty/README.md`
 - `TRUST.md` — `HexIDE root`, `First-party publisher` SHA-256 fingerprints
 

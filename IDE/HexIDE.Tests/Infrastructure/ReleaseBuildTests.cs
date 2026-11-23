@@ -64,6 +64,22 @@ public class ReleaseBuildTests
                 "the macOS seal and the Windows installer must take the add-ins in");
     }
 
+    private static string[] UploadedArtifacts(string job) => Regex.Matches(
+            PublishJob(job), @"uses: actions/upload-artifact@[^\n]*\n\s+with:\n\s+name: (\S+)")
+        .Select(m => m.Groups[1].Value).ToArray();
+
+    [Fact]
+    public void The_release_takes_only_the_build_legs_artifacts()
+    {
+        PublishJob("release").Should().Contain("\n          pattern: hexide-*\n",
+            "with no pattern, download-artifact fetches every artifact of the run, the packer's included");
+        UploadedArtifacts("build").Should().NotBeEmpty()
+            .And.OnlyContain(name => name.StartsWith("hexide-", StringComparison.Ordinal));
+        foreach (var job in new[] { "packer", "addins", "sign-addins" })
+            UploadedArtifacts(job).Should().ContainSingle()
+                .Which.Should().NotStartWith("hexide-", $"{job}'s artifact isn't a release asset");
+    }
+
     [Fact]
     public void Release_and_Desktop_build_read_one_set_of_pack_arguments()
     {
