@@ -111,6 +111,28 @@ public class ComboStyleDesignerTests
         combo.GetPropertyOrDefault(VBProperties.TextProperty).Should().Be("Combo1");
     }
 
+    // #1655: docs/vb6-fidelity-oracle/a-simple-combos-list-drawn-and-clicked.md, designer measurement.
+    [AvaloniaFact]
+    public void Loading_a_Simple_Combo_snaps_its_designer_height_and_next_save()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var source = "VERSION 5.00\nBegin VB.Form Form1\n   Begin VB.ComboBox Combo1\n"
+            + "      Height = 1500\n      Width = 2000\n      Style = 1\n   End\nEnd\nAttribute VB_Name = \"Form1\"\n";
+        var form = new FormDeserializer().Deserialize(project, source.ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form);
+        var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
+            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+        var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+        var combo = form.Components.Single(c => c.BaseClass is ComboBoxComponentClass);
+
+        combo.GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(90);
+        Saved(vm, form).ReplaceLineEndings("\n").Should().Contain("      Height          =   1350\n");
+        var again = new FormDeserializer().Deserialize(project, Saved(vm, form), new NullSink())!;
+        again.Components.Single(c => c.BaseClass is ComboBoxComponentClass)
+            .GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(90, "snapping is idempotent");
+    }
+
     // Only Style 2 does it: a Simple Combo keeps its Text.
     [AvaloniaFact]
     public void Setting_Style_1_keeps_the_Text()

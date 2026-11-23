@@ -11,7 +11,19 @@ namespace HexIDE.Runtime.Interpreter;
 // Shared by parse-tree access and CallByName (#4520).
 internal static class ControlMembers
 {
+    // Part of #790: oracle/a-control-where-a-value-is-wanted-is-its-default-member.md,
+    // "Each intrinsic control's default member". Both Let paths use the named property's dispatch.
+    internal static string? DefaultMember(Vb6Value value) => value.Value switch
+    {
+        VBTextBox or VBListBox or VBComboBox => "Text",
+        VBLabel or VBFrame => "Caption",
+        VBCommandButton or VBCheckBox or VBOptionButton or VBScrollBar => "Value",
+        VBShape => "Shape",
+        _ => null,
+    };
+
     // Measured late-bound list receivers, including Collection items and function results (#5135).
+    // VB.Control declarations also reach dispatch with the bare Control view.
     private static bool IsLateBoundListReference(Vb6Value variable) =>
         variable.HeldAsVariant
             || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)

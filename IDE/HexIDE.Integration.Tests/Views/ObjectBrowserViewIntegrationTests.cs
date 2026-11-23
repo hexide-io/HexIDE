@@ -381,4 +381,18 @@ public class ObjectBrowserViewIntegrationTests
         var form = vm.Libraries.Single(l => l.Name == "VB").Classes.First(c => c.Name == "Form");
         form.Members.Should().Contain(m => m.Kind == OBMemberKind.Event);
     }
+    // VB6 SP6, #5293: docs/vb6-fidelity-oracle/the-object-browsers-library-list.md.
+    [AvaloniaTheory]
+    [InlineData("Move", OBMemberKind.Method)]
+    [InlineData("Show", OBMemberKind.Method)]
+    [InlineData("Point", OBMemberKind.Method)]
+    [InlineData("Load", OBMemberKind.Event)]
+    public void WithVbLibrary_FormClass_ListsMeasuredMember(string name, OBMemberKind kind)
+    {
+        var vm = CreateSutWithVbLibrary();
+        vm.SelectedLibrary = vm.Libraries.Single(l => l.Name == "VB");
+        vm.SelectedClass = vm.FilteredClasses.Single(c => c.Name == "Form");
+        vm.FilteredMembers.Should().ContainSingle(m => m.Name == name && m.Kind == kind);
+    }
+
 }

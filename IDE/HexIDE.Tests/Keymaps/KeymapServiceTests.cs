@@ -31,6 +31,13 @@ public sealed class KeymapServiceTests : IDisposable
         JsonDocument.Parse(File.ReadAllText(path)).RootElement.GetProperty("bindings").EnumerateObject().Should().BeEmpty();
     }
 
+    [Fact]
+    public void IndentDefaultsToPlainTab()
+    {
+        // VB6 SP6 measurement: docs/vb6-fidelity-oracle/indent-outdent-and-ctrl-tab-in-the-code-window.md.
+        ApplicationCommands.IndentCommand.Gestures.Should().Equal(new KeyGesture(Key.Tab, KeyModifiers.None));
+    }
+
     [AvaloniaFact]
     public void DefaultPackDocumentsEveryDeclaredBinding()
     {
@@ -42,7 +49,7 @@ public sealed class KeymapServiceTests : IDisposable
         {
             CommandKeyMapping.Table.Should().ContainKey(name);
             var expected = string.IsNullOrEmpty(text) ? [] : new[] { KeyGesture.Parse(text) };
-            if (OperatingSystem.IsMacOS())
+            if (OperatingSystem.IsMacOS() && name != nameof(ApplicationCommands.CompleteWordCommand))
             {
                 expected = expected.Select(gesture => new KeyGesture(gesture.Key,
                     gesture.KeyModifiers.HasFlag(KeyModifiers.Control)

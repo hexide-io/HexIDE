@@ -77,8 +77,19 @@ internal static class ControlPositions
             twips = 30;
         if (IsSize(property))
         {
-            if (control is VBComboBox && IsVertical(property))
+            if (control is VBComboBox combo && IsVertical(property))
+            {
+                if (combo.IsSimpleCombo && SimpleComboHeights.Find(AttachedProperties.GetFont(combo) ?? VBFont.Default) is { } metrics)
+                {
+                    var pixels = twips / VBScaleModeExtensions.PixelToTwips;
+                    if (pixels < metrics.Edit)
+                        return combo.Height;
+                    if (pixels >= metrics.Edit + 4 + metrics.Row)
+                        return SimpleComboHeights.Snap(pixels, metrics);
+                }
+                // The interval from the edit box to one row, and other fonts/styles, remain unmeasured (#1655).
                 throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
+            }
             twips = ApplyMinimum(control, IsVertical(property), twips);
         }
         return twips / VBScaleModeExtensions.PixelToTwips;

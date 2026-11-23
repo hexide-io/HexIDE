@@ -109,3 +109,20 @@ when the renderer is disposed.
 
 MainView disposes its previous renderer before installing the new menu, removing the old collection
 subscriptions. With no view model, no main menu is installed.
+
+### Requirement: macOS app menu commands
+
+On macOS the application menu SHALL offer localized About and Settings… items in that order.
+Settings… SHALL use Command+Comma and open the IDE Options dialog. Quit SHALL use Command+Q and
+follow the IDE's save-on-close flow. Hide Others SHALL use Option+Command+H (#5383).
+
+#### Scenario: macOS main menu placements
+
+- **WHEN** the IDE builds its menus on macOS
+- **THEN** the main menu omits File → Exit, Tools → Options and Help → About
+- **AND** File, Tools and Help have no leading, trailing or consecutive visible separators
+
+#### Scenario: Windows and Linux main menu placements
+
+- **WHEN** the IDE builds its menus on Windows or Linux
+- **THEN** File → Exit, Tools → Options and Help → About are shown in the main menu

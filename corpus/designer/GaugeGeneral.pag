@@ -8,12 +8,20 @@ Begin VB.PropertyPage GaugeGeneral
    PaletteMode     =   0  'Halftone
    ScaleHeight     =   3600
    ScaleWidth      =   4800
+   Begin VB.Label Label1 
+      Caption         =   "Label1"
+      Height          =   495
+      Left            =   1800
+      TabIndex        =   0
+      Top             =   1560
+      Width           =   1215
+   End
 End
 Attribute VB_Name = "GaugeGeneral"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = True
 Attribute VB_PredeclaredId = False
-Attribute VB_Exposed = False
+Attribute VB_Exposed = True
 Option Explicit
 
 Private Sub PropertyPage_SelectionChanged()

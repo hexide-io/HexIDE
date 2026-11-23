@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using HexIDE.IDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
@@ -295,7 +296,7 @@ public class ProfileContainmentTests
 
     private static void WithBundle(Action<string, string> action)
     {
-        var temporary = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-containment-" + Guid.NewGuid());
+        var temporary = ResolvedTemp.CreateDirectory("hexide-containment-");
         var root = Path.Combine(temporary, "example");
         var outside = temporary + "-outside";
         Directory.CreateDirectory(root);

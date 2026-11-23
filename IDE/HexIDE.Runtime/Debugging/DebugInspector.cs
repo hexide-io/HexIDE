@@ -182,15 +182,25 @@ public static class DebugInspector
     public static DebugNode NodeFor(string name, Vb6Value value, ModuleExecutionContext ctx)
         => ValueNode(name, value, ctx, NewAncestorSet(), 1);
 
-    /// <summary>VB6 Boolean coercion of a watch result — a "Break When Value Is True" watch breaks when this is true.
-    /// Booleans pass through; any numeric coerces (non-zero → true); anything else is false (a non-coercible watch
-    /// simply never trips, rather than erroring the gate).</summary>
+    /// <summary>The existing conditional-breakpoint truth rule: Boolean or non-zero number/Date.</summary>
     public static bool IsTruthy(Vb6Value value)
         => value.Value switch
         {
             bool b => b,
             _ => Vb6Value.TryNumericToDouble(value, out var d) && d != 0,
         };
+
+    /// <summary>Watch-only truth, measured in docs/vb6-fidelity-oracle/break-when-value-is-true.md (#869).
+    /// Strings break when CBool reads True or raises; unmeasured object and Error values keep not breaking.</summary>
+    public static bool BreaksWhenTrue(Vb6Value value)
+    {
+        if (value.Type == Vb6Value.ValueType.String)
+        {
+            try { return VB6BuiltIns.CBool(value).Value is true; }
+            catch (VBRunTimeException) { return true; }
+        }
+        return IsTruthy(value);
+    }
 
     // Children of an environment (a module/instance scope) — every non-hidden variable as a row, in declaration
     // order. The ancestor set is shared with the parent so a field referring back up the graph is caught.

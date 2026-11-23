@@ -90,6 +90,37 @@ public class CaretPlacementTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Keyboard_caret_movement_updates_both_boxes_without_navigating()
+    {
+        // The measured Option Explicit and Foo lines, through the key route that exposed #936.
+        var vm = Model();
+        var editor = Show(vm);
+        var start = vm.Document.Text.IndexOf("Private Sub Foo", StringComparison.Ordinal);
+        var line = vm.Document.GetLineByOffset(start).LineNumber - 1;
+        var range = new HexIDE.Lsp.Messages.Range(new Position(line, 0), new Position(line + 2, 7));
+        lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
+            [new DocumentSymbol("Foo", SymbolKind.Method, range, range)]);
+        await vm.RefreshSymbolsAsync();
+        Dispatcher.UIThread.RunJobs();
+        editor.CaretOffset = vm.Document.Text.IndexOf("Option Explicit", StringComparison.Ordinal);
+        editor.TextArea.Focus();
+        var before = vm.Document.Text;
+
+        for (var i = 0; i < 3; i++)
+            UiAutomationDriver.PressKey(editor, "Down", null).Success.Should().BeTrue();
+        Dispatcher.UIThread.RunJobs();
+
+        vm.SelectedObject.Should().Be("(General)");
+        vm.SelectedProcedure.Should().Be("Foo");
+        vm.CaretOffset.Should().Be(vm.Document.GetLineByNumber(line + 2).Offset);
+        editor.CaretOffset.Should().Be(vm.CaretOffset);
+        var view = (CodeEditorView)windows[^1].Content!;
+        view.FindControl<ComboBox>("ProcedureCombo")!.SelectedItem.Should().Be("Foo");
+        vm.Document.Text.Should().Be(before);
+        editor.TextArea.IsKeyboardFocusWithin.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
     public async Task Typing_after_selecting_a_new_event_lands_in_its_body()
     {
         var vm = Model(form: true);

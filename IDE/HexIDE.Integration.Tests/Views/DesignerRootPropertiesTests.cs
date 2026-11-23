@@ -78,13 +78,13 @@ public class DesignerRootPropertiesTests
         Listed(designer).Should().BeSubsetOf(Vb6PropertyPage);
     }
 
-    // #1970: the form now lists its measured MousePointer property.
+    // #1970 and #1596: the form lists its measured MousePointer and BorderStyle properties.
     [AvaloniaFact]
     public void A_form_keeps_its_list()
     {
         var (_, designer) = Open("Form", "Form1");
 
-        Listed(designer).Should().Equal("(Name)", "BackColor", "Caption", "Enabled", "Font", "ForeColor", "Height", "Icon",
+        Listed(designer).Should().Equal("(Name)", "BackColor", "BorderStyle", "Caption", "Enabled", "Font", "ForeColor", "Height", "Icon",
             "KeyPreview", "Left", "MaxButton", "MinButton", "MousePointer", "ShowInTaskbar", "StartUpPosition", "Tag", "Top", "Visible", "Width");
     }
 

@@ -106,6 +106,10 @@ public class VBShape : Control
         _ => null,
     };
 
+    // VB6 uses a quarter-side ellipse diameter, truncated (#916, oracle PR #5220).
+    // Use the full Shape size in DIPs, independently of the stroke inset.
+    internal static double RoundedCornerRadius(Size size) => Math.Truncate(Math.Min(size.Width, size.Height) / 4) / 2;
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
@@ -259,9 +263,10 @@ public class VBShape : Control
                 break;
             case ShapeTypes.RoundedRectangle:
             case ShapeTypes.RoundedSquare:
+                var radius = RoundedCornerRadius(Bounds.Size);
                 if (BackStyle == BackStyles.Opaque)
-                    context.DrawRectangle(BackColor.ToBrush(), null, rect, width * 0.01, height * 0.01);
-                context.DrawRectangle(fillBrush, borderPen, rect, width * 0.01, height * 0.01);
+                    context.DrawRectangle(BackColor.ToBrush(), null, rect, radius, radius);
+                context.DrawRectangle(fillBrush, borderPen, rect, radius, radius);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

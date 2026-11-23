@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using HexIDE.Localization;
 using HexIDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 using HexIDE.Tests.Sidecar;
 using HexIDE.Tools.TranslationEditor;
 
@@ -16,10 +17,7 @@ public sealed class TrustLabelProtectionTests : IDisposable
 {
     private const string Relabel = "Acme's own key";
 
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(),
-        "hexide-trust-labels-" + Guid.NewGuid());
-
-    public TrustLabelProtectionTests() => Directory.CreateDirectory(root);
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-trust-labels-");
 
     public void Dispose()
     {

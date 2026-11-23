@@ -85,6 +85,101 @@ public class SSTabDesignerTests : WindowTestFixture
             Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
     }
 
+    private static FormEditViewModel FreshSSTab()
+    {
+        var vm = Designer();
+        vm.SelectedComponent = vm.AllComponents.Single(c => c.Instance.BaseClass is SSTabComponentClass);
+        vm.DeleteSelected();
+        vm.SpawnControlCenter(SSTabComponentClass.Instance);
+        return vm;
+    }
+
+    private static void ShowPage(FormEditViewModel vm, int page)
+    {
+        var tab = vm.AllComponents.Single(c => c.Instance.BaseClass is SSTabComponentClass);
+        vm.SwitchSSTabPage(new Point(tab.RelativeLeft + 10 + page * 40, tab.RelativeTop + 8))
+            .Should().BeTrue();
+    }
+
+    // VB6 SP6 saves 1, 2 and 4: docs/vb6-fidelity-oracle/in-box-controls-the-sstab.md (#5242).
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    public void ToolboxSSTabWritesMeasuredPageLinesAndEmptyPictures(int save)
+    {
+        var vm = FreshSSTab();
+        if (save >= 2)
+            ShowPage(vm, 1);
+        if (save == 4)
+        {
+            ShowPage(vm, 2);
+            ShowPage(vm, 0);
+        }
+        vm.FlushComponentsToModel();
+        var (text, companion) = new FormSerializer().Serialize(vm.FormDefinition!, "Form1.frm");
+        var expected = new System.Collections.Generic.List<string>();
+        var showing = save == 2 ? 1 : 0;
+        var pictures = save == 1 ? 1 : save == 2 ? 2 : 3;
+        for (var page = 0; page < 3; page++)
+        {
+            expected.Add($"TabCaption({page})   =   \"Tab {page}\"");
+            if (page < pictures)
+                expected.Add($"TabPicture({page})   =   \"Form1.frx\":{page * 28:X4}");
+            expected.Add($"Tab({page}).ControlEnabled=   " + (page == showing ? "-1  'True" : "0   'False"));
+            expected.Add($"Tab({page}).ControlCount=   0");
+        }
+        text.ReplaceLineEndings("\n").Split('\n').Select(l => l.TrimStart())
+            .Where(l => l.StartsWith("TabCaption(", StringComparison.Ordinal)
+                || l.StartsWith("TabPicture(", StringComparison.Ordinal)
+                || l.StartsWith("Tab(", StringComparison.Ordinal))
+            .Should().Equal(expected);
+        var record = Convert.FromHexString("180000000452E30B918FCE119DE300AA004BB8516C74000000000000");
+        companion.Should().Equal(Enumerable.Range(0, pictures).SelectMany(_ => record));
+    }
+
+    [AvaloniaFact]
+    public void LoadedSSTabAddsPicturesOnlyForShownPagesAndRetainsExistingRecords()
+    {
+        var vm = Designer();
+        var tab = vm.AllComponents.Single(c => c.Instance.BaseClass is SSTabComponentClass).Instance;
+        var record = Convert.FromHexString("180000000452E30B918FCE119DE300AA004BB8516C74000000000000");
+        tab.UnknownRawProperties.Add(new("TabPicture(2)", ["TabPicture(2) = \"Original.frx\":0040"],
+            new System.Collections.Generic.Dictionary<int, byte[]> { [0x40] = record }));
+        vm.FlushComponentsToModel();
+        tab.UnknownRawProperties.Should().Contain(p => p.Name == "TabPicture(1)");
+        vm.SwitchSSTabPage(new Point(40, 8)).Should().BeTrue();
+        vm.SwitchSSTabPage(new Point(260, 8)).Should().BeTrue();
+        tab.UnknownRawProperties.Single(p => p.Name == "TabPicture(2)").Records![0x40]
+            .Should().BeSameAs(record);
+        var (text, companion) = new FormSerializer().Serialize(vm.FormDefinition!, "Renamed.frm");
+        text.Should().Contain("\"Renamed.frx\":0000").And.Contain("\"Renamed.frx\":001C")
+            .And.Contain("\"Renamed.frx\":0038");
+        companion.Should().HaveCount(84);
+    }
+
+    [AvaloniaFact]
+    public void ToolboxSSTabKeepsMeasuredSelectionAndHiddenChildOffsets()
+    {
+        var vm = FreshSSTab();
+        ShowPage(vm, 1);
+        var tab = vm.AllComponents.Single(c => c.Instance.BaseClass is SSTabComponentClass);
+        vm.SpawnControlAt(CommandButtonComponentClass.Instance,
+            new Rect(tab.RelativeLeft + 17, tab.RelativeTop + 25, 40, 20),
+            new Point(tab.RelativeLeft + 17, tab.RelativeTop + 25));
+        vm.FlushComponentsToModel();
+        var (selected, _) = new FormSerializer().Serialize(vm.FormDefinition!, "Form1.frm");
+        selected.ReplaceLineEndings("\n").Should().Contain("Tab             =   1")
+            .And.Contain("Left            =   255")
+            .And.Contain("Tab(1).Control(0).Enabled=   0   'False");
+        ShowPage(vm, 0);
+        vm.FlushComponentsToModel();
+        var (hidden, _) = new FormSerializer().Serialize(vm.FormDefinition!, "Form1.frm");
+        hidden.ReplaceLineEndings("\n").Should().NotContain("Tab             =")
+            .And.Contain("Left            =   -74745")
+            .And.Contain("Tab(1).Control(0).Enabled=   0   'False");
+    }
+
     [AvaloniaFact]
     public void CaptionClickSwitchesDesignerPageAndSavesMeasuredPositionsWithoutUndo()
     {
@@ -112,8 +207,9 @@ public class SSTabDesignerTests : WindowTestFixture
         vm.FlushComponentsToModel();
         var added = vm.AllComponents.Single(c => c.Name == "Command2");
         added.RelativeLeft.Should().Be(-4940);
-        var (text, _) = new FormSerializer().Serialize(vm.FormDefinition!, "Form1.frm");
-        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "Reload"), text, new Sink())!;
+        var (text, companion) = new FormSerializer().Serialize(vm.FormDefinition!, "Form1.frm");
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "Reload"), text,
+            new Sink(), companion is null ? null : FrxDeserializer.Read(companion, text))!;
         var tab = form.Components.Single(c => c.BaseClass is SSTabComponentClass);
         tab.GetPropertyOrDefault(SSTabSavedState.Property)!.Number("Tab(1).ControlCount", -1).Should().Be(2);
         tab.UnknownRawPropertyLines.Should().Contain(l => l.Contains("Tab(1).Control(1)") && l.Contains("Command2"));

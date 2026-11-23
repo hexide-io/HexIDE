@@ -16,6 +16,9 @@ public interface IDebugGate : IDebugController
     /// <summary>Whether this host offers debugging, rather than only a fatal-error halt.</summary>
     bool CanBreak => true;
 
+    /// <summary>Which handled errors halt at the faulting statement.</summary>
+    ErrorTrapping ErrorTrapping { get; set; }
+
     /// <summary>True from the moment a reset (<see cref="Stop"/>) begins until the walk finishes unwinding. While
     /// set, the gate raises <see cref="StopExecutionSignal"/> and the interpreter suppresses <c>Class_Terminate</c>
     /// — VB6 <c>End</c> abruptly terminates and fires NO Terminate (oracle-verified).</summary>
@@ -60,6 +63,10 @@ public interface IDebugGate : IDebugController
     /// the executing activation (captured for Locals only when this statement decides to break — no hot-path cost).</summary>
     ValueTask OnStatementAsync(int line, string module, IDebugFrame? frame);
 
+    /// <summary>A declaration preserves explicit breakpoint and Run To Cursor targets without stepping.</summary>
+    ValueTask OnDeclarationAsync(int line, string module, IDebugFrame frame)
+        => OnBreakpointPositionAsync(line, module, frame);
+
     /// <summary>A breakpoint-only position leaves stepping at its existing statement positions.</summary>
     ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame) => ValueTask.CompletedTask;
 
@@ -88,6 +95,12 @@ public interface IDebugGate : IDebugController
     /// <see cref="StopExecutionSignal"/>, as the End button does. False means no host is set, and the error goes on.
     /// </summary>
     ValueTask<bool> HaltAsync(VBRunTimeException error, int line, string module, IDebugFrame? frame);
+
+    /// <summary>The IDE's compile-error dialog host; absent in standalone runs (#833).</summary>
+    Func<VBCompileErrorException, Task<bool>>? CompileHaltHost { get; set; }
+
+    /// <summary>Halt at a compile error met by the walk; Debug breaks and retries, End resets the run.</summary>
+    ValueTask<bool> HaltOnCompileErrorAsync(VBCompileErrorException error, int line, string module, IDebugFrame? frame);
 }
 
 /// <summary>
