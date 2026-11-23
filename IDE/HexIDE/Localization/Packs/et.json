@@ -117,6 +117,8 @@
     "Str.LspArtifact.ResetGrant": "Lähtesta {0} serveri {1} jaoks asukohas {2}",
     "Str.Archive.ProjectFormat": "{0} (kirjutuskaitstud arhiiv)",
     "Str.Archive.Hidden": "Näita peidetud arhiivikirjeid",
+    "Str.Archive.SaveChanged": "Faili '{0}' ei saa salvestada: fail on kettal muutunud. Laadige see enne salvestamist uuesti.",
+    "Str.Archive.SaveRefused": "Faili '{0}' ei saa salvestada: konteinerit ei saanud turvaliselt kontrollida ja kirjutada. Muudatus jääb salvestamata.",
     "Str.Archive.ReadOnly": "Kirjutuskaitstud arhiivi eelvaade. Muutmine, ehitamine ja käivitamine pole saadaval.",
     "Str.Archive.UnsupportedType": "Selle failitüübi teksti eelvaade pole saadaval.",
     "Str.Archive.InvalidUtf8": "Teksti eelvaade pole saadaval: vigane UTF-8.",

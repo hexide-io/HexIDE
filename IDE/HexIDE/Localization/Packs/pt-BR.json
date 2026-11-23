@@ -239,6 +239,8 @@
     "Str.Tool.LanguageServers.Trial.StopFailed": "Falha na parada: {0}",
     "Str.Tool.LanguageServers.Trial.ConfirmTitle": "Testar a conexão com o servidor de linguagem",
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "O IDE nunca iniciou este item nem se conectou a ele, ou ele foi alterado desde então. Ao aceitar, você inicia um programa neste computador ou estabelece uma conexão com este endereço.",
-    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' vai se conectar a um endereço ao qual o HexIDE nunca se conectou: {1}"
+    "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' vai se conectar a um endereço ao qual o HexIDE nunca se conectou: {1}",
+    "Str.Archive.SaveChanged": "Não é possível salvar '{0}': o arquivo foi alterado no disco. Recarregue-o antes de salvar.",
+    "Str.Archive.SaveRefused": "Não é possível salvar '{0}': não foi possível verificar e gravar o contêiner com segurança. A edição continua sem salvar."
   }
 }

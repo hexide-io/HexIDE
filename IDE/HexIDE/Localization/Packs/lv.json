@@ -151,6 +151,8 @@
     "Str.LspArtifact.ResetGrant": "Atiestatīt {0} serverim {1} darbvietā {2}",
     "Str.Archive.ProjectFormat": "{0} (tikai lasāms arhīvs)",
     "Str.Archive.Hidden": "Rādīt slēptos arhīva ierakstus",
+    "Str.Archive.SaveChanged": "Nevar saglabāt '{0}': fails diskā ir mainījies. Pirms saglabāšanas ielādējiet to vēlreiz.",
+    "Str.Archive.SaveRefused": "Nevar saglabāt '{0}': konteineru nevarēja droši pārbaudīt un ierakstīt. Labojums paliek nesaglabāts.",
     "Str.Archive.ReadOnly": "Tikai lasāms arhīva priekšskatījums. Rediģēšana, būvēšana un palaišana nav pieejama.",
     "Str.Archive.UnsupportedType": "Šim faila tipam teksta priekšskatījums nav pieejams.",
     "Str.Archive.InvalidUtf8": "Teksta priekšskatījums nav pieejams: nederīgs UTF-8.",

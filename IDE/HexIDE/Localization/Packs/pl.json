@@ -145,6 +145,8 @@
     "Str.LspArtifact.ResetGrant": "Resetuj {0} dla {1} w {2}",
     "Str.Archive.ProjectFormat": "{0} (archiwum tylko do odczytu)",
     "Str.Archive.Hidden": "Pokaż ukryte elementy archiwum",
+    "Str.Archive.SaveChanged": "Nie można zapisać '{0}': plik zmienił się na dysku. Wczytaj go ponownie przed zapisaniem.",
+    "Str.Archive.SaveRefused": "Nie można zapisać '{0}': nie udało się bezpiecznie zweryfikować i zapisać kontenera. Zmiana pozostaje niezapisana.",
     "Str.Archive.ReadOnly": "Podgląd archiwum tylko do odczytu. Edycja, kompilacja i uruchamianie są niedostępne.",
     "Str.Archive.UnsupportedType": "Podgląd tekstu jest niedostępny dla tego typu pliku.",
     "Str.Archive.InvalidUtf8": "Podgląd tekstu jest niedostępny: nieprawidłowe UTF-8.",

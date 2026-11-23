@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AvaloniaEdit.Document;
 using HexIDE.Language;
 using HexIDE.Lsp;
@@ -34,10 +35,28 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     [Notify] private IReadOnlyList<LineRange> inactiveLines = [];
     public override object? Icon => null;
     protected override string ComputeTitle() => Entry.Name;
-    public bool IsReadOnlyDocument => true;
-    public override bool CanHoldUnsavedChanges => false;
+    private ArchiveProjectService? projects;
+    private string savedText = "";
+    internal bool Saving { get; private set; }
+    private bool editableSource;
+    public bool IsReadOnlyDocument => Saving || !CanHoldUnsavedChanges;
+    public override bool CanHoldUnsavedChanges => projects != null && editableSource;
+    internal void EnableSaving(ArchiveProjectService service)
+    {
+        projects = service;
+        Notice = IsReadOnlyDocument ? Notice : "";
+        OnPropertyChanged(nameof(IsReadOnlyDocument));
+    }
+    internal void SetSaving(bool value)
+    {
+        Saving = value;
+        if (CanHoldUnsavedChanges) Notice = "";
+        OnPropertyChanged(nameof(IsReadOnlyDocument));
+    }
+    internal Task<bool> SaveAsync() => projects?.Save(this) ?? Task.FromResult(false);
+    internal Task<bool> ConfirmCloseAsync() => projects?.ConfirmClose(this) ?? Task.FromResult(!IsModified);
     public bool IsReadOnlyRegion(int offset, int length) => false;
-    public Func<int, int, bool> SnapshotReadOnlyRegions() => static (_, _) => true;
+    public Func<int, int, bool> SnapshotReadOnlyRegions() => (_, _) => IsReadOnlyDocument;
 
     public ArchiveDocumentViewModel(ContainerEntry entry, ILocalizationService localization,
         IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null, string? languageId = null)
@@ -66,15 +85,31 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
         this.languageId = languageId;
         Entry = entry;
         var preview = entry.ReadText();
+        editableSource = entry.Identity.ContainerPath.EndsWith(".twinproj", StringComparison.OrdinalIgnoreCase)
+            && entry.Archive is ArchiveProjectDocument && entry.Name.EndsWith(".twin", StringComparison.OrdinalIgnoreCase)
+            && preview?.Status == ArchiveTextStatus.Available;
+        OnPropertyChanged(nameof(IsReadOnlyDocument));
+        OnPropertyChanged(nameof(CanHoldUnsavedChanges));
         var buffer = new TextDocument(preview?.Text ?? "");
         buffer.UndoStack.ClearAll();
         // Protect programmatic edits as well as keyboard, paste and Replace operations.
-        buffer.Changing += RejectEdit;
+        buffer.Changing += (_, _) =>
+        {
+            if (IsReadOnlyDocument) throw new InvalidOperationException("Archive documents are read-only.");
+        };
+        savedText = buffer.Text;
+        buffer.TextChanged += (_, _) =>
+        {
+            IsModified = buffer.Text != savedText;
+            InactiveLines = InactiveLinesOf(buffer.Text, this.buildType);
+        };
+        IsModified = false;
         Document = buffer;
         CaretOffset = SelectionStart = SelectionLength = 0;
         Notice = localization.GetString("Str.Archive.ReadOnly") + " " +
             (preview is null ? "" : preview.Status == ArchiveTextStatus.Available ? "" :
                 localization.GetString("Str.Archive." + preview.Status));
+        if (!IsReadOnlyDocument) Notice = "";
         if (entry.NoticeKey is { } noticeKey) Notice = localization.GetString(noticeKey);
         Metadata = entry.Archive is { } archive ? string.Format(localization.GetString("Str.Archive.Metadata"),
             entry.Identity.ContainerPath, string.Join(" / ", entry.Identity.Segments),
@@ -99,6 +134,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     internal ArchiveDocumentViewModel Reopen()
     {
         var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode, buildType, lspClient, languageId);
+        if (projects != null) reopened.EnableSaving(projects);
         reopened.CaretOffset = Math.Clamp(CaretOffset, 0, reopened.Document.TextLength);
         return reopened;
     }
@@ -118,6 +154,4 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
             NullIsUndetermined = true,
         });
 
-    private static void RejectEdit(object? sender, DocumentChangeEventArgs e) =>
-        throw new InvalidOperationException("Archive documents are read-only.");
 }

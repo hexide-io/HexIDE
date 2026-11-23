@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Kan inte spara '{0}': filen har ändrats på disken. Läs in den igen innan du sparar.",
+    "Str.Archive.SaveRefused": "Kan inte spara '{0}': behållaren kunde inte verifieras och skrivas säkert. Ändringen är fortfarande osparad.",
     "Str.Dialog.MakeProjectGroup.Projects": "Bygg följande projekt:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Använd standardalternativ för bygge",
     "Str.Dialog.MakeProjectGroup.Build": "Bygg",

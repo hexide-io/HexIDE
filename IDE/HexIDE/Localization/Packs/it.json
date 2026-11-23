@@ -145,6 +145,8 @@
     "Str.LspArtifact.ResetGrant": "Reimposta {0} per {1} in {2}",
     "Str.Archive.ProjectFormat": "{0} (archivio di sola lettura)",
     "Str.Archive.Hidden": "Mostra le voci nascoste dell’archivio",
+    "Str.Archive.SaveChanged": "Impossibile salvare '{0}': il file è cambiato sul disco. Ricaricarlo prima di salvare.",
+    "Str.Archive.SaveRefused": "Impossibile salvare '{0}': non è stato possibile verificare e scrivere il contenitore in sicurezza. La modifica resta non salvata.",
     "Str.Archive.ReadOnly": "Anteprima dell’archivio di sola lettura. Modifica, compilazione ed esecuzione non sono disponibili.",
     "Str.Archive.UnsupportedType": "L’anteprima del testo non è disponibile per questo tipo di file.",
     "Str.Archive.InvalidUtf8": "Anteprima del testo non disponibile: UTF-8 non valido.",

@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "无法保存 '{0}'：磁盘上的文件已更改。请先重新加载再保存。",
+    "Str.Archive.SaveRefused": "无法保存 '{0}'：无法安全验证并写入容器。编辑内容仍未保存。",
     "Str.Dialog.MakeProjectGroup.Projects": "生成以下工程：",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "使用默认生成选项",
     "Str.Dialog.MakeProjectGroup.Build": "生成",

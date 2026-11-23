@@ -150,6 +150,8 @@
     "Str.LspArtifact.ResetGrant": "Restableix {0} per a {1} a {2}",
     "Str.Archive.ProjectFormat": "{0} (arxiu de només lectura)",
     "Str.Archive.Hidden": "Mostra les entrades ocultes de l'arxiu",
+    "Str.Archive.SaveChanged": "No es pot desar '{0}': el fitxer ha canviat al disc. Torneu-lo a carregar abans de desar.",
+    "Str.Archive.SaveRefused": "No es pot desar '{0}': no s'ha pogut verificar i escriure el contenidor amb seguretat. El canvi continua sense desar.",
     "Str.Archive.ReadOnly": "Previsualització de l'arxiu de només lectura. No es pot editar, compilar ni executar.",
     "Str.Archive.UnsupportedType": "La previsualització de text no està disponible per a aquest tipus de fitxer.",
     "Str.Archive.InvalidUtf8": "La previsualització de text no està disponible: UTF-8 no vàlid.",

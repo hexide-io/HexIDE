@@ -11,6 +11,7 @@ public sealed class ArchiveFileToolDescriptionTests
         var description = ToolSource.Tools.Single(tool => tool.Name == name).Description;
         description.Should().Contain("archive").And.Contain("entries").And.Contain("project")
             .And.Contain("percent");
+        description.Should().Contain("Project-backed .twin sources are editable").And.Contain("read-only");
         description.Length.Should().BeLessThanOrEqualTo(2048);
     }
 
@@ -21,7 +22,7 @@ public sealed class ArchiveFileToolDescriptionTests
     public void Archive_tab_type_is_discoverable(string name)
     {
         var description = ToolSource.Tools.Single(tool => tool.Name == name).Description;
-        description.Should().Contain("'archive'").And.Contain("read-only");
+        description.Should().Contain("'archive'");
         description.Length.Should().BeLessThanOrEqualTo(1900);
     }
 }

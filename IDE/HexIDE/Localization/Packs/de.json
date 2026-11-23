@@ -144,6 +144,8 @@
     "Str.LspArtifact.ResetGrant": "{0} für {1} in {2} zurücksetzen",
     "Str.Archive.ProjectFormat": "{0} (schreibgeschütztes Archiv)",
     "Str.Archive.Hidden": "Ausgeblendete Archiveinträge anzeigen",
+    "Str.Archive.SaveChanged": "'{0}' kann nicht gespeichert werden: Die Datei wurde auf dem Datenträger geändert. Laden Sie sie vor dem Speichern neu.",
+    "Str.Archive.SaveRefused": "'{0}' kann nicht gespeichert werden: Der Container konnte nicht sicher geprüft und geschrieben werden. Die Änderung bleibt ungespeichert.",
     "Str.Archive.ReadOnly": "Schreibgeschützte Archivvorschau. Bearbeiten, Erstellen und Ausführen sind nicht verfügbar.",
     "Str.Archive.UnsupportedType": "Für diesen Dateityp ist keine Textvorschau verfügbar.",
     "Str.Archive.InvalidUtf8": "Textvorschau nicht verfügbar: ungültiges UTF-8.",

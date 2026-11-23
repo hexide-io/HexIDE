@@ -111,6 +111,8 @@
     "Str.LspArtifact.ResetGrant": "Nollaa {0}: {1} kansiossa {2}",
     "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",
+    "Str.Archive.SaveChanged": "Tiedostoa '{0}' ei voi tallentaa: se on muuttunut levyllä. Lataa se uudelleen ennen tallentamista.",
+    "Str.Archive.SaveRefused": "Tiedostoa '{0}' ei voi tallentaa: säilöä ei voitu tarkistaa ja kirjoittaa turvallisesti. Muutos on yhä tallentamatta.",
     "Str.Archive.ReadOnly": "Arkiston esikatselu on vain luku -tilassa. Muokkaus, kääntäminen ja suoritus eivät ole käytettävissä.",
     "Str.Archive.UnsupportedType": "Tekstin esikatselu ei ole käytettävissä tälle tiedostotyypille.",
     "Str.Archive.InvalidUtf8": "Tekstin esikatselu ei ole käytettävissä: virheellinen UTF-8.",

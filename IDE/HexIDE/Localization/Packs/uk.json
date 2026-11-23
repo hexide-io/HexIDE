@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Archive.SaveChanged": "Неможливо зберегти '{0}': файл на диску змінився. Завантажте його знову перед збереженням.",
+    "Str.Archive.SaveRefused": "Неможливо зберегти '{0}': не вдалося безпечно перевірити й записати контейнер. Зміна залишається незбереженою.",
     "Str.Dialog.MakeProjectGroup.Projects": "Зібрати такі проєкти:",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Використовувати стандартні параметри збирання",
     "Str.Dialog.MakeProjectGroup.Build": "Зібрати",

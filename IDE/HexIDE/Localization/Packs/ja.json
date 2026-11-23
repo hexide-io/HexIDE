@@ -178,6 +178,8 @@
     "Str.LspArtifact.ResetGrant": "{2} の {1} に対する {0} をリセット",
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",
+    "Str.Archive.SaveChanged": "'{0}' を保存できません。ディスク上のファイルが変更されています。保存する前に再読み込みしてください。",
+    "Str.Archive.SaveRefused": "'{0}' を保存できません。コンテナーを安全に検証して書き込めませんでした。編集内容は未保存のままです。",
     "Str.Archive.ReadOnly": "読み取り専用のアーカイブプレビューです。編集、ビルド、実行は利用できません。",
     "Str.Archive.UnsupportedType": "このファイル形式ではテキストプレビューを利用できません。",
     "Str.Archive.InvalidUtf8": "テキストプレビューを利用できません：UTF-8が無効です。",

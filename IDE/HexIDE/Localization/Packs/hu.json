@@ -151,6 +151,8 @@
     "Str.LspArtifact.ResetGrant": "{0} visszaállítása ehhez: {1}, itt: {2}",
     "Str.Archive.ProjectFormat": "{0} (írásvédett archívum)",
     "Str.Archive.Hidden": "Rejtett archívumbejegyzések megjelenítése",
+    "Str.Archive.SaveChanged": "A(z) '{0}' nem menthető: a fájl megváltozott a lemezen. Mentés előtt töltse be újra.",
+    "Str.Archive.SaveRefused": "A(z) '{0}' nem menthető: a tárolót nem sikerült biztonságosan ellenőrizni és kiírni. A módosítás mentetlen marad.",
     "Str.Archive.ReadOnly": "Írásvédett archívumelőnézet. A szerkesztés, fordítás és futtatás nem érhető el.",
     "Str.Archive.UnsupportedType": "Ehhez a fájltípushoz nem érhető el szöveges előnézet.",
     "Str.Archive.InvalidUtf8": "A szöveges előnézet nem érhető el: érvénytelen UTF-8.",

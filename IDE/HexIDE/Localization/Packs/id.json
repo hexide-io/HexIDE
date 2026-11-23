@@ -145,6 +145,8 @@
     "Str.LspArtifact.ResetGrant": "Atur ulang {0} untuk {1} di {2}",
     "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",
+    "Str.Archive.SaveChanged": "Tidak dapat menyimpan '{0}': berkas telah berubah di disk. Muat ulang sebelum menyimpan.",
+    "Str.Archive.SaveRefused": "Tidak dapat menyimpan '{0}': kontainer tidak dapat diverifikasi dan ditulis dengan aman. Suntingan belum tersimpan.",
     "Str.Archive.ReadOnly": "Pratinjau arsip hanya baca. Penyuntingan, kompilasi, dan eksekusi tidak tersedia.",
     "Str.Archive.UnsupportedType": "Pratinjau teks tidak tersedia untuk jenis berkas ini.",
     "Str.Archive.InvalidUtf8": "Pratinjau teks tidak tersedia: UTF-8 tidak valid.",
