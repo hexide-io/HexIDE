@@ -347,6 +347,7 @@
     "Str.Help.LogFolder.OpenFailed": "Δεν ήταν δυνατό το άνοιγμα του φακέλου καταγραφών. Μπορείτε να τον ανοίξετε χειροκίνητα: {0}",
     "Str.Menu.Help.About": "Πληροφορίες για το HexIDE...",
     "Str.Menu.MacApp.About": "Πληροφορίες για το HexIDE",
+    "Str.Menu.MacApp.Settings": "Επιλογές…",
     "Str.Menu.GoToGithubRepo": "Μετάβαση στο αποθετήριο github",
     "Str.NewProject.NoTemplates": "Αυτό το προφίλ δεν προσφέρει πρότυπα νέων έργων. Ανοίξτε ένα υπάρχον έργο.",
     "Str.NewProject.Msg.NoStandardExe": "Στο {0} δεν είναι εγκατεστημένος τύπος έργου που δημιουργεί έργο Standard EXE, οπότε η εκκίνηση έγινε χωρίς έργο.",

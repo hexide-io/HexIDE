@@ -341,6 +341,7 @@
     "Str.Help.LogFolder.OpenFailed": "No s’ha pogut obrir la carpeta de registres. La podeu obrir manualment: {0}",
     "Str.Menu.Help.About": "_Quant a HexIDE...",
     "Str.Menu.MacApp.About": "Quant a HexIDE",
+    "Str.Menu.MacApp.Settings": "Opcions…",
     "Str.Menu.GoToGithubRepo": "Ves al repositori de GitHub",
     "Str.ProjectType.StandardEXE": "EXE estàndard",
     "Str.ProjectType.ActiveXEXE": "EXE ActiveX",

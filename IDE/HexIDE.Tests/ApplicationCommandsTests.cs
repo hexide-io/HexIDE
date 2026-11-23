@@ -24,6 +24,17 @@ public class ApplicationCommandsTests
         ApplicationCommands.PreviousBookmarkCommand.Gestures.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CompleteWordUsesControlSpace(bool isMacOS)
+    {
+        var gesture = ApplicationCommands.GetCompleteWordKeyGesture(isMacOS);
+        gesture.Should().Be(new KeyGesture(Key.Space, KeyModifiers.Control));
+        if (OperatingSystem.IsMacOS() == isMacOS)
+            ApplicationCommands.CompleteWordCommand.Gestures.Should().Equal(gesture);
+    }
+
     [Fact]
     public void ToggleFoldIsUnboundOnMacOS()
     {

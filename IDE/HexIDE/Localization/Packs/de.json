@@ -380,6 +380,7 @@
     "Str.Help.LogFolder.OpenFailed": "Der Logordner konnte nicht geöffnet werden. Sie können ihn manuell öffnen: {0}",
     "Str.Menu.Help.About": "Ü_ber HexIDE...",
     "Str.Menu.MacApp.About": "Über HexIDE",
+    "Str.Menu.MacApp.Settings": "Optionen…",
     "Str.Menu.GoToGithubRepo": "Zum GitHub-Repository wechseln",
     "Str.NewProject.NoTemplates": "Dieses Profil bietet keine Vorlagen für neue Projekte. Öffnen Sie stattdessen ein vorhandenes Projekt.",
     "Str.NewProject.Msg.NoStandardExe": "In {0} ist kein Projekttyp installiert, der ein Standard-EXE-Projekt erstellt. Daher wurde ohne Projekt gestartet.",

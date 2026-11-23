@@ -341,6 +341,7 @@
     "Str.Help.LogFolder.OpenFailed": "Папката с журнали не може да бъде отворена. Можете да я отворите ръчно: {0}",
     "Str.Menu.Help.About": "Относно HexIDE...",
     "Str.Menu.MacApp.About": "Относно HexIDE",
+    "Str.Menu.MacApp.Settings": "Настройки…",
     "Str.Menu.GoToGithubRepo": "Към хранилището в GitHub",
     "Str.ProjectType.StandardEXE": "Стандартен EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",

@@ -380,6 +380,7 @@
     "Str.Help.LogFolder.OpenFailed": "无法打开日志文件夹。您可以手动打开：{0}",
     "Str.Menu.Help.About": "关于 HexIDE(_A)...",
     "Str.Menu.MacApp.About": "关于 HexIDE",
+    "Str.Menu.MacApp.Settings": "选项…",
     "Str.Menu.GoToGithubRepo": "前往 github 仓库",
     "Str.NewProject.NoTemplates": "此配置不提供新建项目模板。请打开现有项目。",
     "Str.NewProject.Msg.NoStandardExe": "{0} 未安装可创建 Standard EXE 项目的项目类型，因此启动时未创建项目。",

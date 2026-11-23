@@ -347,6 +347,7 @@
     "Str.Help.LogFolder.OpenFailed": "Não foi possível abrir a pasta de registos. Pode abri-la manualmente: {0}",
     "Str.Menu.Help.About": "_Acerca do HexIDE...",
     "Str.Menu.MacApp.About": "Acerca do HexIDE",
+    "Str.Menu.MacApp.Settings": "Opções…",
     "Str.Menu.GoToGithubRepo": "Ir para o repositório github",
     "Str.NewProject.NoTemplates": "Este perfil não oferece modelos para novos projetos. Abra um projeto existente.",
     "Str.NewProject.Msg.NoStandardExe": "O {0} não tem instalado nenhum tipo de projeto que crie um projeto Standard EXE, pelo que foi iniciado sem projeto.",

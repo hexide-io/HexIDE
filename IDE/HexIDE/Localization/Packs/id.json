@@ -381,6 +381,7 @@
     "Str.Help.LogFolder.OpenFailed": "Tidak dapat membuka folder log. Anda dapat membukanya secara manual: {0}",
     "Str.Menu.Help.About": "_Tentang HexIDE...",
     "Str.Menu.MacApp.About": "Tentang HexIDE",
+    "Str.Menu.MacApp.Settings": "Opsi…",
     "Str.Menu.GoToGithubRepo": "Buka repo github",
     "Str.NewProject.NoTemplates": "Profil ini tidak menyediakan templat proyek baru. Buka proyek yang sudah ada.",
     "Str.NewProject.Msg.NoStandardExe": "Tidak ada jenis proyek terpasang di {0} yang membuat proyek Standard EXE, sehingga aplikasi dimulai tanpa proyek.",
