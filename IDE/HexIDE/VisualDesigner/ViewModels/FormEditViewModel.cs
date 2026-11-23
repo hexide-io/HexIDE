@@ -444,7 +444,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     private static bool IsMenu(ComponentInstanceViewModel component) => component.Instance.BaseClass is MenuComponentClass;
 
-    internal static bool IsWindowless(IComponentClass type) => type is IDesignerComponentClass { IsWindowless: true };
+    internal static bool IsWindowless(IComponentClass type) => type is IDesignerComponent { IsWindowless: true };
 
     private bool IsContentOf(ComponentInstanceViewModel component, ComponentInstance container) =>
         !IsMenu(component) && ReferenceEquals(ParentOf(component.Instance), container);
@@ -760,9 +760,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// nearest grid line when Align to Grid is on, as VB6 puts it (measured, #929: a 1215 x 495 button on a 6000 x 4500
     /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines goes to the
     /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
-    /// <see cref="IDesignerComponentClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
+    /// <see cref="IDesignerComponent.AddedSize"/>, the one VB6 gives it (measured, #1473).
     /// </summary>
-    public void SpawnControlCenter(IDesignerComponentClass componentClass, RuntimeLibrary? library = null)
+    public void SpawnControlCenter(IDesignerComponent componentClass, RuntimeLibrary? library = null)
     {
         if (componentClass is StatusBarComponentClass)
         {
@@ -928,7 +928,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// For an in-box control, the library it is placed from, when the toolbox offers it from an older library than its
     /// class's newest: a ProgressBar from COMCTL32.OCX is <c>ComctlLib.ProgressBar</c> (#1103).
     /// </param>
-    public void SpawnControlAt(IDesignerComponentClass baseClass, Rect rect, Point? pressedAt = null,
+    public void SpawnControlAt(IDesignerComponent baseClass, Rect rect, Point? pressedAt = null,
         RuntimeLibrary? library = null)
     {
         var container = pressedAt is { } press ? ContainerAt(press) : null;
@@ -937,7 +937,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         SpawnControl(baseClass, rect, container, library);
     }
 
-    private void SpawnControl(IDesignerComponentClass baseClass, Rect rect, ComponentInstanceViewModel? container,
+    private void SpawnControl(IDesignerComponent baseClass, Rect rect, ComponentInstanceViewModel? container,
         RuntimeLibrary? library)
     {
         var newName = FreeName(baseClass);

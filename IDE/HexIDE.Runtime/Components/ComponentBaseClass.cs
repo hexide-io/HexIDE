@@ -97,7 +97,7 @@ public abstract class ComponentBaseClass : IDesignerComponentClass
     /// child by what it draws. The designer keeps one flat canvas and has to do the arithmetic, so it needs
     /// the same number as a value; this is the single place it comes from, so the two cannot disagree.
     /// </summary>
-    public virtual Thickness ClientInset(ComponentInstance instance) => default;
+    public virtual DesignerInset ClientInset(ComponentInstance instance) => default;
 
     /// <inheritdoc/>
     public virtual IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];

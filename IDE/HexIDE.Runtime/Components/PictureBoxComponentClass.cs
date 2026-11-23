@@ -118,9 +118,12 @@ public class PictureBoxComponentClass : ComponentBaseClass
         return host is not null;
     }
 
-    public override Thickness ClientInset(ComponentInstance instance) =>
-        ClientBorder(instance.GetPropertyOrDefault(BorderStyleProperty),
-                     instance.GetPropertyOrDefault(AppearanceProperty)).Inset;
+    public override DesignerInset ClientInset(ComponentInstance instance)
+    {
+        var inset = ClientBorder(instance.GetPropertyOrDefault(BorderStyleProperty),
+                                 instance.GetPropertyOrDefault(AppearanceProperty)).Inset;
+        return new DesignerInset(inset.Left, inset.Top, inset.Right, inset.Bottom);
+    }
 
     static PictureBoxComponentClass()
     {

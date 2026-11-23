@@ -24,3 +24,25 @@ HexIDE.Addins.IAddinCodeEditorActions.GoToLocationAsync(string! uri, HexIDE.Lsp.
 HexIDE.Addins.IAddinServerConnection.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 HexIDE.Addins.IHexIdeHost.ReportFailure(string! message, System.Exception? exception = null) -> void
 HexIDE.Addins.IHexIdeHost.RegisterResources(System.Uri! dictionary) -> System.IDisposable!
+HexIDE.Runtime.Components.DesignerInset
+HexIDE.Runtime.Components.DesignerInset.Bottom.get -> double
+HexIDE.Runtime.Components.DesignerInset.Bottom.init -> void
+HexIDE.Runtime.Components.DesignerInset.Deconstruct(out double Left, out double Top, out double Right, out double Bottom) -> void
+HexIDE.Runtime.Components.DesignerInset.DesignerInset() -> void
+HexIDE.Runtime.Components.DesignerInset.DesignerInset(double Left, double Top, double Right, double Bottom) -> void
+HexIDE.Runtime.Components.DesignerInset.Equals(HexIDE.Runtime.Components.DesignerInset other) -> bool
+HexIDE.Runtime.Components.DesignerInset.Left.get -> double
+HexIDE.Runtime.Components.DesignerInset.Left.init -> void
+HexIDE.Runtime.Components.DesignerInset.Right.get -> double
+HexIDE.Runtime.Components.DesignerInset.Right.init -> void
+HexIDE.Runtime.Components.DesignerInset.Top.get -> double
+HexIDE.Runtime.Components.DesignerInset.Top.init -> void
+HexIDE.Runtime.Components.IDesignerComponent
+HexIDE.Runtime.Components.IDesignerComponent.AddedSize.get -> (int Width, int Height)
+HexIDE.Runtime.Components.IDesignerComponent.ClientInset(HexIDE.Runtime.Components.ComponentInstance! instance) -> HexIDE.Runtime.Components.DesignerInset
+HexIDE.Runtime.Components.IDesignerComponent.IsWindowless.get -> bool
+override HexIDE.Runtime.Components.DesignerInset.GetHashCode() -> int
+static HexIDE.Runtime.Components.DesignerInset.operator !=(HexIDE.Runtime.Components.DesignerInset left, HexIDE.Runtime.Components.DesignerInset right) -> bool
+static HexIDE.Runtime.Components.DesignerInset.operator ==(HexIDE.Runtime.Components.DesignerInset left, HexIDE.Runtime.Components.DesignerInset right) -> bool
+~override HexIDE.Runtime.Components.DesignerInset.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.DesignerInset.ToString() -> string
