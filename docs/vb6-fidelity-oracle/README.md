@@ -942,6 +942,7 @@ added afterwards.
 - [The PictureBox and the scroll bars (2026-11-18, #2325)](key-events-keydown-keypress-and-keyup.md#the-picturebox-and-the-scroll-bars-2026-11-18-2325)
 - [In-box controls: the ImageCombo (2026-10-27, #1092)](in-box-controls-the-imagecombo.md#in-box-controls-the-imagecombo-2026-10-27-1092)
 - [In-box controls: the FlatScrollBar (2026-10-27, #1097)](in-box-controls-the-flatscrollbar.md#in-box-controls-the-flatscrollbar-2026-10-27-1097)
+- [The FlatScrollBar's conversions, MousePointer, `[_Value]` and Refresh (2026-11-23, #1097, SP6)](in-box-controls-the-flatscrollbar.md#the-flatscrollbars-conversions-mousepointer-_value-and-refresh-2026-11-23-1097-sp6)
 - [In-box controls: the Animation (2026-10-27, #1096)](in-box-controls-the-animation.md#in-box-controls-the-animation-2026-10-27-1096)
 - [The Forms collection (2026-10-28, #2496)](the-forms-collection.md#the-forms-collection-2026-10-28-2496)
 
