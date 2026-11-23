@@ -78,6 +78,30 @@ A developer sets and clears breakpoints on a code line without leaving the keybo
 - **WHEN** the developer presses F9 on a line of a form's designer block
 - **THEN** no breakpoint is set
 
+### Requirement: Open-window breakpoints follow statements through edits
+
+In an open code window, breakpoints SHALL follow their statements through document changes, preserving
+conditions. Inserts, pastes and deletes above a statement, Enter at its first non-blank character, and
+undo/redo SHALL move its breakpoint. Deleting its line or joining it onto the preceding line SHALL
+remove the breakpoint. These shapes reproduce the
+[measured SP6 rows](../../../docs/vb6-fidelity-oracle/a-breakpoint-through-edits-above-it.md); other edits
+use the same rule as decided in #1053, without claiming further measurements.
+
+Whole-text replacements and edits while an external debugger is active SHALL NOT remap the interpreter
+store. Closed-document edits SHALL retain stored numbers. Bookmarks SHALL retain their existing edit
+behaviour pending #5334. Explicit header refreshes SHALL still shift bookmarks and closed-document
+breakpoints, while an open window's document change moves its breakpoints exactly once.
+
+#### Scenario: Insert and undo above a conditional breakpoint
+- **WHEN** a line is inserted above a statement carrying a conditional breakpoint
+- **THEN** the breakpoint and its condition move down one line
+- **AND** undo moves both back and redo moves both down again
+
+#### Scenario: Header growth ends at the first body line
+- **WHEN** a header grows by three lines in an open window whose first body line carries a breakpoint
+- **THEN** the breakpoint and its condition move down three lines and are not removed
+- **AND** bookmarks below the header also move three lines
+
 ### Requirement: Breakpoints SHALL persist across sessions per user
 Breakpoints SHALL be stored per user beside the project and restored when it is reopened.
 
