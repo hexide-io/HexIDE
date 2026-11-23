@@ -797,3 +797,22 @@ The smaller tool-window caption and removal of the caption for BorderStyle None 
 - **GIVEN** a form with an Icon of its own
 - **WHEN** its saved BorderStyle is Fixed ToolWindow or Sizable ToolWindow, or ControlBox is False
 - **THEN** its designer caption has no icon
+
+### Requirement: CommandButton Style selects its face
+
+A CommandButton SHALL expose Style in Properties, defaulting to Standard (0). Its preview SHALL paint
+Standard with the button-face system colour regardless of stored BackColor, and Graphical (1) with
+BackColor. Changing either property SHALL refresh the preview without changing the stored BackColor.
+Saving SHALL omit Standard and write Graphical as `Style = 1  'Graphical`, after Picture and before
+TabIndex.
+
+#### Scenario: A red Standard button becomes Graphical
+
+- **GIVEN** a Standard CommandButton with BackColor `&H000000FF&`
+- **THEN** its designer face is the button-face colour
+- **WHEN** Style changes to Graphical
+- **THEN** its face is red and saving writes Style with the Graphical comment
+- **WHEN** Style changes back to Standard
+- **THEN** its face is the button-face colour and saving omits Style
+
+Authority: [#913 measurements](../../../docs/vb6-fidelity-oracle/a-commandbuttons-style-assigned-from-code-and-painted-in-the-designer.md).
