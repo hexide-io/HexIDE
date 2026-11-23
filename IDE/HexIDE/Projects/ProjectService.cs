@@ -2994,6 +2994,17 @@ public partial class ProjectService : IProjectService
     /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the module is written by its own Save or Save As.</param>
     private void WriteModule(ModuleDefinition module, string modulePath, bool adoptHeader, bool ownCommand, SaveRewriteReport? rewrites = null)
     {
+        // Any save of a Control project's PropertyPage exposes it (#1661, oracle PR #5244).
+        // Change the model before rendering, leaving absent attributes and all other header text alone.
+        if (adoptHeader && module.Kind == ModuleKind.PropertyPage && module.Owner.ProjectType == VBProjectType.Control)
+        {
+            var exposure = System.Text.RegularExpressions.Regex.Match(FormCodeText.AttributeBlock(module.Code),
+                @"(?:\A|(?<=[\r\n]))Attribute VB_Exposed = False(?=[\r\n]|\z)");
+            if (exposure.Success)
+                module.UpdateCode(module.Code.Remove(exposure.Index, exposure.Length)
+                    .Insert(exposure.Index, "Attribute VB_Exposed = True"));
+        }
+
         // As SerializeFormToFile: before the render and the repointing, and not for a copy (#273 task 4.4).
         if (adoptHeader
             && RewrittenQualifiers(module, modulePath, ownCommand, FormatOf(module.Owner).CodePrefix(module), module.Code, rewrites) is { } requalified)
