@@ -133,8 +133,7 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     /// </summary>
     public readonly bool HeldAsVariant;
 
-    // Set when this control was read from a variable or parameter. A list's late-bound errors were measured through those
-    // alone (#5117); a Collection item or a function's result also carries HeldAsVariant, and is unmeasured (#5135).
+    // Set when this control was read from a variable or parameter, cleared at a function return.
     internal readonly bool ReadFromControlSlot;
 
     /// <summary>This value with a fixed type — a declared variable's value, or a literal.</summary>

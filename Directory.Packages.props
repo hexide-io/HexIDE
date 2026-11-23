@@ -46,6 +46,12 @@
     <PackageVersion Include="Antlr4.Runtime.Standard" Version="4.13.1" />
     <PackageVersion Include="Antlr4BuildTasks" Version="12.14.0" />
   </ItemGroup>
+  <!-- Terminal prompts for hexide-pack only (#5555). Never referenced by HexIDE.AddinPacker, which runs next to
+       the first-party signing key; PackerFrontEndBoundaryTests pins that. -->
+  <ItemGroup>
+    <PackageVersion Include="Spectre.Console" Version="0.57.2" />
+    <PackageVersion Include="Spectre.Console.Testing" Version="0.57.2" />
+  </ItemGroup>
   <!-- Logging -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />

@@ -38,12 +38,10 @@ public sealed class InterpreterRunEngine : IRunEngine
 
         VBWindowContext.RunTimeError += (_, e) => ErrorMet?.Invoke(new RunFailure(RunErrorText.For(e), ErrorLocation.Of(e)));
 
-        // A compile error met while a form runs, such as a call to a Sub that does not exist, reached from a click.
-        // Reported as a run-time error is: recorded, so get_last_runtime_error sees it, and shown in the dialog
-        // whose End ends the run. It was a message box nothing recorded (#759). One route for every error a run
-        // meets, rather than VB6's separate compile-error box with OK and Help, because #754 already sends Sub
-        // Main's compile errors through this dialog and two routes would answer the same error differently.
-        // The run carries on, with the handler abandoned, as it does after a run-time error.
+        // Compile errors met while running halt through the same dialog (#759, #833), with Debug breaking.
+        // VB6's Compile On Demand breaks before procedure entry; the walk meets the error at the statement:
+        // docs/vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md.
+        // Without a halt host, or before the run starts, the existing reporting route still applies.
         VBWindowContext.CompileError += (_, e) => ErrorMet?.Invoke(new RunFailure(e.Message, ErrorLocation.Of(e)));
     }
 
@@ -60,6 +58,9 @@ public sealed class InterpreterRunEngine : IRunEngine
             haltHost = value;
             debugController.HaltHost = value is { } host
                 ? error => host(new RunFailure(RunErrorText.For(error), ErrorLocation.Of(error)))
+                : null;
+            debugController.CompileHaltHost = value is { } compileHost
+                ? error => compileHost(new RunFailure(error.Message, ErrorLocation.Of(error)))
                 : null;
         }
     }

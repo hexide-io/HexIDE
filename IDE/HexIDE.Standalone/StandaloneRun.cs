@@ -14,7 +14,13 @@ namespace HexIDE.Standalone;
 /// <summary>The made program's fatal-error boundary, shared by startup and subsequent events (#757).</summary>
 public sealed class StandaloneRun : IDisposable
 {
-    private readonly DebugController controller = new() { CanBreak = false };
+    // A made program follows compiled VB6: its caller's handler catches a class's error
+    // (docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md, c1), regardless of the engine default.
+    private readonly DebugController controller = new()
+    {
+        CanBreak = false,
+        ErrorTrapping = ErrorTrapping.BreakOnUnhandledErrors
+    };
     private readonly ProjectDefinition project;
     private readonly Action exit;
     private readonly Func<Window, Task> show;

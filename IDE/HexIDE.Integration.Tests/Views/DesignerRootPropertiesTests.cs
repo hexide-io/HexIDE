@@ -1,3 +1,12 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
+using Avalonia.Controls;
 using System.Linq;
 using Avalonia.Headless.XUnit;
 using HexIDE.IDE;
@@ -46,10 +55,10 @@ public class DesignerRootPropertiesTests
         $"VERSION 5.00\r\nBegin VB.{kind} {name} \r\n   ClientHeight    =   3600\r\n   ClientLeft      =   0\r\n"
       + $"   ClientTop       =   0\r\n   ClientWidth     =   4800\r\nEnd\r\nAttribute VB_Name = \"{name}\"\r\n";
 
-    private static (FormDefinition File, FormEditViewModel Designer) Open(string kind, string name, ProjectDefinition? project = null)
+    private static (FormDefinition File, FormEditViewModel Designer) Open(string kind, string name, ProjectDefinition? project = null, string? text = null)
     {
         project ??= new ProjectDefinition(VBProjectType.EXE, "P");
-        var file = new FormDeserializer().Deserialize(project, File(kind, name), new NullSink())!;
+        var file = new FormDeserializer().Deserialize(project, text ?? File(kind, name), new NullSink())!;
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         return (file, new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
@@ -78,13 +87,13 @@ public class DesignerRootPropertiesTests
         Listed(designer).Should().BeSubsetOf(Vb6PropertyPage);
     }
 
-    // #1970: the form now lists its measured MousePointer property.
+    // #1970 and #1596: the form lists its measured MousePointer and BorderStyle properties.
     [AvaloniaFact]
     public void A_form_keeps_its_list()
     {
         var (_, designer) = Open("Form", "Form1");
 
-        Listed(designer).Should().Equal("(Name)", "BackColor", "Caption", "Enabled", "Font", "ForeColor", "Height", "Icon",
+        Listed(designer).Should().Equal("(Name)", "BackColor", "BorderStyle", "Caption", "Enabled", "Font", "ForeColor", "Height", "Icon",
             "KeyPreview", "Left", "MaxButton", "MinButton", "MousePointer", "ShowInTaskbar", "StartUpPosition", "Tag", "Top", "Visible", "Width");
     }
 
@@ -118,4 +127,210 @@ public class DesignerRootPropertiesTests
         rename.Should().Throw<Avalonia.Data.DataValidationException>();
         designer.Form.Name.Should().Be("UserControl1");
     }
+
+    // Designer measurements: docs/vb6-fidelity-oracle/
+    // a-picture-in-the-properties-window-and-the-save-and-the-designers-caption-icon.md (#2716).
+    private static byte[] IconBytes(string asset)
+    {
+        using var stream = AssetLoader.Open(new Uri(asset));
+        using var bytes = new MemoryStream();
+        stream.CopyTo(bytes);
+        return bytes.ToArray();
+    }
+
+    private static byte[] Png(Bitmap bitmap)
+    {
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, PngBitmapEncoderOptions.Default);
+        return stream.ToArray();
+    }
+
+    private static void Caption(FormEditViewModel designer, Action<Panel> check)
+    {
+        var view = new FormEditView { DataContext = designer };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var panel = (Panel)view.FindControl<Border>("PART_FormTitleBar")!.Parent!;
+            check(panel);
+        }
+        finally { window.Close(); }
+    }
+
+    private static Image[] CaptionImages(Panel caption) =>
+        caption.GetVisualDescendants().OfType<Image>()
+            .Where(i => i.IsEffectivelyVisible).ToArray();
+
+    private static Avalonia.Controls.Shapes.Path[] CaptionGlyphs(Panel caption) =>
+        caption.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>()
+            .Where(p => p.IsEffectivelyVisible && ReferenceEquals(p.Data, caption.FindResource("Geo.Form")))
+            .ToArray();
+
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void The_caption_draws_the_forms_own_icon(int border)
+    {
+        var (_, designer) = Open("Form", "Form1");
+        using (designer)
+        {
+            designer.Form.Instance.UnknownRawProperties.Add(new ComponentInstance.UnknownRawProperty("BorderStyle", [$"BorderStyle = {border}"]));
+            var bytes = IconBytes("avares://HexIDE/Icons/AppIcon/hexide.ico");
+            designer.Form.Instance.SetProperty(VBProperties.IconProperty, bytes);
+            Caption(designer, caption =>
+            {
+                var images = CaptionImages(caption);
+                images.Should().ContainSingle();
+                images[0].Width.Should().Be(16);
+                images[0].Height.Should().Be(16);
+                using var expected = new Bitmap(new MemoryStream(bytes));
+                Png((Bitmap)images[0].Source!).Should().Equal(Png(expected));
+                CaptionGlyphs(caption).Should().BeEmpty();
+            });
+        }
+    }
+
+    [AvaloniaFact]
+    public void No_Icon_line_draws_the_shared_neutral_form_icon()
+    {
+        var (_, designer) = Open("Form", "Form1");
+        using (designer)
+        Caption(designer, caption =>
+        {
+            var images = CaptionImages(caption);
+            images.Should().ContainSingle();
+            using var expected = new Bitmap(new MemoryStream(IconBytes("avares://HexIDE.Runtime/form.ico")));
+            Png((Bitmap)images[0].Source!).Should().Equal(Png(expected));
+            CaptionGlyphs(caption).Should().BeEmpty();
+        });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(4, -1)]
+    [InlineData(5, -1)]
+    [InlineData(2, 0)]
+    public void Tool_windows_and_ControlBox_False_draw_no_caption_icon(int border, int controlBox)
+    {
+        var (_, designer) = Open("Form", "Form1");
+        using (designer)
+        {
+            designer.Form.Instance.UnknownRawProperties.Add(new ComponentInstance.UnknownRawProperty("BorderStyle", [$"BorderStyle = {border}"]));
+            designer.Form.Instance.UnknownRawProperties.Add(new ComponentInstance.UnknownRawProperty("ControlBox", [$"ControlBox = {controlBox}"]));
+            designer.Form.Instance.SetProperty(VBProperties.IconProperty, IconBytes("avares://HexIDE/Icons/AppIcon/hexide.ico"));
+            Caption(designer, caption =>
+            {
+                CaptionImages(caption).Should().BeEmpty();
+                CaptionGlyphs(caption).Should().BeEmpty();
+            });
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void None_keeps_the_form_glyph_as_the_generic_window_standin(int border)
+    {
+        var (_, designer) = Open("Form", "Form1");
+        using (designer)
+        {
+            designer.Form.Instance.UnknownRawProperties.Add(new ComponentInstance.UnknownRawProperty("BorderStyle", [$"BorderStyle = {border}"]));
+            designer.Form.Instance.SetProperty(VBProperties.IconProperty, new byte[] { 0x6c, 0x74, 0, 0, 0, 0, 0, 0 });
+            Caption(designer, caption =>
+            {
+                CaptionImages(caption).Should().BeEmpty();
+                CaptionGlyphs(caption).Should().ContainSingle();
+            });
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_loaded_tool_window_draws_no_caption_icon()
+    {
+        var text = File("Form", "Form1").Replace("End\r\n", "   BorderStyle = 4 'Fixed ToolWindow\r\nEnd\r\n");
+        var (_, designer) = Open("Form", "Form1", text: text);
+        using (designer)
+        {
+            designer.Form.Instance.UnknownRawProperties.Should().NotContain(p => p.Name == "BorderStyle");
+            Caption(designer, caption =>
+            {
+                CaptionImages(caption).Should().BeEmpty();
+                CaptionGlyphs(caption).Should().BeEmpty();
+            });
+        }
+    }
+
+    [AvaloniaFact]
+    public void BorderStyle_row_updates_the_caption_through_undo_and_redo()
+    {
+        var bus = new EventBus();
+        var loc = Substitute.For<ILocalizationService>();
+        var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
+        using var designer = new FormEditViewModel(null!, bus, null!, null!, null!, Substitute.For<ISettingsService>(), loc).Initialize(form);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(designer);
+        var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc);
+        designer.SelectedComponent = designer.Form;
+        var row = grid.Properties.OfType<PropertyViewModel>().Single(p => p.PropertyClass == VBProperties.FormBorderStyleProperty);
+        Caption(designer, caption =>
+        {
+            CaptionImages(caption).Should().ContainSingle();
+            var original = Png((Bitmap)CaptionImages(caption).Single().Source!);
+            row.Value = Enum.ToObject(row.PropertyClass.PropertyType, 4);
+            CaptionImages(caption).Should().BeEmpty();
+            CaptionGlyphs(caption).Should().BeEmpty();
+            designer.UndoStack.Undo();
+            Png((Bitmap)CaptionImages(caption).Single().Source!).Should().Equal(original);
+            designer.UndoStack.Redo();
+            CaptionImages(caption).Should().BeEmpty();
+            CaptionGlyphs(caption).Should().BeEmpty();
+        });
+    }
+
+    [AvaloniaFact]
+    public async Task Loading_the_Icon_row_updates_the_caption_and_undo_restores_it()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + ".ico");
+        System.IO.File.WriteAllBytes(path, IconBytes("avares://HexIDE/Icons/AppIcon/hexide.ico"));
+        try
+        {
+            var bus = new EventBus();
+            var loc = Substitute.For<ILocalizationService>();
+            var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
+            using var designer = new FormEditViewModel(null!, bus, null!, null!, null!, Substitute.For<ISettingsService>(), loc).Initialize(form);
+            var dock = Substitute.For<IDocumentDockService>();
+            dock.ActiveDocument.Returns(designer);
+            var windows = Substitute.For<IWindowManager>();
+            windows.OpenFilePickerAsync(Arg.Any<FilePickerOpenOptions>()).Returns(new[] { path });
+            var grid = new PropertiesToolViewModel(dock, bus, windows, loc);
+            designer.SelectedComponent = designer.Form;
+            var row = grid.Properties.OfType<PropertyViewModel>().Single(p => p.PropertyClass == VBProperties.IconProperty);
+            var view = new FormEditView { DataContext = designer };
+            var window = new Window { Content = view, Width = 800, Height = 600 };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var caption = (Panel)view.FindControl<Border>("PART_FormTitleBar")!.Parent!;
+                var before = CaptionImages(caption);
+                before.Should().ContainSingle();
+                var original = Png((Bitmap)before[0].Source!);
+                await row.LoadPictureCommand.ExecuteAsync(null);
+                window.UpdateLayout();
+                using var expected = new Bitmap(path);
+                Png((Bitmap)CaptionImages(caption).Single().Source!).Should().Equal(Png(expected)).And.NotEqual(original);
+                designer.UndoStack.Undo();
+                window.UpdateLayout();
+                Png((Bitmap)CaptionImages(caption).Single().Source!).Should().Equal(original);
+                designer.UndoStack.Redo();
+                window.UpdateLayout();
+                Png((Bitmap)CaptionImages(caption).Single().Source!).Should().Equal(Png(expected));
+            }
+            finally { window.Close(); }
+        }
+        finally { System.IO.File.Delete(path); }
+    }
+
 }

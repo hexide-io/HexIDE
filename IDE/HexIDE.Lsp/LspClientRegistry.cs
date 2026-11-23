@@ -64,7 +64,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// <summary>What is known about a document that is open.</summary>
     /// <param name="IsProjectMember">
     /// Whether it belongs to a VB6 project. Stated by the caller rather than worked out here: see
-    /// <see cref="OpenDocumentAsync(string, string, bool, CancellationToken, string)"/>.
+    /// <see cref="OpenDocumentAsync(string, string, bool, CancellationToken, string, string)"/>.
     /// </param>
     /// <param name="Text">
     /// The latest text this registry has been given for it. Kept because a workspace move replaces every
@@ -74,7 +74,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// document with the text from before that change and silently undo it.
     /// </param>
     /// <param name="HasVb6ClassHeader">The content claim at open, retained through edits.</param>
-    private sealed record OpenDocument(bool IsProjectMember, string Text, bool HasVb6ClassHeader, string? OwnerAddinId);
+    private sealed record OpenDocument(bool IsProjectMember, string Text, bool HasVb6ClassHeader, string? OwnerAddinId, string? LanguageId);
 
     /// <summary>
     /// Serialises workspace-move handling. Without it two opens can both pass the
@@ -326,7 +326,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async Task OpenDocumentAsync(
         string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
-        string? ownerAddinId = null)
+        string? ownerAddinId = null, string? languageId = null)
     {
         _diagnosticLifecycle.Open(uri);
         // Recorded before routing, so change, close and save answer the same question this open did. The
@@ -339,7 +339,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // the old servers has a record to land in. No connection can hold it then, and the open at the end
         // sends what this records (#719).
         _open[uri] = new OpenDocument(isProjectMember, text,
-            !isProjectMember && DocumentLanguage.ExtensionOf(uri) == ".cls" && HasVb6ClassHeader(text), ownerAddinId);
+            !isProjectMember && DocumentLanguage.ExtensionOf(uri) == ".cls" && HasVb6ClassHeader(text), ownerAddinId, languageId);
 
         // Also before the first await: from here until each claimant has been opened on the document, a request
         // about it waits rather than reaching a server that has not been told it is open (#2909). A code window
@@ -572,6 +572,14 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken ct = default) =>
         GatherCompletionAsync(uri, position, null, ct);
 
+    private readonly ConditionalWeakTable<CompletionItem, ILspClient> _completionOwners = new();
+
+    public Task<CompletionItem?> ResolveCompletionItemAsync(CompletionItem item, CancellationToken ct = default) =>
+        !ct.IsCancellationRequested && _completionOwners.TryGetValue(item, out var client)
+        && client.IsRunning && _entries.Any(e => ReferenceEquals(e.Client, client))
+            ? client.ResolveCompletionItemAsync(item, ct)
+            : Task.FromResult<CompletionItem?>(null);
+
     private async Task<CompletionItem[]> GatherCompletionAsync(
         string uri, Position position, string? triggerCharacter, CancellationToken ct)
     {
@@ -609,7 +617,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                     _logger.LogDebug("Completion from {Id} answered after the popup opened; discarded.", OwnerOf(client));
                     client.NoteLateCompletion();
                 });
-                if (timely) return items;
+                if (timely)
+                {
+                    if (ServerCapabilities.ResolvesCompletionItems(client.AdvertisedCapabilities))
+                        foreach (var item in items) _completionOwners.GetValue(item, _ => client);
+                    return items;
+                }
             }
             catch (Exception ex)
             {
@@ -1133,8 +1146,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     }
 
     /// <summary>
-    /// Every server that claims this document. Keyed on the EXTENSION, not on a language name, so two
-    /// servers claiming one extension are both offered it even when they disagree about what to call it.
+    /// Every server that claims this document's extension. An explicit language label narrows that claim;
+    /// otherwise servers may disagree about what to call the same extension.
     ///
     /// <para>
     /// There used to be a branch above this one for HexIDE's own <c>vb6://</c> scheme, which carried no
@@ -1151,6 +1164,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         var matching = _entries
             .Where(e => e.Registration.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
             .ToList();
+        if (uri is not null && _open.TryGetValue(uri, out var labelled) && labelled.LanguageId is { } language)
+            return matching.Where(e => string.Equals(e.Registration.LanguageId, language, StringComparison.OrdinalIgnoreCase)).ToList();
+
         if (isProjectMember && uri is not null && _open.TryGetValue(uri, out var opened)
             && opened.OwnerAddinId is { } owner)
         {

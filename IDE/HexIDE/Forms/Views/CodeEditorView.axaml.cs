@@ -26,7 +26,6 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Editor;
 using HexIDE.Language;
-using HexIDE.Runtime.Serialization;
 using HexIDE.Themes;
 using HexIDE.Tools.ObjectBrowser;
 using HexIDE.Utils;
@@ -142,7 +141,7 @@ public partial class CodeEditorView : UserControl
     private CodeEditorView(CodeEditorView? splitOwner)
     {
         _splitOwner = splitOwner;
-        ExpandSelection = new DelegateCommand(() => _ = ExpandSelectionAsync(), CanChangeSelection);
+        ExpandSelection = new DelegateCommand(() => { _ = ExpandSelectionAsync(); }, CanChangeSelection);
         ShrinkSelection = new DelegateCommand(ShrinkSelectionCore, CanChangeSelection);
 
         // Through the view model, because a designer change reaches this window as a header write and a
@@ -205,7 +204,7 @@ public partial class CodeEditorView : UserControl
             else
                 _ = PasteAtTheEndOfADescribedLineAsync();
         }, () => true);
-        PasteAsComment = new DelegateCommand(() => _ = PasteAsCommentAsync(), () => true);
+        PasteAsComment = new DelegateCommand(() => { _ = PasteAsCommentAsync(); }, () => true);
         SelectAll = new DelegateCommand(() => TextEditor.SelectAll(), () => true);
         Find = new DelegateCommand(() =>
         {
@@ -1825,8 +1824,11 @@ public partial class CodeEditorView : UserControl
 
     // ── IntelliSense completion ──────────────────────────────────────────────
 
+    private bool _lastPositionTextChanged;
+
     private void OnTextEntering(object? sender, TextInputEventArgs e)
     {
+        _lastPositionTextChanged = false;
         if (e.Text is { Length: > 0 }) ArmTypedEdit();
         if (e.Text is { Length: > 0 })
             DismissHover();
@@ -1939,7 +1941,10 @@ public partial class CodeEditorView : UserControl
     {
         if (!IsActivePane || DataContext is not CodeEditorViewModel vm) return;
         if (_typedEditArmed)
+        {
+            _lastPositionTextChanged = true;
             vm.AcceptTypedEdit(e.Offset + e.InsertionLength);
+        }
     }
 
     private void CheckTypedLine(CodeEditorViewModel vm) =>
@@ -2077,6 +2082,7 @@ public partial class CodeEditorView : UserControl
     {
         _typedEditArmed = false;
         if (e.Text is not { Length: > 0 }) return;
+        if (_lastPositionTextChanged && DataContext is CodeEditorViewModel edited) edited.LastPositionTextEntered(e.Text);
         if (DataContext is CodeEditorViewModel owner && owner.SupportsOnTypeFormatting(e.Text))
             PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, e.Text);
         _languageFeatures?.OnTextEntered(sender, e);
@@ -3051,7 +3057,9 @@ public partial class CodeEditorView : UserControl
                     if (targetLine >= 1 && targetLine <= TextEditor.Document.LineCount)
                     {
                         var lineObj = TextEditor.Document.GetLineByNumber(targetLine);
-                        TextEditor.Select(Math.Min(lineObj.Offset + targetCol, lineObj.EndOffset), 0);
+                        var offset = Math.Min(lineObj.Offset + targetCol, lineObj.EndOffset);
+                        if (what == "definition" && offset != TextEditor.CaretOffset) vm.RecordLastPosition();
+                        TextEditor.Select(offset, 0);
                         TextEditor.ScrollToLine(targetLine);
                         TextEditor.Focus();
                     }
@@ -3059,7 +3067,8 @@ public partial class CodeEditorView : UserControl
                 else
                 {
                     // Cross-file: ask the VM to navigate (uses IEditorService)
-                    vm.NavigateToUri(loc.Uri, targetLine, targetCol + 1);
+                    if (what == "definition") vm.NavigateToDefinitionUri(loc.Uri, targetLine, targetCol + 1);
+                    else vm.NavigateToUri(loc.Uri, targetLine, targetCol + 1);
                 }
             });
         }

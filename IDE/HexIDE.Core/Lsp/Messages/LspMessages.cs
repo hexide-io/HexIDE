@@ -345,7 +345,14 @@ public record CompletionItemClientCapabilities(
     [property: JsonPropertyName("insertReplaceSupport")] bool InsertReplaceSupport = true,
     [property: JsonPropertyName("snippetSupport")] bool SnippetSupport = true,
     [property: JsonPropertyName("insertTextModeSupport")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InsertTextModeClientCapabilities? InsertTextModeSupport = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InsertTextModeClientCapabilities? InsertTextModeSupport = null)
+{
+    [JsonPropertyName("resolveSupport")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CompletionItemResolveSupport? ResolveSupport { get; init; }
+}
+
+public record CompletionItemResolveSupport([property: JsonPropertyName("properties")] string[] Properties);
 
 public record InsertTextModeClientCapabilities([property: JsonPropertyName("valueSet")] int[] ValueSet);
 public record CompletionListClientCapabilities([property: JsonPropertyName("itemDefaults")] string[] ItemDefaults);
@@ -710,6 +717,13 @@ public record ServerCapabilities(
             c.ValueKind == System.Text.Json.JsonValueKind.String
             && string.Equals(c.GetString(), command, StringComparison.Ordinal));
 
+    public static bool ResolvesCompletionItems(JsonElement? capabilities) =>
+        capabilities is { ValueKind: JsonValueKind.Object } caps
+        && caps.TryGetProperty("completionProvider", out var provider)
+        && provider.ValueKind == JsonValueKind.Object
+        && provider.TryGetProperty("resolveProvider", out var resolve)
+        && resolve.ValueKind == JsonValueKind.True;
+
     /// <summary>
     /// True when the server asks to be called back for <c>codeLens/resolve</c>.
     /// </summary>
@@ -930,7 +944,13 @@ public record CompletionItem(
     [property: JsonPropertyName("documentation"), JsonConverter(typeof(CompletionDocumentationConverter))]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MarkupContent? Documentation = null,
     [property: JsonPropertyName("insertTextMode")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextMode = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextMode = null)
+{
+    [JsonPropertyName("data")]
+    [JsonConverter(typeof(DiagnosticDataConverter))]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Data { get; init; }
+}
 
 public record CompletionTextEdit(
     [property: JsonPropertyName("newText")] string NewText,
@@ -1360,9 +1380,17 @@ public record SemanticTokensClientCapabilities(
     [property: JsonPropertyName("overlappingTokenSupport")] bool OverlappingTokenSupport = false,
     [property: JsonPropertyName("multilineTokenSupport")] bool MultilineTokenSupport = false);
 
-public record SemanticTokensRequests([property: JsonPropertyName("full")] bool Full = true);
+public record SemanticTokensRequests([property: JsonPropertyName("full")] System.Text.Json.JsonElement Full);
 public record SemanticTokensParams([property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
-public record SemanticTokens([property: JsonPropertyName("data")] int[] Data);
+public record SemanticTokensDeltaParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("previousResultId")] string PreviousResultId);
+public record SemanticTokens([property: JsonPropertyName("data")] int[] Data)
+{
+    [JsonPropertyName("resultId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ResultId { get; init; }
+}
 public record SemanticTokenResult(int[] Data, string[] TokenTypes);
 
 public record FileRename(

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Debugging;
 
 namespace HexIDE.IDE;
 
@@ -62,6 +63,7 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool CanEndProject { get; }
     bool CanRestartProject { get; }
     bool IsRunning { get; }
+    ErrorTrapping ErrorTrapping { get; set; }
 
     /// <summary>
     /// The startup project, when nothing is running and no run engine runs it, with the launches add-ins offer for it; null

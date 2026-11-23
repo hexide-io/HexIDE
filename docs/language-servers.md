@@ -67,6 +67,24 @@ and the remaining fields in the order below. New properties added to existing en
 own lines and documentation order. New entries use inline arrays when neighboring entries do.
 Cancel writes nothing. Test connection and automatic refresh of hand-edits are not available yet.
 
+## Testing an entry
+
+Press **Test** beside a bundled or user definition to check its current resolved entry without opening
+a document. A command the IDE has not seen, or whose arguments or environment have changed, is shown
+in full for confirmation first. **Run** agrees; Cancel, Escape and closing the dialog run nothing.
+Disabled entries can be tested too; the result explains that normal starts remain disabled.
+
+While the trial runs, its button reads **Testing…** and is disabled. The result stays beneath the row:
+reported identity, advertised and declined capabilities, or the startup steps and where they stopped.
+A connected server that never answers initialize is called out explicitly, as is a server needing an
+open project. The stop outcome is included. When the test started or reached a server, **Show its
+messages** opens the trial's separate `test:<id>` protocol capture.
+
+Nothing the server asks to do in the editor is allowed during a test: it cannot open documents,
+apply edits or ask editor questions, and it is never registered for documents. A declared workspace
+file is not written; a failure may therefore mean the server needs that file from a real start,
+which generates it with consent.
+
 ## A worked example
 
 ```jsonc
@@ -108,8 +126,8 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | Field | Required | Meaning |
 |---|---|---|
 | `id` | yes | Identifies the entry. Reusing a default's id with a complete entry replaces that default wholesale, keeping its position and inheriting nothing. Only an entry that omits required fields adjusts the default: unwritten fields inherit; explicit `null` clears a field. Objects and arrays replace the whole field, rather than merging their contents (#1209). |
-| `extensions` | yes | The file extensions this server **serves**. This is what routing reads, and the only thing it reads. |
-| `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
+| `extensions` | yes | The file extensions this server **serves**. A document must match one of these; a language label can further narrow routing. |
+| `languageId` | yes | What this server wants those files **called**, in the protocol sense. It also narrows routing for explicitly labelled archive sources, and `vb6` lets a `.cls` claim take the project's class modules; see below. |
 | `transport` | yes | `stdio`, `pipe`, `websocket` or `tcp`. A pipe entry without `command` owns only its connection; closing it leaves the server running. |
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` or `tcp` — see *Starting the server yourself* below. |
 | `arguments` | no | Command-line string or array of strings. Part of the command's identity — see *A command you have not run before*. |
@@ -168,7 +186,10 @@ Added arguments are part of what the server runs, so the first start after addin
 
 These two are easy to confuse and they do different jobs.
 
-**`extensions` decides which documents reach the server, and nothing else does.** **`languageId` decides
+A twinBASIC server must claim each source extension and declare `languageId` `twinbasic` to receive a
+`.twinproj` or `.twinpack` source entry (`.twin` or a VB6 source extension); other entries route by extension.
+
+**`extensions` claims the documents a server can receive.** **`languageId` decides
 what the server is told they are.** Two servers may claim the same extension and disagree about what to call
 it — one saying `python`, another `python3` — and both are right; each has its own connection and hears its
 own answer. An entry with the right identifier and none of the right extensions is sent nothing.
@@ -181,11 +202,11 @@ an entry claiming only `.bas` receives standard modules and nothing else. The bu
 `.cls`, `.frm`, `.ctl`, `.pag`, `.dob` and `.dsr`, and declares `vb6`. How documents are named, and what
 happens when a name changes, is in [`lsp-client.md`](./lsp-client.md).
 
-**One exception, and it only ever narrows: a project's class modules.** A `.cls` is a VB6 class module and
+**A project's class modules also require a VB6 claim.** A `.cls` is a VB6 class module and
 equally a LaTeX class file, so claiming `.cls` is not enough to receive the project's classes; reading it as
 a claim on VB6 would hand a LaTeX server your source. The entry must also establish that it serves VB6, by
 claiming one of `.bas`, `.frm`, `.ctl`, `.pag`, `.dob` or `.dsr`, or by declaring `languageId: vb6`. That is
-the only thing routing ever reads `languageId` for, and it never makes a claim on its own: an entry declaring
+a routing constraint, and it never makes a claim on its own: an entry declaring
 `vb6` that claims no VB6 extension is still sent nothing. A `.cls` the project merely carries is judged by
 its content instead: an entry that serves VB6 receives it only when its first non-blank line is
 `VERSION 1.0 CLASS`, so a LaTeX class file the project carries no longer reaches the bundled VB6 server
@@ -251,14 +272,17 @@ Nothing here can stop the IDE starting.
 
 Use `"transport": "tcp"` with `"endpoint": "tcp://localhost:6005"` to connect to a running
 server. Set `"tcpRole": "listen"` to wait for a server to dial HexIDE instead. Use `localhost`
-for the default loopback listener (IPv4), or name an explicit IPv4 or IPv6 bind address. A listener
-requires `localhost` or an IP literal; connect also accepts DNS names. Port 0 on a listener asks the
-OS for a free port. Connect requires a nonzero port. Credentials, paths, queries and fragments are
-not accepted in a TCP endpoint.
+for the default loopback listener (IPv4), or `127.0.0.1` or `[::1]`. Connect also accepts DNS names.
+Port 0 on a listener asks the OS for a free port. Connect requires a nonzero port. Credentials, paths,
+queries and fragments are not accepted in a TCP endpoint.
 
-**Naming a non-loopback address exposes the language-server connection to that network.**
-For example, `tcp://0.0.0.0:6005` accepts connections on every IPv4 interface. TCP has no TLS
-or authentication here; only use such a bind deliberately on a trusted network. Even on loopback, any process on this machine can dial a listener first. HexIDE talks to whichever connects first, and accepts only that one.
+**HexIDE listens on this machine only.** Whatever dials a listener first is taken as the language
+server, and a language server can edit your documents, so any other bind address, such as
+`tcp://0.0.0.0:6005`, is refused when the file is read, as it is for a WebSocket listener. A server on
+another machine is reached with `connect` instead. Even on loopback, any process on this machine can
+dial a listener first. HexIDE talks to whichever connects first, and accepts only that one. Before
+#5465 a non-loopback bind was accepted with a warning; an entry that used one now shows a
+configuration problem and is ignored until its endpoint is changed.
 
 An optional `command` launches the server, as for pipes, with `arguments`, `workingDirectory`
 and `environment`. `{host}` and `{port}` in arguments receive the endpoint host and actual bound
@@ -404,6 +428,22 @@ a fact about a program the IDE did not start.
 Nothing is refused — refusing to run what you typed into your own file would be theatre. The launch is
 simply not silent.
 
+### An address you have not connected to before
+
+An entry that only connects starts nothing, but it still reaches something: HexIDE sends the server your
+project's folder in `initialize`, which is a path under your user profile, and then the text of each open
+document it claims. A `tcp` or `websocket` entry with role `connect` can name another machine. So the
+address it dials is part of its identity too, and the first time an entry dials an address, or after the
+address changes, it is announced the same way, as *will connect to an address HexIDE has not connected to
+before*. An entry that launches a command and then connects is announced once if either changes.
+
+A pipe isn't counted: HexIDE only dials a pipe on this machine. Until #5465, an entry that only connected
+was never announced, so after upgrading, each such entry is announced once, and so is a `tcp` entry that
+has both a command and a `connect` endpoint.
+
+Testing an entry from the Language Servers window asks before it starts or dials anything new, and records
+it when you agree.
+
 ## Tools for AI Chat
 
 A server can offer AI Chat tools and a context fragment (#4257). The assistant sees them beside AI Chat's own
@@ -457,8 +497,8 @@ In order of likelihood:
 4. **Does it defer its analysis to save?** HexIDE tells a server about a save only if the server asked to
    be told, which it does through its own capabilities. Nothing to configure — but it explains a server
    that seems to answer nothing until you save.
-5. **Check `extensions`, not `languageId`.** Routing reads the first. An entry with the right identifier
-   and the wrong extensions serves nothing.
+5. **Check `extensions`.** Routing requires an extension claim; a twinBASIC archive source also requires
+   `languageId` `twinbasic`. An entry with the right identifier and the wrong extensions serves nothing.
 6. **A VB6 server claims `.cls` and is sent none of the project's class modules?** A `.cls` claim alone
    does not take them. Claim another VB6 extension it serves, or declare `vb6`; see *Extensions serve; the
    identifier names*.

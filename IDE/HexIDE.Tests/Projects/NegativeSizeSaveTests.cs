@@ -164,7 +164,7 @@ public class NegativeSizeSaveTests : IDisposable
     [Theory]
     [InlineData("ClientHeight", "abc\r\nClientHeight = 2000", false)]
     [InlineData("ClientHeight", "abc\r\nClientHeight = xyz", false)]
-    [InlineData("BackColor", "&H8000000F&\r\nBackColor = &H02C0C0C0&", true)]
+    [InlineData("BackColor", "&H8000000F&\r\nBackColor = &H80000019&", true)]
     [InlineData("TabIndex", "1\r\nTabIndex = &H3", true)]
     [InlineData("Height", "375\r\nHeight = --5", true)]
     [InlineData("BackColor", "&H8000000F&\r\nBackColor = True", true)]

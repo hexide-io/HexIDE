@@ -1,0 +1,7 @@
+<!-- An add-in's own control theme, and a key nothing else holds: both are its to add (#5396). -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:HexIDE.Integration.Tests.Addins">
+    <ControlTheme x:Key="{x:Type local:RegisteredThemeControl}" TargetType="local:RegisteredThemeControl" />
+    <SolidColorBrush x:Key="RegisterResourcesTests.OwnBrush" Color="#123456" />
+</ResourceDictionary>

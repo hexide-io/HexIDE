@@ -31,6 +31,8 @@ public class ArrayElementRenameTests
            Begin VB.CommandButton cmdGo
               Caption         =   "Go"
            End
+           Begin VB.OptionButton optPlain
+           End
            Begin VB.OptionButton optLone
               Caption         =   "Lone"
               Index           =   1
@@ -108,10 +110,46 @@ public class ArrayElementRenameTests
     }
 
     [Fact]
-    public void A_control_with_no_Index_does_not_join_an_array()
+    public void A_control_with_no_Index_can_join_an_array()
     {
-        // VB6 offers to make an array when a control takes another's name. That is not measured, so it stays refused.
+        // #1397: joining an existing array asks no question.
+        Refusal(Element("optPlain"), "optSize").Should().BeNull();
+    }
+
+    [Fact]
+    public void An_unindexed_control_of_another_type_stays_refused()
+    {
+        // Cross-type creation/joining was not measured in #1397; retain today's refusal.
         Refusal(Element("cmdGo"), "optSize").Should().Be("Name must be unique in form");
+        Refusal(Element("optPlain"), "cmdGo").Should().Be("Name must be unique in form");
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("32767")]
+    [InlineData("32768")]
+    [InlineData("2147483647")]
+    [InlineData("x")]
+    public void An_unindexed_control_cannot_join_an_invalid_or_full_array(string index)
+    {
+        // Preserve HexIDE's existing refusal for malformed persisted indexes and an unavailable next Index.
+        Element("optSize", 0).SetUntypedProperty(VBProperties.DesignIndexProperty, index);
+        Refusal(Element("optPlain"), "optSize").Should().Be("Name must be unique in form");
+    }
+
+    [Fact]
+    public void A_malformed_target_Index_does_not_become_an_automatic_join()
+    {
+        var plain = Element("optPlain");
+        plain.SetUntypedProperty(VBProperties.DesignIndexProperty, "x");
+        Refusal(plain, "optSize").Should().Be("Name must be unique in form");
+    }
+
+    [Fact]
+    public void Multiple_persisted_Index_properties_do_not_form_a_joinable_array()
+    {
+        Element("optSize", 0).UnknownRawProperties.Add(new("Index", ["Index = 3"]));
+        Refusal(Element("optPlain"), "optSize").Should().Be("Name must be unique in form");
     }
 
     [Fact]

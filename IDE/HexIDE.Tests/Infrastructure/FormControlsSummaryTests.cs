@@ -11,6 +11,98 @@ namespace HexIDE.Tests.Infrastructure;
 public class FormControlsSummaryTests
 {
     [AvaloniaTheory]
+    [InlineData("add")]
+    [InlineData("lookup")]
+    [InlineData("delete")]
+    [InlineData("submenu")]
+    [InlineData("reorder")]
+    [InlineData("undrawn")]
+    public async Task Summary_reads_the_live_menu_editor_state(string check)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        var root = new ComponentInstance(FormComponentClass.Instance, "Form1");
+        var file = new ComponentInstance(MenuComponentClass.Instance, "mnuFile");
+        var form = new FormDefinition(project, [root, file], "");
+        project.AddForm(form);
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var dock = Substitute.For<IDocumentDockService>();
+        var windows = Substitute.For<IWindowManager>();
+        using var designer = new HexIDE.VisualDesigner.FormEditViewModel(
+            null!, Substitute.For<IEventBus>(), null!, null!, windows, Substitute.For<ISettingsService>(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+        dock.OpenDocuments.Returns([designer]);
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var editor = (HexIDE.VisualDesigner.MenuEditorViewModel)call[0];
+            if (check == "delete")
+            {
+                editor.SelectedMenu = editor.FlatMenu[0];
+                editor.Delete();
+            }
+            else
+            {
+                var help = editor.SelectedMenu!;
+                help.Caption = "Help";
+                help.Name = "mnuHelp";
+                if (check == "submenu")
+                {
+                    editor.SelectedMenu = editor.FlatMenu[0];
+                    editor.Insert();
+                    editor.SelectedMenu!.Caption = "Open";
+                    editor.SelectedMenu.Name = "mnuOpen";
+                    editor.MoveRight();
+                }
+                if (check == "reorder")
+                {
+                    editor.SelectedMenu = help;
+                    editor.MoveUp();
+                }
+            }
+            return Task.FromResult(true);
+        });
+        await designer.EditMenu();
+        if (check == "undrawn")
+        {
+            var drawn = new ComponentInstance(CommandButtonComponentClass.Instance, "Command1");
+            var undrawn = new ComponentInstance(CommandButtonComponentClass.Instance, "Command2");
+            designer.AllComponents.Add(new HexIDE.VisualDesigner.ComponentInstanceViewModel(designer, drawn));
+            designer.AllComponents.Add(new HexIDE.VisualDesigner.ComponentInstanceViewModel(designer, undrawn));
+            designer.Components.Add(designer.AllComponents.Single(c => c.Instance == drawn));
+        }
+        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+        var result = await new HexIdeTools(context).GetFormControlsAsync("Form1",
+            controlName: check == "lookup" ? "mnuHelp" : null);
+        result.Error.Should().BeNull();
+        if (check == "lookup")
+        {
+            result.Controls.Should().ContainSingle().Which.Name.Should().Be("mnuHelp");
+            result.Properties.Should().Contain(p => p.Name == "Caption" && p.Value == "Help");
+        }
+        else if (check == "undrawn")
+        {
+            var buttons = result.Controls.Where(c => c.Name.StartsWith("Command")).ToArray();
+            buttons.Select(c => c.Name).Should().Equal("Command1", "Command2");
+            buttons.Select(c => c.ZOrder).Should().Equal(0, 1);
+            buttons[1].Note.Should().Contain("designer does not draw");
+        }
+        else
+        {
+            var expected = check switch
+            {
+                "delete" => Array.Empty<string>(),
+                "submenu" => ["mnuFile", "mnuOpen", "mnuHelp"],
+                "reorder" => ["mnuHelp", "mnuFile"],
+                _ => ["mnuFile", "mnuHelp"]
+            };
+            result.Controls.Where(c => c.Type == "VB.Menu").Select(c => c.Name).Should().Equal(expected);
+        }
+        foreach (var menu in result.Controls.Where(c => c.Type == "VB.Menu"))
+            JsonSerializer.SerializeToElement(menu, ReplyJson.Options).TryGetProperty("zOrder", out _).Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
     [InlineData(false, "carried")]
     [InlineData(false, "array")]
     [InlineData(false, "indexedarray")]

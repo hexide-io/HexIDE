@@ -64,6 +64,9 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
         CancellationToken ct = default) =>
         DocumentUri is { } uri && lspClient.SupportsCapability(uri, "completionProvider")
             ? lspClient.RequestCompletionForTriggerAsync(uri, position, triggerCharacter, ct) : Task.FromResult<CompletionItem[]>([]);
+    Task<CompletionItem?> HexIDE.Forms.Views.IEditorDocumentQueries.ResolveCompletionItemAsync(
+        CompletionItem item, CancellationToken ct) => lspClient.ResolveCompletionItemAsync(item, ct);
+
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default,
         string? triggerCharacter = null) =>
         DocumentUri is { } uri && lspClient.SupportsCapability(uri, "signatureHelpProvider")

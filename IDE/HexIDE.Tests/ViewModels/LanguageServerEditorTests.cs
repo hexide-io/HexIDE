@@ -329,9 +329,10 @@ public sealed class LanguageServerEditorTests : IDisposable
     }
 
     [Theory]
-    [InlineData("pipe", "pipeName", "hexide.remote")]
-    [InlineData("websocket", "endpoint", "ws://localhost:12345/")]
-    public void FormSupportsEveryTransport(string transport, string field, string endpoint)
+    [InlineData("pipe", "pipeName", "hexide.remote", "hexide.remote")]
+    // The preview is what Save records as seen: for an entry that dials, the address it connects to (#5465).
+    [InlineData("websocket", "endpoint", "ws://localhost:12345/", "connect ws://localhost:12345/")]
+    public void FormSupportsEveryTransport(string transport, string field, string endpoint, string preview)
     {
         var form = Form();
         Set(form, "id", "probe");
@@ -340,7 +341,7 @@ public sealed class LanguageServerEditorTests : IDisposable
         Set(form, "transport", transport);
         Set(form, field, endpoint);
         form.CanSave.Should().BeTrue();
-        form.Preview.Should().Be(endpoint);
+        form.Preview.Should().Be(preview);
         form.SaveCommand.Execute(null);
         Store().Preview(Store().Read()).Entries.Single(e => e.Id == "probe").Transport.Should().Be(transport);
     }

@@ -268,7 +268,8 @@ In every case the box was still open when the driver closed it, and `MsgBox` ret
 **What it shows:**
 - **A message box disables every form of the program while it waits,** not only its own.
 - **Neither form takes a click, so no MouseDown or Click runs.** Hiding and showing the box's own form again doesn't re-enable it.
-- **Timers keep firing on every form,** as earlier probes assumed.
+- **Timers keep firing on every form,** as earlier probes of compiled programs found. **That's a compiled program's answer, not the IDE's.**
+  Under F5 in the VB6 IDE, a Timer on the box's form didn't tick while the box was up ([Several forms, item 6](several-forms-load-show-hide-modal-and-when-the-run-ends.md#several-forms-load-show-hide-modal-and-when-the-run-ends-2026-10-14-822), re-run on the console for #4768). This probe ran only `/make` builds, so it didn't ask. A brief once applied this row to both hosts (#834's first round).
 - **In the last row, showing Form1 again made it the foreground window,** disabled, with the box still open behind it.
 
 **Not measured:**
