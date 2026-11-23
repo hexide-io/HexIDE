@@ -15,9 +15,14 @@ dotnet run --project IDE/HexIDE.AddinPacker.Interactive/ -- pack
   once, every missing option is listed, and the message says why it didn't ask.
 - **A complete command runs straight away,** without asking anything.
 - **It refuses a folder for private keys inside a git clone,** the development chain's included. Run
-  `HexIDE.AddinPacker genkeys` directly to put the development chain where a clone expects it.
-- **It refuses an option it doesn't know, and a single-valued option given twice.** This packer ignores the first and
-  takes the first value of the second.
+  `HexIDE.AddinPacker genkeys` directly to put the development chain where a clone expects it. A home folder that is
+  itself a git work tree, as some dotfiles setups are, counts as a clone. Choose a folder on another drive, such as
+  removable media, or one outside the work tree.
+- **It refuses some command lines this packer accepts:**
+  - an option it doesn't know, which `pack`, `genkeys-release` and `sign-revocations` ignore;
+  - a single-valued option given twice, where those three take the first value. `sign-publisher` and
+    `verify-revocations` refuse both, as hexide-pack does;
+  - a blank value, which `pack` takes for `--description` and `--author`.
 
 Spectre.Console, which draws the prompts, is a package of `hexide-pack` only. This project takes no packages, because
 the release's signing job runs it next to the first-party key.
