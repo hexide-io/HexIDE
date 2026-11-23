@@ -76,6 +76,7 @@ or explicitly excluded with a reason next to the loader's allowlist.
 
 - `loadUnsignedAddins`: security; profiles must not weaken add-in signature checks.
 - `revocationListUrl`: security; profiles must not redirect or disable revocation updates.
+- `errorTrapping`: the user's debugger halt policy, not a profile's runtime default (#1070).
 - `reloadFilesChangedOutsideIde`: replacing open documents with disk changes stays the user's choice (#2504).
 - `editorColorOverrides`: per-theme user edits; profiles supply colours through their theme payload.
 - `serverChatTools`: the user's consent for each server's AI Chat tools, never a profile's decision.

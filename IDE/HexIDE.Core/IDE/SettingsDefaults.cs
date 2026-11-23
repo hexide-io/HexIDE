@@ -1,3 +1,5 @@
+using HexIDE.Runtime.Debugging;
+
 namespace HexIDE.IDE;
 
 /// <summary>
@@ -54,6 +56,7 @@ public static class SettingsDefaults
 
     /// <summary>Watch loaded component files and reload them when changed outside the IDE. On by default.</summary>
     public const bool ReloadFilesChangedOutsideIde = true;
+    public const ErrorTrapping ErrorTrapping = ErrorTrapping.BreakOnUnhandledErrors;
 
     // ── Toolbar visibility ──────────────────────────────────────
     public const bool IsStandardToolbarVisible = true;

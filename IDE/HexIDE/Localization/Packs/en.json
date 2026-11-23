@@ -337,6 +337,7 @@
     "Str.Help.LogFolder.OpenFailed": "Could not open the log folder. You can open it manually: {0}",
     "Str.Menu.Help.About": "_About HexIDE...",
     "Str.Menu.MacApp.About": "About HexIDE",
+    "Str.Menu.MacApp.Settings": "Settings…",
     "Str.Menu.GoToGithubRepo": "Go to github repo",
     "Str.NewProject.NoTemplates": "This profile offers no new project templates. Open an existing project instead.",
     "Str.NewProject.Msg.NoStandardExe": "{0} has no project type installed that makes a Standard EXE project, so it started without one.",
@@ -742,6 +743,15 @@
     "Str.Dialog.Font.Label.Size": "_Size:",
     "Str.Dialog.Font.Label.Script": "Sc_ript:",
     "Str.Dialog.Font.Script.Western": "Western",
+    "Str.Dialog.Font.Script.Hebrew": "Hebrew",
+    "Str.Dialog.Font.Script.Arabic": "Arabic",
+    "Str.Dialog.Font.Script.Greek": "Greek",
+    "Str.Dialog.Font.Script.Turkish": "Turkish",
+    "Str.Dialog.Font.Script.Baltic": "Baltic",
+    "Str.Dialog.Font.Script.CentralEuropean": "Central European",
+    "Str.Dialog.Font.Script.Cyrillic": "Cyrillic",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamese",
+    "Str.Dialog.Font.Script.Symbol": "Symbol",
     "Str.Dialog.Font.SizeNotNumber": "Size must be a number.",
     "Str.Dialog.Font.SizeOutOfRange": "Size must be between 1 and 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Updating {0} in project {1} will discard that project's unsaved changes. Would you like to continue?",
     "Str.Dialog.SharedFile.DiskChanged": "The file '{0}' has changed on disk since project {1}'s copy was loaded or saved. Would you like to overwrite it?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Bookmarks, breakpoints and other per-user settings for {0} won't be loaded or saved in this session.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "You already have a control named '{0}'.  Do you want to create a control array?"
+    "Str.Naming.Msg.CreateControlArray": "You already have a control named '{0}'.  Do you want to create a control array?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Error Trapping",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Break on All Errors",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Break in Class Module",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Break on Unhandled Errors"
   }
 }

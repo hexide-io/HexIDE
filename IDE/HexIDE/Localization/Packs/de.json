@@ -380,6 +380,7 @@
     "Str.Help.LogFolder.OpenFailed": "Der Logordner konnte nicht geöffnet werden. Sie können ihn manuell öffnen: {0}",
     "Str.Menu.Help.About": "Ü_ber HexIDE...",
     "Str.Menu.MacApp.About": "Über HexIDE",
+    "Str.Menu.MacApp.Settings": "Optionen…",
     "Str.Menu.GoToGithubRepo": "Zum GitHub-Repository wechseln",
     "Str.NewProject.NoTemplates": "Dieses Profil bietet keine Vorlagen für neue Projekte. Öffnen Sie stattdessen ein vorhandenes Projekt.",
     "Str.NewProject.Msg.NoStandardExe": "In {0} ist kein Projekttyp installiert, der ein Standard-EXE-Projekt erstellt. Daher wurde ohne Projekt gestartet.",
@@ -738,6 +739,15 @@
     "Str.Dialog.Font.Label.Size": "_Größe:",
     "Str.Dialog.Font.Label.Script": "Sc_hriftsystem:",
     "Str.Dialog.Font.Script.Western": "Westlich",
+    "Str.Dialog.Font.Script.Hebrew": "Hebräisch",
+    "Str.Dialog.Font.Script.Arabic": "Arabisch",
+    "Str.Dialog.Font.Script.Greek": "Griechisch",
+    "Str.Dialog.Font.Script.Turkish": "Türkisch",
+    "Str.Dialog.Font.Script.Baltic": "Baltisch",
+    "Str.Dialog.Font.Script.CentralEuropean": "Mitteleuropäisch",
+    "Str.Dialog.Font.Script.Cyrillic": "Kyrillisch",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamesisch",
+    "Str.Dialog.Font.Script.Symbol": "Symbol",
     "Str.Dialog.Font.SizeNotNumber": "Die Größe muss eine Zahl sein.",
     "Str.Dialog.Font.SizeOutOfRange": "Die Größe muss zwischen 1 und 2236 liegen.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Wenn Sie {0} im Projekt {1} aktualisieren, werden die ungespeicherten Änderungen dieses Projekts verworfen. Möchten Sie fortfahren?",
     "Str.Dialog.SharedFile.DiskChanged": "Die Datei '{0}' wurde auf dem Datenträger geändert, seit die Kopie des Projekts {1} geladen oder gespeichert wurde. Möchten Sie sie überschreiben?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Lesezeichen, Haltepunkte und andere benutzerspezifische Einstellungen für {0} werden in dieser Sitzung weder geladen noch gespeichert.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Es gibt bereits ein Steuerelement namens '{0}'.  Möchten Sie ein Steuerelementfeld erstellen?"
+    "Str.Naming.Msg.CreateControlArray": "Es gibt bereits ein Steuerelement namens '{0}'.  Möchten Sie ein Steuerelementfeld erstellen?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Fehlerbehandlung",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Bei allen Fehlern unterbrechen",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Im Klassenmodul unterbrechen",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Bei unbehandelten Fehlern unterbrechen"
   }
 }

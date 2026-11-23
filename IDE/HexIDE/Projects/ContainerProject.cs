@@ -15,6 +15,7 @@ public interface IContainerProject
     ContainerFolder Root { get; }
     bool CanSynchronizeFolder { get; }
     bool SupportsLanguageServers { get; }
+    string? LanguageOf(ContainerEntry entry);
     bool IsLocked { get; }
     string? NoticeKey { get; }
     string? BuildType { get; }
@@ -76,6 +77,10 @@ internal sealed class TwinBasicBrowserProject : IContainerProject
     public ContainerFolder Root { get; }
     public bool CanSynchronizeFolder => true;
     public bool SupportsLanguageServers => true;
+    public string? LanguageOf(ContainerEntry entry) =>
+        entry.Name.EndsWith(".twin", StringComparison.OrdinalIgnoreCase)
+        || DocumentLanguage.Vb6Extensions.Any(extension => entry.Name.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            ? DocumentLanguage.TwinBasic : null;
     public bool IsLocked => false;
     public string? NoticeKey => null;
     public string? BuildType => TwinBasicCompilationConstants.BuildTypeOf(snapshot.Container);

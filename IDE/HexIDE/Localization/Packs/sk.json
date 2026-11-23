@@ -308,6 +308,7 @@
     "Str.Help.LogFolder.OpenFailed": "Priečinok záznamov sa nepodarilo otvoriť. Môžete ho otvoriť ručne: {0}",
     "Str.Menu.Help.About": "_O programe HexIDE...",
     "Str.Menu.MacApp.About": "O programe HexIDE",
+    "Str.Menu.MacApp.Settings": "Možnosti…",
     "Str.Menu.GoToGithubRepo": "Prejsť do repozitára na GitHube",
     "Str.ProjectType.StandardEXE": "Štandardný EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
@@ -710,6 +711,15 @@
     "Str.Dialog.Font.Label.Size": "_Veľkosť:",
     "Str.Dialog.Font.Label.Script": "_Systém písma:",
     "Str.Dialog.Font.Script.Western": "Západné",
+    "Str.Dialog.Font.Script.Hebrew": "Hebrejské",
+    "Str.Dialog.Font.Script.Arabic": "Arabské",
+    "Str.Dialog.Font.Script.Greek": "Grécke",
+    "Str.Dialog.Font.Script.Turkish": "Turecké",
+    "Str.Dialog.Font.Script.Baltic": "Pobaltské",
+    "Str.Dialog.Font.Script.CentralEuropean": "Stredoeurópske",
+    "Str.Dialog.Font.Script.Cyrillic": "Cyrilika",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamské",
+    "Str.Dialog.Font.Script.Symbol": "Symboly",
     "Str.Dialog.Font.SizeNotNumber": "Veľkosť musí byť číslo.",
     "Str.Dialog.Font.SizeOutOfRange": "Veľkosť musí byť medzi 1 a 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Aktualizácia {0} v projekte {1} zahodí neuložené zmeny tohto projektu. Chcete pokračovať?",
     "Str.Dialog.SharedFile.DiskChanged": "Súbor '{0}' sa na disku zmenil od načítania alebo uloženia kópie projektu {1}. Chcete ho prepísať?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Záložky, body prerušenia a ďalšie používateľské nastavenia pre {0} sa v tejto relácii nenačítajú ani neuložia.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Ovládací prvok s názvom '{0}' už existuje.  Chcete vytvoriť pole ovládacích prvkov?"
+    "Str.Naming.Msg.CreateControlArray": "Ovládací prvok s názvom '{0}' už existuje.  Chcete vytvoriť pole ovládacích prvkov?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Zachytávanie chýb",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prerušiť pri všetkých chybách",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prerušiť v module triedy",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prerušiť pri neošetrených chybách"
   }
 }

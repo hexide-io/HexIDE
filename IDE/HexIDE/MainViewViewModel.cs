@@ -1879,6 +1879,7 @@ public partial class MainViewViewModel : ObservableObject
         // close it without an answer (docs/vb6-fidelity-oracle/closing-the-run-time-error-dialog.md). A close from code,
         // as shutdown_ide makes, still answers false and takes Debug. stop_project ends the run past the dialog and leaves it
         // open, as its reply says; End or Debug then dismisses it.
+        projectRunnerService.ErrorTrapping = settingsService.ErrorTrapping;
         projectRunnerService.HaltHost = async failure =>
         {
             RuntimeErrors.Record(failure.Text, failure.Location);
@@ -2165,6 +2166,8 @@ public partial class MainViewViewModel : ObservableObject
 
         settingsService.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(ISettingsService.ErrorTrapping))
+                projectRunnerService.ErrorTrapping = settingsService.ErrorTrapping;
             if (e.PropertyName == nameof(ISettingsService.LoadUnsignedAddins))
                 OnPropertyChanged(nameof(WindowTitle));
         };

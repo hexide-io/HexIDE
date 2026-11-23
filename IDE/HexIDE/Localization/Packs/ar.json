@@ -380,6 +380,7 @@
     "Str.Help.LogFolder.OpenFailed": "تعذر فتح مجلد السجلات. يمكنك فتحه يدويًا: {0}",
     "Str.Menu.Help.About": "حول HexIDE...",
     "Str.Menu.MacApp.About": "حول HexIDE",
+    "Str.Menu.MacApp.Settings": "خيارات…",
     "Str.Menu.GoToGithubRepo": "الانتقال إلى مستودع github",
     "Str.NewProject.NoTemplates": "لا يوفر ملف التعريف هذا قوالب مشاريع جديدة. افتح مشروعًا موجودًا بدلاً من ذلك.",
     "Str.NewProject.Msg.NoStandardExe": "لا يوجد في {0} نوع مشروع مثبت ينشئ مشروع Standard EXE، لذا بدأ دون مشروع.",
@@ -738,6 +739,15 @@
     "Str.Dialog.Font.Label.Size": "الحجم:",
     "Str.Dialog.Font.Label.Script": "نظام الكتابة:",
     "Str.Dialog.Font.Script.Western": "غربي",
+    "Str.Dialog.Font.Script.Hebrew": "العبرية",
+    "Str.Dialog.Font.Script.Arabic": "العربية",
+    "Str.Dialog.Font.Script.Greek": "اليونانية",
+    "Str.Dialog.Font.Script.Turkish": "التركية",
+    "Str.Dialog.Font.Script.Baltic": "البلطيقية",
+    "Str.Dialog.Font.Script.CentralEuropean": "أوروبا الوسطى",
+    "Str.Dialog.Font.Script.Cyrillic": "السيريلية",
+    "Str.Dialog.Font.Script.Vietnamese": "الفيتنامية",
+    "Str.Dialog.Font.Script.Symbol": "الرموز",
     "Str.Dialog.Font.SizeNotNumber": "يجب أن يكون الحجم رقمًا.",
     "Str.Dialog.Font.SizeOutOfRange": "يجب أن يكون الحجم بين 1 و2236.",
     "Str.Dialog.Font.Button.Ok": "موافق",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "سيؤدي تحديث {0} في المشروع {1} إلى تجاهل التغييرات غير المحفوظة في ذلك المشروع. هل تريد المتابعة؟",
     "Str.Dialog.SharedFile.DiskChanged": "تغيّر الملف '{0}' على القرص منذ تحميل نسخة المشروع {1} أو حفظها. هل تريد الكتابة فوقه؟",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "لن يتم تحميل الإشارات المرجعية ونقاط التوقف والإعدادات الأخرى الخاصة بالمستخدم لـ {0} أو حفظها في هذه الجلسة.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "يوجد بالفعل عنصر تحكم باسم '{0}'.  هل تريد إنشاء مصفوفة عناصر تحكم؟"
+    "Str.Naming.Msg.CreateControlArray": "يوجد بالفعل عنصر تحكم باسم '{0}'.  هل تريد إنشاء مصفوفة عناصر تحكم؟",
+    "Str.Options.Environment.ErrorTrapping.Header": "اعتراض الأخطاء",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "التوقف عند كل الأخطاء",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "التوقف في وحدة الفئة",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "التوقف عند الأخطاء غير المعالجة"
   }
 }

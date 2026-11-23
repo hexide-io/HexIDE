@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using HexIDE.Runtime.BuiltinControls;
@@ -9,6 +10,7 @@ namespace HexIDE.Runtime.Components;
 public class FormComponentClass : ComponentBaseClass
 {
     public FormComponentClass() : base([CaptionProperty,
+    FormBorderStyleProperty,
     BackColorProperty,
     // A form or a UserControl saved with Enabled = False runs disabled (#1101). Undeclared, the saved line was dropped.
     EnabledProperty,
@@ -222,6 +224,33 @@ public class FormComponentClass : ComponentBaseClass
             && Interpreter.FormMembers.AvaloniaWindowState(state) is { } windowState)
             form.WindowState = windowState;
         return form;
+    }
+
+    // VB6 SP6's designer resets these on a different BorderStyle (#1596, oracle PR #5216).
+    public override IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property)
+    {
+        if (!ReferenceEquals(property, FormBorderStyleProperty))
+            return [];
+        var style = instance.GetPropertyOrDefault(FormBorderStyleProperty);
+        if (style is < VBFormBorderStyle.None or > VBFormBorderStyle.SizableToolWindow)
+            return [];
+        var changes = new List<PropertyChange>();
+        if (style != VBFormBorderStyle.None)
+        {
+            Set(MinButtonProperty, style == VBFormBorderStyle.Sizable);
+            Set(MaxButtonProperty, style == VBFormBorderStyle.Sizable);
+        }
+        Set(ShowInTaskbarProperty, style is VBFormBorderStyle.FixedSingle or VBFormBorderStyle.Sizable);
+        return changes;
+
+        void Set(PropertyClass<bool> changedProperty, bool value)
+        {
+            var before = instance.GetPropertyOrDefault(changedProperty);
+            if (before == value)
+                return;
+            instance.SetProperty(changedProperty, value);
+            changes.Add(new PropertyChange(changedProperty, before, value));
+        }
     }
 
     public static FormComponentClass Instance { get; } = new();

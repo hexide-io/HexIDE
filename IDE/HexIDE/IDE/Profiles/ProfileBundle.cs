@@ -108,6 +108,7 @@ internal static class ProfileBundleLoader
         {
             ["loadUnsignedAddins"] = "Security: profiles must not weaken add-in signature checks.",
             ["revocationListUrl"] = "Security: profiles must not redirect or disable revocation updates.",
+            ["errorTrapping"] = "The user's debugger halt policy, not a profile's runtime default.",
             ["reloadFilesChangedOutsideIde"] = "Replacing open documents with disk changes stays the user's choice (#2504).",
             ["editorColorOverrides"] = "Per-theme user edits; profiles supply colours through their theme payload.",
             ["serverChatTools"] = "The user's consent for each server's AI Chat tools, never a profile's decision.",

@@ -375,6 +375,7 @@
     "Str.Help.LogFolder.OpenFailed": "Nije moguće otvoriti mapu zapisnika. Možete je otvoriti ručno: {0}",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.MacApp.About": "O programu HexIDE",
+    "Str.Menu.MacApp.Settings": "Mogućnosti…",
     "Str.Menu.GoToGithubRepo": "Otvori repozitorij na GitHubu",
     "Str.ProjectType.StandardEXE": "Standardni EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
@@ -777,6 +778,15 @@
     "Str.Dialog.Font.Label.Size": "_Veličina:",
     "Str.Dialog.Font.Label.Script": "S_ustav pisanja:",
     "Str.Dialog.Font.Script.Western": "Zapadni",
+    "Str.Dialog.Font.Script.Hebrew": "Hebrejski",
+    "Str.Dialog.Font.Script.Arabic": "Arapski",
+    "Str.Dialog.Font.Script.Greek": "Grčki",
+    "Str.Dialog.Font.Script.Turkish": "Turski",
+    "Str.Dialog.Font.Script.Baltic": "Baltički",
+    "Str.Dialog.Font.Script.CentralEuropean": "Srednjoeuropski",
+    "Str.Dialog.Font.Script.Cyrillic": "Ćirilica",
+    "Str.Dialog.Font.Script.Vietnamese": "Vijetnamski",
+    "Str.Dialog.Font.Script.Symbol": "Simboli",
     "Str.Dialog.Font.SizeNotNumber": "Veličina mora biti broj.",
     "Str.Dialog.Font.SizeOutOfRange": "Veličina mora biti između 1 i 2236.",
     "Str.Dialog.Font.Button.Ok": "U redu",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Ažuriranjem datoteke {0} u projektu {1} odbacit će se nespremljene promjene tog projekta. Želite li nastaviti?",
     "Str.Dialog.SharedFile.DiskChanged": "Datoteka '{0}' promijenjena je na disku otkad je kopija projekta {1} učitana ili spremljena. Želite li je prebrisati?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Knjižne oznake, točke prekida i ostale korisničke postavke za {0} neće se učitati ni spremiti u ovoj sesiji.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Već postoji kontrola naziva '{0}'.  Želite li stvoriti polje kontrola?"
+    "Str.Naming.Msg.CreateControlArray": "Već postoji kontrola naziva '{0}'.  Želite li stvoriti polje kontrola?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Hvatanje pogrešaka",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prekini pri svim pogreškama",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prekini u modulu klase",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini pri neobrađenim pogreškama"
   }
 }
