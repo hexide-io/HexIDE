@@ -784,6 +784,7 @@ added afterwards.
 - [LongLong and LongPtr in 64-bit VBA7 (2026-11-14, #1548)](longlong-and-longptr-in-64-bit-vba7.md#longlong-and-longptr-in-64-bit-vba7-2026-11-14-1548), measured in Excel's VBA7, not vb6.exe
 - [LongLong and LongPtr in 32-bit VBA7 (2026-11-17, #1548)](longlong-and-longptr-in-32-bit-vba7.md#longlong-and-longptr-in-32-bit-vba7-2026-11-17-1548)
 - [VBA7's 64-bit syntax in vb6.exe, in active code (2026-11-16, #1548, SP6)](vba7s-64-bit-syntax-in-vb6exe.md#vba7s-64-bit-syntax-in-vb6exe-in-active-code-2026-11-16-1548-sp6)
+- [MSForms' type library on 32-bit Windows, 64-bit Windows and the Mac (2026-11-22, #5150)](msforms-type-library-on-windows-and-mac.md#msforms-type-library-on-32-bit-windows-64-bit-windows-and-the-mac-2026-11-22-5150)
 - [A form's Width and Height: the frame round its client area (2026-10-23, #1072)](a-forms-width-and-height-the-frame-round-its-client-area.md#a-forms-width-and-height-the-frame-round-its-client-area-2026-10-23-1072)
 - [A form's window styles: BorderStyle, ControlBox, MinButton and MaxButton (2026-10-23, #1575)](a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md#a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton-2026-10-23-1575)
 - [What VB6's designer changes when a form's BorderStyle changes (2026-11-21, #1596, design-time, IDE, SP6)](a-forms-window-styles-borderstyle-controlbox-minbutton-and-maxbutton.md#what-vb6s-designer-changes-when-a-forms-borderstyle-changes-2026-11-21-1596-design-time-ide-sp6)
