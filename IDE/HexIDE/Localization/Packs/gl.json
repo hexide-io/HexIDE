@@ -1498,6 +1498,8 @@
     "Str.Dialog.SharedFile.Update": "Quere actualizar {0} nos proxectos que o comparten con {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Ao actualizar {0} no proxecto {1}, descartaranse os cambios sen gardar dese proxecto. Quere continuar?",
     "Str.Dialog.SharedFile.DiskChanged": "O ficheiro '{0}' cambiou no disco desde que se cargou ou gardou a copia do proxecto {1}. Quere sobrescribilo?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os puntos de interrupción e outros axustes por usuario de {0} non se cargarán nin se gardarán nesta sesión.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os puntos de interrupción e outros axustes por usuario de {0} non se cargarán nin se gardarán nesta sesión.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "O deseñador de formularios MDI non está implementado (#5313).",
+    "Str.MDIForm.RunNotImplemented": "A execución dun formulario MDI non está implementada (#5313)."
   }
 }

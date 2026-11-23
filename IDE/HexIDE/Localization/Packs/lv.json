@@ -1498,6 +1498,8 @@
     "Str.Dialog.SharedFile.Update": "Vai vēlaties atjaunināt {0} projektos, kas to koplieto ar {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Atjauninot {0} projektā {1}, tiks atmestas šī projekta nesaglabātās izmaiņas. Vai vēlaties turpināt?",
     "Str.Dialog.SharedFile.DiskChanged": "Fails '{0}' diskā ir mainījies kopš projekta {1} kopijas ielādes vai saglabāšanas. Vai vēlaties to pārrakstīt?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} grāmatzīmes, pārtraukumpunkti un citi lietotāja iestatījumi šajā sesijā netiks ne ielādēti, ne saglabāti.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} grāmatzīmes, pārtraukumpunkti un citi lietotāja iestatījumi šajā sesijā netiks ne ielādēti, ne saglabāti.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "MDI formu noformētājs nav ieviests (#5313).",
+    "Str.MDIForm.RunNotImplemented": "MDI formas palaišana nav ieviesta (#5313)."
   }
 }

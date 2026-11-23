@@ -189,7 +189,8 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<IEventBus>(out var events);
                 ctx.Inject<Func<IProjectService>>(out var projects);
-                return new EditorService(documentDock, codeEditors, relatedDocuments, projectDocuments, formEditors, projectManager, localization, events, projects);
+                ctx.Inject<IWindowManager>(out var editorWindows);
+                return new EditorService(editorWindows, documentDock, codeEditors, relatedDocuments, projectDocuments, formEditors, projectManager, localization, events, projects);
             })
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()

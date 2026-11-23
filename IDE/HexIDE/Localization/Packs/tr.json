@@ -1498,6 +1498,8 @@
     "Str.Dialog.SharedFile.Update": "{0} dosyasını {1} ile paylaşan projelerde güncellemek ister misiniz?",
     "Str.Dialog.SharedFile.DiscardChanges": "{1} projesinde {0} dosyasını güncellemek, o projenin kaydedilmemiş değişikliklerini siler. Devam etmek ister misiniz?",
     "Str.Dialog.SharedFile.DiskChanged": "'{0}' dosyası, {1} projesinin kopyası yüklendikten veya kaydedildikten sonra diskte değiştirildi. Üzerine yazmak ister misiniz?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} için yer imleri, kesme noktaları ve kullanıcıya özgü diğer ayarlar bu oturumda yüklenmeyecek ve kaydedilmeyecek.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} için yer imleri, kesme noktaları ve kullanıcıya özgü diğer ayarlar bu oturumda yüklenmeyecek ve kaydedilmeyecek.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "MDI form tasarımcısı henüz uygulanmadı (#5313).",
+    "Str.MDIForm.RunNotImplemented": "MDI formunun çalıştırılması henüz uygulanmadı (#5313)."
   }
 }

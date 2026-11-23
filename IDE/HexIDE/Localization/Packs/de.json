@@ -1498,6 +1498,8 @@
     "Str.Dialog.SharedFile.Update": "Möchten Sie {0} in den Projekten aktualisieren, die diese Datei gemeinsam mit {1} nutzen?",
     "Str.Dialog.SharedFile.DiscardChanges": "Wenn Sie {0} im Projekt {1} aktualisieren, werden die ungespeicherten Änderungen dieses Projekts verworfen. Möchten Sie fortfahren?",
     "Str.Dialog.SharedFile.DiskChanged": "Die Datei '{0}' wurde auf dem Datenträger geändert, seit die Kopie des Projekts {1} geladen oder gespeichert wurde. Möchten Sie sie überschreiben?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Lesezeichen, Haltepunkte und andere benutzerspezifische Einstellungen für {0} werden in dieser Sitzung weder geladen noch gespeichert.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Lesezeichen, Haltepunkte und andere benutzerspezifische Einstellungen für {0} werden in dieser Sitzung weder geladen noch gespeichert.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Der MDI-Formulardesigner ist nicht implementiert (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Das Ausführen eines MDI-Formulars ist nicht implementiert (#5313)."
   }
 }

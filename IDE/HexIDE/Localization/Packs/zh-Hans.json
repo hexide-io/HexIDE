@@ -1498,6 +1498,8 @@
     "Str.Dialog.SharedFile.Update": "是否要在与 {1} 共享此文件的项目中更新 {0}？",
     "Str.Dialog.SharedFile.DiscardChanges": "更新项目 {1} 中的 {0} 将丢弃该项目尚未保存的更改。是否继续？",
     "Str.Dialog.SharedFile.DiskChanged": "自项目 {1} 的副本加载或保存以来，磁盘上的文件“{0}”已发生更改。是否覆盖此文件？",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} 的书签、断点和其他用户设置在本次会话中不会加载或保存。\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} 的书签、断点和其他用户设置在本次会话中不会加载或保存。\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "尚未实现 MDI 窗体设计器（#5313）。",
+    "Str.MDIForm.RunNotImplemented": "尚未实现 MDI 窗体的运行（#5313）。"
   }
 }

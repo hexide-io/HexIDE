@@ -78,6 +78,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/ContributedProjectTests.cs` | split |
 | `Projects/DesignerHalfSaveTests.cs` | split |
 | `Projects/DocumentSavedAnnouncementTests.cs` | split |
+| `Projects/MDIFormFileTests.cs` | split |
 | `Projects/MemberWithoutAFileTests.cs` | split |
 | `Projects/NamedFormFormatTests.cs` | split |
 | `Projects/NegativeSizeSaveTests.cs` | split |

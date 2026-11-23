@@ -1498,6 +1498,8 @@
     "Str.Dialog.SharedFile.Update": "Vil du opdatere {0} i de projekter, som deler den med {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Hvis du opdaterer {0} i projektet {1}, kasseres projektets ændringer, som ikke er gemt. Vil du fortsætte?",
     "Str.Dialog.SharedFile.DiskChanged": "Filen '{0}' er blevet ændret på disken, siden kopien i projektet {1} blev indlæst eller gemt. Vil du overskrive den?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bogmærker, pausepunkter og andre brugerindstillinger for {0} hverken indlæses eller gemmes i denne session.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bogmærker, pausepunkter og andre brugerindstillinger for {0} hverken indlæses eller gemmes i denne session.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "MDI-formulardesigneren er ikke implementeret (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Kørsel af en MDI-formular er ikke implementeret (#5313)."
   }
 }

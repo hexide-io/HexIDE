@@ -1498,6 +1498,8 @@
     "Str.Dialog.SharedFile.Update": "Czy chcesz zaktualizować {0} w projektach, które współdzielą ten plik z projektem {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Aktualizacja {0} w projekcie {1} spowoduje utratę niezapisanych zmian tego projektu. Czy chcesz kontynuować?",
     "Str.Dialog.SharedFile.DiskChanged": "Plik '{0}' zmienił się na dysku od czasu wczytania lub zapisania kopii projektu {1}. Czy chcesz go zastąpić?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Zakładki, punkty przerwania i inne ustawienia użytkownika dla {0} nie zostaną wczytane ani zapisane w tej sesji.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Zakładki, punkty przerwania i inne ustawienia użytkownika dla {0} nie zostaną wczytane ani zapisane w tej sesji.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Projektant formularzy MDI nie jest zaimplementowany (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Uruchamianie formularza MDI nie jest zaimplementowane (#5313)."
   }
 }

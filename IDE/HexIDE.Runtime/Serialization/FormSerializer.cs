@@ -54,6 +54,22 @@ public class FormSerializer
         var sourceExt = System.IO.Path.GetExtension(formFileName).ToLowerInvariant();
         var companionExt = sourceExt switch { ".ctl" => ".ctx", ".pag" => ".pgx", _ => ".frx" };
         var frxName = System.IO.Path.ChangeExtension(formFileName, companionExt);
+        // No MDI designer edits in this slice: preserve its header, including unmodelled properties (#5313).
+        if (element.RootVBTypeName == "VB.MDIForm"
+            && element.Components[0].GetPropertyOrDefault(MDIFormRootClass.Source) is { } mdiSource)
+        {
+            // The code window adopts each save's header; the read's header must keep the read's record map.
+            var mdiHeader = mdiSource.Header;
+            if (element.Name != mdiSource.Name)
+                mdiHeader = System.Text.RegularExpressions.Regex.Replace(mdiHeader,
+                    @"(?im)^([ \t]*Begin[ \t]+VB\.MDIForm[ \t]+)\S+",
+                    line => line.Groups[1].Value + element.Name);
+            var citedHeader = System.Text.RegularExpressions.Regex.Replace(mdiHeader, @"[^\r\n]+",
+                line => citations.Cite(line.Value, mdiSource.Records));
+            var (header, companion) = citations.Resolve(citedHeader, frxName);
+            return (header + code, companion);
+        }
+
         VbFrmFormatSerializer vb = new VbFrmFormatSerializer();
 
         var form = element.Components.Single(x => x.BaseClass is FormComponentClass);

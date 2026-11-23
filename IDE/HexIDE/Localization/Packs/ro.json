@@ -1498,6 +1498,8 @@
     "Str.Dialog.SharedFile.Update": "Doriți să actualizați {0} în proiectele care îl partajează cu {1}?",
     "Str.Dialog.SharedFile.DiscardChanges": "Actualizarea {0} în proiectul {1} va elimina modificările nesalvate ale acelui proiect. Doriți să continuați?",
     "Str.Dialog.SharedFile.DiskChanged": "Fișierul '{0}' s-a modificat pe disc de când copia proiectului {1} a fost încărcată sau salvată. Doriți să îl suprascrieți?",
-    "Str.ProjectLocalState.SidecarUnavailableFormat": "Semnele de carte, punctele de întrerupere și celelalte setări per utilizator pentru {0} nu vor fi încărcate și nici salvate în această sesiune.\n\n{1}"
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Semnele de carte, punctele de întrerupere și celelalte setări per utilizator pentru {0} nu vor fi încărcate și nici salvate în această sesiune.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Proiectantul de formulare MDI nu este implementat (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Rularea unui formular MDI nu este implementată (#5313)."
   }
 }

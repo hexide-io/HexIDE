@@ -141,6 +141,8 @@ public sealed class AddinRouteCorpusTests
             const string probe = "Private Sub HexIDE_RouteProbe()\r\nEnd Sub\r\n";
             if (Module is { } module) module.UpdateCode(module.Code + probe);
             else Form.UpdateCode(Form.Code + probe);
+            // MDI headers are carried unchanged until their designer is implemented (#5313): code edits only.
+            if (Form.RootVBTypeName == "VB.MDIForm") return;
             var root = Form.Components.First(component => component.BaseClass.VBTypeName is "VB.Form" or "VB.UserControl" or "VB.PropertyPage");
             if (Form.Components.FirstOrDefault(component => component != root) is { } control)
                 control.SetProperty(VBProperties.LeftProperty, control.GetPropertyOrDefault(VBProperties.LeftProperty) + 8);
