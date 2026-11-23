@@ -128,10 +128,9 @@ public class VBLine : Control
         if (TwipsPerUnit is { X: AvaloniaInterop.RuntimeScale.TwipsPerCentimetre }
             && Parent is Control host && AvaloniaInterop.RuntimeScale.Of(host) is { } scale)
         {
-            var mode = VBProps.GetScaleMode(host);
-            if (mode is not (VBScaleMode.Twip or VBScaleMode.Centimiter))
-                throw new NotImplementedException($"A Line in a container whose ScaleMode is {mode} is not implemented (#4693)");
-            return scale.TwipsPerUnit(coordinate % 2 != 0);
+            var factor = scale.TwipsPerUnit(coordinate % 2 != 0);
+            // A Line divides by a Single user unit (#4693, oracle PR #5514).
+            return VBProps.GetScaleMode(host) == VBScaleMode.User ? (float)factor : factor;
         }
         return coordinate % 2 == 0 ? TwipsPerUnit!.Value.X : TwipsPerUnit!.Value.Y;
     }

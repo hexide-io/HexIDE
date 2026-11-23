@@ -1097,7 +1097,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         foreach (var point in context.valueStmt())
             points.Add(await expressionExecutor.EvaluateScalarFast(point));
         var late = target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
-        if (late && target.Value is (VBTextBox or VBUserControl))
+        if (late && target.Value is (VBTextBox or VBUserControl or VbObject { ClassDef.HostedControl: true }))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (late && target.Value is not (VbObject { ClassDef.Kind: InterpreterModuleKind.Form } or VBPictureBox))
             throw new NotImplementedException("Late-bound Scale is not implemented (#4693)");
@@ -1176,7 +1176,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
         {
-            await CallControl(value, identifier, callArgs);
+            await CallControl(value, identifier, callArgs, RuntimeScale.IsLateBound(reference));
         }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");
@@ -2434,7 +2434,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             || currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
     }
 
-    private ValueTask<Vb6Value> CallControl(Vb6Value reference, string member, IReadOnlyList<Vb6Value> args)
+    private ValueTask<Vb6Value> CallControl(Vb6Value reference, string member, IReadOnlyList<Vb6Value> args, bool lateBound)
     {
         foreach (var arg in args) arg.RefuseOddBytes(member);
         VBFlatScrollBar.RefuseEarlyBound(reference, member);
@@ -2442,6 +2442,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (reference.Value is (VBTextBox or VBUserControl) && RuntimeScale.IsConversion(member)
             && (reference.HeldAsVariant || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        if (RuntimeScale.IsConversion(member) && reference.Value is Control control && RuntimeScale.Of(control) is not null)
+            return new ValueTask<Vb6Value>(RuntimeScale.ConvertUnits(control, member, args, lateBound));
         return ((Control)reference.Value!).CallAsync(member, args, ModalOwner());
     }
 
@@ -3275,6 +3277,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.ReleaseRef(oldFieldLet);
                     return default;
                 }
+                if (vobj.ClassDef.HostedControl && RuntimeScale.IsLateBound(variable) && FormMembers.IsCoordinateMember(fieldName))
+                    throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
                 // A form's built-in property is its window's: `Me.Caption = "x"` (#822). One VB6's Form has is set as the bare
                 // name is, so a read-only one is VB6's compile error and one HexIDE lacks is not implemented (#995). Any
                 // other is set below, as a control's is.
@@ -4404,6 +4408,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitSetStmt(VB6Parser.SetStmtContext context)
     {
         var value = await expressionExecutor.EvaluateValueFast(context.valueStmt());
+        // Only Set of the bare base-class name is measured (#4693, oracle PR #5514).
+        if (currentModule.HostedControl && value.Value is VBUserControl.RootObject
+            && context.valueStmt().GetText().Equals("UserControl", StringComparison.OrdinalIgnoreCase))
+            throw new VBCompileErrorException("Invalid use of base class name");
         // Set requires an object (a class instance, control, or proxy) or Nothing on the RHS. (Object type
         // covers both a live instance and Nothing, whose Value is null.)
         if (value.Type != Vb6Value.ValueType.Object && value.Type != Vb6Value.ValueType.Control
@@ -6041,7 +6049,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
-            await CallControl(value, identifier, callArgs);
+            await CallControl(value, identifier, callArgs, RuntimeScale.IsLateBound(reference));
         }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");

@@ -34,6 +34,14 @@
   with measured Initialize/Resize/ReadProperties, deferred Show, and index-ordered form teardown;
   UserControl PropertyBag operations remain refused, and standalone element Unload and missing saved custom
   properties have no additional measured semantics.
+- **Coordinate-system limits** ([#4693](https://github.com/hexide-io/HexIDE/issues/4693), final measurements in oracle PR #5514):
+  saved UserControl User scales without origins or extents now use one twip per unit. Scale members through an Object holding Me
+  or the extender raise 438; Set of the bare UserControl base-class name raises its
+  measured compile error as the statement runs. ScaleX/ScaleY invalid argument counts raise compile errors
+  early-bound and 450 late-bound. Centimetre-loaded PictureBox Line ends follow the current container scale.
+  Loading Lines saved in User-scale PictureBoxes or other unmeasured modes, and positions in containers
+  without a runtime scale mapping, remain refused. Drawing on a UserControl is [#5515](https://github.com/hexide-io/HexIDE/issues/5515).
+
 - **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
   Image/data methods, non-text format queries and RTF/Link text are deferred and explicitly refused. VB6 preserves
   other formats on SetText; the Avalonia host snapshots readable non-text formats and writes them back with the

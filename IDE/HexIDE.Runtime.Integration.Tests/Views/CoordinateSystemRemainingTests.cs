@@ -102,4 +102,48 @@ public partial class CoordinateSystemTests
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("283|283|1134|850");
     }
+    // Issue #4693 final comment, oracle PR #5514: SP6 native/p-code and IDE agree.
+    [AvaloniaTheory]
+    [InlineData("", "0.4991811|1.000126|2.499433|3.000378")]
+    [InlineData("Picture2.ScaleMode = 1", "283|567|1417|1701")]
+    [InlineData("Picture2.ScaleMode = 3", "18.86667|37.8|94.46667|113.4")]
+    [InlineData("Picture2.ScaleMode = 5", "0.1965278|0.39375|0.9840278|1.18125")]
+    [InlineData("Picture2.ScaleMode = 6", "4.99181|10.00126|24.99433|30.00378")]
+    [InlineData("Picture2.ScaleMode = 2", "14.15|28.35|70.85|85.05")]
+    [InlineData("Picture2.ScaleMode = 4", "2.358333|2.3625|11.80833|7.0875")]
+    [InlineData("Picture2.ScaleMode = 3\nPicture2.ScaleMode = 7", "0.4991811|1.000126|2.499433|3.000378")]
+    [InlineData("Picture2.Scale (0, 0)-(100, 50)", "9.982363|10|49.98236|30")]
+    public void Line_ends_follow_the_current_container_scale(string setup, string expected)
+    {
+        var frm = MetricLineForm.Replace("Width = 3000", "Width = 2835\nBorderStyle = 0")
+            .Replace("Height = 2000", "Height = 2835")
+            .Replace("Y1 = 0.5", "Y1 = 1").Replace("X2 = 2", "X2 = 2.5").Replace("Y2 = 1.5", "Y2 = 3");
+        var centimetres = setup == "" || setup.EndsWith("= 7", StringComparison.Ordinal);
+        var x1 = centimetres ? "CStr(CDbl(Line2.X1))" : "CStr(Line2.X1)";
+        var run = RunLoad(frm, setup + "\nDebug.Print " + x1 + " & \"|\" & CStr(Line2.Y1) & \"|\" & CStr(Line2.X2) & \"|\" & CStr(Line2.Y2)"
+            + "\nDebug.Print TypeName(Line2.X1) & \"|\" & TypeName(Line2.Y1) & \"|\" & TypeName(Line2.X2) & \"|\" & TypeName(Line2.Y2)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().HaveCount(2);
+        run.Printed[1].Should().Be("Single|Single|Single|Single");
+        if (centimetres)
+        {
+            // VB6's measured X1 is Single 0.499181061983109; q-990-centimetres accepts exactly one step.
+            const float measured = (float)0.499181061983109;
+            var parts = run.Printed[0].Split('|');
+            new[] { MathF.BitDecrement(measured), measured, MathF.BitIncrement(measured) }
+                .Should().Contain(float.Parse(parts[0], CultureInfo.InvariantCulture));
+            parts[1..].Should().Equal(expected.Split('|')[1..]);
+        }
+        else
+            run.Printed[0].Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public void Line_write_in_current_pixels_stores_whole_twips()
+    {
+        var run = RunLoad(MetricLineForm, "Picture2.ScaleMode = 3\nLine2.X1 = 10\nDebug.Print CStr(Line2.X1)\nPicture2.ScaleMode = 1\nDebug.Print CStr(Line2.X1)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("10", "150");
+    }
+
 }
