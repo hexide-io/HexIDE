@@ -292,6 +292,14 @@ public class FormSerializer
         WriteOuter("Width", VBProperties.WidthProperty, outerRect.WidthOffsetTwips);
     }
 
+    // VB6's saved Line DrawMode comments are shifted by one (the-line-control.md, #5263).
+    private static readonly string[] LineDrawModeComments =
+    [
+        "Blackness", "Blackness", "Not Merge Pen", "Mask Not Pen", "Not Copy Pen", "Mask Pen Not",
+        "Invert", "Xor Pen", "Not Mask Pen", "Mask Pen", "Not Xor Pen", "Nop", "",
+        "Copy Pen", "Merge Pen Not", "Merge Pen"
+    ];
+
     private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations, bool isSubMenu = false, bool isFormRoot = false)
     {
         var inBox = instance.BaseClass as InBoxComponentClass;
@@ -404,6 +412,15 @@ public class FormSerializer
             {
                 if (instance.TryGetBoxedProperty(prop, out var boxedValue))
                 {
+                    if (prop == VBProperties.DrawModeProperty && boxedValue is int drawMode)
+                    {
+                        if (drawMode != 13)
+                            vb.WriteRawProperty(prop.Name, drawMode.ToString(CultureInfo.InvariantCulture)
+                                + (drawMode >= 1 && drawMode <= LineDrawModeComments.Length
+                                    ? "  '" + LineDrawModeComments[drawMode - 1] : ""));
+                        continue;
+                    }
+
                     // Enums carry VB6's own name for the value as a trailing comment. Vb6EnumNames returns
                     // null for anything it cannot name — an unattributed member, or a number outside the
                     // enum, which a designer file may perfectly well contain — and the writer then emits a
