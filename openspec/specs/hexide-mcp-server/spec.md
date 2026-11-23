@@ -1529,6 +1529,23 @@ searches SHALL include the label, and interaction replies SHALL use the meaningf
 - **AND** a missing typed label with a same-type data-bound text sibling explains that such text changes,
   is addressed by position, and that the caller should dump again for its current path
 
+### Requirement: Settle IDE command invokes before replying
+
+For a successful `interact` invoke on an IDE Button or MenuItem, the reply SHALL wait for an exposed
+running command task to complete or for a new modal dialog to open, up to two seconds. Tasks exposed
+by async DelegateCommand and CommunityToolkit async relay commands SHALL be recognized. With no
+running exposed task, the invoke SHALL allow one Background dispatcher pass, bounded by the same
+limit. Running-program controls SHALL retain their program wait.
+
+#### Scenario: A command opens a modal dialog after awaiting work
+- **WHEN** an IDE button's command awaits work and then opens a modal dialog within two seconds
+- **THEN** the reply's existing modalDialog note names it as opened during this call
+- **AND** the invoke does not wait for the dialog to be answered
+
+#### Scenario: A command outlasts the wait without opening a dialog
+- **WHEN** the exposed task is still running after two seconds and no new modal dialog has opened
+- **THEN** the detail says the reply preceded completion of the work and names the 2000 ms limit
+
 ### Requirement: Attribute window waits when settling running-form actions
 
 An automation reply for a running form SHALL distinguish a handler waiting on a window from one suspended at a

@@ -17,6 +17,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
+using CommunityToolkit.Mvvm.Input;
 using HexIDE.Utils;
 using HexIDE.VisualDesigner;
 
@@ -2319,7 +2320,8 @@ public static class UiAutomationDriver
     /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
     /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame, after bringing a clipped
     /// press point into view. A <c>toggle</c> reads its
-    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). Every other action is
+    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). An IDE button or menu invoke
+    /// waits for its exposed command task or a new modal dialog, bounded by <see cref="ToggleSettleWait"/>. Every other action is
     /// <see cref="Interact"/> as it is.
     /// </summary>
     /// <remarks>
@@ -2341,6 +2343,8 @@ public static class UiAutomationDriver
             var aimed = value;
             if (!CodeWindowPointer.Aim(control, ref aimed, out var aimError)) return Err(aimError!);
         }
+        if (verb == "invoke" && control is Button or MenuItem && !InProgram(control))
+            return await InvokeSettledAsync(control, action, value);
         if (verb is not ("click" or "wheel" or "doubleclick"))
             return Interact(control, action, value);
         var scrollNote = "";
@@ -2380,6 +2384,43 @@ public static class UiAutomationDriver
                         + $"has nothing drawn there yet, since {(verb == "click" ? "a press" : "a wheel")} is hit-tested against what was drawn: try again once it shows",
             };
         return scrollNote.Length == 0 ? outcome : WithClickScroll(outcome, scrollNote);
+    }
+
+    private static async Task<InteractOutcome> InvokeSettledAsync(Control control, string action, string? value)
+    {
+        static object Shown(Window dialog) => dialog.Content ?? dialog;
+        var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
+        var outcome = Interact(control, action, value);
+        if (!outcome.Success)
+            return outcome;
+        var command = control switch { Button button => button.Command, MenuItem item => item.Command, _ => null };
+        var task = command switch
+        {
+            IRunningCommand running => running.ExecutionTask,
+            IAsyncRelayCommand relay => relay.ExecutionTask,
+            _ => null,
+        };
+        var timeout = Task.Delay(ToggleSettleWait);
+        bool OpenedDialog() => OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(Shown(d)));
+        if (task is { IsCompleted: false })
+        {
+            // A command may await the dialog's answer; naming the new dialog must not wait for that answer.
+            while (!task.IsCompleted && !OpenedDialog() && !timeout.IsCompleted)
+                await Task.WhenAny(task, timeout, Task.Delay(10));
+            if (!task.IsCompleted && !OpenedDialog())
+                return outcome with
+                {
+                    Detail = outcome.Detail + "; replied before the work it set off had finished, which took longer than "
+                             + $"{ToggleSettleWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms",
+                };
+        }
+        else
+        {
+            var settled = Avalonia.Threading.Dispatcher.UIThread
+                .InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background).GetTask();
+            await Task.WhenAny(settled, timeout);
+        }
+        return outcome;
     }
 
     /// <summary>

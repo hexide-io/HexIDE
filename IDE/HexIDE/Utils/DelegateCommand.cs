@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Input;
+using System.Threading.Tasks;
 
 namespace HexIDE.Utils;
 
@@ -37,14 +38,29 @@ public class DelegateCommand<T> : ICommand
     }
 }
 
-public class DelegateCommand : ICommand
+internal interface IRunningCommand
 {
-    private readonly Action command;
+    Task? ExecutionTask { get; }
+}
+
+public class DelegateCommand : ICommand, IRunningCommand
+{
+    private readonly Action? command;
+    private readonly Func<Task>? asyncCommand;
     private readonly Func<bool>? canExecute;
+
+    internal Task? ExecutionTask { get; private set; }
+    Task? IRunningCommand.ExecutionTask => ExecutionTask;
 
     public DelegateCommand(Action command, Func<bool>? canExecute = null)
     {
         this.command = command;
+        this.canExecute = canExecute;
+    }
+
+    internal DelegateCommand(Func<Task> command, Func<bool>? canExecute = null)
+    {
+        asyncCommand = command;
         this.canExecute = canExecute;
     }
 
@@ -57,7 +73,13 @@ public class DelegateCommand : ICommand
 
     public void Execute(object? parameter)
     {
-        command();
+        if (asyncCommand is not null)
+        {
+            ExecutionTask = asyncCommand();
+            ExecutionTask.ListenErrors();
+        }
+        else
+            command!();
     }
 
     public event EventHandler? CanExecuteChanged;
