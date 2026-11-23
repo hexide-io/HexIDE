@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
+using HexIDE.Runtime.Debugging;
 
 namespace HexIDE.IDE;
 
@@ -132,6 +133,9 @@ public interface ISettingsService : INotifyPropertyChanged
     /// edits, or via a conflict dialog when there are. When false, the file watcher is inert.
     /// </summary>
     bool ReloadFilesChangedOutsideIde { get; set; }
+
+    /// <summary>Which handled errors halt in the IDE debugger.</summary>
+    ErrorTrapping ErrorTrapping { get; set; }
 
     // ── Toolbar visibility ──────────────────────────────────────────
 

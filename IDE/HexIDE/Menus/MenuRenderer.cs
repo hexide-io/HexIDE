@@ -9,6 +9,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Styling;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Localization;
@@ -26,15 +27,21 @@ internal sealed class MenuRenderer : IDisposable
         new Dictionary<string, Func<CompiledBinding>>(StringComparer.Ordinal)
         {
             ["{CompiledBinding HasRecentProjects}"] = () => Bind(vm => vm.HasRecentProjects),
+            ["{CompiledBinding HasRecentProjects, Converter=ShowRecentProjectsLeadingSeparator}"] = () =>
+                Bind(vm => vm.HasRecentProjects, converter: new FuncValueConverter<bool, bool>(hasRecent => Static.IsNotMacOS || hasRecent)),
+            ["{CompiledBinding HasRecentProjects, Converter=ShowRecentProjectsTrailingSeparator}"] = () =>
+                Bind(vm => vm.HasRecentProjects, converter: new FuncValueConverter<bool, bool>(hasRecent => Static.IsNotMacOS && hasRecent)),
             ["{CompiledBinding Profile.IsProjectReferencesVisible}"] = () => Bind(vm => vm.Profile.IsProjectReferencesVisible),
             ["{CompiledBinding Profile.IsToolsReferencesVisible}"] = () => Bind(vm => vm.Profile.IsToolsReferencesVisible),
             ["{CompiledBinding RunWith.HasLaunches, FallbackValue=False}"] = () => Bind(vm => vm.RunWith!.HasLaunches, false),
             ["{CompiledBinding RunWith.HasChoices, FallbackValue=False}"] = () => Bind(vm => vm.RunWith!.HasChoices, false),
             ["{x:Static vb:Static.IsBrowser}"] = () => new CompiledBinding { Source = Static.IsBrowser },
+            ["{x:Static vb:Static.IsNotMacOS}"] = () => new CompiledBinding { Source = Static.IsNotMacOS },
         };
 
-    private static CompiledBinding Bind<T>(Expression<Func<MainViewViewModel, T>> path, object? fallback = null) =>
-        CompiledBinding.Create(path, fallbackValue: fallback ?? AvaloniaProperty.UnsetValue);
+    private static CompiledBinding Bind<T>(Expression<Func<MainViewViewModel, T>> path, object? fallback = null,
+        IValueConverter? converter = null) =>
+        CompiledBinding.Create(path, fallbackValue: fallback ?? AvaloniaProperty.UnsetValue, converter: converter);
 
     internal MenuRenderer(MainViewViewModel vm, IEnumerable<MenuDeclaration>? declaration = null)
     {
@@ -118,6 +125,7 @@ internal sealed class MenuRenderer : IDisposable
         else if (declaration.Visibility is { } visibility)
         {
             if (visibility == "{x:Static vb:Static.IsBrowser}") control.IsVisible = Static.IsBrowser;
+            else if (visibility == "{x:Static vb:Static.IsNotMacOS}") control.IsVisible = Static.IsNotMacOS;
             else control.Bind(Visual.IsVisibleProperty, VisibilityBindings[visibility]());
         }
         return control;

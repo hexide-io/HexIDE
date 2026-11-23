@@ -38,7 +38,7 @@ public class ProjectStartupObjectViewModel
     /// <summary>The <c>Sub Main</c> entry. Its header is VB6's own spelling, which is also the value
     /// written to the .vbp — the dialog and the file agree by construction rather than by coincidence.</summary>
     public static ProjectStartupObjectViewModel SubMain { get; } =
-        new(HexIDE.Runtime.Serialization.SerializedProject.SubMainStartup);
+        new(Vb6ProjectPaths.SubMainStartup);
 
     public override string ToString() => Header;
 }

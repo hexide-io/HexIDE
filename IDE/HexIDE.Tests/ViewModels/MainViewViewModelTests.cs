@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
+using HexIDE.Forms.ViewModels;
+using HexIDE.Menus;
 using HexIDE.IDE;
 using HexIDE.Keymaps;
 using HexIDE.Localization;
@@ -107,7 +110,7 @@ public class MainViewViewModelTests
         app.ConfigureNativeMenu(true);
         var menu = NativeMenu.GetMenu(app);
         menu.Should().NotBeNull();
-        var item = menu!.Items.Should().ContainSingle().Subject.Should().BeOfType<NativeMenuItem>().Subject;
+        var item = menu!.Items[0].Should().BeOfType<NativeMenuItem>().Subject;
         item.Header.Should().Be(expected);
         var window = new Window { DataContext = _sut };
         desktop.MainWindow = window;
@@ -123,6 +126,86 @@ public class MainViewViewModelTests
         var app = new App();
         app.ConfigureNativeMenu(false);
         NativeMenu.GetMenu(app).Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void Mac_app_menu_puts_Settings_after_About_and_opens_Options()
+    {
+        var app = new App();
+        app.Resources["Str.Menu.MacApp.About"] = "About HexIDE";
+        app.Resources["Str.Menu.MacApp.Settings"] = new LocalizationService().GetStringFrom("en", "Str.Menu.MacApp.Settings");
+        using var desktop = new Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime();
+        desktop.MainWindow = new Window { DataContext = _sut };
+        app.ApplicationLifetime = desktop;
+        app.ConfigureNativeMenu(true);
+
+        var items = NativeMenu.GetMenu(app)!.Items.Cast<NativeMenuItem>().ToArray();
+        items.Should().HaveCount(2);
+        items.Select(item => item.Header).Should().Equal("About HexIDE", "Settings…");
+        items[1].Gesture.Should().Be(new KeyGesture(Key.OemComma, KeyModifiers.Meta));
+        ((INativeMenuItemExporterEventsImplBridge)items[1]).RaiseClicked();
+        _windowManager.Received(1).ShowDialog(Arg.Is<IDialog>(dialog => dialog is OptionsViewModel));
+    }
+
+    [AvaloniaFact]
+    public void Mac_app_menu_updates_the_gesture_on_Avalonias_Hide_Others_item()
+    {
+        var app = new App();
+        app.ConfigureNativeMenu(true);
+        var menu = NativeMenu.GetMenu(app)!;
+        var hideOthers = new NativeMenuItem("Hide Others")
+        {
+            Gesture = new KeyGesture(Key.Q, KeyModifiers.Meta | KeyModifiers.Alt)
+        };
+
+        // The native exporter appends this item to the existing app menu during setup.
+        menu.Add(hideOthers);
+
+        menu.Items.Last().Should().BeSameAs(hideOthers);
+        hideOthers.Gesture.Should().Be(new KeyGesture(Key.H, KeyModifiers.Meta | KeyModifiers.Alt));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, true)]
+    [InlineData(false, false, false)]
+    public void Main_menu_places_app_commands_by_platform(bool isMacOS, bool hasRecentProjects, bool hasReferences)
+    {
+        if (hasRecentProjects)
+            _sut.RecentProjects.Add(new RecentProjectItemViewModel("Project1", Substitute.For<System.Windows.Input.ICommand>()));
+        _sut.Profile.IsToolsReferencesVisible.Returns(hasReferences);
+        var original = Static.IsNotMacOS;
+        try
+        {
+            Static.IsNotMacOS = !isMacOS;
+            using var theme = MenuTheme();
+            using var renderer = new MenuRenderer(_sut);
+            var menus = MainMenuDeclaration.Load().ToArray();
+            var appCommands = new[]
+            {
+                ("file", ApplicationCommands.ExitCommand),
+                ("tools", ApplicationCommands.OpenOptionsCommand),
+                ("help", ApplicationCommands.AboutCommand)
+            };
+
+            foreach (var (id, command) in appCommands)
+            {
+                var menu = (MenuItem)renderer.Menu.Items[Array.FindIndex(menus, item => item.Id == id)]!;
+                var visible = menu.Items.OfType<Control>().Where(item => item.IsVisible).ToArray();
+                visible.OfType<MenuItem>().Any(item => ReferenceEquals(item.Command, command)).Should().Be(!isMacOS);
+                if (isMacOS)
+                {
+                    visible[0].Should().NotBeOfType<Separator>();
+                    visible[^1].Should().NotBeOfType<Separator>();
+                    visible.Zip(visible.Skip(1)).Should().NotContain(pair => pair.First is Separator && pair.Second is Separator);
+                }
+            }
+        }
+        finally
+        {
+            Static.IsNotMacOS = original;
+        }
     }
 
     private static System.IDisposable MenuTheme()
@@ -1519,20 +1602,20 @@ public class MainViewViewModelTests
         asked.Should().Be(3);
     }
 
-    // VB6's builds the group's projects. HexIDE has no build of a group yet (#1515), so the command says so and saves
-    // nothing, where it used to save every project and the group under a Make label.
     [AvaloniaFact]
-    public void MakeProjectGroupCommand_says_it_is_not_implemented_and_saves_nothing()
+    public void MakeProjectGroupCommand_shows_the_dialog_and_cancel_builds_nothing()
     {
         _projectManager.LoadedProjects.Returns([new ProjectDefinition(VBProjectType.EXE, "Project1")]);
         _projectManager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
-        _projectService.ClearReceivedCalls();
-        _localization.GetString("Str.Shell.NotImplemented").Returns("Translated not-implemented notice");
+        var service = RemovalService();
+        _windowManager.ShowDialog(Arg.Any<HexIDE.Forms.ViewModels.MakeProjectGroupViewModel>()).Returns(false);
+        var sut = Build(_runnerService, projects: service);
 
-        _sut.MakeProjectGroupCommand.Execute(null);
+        sut.MakeProjectGroupCommand.Execute(null);
 
-        _windowManager.Received(1).MessageBox("Translated not-implemented notice", null, MessageBoxButtons.Ok, MessageBoxIcon.Information);
-        _projectService.ReceivedCalls().Should().BeEmpty("nothing is saved, built or asked of the project service");
+        _windowManager.Received(1).ShowDialog(Arg.Any<HexIDE.Forms.ViewModels.MakeProjectGroupViewModel>());
+        _eventBus.DidNotReceive().Publish(Arg.Any<HexIDE.Events.ApplyAllUnsavedChangesEvent>());
+        _windowManager.DidNotReceiveWithAnyArgs().SaveFilePickerAsync(default!);
     }
 
     // --- ProjectReferencesCommand ---
@@ -1881,7 +1964,7 @@ public class MainViewViewModelTests
 
     [AvaloniaTheory]
     [InlineData(true, true, true)]     // End pressed while a run is going: the run ends
-    [InlineData(false, true, false)]   // closed any other way: nothing ends
+    [InlineData(false, true, false)]   // closed by code, not by a person: nothing ends
     [InlineData(true, false, false)]   // End after the run has ended some other way: nothing to end
     public void The_runtime_error_dialog_ends_the_run_only_through_End(bool answer, bool canEnd, bool ends)
     {
@@ -1948,7 +2031,7 @@ public class MainViewViewModelTests
     [AvaloniaFact]
     public void A_compile_error_at_start_with_a_location_still_offers_only_End()
     {
-        // #3960 adds metadata, not a debugger halt; #833 owns the unmeasured dialog decision.
+        // #3960 adds metadata; #833 leaves pre-start compile errors on this failed-start route.
         const string text = "Compile error:\n\n+= isn't part of VB6, VBA or VBScript, so this interpreter doesn't run it.";
         var at = new ErrorLocation("Module1", 3);
         _runnerService.FailureLocation.Returns(at);

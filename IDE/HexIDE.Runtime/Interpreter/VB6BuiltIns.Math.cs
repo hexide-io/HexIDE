@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HexIDE.Runtime.ProjectElements;
 using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 
 namespace HexIDE.Runtime.Interpreter;
@@ -17,11 +18,24 @@ public partial class VB6BuiltIns
         d["Int"]   = (_, a, _) => Whole(a[0], truncate: false);   // floor toward -inf
         d["Fix"]   = (_, a, _) => Whole(a[0], truncate: true);    // truncate toward zero
         d["Sgn"]   = (_, a, _) => new Vb6Value(Math.Sign(AsDouble(a[0])));
-        d["Sqr"]   = (_, a, _) => { var x = AsDouble(a[0]); if (x < 0) throw InvalidCall(); return new Vb6Value(Math.Sqrt(x)); };
-        d["Sin"]   = (_, a, _) => new Vb6Value(Math.Sin(AsDouble(a[0])));
-        d["Cos"]   = (_, a, _) => new Vb6Value(Math.Cos(AsDouble(a[0])));
-        d["Tan"]   = (_, a, _) => new Vb6Value(Math.Tan(AsDouble(a[0])));
-        d["Atn"]   = (_, a, _) => new Vb6Value(Math.Atan(AsDouble(a[0])));
+        d["Sqr"]   = (self, a, _) =>
+        {
+            var x = AsDouble(a[0]);
+            if (x < 0) throw InvalidCall();
+            return new Vb6Value(self.UsesX87Math(x) ? X87Math.Sqrt(x) : Math.Sqrt(x));
+        };
+        d["Sin"]   = (self, a, _) => self.Trig(a[0], X87Math.Sin, Math.Sin);
+        d["Cos"]   = (self, a, _) => self.Trig(a[0], X87Math.Cos, Math.Cos);
+        d["Tan"]   = (self, a, _) =>
+        {
+            var x = AsDouble(a[0]);
+            if (self.UsesX87Math(x))
+                return new Vb6Value(X87Math.Tan(x));
+            if (!self.RDCoreAdditions && self.VbaBitness == VbaBitness.Bit64 && Math.Abs(x) < X87Math.ArgumentLimit)
+                return new Vb6Value(Math.Sin(x) / Math.Cos(x));
+            return new Vb6Value(Math.Tan(x));
+        };
+        d["Atn"]   = (self, a, _) => self.Trig(a[0], X87Math.Atan, Math.Atan);
         // Exp is the one intrinsic here that can overflow a Double from an ordinary-looking argument —
         // Exp(1000) is Err 6, measured. Sqr and Log already guard their domains; Sin/Cos/Atn cannot leave
         // their range, and Tan's asymptote is unreachable in binary floating point.
@@ -31,6 +45,16 @@ public partial class VB6BuiltIns
         d["Rnd"]   = (self, a, _) => new Vb6Value(self.Rnd(Supplied(a, 0) ? (float)AsDouble(a[0]) : 1f));
         var roundDouble = d["Round"];
         d["Round"] = (self, a, text) => RoundKeepingType(a, () => roundDouble(self, a, text));
+    }
+
+    private bool UsesX87Math(double x) =>
+        !RDCoreAdditions && VbaBitness is VbaBitness.None or VbaBitness.Bit32 &&
+        Math.Abs(x) < X87Math.ArgumentLimit;
+
+    private Vb6Value Trig(Vb6Value argument, Func<double, double> x87, Func<double, double> ieee)
+    {
+        var x = AsDouble(argument);
+        return new Vb6Value(UsesX87Math(x) ? x87(x) : ieee(x));
     }
 
     // Round keeps a Decimal's, a Currency's and a Single's type (#4085). A Decimal or a Currency rounds its exact value

@@ -1,4 +1,6 @@
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
+using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -60,6 +62,120 @@ public class MathFunctionsTests : BaseVBTestFixture
     {
         await Run("Debug.Print Exp(0)\nDebug.Print Sin(0)\nDebug.Print Cos(0)\n");
         AssertDebugLog([new Vb6Value(1.0), new Vb6Value(0.0), new Vb6Value(1.0)]);
+    }
+
+    public static TheoryData<string, ulong, ulong> Vb6TrigRows
+    {
+        get
+        {
+            var rows = new TheoryData<string, ulong, ulong>();
+            foreach (var (argument, sin, cos, tan, atn) in X87MathOracle.Trig)
+            {
+                rows.Add("Sin", argument, sin);
+                rows.Add("Cos", argument, cos);
+                rows.Add("Tan", argument, tan);
+                rows.Add("Atn", argument, atn);
+            }
+
+            return rows;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Vb6TrigRows))]
+    public Task Vb6_trig_matches_x87_bits(string function, ulong argument, ulong expected) =>
+        CheckDoubleBits(function, argument, expected, VbaBitness.None);
+
+    public static TheoryData<ulong, ulong> X87SqrTieRows =>
+        new(X87MathOracle.SquareRootTies.Select(row => (row.Argument, row.X87)));
+
+    [Theory]
+    [MemberData(nameof(X87SqrTieRows))]
+    public Task Vb6_sqr_rounds_twice_at_ties(ulong argument, ulong x87) =>
+        CheckDoubleBits("Sqr", argument, x87, VbaBitness.None);
+
+    // #5259 and oracle PR #5294. Three 32-bit Atn rows diverge from the model.
+    [Theory]
+    [InlineData("Sin", 0x400921FB54442D18UL, 0x3CA1A60000000000UL)]
+    [InlineData("Cos", 0x3FF921FB54442D18UL, 0x3C91A60000000000UL)]
+    [InlineData("Tan", 0x3FF921FB54442D18UL, 0x434D02D546D3EAB2UL)]
+    [InlineData("Sin", 0x41AC802088A3DF03UL, 0xBFA13E9EBF84E15AUL)]
+    public Task Vba32_trig_matches_x87_bits(string function, ulong argument, ulong expected) =>
+        CheckDoubleBits(function, argument, expected, VbaBitness.Bit32);
+
+    public static TheoryData<ulong> TrigArguments => new(X87MathOracle.Trig.Select(row => row.Argument));
+
+    [Theory]
+    [MemberData(nameof(TrigArguments))]
+    public Task Vba64_tan_divides_double_sin_by_double_cos(ulong argument)
+    {
+        double x = BitConverter.UInt64BitsToDouble(argument);
+        return CheckDoubleBits("Tan", argument, BitConverter.DoubleToUInt64Bits(Math.Sin(x) / Math.Cos(x)),
+            VbaBitness.Bit64);
+    }
+
+    [Theory]
+    [MemberData(nameof(TrigArguments))]
+    public async Task Vba64_sin_cos_and_atn_use_math(ulong argument)
+    {
+        double x = BitConverter.UInt64BitsToDouble(argument);
+        SetMathProject(VbaBitness.Bit64, x);
+        await Run("Debug.Print Sin(oracleInput)\nDebug.Print Cos(oracleInput)\nDebug.Print Atn(oracleInput)");
+        AssertDoubleBits([Math.Sin(x), Math.Cos(x), Math.Atan(x)]);
+    }
+
+    [Theory]
+    [MemberData(nameof(TrigArguments))]
+    public async Task Sqr_matches_math_on_ordinary_arguments(ulong argument)
+    {
+        double x = Math.Abs(BitConverter.UInt64BitsToDouble(argument));
+        ulong expected = BitConverter.DoubleToUInt64Bits(Math.Sqrt(x));
+        foreach (var bitness in Enum.GetValues<VbaBitness>())
+        {
+            debug.Clear();
+            await CheckDoubleBits("Sqr", BitConverter.DoubleToUInt64Bits(x), expected, bitness);
+        }
+    }
+
+    public static TheoryData<ulong, ulong> IeeeSqrTieRows =>
+        new(X87MathOracle.SquareRootTies.Select(row => (row.Argument, row.Ieee)));
+
+    [Theory]
+    [MemberData(nameof(IeeeSqrTieRows))]
+    public Task Vba64_sqr_rounds_once_at_ties(ulong argument, ulong ieee) =>
+        CheckDoubleBits("Sqr", argument, ieee, VbaBitness.Bit64);
+
+    [Theory]
+    [InlineData(VbaBitness.None)]
+    [InlineData(VbaBitness.Bit32)]
+    [InlineData(VbaBitness.Bit64)]
+    public async Task Sqr_of_a_negative_number_raises_error_5(VbaBitness bitness)
+    {
+        SetMathProject(bitness, -1);
+        await Run("On Error Resume Next\nDebug.Print Sqr(oracleInput)\nDebug.Print Err.Number");
+        AssertDebugLog([new Vb6Value(5L)]);
+    }
+
+    private async Task CheckDoubleBits(string function, ulong argument, ulong expected, VbaBitness bitness)
+    {
+        SetMathProject(bitness, BitConverter.UInt64BitsToDouble(argument));
+        await Run($"Debug.Print {function}(oracleInput)");
+        AssertDoubleBits([BitConverter.UInt64BitsToDouble(expected)]);
+    }
+
+    private void SetMathProject(VbaBitness bitness, double input)
+    {
+        Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test")
+            { VbaBitness = bitness });
+        // Inject the measured bytes directly, as the oracle probe did.
+        rootEnv.DefineVariable("oracleInput", context.State.Alloc(new Vb6Value(input)));
+    }
+
+    private void AssertDoubleBits(double[] expected)
+    {
+        debug.Should().Equal(expected, (actual, value) =>
+            actual.Type == Vb6Value.ValueType.Double && actual.Value is double result &&
+            BitConverter.DoubleToUInt64Bits(result) == BitConverter.DoubleToUInt64Bits(value));
     }
 
     [Fact]

@@ -143,6 +143,60 @@ public sealed class StandaloneErrorTests
         }
     }
 
+    // Measured compiled-program c1: docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md.
+    [AvaloniaFact]
+    public void A_forms_handler_catches_an_unhandled_class_error_in_a_made_program()
+    {
+        var project = Project("""
+            Private Sub Command1_Click()
+                On Error GoTo handled
+                Dim c As Source
+                Set c = New Source
+                c.Divide
+                Exit Sub
+            handled:
+                Debug.Print "handled " & Err.Number
+            End Sub
+            """, source: """
+            Public Sub Divide()
+                Debug.Print 1 \ 0
+            End Sub
+            """);
+        var printed = new List<string>();
+        var dialogs = new List<Window>();
+        var exits = 0;
+        using var cancel = new CancellationTokenSource();
+        using var host = new StandaloneRun(project, window =>
+        {
+            dialogs.Add(window);
+            return Task.CompletedTask;
+        }, () => exits++, _ => "{0}");
+        VBFormRuntime? opened = null;
+        using var watch = Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) => opened = w);
+        VBDebugConsole.Output += printed.Add;
+        try
+        {
+            _ = host.Run(cancel.Token);
+            Pump();
+            opened.Should().NotBeNull();
+            opened!.GetLogicalDescendants().OfType<VBCommandButton>().Single()
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Pump();
+            printed.Should().Equal("handled 11");
+            dialogs.Should().BeEmpty();
+            exits.Should().Be(0);
+            host.IsReporting.Should().BeFalse();
+        }
+        finally
+        {
+            cancel.Cancel();
+            foreach (var dialog in dialogs)
+                dialog.Close();
+            Pump();
+            VBDebugConsole.Output -= printed.Add;
+        }
+    }
+
     [AvaloniaFact]
     public void A_fatal_error_host_does_not_enable_debugging()
     {

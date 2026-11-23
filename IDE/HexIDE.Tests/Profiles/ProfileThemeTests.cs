@@ -6,16 +6,16 @@ using Avalonia.Styling;
 using HexIDE.IDE;
 using HexIDE.Profiles;
 using HexIDE.Themes;
+using HexIDE.Tests.Infrastructure;
 using HexIDE.Tests.Sidecar;
 
 namespace HexIDE.Tests.Profiles;
 
 public sealed class ProfileThemeTests : IDisposable
 {
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-profile-theme-" + Guid.NewGuid());
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-profile-theme-");
     private string SettingsPath => Path.Combine(root, "user-settings.json");
 
-    public ProfileThemeTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, true);
 
     private ProfileSnapshot Profile(string colors = "\"ReadOnlyText\":\"#123456\"", string variant = "Dark")

@@ -89,4 +89,49 @@ public interface IHexIdeHost
     /// <exception cref="ArgumentException">It has no title, no file names, a malformed pattern, or nothing that reads it.</exception>
     /// <exception cref="InvalidOperationException">Another project type, an add-in's or HexIDE's own, reads one of its file names.</exception>
     IDisposable RegisterProjectType(AddinProjectType type);
+
+    /// <summary>
+    /// Adds an Avalonia resource dictionary from the add-in's own assembly to the IDE's resources: the control themes its
+    /// controls need, and the resources they look up (#5396).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the owners HexIDE grants it may call it.</b> The grants are in HexIDE's own source, keyed by owner, and
+    /// each names the string-key families and the assemblies whose types its owner may register. Any other add-in is
+    /// refused, whatever its signature. Today the only grant is the Basic provider's, which HexIDE composes itself.
+    /// </para>
+    /// <para>
+    /// <b>It only adds.</b> Every key the dictionary holds, in its merged and theme dictionaries too, is read before
+    /// anything is merged, and the whole dictionary is refused if any one of them is refused. A key is refused when:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>the IDE or another registration already holds it, in either theme;</item>
+    /// <item>it is a string beginning <c>Str.</c>, which is the IDE's text, the consent and trust dialogs' included;</item>
+    /// <item>it is a string outside the families its owner's grant names;</item>
+    /// <item>it is a type the add-in's own assembly doesn't declare, or one its grant doesn't cover, which would restyle
+    /// every control of that type;</item>
+    /// <item>it is anything other than a string or a type.</item>
+    /// </list>
+    /// <para>
+    /// So a granted owner can give its own controls their themes, and can never change how the IDE, or another add-in,
+    /// looks or reads. Each refusal is logged naming the key and both owners.
+    /// </para>
+    /// <para>
+    /// The capability design will need a name for this member; none is checked today, as that design's host checks are
+    /// not built.
+    /// </para>
+    /// </remarks>
+    /// <param name="dictionary">An <c>avares://</c> address in the calling add-in's own assembly, whose root is a
+    /// <c>ResourceDictionary</c>.</param>
+    /// <returns>
+    /// What takes the dictionary out again. Turning the add-in off or revoking its consent takes it out too.
+    /// </returns>
+    /// <exception cref="ArgumentException">
+    /// The address isn't an <c>avares://</c> address in the calling assembly, or what it names isn't a resource dictionary.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The add-in holds no grant, or a key is refused, as above, and the message names it and its owner. Also thrown by a
+    /// host that isn't an add-in's own: resources are registered only through the host an add-in is given.
+    /// </exception>
+    IDisposable RegisterResources(Uri dictionary);
 }

@@ -24,5 +24,6 @@
   <ItemGroup>
     <!-- One cleanup per test class: xunit v3 never calls Dispose beside DisposeAsync (#3411 slice 10b-3). -->
     <Compile Include="..\HexIDE.Tests\Infrastructure\TestClassCleanupTests.cs" Link="Infrastructure\TestClassCleanupTests.cs" />
+    <Compile Include="..\HexIDE.Tests\Infrastructure\ResolvedTemp.cs" Link="Infrastructure\ResolvedTemp.cs" />
   </ItemGroup>
 </Project>

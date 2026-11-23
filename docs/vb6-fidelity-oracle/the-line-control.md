@@ -208,3 +208,83 @@ Sixteen Lines, with DrawMode 1 to 16 in the file and no comment, were saved as:
 
 - **The release build's comments,** so whether the DrawMode shift is SP6's or VB6's from the start.
 - **A Line inside a container,** whose endpoints are in the container's scale (above).
+
+## A Line's ends follow its container's current scale, whatever unit it was loaded in (2026-11-23, #5530, SP6)
+
+**The question.** The ends of a Line loaded in centimetres follow its PictureBox's ScaleMode as it changes. That's
+#4693's row, oracle PR #5514. Does a Line loaded in another unit do the same? Or does it keep the unit it was loaded
+in? HexIDE's runtime assumed the second for every unit but centimetres: a Line loaded in twips read 300 after its
+container went to pixels (#5530).
+
+**The rig.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM. `/make` built native code and p-code, and each EXE
+ran on the guest's console. The IDE ran the p-code project through `vb6.exe /runexit`. The project was one form and
+one module. `Sub Main` showed the form, called its `Probe`, and wrote each line to `out.txt` beside the EXE. All
+three runs wrote the same 42 lines.
+
+The form, 9200 × 4800 twips, held three borderless PictureBoxes of 2835 × 2835 twips:
+
+| Box | Saved ScaleMode | Its Line, as saved |
+|---|---|---|
+| `Picture2` | twips (the default, no line) | `X1 = 300`, `Y1 = 300`, `X2 = 1500`, `Y2 = 1500` |
+| `Picture3` | `3 'Pixel`, ScaleWidth and ScaleHeight 189 | `X1 = 20`, `Y1 = 20`, `X2 = 100`, `Y2 = 100` |
+| `Picture4` | `5 'Inch`, ScaleWidth and ScaleHeight 1.969 | `X1 = 0.25`, `Y1 = 0.5`, `X2 = 1`, `Y2 = 1.25` |
+
+A fourth Line, on the form itself, was saved at (300, 3200)-(1200, 4000) twips.
+
+Each box ran this, with `R` returning `CStr` of `X1`, `Y1`, `X2` and `Y2` joined by `|`:
+
+```vb
+Private Sub Box(ByVal nm As String, p As PictureBox, ln As Control)
+    Dim m As Variant
+    L nm & " init " & R(ln) & " " & TypeName(ln.X1)
+    For Each m In Array(1, 3, 5, 6, 7, 4, 2)
+        p.ScaleMode = m
+        L nm & " mode" & m & " " & R(ln)
+    Next
+    p.Scale (0, 0)-(100, 50)
+    L nm & " user " & R(ln)
+    p.ScaleMode = 3
+    ln.X1 = 10
+    L nm & " wrote10px px " & R(ln)
+    p.ScaleMode = 1
+    L nm & " wrote10px twips " & R(ln)
+End Sub
+```
+
+**What came back.** Each read was a Single (`TypeName` printed `Single` for all four Lines).
+
+| Container's ScaleMode now | Line loaded in twips | Line loaded in pixels | Line loaded in inches |
+|---|---|---|---|
+| as loaded | 300\|300\|1500\|1500 | 20\|20\|100\|100 | 0.25\|0.5\|1\|1.25 |
+| 1, twips | 300\|300\|1500\|1500 | 300\|300\|1500\|1500 | 360\|720\|1440\|1800 |
+| 3, pixels | 20\|20\|100\|100 | 20\|20\|100\|100 | 24\|48\|96\|120 |
+| 5, inches | 0.2083333\|0.2083333\|1.041667\|1.041667 | the same as twips | 0.25\|0.5\|1\|1.25 |
+| 6, millimetres | 5.291672\|5.291672\|26.45836\|26.45836 | the same as twips | 6.350006\|12.70001\|25.40002\|31.75003 |
+| 7, centimetres | 0.5291672\|0.5291672\|2.645836\|2.645836 | the same as twips | 0.6350006\|1.270001\|2.540003\|3.175003 |
+| 4, characters | 2.5\|1.25\|12.5\|6.25 | the same as twips | 3\|3\|12\|7.5 |
+| 2, points | 15\|15\|75\|75 | the same as twips | 18\|36\|72\|90 |
+| `Scale (0, 0)-(100, 50)` | 10.58201\|5.291005\|52.91005\|26.45503 | the same as twips | 12.69841\|12.69841\|50.79365\|31.74603 |
+| `ScaleMode = 3`, then `X1 = 10` | 10\|20\|100\|100 | the same as twips | 10\|48\|96\|120 |
+| then `ScaleMode = 1` | 150\|300\|1500\|1500 | the same as twips | 150\|720\|1440\|1800 |
+
+The form's own Line read the same way through `Me.ScaleMode`:
+
+| Form's ScaleMode now | X1\|Y1\|X2\|Y2 |
+|---|---|
+| 3, pixels | 20\|213.3333\|80\|266.6667 |
+| 5, inches | 0.2083333\|2.222222\|0.8333333\|2.777778 |
+| 7, centimetres | 0.5291672\|5.64445\|2.116669\|7.055562 |
+| 1, twips | 300\|3200\|1200\|4000 |
+| `Scale (0, 0)-(100, 50)` | 3.262643\|33.33333\|13.05057\|41.66667 |
+
+**What it shows.**
+- **The unit a Line was loaded in only converts its saved numbers to twips.** After that, every read and write goes
+  through the container's scale as it stands. That's the twips row of each column, divided by the current mode's
+  twips per unit.
+- **A Line loaded in pixels and one loaded in twips are the same Line once loaded.** Both columns agree in every row,
+  because 20 pixels is 300 twips.
+- **The character mode's two axes differ:** 120 twips across and 240 down, so 300 twips reads 2.5 across and 1.25
+  down.
+- **A write in pixels lands in whole twips.** 10 pixels reads back as 150 in twips.
+- **The obvious guess was right this time, but HexIDE's code had made the other one:** only a centimetre-loaded Line
+  followed the container's current scale (#5530).

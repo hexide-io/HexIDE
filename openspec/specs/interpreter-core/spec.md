@@ -1717,8 +1717,8 @@ the assigned whole twips when the rounded size reaches the floor (#4071, oracle 
 Assigning either dimension SHALL enforce both dimensions on those controls; loaded zero sizes SHALL remain
 unchanged until assignment. Negative CommandButton, Label or form Width or Height assignments SHALL raise 380, "Invalid property value",
 without changing the size; Move with a negative size SHALL raise 5 before changing any position or size.
-Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped. TextBox and CommandButton floors SHALL use only the recorded
-font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383.
+Other controls retain their existing floor comparison. Sizes above a floor SHALL remain unsnapped except for the measured Simple Combo rule below. TextBox and CommandButton floors SHALL use only the recorded
+font/border combinations, without extrapolating to other fonts. ComboBox Height assignments SHALL raise 383 except for the measured Simple Combo rule below.
 The form's desktop-dependent floor and the absent DriveListBox, DirListBox, FileListBox and Data runtime controls
 remain outside this implementation.
 
@@ -1748,8 +1748,43 @@ remain outside this implementation.
 - **WHEN** Width 7 and Height 7 are assigned to a CheckBox or OptionButton, a ListBox, either scroll bar,
   or a Frame, PictureBox, Image, Shape or Label
 - **THEN** their sizes read 75 × 195, 135 × 255, 30 × 30, or 15 × 15 respectively
-- **WHEN** a ComboBox is assigned Width 7 or Height 7
+- **WHEN** a Dropdown Combo or Dropdown List is assigned Width 7 or Height 7
 - **THEN** its Width reads 390, and the Height assignment raises 383
+
+### Requirement: Simple Combo Height uses measured font metrics
+
+A Simple Combo SHALL use only the seven plain font/size metrics measured at 96 dpi in
+[the #1655 oracle](../../../docs/vb6-fidelity-oracle/a-simple-combos-height-by-font.md) to snap loaded and
+assigned Height. Its edit box and list rows SHALL use the recorded heights; its list SHALL hide when no row fits.
+The next designer save SHALL write the snapped Height. Other fonts, bold/italic faces and dropdown styles
+SHALL retain existing behaviour, without inferring metrics for another dpi.
+
+#### Scenario: Snapping a loaded Simple Combo
+
+- **WHEN** a Simple Combo in one of the seven measured fonts, with normal weight and no italic face, loads Height H
+- **THEN** in pixels, with recorded edit height E and row height R, `n = floor((H - E - 4) / R)` and Height is E
+  when n is zero or less, otherwise `E + 4 + R * n`
+- **AND** the runtime and designer use the same rule; applying it in the designer to all seven fonts is the decision
+  recorded in #1655, whose designer measurement covers MS Sans Serif 8.25
+
+#### Scenario: Assigning a Height in a measured font
+
+- **WHEN** a runtime Height assignment is at least `E + 4 + R` pixels
+- **THEN** it snaps by the load rule without error
+- **WHEN** an assignment is below E
+- **THEN** Height remains unchanged without error
+- **WHEN** an assignment is in the unmeasured interval from E to one row
+- **THEN** it retains error 383
+
+#### Scenario: Loading and saving a default Simple Combo
+
+- **WHEN** a Simple Combo in MS Sans Serif 8.25 is loaded with saved Height 1500 twips
+- **THEN** its designer and runtime Height read 1350, and the next designer save writes Height 1350
+
+#### Scenario: Assigning a measured Height
+
+- **WHEN** a Simple Combo in Arial 12 receives Height 1500, then Height 300, then Height 0
+- **THEN** its Height reads 1260 after each assignment, without error
 
 ### Requirement: Object array stores SHALL distinguish declarations from Variant values
 A Function returning Object(), Collection() or a project class array SHALL accept an array of objects through a
@@ -2080,6 +2115,18 @@ as not implemented.
 - **WHEN** Print # or Write # receives CVErr(5)
 - **THEN** Print # writes "Error 5" and Write # writes "#ERROR 5#"
 - **AND** implicit string coercion still raises 13
+
+### Requirement: Intrinsic control defaults in output and concatenation
+
+`Print #`, `Debug.Print`, paused Immediate `?` and `&` SHALL read the intrinsic control default that a Let reads.
+`Write #` SHALL write a Boolean control default as a Boolean and other modeled control defaults as quoted Strings,
+using Let-to-String coercion. An intrinsic control with an unimplemented default SHALL refuse with #790.
+The output rules are measured in [#5385](https://github.com/hexide-io/HexIDE/issues/5385).
+
+#### Scenario: Writing a numeric default and an explicit property
+- **WHEN** `Write #` receives a CheckBox control reference
+- **THEN** it writes the CheckBox value as a quoted String
+- **AND** `Write #` of the explicit Value property writes a bare number
 
 ### Requirement: New on a form creates a separate instance
 
@@ -2655,7 +2702,7 @@ Columns above zero SHALL arrange items down each column then across. TopIndex SH
 to a column start and clamp to the last page. Measured navigation SHALL raise Click then
 Scroll when the top changes; code selection SHALL scroll without Scroll.
 Unmeasured mouse checkbox toggling, Style 1 with MultiSelect, runtime Style/Columns
-assignments, horizontal-bar dragging and designer drawing retain their existing behaviour.
+assignments and horizontal-bar dragging retain their existing behaviour.
 
 #### Scenario: Unchecking preserves the current position
 - **WHEN** items 1 and 3 are checked, ListIndex is 3, and code sets Selected(1) = False
@@ -2761,15 +2808,15 @@ selection: oracle PR #5125 and #5134's comments).
 The runtime SHALL decode List and ItemData records using
 [#5106 / #5114's measurements](https://github.com/hexide-io/HexIDE/issues/5106): counted ANSI
 strings and decimal Long data. Loading SHALL retain saved order, including on Sorted controls,
-and set NewIndex/ListIndex to -1. Original bytes SHALL remain verbatim for saving. Per
+and set NewIndex/ListIndex to -1. Records outside load recovery SHALL remain verbatim for saving. Per
 [the #5127 measurements](https://github.com/hexide-io/HexIDE/issues/5127) (oracle PRs #5130 and #5155), List
 alone SHALL determine the items, with positional ItemData defaulting missing values to zero and
 ignoring extras. ItemData SHALL skip spaces, tabs, CRs and LFs, accept one plus or minus sign that
 the digits follow directly, and read decimal digits with 32-bit wrapping; anything else SHALL yield zero. Trailing record
 bytes SHALL be ignored.
-Code page 1252 SHALL decode undefined bytes as same-number characters. Truncated ItemData,
+Code page 1252 SHALL decode undefined bytes as same-number characters. Unrecovered truncated ItemData,
 a vertical tab or form feed before an entry's digits, and undecodable bytes on other
-code pages SHALL refuse before population with NotImplementedException naming #5127. Truncated List SHALL stop loading with
+code pages SHALL refuse before population with NotImplementedException naming #5127. Unrecovered truncated List SHALL stop loading with
 `Property List in <control name> could not be set`. A Style 2 ComboBox without ItemData SHALL keep
 all saved items. That is a deliberate divergence: vb6.exe drops the first saved item there (measured,
 oracle PR #5131), which is a defect, and the Fidelity Principle keeps HexIDE from reproducing it.
@@ -2777,9 +2824,17 @@ The designer SHALL draw saved ListBox and Simple ComboBox items in file order, i
 Sorted lists, using the runtime font, row height and text insets, with no selection or focus rectangle
 ([#5121's designer measurements](https://github.com/hexide-io/HexIDE/issues/5121), oracle PR #5131).
 An empty ListBox SHALL show its current Name on the first row only in the designer. Overflowing
-ListBoxes SHALL show a vertical scroll bar. Simple ComboBoxes SHALL show Text above the list.
-Checkbox and column designer layouts remain plain pending #5133; Styles 0 and 2 ComboBox drawing
-is unchanged.
+ListBoxes with Columns 0 SHALL show a vertical scroll bar. Simple ComboBoxes SHALL show Text above the list.
+Style 1 ListBoxes without MultiSelect SHALL draw unchecked boxes in the designer, using the runtime glyph.
+Columns above zero SHALL flow down then across at a 120-DIP pitch in the designer, including Columns 1,
+with a horizontal scroll bar on overflow. Columns 0 SHALL retain the plain layout.
+Runtime Columns greater than 1 SHALL use a pitch of `(W - 3) \ Columns`, truncated, where W is Width
+in twips divided by 15 and rounded half up; Columns 1 SHALL retain full-width columns
+([#5133 measurements](../../../docs/vb6-fidelity-oracle/a-lists-saved-items-in-the-designer-and-at-load.md)).
+By decision in #5133, pitches at other scaling factors are DIPs, Style 1 with Columns takes both layouts,
+and regenerated designer previews use the same rule. IntegralHeight False and partial rows retain the
+existing row count. The first checkbox item's selection colours and the glyph's unmeasured pixels remain
+unchanged. Styles 0 and 2 ComboBox drawing is unchanged.
 
 #### Scenario: Saved items appear in the designer picture
 - **WHEN** the designer draws a ListBox saved with s2, s1, s3
@@ -2803,9 +2858,18 @@ is unchanged.
 - **AND** nonempty records use a two-byte count, ignored two-byte field and strings with two-byte lengths;
   an empty record is a zero count alone
 
+#### Scenario: An end-of-file cut in a form's saved list records
+- **WHEN** a ListBox or Style 2 ComboBox in a VB.Form has a final .frx record that ends between entries,
+  or a final List record that ends in an item's text
+- **THEN** loading SHALL log the failing property at the control's Begin line and mark the form loaded with errors
+- **AND** the run and designer SHALL use the complete List entries in order and positional ItemData, with zero for missing values
+- **AND** Save As SHALL write the recovered records, with the longest retained List entry's byte length in the second field
+  of each rewritten nonempty record, and omit any ItemData entries beyond the recovered list
+  ([#5147](https://github.com/hexide-io/HexIDE/issues/5147), oracle PR #5314; [List field measurement](../../../docs/vb6-fidelity-oracle/vb6-on-windows-set-to-code-page-65001.md))
+
 #### Scenario: The measured loading scope
 - **WHEN** saved items are loaded
-- **THEN** Properties-window list/data editing, record writing and CallByName remain outside this change
+- **THEN** Properties-window list/data editing, general record writing and CallByName remain outside this change
 - **AND** non-ASCII saved-text fidelity outside code page 1252 remains unmeasured
 
 ### Requirement: ListBox TopIndex assignments report a changed top row
@@ -3224,7 +3288,36 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** execution refuses with NotImplementedException naming #988
 - **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
 - **AND** an unrepresentable saved FillColor refuses instead of silently using black
-- **AND** AutoRedraw assignments are retained; persistence and Paint-event timing remain #991, and text drawing #989
+- **AND** text drawing remains #989; Image and Picture = Image remain #992
+
+#### Scenario: AutoRedraw keeps a picture independently of the window
+- **WHEN** a form or PictureBox draws with AutoRedraw True
+- **THEN** it SHALL draw into its kept picture and display that picture
+- **WHEN** it draws with AutoRedraw False
+- **THEN** only the window SHALL change; Point SHALL read the window until Refresh
+- **AND** turning AutoRedraw off SHALL keep the picture
+- **WHEN** Refresh runs with no arguments
+- **THEN** the window SHALL reset to the kept picture and only that object's Paint SHALL run before the next statement if AutoRedraw is False
+- **AND** with AutoRedraw True no Paint SHALL run
+- **AND** Refresh used as a value and CallByName Refresh SHALL refuse explicitly with #991, pending measurement of their results
+
+#### Scenario: Paint follows measured visibility and growth changes
+- **WHEN** a form first shows
+- **THEN** Resize SHALL run once synchronously, followed by posted Activate, form Paint and visible PictureBox Paint
+- **WHEN** a form shows after Hide or restores from minimized
+- **THEN** form Paint and visible PictureBox Paint SHALL be posted, after Resize on restore
+- **WHEN** a form's client area grows by a native resize or code size assignment
+- **THEN** its Paint SHALL be posted after Resize; a pure shrink or position-only Move SHALL raise no Paint
+- **WHEN** a control is hidden, or a PictureBox is shown or grows
+- **THEN** form Paint, or that PictureBox's Paint respectively, SHALL be posted
+- **AND** a PictureBox size change while shown SHALL raise Resize synchronously
+- **AND** AutoRedraw True SHALL suppress that object's Paint on all these paths
+- **AND** drawing, Cls, Caption and BackColor SHALL raise no Paint
+- **AND** these posted Paints SHALL retain window drawing; exposure by another application SHALL neither raise Paint nor discard drawing
+
+These #991 scenarios use the [drawing oracle's console measurements](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md).
+Retaining drawing for posted Paint, and ignoring other applications' exposure, are the issue's explicit fidelity decisions.
+The conflicting AutoRedraw-toggle Paint sequences and Cls's effect on each layer remain unpinned.
 
 #### Scenario: Drawing and readback use distinct rounding paths
 - **WHEN** a form draws PSet (7.5, 7.5) in twips
@@ -3358,20 +3451,58 @@ Native menu items SHALL reflect shown captions, Enabled, Visible and Checked; se
 omitted while hidden and restored in order when shown. Array Load and Unload SHALL update the mirror
 in order. Top-level items without children SHALL have empty native submenus. Native Click SHALL
 raise the existing menu Click with its array Index, and a submenu's Opening SHALL raise its
-holding menu's Click; NeedsUpdate alone, which AppKit also raises when it searches the menus for a key equivalent,
+holding menu's Click from a job posted to the UI dispatcher, only if that submenu has not raised Closed
+before the job runs ([#5379](https://github.com/hexide-io/HexIDE/issues/5379)); NeedsUpdate alone, which AppKit also raises when it searches the menus for a key equivalent,
 SHALL raise no Click. Native items SHALL have no Gesture; the existing window shortcut chain SHALL
 remain responsible for shortcut dispatch. Measured platform rules: [#5011 K1–K14](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7031789606)
 and [K15–K18](https://github.com/hexide-io/HexIDE/issues/5011#issuecomment-7034162303);
 implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 
-#### Scenario: A menu enables an item before its native submenu opens
+#### Scenario: A menu enables an item during its native submenu open
 - **GIVEN** a desktop form using the system menu bar with a disabled submenu item
-- **WHEN** the holding native submenu raises Opening and its menu Click enables the item
-- **THEN** that same native item is enabled before the submenu opens
+- **WHEN** the holding native submenu raises Opening and remains open until the posted dispatcher job runs
+- **THEN** its menu Click enables that same native item during the open
 - **AND** no in-window menu strip appears
+
+#### Scenario: An accessibility read or Help search closes before dispatch
+- **WHEN** a native submenu raises Opening then Closed before the posted dispatcher job runs
+- **THEN** its holding menu raises no Click
+
+#### Scenario: Two opens each post a Click
+- **WHEN** a native submenu raises Opening twice without Closed before the dispatcher jobs run
+- **THEN** its holding menu raises two Clicks
 
 #### Scenario: A borderless menu form keeps its frame with the system menu bar
 - **GIVEN** a BorderStyle 0 desktop form with a 2520 by 2520 twip client and a visible top-level menu, using the system menu bar
 - **WHEN** it loads
 - **THEN** Width, Height, ScaleWidth and ScaleHeight read 2610, 2955, 2520 and 2520
 - **AND** its window has a caption bar
+
+### Requirement: CommandButton Style is readable and cannot be assigned at run time
+
+A CommandButton’s Style SHALL read as Integer 0 (Standard) or 1 (Graphical). Assigning Style SHALL
+raise 382, "'Style' property cannot be set at run time", and leave Style unchanged. Standard SHALL
+paint the button-face system colour regardless of stored BackColor; Graphical SHALL paint BackColor.
+
+#### Scenario: An Object cannot change a Graphical button’s Style
+
+- **GIVEN** an Object holding a Graphical CommandButton
+- **WHEN** code assigns its Style to 0 under On Error Resume Next
+- **THEN** Err.Number is 382 and Err.Description is "'Style' property cannot be set at run time"
+- **AND** Style remains Integer 1
+
+#### Scenario: Direct assignment uses the interpreter’s execution policy
+
+- **WHEN** code directly assigns `Command1.Style = 1`
+- **THEN** the interpreter raises the same 382 when the statement runs
+- **AND** VB6’s compile-time rejection is documented as a difference in evaluation point
+
+#### Scenario: Code sets a Standard button’s BackColor
+
+- **WHEN** code assigns BackColor on a Standard button
+- **THEN** it keeps painting the button face and reads back the assigned BackColor
+- **AND** this follows #913’s decision to share the loaded-colour paint rule, rather than a measurement of that assignment
+
+CallByName remains outside this requirement (#4520). Authority:
+[Style measurements](../../../docs/vb6-fidelity-oracle/a-commandbuttons-style-assigned-from-code-and-painted-in-the-designer.md)
+and [loaded runtime paint](../../../docs/vb6-fidelity-oracle/a-form-based-games-runtime-surface.md).

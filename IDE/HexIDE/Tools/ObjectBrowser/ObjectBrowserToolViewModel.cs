@@ -414,7 +414,7 @@ public partial class ObjectBrowserToolViewModel : Document
         foreach (var component in components.Where(c => !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(c))))
             if (!references.Any(r => component.Names(r.Guid)))
                 references.Add(new VbReference(component.Guid, component.Version, component.Lcid, null,
-                    SerializedProject.FileNameWithoutExtensionOf(component.File)));
+                    Vb6ProjectPaths.FileNameWithoutExtensionOf(component.File)));
 
         var owned = projectReferences[project];
         foreach (var stale in owned.Where(l => !references.Contains(l.Reference!)).ToList())
@@ -428,7 +428,7 @@ public partial class ObjectBrowserToolViewModel : Document
             if (owned.Any(l => l.Reference == reference)) continue;
             var refName = !string.IsNullOrEmpty(reference.Name)
                 ? reference.Name!
-                : SerializedProject.FileNameWithoutExtensionOf(reference.LibPath!);
+                : Vb6ProjectPaths.FileNameWithoutExtensionOf(reference.LibPath!);
             var lib = new OBLibraryViewModel(refName, reference);
             owned.Add(lib);
             Libraries.Add(lib);
@@ -631,6 +631,27 @@ public partial class ObjectBrowserToolViewModel : Document
                 var (kind, signature) = MapSymbol(sym);
                 classVm.Members.Add(new OBMemberViewModel(sym.Name, kind, signature,
                     declarationPosition: sym.SelectionRange.Start));
+            }
+
+            if ((classVm.FormDefinition ?? classVm.ModuleDefinition?.FormPart) is { } form)
+            {
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var component in form.Components.Skip(1))
+                {
+                    var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
+                    if (name is { Length: > 0 } && names.Add(name))
+                        classVm.Members.Add(new OBMemberViewModel(name, OBMemberKind.Property,
+                            $"WithEvents {name} As {component.BaseClass.ClassName}"));
+                }
+                // Code names, as the in-box classes list them (#4029): VB6 lists Name, not the Properties window's (Name).
+                foreach (var prop in form.Components[0].BaseClass.Properties)
+                {
+                    var propertyName = prop == VBProperties.NameProperty ? "Name" : prop.Name;
+                    if (prop.Category == PropertyCategory.Internal || propertyName.Contains('(') || propertyName.Contains(')'))
+                        continue;
+                    classVm.Members.Add(new OBMemberViewModel(propertyName, OBMemberKind.Property, $"Property {propertyName}"));
+                }
+                classVm.Members.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
             }
 
             if (ReferenceEquals(SelectedClass, classVm))

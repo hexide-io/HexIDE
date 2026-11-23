@@ -1,14 +1,13 @@
 using System.Text.Json;
 using HexIDE.Localization;
 using HexIDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
 public sealed class ProfileLanguageTests : IDisposable
 {
-    private readonly string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-profile-language-" + Guid.NewGuid());
-
-    public ProfileLanguageTests() => Directory.CreateDirectory(root);
+    private readonly string root = ResolvedTemp.CreateDirectory("hexide-profile-language-");
 
     private ProfileSnapshot Profile(Dictionary<string, Dictionary<string, string>> locales)
     {

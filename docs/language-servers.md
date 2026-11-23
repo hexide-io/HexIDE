@@ -108,8 +108,8 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | Field | Required | Meaning |
 |---|---|---|
 | `id` | yes | Identifies the entry. Reusing a default's id with a complete entry replaces that default wholesale, keeping its position and inheriting nothing. Only an entry that omits required fields adjusts the default: unwritten fields inherit; explicit `null` clears a field. Objects and arrays replace the whole field, rather than merging their contents (#1209). |
-| `extensions` | yes | The file extensions this server **serves**. This is what routing reads, and the only thing it reads. |
-| `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
+| `extensions` | yes | The file extensions this server **serves**. A document must match one of these; a language label can further narrow routing. |
+| `languageId` | yes | What this server wants those files **called**, in the protocol sense. It also narrows routing for explicitly labelled archive sources, and `vb6` lets a `.cls` claim take the project's class modules; see below. |
 | `transport` | yes | `stdio`, `pipe`, `websocket` or `tcp`. A pipe entry without `command` owns only its connection; closing it leaves the server running. |
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` or `tcp` — see *Starting the server yourself* below. |
 | `arguments` | no | Command-line string or array of strings. Part of the command's identity — see *A command you have not run before*. |
@@ -168,7 +168,10 @@ Added arguments are part of what the server runs, so the first start after addin
 
 These two are easy to confuse and they do different jobs.
 
-**`extensions` decides which documents reach the server, and nothing else does.** **`languageId` decides
+A twinBASIC server must claim each source extension and declare `languageId` `twinbasic` to receive a
+`.twinproj` or `.twinpack` source entry (`.twin` or a VB6 source extension); other entries route by extension.
+
+**`extensions` claims the documents a server can receive.** **`languageId` decides
 what the server is told they are.** Two servers may claim the same extension and disagree about what to call
 it — one saying `python`, another `python3` — and both are right; each has its own connection and hears its
 own answer. An entry with the right identifier and none of the right extensions is sent nothing.
@@ -181,11 +184,11 @@ an entry claiming only `.bas` receives standard modules and nothing else. The bu
 `.cls`, `.frm`, `.ctl`, `.pag`, `.dob` and `.dsr`, and declares `vb6`. How documents are named, and what
 happens when a name changes, is in [`lsp-client.md`](./lsp-client.md).
 
-**One exception, and it only ever narrows: a project's class modules.** A `.cls` is a VB6 class module and
+**A project's class modules also require a VB6 claim.** A `.cls` is a VB6 class module and
 equally a LaTeX class file, so claiming `.cls` is not enough to receive the project's classes; reading it as
 a claim on VB6 would hand a LaTeX server your source. The entry must also establish that it serves VB6, by
 claiming one of `.bas`, `.frm`, `.ctl`, `.pag`, `.dob` or `.dsr`, or by declaring `languageId: vb6`. That is
-the only thing routing ever reads `languageId` for, and it never makes a claim on its own: an entry declaring
+a routing constraint, and it never makes a claim on its own: an entry declaring
 `vb6` that claims no VB6 extension is still sent nothing. A `.cls` the project merely carries is judged by
 its content instead: an entry that serves VB6 receives it only when its first non-blank line is
 `VERSION 1.0 CLASS`, so a LaTeX class file the project carries no longer reaches the bundled VB6 server
@@ -457,8 +460,8 @@ In order of likelihood:
 4. **Does it defer its analysis to save?** HexIDE tells a server about a save only if the server asked to
    be told, which it does through its own capabilities. Nothing to configure — but it explains a server
    that seems to answer nothing until you save.
-5. **Check `extensions`, not `languageId`.** Routing reads the first. An entry with the right identifier
-   and the wrong extensions serves nothing.
+5. **Check `extensions`.** Routing requires an extension claim; a twinBASIC archive source also requires
+   `languageId` `twinbasic`. An entry with the right identifier and the wrong extensions serves nothing.
 6. **A VB6 server claims `.cls` and is sent none of the project's class modules?** A `.cls` claim alone
    does not take them. Claim another VB6 extension it serves, or declare `vb6`; see *Extensions serve; the
    identifier names*.

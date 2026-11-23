@@ -195,6 +195,44 @@ Every message box was titled "Microsoft Visual Basic", with the critical (red) i
 - **A duplicate where only one item has an Index.**
 - **Help.**
 
+### Menu names the first probe left open (2026-11-23, #853, design-time, IDE, SP6)
+
+**The question.** Three of the cases the section above left unmeasured: a menu given the name of a control already on
+the form, a keyword as a name, and a duplicate where only one item has an Index. Two equal indexes were added. #853 needs
+these before HexIDE refuses anything in those cases.
+
+**The probe.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console. A Standard EXE whose Form1
+held one CommandButton, `Command1`, and no menus. Each run opened Form1's designer, then Ctrl+E:
+1. Caption `File`, Name `mnuFile`, with an Index in some runs, then Alt+N (Next).
+2. Caption `Open`, the Name and Index below, then a click on OK.
+
+Every message box was titled "Microsoft Visual Basic", with the buttons OK and Help, as in the section above. After each
+one, the editor stayed open.
+
+| First item | Second item | OK | Selected after the message |
+|---|---|---|---|
+| `mnuFile`, Index 0 | `mnuFile`, no Index | `Menu control array element must have an index` | the second |
+| `mnuFile`, no Index | `mnuFile`, Index 0 | `Menu control array element must have an index` | the first |
+| `mnuFile`, Index 0 | `mnuFile`, Index 0 | `Menu control array indexes must be in ascending order` | the second |
+| `mnuFile` | `Command1` | `'Command1' is a control name` | the second |
+| `mnuFile` | `If` | **accepted**: the editor closed, and Ctrl+S saved `Begin VB.Menu If` | |
+
+- **The item left selected is the one at fault:** whichever item lacks its Index, the second of two equal indexes, and the
+  menu given a control's name.
+- **Two equal indexes aren't reported as a duplicate.** The message is about order.
+- **A control's name is refused with a message of its own.** It isn't read as the start of a control array.
+- **A keyword passed the check.** `If` was accepted and saved as a menu's name. Whether such a project compiles wasn't
+  checked.
+- **Enter in the Menu Editor is Next, not OK.** In a first run, Enter after the Name moved to a new blank item and the
+  editor stayed open, so the runs above clicked OK. HexIDE's Menu Editor already makes Next its default button.
+
+### Not measured
+
+- **Indexes that differ but descend,** such as 1 then 0.
+- **A keyword other than `If`,** and whether a project with a menu named `If` compiles or runs.
+- **A menu given a name another menu's submenu item already has,** at a different level.
+- **Help.**
+
 ### A form's designer while a run is paused (2026-11-21, #870, IDE, SP6)
 
 **The question.** Can a control be added to a form, or a property changed in the designer, while a run is paused in

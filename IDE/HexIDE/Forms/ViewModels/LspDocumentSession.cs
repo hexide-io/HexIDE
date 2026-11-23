@@ -152,12 +152,13 @@ internal sealed class LspDocumentSession : IDisposable
 
     public LspDocumentSession(
         ILspClient client, TextDocument document, string uri, bool isProjectMember = false,
-        Action<Action>? postToUiThread = null, string? ownerAddinId = null)
+        Action<Action>? postToUiThread = null, string? ownerAddinId = null, string? languageId = null)
     {
         this.client = client;
         this.document = document;
         this.isProjectMember = isProjectMember;
         this.ownerAddinId = ownerAddinId;
+        this.languageId = languageId;
         // The dispatcher is taken here, where an editor builds its session on the UI thread, and not when a post
         // is made. Posts come from pool threads: the debounced change, and diagnostics as a client reads them.
         // Asking Dispatcher.UIThread from one of those threads at a moment when no UI dispatcher is set makes that
@@ -180,6 +181,7 @@ internal sealed class LspDocumentSession : IDisposable
     /// </summary>
     private readonly bool isProjectMember;
     private readonly string? ownerAddinId;
+    private readonly string? languageId;
 
     /// <summary>
     /// How this document is named to servers.
@@ -279,7 +281,7 @@ internal sealed class LspDocumentSession : IDisposable
         // was last published for it rather than waiting on an answer to an open it does not send (#721).
         var (held, first) = Hold(Uri);
         shared = held;
-        if (first) client.OpenDocumentAsync(Uri, document.Text, isProjectMember, ownerAddinId: ownerAddinId).ListenErrors();
+        if (first) client.OpenDocumentAsync(Uri, document.Text, isProjectMember, ownerAddinId: ownerAddinId, languageId: languageId).ListenErrors();
         else if (held.LastPublished is { } published) OnDiagnosticsPublished(client, published);
 
         document.TextChanged += OnTextChanged;
@@ -360,7 +362,7 @@ internal sealed class LspDocumentSession : IDisposable
     internal LspDocumentSession CreateProjectHolder()
     {
         var holder = new LspDocumentSession(client, new TextDocument(document.Text), Uri, isProjectMember,
-            ownerAddinId: ownerAddinId);
+            ownerAddinId: ownerAddinId, languageId: languageId);
         holder.Start();
         // A save through the project holder must wait for the closing window's pending send too.
         holder.changeInFlight = FlushAsync();
@@ -437,7 +439,7 @@ internal sealed class LspDocumentSession : IDisposable
             // shared document its first holder makes.
             var (held, first) = Hold(newUri);
             shared = held;
-            if (first) await client.OpenDocumentAsync(newUri, document.Text, isProjectMember, cancellationToken, ownerAddinId);
+            if (first) await client.OpenDocumentAsync(newUri, document.Text, isProjectMember, cancellationToken, ownerAddinId, languageId);
             else if (held.LastPublished is { } published) OnDiagnosticsPublished(client, published);
         }
         finally

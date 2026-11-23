@@ -6,6 +6,14 @@ Begin VB.UserControl Gauge
    ClientWidth     =   4800
    ScaleHeight     =   3600
    ScaleWidth      =   4800
+   Begin VB.CommandButton Command1 
+      Caption         =   "Command1"
+      Height          =   495
+      Left            =   1800
+      TabIndex        =   0
+      Top             =   1560
+      Width           =   1215
+   End
 End
 Attribute VB_Name = "Gauge"
 Attribute VB_GlobalNameSpace = False

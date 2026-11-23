@@ -1,6 +1,8 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -27,6 +29,89 @@ public class MessageBoxHostTests
         var answer = box.ShowAndWait(window, owner);
         Dispatcher.UIThread.RunJobs();
         return (owner, window, box, answer);
+    }
+
+    // #827: docs/vb6-fidelity-oracle/rgb-qbcolor-and-msgboxs-style.md, Enter/Escape table.
+    [AvaloniaTheory]
+    [InlineData(MessageBoxButtons.Ok, 0, MessageBoxLayout.None, 0, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.Ok, 256, MessageBoxLayout.SecondButtonDefault, 0, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.Ok, 512, MessageBoxLayout.None, 0, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.Ok, 768, MessageBoxLayout.None, 0, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.OkCancel, 0, MessageBoxLayout.None, 0, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.OkCancel, 256, MessageBoxLayout.SecondButtonDefault, 1, MessageBoxResult.Cancel)]
+    [InlineData(MessageBoxButtons.OkCancel, 512, MessageBoxLayout.None, 0, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.OkCancel, 768, MessageBoxLayout.None, 0, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.AbortRetryIgnore, 0, MessageBoxLayout.None, 0, MessageBoxResult.Abort)]
+    [InlineData(MessageBoxButtons.AbortRetryIgnore, 256, MessageBoxLayout.SecondButtonDefault, 1, MessageBoxResult.Retry)]
+    [InlineData(MessageBoxButtons.AbortRetryIgnore, 512, MessageBoxLayout.ThirdButtonDefault, 2, MessageBoxResult.Ignore)]
+    [InlineData(MessageBoxButtons.AbortRetryIgnore, 768, MessageBoxLayout.None, 0, MessageBoxResult.Abort)]
+    [InlineData(MessageBoxButtons.YesNoCancel, 0, MessageBoxLayout.None, 0, MessageBoxResult.Yes)]
+    [InlineData(MessageBoxButtons.YesNoCancel, 256, MessageBoxLayout.SecondButtonDefault, 1, MessageBoxResult.No)]
+    [InlineData(MessageBoxButtons.YesNoCancel, 512, MessageBoxLayout.ThirdButtonDefault, 2, MessageBoxResult.Cancel)]
+    [InlineData(MessageBoxButtons.YesNoCancel, 768, MessageBoxLayout.None, 0, MessageBoxResult.Yes)]
+    [InlineData(MessageBoxButtons.YesNo, 0, MessageBoxLayout.None, 0, MessageBoxResult.Yes)]
+    [InlineData(MessageBoxButtons.YesNo, 256, MessageBoxLayout.SecondButtonDefault, 1, MessageBoxResult.No)]
+    [InlineData(MessageBoxButtons.YesNo, 512, MessageBoxLayout.None, 0, MessageBoxResult.Yes)]
+    [InlineData(MessageBoxButtons.YesNo, 768, MessageBoxLayout.None, 0, MessageBoxResult.Yes)]
+    [InlineData(MessageBoxButtons.RetryCancel, 0, MessageBoxLayout.None, 0, MessageBoxResult.Retry)]
+    [InlineData(MessageBoxButtons.RetryCancel, 256, MessageBoxLayout.SecondButtonDefault, 1, MessageBoxResult.Cancel)]
+    [InlineData(MessageBoxButtons.RetryCancel, 512, MessageBoxLayout.None, 0, MessageBoxResult.Retry)]
+    [InlineData(MessageBoxButtons.RetryCancel, 768, MessageBoxLayout.None, 0, MessageBoxResult.Retry)]
+    public void Enter_answers_the_focused_default(MessageBoxButtons buttons, int bits, MessageBoxLayout layout,
+        int index, MessageBoxResult expected) => CheckKey(buttons, layout, Key.Enter, index, expected, bits);
+
+    [AvaloniaTheory]
+    [InlineData(MessageBoxButtons.Ok, 0, MessageBoxLayout.None, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.Ok, 512, MessageBoxLayout.None, MessageBoxResult.Ok)]
+    [InlineData(MessageBoxButtons.OkCancel, 0, MessageBoxLayout.None, MessageBoxResult.Cancel)]
+    [InlineData(MessageBoxButtons.OkCancel, 512, MessageBoxLayout.None, MessageBoxResult.Cancel)]
+    [InlineData(MessageBoxButtons.AbortRetryIgnore, 0, MessageBoxLayout.None, MessageBoxResult.None)]
+    [InlineData(MessageBoxButtons.AbortRetryIgnore, 512, MessageBoxLayout.ThirdButtonDefault, MessageBoxResult.None)]
+    [InlineData(MessageBoxButtons.YesNoCancel, 0, MessageBoxLayout.None, MessageBoxResult.Cancel)]
+    [InlineData(MessageBoxButtons.YesNoCancel, 512, MessageBoxLayout.ThirdButtonDefault, MessageBoxResult.Cancel)]
+    [InlineData(MessageBoxButtons.YesNo, 0, MessageBoxLayout.None, MessageBoxResult.None)]
+    [InlineData(MessageBoxButtons.YesNo, 512, MessageBoxLayout.None, MessageBoxResult.None)]
+    [InlineData(MessageBoxButtons.RetryCancel, 0, MessageBoxLayout.None, MessageBoxResult.Cancel)]
+    [InlineData(MessageBoxButtons.RetryCancel, 512, MessageBoxLayout.None, MessageBoxResult.Cancel)]
+    public void Escape_answers_as_close(MessageBoxButtons buttons, int bits, MessageBoxLayout layout, MessageBoxResult expected) =>
+        CheckKey(buttons, layout, Key.Escape, null, expected, bits);
+
+    private static void CheckKey(MessageBoxButtons buttons, MessageBoxLayout layout, Key key,
+        int? index, MessageBoxResult expected, int bits)
+    {
+        var owner = new Window();
+        owner.Show();
+        var answer = new StandaloneStandardLib(owner, HexIDE.IDE.Distribution.DisplayName)
+            .MsgBox("probe", "Key probe", buttons, MessageBoxIcon.None, layout);
+        var window = owner.OwnedWindows.Single();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            window.Activate();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            if (index is { } i)
+                window.FocusManager!.GetFocusedElement().Should().Be(
+                    window.GetVisualDescendants().OfType<Button>().ElementAt(i));
+            var physical = key == Key.Enter ? PhysicalKey.Enter : PhysicalKey.Escape;
+            window.KeyPress(key, RawInputModifiers.None, physical, null);
+            Dispatcher.UIThread.RunJobs();
+            answer.IsCompleted.Should().BeFalse($"style {bits}: a down without its release cannot answer");
+            window.KeyRelease(key, RawInputModifiers.None, physical, null);
+            Dispatcher.UIThread.RunJobs();
+            if (expected == MessageBoxResult.None)
+                answer.IsCompleted.Should().BeFalse();
+            else
+            {
+                answer.IsCompleted.Should().BeTrue();
+                answer.Result.Should().Be(expected);
+            }
+        }
+        finally
+        {
+            window.Close();
+            owner.Close();
+        }
     }
 
     private static void Press(MessageBox box, string label)
