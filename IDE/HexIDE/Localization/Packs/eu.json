@@ -308,6 +308,7 @@
     "Str.Help.LogFolder.OpenFailed": "Ezin izan da egunkari-karpeta ireki. Eskuz ireki dezakezu: {0}",
     "Str.Menu.Help.About": "HexIDEri _buruz...",
     "Str.Menu.MacApp.About": "HexIDEri buruz",
+    "Str.Menu.MacApp.Settings": "Aukerak…",
     "Str.Menu.GoToGithubRepo": "Joan GitHub biltegira",
     "Str.ProjectType.StandardEXE": "EXE estandarra",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
@@ -710,6 +711,15 @@
     "Str.Dialog.Font.Label.Size": "_Tamaina:",
     "Str.Dialog.Font.Label.Script": "_Idazkera:",
     "Str.Dialog.Font.Script.Western": "Mendebaldekoa",
+    "Str.Dialog.Font.Script.Hebrew": "Hebrearra",
+    "Str.Dialog.Font.Script.Arabic": "Arabiarra",
+    "Str.Dialog.Font.Script.Greek": "Greziarra",
+    "Str.Dialog.Font.Script.Turkish": "Turkiarra",
+    "Str.Dialog.Font.Script.Baltic": "Baltikoa",
+    "Str.Dialog.Font.Script.CentralEuropean": "Europako erdialdekoa",
+    "Str.Dialog.Font.Script.Cyrillic": "Zirilikoa",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamera",
+    "Str.Dialog.Font.Script.Symbol": "Ikurrak",
     "Str.Dialog.Font.SizeNotNumber": "Tamainak zenbaki bat izan behar du.",
     "Str.Dialog.Font.SizeOutOfRange": "Tamainak 1 eta 2236 artean egon behar du.",
     "Str.Dialog.Font.Button.Ok": "Ados",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "{1} proiektuan {0} eguneratzeak proiektu horren gorde gabeko aldaketak baztertuko ditu. Jarraitu nahi duzu?",
     "Str.Dialog.SharedFile.DiskChanged": "'{0}' fitxategia diskoan aldatu da {1} proiektuaren kopia kargatu edo gorde zenetik. Gainidatzi nahi duzu?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} proiektuaren laster-markak, eten-puntuak eta erabiltzailearen beste ezarpenak ez dira kargatuko ez gordeko saio honetan.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Dagoeneko badago '{0}' izeneko kontrol bat.  Kontrol-matrize bat sortu nahi duzu?"
+    "Str.Naming.Msg.CreateControlArray": "Dagoeneko badago '{0}' izeneko kontrol bat.  Kontrol-matrize bat sortu nahi duzu?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Erroreen atzematea",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Eten errore guztietan",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Eten klase-moduluan",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Eten kudeatu gabeko erroreetan"
   }
 }

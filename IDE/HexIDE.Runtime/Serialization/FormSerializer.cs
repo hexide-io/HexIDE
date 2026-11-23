@@ -69,7 +69,7 @@ public class FormSerializer
         // written in the order they appear here, which is the order of three unrelated lists rather than
         // any order VB6 has ever produced.
         vb.BeginSortedProperties();
-        WriteAllProperties(vb, form, citations);
+        WriteAllProperties(vb, form, citations, isFormRoot: element.RootVBTypeName == "VB.Form");
         if (element.LockControls)
             vb.WriteProperty("LockControls", typeof(bool), true);
         WriteFormMeasurements(vb, form, element.OuterRect, element.Scale);
@@ -292,7 +292,7 @@ public class FormSerializer
         WriteOuter("Width", VBProperties.WidthProperty, outerRect.WidthOffsetTwips);
     }
 
-    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations, bool isSubMenu = false)
+    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations, bool isSubMenu = false, bool isFormRoot = false)
     {
         var inBox = instance.BaseClass as InBoxComponentClass;
         var userControl = instance.BaseClass as UserControlComponentClass;
@@ -359,6 +359,17 @@ public class FormSerializer
                 && instance.GetPropertyOrDefault(VBProperties.ComboStyleProperty) == VBComboStyle.DropdownCombo)
                 continue;
 
+            // The form's default style is omitted even when explicitly set (#1596).
+            if (prop == VBProperties.FormBorderStyleProperty
+                && instance.GetPropertyOrDefault(VBProperties.FormBorderStyleProperty) == VBFormBorderStyle.Sizable)
+                continue;
+
+            // VB6 saves these form properties only when False (#1596, oracle PR #5216).
+            if (isFormRoot && (prop == VBProperties.MinButtonProperty
+                || prop == VBProperties.MaxButtonProperty || prop == VBProperties.ShowInTaskbarProperty)
+                && Equals(instance.GetBoxedPropertyOrDefault(prop), true))
+                continue;
+
             // VB6's designer never writes a Dropdown List's Text, and its run time ignores one (measured, #926).
             if (prop == VBProperties.TextProperty && instance.BaseClass is ComboBoxComponentClass
                 && ComboBoxComponentClass.IsDropdownList(instance))
@@ -401,7 +412,7 @@ public class FormSerializer
         // appended after them. VB6 has no notion of "the ones HexIDE understood" — it writes one
         // alphabetical run.
         //
-        // One of them may be a known property whose value HexIDE could not read (a palette colour, #786). It is kept
+        // One of them may be a known property whose value HexIDE could not read (an invalid system colour). It is kept
         // only while nothing replaced it: once the designer sets that property, the modelled value is written and the
         // raw line is not, or the file would carry the property twice.
         foreach (var raw in instance.UnknownRawProperties)

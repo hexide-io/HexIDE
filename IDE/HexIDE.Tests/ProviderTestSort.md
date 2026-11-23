@@ -34,6 +34,7 @@ A test that reaches the provider only at run time, through the application's com
 | `DebugAdapter/RunWithTests.cs` | split |
 | `DebugAdapter/VbaBitnessEngineTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
+| `Debugging/MarkLinesTests.cs` | split |
 | `IDE/CodePrefixEquivalenceTests.cs` | split |
 | `IDE/CodeTrustTests.cs` | split |
 | `IDE/DirtyDetectorTests.cs` | split |
@@ -117,6 +118,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Sidecar/SidecarMigrationTests.cs` | split |
 | `Sidecar/UserSidecarBreakpointTests.cs` | split |
 | `Sidecar/UserSidecarSaveTests.cs` | split |
+| `StartupCompositionTests.cs` | split |
 | `TestHelpers.cs` | provider |
 | `TestRunners.cs` | split |
 | `Tools/PreservedItemTreeTests.cs` | split |
@@ -154,4 +156,5 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/ReadOnlySectionProviderTests.cs` | split |
 | `ViewModels/ReferencesViewModelTests.cs` | split |
 | `ViewModels/SaveChangesViewModelTests.cs` | split |
+| `ViewModels/SelectionReadoutTests.cs` | split |
 | `ViewModels/WorkspaceRenameTests.cs` | split |

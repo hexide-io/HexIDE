@@ -380,6 +380,7 @@
     "Str.Help.LogFolder.OpenFailed": "Impossible d’ouvrir le dossier des journaux. Vous pouvez l’ouvrir manuellement : {0}",
     "Str.Menu.Help.About": "À _propos de HexIDE...",
     "Str.Menu.MacApp.About": "À propos de HexIDE",
+    "Str.Menu.MacApp.Settings": "Options…",
     "Str.Menu.GoToGithubRepo": "Accéder au dépôt github",
     "Str.NewProject.NoTemplates": "Ce profil ne propose aucun modèle de nouveau projet. Ouvrez plutôt un projet existant.",
     "Str.NewProject.Msg.NoStandardExe": "Aucun type de projet installé dans {0} ne permet de créer un projet Standard EXE. Le démarrage s’est donc effectué sans projet.",
@@ -738,6 +739,15 @@
     "Str.Dialog.Font.Label.Size": "T_aille :",
     "Str.Dialog.Font.Label.Script": "_Écriture :",
     "Str.Dialog.Font.Script.Western": "Occidental",
+    "Str.Dialog.Font.Script.Hebrew": "Hébreu",
+    "Str.Dialog.Font.Script.Arabic": "Arabe",
+    "Str.Dialog.Font.Script.Greek": "Grec",
+    "Str.Dialog.Font.Script.Turkish": "Turc",
+    "Str.Dialog.Font.Script.Baltic": "Balte",
+    "Str.Dialog.Font.Script.CentralEuropean": "Europe centrale",
+    "Str.Dialog.Font.Script.Cyrillic": "Cyrillique",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamien",
+    "Str.Dialog.Font.Script.Symbol": "Symboles",
     "Str.Dialog.Font.SizeNotNumber": "La taille doit être un nombre.",
     "Str.Dialog.Font.SizeOutOfRange": "La taille doit être comprise entre 1 et 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "La mise à jour de {0} dans le projet {1} supprimera les modifications non enregistrées de ce projet. Voulez-vous continuer ?",
     "Str.Dialog.SharedFile.DiskChanged": "Le fichier « {0} » a changé sur le disque depuis le chargement ou l’enregistrement de la copie du projet {1}. Voulez-vous l’écraser ?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Les signets, les points d’arrêt et les autres paramètres propres à l’utilisateur de {0} ne seront ni chargés ni enregistrés pendant cette session.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Un contrôle nommé '{0}' existe déjà.  Voulez-vous créer un groupe de contrôles ?"
+    "Str.Naming.Msg.CreateControlArray": "Un contrôle nommé '{0}' existe déjà.  Voulez-vous créer un groupe de contrôles ?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Interception des erreurs",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Arrêt sur toutes les erreurs",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Arrêt dans le module de classe",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Arrêt sur les erreurs non gérées"
   }
 }

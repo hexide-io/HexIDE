@@ -17,16 +17,18 @@ The IDE MUST route supported archive project paths to the archive reader from no
 An available text preview MUST use
 `archive-entry:/<percent-encoded segments>?container=<percent-encoded file URI>`.
 Entry segments MUST compare ordinally; the container MUST compare as a host file path, ignoring case on Windows.
-The entry's extension MUST determine server routing.
+A twinBASIC source entry (`.twin` or a VB6 source extension, ignoring case) MUST route only to servers
+that claim its extension and declare language `twinbasic`, ignoring case. Other entries MUST route by extension.
 
 #### Scenario: A source name contains a space and a hash
-- **WHEN** a text entry named `Module # 1.twin` opens with a server claiming `.twin`
+- **WHEN** a text entry named `Module # 1.twin` opens with a server claiming `.twin` and declaring `twinbasic`
 - **THEN** didOpen names `Module%20%23%201.twin` under the archive-entry scheme and carries its text
 
 ### Requirement: Maintain read-only archive document sessions
-For twinBASIC entries, servers claiming the entry's extension MUST receive its text on open and a close when the tab closes.
-Read-only entries MUST NOT send changes. Published diagnostics MUST reach the matching tab, including
-when a server changes the container drive letter's case on Windows. Reload MUST recreate the session and markers.
+Matching servers MUST receive open text and close notifications. Reload, reopen and workspace replay MUST
+preserve the language label. An unmatched preview MUST remain available without diagnostics. Read-only
+entries MUST NOT send changes. Diagnostics MUST reach the matching tab even when a server changes the
+container drive letter's case on Windows. Reload MUST recreate sessions and markers.
 
 #### Scenario: Reload an open text entry
 - **WHEN** a validated replacement updates an open entry

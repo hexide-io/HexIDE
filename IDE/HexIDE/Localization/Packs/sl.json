@@ -308,6 +308,7 @@
     "Str.Help.LogFolder.OpenFailed": "Mape dnevnikov ni bilo mogoče odpreti. Odprete jo lahko ročno: {0}",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.MacApp.About": "O programu HexIDE",
+    "Str.Menu.MacApp.Settings": "Možnosti…",
     "Str.Menu.GoToGithubRepo": "Pojdi v repozitorij GitHub",
     "Str.ProjectType.StandardEXE": "Standardni EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
@@ -710,6 +711,15 @@
     "Str.Dialog.Font.Label.Size": "_Velikost:",
     "Str.Dialog.Font.Label.Script": "Pis_ava:",
     "Str.Dialog.Font.Script.Western": "Zahodna",
+    "Str.Dialog.Font.Script.Hebrew": "Hebrejsko",
+    "Str.Dialog.Font.Script.Arabic": "Arabsko",
+    "Str.Dialog.Font.Script.Greek": "Grško",
+    "Str.Dialog.Font.Script.Turkish": "Turško",
+    "Str.Dialog.Font.Script.Baltic": "Baltsko",
+    "Str.Dialog.Font.Script.CentralEuropean": "Srednjeevropsko",
+    "Str.Dialog.Font.Script.Cyrillic": "Cirilica",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamsko",
+    "Str.Dialog.Font.Script.Symbol": "Simboli",
     "Str.Dialog.Font.SizeNotNumber": "Velikost mora biti število.",
     "Str.Dialog.Font.SizeOutOfRange": "Velikost mora biti med 1 in 2236.",
     "Str.Dialog.Font.Button.Ok": "V redu",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Posodobitev {0} v projektu {1} bo zavrgla neshranjene spremembe tega projekta. Ali želite nadaljevati?",
     "Str.Dialog.SharedFile.DiskChanged": "Datoteka '{0}' se je na disku spremenila, odkar je bila kopija projekta {1} naložena ali shranjena. Ali jo želite prepisati?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Zaznamki, prekinitvene točke in druge uporabniške nastavitve za {0} v tej seji ne bodo naloženi niti shranjeni.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Kontrolnik z imenom '{0}' že obstaja.  Ali želite ustvariti polje kontrolnikov?"
+    "Str.Naming.Msg.CreateControlArray": "Kontrolnik z imenom '{0}' že obstaja.  Ali želite ustvariti polje kontrolnikov?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Prestrezanje napak",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prekini ob vseh napakah",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Prekini v razrednem modulu",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Prekini ob neobravnavanih napakah"
   }
 }

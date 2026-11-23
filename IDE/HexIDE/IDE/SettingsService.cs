@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Serilog;
 using HexIDE.Profiles;
+using HexIDE.Runtime.Debugging;
 
 namespace HexIDE.IDE;
 
@@ -111,6 +112,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _loadUnsignedAddins = SettingsDefaults.LoadUnsignedAddins;
     private Dictionary<string, string> _serverChatTools = new(StringComparer.Ordinal);
     private bool _reloadFilesChangedOutsideIde = SettingsDefaults.ReloadFilesChangedOutsideIde;
+    private ErrorTrapping _errorTrapping = SettingsDefaults.ErrorTrapping;
 
     private string? _revocationListUrl = SettingsDefaults.RevocationListUrl;
 
@@ -290,6 +292,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set => SetProperty(ref _serverChatTools, new Dictionary<string, string>(value ?? [], StringComparer.Ordinal));
     }
 
+    public ErrorTrapping ErrorTrapping
+    {
+        get => _errorTrapping;
+        set => SetProperty(ref _errorTrapping, value);
+    }
+
     public bool ReloadFilesChangedOutsideIde
     {
         get => _reloadFilesChangedOutsideIde;
@@ -462,6 +470,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 LoadUnsignedAddins = _loadUnsignedAddins,
                 ServerChatTools = _serverChatTools,
                 ReloadFilesChangedOutsideIde = _reloadFilesChangedOutsideIde,
+                ErrorTrapping = _errorTrapping,
                 RevocationListUrl = _revocationListUrl,
                 IsStandardToolbarVisible = _isStandardToolbarVisible,
                 IsEditToolbarVisible = _isEditToolbarVisible,
@@ -577,6 +586,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             LoadUnsignedAddins = data.LoadUnsignedAddins;
             ServerChatTools = data.ServerChatTools ?? [];
             ReloadFilesChangedOutsideIde = data.ReloadFilesChangedOutsideIde;
+            ErrorTrapping = data.ErrorTrapping;
             RevocationListUrl = data.RevocationListUrl;
             _isStandardToolbarVisible = data.IsStandardToolbarVisible;
             _isEditToolbarVisible = data.IsEditToolbarVisible;
@@ -676,6 +686,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("serverChatTools")]
         public Dictionary<string, string>? ServerChatTools { get; set; } = new();
+
+        [JsonPropertyName("errorTrapping")]
+        public ErrorTrapping ErrorTrapping { get; set; } = SettingsDefaults.ErrorTrapping;
 
         [JsonPropertyName("reloadFilesChangedOutsideIde")]
         public bool ReloadFilesChangedOutsideIde { get; set; } = SettingsDefaults.ReloadFilesChangedOutsideIde;

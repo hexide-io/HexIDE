@@ -138,13 +138,14 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     {
         var identity = DocumentIdentity.For(form);
         var current = ProjectFormats.Of(form.Owner).CodePrefix(form);
+        var editor = EditorFor(identity);
 
         // The model half only when the model actually moves, because the marks move with it and a shift of
         // zero must not announce itself to two stores, three gutters and the sidecar.
         if (!string.Equals(current, header, StringComparison.Ordinal))
         {
             form.RecordDesignerText(header);
-            ShiftMarks(identity, current, header);
+            ShiftMarks(identity, current, header, shiftBreakpoints: editor is null);
         }
 
         // The buffer half unconditionally, and that is not belt-and-braces. An open window can hold a header
@@ -152,7 +153,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         // current one -- and gating this on the model having moved would leave that window showing a header
         // for a form that no longer looks like it, permanently: the next render equals what is recorded, so
         // nothing would ever repair it. RefreshPrefix is a no-op when the two already agree.
-        EditorFor(identity)?.RefreshPrefix(header);
+        editor?.RefreshPrefix(header);
     }
 
     /// <summary>
@@ -187,7 +188,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
             {
                 var current = ProjectFormats.Of(module.Owner).CodePrefix(module);
                 module.RecordOriginalHeader(header);
-                ShiftMarks(document, current, header);
+                ShiftMarks(document, current, header, shiftBreakpoints: editor is null);
                 editor?.RefreshPrefix(header);
             }
             editor?.AdoptRewrittenQualifiers(document.Module?.Code ?? document.Form!.Code);
@@ -275,7 +276,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     /// shift does not.
     /// </para>
     /// </remarks>
-    public void ShiftMarks(DocumentIdentity document, string oldHeader, string newHeader)
+    public void ShiftMarks(DocumentIdentity document, string oldHeader, string newHeader, bool shiftBreakpoints = true)
     {
         // The count the sidecar's migration shifts by as well, so the two can never disagree about a header.
         var oldLines = FormCodeText.LineBreaks(oldHeader);
@@ -284,7 +285,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
             return;
 
         var marks = breakpoints.GetBreakpoints(document);
-        if (marks.Count > 0)
+        if (shiftBreakpoints && marks.Count > 0)
             breakpoints.MoveLines(document, oldLines + 1, delta);
 
         var marked = bookmarks.GetBookmarks(document);

@@ -381,6 +381,7 @@
     "Str.Help.LogFolder.OpenFailed": "Kunne ikke åpne loggmappen. Du kan åpne den manuelt: {0}",
     "Str.Menu.Help.About": "_Om HexIDE...",
     "Str.Menu.MacApp.About": "Om HexIDE",
+    "Str.Menu.MacApp.Settings": "Alternativer…",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-repo",
     "Str.NewProject.NoTemplates": "Denne profilen tilbyr ingen maler for nye prosjekter. Åpne et eksisterende prosjekt i stedet.",
     "Str.NewProject.Msg.NoStandardExe": "{0} har ingen installert prosjekttype som oppretter et Standard EXE-prosjekt, og startet derfor uten prosjekt.",
@@ -739,6 +740,15 @@
     "Str.Dialog.Font.Label.Size": "S_tørrelse:",
     "Str.Dialog.Font.Label.Script": "Sk_riftsystem:",
     "Str.Dialog.Font.Script.Western": "Vestlig",
+    "Str.Dialog.Font.Script.Hebrew": "Hebraisk",
+    "Str.Dialog.Font.Script.Arabic": "Arabisk",
+    "Str.Dialog.Font.Script.Greek": "Gresk",
+    "Str.Dialog.Font.Script.Turkish": "Tyrkisk",
+    "Str.Dialog.Font.Script.Baltic": "Baltisk",
+    "Str.Dialog.Font.Script.CentralEuropean": "Sentraleuropeisk",
+    "Str.Dialog.Font.Script.Cyrillic": "Kyrillisk",
+    "Str.Dialog.Font.Script.Vietnamese": "Vietnamesisk",
+    "Str.Dialog.Font.Script.Symbol": "Symboler",
     "Str.Dialog.Font.SizeNotNumber": "Størrelsen må være et tall.",
     "Str.Dialog.Font.SizeOutOfRange": "Størrelsen må være mellom 1 og 2236.",
     "Str.Dialog.Font.Button.Ok": "OK",
@@ -1499,6 +1509,10 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Oppdatering av {0} i prosjekt {1} forkaster prosjektets ulagrede endringer. Vil du fortsette?",
     "Str.Dialog.SharedFile.DiskChanged": "Filen '{0}' er endret på disken siden kopien i prosjekt {1} ble lastet inn eller lagret. Vil du overskrive den?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Bokmerker, bruddpunkter og andre brukerspesifikke innstillinger for {0} blir verken lastet inn eller lagret i denne økten.\n\n{1}",
-    "Str.Naming.Msg.CreateControlArray": "Det finnes allerede en kontroll med navnet '{0}'.  Vil du opprette en kontrollmatrise?"
+    "Str.Naming.Msg.CreateControlArray": "Det finnes allerede en kontroll med navnet '{0}'.  Vil du opprette en kontrollmatrise?",
+    "Str.Options.Environment.ErrorTrapping.Header": "Feilfangst",
+    "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Stopp ved alle feil",
+    "Str.Options.Environment.ErrorTrapping.BreakInClassModule": "Stopp i klassemodul",
+    "Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors": "Stopp ved ubehandlede feil"
   }
 }

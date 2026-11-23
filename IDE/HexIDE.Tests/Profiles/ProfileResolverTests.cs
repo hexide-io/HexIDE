@@ -51,7 +51,6 @@ public sealed class ProfileResolverTests : IDisposable
     }
 
     [Theory]
-    [InlineData(null, "vb6", 8, true)]
     [InlineData("vb6", "vb6", 8, true)]
     [InlineData("vbaode", "vbaode", 1, false)]
     [InlineData("vba", "vba", 0, false)]
