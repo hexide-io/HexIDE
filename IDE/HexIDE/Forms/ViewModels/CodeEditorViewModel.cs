@@ -569,9 +569,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private bool qualifierWriteWasUndone;
 
     /// <summary>
-    /// Makes this buffer's attribute qualifiers the ones a save just wrote into the document's code,
-    /// <paramref name="written"/> (#273 task 4.4), as one of the IDE's own writes. Does nothing when the buffer's
-    /// runs already name their members, or when the save did not rewrite them.
+    /// Makes this buffer's leading attributes and member qualifiers the ones a save just wrote into the document's
+    /// code, <paramref name="written"/> (#273 task 4.4, #1661), as one of the IDE's own writes.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -586,7 +585,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <para>
     /// <b>Replaced span by span, rather than by assigning the body</b>, for <see cref="RefreshPrefix"/>'s reason:
     /// the caret, the selection and the folds over the rest of the buffer stay where they were. Each span is in a
-    /// member's read-only run, which the developer can neither type into nor have the caret inside, and which a
+    /// read-only Attribute run, which the developer can neither type into nor have the caret inside, and which a
     /// fold usually hides. The view model's own <see cref="CaretOffset"/> is moved with the text, as there.
     /// </para>
     /// </remarks>
@@ -594,6 +593,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var text = Document.Text;
         var rewrites = RegionWriter?.SaveRewrites(text, bufferPrefix.Length) ?? [];
+        var attributes = FormCodeText.AttributeBlock(FormCodeText.BodyOf(text, bufferPrefix));
+        var savedAttributes = FormCodeText.AttributeBlock(written);
+        if (!string.Equals(attributes, savedAttributes, StringComparison.Ordinal))
+            rewrites = [new TextChange(bufferPrefix.Length, attributes.Length, savedAttributes), .. rewrites];
         if (rewrites.Count == 0)
             return;
         if (!string.Equals(FormCodeText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
