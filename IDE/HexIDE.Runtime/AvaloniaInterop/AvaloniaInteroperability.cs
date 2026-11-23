@@ -632,6 +632,33 @@ public static class AvaloniaInteroperability
         return false;
     }
 
+    // #807: the .frm model stores pixels and a VBFont descriptor, whereas TryGet exposes container units and a Font
+    // object. Use the same binding's stored value for instantiation, after checking that the run-time read is supported.
+    internal static bool TryGetForInstantiation(Control control, PropertyClass property, out object? value)
+    {
+        value = null;
+        if (property == VBProperties.NameProperty || property == VBProperties.DesignIndexProperty
+            || property == VBProperties.VisibleProperty || property == VBProperties.TabIndexProperty
+            || property == VBProperties.MultiSelectProperty || property == VBProperties.ComboStyleProperty
+            || control is VBComboBox && property == VBProperties.HeightProperty)
+            return false;
+        try
+        {
+            if (!TryGet(control, property, out _) || !bindingsByProperty.TryGetValue(property, out var candidates))
+                return false;
+            foreach (var binding in candidates)
+            {
+                if (!binding.IsValidControl(control))
+                    continue;
+                value = binding.GetUntyped(control);
+                return true;
+            }
+        }
+        catch (VBRunTimeException) { }       // An unreadable property keeps its .frm value.
+        catch (NotImplementedException) { }
+        return false;
+    }
+
     /// <summary>Enumerate the VB6 properties readable on a live control (name → current value), NAME-SORTED — the
     /// Locals property surface (P8/D7). A property is included only when a registered binding applies to this
     /// control's runtime members; duplicates by name are collapsed.</summary>
