@@ -1,5 +1,8 @@
 using System;
 using System.Globalization;
+using System.Collections.Generic;
+using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.BuiltinTypes;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
@@ -149,13 +152,142 @@ public class SliderRuntimeTests
     [InlineData("Debug.Print Slider1.hWnd")]
     [InlineData("Debug.Print Slider1.MouseIcon")]
     [InlineData("Slider1.OLEDrag")]
-    [InlineData("Slider1.Value = Null")]
-    [InlineData("Slider1.Enabled = 5")]
-    [InlineData("Slider1.Text = 5")]
-    public async Task Unmeasured_members_and_conversions_refuse(string code)
+    public async Task Unmeasured_members_refuse(string code)
     {
         var act = () => Run(code);
         await act.Should().ThrowAsync<NotImplementedException>().WithMessage("*Slider*not implemented*");
+    }
+
+    // Measured native and p-code: #1091's latest conversion tables, oracle PR #5506.
+    public static IEnumerable<object[]> LongConversions()
+    {
+        foreach (var property in new[] { "Min", "Max", "Value", "SmallChange", "LargeChange", "TickFrequency", "SelStart", "SelLength" })
+        foreach (var (expression, converted, conversionError) in new[]
+        {
+            ("Empty", 0, 0), ("True", -1, 0), ("False", 0, 0), ("\"7\"", 7, 0),
+            ("\"abc\"", 0, 13), ("CByte(7)", 7, 0), ("CCur(7.5)", 8, 0),
+            ("CDate(7.5)", 8, 0), ("CDec(7.5)", 8, 0), ("7.5", 8, 0), ("CSng(2.5)", 2, 0),
+            ("Null", 0, 94),
+        })
+        {
+            var initial = property switch { "Max" => 10, "SmallChange" or "TickFrequency" => 1, "LargeChange" => 5, _ => 0 };
+            var error = conversionError != 0 ? conversionError
+                : property == "Max" && converted <= 0 || property is not ("Min" or "Max" or "Value") && converted < 0 ? 380 : 0;
+            var result = error != 0 ? initial : property == "Value" && converted < 0 ? 0 : converted;
+            yield return new object[] { property, expression, error.ToString(CultureInfo.InvariantCulture), result.ToString(CultureInfo.InvariantCulture) };
+        }
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(LongConversions))]
+    public async Task Long_stores_coerce_then_validate(string property, string expression, string error, string expected)
+    {
+        (await Run($"Slider1.SelectRange = True\r\nSlider1.{property} = {expression}\r\nDebug.Print Err.Number, Slider1.{property}"))
+            .Should().Equal(error, expected);
+    }
+
+    public static IEnumerable<object[]> BooleanConversions()
+    {
+        foreach (var property in new[] { "Enabled", "SelectRange" })
+        foreach (var (expression, error, expected) in new[]
+        {
+            ("0", "0", "False"), ("Empty", "0", "False"), ("\"False\"", "0", "False"),
+            ("1", "0", "True"), ("-1", "0", "True"), ("2", "0", "True"), ("1.5", "0", "True"),
+            ("CByte(1)", "0", "True"), ("CCur(1)", "0", "True"), ("\"True\"", "0", "True"),
+            ("\"abc\"", "13", "True"), ("Null", "94", "True"),
+        })
+            yield return new object[] { property, expression, error, expected };
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(BooleanConversions))]
+    public async Task Boolean_stores_coerce_before_changing(string property, string expression, string error, string expected)
+    {
+        (await Run($"Slider1.{property} = True\r\nSlider1.{property} = {expression}\r\nDebug.Print Err.Number, Slider1.{property}"))
+            .Should().Equal(error, expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("5", "0", "5")]
+    [InlineData("True", "0", "True")]
+    [InlineData("2.5", "0", "2.5")]
+    [InlineData("CCur(3)", "0", "3")]
+    [InlineData("Empty", "0", "")]
+    [InlineData("Null", "94", "before")]
+    public async Task Text_stores_coerce_before_changing(string expression, string error, string expected)
+    {
+        (await Run($"Slider1.Text = \"before\"\r\nSlider1.Text = {expression}\r\nDebug.Print Err.Number, Slider1.Text"))
+            .Should().Equal(error, expected);
+    }
+
+    [AvaloniaFact]
+    public async Task Date_text_uses_the_existing_CStr_conversion()
+    {
+        (await Run("Slider1.Text = CDate(2)\r\nDebug.Print Slider1.Text = CStr(CDate(2))")).Should().Equal("True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Min")]
+    [InlineData("Max")]
+    [InlineData("Value")]
+    [InlineData("SmallChange")]
+    [InlineData("LargeChange")]
+    [InlineData("TickFrequency")]
+    [InlineData("SelStart")]
+    [InlineData("SelLength")]
+    [InlineData("Enabled")]
+    [InlineData("SelectRange")]
+    [InlineData("Text")]
+    public async Task Object_Null_stores_raise_13_without_changing(string property)
+    {
+        (await Run($"Dim o As Object\r\nSet o = Slider1\r\nDim before\r\nbefore = o.{property}\r\no.{property} = Null\r\nDebug.Print Err.Number, o.{property} = before"))
+            .Should().Equal("13", "True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Slider1", "94")]
+    [InlineData("o", "13")]
+    public async Task Null_Value_store_preserves_a_nonzero_value(string target, string error)
+    {
+        (await Run($"Dim o As Object\r\nSet o = Slider1\r\nSlider1.Value = 4\r\n{target}.Value = Null\r\nDebug.Print Err.Number, Slider1.Value"))
+            .Should().Equal(error, "4");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    [InlineData(99)]
+    public async Task MousePointer_sets_the_stored_and_visible_cursor(int pointer)
+    {
+        var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        await ContainerRuntimeHarness.Run(ctx, env, $"Slider1.MousePointer = {pointer}");
+        var slider = canvas.Children.OfType<VBSlider>().Single();
+        AttachedProperties.GetMousePointer(slider).Should().Be((VBCursorType)pointer);
+        VBCursorTypeExtensions.PointerOf(slider.Cursor).Should().Be((VBCursorType)pointer);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(-1)]
+    [InlineData(98)]
+    [InlineData(100)]
+    public async Task Invalid_MousePointer_preserves_the_previous_value(int pointer)
+    {
+        (await Run($"Slider1.MousePointer = 2\r\nSlider1.MousePointer = {pointer}\r\nDebug.Print Err.Number, Slider1.MousePointer"))
+            .Should().Equal("380", "2");
     }
 
     [AvaloniaTheory]
