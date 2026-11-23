@@ -8,6 +8,7 @@ using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Dialogs;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.BuiltinControls;
@@ -102,6 +103,8 @@ public static class AttachedEvents
     {
         InputElement.PointerPressedEvent.AddClassHandler<T>((control, e) =>
         {
+            if (MessageBoxFormHold.IsInputHeld(control))
+                return;
             var second = dblClick != DblClick.None && e.ClickCount % 2 == 0 && IsVbButton(e.GetCurrentPoint(control))
                          && OwnsThePointerEvent(control, e.Source);
             if (second)
@@ -190,6 +193,8 @@ public static class AttachedEvents
     {
         bool OverTheForm(object? source)
         {
+            if (MessageBoxFormHold.IsInputHeld(client))
+                return false;
             for (var visual = source as Visual; visual is not null && !ReferenceEquals(visual, client); visual = visual.GetVisualParent())
                 if (visual is Control candidate && VBProps.GetName(candidate) is not null)
                     return false;
@@ -252,6 +257,8 @@ public static class AttachedEvents
 
     internal static void RaiseMouse(Control control, PointerEventArgs e, EventClass eventClass, object? source = null, Func<bool>? when = null)
     {
+        if (MessageBoxFormHold.IsInputHeld(control))
+            return;
         if (control is VBListBox list && !list.IsMultiSelect && list.IsScrollBarSource(source ?? e.Source)
             && (eventClass == ComponentBaseClass.MouseDownEvent || eventClass == ComponentBaseClass.MouseUpEvent))
             return;
