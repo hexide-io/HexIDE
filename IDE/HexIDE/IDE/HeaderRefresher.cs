@@ -145,7 +145,8 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         if (!string.Equals(current, header, StringComparison.Ordinal))
         {
             form.RecordDesignerText(header);
-            ShiftMarks(identity, current, header, shiftBreakpoints: editor is null);
+            if (editor is null)
+                ShiftMarks(identity, current, header);
         }
 
         // The buffer half unconditionally, and that is not belt-and-braces. An open window can hold a header
@@ -188,7 +189,8 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
             {
                 var current = ProjectFormats.Of(module.Owner).CodePrefix(module);
                 module.RecordOriginalHeader(header);
-                ShiftMarks(document, current, header, shiftBreakpoints: editor is null);
+                if (editor is null)
+                    ShiftMarks(document, current, header);
                 editor?.RefreshPrefix(header);
             }
             editor?.AdoptRewrittenQualifiers(document.Module?.Code ?? document.Form!.Code);

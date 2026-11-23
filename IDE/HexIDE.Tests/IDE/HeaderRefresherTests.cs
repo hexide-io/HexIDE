@@ -183,7 +183,7 @@ public class HeaderRefresherTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void AnOpenWindowsFirstBodyBreakpointFollowsAThreeLineHeaderWrite(bool moduleSave)
+    public void AnOpenWindowsFirstBodyMarksFollowAThreeLineHeaderWrite(bool moduleSave)
     {
         var form = Deserialize(OneLabel);
         form.UpdateCode("Sub Main()\r\nEnd Sub\r\n");
@@ -211,9 +211,11 @@ public class HeaderRefresherTests
         editor.Document.UndoStack.Undo();
         breakpoints.GetBreakpoints(identity).Should().Equal(firstBody);
         breakpoints.GetCondition(identity, firstBody).Should().Be("n = 2");
+        bookmarks.GetBookmarks(identity).Should().Equal(firstBody - 1);
         editor.Document.UndoStack.Redo();
         breakpoints.GetBreakpoints(identity).Should().Equal(firstBody + 3);
         breakpoints.GetCondition(identity, firstBody + 3).Should().Be("n = 2");
+        bookmarks.GetBookmarks(identity).Should().Equal(firstBody + 2);
     }
 
     private static string Header(int lines) => string.Concat(Enumerable.Repeat("x\r\n", lines));
@@ -333,6 +335,7 @@ public class HeaderRefresherTests
         var before = form.DesignerText!;
         var firstBodyLine = before.Count(c => c == '\n') + 1;
         breakpoints.SetDocument(document, [firstBodyLine + 1]);
+        bookmarks.SetBookmarks(document, [firstBodyLine]);
 
         form.UpdateComponents([.. form.Components, AButton("Command1")]);
         sut.LayoutChanged(form);
@@ -340,6 +343,7 @@ public class HeaderRefresherTests
         var grewBy = form.DesignerText!.Count(c => c == '\n') - before.Count(c => c == '\n');
         grewBy.Should().BeGreaterThan(0, "a control adds at least its Begin and its End");
         breakpoints.GetBreakpoints(document).Should().Equal(firstBodyLine + 1 + grewBy);
+        bookmarks.GetBookmarks(document).Should().Equal(firstBodyLine + grewBy);
     }
 
     [AvaloniaFact]

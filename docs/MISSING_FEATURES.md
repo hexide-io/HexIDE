@@ -71,7 +71,7 @@
 | Quick Info | Ctrl+I | Done | Ctrl+I calls `TriggerQuickInfo()` → LSP hover at caret; auto-hover on mouse-over also active |
 | Parameter Info | Ctrl+Shift+I | Done | Triggers LSP signature help |
 | Complete Word | Ctrl+Space | Done | Completes a unique prefix immediately; otherwise opens the full completion list (#3056) |
-| Bookmarks | Ctrl+F2 | Done | Edits retain line numbers; following awaits measurement (#5334). Toggle/next/previous/clear-all; next, previous and clear-all have no default gesture; cyan circle gutter margin; persisted per project in the `.user.hexproj` sidecar via `UserSidecarService` (**exceeds VB6**, which lost bookmarks on close). Not set on a line of the header or of a member's `Attribute` lines, which are read-only (#273) |
+| Bookmarks | Ctrl+F2 | Done | In an open code window, bookmarks follow their statements through edits and stay on the joined line in the measured join (#5334). Toggle/next/previous/clear-all; next, previous and clear-all have no default gesture; cyan circle gutter margin; persisted per project in the `.user.hexproj` sidecar via `UserSidecarService` (**exceeds VB6**, which lost bookmarks on close). Not set on a line of the header or of a member's `Attribute` lines, which are read-only (#273) |
 
 ---
 
