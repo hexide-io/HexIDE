@@ -121,6 +121,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Tools/PreservedItemTreeTests.cs` | split |
 | `Tools/ProjectTreeAccessibleNameTests.cs` | split |
 | `ViewModels/ArrayElementRenameTests.cs` | split |
+| `ViewModels/BookmarkEditTests.cs` | split |
 | `ViewModels/CodeEditorUndoTests.cs` | split |
 | `ViewModels/CodeEditorViewModelTests.cs` | split |
 | `ViewModels/CodeWindowHoldsTheFileTests.cs` | split |

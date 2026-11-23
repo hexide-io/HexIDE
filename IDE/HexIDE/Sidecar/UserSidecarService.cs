@@ -374,14 +374,14 @@ public partial class UserSidecarService : IUserSidecarService
             var eq = line.IndexOf('=');
             if (eq < 0) continue;
             var kind = line[..eq].Trim();
-            if (!kind.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
-                && !kind.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase)
-                && !kind.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
-                && !kind.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
+            if (!kind.Equals(Vb6ProjectPaths.ModuleKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(Vb6ProjectPaths.ClassKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(Vb6ProjectPaths.UserControlKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(Vb6ProjectPaths.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
                 continue;
             var value = line[(eq + 1)..].Trim();
             var semi = value.IndexOf(';');
-            missing.Add(semi >= 0 ? value[..semi].Trim() : SerializedProject.FileNameWithoutExtensionOf(value));
+            missing.Add(semi >= 0 ? value[..semi].Trim() : Vb6ProjectPaths.FileNameWithoutExtensionOf(value));
         }
         owned.ExceptWith(missing);
         return owned;
