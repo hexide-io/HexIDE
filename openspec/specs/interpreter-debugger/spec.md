@@ -78,6 +78,31 @@ A developer sets and clears breakpoints on a code line without leaving the keybo
 - **WHEN** the developer presses F9 on a line of a form's designer block
 - **THEN** no breakpoint is set
 
+### Requirement: Open-window breakpoints follow statements through edits
+
+In an open code window, breakpoints SHALL follow their statements through document changes, preserving
+conditions. Inserts, pastes and deletes above a statement, Enter at its first non-blank character, and
+undo/redo SHALL move its breakpoint. Deleting its line or joining it onto the preceding line SHALL
+remove the breakpoint. These shapes reproduce the
+[measured SP6 rows](../../../docs/vb6-fidelity-oracle/a-breakpoint-through-edits-above-it.md); other edits
+use the same rule as decided in #1053, without claiming further measurements.
+
+Whole-text replacements and edits while an external debugger is active SHALL NOT remap the interpreter
+store. Closed-document edits SHALL retain stored numbers. Explicit header refreshes SHALL shift
+closed-document breakpoints, while an open window's document change moves its breakpoints exactly once.
+See [Open-window bookmarks follow statements through edits](../bookmarks/spec.md#requirement-open-window-bookmarks-follow-statements-through-edits)
+for the bookmark rule.
+
+#### Scenario: Insert and undo above a conditional breakpoint
+- **WHEN** a line is inserted above a statement carrying a conditional breakpoint
+- **THEN** the breakpoint and its condition move down one line
+- **AND** undo moves both back and redo moves both down again
+
+#### Scenario: Header growth ends at the first body line
+- **WHEN** a header grows by three lines in an open window whose first body line carries a breakpoint
+- **THEN** the breakpoint and its condition move down three lines and are not removed
+- **AND** bookmarks below the header also move three lines
+
 ### Requirement: Breakpoints SHALL persist across sessions per user
 Breakpoints SHALL be stored per user beside the project and restored when it is reopened.
 
@@ -503,21 +528,41 @@ length at every one of those, and a single place that forgot would stop on, or s
 - **THEN** the current-statement bar is on the line the breakpoint was set on, counted from the top of the file
 
 ### Requirement: A run-time error nothing handles SHALL halt the program at the statement that raised it
-Under the debugger, a run-time error that no active error handler traps SHALL stop the program at the statement that
-raised it, before any procedure unwinds. The developer SHALL be offered End and Debug, and nothing else in the program
+The halt SHALL follow the Error Trapping setting in Tools > Options > Environment > General. Its default SHALL be
+Break in Class Module. Under every setting, a run-time error that no active error handler traps SHALL
+stop the program at the statement that raised it, before any procedure unwinds. The developer SHALL be offered End and Debug, and nothing else in the program
 SHALL run until they choose. Debug SHALL enter break mode at that statement with its procedure still active, and
 continuing SHALL run that statement again, all of it. End SHALL end the program as the End command does.
 
 The error is handled if the procedure that raised it, or any procedure below it, would trap it. The search SHALL stop
 at the procedure where the program was entered: an event procedure, a procedure called to handle a `RaiseEvent`, or
 `Sub Main`. A handler in the code that raised an event SHALL NOT see that event's error. A class's error that its caller
-traps SHALL go to the caller, as a compiled program does, rather than stopping in the class as VB6's IDE does under its
-default Error Trapping setting.
+traps SHALL go to the caller under Break on Unhandled Errors, and in a made program. Under the default, a class
+with no handler of its own SHALL halt when its direct standard-module or form caller has an active handler.
 
 VB6's IDE halts this way, and leaving the procedure abandoned while the program carried on let timers and clicks run
 on whatever state it had left half-updated. Measured on vb6.exe: the dialog, what runs behind it, the break's location,
-the retry, and the event boundary (`docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, "An unhandled run-time error"). The exception for a
-class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
+the retry, and the event boundary (`docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, "An unhandled run-time error").
+The default follows the measured direct class-caller shapes
+(`docs/vb6-fidelity-oracle/the-error-trapping-option.md`, hexide-io/HexIDE#5303); unmeasured shapes retain their handlers.
+
+#### Scenario: Break on All Errors with a standard-module handler
+- **WHEN** Error Trapping is Break on All Errors and a standard-module handler would trap an error
+- **THEN** the program halts at the faulting statement, including when it is in a directly called class
+- **AND** Debug followed by Continue retries that statement instead of running the handler
+- **AND** a class's or form's own handler retains its existing behaviour, pending measurement
+
+Measured G1, G2 and G3: `docs/vb6-fidelity-oracle/the-error-trapping-option.md` (#1070).
+
+#### Scenario: Break in Class Module with a trapping direct caller
+- **WHEN** Error Trapping is Break in Class Module and a class without a handler raises an error
+- **AND** its direct caller is a standard module or form with an active handler
+- **THEN** the program halts at the class's faulting statement
+- **AND** Debug followed by Continue retries that statement, without running the caller's handler
+
+Measured G3: `docs/vb6-fidelity-oracle/the-error-trapping-option.md`, and c1:
+`docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md` (#1070). Unmeasured shapes retain their existing
+handler behaviour: a form or standard module raising, a class caller, a longer call chain, and a class's own handler.
 
 #### Scenario: An event procedure divides by zero
 - **WHEN** an event procedure with no error handler raises a run-time error under the debugger
@@ -533,6 +578,13 @@ class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 - **WHEN** the error was raised by the condition of an `ElseIf` or of a `Loop Until` or `Loop While`
 - **THEN** continuing asks that condition again, without the conditions before it and without another pass through the loop
 
+#### Scenario: A single-test Case expression that raised
+- **WHEN** a single-test `Case` expression raises an unhandled run-time error and the developer chooses Debug
+- **THEN** the debugger SHALL stop on that `Case` line
+- **AND** continuing SHALL evaluate that test again with the retained selector value, without repeating the selector
+  or earlier Case tests, as [measured in VB6's IDE](../../../docs/vb6-fidelity-oracle/what-f5-runs-again-after-debug.md) (#1079)
+- **AND** faults in the selector or a comma-separated Case list retain their existing whole-statement retry, pending measurement
+
 #### Scenario: End
 - **WHEN** the developer chooses End
 - **THEN** the program ends with no `QueryUnload`, `Unload` or `Terminate` event, as the End command ends it
@@ -545,7 +597,8 @@ class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 #### Scenario: A caller's handler
 - **WHEN** a procedure with no handler of its own, in a standard module or a class, raises an error, and a caller with an
   active handler called it from the same event
-- **THEN** the caller's handler runs and the program does not halt
+- **THEN** the caller's handler runs and the program does not halt under Break on Unhandled Errors, and for the
+  shapes Break in Class Module does not cover when that setting is selected
 
 ### Requirement: Run state in the IDE chrome
 The IDE SHALL show localized design, run and break title tags, with break selected while the interpreter debugger is paused. The no-project title SHALL be localized. Title and OS window title SHALL refresh on debugger stop, continue and language changes. The running status message SHALL be cleared while paused and restored on continuing a running program.
@@ -555,6 +608,22 @@ The IDE SHALL show localized design, run and break title tags, with break select
 - **THEN** the title shows the break tag and the running status message is cleared
 - **WHEN** execution continues
 - **THEN** the title shows the run tag and the running status message returns
+
+### Requirement: Declaration lines are not step positions
+
+The debugger SHALL skip `Dim`, `Static` and `Const` when stepping or checking break-type watches,
+including inside nested blocks. `ReDim` SHALL remain a statement position. Existing declaration breakpoints
+and Run To Cursor targets SHALL still pause (#4326).
+F8 is measured in [the oracle](../../../docs/vb6-fidelity-oracle/where-step-into-stops-around-dim-static-const-and-redim.md).
+
+#### Scenario: Step past declarations
+- **WHEN** Step Into resumes before a `Dim`, `Static` or `Const` line
+- **THEN** it pauses at the next statement or the procedure's natural End line
+- **AND** the declarations still execute
+
+#### Scenario: Declaration and assignment on one line
+- **WHEN** stepping reaches `Dim a As Integer: a = 5`
+- **THEN** it pauses once on that line, before the assignment
 
 ### Requirement: Procedure boundary stop positions
 
@@ -638,3 +707,21 @@ as such and an engine fault SHALL report Internal error (51).
 #### Scenario: Startup or event failure
 - **WHEN** Sub Main or an event procedure leaves a run-time error unhandled
 - **THEN** the host shows the fatal warning and holds execution until dismissal
+
+### Requirement: A compile error met during an IDE run halts at the executing statement
+With the IDE's compile-error halt host set, a `VBCompileErrorException` met in a program activation SHALL
+halt through the existing run-time error dialog, regardless of On Error handlers. Debug SHALL suspend at
+that statement with reason RuntimeError; Continue SHALL retry it, meeting the error again. End SHALL end
+the run. Without that host the existing reporting route SHALL remain, including standalone runs; syntax
+errors found before a run starts SHALL remain failed starts.
+
+This is #833's execution-time translation of VB6's Compile On Demand behaviour, measured in
+`docs/vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md`: VB6 compiles at procedure entry and
+breaks at its declaration; the walk reaches the offending statement after earlier statements have run.
+
+#### Scenario: Continue from a compile-error break
+- **GIVEN** a click handler prints "before", calls a missing Sub, then prints "after"
+- **WHEN** the IDE runs it and the developer chooses Debug at the halt
+- **THEN** it breaks at the missing call, with only "before" printed
+- **WHEN** the developer continues
+- **THEN** the same error halts again and "after" never prints

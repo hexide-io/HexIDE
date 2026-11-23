@@ -17,6 +17,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     private readonly ILocalizationService localization;
     private readonly IConditionalCodeReader conditionalCode;
     private string? buildType;
+    private string? languageId;
     private readonly ILspClient? lspClient;
     private LspDocumentSession? session;
     public IReadOnlyList<LspMarker> Markers { get; private set; } = [];
@@ -39,29 +40,30 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     public Func<int, int, bool> SnapshotReadOnlyRegions() => static (_, _) => true;
 
     public ArchiveDocumentViewModel(ContainerEntry entry, ILocalizationService localization,
-        IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null)
+        IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null, string? languageId = null)
     {
         this.lspClient = lspClient;
         this.localization = localization;
         this.conditionalCode = conditionalCode;
         Entry = entry;
-        Update(entry, buildType);
+        Update(entry, buildType, languageId);
     }
 
     public ArchiveDocumentViewModel(ArchiveProjectEntry entry, ILocalizationService localization,
-        IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null)
-        : this(ContainerEntry.FromArchive(entry), localization, conditionalCode, buildType, lspClient) { }
+        IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null, string? languageId = null)
+        : this(ContainerEntry.FromArchive(entry), localization, conditionalCode, buildType, lspClient, languageId) { }
 
     /// <param name="entry">The entry, from the project's latest snapshot.</param>
     /// <param name="buildType">The project's build type from its Settings, which <c>TWINBASIC_BUILD_TYPE</c> holds; null when
     /// the project names none, and conditions on it are then left ungreyed.</param>
-    public void Update(ContainerEntry entry, string? buildType = null)
+    public void Update(ContainerEntry entry, string? buildType = null, string? languageId = null)
     {
         session?.Dispose();
         session = null;
         Markers = [];
         MarkersChanged?.Invoke(Markers);
         this.buildType = buildType;
+        this.languageId = languageId;
         Entry = entry;
         var preview = entry.ReadText();
         var buffer = new TextDocument(preview?.Text ?? "");
@@ -84,7 +86,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
         Title = ComputeTitle();
         if (lspClient != null && preview?.Status == ArchiveTextStatus.Available)
         {
-            session = new LspDocumentSession(lspClient, Document, DocumentUri, isProjectMember: entry.Source != null);
+            session = new LspDocumentSession(lspClient, Document, DocumentUri, isProjectMember: entry.Source != null, languageId: languageId);
             session.MarkersChanged += markers =>
             {
                 Markers = markers;
@@ -96,7 +98,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
 
     internal ArchiveDocumentViewModel Reopen()
     {
-        var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode, buildType, lspClient);
+        var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode, buildType, lspClient, languageId);
         reopened.CaretOffset = Math.Clamp(CaretOffset, 0, reopened.Document.TextLength);
         return reopened;
     }

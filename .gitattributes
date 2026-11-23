@@ -53,3 +53,6 @@ docs/vb6-fidelity-oracle/README.md merge=union
 # byte for byte on every OS: without this a Linux or macOS checkout got LF, and its release packed records its own
 # root refuses, so AI Chat didn't load there (#4529). CommittedFirstPartyChainTests verifies them on every OS.
 IDE/HexIDE.AddinPacker/firstparty/*.json -text
+
+# Source-folder manifest captured from main for a byte-for-byte compatibility guard (#5148).
+IDE/HexIDE.TwinBasic.Tests/Fixtures/impexp.source-folder.json -text

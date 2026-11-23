@@ -35,6 +35,8 @@ public class RoutedCommand : ICommand
         set => _gestures = value;
     }
 
+    internal KeyGesture? NativeGesture { get; init; }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="RoutedCommand"/> class with the specified name.
     /// </summary>

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -25,8 +26,8 @@ internal sealed class ToolbarImage(VBToolbar bar, ToolbarItem item, Button butto
     internal VBImageList? SelectedList(bool hot)
     {
         item.TryGetProperty("Enabled", out var enabled);
-        var list = !(bool)enabled.Value! ? bar.DisabledImageList
-            : bar.Flat && hot ? bar.HotImageList : bar.ImageList;
+        var list = !(bool)enabled.Value! ? (bar.DisabledImageList ?? bar.ImageList)
+            : bar.Flat && hot ? (bar.HotImageList ?? bar.ImageList) : bar.ImageList;
         return bar.ImageList is { } normal && list is not null && list.ImageWidth == normal.ImageWidth &&
             list.ImageHeight == normal.ImageHeight ? list : null;
     }
@@ -73,8 +74,58 @@ internal sealed class ToolbarImage(VBToolbar bar, ToolbarItem item, Button butto
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        item.TryGetProperty("Enabled", out var state);
+        if ((bool)state.Value! && bar.Flat && button.IsPointerOver && bar.HotImageList is null &&
+            !button.IsPressed && button is not ToggleButton { IsChecked: true })
+        {
+            var origin = this.TranslatePoint(default, button) ?? default;
+            var left = -origin.X;
+            var top = -origin.Y;
+            var highlight = VBColor.FromSystemColor(VbSystemColor.Btnhighlight).ToBrush();
+            var shadow = VBColor.FromSystemColor(VbSystemColor.Btnshadow).ToBrush();
+            context.DrawRectangle(highlight, null, new Rect(left, top, button.Width, 1));
+            context.DrawRectangle(highlight, null, new Rect(left, top, 1, button.Height));
+            context.DrawRectangle(shadow, null, new Rect(left, top + button.Height - 1, button.Width, 1));
+            context.DrawRectangle(shadow, null, new Rect(left + button.Width - 1, top, 1, button.Height));
+        }
         if (SelectedPicture() is not { } picture) return;
         using var bitmap = Decode(picture, SelectedList(button.IsPointerOver)!);
-        context.DrawImage(bitmap, new Rect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height), ImageBounds);
+        item.TryGetProperty("Enabled", out var enabled);
+        if (!(bool)enabled.Value! && bar.DisabledImageList is null)
+        {
+            // #4407 / oracle PR #5325: white drops out; shadow covers the offset highlight.
+            using var buffer = bitmap.Lock();
+            var pixels = new byte[buffer.RowBytes * buffer.Size.Height];
+            Marshal.Copy(buffer.Address, pixels, 0, pixels.Length);
+            var bounds = ImageBounds;
+            var width = bounds.Width / buffer.Size.Width;
+            var height = bounds.Height / buffer.Size.Height;
+            // One geometry per colour: a rectangle per pixel left a seam at each fractional pixel edge, which at 150%
+            // drew the emboss as a checkerboard.
+            StreamGeometry Shape(int offset)
+            {
+                var geometry = new StreamGeometry();
+                using var figures = geometry.Open();
+                figures.SetFillRule(FillRule.NonZero);
+                for (var y = 0; y < buffer.Size.Height; y++)
+                for (var x = 0; x < buffer.Size.Width; x++)
+                {
+                    var p = y * buffer.RowBytes + x * 4;
+                    if (pixels[p + 3] == 0 || pixels[p] == 255 && pixels[p + 1] == 255 && pixels[p + 2] == 255) continue;
+                    var left = bounds.X + x * width + offset;
+                    var top = bounds.Y + y * height + offset;
+                    figures.BeginFigure(new Point(left, top), true);
+                    figures.LineTo(new Point(left + width, top));
+                    figures.LineTo(new Point(left + width, top + height));
+                    figures.LineTo(new Point(left, top + height));
+                    figures.EndFigure(true);
+                }
+                return geometry;
+            }
+            context.DrawGeometry(VBColor.FromSystemColor(VbSystemColor.Btnhighlight).ToBrush(), null, Shape(1));
+            context.DrawGeometry(VBColor.FromSystemColor(VbSystemColor.Btnshadow).ToBrush(), null, Shape(0));
+        }
+        else
+            context.DrawImage(bitmap, new Rect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height), ImageBounds);
     }
 }

@@ -116,7 +116,7 @@ public class VBLabel : TemplatedControl, ICustomHitTest
         AttachedEvents.AttachClick<VBLabel>(AttachedEvents.ClickRelease.OverTheControl);
     }
 
-    private void UpdateStyle()
+    internal void UpdateStyle()
     {
         if (decorator == null)
             return;
@@ -150,7 +150,7 @@ public class VBLabel : TemplatedControl, ICustomHitTest
         var parsed = RecognizesAccessKey && Text is { } caption ? VBCaption.Parse(caption) : (VBCaption.Parsed?)null;
         var accessText = parsed is { FitsAccessText: true };
         if (accessText ? decorator.Child is not AccessText : decorator.Child is null or AccessText)
-            decorator.Child = accessText ? new AccessText() : new TextBlock();
+            decorator.Child = accessText ? new AccessText { ShowAccessKey = true } : new TextBlock();
 
         var textblock = (TextBlock)decorator.Child!;
         // In a symbol font, the glyphs GDI draws for the caption's bytes (#1133); the caption itself is unchanged. With
@@ -159,7 +159,8 @@ public class VBLabel : TemplatedControl, ICustomHitTest
         textblock.Text = parsed is { } shown
             ? accessText ? shown.ForAccessText(mapping) : shown.Drawn(mapping)
             : Text is { } raw ? mapping(raw) : Text;
-        textblock.TextWrapping = WordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        // Fixed-size Labels wrap regardless of WordWrap (VB6 SP6, #921, oracle PR #5225).
+        textblock.TextWrapping = !LabelAutoSize.Get(this) || WordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
         textblock.TextAlignment = Alignment switch
         {
             VBTextAlignment.LeftJustify => TextAlignment.Left,

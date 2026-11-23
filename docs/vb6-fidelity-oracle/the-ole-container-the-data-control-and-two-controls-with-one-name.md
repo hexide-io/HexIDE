@@ -368,3 +368,64 @@ was opened in VB6's IDE, its designer shown, and the form saved with Ctrl+S.
   twips). It has the sunken two-pixel edge a 3-D TextBox has:
   `A0A0A0` and `696969` on the top and left, and `E3E3E3` and white on the bottom and right, read through RGB565.
   Nothing was inside it.
+
+## An empty container's run-time defaults (2026-11-22, #858, SP6)
+
+**The question.** #858 asks for the defaults of the persisted properties the first probe didn't read, before a
+component class declares them.
+
+**The probe.** One `Sub Main` project, built with `/make` on vb6.exe SP6 as native code and as p-code, and run on the
+guest's console. The two builds logged identical output, every line.
+- **The form:** `Form1` holds an empty container, `OLE1`, saved with only `Height` 1335, `Left` 240, `TabIndex` 0, `Top`
+  240 and `Width` 2175.
+- **The reads:** `Sub Main` loads `Form1` without showing it, and reads each member with
+  `CallByName(Form1.OLE1, name, VbGet)` under `On Error Resume Next`. It logs the value's `TypeName` and value, or
+  the error.
+- **Then:** five of the members that raised are read again directly, and the form is shown, with a `DoEvents` before
+  `hWnd` is read once more.
+
+**What reads back:**
+
+| Member | Reads |
+|---|---|
+| `Appearance` | Integer 1 |
+| `AutoVerbMenu` | Boolean True |
+| `BackColor` | Long -2147483643, `&H80000005&` |
+| `BackStyle` | Integer 1 |
+| `BorderStyle` | Integer 1 |
+| `DataField`, `Format`, `HostName`, `SourceItem`, `Tag` | String `""` |
+| `DragMode`, `FileNumber`, `MiscFlags`, `MousePointer`, `UpdateOptions`, `Verb` | Integer 0 |
+| `HelpContextID`, `WhatsThisHelpID` | Long 0 |
+| `AppIsRunning`, `DataChanged`, `OLEDropAllowed`, `PasteOK` | Boolean False |
+| `Enabled`, `TabStop`, `Visible` | Boolean True |
+| `DragIcon`, `MouseIcon` | an empty `Picture`, `Handle` 0 and `Type` 0, not `Nothing` |
+| `Container` | `Form1` |
+| `hWnd` | Long 0, loaded and again once shown: an empty container has no window |
+| `Name` | String `OLE1` |
+
+`AutoActivate` 2, `Class` `""`, `DisplayType` 0, `OLEType` 3, `OLETypeAllowed` 2, `SizeMode` 0 and `SourceDoc` `""` read as
+the first probe found (above).
+
+**What raises:**
+
+| Member | Error |
+|---|---|
+| `Data`, `DataText`, `lpOleObject`, `Object`, `ObjectAcceptFormatsCount`, `ObjectGetFormatsCount`, `ObjectVerbsCount`, `Picture` | **31004**: "No object", read directly |
+| `Index` | **343**: "Object not an array", read directly |
+| `Action` | **394**, "Get not supported (write-only property)" |
+| `ToolTipText`, `Font`, `ForeColor` | **438**: the container has none of the three |
+
+**Through `CallByName`, 31004 and 343 carried "Application-defined or object-defined error"** instead. Read directly,
+for `Data`, `Object`, `lpOleObject`, `ObjectVerbsCount` and `Index`, they carried their own messages. The MSFlexGrid
+([its object model](in-box-controls-the-msflexgrid.md#the-object-model)) and the Timer
+([What a Timer has at run time](what-a-timer-has-at-run-time.md#what-a-timer-has-at-run-time-2026-10-27-801)) do the
+same. 394 kept its message.
+
+**Not measured:**
+- the container with a real embedded or linked object;
+- the events;
+- whether VB6 saves a `MouseIcon` or `DragIcon` for this control;
+- what the members not read here default to at design time, in the Properties window.
+
+**In HexIDE,** on main at `d4c9b47c5`, there's still no component class for `VB.OLE`. #858's own probe found the block
+kept as preserved text and the run going ahead without the control. That wasn't re-run for this entry.

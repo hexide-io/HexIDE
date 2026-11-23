@@ -713,7 +713,71 @@ The saved button images keep their indexes even when the list doesn't resolve.
 - **A list of another size is refused as an alternate,** 380, and leaves the alternate as it was.
 - **A button's Image takes any number,** rounded as `CInt` rounds, halves to even. True is -1 and raises 35600.
 
-**Not measured:** drawing, which needs the console. The disabled and hot rendering with no alternate list, or with mixed geometry, is still open.
+**Not measured:** drawing, which needs the console. The disabled and hot rendering with no alternate list is measured since, in *Drawing a disabled or hot button with no alternate list*, below. Mixed geometry is still open.
+
+### Drawing a disabled or hot button with no alternate list (2026-11-22, #4407, console, SP6)
+
+**The question.** The section above left drawing open. What does VB6 draw for a disabled button when no
+`DisabledImageList` is bound, and for a hot button on a flat bar when no `HotImageList` is?
+
+**The probe.** One `Sub Main` project, built with `/make` on vb6.exe SP6 with MSCOMCTL.OCX, as native code and as p-code,
+and run on the guest's console. The two builds logged identical output, every line.
+- **The form:** two Toolbars, `Toolbar1` with `Style` 0 (standard) and `Toolbar2` with `Style` 1 (flat). Both were bound
+  at run time to one 16 × 16 ImageList, whose `MaskColor` was magenta, with `UseMaskColor` True. Both alternate lists read
+  `Nothing`.
+- **The images:** the program wrote two 24-bit bitmaps and added them with `LoadPicture`. Everything outside the shapes
+  below is the mask colour.
+  - **"stripes":** rows 2 to 13 hold one column of each colour: black, white, `F0F0F0`, `C0C0C0`, `808080`, `404040`,
+    red, green, blue, yellow, cyan, `FEFEFE`, `E0E0E0` and `A0A0A0`.
+  - **"square":** a black 6 × 6 square in the middle.
+- **The buttons:** four on each bar. `a` and `c` are enabled, showing "stripes" and "square". `b` and `d` are the same,
+  disabled.
+- **The read:** the form was shown, and each button's pixels were copied from the screen with `BitBlt` and read with
+  `GetPixel`. Then the cursor was moved over a button with `SetCursorPos`, and the button read again.
+- **The guest's system colours:** button face `F0F0F0`, 3-D shadow `A0A0A0`, 3-D highlight `FFFFFF`.
+
+**An enabled button** draws its image as it is, transparent where the mask colour is. On the 23 × 22 standard button
+its top-left corner sat 3 pixels in from the button's left edge and 3 down from its top.
+
+**A disabled button with no `DisabledImageList` draws its image embossed,** on both bars, at the enabled image's
+position:
+- **The shape** is every pixel that isn't transparent and isn't pure white. It's drawn in the 3-D shadow colour.
+- **Under it,** the same shape is drawn in the 3-D highlight colour, one pixel right and one pixel down. Where the two
+  overlap, the shadow shows.
+- **Pure white is left out of both,** so the button face shows through there. Nothing else is: `FEFEFE`, `E0E0E0` and
+  the face colour `F0F0F0` itself became shadow, as black did.
+
+One row of "stripes", as drawn disabled:
+
+| Source column | black | white | `F0F0F0` | every other colour, `FEFEFE` included |
+|---|---|---|---|---|
+| Drawn | shadow | nothing | shadow | shadow |
+| One pixel right and down | highlight, where no shadow covers it | nothing | highlight, where no shadow covers it | the same |
+
+"Square" came out as a 6 × 6 shadow square, with a highlight line one pixel wide down its right side and along its
+bottom.
+
+**A hot button on a flat bar with no `HotImageList` draws its normal image,** and gains a raised edge one pixel wide:
+highlight along the top and left, shadow along the right and bottom.
+- **Hovering `a` and then `c`** each changed 61 pixels, all of them on the edge. The image's pixels were identical hot and
+  at rest.
+- **Moving off `a`** put it back exactly as it was.
+- **Hovering a standard bar's button** changed no pixel.
+- **Hovering a disabled button on the flat bar** changed no pixel either: no edge, and the emboss stayed.
+
+**Not told apart:** whether the colour left out of the emboss is white itself or the 3-D highlight colour, which are the
+same on this guest.
+
+**Not measured:**
+- **Mixed geometry.** A run-time assignment of an alternate list of another size raises 380 (above), so only a saved
+  form could reach it, and none was tried.
+- **A disabled button's caption,** a pressed or checked button, and a button whose image list has `UseMaskColor` False.
+- **Other system colours,** high contrast, and images with more than 24 bits or with alpha.
+
+**In HexIDE,** on main at `d4c9b47c5`, `ToolbarImage.SelectedList`
+(`IDE/HexIDE.Runtime/BuiltinControls/ToolbarImage.cs:25-32`) chooses `DisabledImageList` for a disabled button, and
+`HotImageList` for a hot button on a flat bar. When that list is `Nothing` it chooses none, so `Render` (`:76`) draws no
+image. VB6 draws the emboss and the normal image. #4407 tracks building it.
 
 ### A Buttons bag in another order (2026-11-21, #21, design-time, IDE, SP6)
 

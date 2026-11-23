@@ -50,7 +50,9 @@ public static class ComponentNaming
         // where the rename would not join an array: an element may take an array's name when its Index is free there
         // (#1276), which is how an element renamed out of its array is renamed back.
         if (NamesInUse(formComponents, except: target).Contains(proposed) && !JoinsAnArray(target, proposed, formComponents))
-            return localization.GetString("Str.Naming.Msg.NameNotUniqueInForm");
+            return ArrayCreationHolder(target, proposed, formComponents) is not null
+                ? string.Format(localization.GetString("Str.Naming.Msg.CreateControlArray"), proposed)
+                : localization.GetString("Str.Naming.Msg.NameNotUniqueInForm");
 
         // Renaming the ROOT renames the document, so the project's rule applies on top of the form's: a form
         // and a module of one project may not share a name, because VB6 gives them one namespace.
@@ -104,14 +106,54 @@ public static class ComponentNaming
     /// does not join an array, and an array does not take a control with none: in VB6 that offers to make a new array,
     /// which is not measured, so it stays a refusal.
     /// </remarks>
+    // Measured: docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md (#1397 / PR #5234).
+    // Cross-type creation/joining without an Index is unmeasured, so it keeps the existing refusal.
+    internal static ComponentInstance? ArrayCreationHolder(ComponentInstance target, string? proposed,
+        IEnumerable<ComponentInstance> formComponents)
+    {
+        if (string.IsNullOrEmpty(proposed) || !ProjectNaming.IsValidName(proposed)
+            || target.BaseClass is FormComponentClass || !HasNoIndex(target)
+            || string.Equals(target.GetPropertyOrDefault(VBProperties.NameProperty), proposed, StringComparison.OrdinalIgnoreCase)
+            || PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
+            return null;
+        var holders = Holders(target, proposed, formComponents);
+        return holders.Count == 1 && ReferenceEquals(holders[0].BaseClass, target.BaseClass)
+            && HasNoIndex(holders[0]) ? holders[0] : null;
+    }
+
+    internal static int? JoiningIndex(ComponentInstance target, string proposed, IEnumerable<ComponentInstance> formComponents)
+    {
+        if (target.BaseClass is FormComponentClass || !HasNoIndex(target)
+            || PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
+            return null;
+        var holders = Holders(target, proposed, formComponents);
+        if (holders.Count == 0 || holders.Any(c => !ReferenceEquals(c.BaseClass, target.BaseClass)
+            || SingleIndexOf(c) is not (>= 0 and <= 32767)))
+            return null;
+        // #1397's explicit design decision: highest + 1. Only 0..1 -> 2 is measured in VB6.
+        var next = holders.Max(c => SingleIndexOf(c)!.Value) + 1;
+        return next <= 32767 ? next : null;
+    }
+
+    private static int IndexPropertyCount(ComponentInstance target) =>
+        target.UnknownRawProperties.Count(p => p.Name.Equals("Index", StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasNoIndex(ComponentInstance target) => IndexPropertyCount(target) == 0;
+
+    private static int? SingleIndexOf(ComponentInstance target) =>
+        IndexPropertyCount(target) == 1 ? PropertyText.ArrayIndexOf(target) : null;
+
+    private static List<ComponentInstance> Holders(ComponentInstance target, string proposed,
+        IEnumerable<ComponentInstance> formComponents) => formComponents.Where(c => !ReferenceEquals(c, target)
+            && string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), proposed, StringComparison.OrdinalIgnoreCase)).ToList();
+
     private static bool JoinsAnArray(ComponentInstance target, string proposed, IEnumerable<ComponentInstance> formComponents)
     {
-        if (PropertyText.ArrayIndexOf(target) is not { } index)
-            return false;
         if (PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
             return false;
-        var holders = formComponents.Where(c => !ReferenceEquals(c, target)
-            && string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), proposed, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (PropertyText.ArrayIndexOf(target) is not { } index)
+            return JoiningIndex(target, proposed, formComponents) is not null;
+        var holders = Holders(target, proposed, formComponents);
         return holders.Count > 0 && holders.All(c => PropertyText.ArrayIndexOf(c) is { } held && held != index);
     }
 
@@ -153,5 +195,21 @@ public static class ComponentNaming
     public static IEnumerable<string> NamesDeclaredBy(string preservedText) =>
         BeginLine.Matches(preservedText).Select(begin => begin.Groups["name"].Value);
 
-    private static readonly Regex BeginLine = new(@"^\s*Begin\s+\S+\s+(?<name>\S+)", RegexOptions.Multiline);
+    // #1458's No answer: only the declaration's name changes. Several controls in one carried block still need
+    // their own measured treatment; the class's last segment for classes other than ImageList is a design decision.
+    internal static string? RenameSingleCarriedControl(string preservedText, HashSet<string> namesInUse)
+    {
+        var declarations = BeginLine.Matches(preservedText);
+        if (declarations.Count != 1)
+            return null;
+        var declaration = declarations[0];
+        var className = declaration.Groups["class"].Value;
+        var prefix = className[(className.LastIndexOf('.') + 1)..];
+        var index = 1;
+        while (namesInUse.Contains(prefix + index)) index++;
+        var name = declaration.Groups["name"];
+        return preservedText[..name.Index] + prefix + index + preservedText[(name.Index + name.Length)..];
+    }
+
+    private static readonly Regex BeginLine = new(@"^\s*Begin\s+(?<class>\S+)\s+(?<name>\S+)", RegexOptions.Multiline);
 }

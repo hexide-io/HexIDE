@@ -42,6 +42,7 @@ public class ComponentRegistry : IComponentRegistry
         new(VScrollBarComponentClass.Instance, "Geo.Vscroll"),
         new(TimerComponentClass.Instance, "Geo.Timer"),
         new(ShapeComponentClass.Instance, "Geo.Shape"),
+        new(ImageComponentClass.Instance, "Geo.Image"),
     ];
 
     public IReadOnlyList<RuntimeLibrary> Libraries => ControlLibraries.All;

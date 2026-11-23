@@ -213,3 +213,63 @@ Value. That is alphabetical but for Min coming before Max.
 HexIDE doesn't know MSCOMCT2.OCX. `ControlLibraries` lists only MSCOMCTL.OCX and COMCTL32.OCX, so nothing maps a
 FlatScrollBar to this issue (#1097). Its own HScrollBar and VScrollBar are where the measured matches above would
 be shared, and the clamp without Change is the one behaviour that must not be.
+
+## The FlatScrollBar's conversions, MousePointer, `[_Value]` and Refresh (2026-11-23, #1097, SP6)
+
+**A value stored into a FlatScrollBar property converts as VB converts it to the property's type, Integer or Boolean, then meets the property's own check.** `MISSING_LANGUAGE.md` listed these as unmeasured, and HexIDE refuses them.
+
+**The probe.**
+- **The form:** an `MSComCtl2.FlatScrollBar` (MSCOMCT2.OCX 2.0), and `Sub Main` showing it.
+- **Each store:** before it, the bar was reset to Min 0, Max 100, Value 50, SmallChange 1, LargeChange 5, Enabled True and MousePointer 0.
+  - The value was put in a `Variant`, then stored **early-bound**, as `Form1.FlatScrollBar1.Value = v`, and **late-bound**, through an `Object` variable.
+  - `Err.Number` was read at once, then the property was read back through `CallByName` with its `TypeName`.
+- **The build:** `/make` as native code and as p-code on VB6.EXE 6.00.9782 (SP6) with MSVBVM60 6.00.9848, on the Win10-C clone's console. **The two builds wrote identical logs.**
+- **Early and late binding agreed on every row but Null:** 94 "Invalid use of Null" early-bound, 13 "Type mismatch" late-bound, the property unchanged either way.
+
+**The Integer properties.** Each cell is what the property read afterwards, as an Integer, or the error raised, with the property unchanged:
+
+| Stored | Value | Min | Max | SmallChange | LargeChange |
+|---|---|---|---|---|---|
+| `Null` | 94 / 13 | 94 / 13 | 94 / 13 | 94 / 13 | 94 / 13 |
+| `Empty` | 0 | 0 | 0 | **380** | **380** |
+| `True` | **380** | -1 | -1 | **380** | **380** |
+| `False` | 0 | 0 | 0 | **380** | **380** |
+| `"7"` | 7 | 7 | 7 | 7 | 7 |
+| `"abc"` | 13 | 13 | 13 | 13 | 13 |
+| `CByte(7)` | 7 | 7 | 7 | 7 | 7 |
+| `CCur(7.5)` | 8 | 8 | 8 | 8 | 8 |
+| `CDate(2)` | 2 | 2 | 2 | 2 | 2 |
+| `CDec(7.5)` | 8 | 8 | 8 | 8 | 8 |
+| `7.5` (Double) | 8 | 8 | 8 | 8 | 8 |
+| `CSng(2.5)` | 2 | 2 | 2 | 2 | 2 |
+| `40000` (Long) | **6** Overflow | **6** | **6** | **6** | **6** |
+
+**What the table shows:**
+- **The conversion is VB's `CInt`:** Empty is 0, True is -1, a numeric string parses, other text raises 13, halves go to the even neighbour, and anything beyond an Integer raises 6.
+- **The 380s are the bar's own checks, met after converting:**
+  - SmallChange and LargeChange refuse 0 and -1;
+  - Value refuses -1, outside 0 to 100, as "Where it matches the HScrollBar" has a Value outside the range raise 380.
+- **Min and Max take -1 and 0 without complaint,** as the reversed ranges above allow.
+
+**Enabled** (Boolean):
+
+| Stored | Reads |
+|---|---|
+| `0`, `Empty`, `CSng(0)`, `"False"` | False |
+| `1`, `-1`, `2`, `1.5`, `CByte(1)`, `CCur(1)`, `"True"` | True |
+| `"abc"` | 13, unchanged |
+| `Null` | 94 / 13, unchanged |
+
+**MousePointer:** 4 to 15 and 99 are accepted and read back as stored, as a Long. 98 and 100 raise **380** and leave it at 0. With this page's 0 to 3, the accepted set is 0 to 15 and 99.
+
+**`[_Value]` is Value under another name:**
+- With Value 0 it read Integer 0, and with Value 37, Integer 37.
+- `[_Value] = 12` raised nothing, and Value then read 12.
+- The bar read as a value with no member named (its default member) gave Integer 12.
+
+**`Refresh`** raised nothing, early-bound and late-bound.
+
+**Not measured:**
+- `AboutBox`, which opens a dialog;
+- `hWnd` reads;
+- `MouseIcon`.

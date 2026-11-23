@@ -345,48 +345,70 @@ public class TypeKeysTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData("X", true)]
-    [InlineData("Tab", false)]
-    [InlineData("Tab", true)]
-    [InlineData("Indent", true)]
-    public void OtherEditingChordsReportTheProtectedPart(string key, bool command)
+    [InlineData("Cut")]
+    [InlineData("Indent")]
+    [InlineData("Outdent")]
+    public void OtherEditingChordsReportTheProtectedPart(string command)
     {
         var editor = Show(WithRun.Replace("Public Function", "    Public Function", StringComparison.Ordinal));
         var start = editor.Text.IndexOf("Total()", StringComparison.Ordinal);
         var end = editor.Text.IndexOf("VB_UserMemId", StringComparison.Ordinal);
         editor.Select(start, end - start);
-        var modifiers = key == "X" ? ApplicationCommands.CutCommand.Gestures[0].KeyModifiers.ToString()
-            : key == "Indent" ? ApplicationCommands.IndentCommand.Gestures[0].KeyModifiers.ToString()
-            : command ? "Shift" : null;
-        if (key == "Indent") key = "Tab";
+        var gesture = command switch
+        {
+            "Cut" => ApplicationCommands.CutCommand.Gestures[0],
+            "Indent" => ApplicationCommands.IndentCommand.Gestures[0],
+            _ => ApplicationCommands.OutdentCommand.Gestures[0],
+        };
 
-        var result = UiAutomationDriver.PressKey(editor, key, modifiers);
+        var modifiers = gesture.KeyModifiers == KeyModifiers.None ? null : gesture.KeyModifiers.ToString();
+        var result = UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), modifiers);
 
         result.Success.Should().BeTrue(result.Error);
         editor.Text.Should().Contain("Attribute Total.VB_UserMemId = 0");
         result.Detail.Should().Contain("left").And.Contain("the Attribute lines describing Total");
     }
 
+    // VB6 SP6 measurement: docs/vb6-fidelity-oracle/indent-outdent-and-ctrl-tab-in-the-code-window.md.
     [AvaloniaTheory]
-    [InlineData("Tab")]
-    [InlineData("BackTab")]
-    [InlineData("Indent")]
-    public async Task WholeLineIndentationReportsProtectedLines(string chord)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Tab_indents_or_outdents_every_line_the_selection_touches(bool outdent)
+    {
+        const string lines = "    Dim a As Long\r\n    a = 1\r\n    a = 2";
+        var editor = Show("Sub Main()\r\n" + lines + "\r\nEnd Sub\r\n");
+        var before = editor.Text;
+        var start = before.IndexOf("Dim a As Long", StringComparison.Ordinal);
+        var end = before.IndexOf("a = 2", StringComparison.Ordinal);
+        editor.Select(start, end - start);
+
+        var result = await UiAutomationDriver.PressKeyAsync(editor, "Tab", outdent ? "Shift" : null);
+
+        result.Success.Should().BeTrue(result.Error);
+        var expected = outdent
+            ? "Dim a As Long\r\na = 1\r\na = 2"
+            : "        Dim a As Long\r\n        a = 1\r\n        a = 2";
+        editor.Text.Should().Be(before.Replace(lines, expected, StringComparison.Ordinal));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WholeLineIndentationReportsProtectedLines(bool outdent)
     {
         var editor = Show(WithRun.Replace("Public Function", "    Public Function", StringComparison.Ordinal));
         var start = editor.Text.IndexOf("    Public Function", StringComparison.Ordinal);
         var end = editor.Text.IndexOf("End Function", StringComparison.Ordinal);
         var protectedLine = editor.Document.GetLineByOffset(editor.Text.IndexOf("Attribute Total", StringComparison.Ordinal)).LineNumber;
         editor.Select(start, end - start);
-        var gesture = ApplicationCommands.IndentCommand.Gestures[0];
-        var key = chord == "Indent" ? gesture.Key.ToString() : "Tab";
-        var modifiers = chord == "Indent" ? gesture.KeyModifiers.ToString() : chord == "BackTab" ? "Shift" : null;
+        var gesture = (outdent ? ApplicationCommands.OutdentCommand : ApplicationCommands.IndentCommand).Gestures[0];
 
-        var result = await UiAutomationDriver.PressKeyAsync(editor, key, modifiers);
+        var modifiers = gesture.KeyModifiers == KeyModifiers.None ? null : gesture.KeyModifiers.ToString();
+        var result = await UiAutomationDriver.PressKeyAsync(editor, gesture.Key.ToString(), modifiers);
 
         result.Success.Should().BeTrue(result.Error);
         editor.Text.Should().Contain("\r\nAttribute Total.VB_UserMemId = 0\r\n");
-        editor.Text.Should().Contain(chord == "BackTab" ? "\r\nPublic Function Total()" : "        Public Function Total()");
+        editor.Text.Should().Contain(outdent ? "\r\nPublic Function Total()" : "\r\n        Public Function Total()");
         result.Detail.Should().Contain($"left line {protectedLine} (the Attribute lines describing Total) as it was")
             .And.NotContain("no protected text");
         CleanPartialReply(result.Detail!);

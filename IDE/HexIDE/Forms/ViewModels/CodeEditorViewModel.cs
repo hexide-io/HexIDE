@@ -54,7 +54,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Code");
 
-    private TextDocument document = new TextDocument();
+    private readonly TextDocument document = new TextDocument();
     private FormDefinition? formDefinition;
     private ModuleDefinition? moduleDefinition;
 
@@ -284,6 +284,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
+        Document.Changing += FollowMarks;
+        AutoDispose(new ActionDisposable(() => Document.Changing -= FollowMarks));
         Document.TextChanged += (_, _) =>
         {
             RefreshBufferModified();
@@ -434,6 +436,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }));
         AutoDispose(new ActionDisposable(() =>
         {
+            LeaveLastPositionLine();
             var body = BufferBody;   // the same split as the flush above, for the same reason
             formDefinition?.UpdateCode(body);
             if (moduleDefinition is not null)
@@ -445,6 +448,30 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (session is { } closing)
                 ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, IsModified && !unloading);
         }));
+    }
+
+    private void FollowMarks(object? sender, DocumentChangeEventArgs change)
+    {
+        if (identity is not { } current ||
+            (change.Offset == 0 && change.RemovalLength == Document.TextLength))
+            return;
+
+        var removed = FormCodeText.LineBreaks(change.RemovedText.Text);
+        var inserted = FormCodeText.LineBreaks(change.InsertedText.Text);
+        if (ExternalDebugger?.IsActive != true)
+            breakpointService.Remap(current, line => line < 1 || line > Document.LineCount ? line :
+                HexIDE.Debugging.MarkLines.Remap(line, change.Offset, change.RemovalLength, removed, inserted, ReadLine));
+        bookmarkService.Remap(current, line => line < 0 || line >= Document.LineCount ? line :
+            HexIDE.Debugging.MarkLines.RemapBookmark(line + 1, change.Offset, change.RemovalLength, removed, inserted, ReadLine) - 1);
+
+        (int Begin, int Statement, int End, int Next) ReadLine(int line)
+        {
+            var before = Document.GetLineByNumber(line);
+            var statement = before.Offset;
+            while (statement < before.EndOffset && char.IsWhiteSpace(Document.GetCharAt(statement)))
+                statement++;
+            return (before.Offset, statement, before.EndOffset, before.Offset + before.TotalLength);
+        }
     }
 
     private bool modelIsModified;
@@ -569,9 +596,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private bool qualifierWriteWasUndone;
 
     /// <summary>
-    /// Makes this buffer's attribute qualifiers the ones a save just wrote into the document's code,
-    /// <paramref name="written"/> (#273 task 4.4), as one of the IDE's own writes. Does nothing when the buffer's
-    /// runs already name their members, or when the save did not rewrite them.
+    /// Makes this buffer's leading attributes and member qualifiers the ones a save just wrote into the document's
+    /// code, <paramref name="written"/> (#273 task 4.4, #1661), as one of the IDE's own writes.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -586,7 +612,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <para>
     /// <b>Replaced span by span, rather than by assigning the body</b>, for <see cref="RefreshPrefix"/>'s reason:
     /// the caret, the selection and the folds over the rest of the buffer stay where they were. Each span is in a
-    /// member's read-only run, which the developer can neither type into nor have the caret inside, and which a
+    /// read-only Attribute run, which the developer can neither type into nor have the caret inside, and which a
     /// fold usually hides. The view model's own <see cref="CaretOffset"/> is moved with the text, as there.
     /// </para>
     /// </remarks>
@@ -594,6 +620,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var text = Document.Text;
         var rewrites = RegionWriter?.SaveRewrites(text, bufferPrefix.Length) ?? [];
+        var attributes = FormCodeText.AttributeBlock(FormCodeText.BodyOf(text, bufferPrefix));
+        var savedAttributes = FormCodeText.AttributeBlock(written);
+        if (!string.Equals(attributes, savedAttributes, StringComparison.Ordinal))
+            rewrites = [new TextChange(bufferPrefix.Length, attributes.Length, savedAttributes), .. rewrites];
         if (rewrites.Count == 0)
             return;
         if (!string.Equals(FormCodeText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
@@ -1325,6 +1355,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // handler and moves a new stub's caret from its body to its declaration (#1865).
             if (SelectedObject == GeneralObject || SelectedObject is null)
                 RefreshProcedureNames();
+            SyncCombosToCaret();
         });
     }
 
@@ -1341,6 +1372,98 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         var line = Document.GetLineByNumber(position.Line + 1);
         this.NavigateToOffset(Math.Clamp(line.Offset + Math.Max(0, position.Character), line.Offset, line.EndOffset));
         FocusWindowRequest?.Invoke();
+    }
+
+    private int? lastPositionEditedLine;
+
+    internal void LastPositionTextEntered(string text)
+    {
+        if (text.Length > 0 && !text.Contains('\r') && !text.Contains('\n'))
+            lastPositionEditedLine = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber;
+    }
+
+    internal void RecordLastPosition()
+    {
+        if (identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document,
+                Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber));
+    }
+
+    internal void LeaveLastPositionLine()
+    {
+        if (lastPositionEditedLine is not { } line) return;
+        lastPositionEditedLine = null;
+        if (identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document, line));
+    }
+
+    private void OnCaretOffsetChanged()
+    {
+        if (lastPositionEditedLine is { } line &&
+            Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber != line)
+            LeaveLastPositionLine();
+        SyncCombosToCaret();
+    }
+
+    private bool syncingFromCaret;
+
+    private void SyncCombosToCaret()
+    {
+        if (syncingFromCaret || _symbols is not { Length: > 0 } || ObjectNames.Count == 0) return;
+        var line = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber - 1;
+        var procedures = FlattenedSymbols()
+            .Where(s => s.Kind is SymbolKind.Method or SymbolKind.Function ||
+                (s.Kind is SymbolKind.Property && FindComponent(s.Name) is null))
+            .OrderBy(s => s.Range.Start.Line).ToArray();
+        static int LastLine(DocumentSymbol symbol) => symbol.Range.End.Character == 0 &&
+            symbol.Range.End.Line > symbol.Range.Start.Line ? symbol.Range.End.Line - 1 : symbol.Range.End.Line;
+        var symbol = procedures.Where(s => s.Range.Start.Line <= line && LastLine(s) >= line)
+            .OrderByDescending(s => s.Range.Start.Line).ThenBy(LastLine).FirstOrDefault();
+        if (symbol is null)
+        {
+            var next = procedures.FirstOrDefault(s => s.Range.Start.Line > line);
+            // Trailing lines were not measured for #936; leave their selection alone.
+            if (next is null && procedures.Length > 0) return;
+            if (next is not null)
+            {
+                var onlyBlankOrComment = true;
+                for (var i = line; i < next.Range.Start.Line && i < Document.LineCount; i++)
+                {
+                    var text = Document.GetText(Document.GetLineByNumber(i + 1)).TrimStart();
+                    if (text.Length == 0 || text.StartsWith("'", StringComparison.Ordinal) ||
+                        (text.StartsWith("Rem", StringComparison.OrdinalIgnoreCase) &&
+                         (text.Length == 3 || char.IsWhiteSpace(text[3])))) continue;
+                    onlyBlankOrComment = false;
+                    break;
+                }
+                // VB6 gives the blank/comment run above a procedure to that procedure (oracle #936).
+                if (onlyBlankOrComment) symbol = next;
+            }
+        }
+
+        var obj = GeneralObject;
+        var procedure = symbol is null ? DeclarationsProc : ProcedureEntry(symbol).Text;
+        if (symbol is not null)
+        {
+            foreach (var name in ObjectNames.Where(n => n != GeneralObject).OrderByDescending(n => n.Length))
+            {
+                if (!symbol.Name.StartsWith(name + "_", StringComparison.OrdinalIgnoreCase)) continue;
+                var eventName = symbol.Name[(name.Length + 1)..];
+                var ev = FindComponent(name)?.BaseClass.Events.FirstOrDefault(e =>
+                    string.Equals(e.Name, eventName, StringComparison.OrdinalIgnoreCase));
+                if (ev is null) continue;
+                obj = name;
+                procedure = ev.Name;
+                break;
+            }
+        }
+        syncingFromCaret = true;
+        try
+        {
+            if (SelectedObject != obj) SelectedObject = obj;
+            if (SelectedProcedure != procedure) SelectedProcedure = procedure;
+        }
+        finally { syncingFromCaret = false; }
     }
 
     private bool refreshingProcedureNames;
@@ -2325,6 +2448,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);
 
+    Task<CompletionItem?> HexIDE.Forms.Views.IEditorDocumentQueries.ResolveCompletionItemAsync(
+        CompletionItem item, CancellationToken ct) => lspClient.ResolveCompletionItemAsync(item, ct);
+
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
         => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
@@ -2677,6 +2803,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             Log.Debug("[definition] Nothing loaded answers to {Uri}", uri);
     }
 
+    internal void NavigateToDefinitionUri(string uri, int line, int column)
+    {
+        var origin = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber;
+        if (editorService.NavigateTo(uri, line, column) && identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document, origin));
+    }
+
     // A hover's file link opens a document the project already holds, and nothing else: a server's link is not the
     // user choosing a file, the same rule #2908 applies to showDocument. Anything else is logged and left alone.
     internal Avalonia.Controls.Control DiagnosticContent(LspMarker marker) => DiagnosticContentView.Render(marker, editorService);
@@ -2691,7 +2824,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private void OnSelectedProcedureChanged(string? oldValue, string? newValue)
     {
         // Clear and reselection update the bound ComboBox synchronously; restoring its item is not a choice (#4480).
-        if (refreshingProcedureNames || newValue is null) return;
+        if (refreshingProcedureNames || syncingFromCaret || newValue is null) return;
         if (newValue == DeclarationsProc)
         {
             NavigateToDeclarations();

@@ -44,13 +44,17 @@ public sealed class LanguageServerRegistrationFactory(
     /// claiming this file" answer would have to special-case it.
     /// </para>
     /// </summary>
-    public IReadOnlyList<LanguageServerRegistration> Create(IReadOnlyList<LanguageServerEntry> entries)
+    /// <param name="connectionIdPrefix">Put before each id in the protocol capture, so a trial launch (#1209) records apart
+    /// from the live connection of the same id. The registration's own <c>Id</c> is unchanged.</param>
+    /// <param name="includeDisabled">Also build switched-off entries, for a trial a person asked for by name.</param>
+    public IReadOnlyList<LanguageServerRegistration> Create(IReadOnlyList<LanguageServerEntry> entries,
+        string connectionIdPrefix = "", bool includeDisabled = false)
     {
         var registrations = new List<LanguageServerRegistration>();
 
         foreach (var entry in entries)
         {
-            if (entry.Enabled == false || entry.Id is not { } id) continue;
+            if (entry.Enabled == false && !includeDisabled || entry.Id is not { } id) continue;
             if (TransportFor(entry) is not { } transport) continue;
 
             var languageId = entry.LanguageId ?? "";
@@ -70,7 +74,7 @@ public sealed class LanguageServerRegistrationFactory(
                     trace: trace,
                     // The id, not the language: two servers can serve one language, and a record that
                     // could not tell them apart would be worse than no record.
-                    capture: capture, connectionId: id, workspaceNames: workspaceNames, locale: locale, settings: settings, showDocument: showDocument is null ? null :
+                    capture: capture, connectionId: connectionIdPrefix + id, workspaceNames: workspaceNames, locale: locale, settings: settings, showDocument: showDocument is null ? null :
                         (request, token) => showDocument(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token),
                     showMessageRequest: showMessageRequest is null ? null :
                         (request, token) => showMessageRequest(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token),

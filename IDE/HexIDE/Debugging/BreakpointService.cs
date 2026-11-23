@@ -73,6 +73,23 @@ public sealed class BreakpointService : IBreakpointService
         BreakpointsChanged?.Invoke(document);
     }
 
+    public void Remap(DocumentIdentity document, Func<int, int?> newLineOf)
+    {
+        if (!_breakpoints.TryGetValue(document, out var set))
+            return;
+        var moved = new SortedDictionary<int, string?>();
+        foreach (var (line, condition) in set)
+            if (newLineOf(line) is { } newLine)
+                moved[newLine] = condition;
+        if (set.SequenceEqual(moved))
+            return;
+        if (moved.Count == 0)
+            _breakpoints.Remove(document);
+        else
+            _breakpoints[document] = moved;
+        BreakpointsChanged?.Invoke(document);
+    }
+
     public void ClearDocument(DocumentIdentity document)
     {
         if (_breakpoints.Remove(document))

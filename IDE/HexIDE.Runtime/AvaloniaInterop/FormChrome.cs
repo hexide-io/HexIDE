@@ -40,7 +40,9 @@ internal readonly record struct FormChrome(int BorderStyle, bool ControlBox, boo
     /// </remarks>
     public static FormChrome Read(ComponentInstance form, bool menu)
     {
-        var borderStyle = VBLoader.RawNumber(form, "BorderStyle") ?? 2;
+        var borderStyle = form.TryGetProperty(VBProperties.FormBorderStyleProperty, out var style)
+            ? (int)style
+            : VBLoader.RawNumber(form, "BorderStyle") ?? (int)form.GetPropertyOrDefault(VBProperties.FormBorderStyleProperty);
         var controlBox = VBLoader.RawNumber(form, "ControlBox") != 0;
         // Measured with a caption and a control box only: that the menu keeps the caption bar without either, as #1072's
         // frame has always taken it to, is inferred.

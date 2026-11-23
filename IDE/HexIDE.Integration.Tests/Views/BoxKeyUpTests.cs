@@ -84,15 +84,22 @@ public class BoxKeyUpTests
                 return Task.CompletedTask;
             });
 
-    [AvaloniaFact]
-    public Task Program_box_answers_on_enter_down() =>
+    // #827: program boxes share the complete-press rule, with VB6's Escape answer.
+    [AvaloniaTheory]
+    [InlineData(Key.Enter, false, MessageBoxResult.None)]
+    [InlineData(Key.Enter, true, MessageBoxResult.Cancel)]
+    [InlineData(Key.Escape, true, MessageBoxResult.Cancel)]
+    public Task Program_box_answers_only_after_a_complete_press(Key key, bool release, MessageBoxResult expected) =>
         WithDesktopBox((manager, _, ide) =>
-            manager.MessageBox("Program message", null, MessageBoxButtons.OkCancel, MessageBoxIcon.None, ide, isProgramDialog: true),
+            manager.MessageBox("Program message", null, MessageBoxButtons.OkCancel, MessageBoxIcon.None, ide,
+                isProgramDialog: true, layout: MessageBoxLayout.SecondButtonDefault),
             async (box, pending) =>
             {
-                box.GetVisualDescendants().OfType<Button>().First().Focus().Should().BeTrue();
-                SendKeys(box, pending, Key.Enter, 1, false);
-                (await pending.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().Be(MessageBoxResult.Ok);
+                SendKeys(box, pending, key, 1, release);
+                if (expected == MessageBoxResult.None)
+                    pending.IsCompleted.Should().BeFalse();
+                else
+                    (await pending.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().Be(expected);
             });
 
     private static void SendKeys(Window box, Task pending, Key key, int presses, bool release)

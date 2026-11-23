@@ -52,6 +52,7 @@ public static class VBProperties
 
     public static PropertyClass<bool> AutoSizeProperty = new PropertyClass<bool>("AutoSize", "Whether the control resizes itself to fit its contents.", PropertyCategory.Position, false);
 
+    internal static readonly PropertyClass<VBFormBorderStyle> FormBorderStyleProperty = new("BorderStyle", "The style of border drawn around the object.", PropertyCategory.Appearance, VBFormBorderStyle.Sizable);
     public static PropertyClass<VBBorder> BorderStyleProperty = new PropertyClass<VBBorder>("BorderStyle", "The style of border drawn around the object.", PropertyCategory.Appearance, VBBorder.None);
 
     public static PropertyClass<VBColor> ForeColorProperty = new PropertyClass<VBColor>("ForeColor", "The color used for the object's text and graphics.", PropertyCategory.Appearance, VBColor.FromSystemColor(VbSystemColor.Btntext));
@@ -202,6 +203,9 @@ public static class VBProperties
 
     /// <summary>A ListBox's MultiSelect: set at design time, and read-only to a program (measured, #1413).</summary>
     public static PropertyClass<VBMultiSelect> MultiSelectProperty = new PropertyClass<VBMultiSelect>("MultiSelect", "Whether more than one item can be selected, and how.", PropertyCategory.Behavior, VBMultiSelect.None);
+
+    /// <summary>A CommandButton's saved Style, read-only at run time (measured, #913).</summary>
+    internal static PropertyClass<VBButtonStyle> ButtonStyleProperty = new PropertyClass<VBButtonStyle>("Style", "How the control is drawn and how it behaves.", PropertyCategory.Appearance, VBButtonStyle.Standard);
 
     /// <summary>A ComboBox's Style: set at design time, and read-only to a program (measured, #1428).</summary>
     public static PropertyClass<VBComboStyle> ComboStyleProperty = new PropertyClass<VBComboStyle>("Style", "How the control is drawn and how it behaves.", PropertyCategory.Behavior, VBComboStyle.DropdownCombo);
