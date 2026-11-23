@@ -2,6 +2,11 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Le contrôle de menu doit avoir un nom",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nom d’objet non valide : '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "L’élément du groupe de contrôles de menu doit avoir un indice",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Les indices du groupe de contrôles de menu doivent être en ordre croissant",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' est un nom de contrôle",
     "Str.FilePicker.ReplaceExisting": "{0} existe déjà. Voulez-vous le remplacer ?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a été chargé avec des erreurs et ne peut donc pas remplacer son fichier d’origine. Choisissez un nouveau nom de fichier.",
     "Str.ProjectLoad.PropertyNotSet": "Ligne {0} : la propriété {1} de {2} n’a pas pu être définie.",

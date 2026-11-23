@@ -2,6 +2,11 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menykontrollen måste ha ett namn",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Ogiltigt objektnamn: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elementet i menykontrollmatrisen måste ha ett index",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Menykontrollmatrisens index måste vara i stigande ordning",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' är ett kontrollnamn",
     "Str.FilePicker.ReplaceExisting": "{0} finns redan. Vill du ersätta den?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} lästes in med fel och kan därför inte sparas över originalfilen. Välj ett nytt filnamn.",
     "Str.ProjectLoad.PropertyNotSet": "Rad {0}: egenskapen {1} i {2} kunde inte anges.",

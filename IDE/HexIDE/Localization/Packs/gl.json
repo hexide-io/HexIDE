@@ -2,6 +2,11 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "O control de menú debe ter un nome",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nome de obxecto non válido: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "O elemento da matriz de controis de menú debe ter un índice",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Os índices da matriz de controis de menú deben estar en orde ascendente",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' é un nome de control",
     "Str.FilePicker.ReplaceExisting": "{0} xa existe. Quere substituílo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} cargouse con erros, polo que non se pode gardar sobre o ficheiro orixinal. Escolla un nome de ficheiro novo.",
     "Str.ProjectLoad.PropertyNotSet": "Liña {0}: non se puido definir a propiedade {1} en {2}.",

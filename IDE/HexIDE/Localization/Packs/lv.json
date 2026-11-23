@@ -2,6 +2,11 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Izvēlnes vadīklai jābūt nosaukumam",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nederīgs objekta nosaukums: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Izvēlnes vadīklu masīva elementam jābūt indeksam",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Izvēlnes vadīklu masīva indeksiem jābūt augošā secībā",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' ir vadīklas nosaukums",
     "Str.FilePicker.ReplaceExisting": "{0} jau pastāv. Vai vēlaties to aizstāt?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} tika ielādēts ar kļūdām, tāpēc to nevar saglabāt, pārrakstot sākotnējo failu. Izvēlieties jaunu faila nosaukumu.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. rinda: neizdevās iestatīt {2} rekvizītu {1}.",

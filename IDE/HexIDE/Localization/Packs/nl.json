@@ -2,6 +2,11 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Het menubesturingselement moet een naam hebben",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Ongeldige objectnaam: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Het element van de menubesturingselementmatrix moet een index hebben",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "De indexen van de menubesturingselementmatrix moeten in oplopende volgorde staan",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' is een naam van een besturingselement",
     "Str.FilePicker.ReplaceExisting": "{0} bestaat al. Wilt u het vervangen?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} is met fouten geladen en kan daarom het oorspronkelijke bestand niet overschrijven. Kies een nieuwe bestandsnaam.",
     "Str.ProjectLoad.PropertyNotSet": "Regel {0}: eigenschap {1} in {2} kon niet worden ingesteld.",

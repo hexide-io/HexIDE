@@ -2,6 +2,11 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Kontrol menu harus memiliki nama",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nama objek tidak valid: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elemen larik kontrol menu harus memiliki indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeks larik kontrol menu harus berurutan naik",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' adalah nama kontrol",
     "Str.FilePicker.ReplaceExisting": "{0} sudah ada. Apakah Anda ingin menggantinya?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} dimuat dengan kesalahan sehingga tidak dapat disimpan menimpa berkas aslinya. Pilih nama berkas baru.",
     "Str.ProjectLoad.PropertyNotSet": "Baris {0}: properti {1} di {2} tidak dapat ditetapkan.",

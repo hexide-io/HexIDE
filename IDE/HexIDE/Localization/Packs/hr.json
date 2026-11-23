@@ -2,6 +2,11 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Kontrola izbornika mora imati naziv",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Neispravan naziv objekta: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Element polja kontrola izbornika mora imati indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeksi polja kontrola izbornika moraju biti u uzlaznom redoslijedu",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' je naziv kontrole",
     "Str.FilePicker.ReplaceExisting": "{0} već postoji. Želite li ga zamijeniti?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je učitan s pogreškama pa se ne može spremiti preko izvorne datoteke. Odaberite novi naziv datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Redak {0}: svojstvo {1} u {2} nije moguće postaviti.",

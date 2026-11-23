@@ -2,6 +2,11 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "A menüvezérlőnek nevet kell adni",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Érvénytelen objektumnév: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "A menüvezérlő-tömb elemének indexszel kell rendelkeznie",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "A menüvezérlő-tömb indexeinek növekvő sorrendben kell lenniük",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' egy vezérlő neve",
     "Str.FilePicker.ReplaceExisting": "{0} már létezik. Szeretné lecserélni?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} hibákkal töltődött be, ezért nem írhatja felül az eredeti fájlt. Válasszon új fájlnevet.",
     "Str.ProjectLoad.PropertyNotSet": "{0}. sor: a(z) {2} {1} tulajdonságát nem sikerült beállítani.",

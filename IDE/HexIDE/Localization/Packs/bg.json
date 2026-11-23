@@ -2,6 +2,11 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Контролата на менюто трябва да има име",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Невалидно име на обект: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Елементът на масива от контроли на менюто трябва да има индекс",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Индексите на масива от контроли на менюто трябва да са във възходящ ред",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' е име на контрола",
     "Str.FilePicker.ReplaceExisting": "{0} вече съществува. Искате ли да го замените?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} е зареден с грешки и не може да бъде записан върху оригиналния файл. Изберете ново име на файл.",
     "Str.ProjectLoad.PropertyNotSet": "Ред {0}: свойството {1} в {2} не можа да бъде зададено.",

@@ -2,6 +2,11 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menukontrolelementet skal have et navn",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Ugyldigt objektnavn: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elementet i menukontrolelementmatricen skal have et indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Menukontrolelementmatricens indeks skal være i stigende rækkefølge",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' er et kontrolelementnavn",
     "Str.FilePicker.ReplaceExisting": "{0} findes allerede. Vil du erstatte den?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} blev indlæst med fejl og kan derfor ikke overskrive den oprindelige fil. Vælg et nyt filnavn.",
     "Str.ProjectLoad.PropertyNotSet": "Linje {0}: Egenskaben {1} i {2} kunne ikke angives.",

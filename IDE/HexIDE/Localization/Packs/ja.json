@@ -2,6 +2,11 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "メニュー コントロールには名前が必要です",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "オブジェクト名が不正です: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "メニュー コントロール配列の要素にはインデックスが必要です",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "メニュー コントロール配列のインデックスは昇順でなければなりません",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' はコントロール名です",
     "Str.FilePicker.ReplaceExisting": "{0} は既に存在します。置き換えますか？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} はエラーを伴って読み込まれたため、元のファイルに上書き保存できません。新しいファイル名を選択してください。",
     "Str.ProjectLoad.PropertyNotSet": "行 {0}: {2} のプロパティ {1} を設定できませんでした。",

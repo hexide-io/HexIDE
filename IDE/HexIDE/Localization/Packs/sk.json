@@ -2,6 +2,11 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Ovládací prvok ponuky musí mať názov",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Neplatný názov objektu: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Prvok poľa ovládacích prvkov ponuky musí mať index",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indexy poľa ovládacích prvkov ponuky musia byť vo vzostupnom poradí",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' je názov ovládacieho prvku",
     "Str.FilePicker.ReplaceExisting": "{0} už existuje. Chcete ho nahradiť?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} bol načítaný s chybami, preto nemôže prepísať pôvodný súbor. Vyberte nový názov súboru.",
     "Str.ProjectLoad.PropertyNotSet": "Riadok {0}: vlastnosť {1} v {2} sa nepodarilo nastaviť.",

@@ -2,6 +2,11 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Điều khiển trình đơn phải có tên",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Tên đối tượng không hợp lệ: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Phần tử mảng điều khiển trình đơn phải có chỉ số",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Các chỉ số mảng điều khiển trình đơn phải theo thứ tự tăng dần",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' là tên điều khiển",
     "Str.FilePicker.ReplaceExisting": "{0} đã tồn tại. Bạn có muốn thay thế không?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} được tải với lỗi nên không thể lưu đè lên tệp gốc. Hãy chọn tên tệp mới.",
     "Str.ProjectLoad.PropertyNotSet": "Dòng {0}: không thể đặt thuộc tính {1} trong {2}.",

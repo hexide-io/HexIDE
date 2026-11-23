@@ -2,6 +2,11 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "El control de menú ha de tenir un nom",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nom d’objecte no vàlid: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "L’element de la matriu de controls de menú ha de tenir un índex",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Els índexs de la matriu de controls de menú han d’estar en ordre ascendent",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' és un nom de control",
     "Str.FilePicker.ReplaceExisting": "{0} ja existeix. Voleu substituir-lo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} s’ha carregat amb errors i no es pot desar sobre el fitxer original. Trieu un nom de fitxer nou.",
     "Str.ProjectLoad.PropertyNotSet": "Línia {0}: no s’ha pogut definir la propietat {1} de {2}.",

@@ -688,3 +688,32 @@ that is abandoned and let go where it began leaves its control where it was.
 
 - **WHEN** focus moves through the designer
 - **THEN** the form's minimize, maximize and close buttons never take it
+
+### Requirement: Menu Editor name validation
+
+The Menu Editor SHALL validate applied rows when OK is pressed, keep the dialog open on a refusal,
+show one localized error message and select the faulty row. Next, Insert and movement SHALL NOT validate names.
+Name comparisons SHALL ignore case. The measured rules and messages are recorded in
+[issue #853](https://github.com/hexide-io/HexIDE/issues/853) and
+[the oracle](../../../docs/vb6-fidelity-oracle/the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#the-menu-editors-checks-on-a-name-2026-11-21-853-design-time-ide-sp6).
+Rows SHALL be checked top to bottom; precedence between different errors is reasoned, not measured.
+A name repeated in a submenu with no Index on either row gets the same missing-index refusal, as measured in
+[#5428](https://github.com/hexide-io/HexIDE/issues/5428). VB6 also refuses a menu array whose elements are not
+adjacent within one submenu; that check is not implemented yet (#5428).
+
+#### Scenario: Invalid or missing name
+- **WHEN** an applied row has a caption without a name, or its name fails `ProjectNaming.IsValidName`
+- **THEN** OK refuses with "Menu control must have a name" or "Not a legal object name: '{name}'" respectively
+- **AND** keyword-shaped identifiers such as `Print` and `If` are accepted
+
+#### Scenario: Menu array names
+- **WHEN** rows share a name and one has no Index
+- **THEN** OK refuses with "Menu control array element must have an index" and selects the first row missing an Index
+- **WHEN** a later row's Index is no greater than an earlier same-name row's Index
+- **THEN** OK refuses with "Menu control array indexes must be in ascending order" and selects the later row
+- **WHEN** same-name rows have ascending indexes, such as 0 then 1
+- **THEN** OK accepts the menu array
+
+#### Scenario: Name already belongs to a control
+- **WHEN** a menu row uses a non-menu component's name on the form
+- **THEN** OK refuses with "'{name}' is a control name" and selects that row

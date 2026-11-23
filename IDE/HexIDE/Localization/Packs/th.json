@@ -2,6 +2,11 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "ตัวควบคุมเมนูต้องมีชื่อ",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "ชื่อวัตถุไม่ถูกต้อง: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "สมาชิกอาร์เรย์ตัวควบคุมเมนูต้องมีดัชนี",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "ดัชนีอาร์เรย์ตัวควบคุมเมนูต้องเรียงจากน้อยไปมาก",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' เป็นชื่อตัวควบคุม",
     "Str.FilePicker.ReplaceExisting": "{0} มีอยู่แล้ว คุณต้องการแทนที่หรือไม่",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "โหลด {0} โดยมีข้อผิดพลาด จึงไม่สามารถบันทึกทับไฟล์ต้นฉบับได้ โปรดเลือกชื่อไฟล์ใหม่",
     "Str.ProjectLoad.PropertyNotSet": "บรรทัด {0}: ไม่สามารถตั้งค่าคุณสมบัติ {1} ใน {2} ได้",

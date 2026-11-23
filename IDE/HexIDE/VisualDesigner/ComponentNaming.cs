@@ -61,6 +61,40 @@ public static class ComponentNaming
         return null;
     }
 
+    // Menu Editor measurements: #853 (2026-11-23), oracle PR #5370 and the oracle's
+    // "The Menu Editor's checks on a Name". Mixed-error precedence is reasoned: first row wins.
+    // VB6 also refuses an array that isn't contiguous within one submenu; that check is #5428.
+    internal static (string Message, MenuViewModel Row)? MenuRefusalFor(
+        IEnumerable<MenuViewModel> items, IEnumerable<string> controlNames, ILocalizationService localization)
+    {
+        var rows = items.ToList();
+        var controls = new HashSet<string>(controlNames, StringComparer.OrdinalIgnoreCase);
+        var earlier = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            string? key = null;
+            if (string.IsNullOrEmpty(row.Name))
+            {
+                if (!string.IsNullOrEmpty(row.Caption))
+                    key = "NoName";
+            }
+            else if (!ProjectNaming.IsValidName(row.Name))
+                key = "NotLegalName";
+            else if (row.Index is null && rows.Count(other => string.Equals(other.Name, row.Name, StringComparison.OrdinalIgnoreCase)) > 1)
+                key = "ArrayNeedsIndex";
+            else if (row.Index is { } index && earlier.TryGetValue(row.Name, out var previous) && index <= previous)
+                key = "IndexesAscending";
+            else if (controls.Contains(row.Name))
+                key = "ControlName";
+
+            if (key is not null)
+                return (string.Format(localization.GetString("Str.Dialog.MenuEditor.Msg." + key), row.Name), row);
+            if (row.Index is { } current)
+                earlier[row.Name] = current;
+        }
+        return null;
+    }
+
     /// <summary>
     /// Whether naming <paramref name="target"/> <paramref name="proposed"/> makes it an element of an array of that name:
     /// it has an Index, every control already holding the name has one, and none holds its Index (#1276).

@@ -2,6 +2,11 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menu control must have a name",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Not a legal object name: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Menu control array element must have an index",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Menu control array indexes must be in ascending order",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' is a control name",
     "Str.FilePicker.ReplaceExisting": "{0} already exists. Do you want to replace it?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} loaded with errors, so it can't be saved over its original file. Choose a new file name.",
     "Str.ProjectLoad.PropertyNotSet": "Line {0}: Property {1} in {2} could not be set.",

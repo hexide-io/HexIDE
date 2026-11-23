@@ -2,6 +2,11 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "El control de menú debe tener un nombre",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nombre de objeto no válido: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "El elemento de la matriz de controles de menú debe tener un índice",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Los índices de la matriz de controles de menú deben estar en orden ascendente",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' es un nombre de control",
     "Str.FilePicker.ReplaceExisting": "{0} ya existe. ¿Desea reemplazarlo?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} se cargó con errores, por lo que no puede guardarse sobre su archivo original. Elija un nuevo nombre de archivo.",
     "Str.ProjectLoad.PropertyNotSet": "Línea {0}: no se pudo establecer la propiedad {1} en {2}.",

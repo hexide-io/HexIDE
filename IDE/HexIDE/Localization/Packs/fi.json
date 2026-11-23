@@ -2,6 +2,11 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Valikkokomponentilla on oltava nimi",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Virheellinen objektin nimi: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Valikkokomponenttitaulukon alkiolla on oltava indeksi",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Valikkokomponenttitaulukon indeksien on oltava nousevassa järjestyksessä",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' on komponentin nimi",
     "Str.FilePicker.ReplaceExisting": "{0} on jo olemassa. Haluatko korvata sen?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} ladattiin virheiden kanssa, joten sitä ei voi tallentaa alkuperäisen tiedoston päälle. Valitse uusi tiedostonimi.",
     "Str.ProjectLoad.PropertyNotSet": "Rivi {0}: ominaisuutta {1} kohteessa {2} ei voitu asettaa.",

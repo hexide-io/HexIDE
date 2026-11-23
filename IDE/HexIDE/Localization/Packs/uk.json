@@ -2,6 +2,11 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Елемент меню повинен мати ім’я",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Неприпустиме ім’я об’єкта: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Елемент масиву елементів меню повинен мати індекс",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Індекси масиву елементів меню повинні йти в порядку зростання",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' — ім’я елемента керування",
     "Str.FilePicker.ReplaceExisting": "{0} уже існує. Замінити його?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} завантажено з помилками, тому його не можна зберегти поверх початкового файлу. Виберіть нове ім’я файлу.",
     "Str.ProjectLoad.PropertyNotSet": "Рядок {0}: не вдалося встановити властивість {1} у {2}.",

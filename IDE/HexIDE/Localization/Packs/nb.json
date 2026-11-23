@@ -2,6 +2,11 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Menykontrollen må ha et navn",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Ugyldig objektnavn: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Elementet i menykontrollmatrisen må ha en indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeksene i menykontrollmatrisen må være i stigende rekkefølge",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' er et kontrollnavn",
     "Str.FilePicker.ReplaceExisting": "{0} finnes allerede. Vil du erstatte den?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} ble lastet med feil og kan derfor ikke overskrive originalfilen. Velg et nytt filnavn.",
     "Str.ProjectLoad.PropertyNotSet": "Linje {0}: Egenskapen {1} i {2} kunne ikke angis.",

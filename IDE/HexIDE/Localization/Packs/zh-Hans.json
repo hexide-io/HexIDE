@@ -2,6 +2,11 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "菜单控件必须有名称",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "无效的对象名: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "菜单控件数组元素必须有索引",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "菜单控件数组索引必须按升序排列",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' 是控件名称",
     "Str.FilePicker.ReplaceExisting": "{0} 已存在。是否要替换它？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} 加载时出现错误，因此无法覆盖保存到原始文件。请选择新的文件名。",
     "Str.ProjectLoad.PropertyNotSet": "第 {0} 行：无法设置 {2} 的属性 {1}。",

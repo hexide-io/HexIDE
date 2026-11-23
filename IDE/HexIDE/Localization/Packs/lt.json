@@ -2,6 +2,11 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Meniu valdiklis turi turėti pavadinimą",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Netinkamas objekto pavadinimas: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Meniu valdiklių masyvo elementas turi turėti indeksą",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Meniu valdiklių masyvo indeksai turi būti didėjimo tvarka",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' yra valdiklio pavadinimas",
     "Str.FilePicker.ReplaceExisting": "{0} jau yra. Ar norite jį pakeisti?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} įkeltas su klaidomis, todėl negalima jo įrašyti vietoje pradinio failo. Pasirinkite naują failo vardą.",
     "Str.ProjectLoad.PropertyNotSet": "{0} eilutė: nepavyko nustatyti {2} ypatybės {1}.",

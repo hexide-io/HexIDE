@@ -2,6 +2,11 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Kontrola menija mora imati ime",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nevažeće ime objekta: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Element niza kontrola menija mora imati indeks",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Indeksi niza kontrola menija moraju biti u rastućem redosledu",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' je ime kontrole",
     "Str.FilePicker.ReplaceExisting": "{0} već postoji. Želite li da ga zamenite?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} je učitan sa greškama pa ne može da se sačuva preko izvorne datoteke. Izaberite novo ime datoteke.",
     "Str.ProjectLoad.PropertyNotSet": "Red {0}: svojstvo {1} u {2} nije moguće postaviti.",

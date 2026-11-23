@@ -2,6 +2,11 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MenuEditor.Msg.NoName": "Элемент меню должен иметь имя",
+    "Str.Dialog.MenuEditor.Msg.NotLegalName": "Недопустимое имя объекта: '{0}'",
+    "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Элемент массива элементов меню должен иметь индекс",
+    "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Индексы массива элементов меню должны идти в порядке возрастания",
+    "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' — имя элемента управления",
     "Str.FilePicker.ReplaceExisting": "{0} уже существует. Заменить его?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} загружен с ошибками, поэтому сохранить его поверх исходного файла нельзя. Выберите новое имя файла.",
     "Str.ProjectLoad.PropertyNotSet": "Строка {0}: не удалось задать свойство {1} в {2}.",
