@@ -788,8 +788,41 @@ public partial class MainViewViewModel : ObservableObject
             if (await file.ConfirmCloseAsync()) CloseDockable(file);
         }
 
+        internal Func<CodeEditorViewModel, Task>? SharedCodeClosing { get; set; }
+        private readonly HashSet<CodeEditorViewModel> closingCode = [];
+        private bool skipSharedQuestion;
+
+        // Service-driven teardown has already resolved unsaved changes. Dock's close command is the
+        // person-facing route used by the tab's close box and close_document_tab.
+        internal void CloseWithoutSharedQuestion(IDockable dockable)
+        {
+            var previous = skipSharedQuestion;
+            skipSharedQuestion = true;
+            try { CloseDockable(dockable); }
+            finally { skipSharedQuestion = previous; }
+        }
+
+        private async Task CloseCode(CodeEditorViewModel editor)
+        {
+            if (!closingCode.Add(editor)) return;
+            try
+            {
+                await SharedCodeClosing!(editor);
+            }
+            finally
+            {
+                closingCode.Remove(editor);
+                if (editor.IsOpen) CloseWithoutSharedQuestion(editor);
+            }
+        }
+
         public override void CloseDockable(IDockable dockable)
         {
+            if (!skipSharedQuestion && dockable is CodeEditorViewModel code && SharedCodeClosing is not null)
+            {
+                CloseCode(code).ListenErrors();
+                return;
+            }
             if (dockable is ProjectFileDocumentViewModel file && (file.IsModified || file.Applying))
             {
                 CloseProjectFile(file).ListenErrors();

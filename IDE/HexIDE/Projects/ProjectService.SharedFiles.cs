@@ -40,6 +40,36 @@ public partial class ProjectService
 
     private bool MemberDirty(object member) => member is FormDefinition form ? IsDirty(form) : IsDirty((ModuleDefinition)member);
 
+    internal bool ActivateOtherSharedCode(object member, IDocumentDockService dock)
+    {
+        if (MemberPath(member) is not { } path) return false;
+        var copies = SharedCopies(path).Where(copy => !ReferenceEquals(copy, member)).ToList();
+        var open = dock.OpenDocuments.OfType<CodeEditorViewModel>()
+            .FirstOrDefault(editor => copies.Contains((object?)editor.ModuleDefinition ?? editor.FormDefinition!));
+        if (open is null) return false;
+        ShowAlreadyOpen().ListenErrors();
+        return true;
+
+        async Task ShowAlreadyOpen()
+        {
+            await windowManager.MessageBox(localization.GetString("Str.Dialog.SharedFile.AlreadyOpen"));
+            dock.TryActivate<CodeEditorViewModel>(editor => ReferenceEquals(editor, open));
+        }
+    }
+
+    internal async Task SaveSharedCodeOnClose(CodeEditorViewModel editor)
+    {
+        var member = (object?)editor.ModuleDefinition ?? editor.FormDefinition;
+        if (member is null || MemberPath(member) is not { } path || SharedCopies(path).Count < 2) return;
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+        if (!MemberDirty(member)
+            || await SharedQuestion("Str.Dialog.SharedFile.SaveOnClose", MemberName(member),
+                MemberProject(member).Name) != MessageBoxResult.Yes)
+            return;
+        if (member is FormDefinition form) await SaveForm(form, false);
+        else await SaveModule((ModuleDefinition)member, false);
+    }
+
     private void RememberCopy(object member, string path, string rendered, byte[]? companion)
     {
         var companionPath = CompanionPathOf(MemberProject(member), path);
