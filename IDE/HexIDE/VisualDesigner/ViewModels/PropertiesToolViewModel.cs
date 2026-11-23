@@ -412,6 +412,13 @@ public partial class PropertiesToolViewModel : Tool
             return;
 
         var instance = currentDocument.SelectedComponent.Instance;
+        if (propertyClass == VBProperties.NameProperty && value is string proposed
+            && ComponentNaming.ArrayCreationHolder(instance, proposed,
+                currentDocument.AllComponents.Select(c => c.Instance)) is { } holder)
+        {
+            ConfirmControlArray(currentDocument, holder, instance, proposed).ListenErrors();
+            return;
+        }
         var before = instance.GetBoxedPropertyOrDefault(propertyClass);
         object? after = before;
         bool committed = false;
@@ -467,6 +474,19 @@ public partial class PropertiesToolViewModel : Tool
 
         if (committed && !Equals(before, after))
             currentDocument.PushSetPropertyCommand(instance, propertyClass, before, after);
+    }
+
+    private async Task ConfirmControlArray(FormEditViewModel document, ComponentInstance holder,
+        ComponentInstance target, string name)
+    {
+        if (await windowManager.MessageBox(string.Format(localization.GetString("Str.Naming.Msg.CreateControlArray"), name),
+                buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) == MessageBoxResult.Yes
+            && ComponentNaming.ArrayCreationHolder(target, name, document.AllComponents.Select(c => c.Instance)) == holder)
+            document.CreateControlArray(holder, target, name);
+        // The binding is still writing when an already-answered dialog completes synchronously.
+        if (currentDocument == document && document.SelectedComponent?.Instance == target
+            && Properties.OfType<PropertyViewModel>().FirstOrDefault(p => p.PropertyClass == VBProperties.NameProperty) is { } row)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(Displayed(target, VBProperties.NameProperty)));
     }
 
     // The model's pixels for a position typed into its row, or the value as it came when it is not a number, which the

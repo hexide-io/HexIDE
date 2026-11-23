@@ -33,6 +33,8 @@ public class TextBoxComponentClass : ComponentBaseClass
         var box = new VBTextBox()
         {
             Text = instance.GetPropertyOrDefault(TextProperty),
+            MaxLength = VBLoader.RawNumber(instance, "MaxLength") ?? 0,
+            IsReadOnly = VBLoader.RawDouble(instance, "Locked") is { } locked && locked != 0,
             VbBorderStyle = VBLoader.RawNumber(instance, "BorderStyle") ?? 1,
             // Loaded, so a form's colours are drawn and a program reads them back (#795). They were not modelled.
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),

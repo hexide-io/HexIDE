@@ -36,6 +36,7 @@ internal sealed class SSTabDesignerPages
             }
             pages.Add(children);
         }
+        EnsureShownPicture();
     }
 
     internal bool Select(Point point, Size size, IReadOnlyList<ComponentInstance> children)
@@ -58,9 +59,8 @@ internal sealed class SSTabDesignerPages
             child.SetProperty(LeftProperty, child.GetPropertyOrDefault(LeftProperty) - OffPage);
         foreach (var child in pages[next].Where(children.Contains))
             child.SetProperty(LeftProperty, child.GetPropertyOrDefault(LeftProperty) + OffPage);
-        var previous = showing;
         showing = next;
-        Write(children, previous);
+        Write(children);
     }
 
     internal void Synchronize(IReadOnlyList<ComponentInstance> children)
@@ -78,7 +78,7 @@ internal sealed class SSTabDesignerPages
             for (var i = 0; i < live.Count; i++)
                 changed |= !Equals(saved?.Value($"Tab({page}).Control({i})"), live[i].GetPropertyOrDefault(NameProperty));
         }
-        if (!changed)
+        if (!changed && saved is not null)
             return;
         // Retain deleted instances for undo; only live children are written.
         pages[showing].RemoveAll(c => children.Contains(c) && !onPage.Contains(c));
@@ -90,8 +90,20 @@ internal sealed class SSTabDesignerPages
         Write(children);
     }
 
-    private void Write(IReadOnlyList<ComponentInstance> children, int? previous = null)
+    private void EnsureShownPicture()
     {
+        var name = $"TabPicture({showing})";
+        if (owner.UnknownRawProperties.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            return;
+        // Empty StdPicture, measured in VB6 SP6: oracle in-box-controls-the-sstab.md, #2696 / #5242.
+        var record = Convert.FromHexString("180000000452E30B918FCE119DE300AA004BB8516C74000000000000");
+        owner.UnknownRawProperties.Add(new(name, [$"{name.PadRight(16)}=   \"Form1.frx\":0000"],
+            new Dictionary<int, byte[]> { [0] = record }));
+    }
+
+    private void Write(IReadOnlyList<ComponentInstance> children)
+    {
+        EnsureShownPicture();
         var properties = owner.GetPropertyOrDefault(SSTabSavedState.Property)?.CopyProperties()
             ?? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         void Set(string name, object value)
@@ -120,8 +132,7 @@ internal sealed class SSTabDesignerPages
         {
             if (!properties.ContainsKey($"TabCaption({page})"))
                 Set($"TabCaption({page})", $"Tab {page}");
-            if (previous == page || showing == page)
-                Set($"Tab({page}).ControlEnabled", showing == page ? -1 : 0);
+            Set($"Tab({page}).ControlEnabled", showing == page ? -1 : 0);
             var live = pages[page].Where(children.Contains).ToList();
             for (var i = 0; i < live.Count; i++)
             {

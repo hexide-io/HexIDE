@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 
 /// <summary>
 /// A control converted to a number stands for its default member in VB6: measured, <c>CInt(Text1)</c> is 12 where
-/// Text1 holds "12", and <c>RGB(Text1, 0, 0)</c> is 12. HexIDE has no default members for controls yet (#790), so it
+/// Text1 holds "12", and <c>RGB(Text1, 0, 0)</c> is 12. Conversion functions still refuse control defaults (#790), so HexIDE
 /// refuses, untrappably, rather than read 0 or raise an error <c>On Error Resume Next</c> would step over.
 /// </summary>
 public class ControlAsNumberTests

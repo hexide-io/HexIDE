@@ -24,6 +24,11 @@ Launch-file breakpoint options and their DAP capability gating are described in 
 A pinned foreign-server download with a checksum mismatch fails an ordinary guard test even outside CI;
 the affected protocol tests skip visibly with a checksum-specific reason (#487).
 
+LSP positions use the editor's CR, LF and CRLF line boundaries. U+2028, U+2029 and U+0085
+remain within a line, and the full document text is sent unchanged. `LineSeparatorPositionTests`
+pins the editor model, outgoing definition positions and incoming prepare-rename ranges through the
+rename prompt ([#5287](https://github.com/hexide-io/HexIDE/issues/5287)).
+
 Signature help accepts parameter labels as strings or UTF-16 offset pairs into the signature label.
 The popup bolds the active parameter range without changing the signature label or its optional-parameter
 brackets ([#2632](https://github.com/hexide-io/HexIDE/issues/2632)), and uses its text for parameter documentation. String labels

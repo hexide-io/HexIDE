@@ -2028,6 +2028,10 @@ public partial class CodeEditorView : UserControl
     // Clipboard keys have their asynchronous path below. Undo/Redo remain unmeasured (#710).
     private bool IsDocumentEditKey(KeyEventArgs e)
     {
+        // AvaloniaEdit handles Tab in the text area's key-down handler.
+        if (e.Key == Key.Tab && e.KeyModifiers == KeyModifiers.None)
+            return true;
+
         foreach (var binding in TextEditor.TextArea.DefaultInputHandler.Editing.KeyBindings)
         {
             if (binding.Gesture?.Matches(e) == true)

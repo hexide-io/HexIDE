@@ -2,6 +2,11 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "Zostaviť nasledujúce projekty:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "Použiť predvolené možnosti zostavenia",
+    "Str.Dialog.MakeProjectGroup.Build": "Zostaviť",
+    "Str.Dialog.MakeProjectGroup.Cancel": "Zrušiť",
+    "Str.Dialog.MakeProjectGroup.Help": "_Pomocník",
     "Str.FilePicker.ReplaceExisting": "{0} už existuje. Chcete ho nahradiť?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} bol načítaný s chybami, preto nemôže prepísať pôvodný súbor. Vyberte nový názov súboru.",
     "Str.ProjectLoad.PropertyNotSet": "Riadok {0}: vlastnosť {1} v {2} sa nepodarilo nastaviť.",
@@ -1488,6 +1493,12 @@
     "Str.Options.Addin.ReportedFailure": "Problém nahlásený o {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Neplatný názov miestneho stavu projektu v '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Našlo sa viacero umiestnení miestneho stavu projektu. Každé môže obsahovať iný uložený stav. Nič sa nezapíše, kým nevyberiete jedno pre túto reláciu. Zadajte jeho číslo alebo zrušte:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} je odkaz alebo spojenie priečinkov, alebo už nie je na mieste, kde bolo nájdené, preto sa z neho nič nečíta ani sa doň nič nezapisuje."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} je odkaz alebo spojenie priečinkov, alebo už nie je na mieste, kde bolo nájdené, preto sa z neho nič nečíta ani sa doň nič nezapisuje.",
+    "Str.Dialog.SharedFile.MultipleModified": "Bolo upravených viacero kópií zdieľaného súboru '{0}'.  V nasledujúcom dialógovom okne vyberte kópiu, ktorá sa má uložiť.",
+    "Str.Dialog.SharedFile.Update": "Chcete aktualizovať {0} v projektoch, ktoré ho zdieľajú s projektom {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "Aktualizácia {0} v projekte {1} zahodí neuložené zmeny tohto projektu. Chcete pokračovať?",
+    "Str.Dialog.SharedFile.DiskChanged": "Súbor '{0}' sa na disku zmenil od načítania alebo uloženia kópie projektu {1}. Chcete ho prepísať?",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Záložky, body prerušenia a ďalšie používateľské nastavenia pre {0} sa v tejto relácii nenačítajú ani neuložia.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "Ovládací prvok s názvom '{0}' už existuje.  Chcete vytvoriť pole ovládacích prvkov?"
   }
 }

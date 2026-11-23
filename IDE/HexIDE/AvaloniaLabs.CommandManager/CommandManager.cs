@@ -222,7 +222,8 @@ public sealed class CommandManager : AvaloniaObject
             {
                 foreach (var binding in bindings)
                 {
-                    if (binding.Command is RoutedCommand routedCommand)
+                    if (binding.Command is RoutedCommand routedCommand
+                        && routedCommand.NativeGesture?.Matches(inputEventArgs) != true)
                     {
                         foreach (var gesture in routedCommand.Gestures)
                         {

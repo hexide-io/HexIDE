@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 
@@ -786,6 +787,13 @@ public class FormDeserializer
                 !serializedComponent.Properties.Keys.Any(k => k.Equals("Font", StringComparison.OrdinalIgnoreCase)) &&
                 components[0].TryGetProperty(VBProperties.FontProperty, out var formFont))
                 instance.SetProperty(VBProperties.FontProperty, formFont);
+
+            // The designer and runtime load the control's whole rows, and the next save writes that Height (#1655).
+            if (componentClass is ComboBoxComponentClass
+                && instance.GetPropertyOrDefault(VBProperties.ComboStyleProperty) == VBComboStyle.SimpleCombo
+                && SimpleComboHeights.Find(instance.GetPropertyOrDefault(VBProperties.FontProperty)) is { } comboMetrics)
+                instance.SetProperty(VBProperties.HeightProperty,
+                    SimpleComboHeights.Snap(instance.GetPropertyOrDefault(VBProperties.HeightProperty), comboMetrics));
 
             // Only saved lines participate: an absent TabIndex retains its class default (#4843).
             if (parent is not null

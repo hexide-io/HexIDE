@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -42,7 +43,7 @@ public class VBTextBox : TextBox
     {
         if (e.Handled || string.IsNullOrEmpty(e.Text))
             return;
-        if (System.Linq.Enumerable.Any(e.Text, character => character > 127))
+        if (e.Text.Any(character => character > 127))
         {
             base.OnTextInput(e);
             return;
@@ -60,6 +61,15 @@ public class VBTextBox : TextBox
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        // VB6 copies the selection on Cut in a locked TextBox (#5300).
+        if (!e.Handled && IsReadOnly && Application.Current?.PlatformSettings?.HotkeyConfiguration.Cut
+                .Any(gesture => gesture.Matches(e)) == true)
+        {
+            if (CanCopy)
+                Copy();
+            e.Handled = true;
+            return;
+        }
         if (!e.Handled && e.KeyModifiers == KeyModifiers.None && e.Key is Key.Enter or Key.Escape)
         {
             e.Handled = true;

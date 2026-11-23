@@ -23,7 +23,6 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// read-only property"; here it is the 382, when the statement runs.
 /// </summary>
 /// <remarks>
-/// <para>VB6 keeps SelText to MaxLength (measured), which HexIDE's TextBox doesn't model yet, so nothing limits it here.</para>
 /// <para>VB6 puts SelStart between the CR and the LF of a line break where code asks (measured: start 3 in
 /// <c>"ab" &amp; vbCrLf &amp; "cd"</c> selects the LF and the c), and Avalonia moves it past the break. So the selection code
 /// sets is remembered, with where Avalonia put it, and read back while Avalonia's is still there: once the user moves
@@ -51,6 +50,12 @@ internal static class TextBoxMembers
                 return true;
             case "seltext":
                 value = new Vb6Value(TextOf(box).Substring(start, length));
+                return true;
+            case "maxlength":
+                value = new Vb6Value((long)box.MaxLength);
+                return true;
+            case "locked":
+                value = new Vb6Value(box.IsReadOnly);
                 return true;
             case "multiline":
                 value = new Vb6Value(box.MultiLine);
@@ -90,10 +95,23 @@ internal static class TextBoxMembers
                 var insert = (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).WithoutOddBytes("TextBoxMembers text conversion").Value!;
                 var (start, length) = Selection(box);
                 var text = TextOf(box);
+                insert = Fit(box, insert, text.Length - length);
                 box.Text = text[..start] + insert + text[(start + length)..];
                 Select(box, start + insert.Length, start + insert.Length);
                 return true;
             }
+            case "maxlength":
+            {
+                var number = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Double, null);
+                var limit = Math.Round((double)number.Value!, MidpointRounding.ToEven);
+                if (limit is not (>= 0 and <= ushort.MaxValue))
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                box.MaxLength = (int)limit;
+                return true;
+            }
+            case "locked":
+                box.IsReadOnly = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
+                return true;
             case "multiline":
                 throw ReadOnlyAtRunTime("MultiLine");
             case "scrollbars":
@@ -107,7 +125,15 @@ internal static class TextBoxMembers
         new(new VBStandardError(VBStandardError.PropertySetCantBeExecutedAtRunTime.ErrNo, $"'{property}' property cannot be set at run time"));
 
     /// <summary>Puts the caret at the start, as setting Text from code does (measured).</summary>
-    public static void TextSet(VBTextBox box) => Select(box, 0, 0);
+    public static void SetText(VBTextBox box, string text)
+    {
+        box.Text = Fit(box, text, 0);
+        Select(box, 0, 0);
+    }
+
+    // #5300: MaxLength limits what code inserts. Text left outside the selection stays as it was.
+    private static string Fit(VBTextBox box, string text, int retainedLength) =>
+        box.MaxLength == 0 ? text : text[..Math.Clamp(box.MaxLength - retainedLength, 0, text.Length)];
 
     private static string TextOf(TextBox box) => box.Text ?? "";
 

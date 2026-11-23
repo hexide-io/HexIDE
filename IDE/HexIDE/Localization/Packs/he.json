@@ -2,6 +2,11 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.MakeProjectGroup.Projects": "בנה את הפרויקטים הבאים:",
+    "Str.Dialog.MakeProjectGroup.DefaultOptions": "השתמש באפשרויות הבנייה המוגדרות כברירת מחדל",
+    "Str.Dialog.MakeProjectGroup.Build": "בנה",
+    "Str.Dialog.MakeProjectGroup.Cancel": "ביטול",
+    "Str.Dialog.MakeProjectGroup.Help": "עזרה",
     "Str.FilePicker.ReplaceExisting": "{0} כבר קיים. האם ברצונך להחליף אותו?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} נטען עם שגיאות, ולכן לא ניתן לשמור אותו על גבי הקובץ המקורי. יש לבחור שם קובץ חדש.",
     "Str.ProjectLoad.PropertyNotSet": "שורה {0}: לא ניתן להגדיר את המאפיין {1} ב־{2}.",
@@ -1488,6 +1493,12 @@
     "Str.Options.Addin.ReportedFailure": "דווחה בעיה ב־{0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: שם לא תקין למצב המקומי של הפרויקט ב־'{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "נמצאו כמה מיקומים למצב המקומי של הפרויקט. כל אחד עשוי להכיל מצב שמור שונה. דבר לא ייכתב עד לבחירת אחד להפעלה זו. יש להזין את מספרו או לבטל:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} הוא קישור או צומת, או שאינו נמצא עוד במקום שבו נמצא, ולכן לא מתבצעת בו קריאה או כתיבה."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} הוא קישור או צומת, או שאינו נמצא עוד במקום שבו נמצא, ולכן לא מתבצעת בו קריאה או כתיבה.",
+    "Str.Dialog.SharedFile.MultipleModified": "כמה עותקים של הקובץ המשותף '{0}' שונו. בתיבת הדו־שיח הבאה, יש לבחור את העותק שיישמר.",
+    "Str.Dialog.SharedFile.Update": "האם לעדכן את {0} בפרויקטים המשתפים אותו עם {1}?",
+    "Str.Dialog.SharedFile.DiscardChanges": "עדכון {0} בפרויקט {1} ימחק את השינויים שלא נשמרו באותו פרויקט. האם להמשיך?",
+    "Str.Dialog.SharedFile.DiskChanged": "הקובץ '{0}' השתנה בדיסק מאז טעינת העותק של פרויקט {1} או שמירתו. האם להחליף אותו?",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "הסימניות, נקודות העצירה והגדרות אחרות לכל משתמש של {0} לא ייטענו ולא יישמרו בהפעלה זו.\n\n{1}",
+    "Str.Naming.Msg.CreateControlArray": "כבר קיים פקד בשם '{0}'.  האם ליצור מערך פקדים?"
   }
 }

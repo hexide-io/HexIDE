@@ -2228,16 +2228,7 @@ public partial class MainViewViewModel : ObservableObject
         windowManager.MessageBox(localization.GetString("Str.Shell.NotImplemented"), null, MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
-    /// <summary>
-    /// VB6's Make Project Group builds the group's projects, through a "Build the following projects" dialog (measured,
-    /// #746). HexIDE has no build of a group yet (#1515), so it says so and writes nothing. It used to save every project
-    /// and the group, which is Save Project Group's job, under a Make label.
-    /// </summary>
-    private void MakeProjectGroup()
-    {
-        Log.Information("Make Project Group: building a project group is not implemented yet (#1515); nothing is written");
-        NYI();
-    }
+    private void MakeProjectGroup() => projectService.MakeProjectGroup().ListenErrors();
 
     private void SaveActiveForm(bool saveAs)
     {

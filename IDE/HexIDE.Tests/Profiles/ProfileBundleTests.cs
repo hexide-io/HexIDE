@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using HexIDE.IDE;
 using HexIDE.IDE.Profiles;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Profiles;
 
@@ -254,8 +255,7 @@ public class ProfileBundleTests
 
     private static void WithBundle(Action<string> action)
     {
-        var directory = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(), "hexide-bundle-" + Guid.NewGuid());
-        Directory.CreateDirectory(directory);
+        var directory = ResolvedTemp.CreateDirectory("hexide-bundle-");
         try { action(directory); }
         finally { Directory.Delete(directory, true); }
     }
