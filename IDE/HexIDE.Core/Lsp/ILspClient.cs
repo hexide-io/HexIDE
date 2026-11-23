@@ -171,6 +171,10 @@ public interface ILspClient : IAsyncDisposable
     /// Opens a document at <see cref="LspDocumentVersion.Opening"/>, stating whether it belongs to a VB6
     /// project and, where applicable, the manifest id of the add-in whose project type opened it.
     /// </summary>
+    /// <param name="languageId">An explicit language label, restricting routing to servers that claim the
+    /// extension and declare this language, ignoring case. When supplied, VB6 membership and class-header
+    /// gates do not apply. Null preserves extension and project-member routing. This does not change
+    /// the server's configured wire language identifier.</param>
     /// <remarks>
     /// <para>
     /// A project member is known to be VB6 whatever its extension shares with another language, so it is
@@ -193,7 +197,7 @@ public interface ILspClient : IAsyncDisposable
     /// </remarks>
     Task OpenDocumentAsync(
         string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default,
-        string? ownerAddinId = null);
+        string? ownerAddinId = null, string? languageId = null);
 
     /// <summary>
     /// Sends a document's whole new text. <paramref name="version"/> must be later than the version of the

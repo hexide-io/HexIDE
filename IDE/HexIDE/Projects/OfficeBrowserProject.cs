@@ -18,6 +18,7 @@ internal sealed class OfficeBrowserProject : IContainerProject
     public ContainerFolder Root { get; }
     public bool CanSynchronizeFolder => false;
     public bool SupportsLanguageServers => true;
+    public string? LanguageOf(ContainerEntry entry) => null;
     public bool IsLocked { get; }
     public string? NoticeKey => "Str.Office.SourceNotice";
     public string? BuildType => null;
