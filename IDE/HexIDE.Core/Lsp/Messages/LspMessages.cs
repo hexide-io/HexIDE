@@ -1378,9 +1378,17 @@ public record SemanticTokensClientCapabilities(
     [property: JsonPropertyName("overlappingTokenSupport")] bool OverlappingTokenSupport = false,
     [property: JsonPropertyName("multilineTokenSupport")] bool MultilineTokenSupport = false);
 
-public record SemanticTokensRequests([property: JsonPropertyName("full")] bool Full = true);
+public record SemanticTokensRequests([property: JsonPropertyName("full")] System.Text.Json.JsonElement Full);
 public record SemanticTokensParams([property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
-public record SemanticTokens([property: JsonPropertyName("data")] int[] Data);
+public record SemanticTokensDeltaParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("previousResultId")] string PreviousResultId);
+public record SemanticTokens([property: JsonPropertyName("data")] int[] Data)
+{
+    [JsonPropertyName("resultId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ResultId { get; init; }
+}
 public record SemanticTokenResult(int[] Data, string[] TokenTypes);
 
 public record FileRename(
