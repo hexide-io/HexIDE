@@ -147,6 +147,7 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/ObjectBrowserComponentLibraryTests.cs` | split |
 | `ViewModels/ObjectBrowserExtensionTests.cs` | split |
 | `ViewModels/OutlineToolViewModelTests.cs` | split |
+| `ViewModels/PictureExportTests.cs` | split |
 | `ViewModels/ProjectPropertiesViewModelTests.cs` | split |
 | `ViewModels/ProjectToolViewModelTests.cs` | split |
 | `ViewModels/PropertyFilterTests.cs` | split |
