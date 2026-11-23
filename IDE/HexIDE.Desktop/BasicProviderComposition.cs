@@ -15,8 +15,8 @@ namespace HexIDE.Desktop;
 /// There is no other way in.
 /// </para>
 /// <para>
-/// <b>No more privilege than it uses.</b> Its origin isn't first-party yet, since nothing it registers needs that. The
-/// slice that moves the VB6 project type onto it decides that, in view.
+/// <b>Composed, not first-party.</b> First-party means signed by the first-party key, which this isn't. Its origin is marked
+/// as composed instead, and <see cref="RegistrationGrants"/> grants that origin, and no package, what it registers.
 /// </para>
 /// <para>
 /// <b>Phase 3</b> of the move loads <see cref="BasicProvider"/> as a bundled add-in instead, and this file goes.
@@ -25,7 +25,7 @@ namespace HexIDE.Desktop;
 internal static class BasicProviderComposition
 {
     /// <summary>The provider's identity: what owns its registrations, and what a refusal names.</summary>
-    internal static AddinOrigin Origin { get; } = new("hexide.basic", "HexIDE.Basic");
+    internal static AddinOrigin Origin { get; } = new(RegistrationGrants.BasicProvider, "HexIDE.Basic") { IsComposed = true };
 
     /// <summary>
     /// Makes the provider and lets it register. Called before add-ins load and before any project can open, so the first

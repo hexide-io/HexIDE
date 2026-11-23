@@ -14,6 +14,10 @@ namespace HexIDE.Addins;
 /// </summary>
 /// <remarks>
 /// <para>
+/// <b>Deny by default.</b> Only an owner HexIDE grants it to may register, and only keys in the families its grant names
+/// (<see cref="RegistrationGrants"/>). Within those, nothing the IDE or another owner already holds.
+/// </para>
+/// <para>
 /// <b>Every key is read before anything is merged,</b> in the dictionary's merged and theme dictionaries too, and one
 /// refused key refuses the whole dictionary. Half a dictionary would break its own <c>BasedOn</c> chains.
 /// </para>
@@ -36,6 +40,9 @@ internal sealed class AddinResourceService
     // Every key an add-in's dictionary added, with that add-in, so a refusal can name the other owner.
     private readonly Dictionary<object, AddinOrigin> owners = new();
 
+    /// <summary>Who may register what. HexIDE's own table; a test gives its own owners grants here.</summary>
+    internal IReadOnlyList<RegistrationGrant> Grants { get; init; } = RegistrationGrants.All;
+
     /// <summary>
     /// Adds <paramref name="dictionary"/> for <paramref name="origin"/>, whose code in <paramref name="caller"/> asked.
     /// </summary>
@@ -47,6 +54,13 @@ internal sealed class AddinResourceService
         ArgumentNullException.ThrowIfNull(dictionary);
         Dispatcher.UIThread.VerifyAccess();
         var app = Application.Current ?? throw new InvalidOperationException("There is no application to add resources to.");
+
+        if (RegistrationGrants.For(origin, Grants) is not { } grant)
+        {
+            Log.Warning("Resources: refused {Dictionary} from {Addin} ({AddinId}): it holds no grant to register resources",
+                dictionary, origin.Title, origin.Id);
+            throw new InvalidOperationException($"{origin.Title} isn't one HexIDE lets register resources.");
+        }
 
         var assembly = caller.GetName().Name;
         if (!dictionary.IsAbsoluteUri || dictionary.Scheme != "avares"
@@ -72,7 +86,7 @@ internal sealed class AddinResourceService
         Collect(loaded, keys, refusals, new HashSet<IResourceProvider>(ReferenceEqualityComparer.Instance));
         foreach (var key in keys)
         {
-            if (Refusal(app, key, caller) is { } reason)
+            if (Refusal(app, key, caller, grant) is { } reason)
                 refusals.Add($"{Describe(key)}: {reason}");
         }
 
@@ -92,16 +106,18 @@ internal sealed class AddinResourceService
             origin.Title, origin.Id, dictionary, keys.Count);
         return new Registration(this, app, include, keys);
 
-        string? Refusal(Application application, object key, Assembly from)
+        string? Refusal(Application application, object key, Assembly from, RegistrationGrant held)
         {
             switch (key)
             {
                 case string text when text.StartsWith("Str.", StringComparison.Ordinal):
                     return "a Str.* key is the IDE's text";
+                case string text when !held.CoversResourceKey(text):
+                    return "outside the keys its grant names";
                 case string:
                     break;
-                case Type type when type.Assembly != from:
-                    return $"a type from {type.Assembly.GetName().Name}, which would restyle every control of that type";
+                case Type type when type.Assembly != from || !held.CoversResourceType(type.Assembly.GetName().Name):
+                    return $"a type from {type.Assembly.GetName().Name}, which its grant doesn't cover and which would restyle every control of that type";
                 case Type:
                     break;
                 default:

@@ -1,0 +1,5 @@
+<!-- A theme for a type the add-in doesn't declare would restyle every Button in the IDE (#5396). -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ControlTheme x:Key="{x:Type Button}" TargetType="Button" />
+</ResourceDictionary>
