@@ -150,6 +150,59 @@ public sealed class UserSidecarSaveTests : IDisposable
         Lines(Read(brand), "codeBookmarks", "Module1").Should().Equal(4);
     }
 
+    [Fact]
+    public async Task A_linked_sidecar_is_told_once_per_project_and_never_written_through()
+    {
+        // #5163: #5149 refuses a sidecar that is a link, so a cloned project can't make HexIDE write outside it. That
+        // stays, but the person is told once, or every mark set in the project is lost with only a log line to say so.
+        var project = Project();
+        var link = SidecarOf(project);
+        var outside = MakeLink(link);
+        var told = new List<(string Project, string State)>();
+        var bookmarks = new BookmarkService();
+        var breakpoints = new BreakpointService();
+        var service = new UserSidecarService(bookmarks, breakpoints, projectManager)
+        {
+            Debounce = debounce.Wait,
+            Unavailable = (path, state) => told.Add((path, state))
+        };
+
+        await service.LoadAsync(project);
+        told.Should().Equal([(project.AbsolutePath!, link)], "the load finds the link and tells the person");
+
+        bookmarks.SetBookmarks(Module1(project), [5]);
+        breakpoints.Toggle(Module1(project), 6);
+        await service.SaveAsync(project);
+        Close(project);
+        await service.LoadAsync(project);
+        await service.SaveAsync(project);
+        told.Should().HaveCount(1, "the person is told once per project per session, saves and a reopen included");
+
+        Directory.GetFileSystemEntries(Path.GetDirectoryName(link)!).Should().Equal([link], "nothing is written beside the link");
+        Directory.GetFileSystemEntries(outside).Should().BeEmpty("nothing is written through the link");
+
+        var other = Project("Q");
+        await service.LoadAsync(other);
+        told.Should().HaveCount(1, "a project whose sidecar is usable is not reported");
+    }
+
+    [Fact]
+    public async Task The_linked_sidecar_notice_names_the_project_and_the_refused_path()
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var localization = new HexIDE.Localization.LocalizationService();
+        localization.Apply("en");
+        var project = Path.Combine(_root, "Q", "Q.vbp");
+        var state = Path.Combine(_root, "Q", "Q.user.hexproj");
+
+        await ProjectLocalStateChoice.SidecarUnavailable(windows, localization, project, state);
+
+        await windows.Received(1).MessageBox(
+            "Bookmarks, breakpoints and other per-user settings for Q.vbp won't be loaded or saved in this session.\n\n"
+            + state + " is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.",
+            Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning, null, false, MessageBoxLayout.None);
+    }
+
     private readonly string _root = Path.Combine(
         Path.GetTempPath(), "HexIDE.Tests.Sidecar", Guid.NewGuid().ToString("N"));
 
@@ -203,6 +256,30 @@ public sealed class UserSidecarSaveTests : IDisposable
             Debounce = debounce.Wait,
             ReadText = read ?? (path => Task.FromResult(File.ReadAllText(path))),
         };
+
+    /// <summary>
+    /// Makes <paramref name="link"/> a link to an empty folder outside the project, and returns that folder. A
+    /// directory junction on Windows, which needs no privilege; a symbolic link elsewhere. Either is a reparse point
+    /// the sidecar service refuses (#5149).
+    /// </summary>
+    private string MakeLink(string link)
+    {
+        var outside = Path.Combine(_root, "outside");
+        Directory.CreateDirectory(outside);
+        if (!OperatingSystem.IsWindows())
+        {
+            Directory.CreateSymbolicLink(link, outside);
+            return outside;
+        }
+        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe")
+        {
+            ArgumentList = { "/d", "/c", "mklink", "/J", link, outside },
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true
+        })!;
+        process.WaitForExit();
+        process.ExitCode.Should().Be(0, process.StandardError.ReadToEnd());
+        return outside;
+    }
 
     private static JsonObject Read(string path) => JsonNode.Parse(File.ReadAllText(path))!.AsObject();
 

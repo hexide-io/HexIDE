@@ -76,3 +76,38 @@ key against any of them, as a screenshot shows.
 - whether the history survives closing and reopening the project.
 
 **In HexIDE.** #69 tracks Last Position and its key.
+
+### A closed code window, and a run (2026-11-21, #69, SP6)
+
+Two of the *Not measured* items above, measured the same way on the oracle guest with VB6.EXE 6.00.9782 (SP6).
+
+**A closed window.** A project with Module1, the module above, and Module2, whose `Sub Two` holds `Debug.Print 22`:
+1. An edit on Ln 4 of Module1, in its own code window.
+2. An edit on Ln 4 of Module2, in its window.
+3. Ctrl+Tab back to Module1's window, and Ctrl+F4 to close it. Module2's window was then active.
+
+Three presses of Ctrl+Shift+F2, read by the active window's title and its Procedure box:
+
+| Press | Active window | Procedure box |
+|---|---|---|
+| 1 | Module2 (Code) | Two |
+| 2 | **Module1 (Code), reopened** | Main |
+| 3 | Module2 (Code) | Two |
+
+**A run.** An edit on Ln 4, then Down 8 left the caret on Ln 12, Col 10. F5 ran the program, which ends by itself, and
+the IDE was back in design mode. The presses were read from the toolbar's `Ln, Col` in screenshots:
+
+| | After the run | A control, the same with no run |
+|---|---|---|
+| Before any press | Ln 12, Col 10 | Ln 12, Col 10 |
+| Press 1 | **Ln 12, Col 1** | Ln 4, Col 1 |
+| Press 2 | Ln 4, Col 1 | Ln 4, Col 1 |
+| Press 3 | Ln 12, Col 1 | Ln 4, Col 1 |
+
+**Readings:**
+- **An entry in a closed window reopens it.** Closing the window kept its entry.
+- **Starting a run adds the caret's line as an entry, and the edit's entry stays.** With no run, the one entry was the
+  edit's, and every press went there.
+
+**Still not measured:** lines deleted above an entry; the Procedure box, Next Bookmark and the Call Stack as moves;
+whether the history survives closing and reopening the project.

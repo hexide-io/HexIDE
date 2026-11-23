@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Reported a problem at {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Invalid project-local state name in '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Multiple project-local state locations were found. Each may contain different saved state. Nothing will be written until you choose one for this session. Enter its number, or cancel:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} is a link or junction, or is no longer where it was found, so nothing is read from it or written to it."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Bookmarks, breakpoints and other per-user settings for {0} won't be loaded or saved in this session.\n\n{1}"
   }
 }

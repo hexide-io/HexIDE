@@ -354,3 +354,32 @@ and the save wrote `Startup="Sub Main"`, quoted.
 ### Still open
 
 Q4, Q9, Q10 and Q14 to Q16, from the list above.
+
+### The same OCX-bearing form, edited in HexIDE, opened by vb6.exe (2026-11-21, #160, SP6)
+
+**The question.** *An OCX-bearing form, saved by HexIDE and opened by vb6.exe*, above, opened an untouched round-trip
+only. Does vb6.exe still open the form once HexIDE has edited it?
+
+**HexIDE's half.**
+- **The input:** HexIDE, built from main at ef65c5d96 with one docs-only commit on top, opened a project holding VB98's `Web Browser.frm` and
+  its `.frx`. It said the WebBrowser is not a supported control class and is preserved as unknown.
+- **The edit:** `timTimer`, a modelled Timer, was moved in the designer from 412, 100 to 380, 120 pixels.
+- **The save:** File > Save Pwb.
+- **The result:** against the template, the saved `.frm` differed in two lines only, the Timer's `Left` (6180 to 5700)
+  and `Top` (1500 to 1800). The `.frx` was byte-identical.
+
+**vb6.exe's half.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM.
+- **`/make`** built the project with exit 0, `Build of 'hx160.exe' succeeded.`, and no log.
+- **The IDE, started elevated on the console,** loaded it with no message and no log. Its designer drew the toolbar's
+  images, the Address combo and the live WebBrowser, with the Timer in its new place. Its Properties window read
+  `Left` 5700 and `Top` 1800.
+- **On closing,** VB6 asked to save the project and the form, as it does for the untouched template. It was answered No,
+  and HexIDE's file was left as it was.
+
+So a HexIDE edit to a modelled control on a form full of carried OCX controls produces a file vb6.exe builds and
+opens, with the edit intact.
+
+### Not measured
+
+- **An edit that adds or deletes a control,** or changes z-order among carried blocks.
+- **The other OCX forms in the corpus.**

@@ -41,7 +41,9 @@ inside `On Error GoTo` (c1):
   runs. Re-run on the guest's console (2026-11-18, #4768) with `/runexit`: within 15 s the IDE, titled *[run]*,
   showed the run-time error dialog, "Run-time error '11': Division by zero", with Continue, End, Debug and Help, and
   the form's handler hadn't run. Debug wasn't pressed, so where the break lands is from the first run. The registry
-  held no Error Trapping value, so the default applied.
+  held no Error Trapping value, so the default applied. Debug and Continue were measured on 2026-11-21, in
+  [The Error Trapping option](the-error-trapping-option.md). Debug breaks on the class's statement, and Continue
+  retries it. The form's handler still never runs.
 
 The same call to a standard-module Sub (c2) is caught by the form's handler in the IDE and in both builds. So the IDE's
 option decides c1, not the language.
@@ -50,6 +52,8 @@ option decides c1, not the language.
 class's error, which is also what the IDE does under its *Break on Unhandled Errors* setting. This is a deliberate
 exception to the rule that HexIDE matches the IDE where the two differ. The IDE's default stops code that handles its
 own errors, and following it would mean building "Continue from a break hands the error to the caller's handler".
+That premise was an assumption: VB6's own Continue from that break retries the class's statement, as
+[The Error Trapping option](the-error-trapping-option.md) measured on 2026-11-21.
 For an error that nothing handles, HexIDE keeps the default's location: the innermost faulting line, a class's
 included.
 
@@ -58,8 +62,17 @@ included.
 - **Debug** breaks at the statement, reason `RuntimeError`, and Continue runs it again, all of it: `F()` is called again.
 - **The event boundary** holds for b1, b2 and b3. c1 and c2 go to the caller's handler.
 
-**Chosen, not measured.** Only `x = F() + 1 \ 0` was measured for the retry. Elsewhere HexIDE runs again only what raised:
-a condition on its own, an `ElseIf`'s or a `Loop Until`'s, and a single-line `If`'s tail statement alone. Those rules are
-pinned in tests, but that doesn't make them measured, and #1079 is to measure them. Two more things weren't measured,
-and HexIDE takes a side on each. A dialog closed without an answer takes Debug. `Err` is left as it was at the break.
+**Chosen, not measured, when this page was written.** Only `x = F() + 1 \ 0` was measured for the retry. Elsewhere
+HexIDE runs again only what raised: a condition on its own, an `ElseIf`'s or a `Loop Until`'s, and a single-line `If`'s
+tail statement alone. Two more things weren't measured, and HexIDE takes a side on each. A dialog closed without an
+answer takes Debug. `Err` is left as it was at the break.
+
+**Measured since (2026-11-21):**
+- **The retry** ([What F5 runs again after Debug](what-f5-runs-again-after-debug.md), #1079). VB6 runs again only what
+  raised, as HexIDE does, for an `ElseIf`'s condition, a `Loop Until`'s condition and a single-line `If`'s tail. For a
+  `Case`, VB6 runs only the faulting `Case`'s expression again, where HexIDE runs the whole `Select Case` again.
+- **The dialog closed without an answer** ([Closing the run-time error dialog without End or
+  Debug](closing-the-run-time-error-dialog.md), #607). It can't happen in VB6: the dialog has no close box, and Escape,
+  `SC_CLOSE` and Alt+F4 leave it up.
+- **`Err` at the break** is still unmeasured.
 

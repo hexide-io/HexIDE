@@ -168,3 +168,22 @@ one wasn't tried.
 - **A mixed answer,** such as Yes for the container and No for what it holds.
 - **Cut and paste into another form,** #1458's second case.
 - **The release build.**
+
+## Mixed answers to the control-array questions (2026-11-21, #1458, design-time, IDE, SP6)
+
+**The question.** Above, every question was answered the same way, No to all or Yes to all. Does an answer for the
+container carry to what it holds?
+
+**The probe.** The same form, a fresh copy of the same file, run in the same way. The three questions came in the same
+order, `Picture1`, `imlIcons`, `lbl`, and were answered **Yes**, **No**, **No**.
+
+**What a save wrote:**
+
+| Control | Pasted copy | Original |
+|---|---|---|
+| the PictureBox | `Picture1`, `Index = 1` | `Picture1`, `Index = 0` |
+| its ImageList | `ImageList1` | `imlIcons` |
+| its Label | `Label1`, TabIndex 3 | `lbl` |
+
+So each answer applies to its own control alone. A control array of containers can hold copies whose contents have
+names of their own: `Picture1(1)` holds `ImageList1` and `Label1`, where `Picture1(0)` holds `imlIcons` and `lbl`.

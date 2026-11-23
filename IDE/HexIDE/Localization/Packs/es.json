@@ -1488,6 +1488,7 @@
     "Str.Options.Addin.ReportedFailure": "Se informó de un problema a las {0}: {1}",
     "Str.Startup.Descriptor.ProjectLocalName": "{0}: Nombre de estado local del proyecto no válido en '{1}': '{2}'.",
     "Str.ProjectLocalState.ChooseFormat": "Se han encontrado varias ubicaciones del estado local del proyecto. Cada una puede contener un estado guardado diferente. No se escribirá nada hasta que elija una para esta sesión. Introduzca su número o cancele:\n{0}",
-    "Str.ProjectLocalState.UnavailableFormat": "{0} es un enlace o una unión, o ya no está donde se encontró, por lo que no se lee ni se escribe nada en esa ubicación."
+    "Str.ProjectLocalState.UnavailableFormat": "{0} es un enlace o una unión, o ya no está donde se encontró, por lo que no se lee ni se escribe nada en esa ubicación.",
+    "Str.ProjectLocalState.SidecarUnavailableFormat": "Los marcadores, los puntos de interrupción y otros ajustes por usuario de {0} no se cargarán ni se guardarán en esta sesión.\n\n{1}"
   }
 }
