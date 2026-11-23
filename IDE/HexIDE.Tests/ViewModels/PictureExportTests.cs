@@ -24,6 +24,58 @@ public class PictureExportTests
         new(new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(), Substitute.For<IEventBus>(),
             windows, Substitute.For<ILocalizationService>()), property, bytes);
 
+    // VB6 SP6, #2715 and #2872:
+    // docs/vb6-fidelity-oracle/a-picture-in-the-properties-window-and-the-save-and-the-designers-caption-icon.md
+    [Theory]
+    [InlineData(null, "(None)")]
+    [InlineData("424D", "(Bitmap)")]
+    [InlineData("00000100", "(Icon)")]
+    [InlineData("474946383961", "(Bitmap)")]
+    [InlineData("FFD8FFE0", "(Bitmap)")]
+    [InlineData("0100000000000000000000000000000000000000000000000000000000000000000000000000000020454D46", "(Metafile)")]
+    [InlineData("00000200", "System.Byte[]")]
+    [InlineData("D7CDC69A", "System.Byte[]")]
+    [InlineData("01000000", "System.Byte[]")]
+    public void Picture_row_shows_the_measured_kind(string? signature, string expected)
+    {
+        var value = signature == null ? null : Record(Convert.FromHexString(signature));
+        PropertiesToolViewModel.FormatPictureValue(value).Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public void Clearing_a_picture_is_one_undoable_edit()
+    {
+        var form = TestHelpers.CreateProjectWithForm("Project1").Forms[0];
+        var picture = new ComponentInstance(PictureBoxComponentClass.Instance, "Picture1");
+        form.UpdateComponents([..form.Components, picture]);
+        var property = VBProperties.PictureProperty;
+        var record = Record([0x42, 0x4d]);
+        picture.SetUntypedProperty(property, record);
+
+        var bus = new EventBus();
+        var loc = Substitute.For<ILocalizationService>();
+        using var designer = new FormEditViewModel(null!, bus, null!, null!, null!, null!, loc).Initialize(form);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(designer);
+        var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc);
+        designer.SelectedComponent = designer.AllComponents.Single(c => c.Instance == picture);
+        var row = grid.Properties.OfType<PropertyViewModel>().Single(p => p.PropertyClass == property);
+
+        row.ClearPicture();
+        row.Value.Should().BeNull();
+        picture.GetBoxedPropertyOrDefault(property).Should().BeNull();
+        designer.CanUndo.Should().BeTrue();
+
+        designer.UndoStack.Undo();
+        row.Value.Should().BeSameAs(record);
+        picture.GetBoxedPropertyOrDefault(property).Should().BeSameAs(record);
+        designer.CanUndo.Should().BeFalse();
+
+        designer.UndoStack.Redo();
+        row.Value.Should().BeNull();
+        picture.GetBoxedPropertyOrDefault(property).Should().BeNull();
+    }
+
     [Theory]
     [InlineData("FFD8FF", "jpg")]
     [InlineData("474946383761", "gif")]

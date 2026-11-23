@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -306,6 +307,25 @@ public partial class PropertiesToolViewModel : Tool
         property == VBProperties.PictureProperty || property == VBProperties.IconProperty
         || property == VBProperties.MouseIconProperty || property == VBProperties.DragIconProperty;
 
+    internal static string? FormatPictureValue(object? value)
+    {
+        if (value == null) return "(None)";
+        if (FrxImageHelper.PicturePayload(value as byte[]) is not { } payload) return value.ToString();
+
+        if (payload.Length >= 44 && BinaryPrimitives.ReadUInt32LittleEndian(payload) == 1
+            && payload.AsSpan(40).StartsWith(" EMF"u8))
+            return "(Metafile)";
+        if (payload.AsSpan().StartsWith("GIF8"u8))
+            return "(Bitmap)";
+
+        return FrxImageHelper.DetectKind(payload) switch
+        {
+            FrxImageHelper.FrxBlobKind.Icon => "(Icon)",
+            FrxImageHelper.FrxBlobKind.Bitmap or FrxImageHelper.FrxBlobKind.Jpeg => "(Bitmap)",
+            _ => value.ToString(),
+        };
+    }
+
     internal async Task LoadPictureAsync(PropertyClass property)
     {
         if (!IsPicture(property) || currentDocument is not { } document
@@ -412,6 +432,13 @@ public partial class PropertiesToolViewModel : Tool
             return;
 
         var instance = currentDocument.SelectedComponent.Instance;
+        if (propertyClass == VBProperties.NameProperty && value is string proposed
+            && ComponentNaming.ArrayCreationHolder(instance, proposed,
+                currentDocument.AllComponents.Select(c => c.Instance)) is { } holder)
+        {
+            ConfirmControlArray(currentDocument, holder, instance, proposed).ListenErrors();
+            return;
+        }
         var before = instance.GetBoxedPropertyOrDefault(propertyClass);
         object? after = before;
         bool committed = false;
@@ -467,6 +494,19 @@ public partial class PropertiesToolViewModel : Tool
 
         if (committed && !Equals(before, after))
             currentDocument.PushSetPropertyCommand(instance, propertyClass, before, after);
+    }
+
+    private async Task ConfirmControlArray(FormEditViewModel document, ComponentInstance holder,
+        ComponentInstance target, string name)
+    {
+        if (await windowManager.MessageBox(string.Format(localization.GetString("Str.Naming.Msg.CreateControlArray"), name),
+                buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) == MessageBoxResult.Yes
+            && ComponentNaming.ArrayCreationHolder(target, name, document.AllComponents.Select(c => c.Instance)) == holder)
+            document.CreateControlArray(holder, target, name);
+        // The binding is still writing when an already-answered dialog completes synchronously.
+        if (currentDocument == document && document.SelectedComponent?.Instance == target
+            && Properties.OfType<PropertyViewModel>().FirstOrDefault(p => p.PropertyClass == VBProperties.NameProperty) is { } row)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(Displayed(target, VBProperties.NameProperty)));
     }
 
     // The model's pixels for a position typed into its row, or the value as it came when it is not a number, which the
@@ -553,6 +593,12 @@ public partial class PropertyViewModel : BasePropertyViewModel
         OnPropertyChanged(nameof(CanExportPicture));
         ExportPictureCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(Value));
+    }
+
+    internal void ClearPicture()
+    {
+        if (CanLoadPicture && Value != null)
+            parent.UpdateValue(PropertyClass, null);
     }
 
     public bool CanLoadPicture => PropertiesToolViewModel.IsPicture(PropertyClass);

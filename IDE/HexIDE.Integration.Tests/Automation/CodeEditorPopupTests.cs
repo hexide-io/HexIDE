@@ -186,6 +186,35 @@ public class CodeEditorPopupTests : IDisposable
         editor.Text.Should().Be("tota");
     }
 
+    [AvaloniaFact]
+    public async Task Mac_factory_complete_word_gesture_reaches_the_code_editor()
+    {
+        var gestures = ApplicationCommands.CompleteWordCommand.Gestures;
+        var original = gestures.ToArray();
+        gestures.Clear();
+        gestures.Add(ApplicationCommands.GetCompleteWordKeyGesture(isMacOS: true));
+        try
+        {
+            var (_, _, editor) = Show(lettersOpenCompletion: false);
+            lsp.ClearReceivedCalls();
+
+            // The non-macOS factory chord is Control+Space, also expected on macOS.
+            var controlSpace = ApplicationCommands.GetCompleteWordKeyGesture(isMacOS: false);
+            UiAutomationDriver.PressKey(editor, controlSpace.Key.ToString(), controlSpace.KeyModifiers.ToString())
+                .Success.Should().BeTrue();
+            Pump();
+
+            await lsp.Received(1).RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+            CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Should().ContainSingle();
+        }
+        finally
+        {
+            gestures.Clear();
+            foreach (var gesture in original)
+                gestures.Add(gesture);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("Ms", 2, 0)]
     [InlineData("Ms", 1, 0)]

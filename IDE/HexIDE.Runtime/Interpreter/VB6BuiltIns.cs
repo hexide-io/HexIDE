@@ -438,6 +438,13 @@ public partial class VB6BuiltIns
             layout |= MessageBoxLayout.Right;
         if ((style & VBMsgBoxStyle.vbMsgBoxRtlReading) != 0)
             layout |= MessageBoxLayout.RtlReading;
+        // #827: measured in rgb-qbcolor-and-msgboxs-style.md. A missing default falls back to the first.
+        var defaultButton = style & VBMsgBoxStyle.DefaultButtonBits;
+        if (defaultButton == VBMsgBoxStyle.vbDefaultButton2)
+            layout |= MessageBoxLayout.SecondButtonDefault;
+        else if (defaultButton == VBMsgBoxStyle.vbDefaultButton3
+            && buttons is MessageBoxButtons.AbortRetryIgnore or MessageBoxButtons.YesNoCancel)
+            layout |= MessageBoxLayout.ThirdButtonDefault;
         var result = await stdLib.MsgBox(text ?? "", title, buttons, icon, layout);
         // None is a box that went away without an answer. The hosts answer a person's close themselves, as Windows does
         // (measured: OK alone answers vbOK, a box with Cancel answers vbCancel, and Yes/No and Abort/Retry/Ignore

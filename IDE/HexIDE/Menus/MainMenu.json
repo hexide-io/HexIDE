@@ -120,7 +120,8 @@
       },
       {
         "kind": "Separator",
-        "id": "file.separator19"
+        "id": "file.separator19",
+        "visibility": "{CompiledBinding HasRecentProjects, Converter=ShowRecentProjectsLeadingSeparator}"
       },
       {
         "kind": "Provider",
@@ -132,11 +133,12 @@
       {
         "kind": "Separator",
         "id": "file.separator21",
-        "visibility": "{CompiledBinding HasRecentProjects}"
+        "visibility": "{CompiledBinding HasRecentProjects, Converter=ShowRecentProjectsTrailingSeparator}"
       },
       {
         "kind": "Command",
         "id": "file.exit",
+        "visibility": "{x:Static vb:Static.IsNotMacOS}",
         "labelKey": "Str.Menu.File.Exit",
         "command": "application.ExitCommand"
       }
@@ -433,9 +435,10 @@
         "command": "application.GoToDeclarationCommand"
       },
       {
-        "kind": "Placeholder",
+        "kind": "Command",
         "id": "view.lastposition",
-        "labelKey": "Str.Menu.View.LastPosition"
+        "labelKey": "Str.Menu.View.LastPosition",
+        "command": "application.LastPositionCommand"
       },
       {
         "kind": "Command",
@@ -1106,12 +1109,14 @@
       {
         "kind": "Command",
         "id": "tools.options",
+        "visibility": "{x:Static vb:Static.IsNotMacOS}",
         "labelKey": "Str.Menu.Tools.Options",
         "command": "application.OpenOptionsCommand"
       },
       {
         "kind": "Separator",
-        "id": "tools.separator8"
+        "id": "tools.separator8",
+        "visibility": "{x:Static vb:Static.IsNotMacOS}"
       },
       {
         "kind": "Command",
@@ -1223,11 +1228,13 @@
       },
       {
         "kind": "Separator",
-        "id": "help.separator1"
+        "id": "help.separator1",
+        "visibility": "{x:Static vb:Static.IsNotMacOS}"
       },
       {
         "kind": "Command",
         "id": "help.about",
+        "visibility": "{x:Static vb:Static.IsNotMacOS}",
         "labelKey": "Str.Menu.Help.About",
         "command": "application.AboutCommand"
       }

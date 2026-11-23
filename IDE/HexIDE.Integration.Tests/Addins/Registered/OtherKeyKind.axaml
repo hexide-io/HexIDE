@@ -1,0 +1,6 @@
+<!-- A key that is neither a string nor a type (#5396). -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:HexIDE.Integration.Tests.Addins">
+    <SolidColorBrush x:Key="{x:Static local:RegisterResourcesTests.ObjectKey}" Color="#123456" />
+</ResourceDictionary>

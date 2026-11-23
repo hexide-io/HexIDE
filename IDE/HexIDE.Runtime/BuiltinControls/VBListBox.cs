@@ -63,17 +63,14 @@ public class VBListBox : ListBox
 
     internal int SavedStyle { get => savedStyle; init { savedStyle = value; ConfigureLayout(); } }
     internal int Columns { get => columns; init { columns = value; ConfigureLayout(); } }
-    internal bool HasChecks => !designer && savedStyle == 1 && !IsMultiSelect;
+    internal bool HasChecks => savedStyle == 1 && !IsMultiSelect;
     internal bool Sorted { get; init; }
-    private bool HasColumns => !designer && columns > 0;
+    private bool HasColumns => columns > 0;
 
-    internal void UsePlainDesignerLayout()
+    internal void UseDesignerLayout()
     {
         designer = true;
-        ClearValue(ItemsPanelProperty);
-        ClearValue(ItemTemplateProperty);
-        ClearValue(ScrollViewer.HorizontalScrollBarVisibilityProperty);
-        ClearValue(ScrollViewer.VerticalScrollBarVisibilityProperty);
+        ConfigureLayout();
     }
 
     private void ConfigureLayout()
@@ -110,7 +107,7 @@ public class VBListBox : ListBox
         }
     }
 
-    // Column width and checkbox pixels are drawing choices, not oracle measurements (#4209).
+    // Column pitches measured in #5133; checkbox pixels remain drawing choices (#4209).
     private sealed class ColumnsPanel(VBListBox list) : Panel
     {
         internal int Rows { get; private set; } = 1;
@@ -122,8 +119,10 @@ public class VBListBox : ListBox
             rowHeight = Children.Count > 0 ? Children[0].DesiredSize.Height : 1;
             var height = rowHeight;
             Rows = Math.Max(1, (int)Math.Floor(availableSize.Height / height));
-            ColumnWidth = Math.Max(1, (list.Bounds.Width - list.BorderThickness.Left - list.BorderThickness.Right
-                - list.Padding.Left - list.Padding.Right) / list.columns);
+            ColumnWidth = list.designer ? 120 : list.columns == 1
+                ? Math.Max(1, list.Bounds.Width - list.BorderThickness.Left - list.BorderThickness.Right
+                    - list.Padding.Left - list.Padding.Right)
+                : Math.Max(1, Math.Floor((Math.Floor(list.Width + 0.5) - 3) / list.columns));
             foreach (var child in Children) child.Measure(new Size(ColumnWidth, height));
             return new Size(Math.Ceiling((double)Children.Count / Rows) * ColumnWidth, Rows * height);
         }

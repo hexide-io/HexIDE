@@ -1,4 +1,4 @@
-namespace HexIDE.Runtime.Serialization;
+namespace HexIDE.Language;
 
 /// <summary>
 /// Where a line of VB6 source ends: at <c>\r\n</c>, at a lone <c>\r</c> and at a lone <c>\n</c>, each one line end, as

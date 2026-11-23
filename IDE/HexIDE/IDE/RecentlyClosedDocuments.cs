@@ -100,7 +100,7 @@ public sealed class RecentlyClosedDocuments : IDisposable
             else
             {
                 var offset = archive.CaretOffset;
-                archive.Update(replacement);
+                archive.Update(replacement, snapshot.BuildType, snapshot.LanguageOf(replacement));
                 archive.CaretOffset = Math.Clamp(offset, 0, archive.Document.TextLength);
             }
         }

@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
              mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
              x:DataType="vm:EnvironmentGeneralPageViewModel"
@@ -15,6 +16,13 @@
         <HeaderedContentControl Header="{DynamicResource Str.Options.Environment.FileHandling.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">
                 <CheckBox IsChecked="{CompiledBinding ReloadFilesChangedOutsideIde}" Content="{DynamicResource Str.Options.Environment.ReloadExternalChanges}" />
+            </StackPanel>
+        </HeaderedContentControl>
+        <HeaderedContentControl Header="{DynamicResource Str.Options.Environment.ErrorTrapping.Header}" Padding="10">
+            <StackPanel Spacing="6">
+                <controls:IdeRadioButton GroupName="ErrorTrapping" IsChecked="{CompiledBinding IsBreakOnAllErrors, Mode=TwoWay}" Content="{DynamicResource Str.Options.Environment.ErrorTrapping.BreakOnAllErrors}" />
+                <controls:IdeRadioButton GroupName="ErrorTrapping" IsChecked="{CompiledBinding IsBreakInClassModule, Mode=TwoWay}" Content="{DynamicResource Str.Options.Environment.ErrorTrapping.BreakInClassModule}" />
+                <controls:IdeRadioButton GroupName="ErrorTrapping" IsChecked="{CompiledBinding IsBreakOnUnhandledErrors, Mode=TwoWay}" Content="{DynamicResource Str.Options.Environment.ErrorTrapping.BreakOnUnhandledErrors}" />
             </StackPanel>
         </HeaderedContentControl>
         <CheckBox IsChecked="{CompiledBinding RDCoreWin64OnlySetOnWindows}" Content="{DynamicResource Str.Options.Environment.RDCoreWin64OnlySetOnWindows}" />

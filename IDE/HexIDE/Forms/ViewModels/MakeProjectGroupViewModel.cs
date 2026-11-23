@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
 using PropertyChanged.SourceGenerator;
 
@@ -35,5 +34,5 @@ internal sealed class MakeProjectGroupItem(ProjectDefinition project)
 {
     public ProjectDefinition Project { get; } = project;
     public string Name => string.IsNullOrEmpty(Project.AbsolutePath)
-        ? Project.Name : SerializedProject.FileNameOf(Project.AbsolutePath);
+        ? Project.Name : Vb6ProjectPaths.FileNameOf(Project.AbsolutePath);
 }

@@ -20,11 +20,20 @@ public class NormalReturnUnwindTests : BaseVBTestFixture
     public async Task AWalkWithoutSuspension_LeavesStackForTheNextWalk()
         => await RunWalk(30, stops: false, everyStatement: false);
 
-    private async Task RunWalk(int depth, bool stops, bool everyStatement)
+    // #5166 measured 102 frames after one bottom-of-walk window suspension.
+    [Theory]
+    [InlineData("MsgBox \"x\"")]
+    [InlineData("probe.Wait")]
+    [InlineData("DoEvents")]
+    public async Task AWalkSuspendedThroughTheEventPump_LeavesStackForTheNextWalk(string suspension)
+        => await RunWalk(100, false, false, suspension);
+
+    private async Task RunWalk(int depth, bool stops, bool everyStatement, string? suspension = null)
     {
         await OnStack(() =>
         {
             var dbg = new DebugController();
+            context.AllocVariable(rootEnv, "probe", new Vb6Value(new PostedProxy()));
             var returningFrames = -1;
             var walkPosts = -1;
             var library = new StackProbeLibrary(debug, () =>
@@ -42,13 +51,14 @@ public class NormalReturnUnwindTests : BaseVBTestFixture
                 "Deep 0\nDebug.Print maxDepth\n" +
                 "Sub Work(ByVal n As Long)\n" +
                 "  If n > 0 Then Work n - 1\n" +
+                (suspension is null ? "" : $"  If n = 0 Then {suspension}\n") +
                 "End Sub\n" +
                 "Sub Deep(ByVal d As Long)\n" +
                 "  On Error GoTo Done\n" +
                 "  maxDepth = d\n" +
                 "  Deep d + 1\n" +
                 "Done:\nEnd Sub\n" +
-                "Property Get Walk(ByVal n As Long) As Long\n  Work n\nEnd Property\n", "M") { DebugController = dbg };
+                "Property Get Walk(ByVal n As Long) As Long\n  Work n\nEnd Property\n", "M") { DebugController = dbg, Events = suspension is null ? null : new EventPump(PostTurn) };
             // Stops already suspend every level; keep the clock out of the stack sample.
             dbg.TimeSliceMs = everyStatement ? -1 : null;
             var pump = (Pump)SynchronizationContext.Current!;
@@ -67,7 +77,7 @@ public class NormalReturnUnwindTests : BaseVBTestFixture
             run.IsCompleted.Should().BeTrue("the walk must finish on the pumping thread");
             run.GetAwaiter().GetResult();
             hits.Should().Be(stops ? depth + 1 : 0);
-            if (!stops && !everyStatement)
+            if (!stops && !everyStatement && suspension is null)
                 walkPosts.Should().Be(0, "the synchronous walk must not yield on its way down or back up");
             TestContext.Current.TestOutputHelper?.WriteLine($"Work {depth}, stops={stops}, everyStatement={everyStatement}: " +
                 $"{returningFrames} RunProcedure frames at return, Deep reached {debug[1].Value}");
@@ -124,6 +134,10 @@ public class NormalReturnUnwindTests : BaseVBTestFixture
 
     private sealed class StackProbeLibrary(List<Vb6Value> log, Action sample) : MockStdLib(log), IBasicStandardLibrary
     {
+        Task<HexIDE.IDE.MessageBoxResult> IBasicStandardLibrary.MsgBox(string text, string? caption,
+            HexIDE.IDE.MessageBoxButtons buttons, HexIDE.IDE.MessageBoxIcon icon)
+            => PostedAnswer(HexIDE.IDE.MessageBoxResult.Ok);
+
         private bool sampled;
         void IBasicStandardLibrary.DebugPrint(Vb6Value value)
         {
@@ -134,6 +148,22 @@ public class NormalReturnUnwindTests : BaseVBTestFixture
             }
             DebugPrint(value);
         }
+    }
+
+    private static Task<T> PostedAnswer<T>(T answer)
+    {
+        var pending = new TaskCompletionSource<T>();
+        SynchronizationContext.Current!.Post(_ => pending.SetResult(answer), null);
+        return pending.Task;
+    }
+
+    private static Task PostTurn() => PostedAnswer(0);
+
+    private sealed class PostedProxy : ICSharpAsyncProxy
+    {
+        public void Call(string method, List<Vb6Value> args) => throw new InvalidOperationException();
+        public Task<Vb6Value?> CallAsync(string method, List<Vb6Value> args)
+            => PostedAnswer<Vb6Value?>(null);
     }
 
     private static async Task OnStack(Action body)

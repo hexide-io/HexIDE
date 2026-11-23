@@ -8,6 +8,7 @@ public interface IBookmarkService
 {
     void Toggle(DocumentIdentity document, int line);
     void SetBookmarks(DocumentIdentity document, IEnumerable<int> lines);
+    void Remap(DocumentIdentity document, Func<int, int?> newLineOf);
     bool IsBookmarked(DocumentIdentity document, int line);
     int? NextBookmark(DocumentIdentity document, int currentLine);
     int? PreviousBookmark(DocumentIdentity document, int currentLine);

@@ -68,6 +68,11 @@ public class UnsavedProjectWriteTests
             var added = await tools.AddControlAsync(form.Name, "CommandButton", 16, 16, 81, 33);
             added.Success.Should().BeTrue(added.Error);
             File.ReadAllText(form.AbsolutePath!).Should().Contain("VB.CommandButton");
+            var image = await tools.AddControlAsync(form.Name, "Image", 16, 64, 81, 65);
+            image.Success.Should().BeTrue(image.Error);
+            var items = await tools.GetToolboxItemsAsync(TestContext.Current.CancellationToken);
+            items.Items.Should().Contain(item => item.Name == "Image");
+            File.ReadAllText(form.AbsolutePath!).Should().Contain("VB.Image");
         }
         finally
         {

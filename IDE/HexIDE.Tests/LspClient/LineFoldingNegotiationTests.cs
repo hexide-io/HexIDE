@@ -76,7 +76,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         var initialize = await server.InitializeParams.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         var semantic = initialize.GetProperty("capabilities").GetProperty("textDocument").GetProperty("semanticTokens");
-        semantic.GetProperty("requests").GetProperty("full").GetBoolean().Should().BeTrue();
+        semantic.GetProperty("requests").GetProperty("full").GetProperty("delta").GetBoolean().Should().BeTrue();
         semantic.GetProperty("requests").TryGetProperty("range", out _).Should().BeFalse();
         semantic.GetProperty("formats")[0].GetString().Should().Be("relative");
         semantic.GetProperty("tokenTypes").GetArrayLength().Should().Be(23);

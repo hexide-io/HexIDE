@@ -14,10 +14,11 @@ public class CommandButtonComponentClass : ComponentBaseClass
         AppearanceProperty,
         FontProperty,
         MousePointerProperty,
-        // Registered so the blob it cites survives a save, not because a graphical button renders yet.
+        // Registered so the blob it cites survives a save, not because a graphical button's picture renders yet.
         // An unmodelled blob-backed property makes the whole FORM refuse to save, so this is what lets
         // VB6's own Mover ListBox.frm and Button ListBox.frm round-trip at all.
         PictureProperty,
+        ButtonStyleProperty,
         EnabledProperty,
         TabStopProperty,
         DefaultProperty,
@@ -36,6 +37,7 @@ public class CommandButtonComponentClass : ComponentBaseClass
     {
         return new VBCommandButton()
         {
+            Style = instance.GetPropertyOrDefault(ButtonStyleProperty),
             Default = instance.GetPropertyOrDefault(DefaultProperty),
             Cancel = instance.GetPropertyOrDefault(CancelProperty),
             Content = instance.GetPropertyOrDefault(CaptionProperty),

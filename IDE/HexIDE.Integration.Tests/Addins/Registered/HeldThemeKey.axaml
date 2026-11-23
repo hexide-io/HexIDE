@@ -1,0 +1,6 @@
+<!-- A colour of the IDE's theme, which the consent dialog's warning banner reads (#5396). -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="WarningBannerBackgroundBrush" Color="Magenta" />
+    <SolidColorBrush x:Key="RegisterResourcesTests.HeldBrush" Color="#123456" />
+</ResourceDictionary>
