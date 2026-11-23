@@ -564,16 +564,17 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate
     leaves unhandled is reported as before, and the run carries on.
 
-  D22 records the later compile-error halt at the executing statement; D27 is the case where HexIDE follows the
-  compiled program instead.
+  D22 records the later compile-error halt at the executing statement; D27 records the former class-error default
+  divergence and the unmeasured shapes that still differ.
 
-### D27. A class's error that its caller handles goes to the caller, where VB6's IDE stops in the class (deliberate)
+### D27. Error Trapping defaults to Break in Class Module (resolved for measured shapes)
 - **VB6:** under the IDE's default Error Trapping, *Break in Class Module*, a class method with no handler of its own
   that raises an error stops in the class, even when its caller has an active `On Error`. The caller's handler never
   runs. Under *Break on Unhandled Errors*, and in every compiled program, native and p-code, the caller's handler
   catches it (measured, `docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, c1). A form counts as a class module here.
-- **HexIDE:** by default, the caller's handler catches it, as a compiled program does. An error that nothing handles still breaks
-  at the innermost faulting line, a class's included, as the default does (#1011).
+- **HexIDE:** the default now follows VB6 for a class called directly from a standard module or form (#5303).
+  Break on Unhandled Errors restores caller handling; a made program retains that behaviour.
+  The original decision and its correction are recorded below.
 - **Why:** a deliberate exception to the rule that HexIDE matches the IDE where the two differ (decided 2026-10-15,
   recorded on #1011). The default stops code that handles its own errors, and following it would mean building
   "Continue from a break hands the error to the caller's handler".
@@ -581,11 +582,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
     (`docs/vb6-fidelity-oracle/the-error-trapping-option.md`): Continue from the in-class break retries the class's
     statement, and the caller's handler never runs.
   - **So following the default needs no hand-off,** only the break in the class.
-  - **The default decision stands.** #1070 adds the choice; #5303 tracks changing the default.
-- **Status:** Error Trapping is selectable in Tools > Options > Environment > General (#1070). The default stays
-  Break on Unhandled Errors. Break in Class Module implements the measured direct class-to-standard-module/form
-  caller shapes; Break on All Errors overrides standard-module handlers. Other shapes keep today's behaviour pending
-  measurement. Changing the default to VB6's is tracked separately in #5303.
+  - **The default decision was superseded by #5303** after #1070 added the choice.
+- **Status:** the default is Break in Class Module, matching VB6 for the measured direct class-to-standard-module/form
+  caller shapes. Unmeasured shapes still keep the caller's handler under the default, pending measurement.
+  Break on All Errors overrides standard-module handlers; Break on Unhandled Errors and made programs keep caller handling.
 - **Numbered D24 when the decision was recorded** on #1011's branch, and renumbered when merging main brought in main's
   D24, the header-line breakpoint, which came first.
 
