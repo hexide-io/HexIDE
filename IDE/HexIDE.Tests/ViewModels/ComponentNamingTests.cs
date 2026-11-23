@@ -40,7 +40,7 @@ public class ComponentNamingTests
     [Theory]
     [InlineData(null, "Str.Naming.Msg.EmptyName")]
     [InlineData("", "Str.Naming.Msg.EmptyName")]
-    [InlineData("Command2", "Str.Naming.Msg.NameNotUniqueInForm")]
+    [InlineData("Command2", "Str.Naming.Msg.CreateControlArray")]
     public void Rename_refusals_use_the_active_localization(string? proposed, string key)
     {
         var (_, form, _, command1, _) = Form();
@@ -58,11 +58,24 @@ public class ComponentNamingTests
     }
 
     [Fact]
-    public void A_control_may_not_take_a_siblings_name_or_none()
+    public void A_control_requires_confirmation_to_take_a_siblings_name()
     {
         var (_, form, _, command1, _) = Form();
-        Refusal(command1, "Command2", form).Should().Be("Name must be unique in form");
+        _loc.GetString("Str.Naming.Msg.CreateControlArray").Returns("Create array for {0}?");
+        Refusal(command1, "Command2", form).Should().Be("Create array for Command2?");
         Refusal(command1, "", form).Should().Be("Name can't be empty");
+    }
+
+    [Theory]
+    [InlineData(false, "x")]
+    [InlineData(true, "x")]
+    [InlineData(false, "")]
+    [InlineData(true, "")]
+    public void A_malformed_Index_is_not_an_absent_Index(bool onTarget, string index)
+    {
+        var (_, form, _, command1, command2) = Form();
+        (onTarget ? command1 : command2).UnknownRawProperties.Add(new("Index", ["Index = " + index]));
+        Refusal(command1, "Command2", form).Should().Be("Name must be unique in form");
     }
 
     [Fact]

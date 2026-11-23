@@ -74,8 +74,12 @@ internal sealed class RuntimeScale
     private static double ClientTwips(Control control, bool vertical) => (control switch
     {
         Window window => ControlPositions.ClientPixels(window, vertical),
-        VBPictureBox box => vertical ? box.Height - box.ClientInset.Top - box.ClientInset.Bottom
-            : box.Width - box.ClientInset.Left - box.ClientInset.Right,
+        // #5162: whole twips (half to even), then whole pixels, then the measured border.
+        VBPictureBox box => Math.Round(Math.Round((vertical ? box.Height : box.Width)
+                * VBScaleModeExtensions.PixelToTwips, MidpointRounding.ToEven)
+            / VBScaleModeExtensions.PixelToTwips) - (vertical
+                ? box.ClientInset.Top + box.ClientInset.Bottom
+                : box.ClientInset.Left + box.ClientInset.Right),
         VBUserControl userControl => vertical ? userControl.Height : userControl.Width,
         _ => 0,
     }) * VBScaleModeExtensions.PixelToTwips;

@@ -36,7 +36,8 @@ public partial class FindReplaceViewModelTests
         localization.GetString("Str.FindReplace.Msg.ReplacementsMade").Returns("{0} replacement(s) made.");
         localization.GetString("Str.FindReplace.Msg.ReadOnlyTextOnly").Returns("Protected only: {0}");
         localization.GetString("Str.FindReplace.Msg.ReplacementsSkippingReadOnlyText").Returns("{0} replaced; {1} skipped.");
-        localization.GetString("Str.FindReplace.Msg.InvalidRegex").Returns("Invalid regular expression pattern.");
+        localization.GetString("Str.FindReplace.Msg.InvalidPattern").Returns("Invalid pattern string");
+        localization.GetString("Str.FindReplace.Msg.UnmatchedBrackets").Returns("Unmatched brackets in search string");
         localization.GetString("Str.FindReplace.Msg.NothingToSearch")
             .Returns("There is nothing here for Find to search.");
         _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo,
@@ -162,14 +163,14 @@ public partial class FindReplaceViewModelTests
     // Measured in VB6 IDE SP6: #704 and docs/vb6-fidelity-oracle/find-next-where-the-next-search-starts.md.
     // The "aaa"/"aa" row is not VB6's second answer: no match starts at or past offset 2, so VB6 asks before
     // wrapping a module search and stops a project search where it began (#5307). HexIDE wraps back to offset 0
-    // without either, and the row pins only that the second search never finds the overlapping match at offset 1. VB6's pattern rows used its own syntax, "a?"; HexIDE's
-    // pattern matching is a regular expression (#5312), so "a." stands in for it.
+    // without either, and the row pins only that the second search never finds the overlapping match at offset 1.
+    // Pattern matching uses VB6's wildcard syntax (#5312).
     [AvaloniaTheory]
     [InlineData("abab", "ab", false, 2)]
     [InlineData("aaaa", "aa", false, 2)]
     [InlineData("aaa", "aa", false, 0)]
     [InlineData("aaa", "a", true, 1)]
-    [InlineData("aaaa", "a.", true, 2)]
+    [InlineData("aaaa", "a?", true, 2)]
     public void FindNext_DownResumesAtSelectedMatchEnd(string text, string search, bool pattern, int expected)
     {
         var editor = CreateMockEditor(text);
@@ -452,7 +453,7 @@ public partial class FindReplaceViewModelTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ReplaceAll_SkippedCountHonoursCaseAndWholeWord(bool pattern)
+    public void ReplaceAll_SkippedCountHonoursWholeWordAndIgnoresCaseForWildcards(bool pattern)
     {
         var editor = CreateMockEditor("Attribute VB_Name = \"needle Needle needles\"\r\n" +
             "Private Sub Total()\r\nEnd Sub\r\n");
@@ -465,7 +466,7 @@ public partial class FindReplaceViewModelTests
 
         sut.ReplaceAllCommand.Execute(null);
 
-        _windowManager.Received(1).MessageBox("0 replaced; 1 skipped.", "Replace",
+        _windowManager.Received(1).MessageBox(pattern ? "0 replaced; 2 skipped." : "0 replaced; 1 skipped.", "Replace",
             MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
@@ -744,11 +745,10 @@ public partial class FindReplaceViewModelTests
     [AvaloniaTheory]
     [InlineData(FindDirection.Down, 0)]
     [InlineData(FindDirection.Up, -1)]
-    public void APatternMatchStraddlingTheHeadersEnd_DoesNotHideTheMatchInsideTheCode(FindDirection direction, int caret)
+    public void APatternMatchStaysOnTheCodeLineAfterTheHeader(FindDirection direction, int caret)
     {
-        // \s* first matches from the header's last line break, which overlaps the header and is refused.
-        // Resuming after that match, as NextMatch and Matches do, would skip "Private Sub" inside it.
-        var sut = SearchingTheFormFor(@"\s*Private Sub", caret < 0 ? FormWithCommand1.Length : caret, direction,
+        // Wildcards cannot cross the header's last line break (#5312).
+        var sut = SearchingTheFormFor("*Private Sub", caret < 0 ? FormWithCommand1.Length : caret, direction,
             pattern: true);
 
         sut.FindNextCommand.Execute(null);
@@ -771,7 +771,7 @@ public partial class FindReplaceViewModelTests
     }
 
     [AvaloniaFact]
-    public void ReplaceAll_WithAPatternStraddlingAnAttributeRunsEnd_ReplacesTheMatchAfterIt()
+    public void ReplaceAll_WithAPatternAfterAnAttributeRun_StaysOnTheCodeLine()
     {
         const string cls =
             "Attribute VB_Name = \"Order\"\r\n" +
@@ -782,15 +782,14 @@ public partial class FindReplaceViewModelTests
         var editor = CreateMockEditor(cls);
         SetActiveEditor(editor);
         var sut = CreateSut();
-        sut.SearchText = @"\s+Total = 0";
+        sut.SearchText = "*Total = 0";
         sut.ReplaceText = "    Total = 1";
         sut.UsePatternMatching = true;
 
         sut.ReplaceAllCommand.Execute(null);
 
         editor.Document.Text.Should().Be(cls.Replace("    Total = 0", "    Total = 1"),
-            "the first match begins on the attribute line's terminator and is refused; the one a character "
-            + "later begins on the code line");
+            "a VB6 wildcard cannot cross the attribute line's terminator, so the match stays on the code line");
     }
 
     /// <summary>A procedure with a description: the attribute run hangs from the declaration's line break.</summary>
@@ -864,24 +863,24 @@ public partial class FindReplaceViewModelTests
         var editor = CreateMockEditor(DescribedFunction);
         SetActiveEditor(editor);
         var sut = CreateSut();
-        sut.SearchText = @"Currency\s+";
-        sut.ReplaceText = "Long ";
+        sut.SearchText = "Currency*";
+        sut.ReplaceText = "Long";
         sut.UsePatternMatching = true;
 
         sut.ReplaceAllCommand.Execute(null);
 
-        editor.Document.Text.Should().Be(DescribedFunction);
+        editor.Document.Text.Should().Be(DescribedFunction.Replace("As Currency", "As Long"));
     }
 
     [AvaloniaFact]
     public void FindNext_WithPatternMatchingAndWholeWord_FindsAWholeWordInsideARefusedMatch()
     {
-        // "Total.*" first matches "total = Total + 1" inside "Subtotal", which is not a whole word. The
+        // "Total*" first matches "total = Total + 1" inside "Subtotal", which is not a whole word. The
         // whole-word match overlaps it and starts later.
         var editor = CreateMockEditor("Subtotal = Total + 1");
         SetActiveEditor(editor);
         var sut = CreateSut();
-        sut.SearchText = "Total.*";
+        sut.SearchText = "Total*";
         sut.UsePatternMatching = true;
         sut.WholeWordOnly = true;
 
@@ -909,21 +908,160 @@ public partial class FindReplaceViewModelTests
         editor.SelectionStart.Should().Be("Dim Totals\r\n".Length);
     }
 
-    // --- Pattern matching (regex) ---
+    // --- Pattern matching (VB6 wildcards) ---
 
     [AvaloniaFact]
-    public void FindNext_WithPatternMatching_UsesRegex()
+    public void FindNext_WithPatternMatching_UsesVb6Wildcards()
     {
         var editor = CreateMockEditor("Dim x As Integer");
         SetActiveEditor(editor);
         var sut = CreateSut();
-        sut.SearchText = @"Dim \w+";
+        sut.SearchText = "Dim ?";
         sut.UsePatternMatching = true;
 
         sut.FindNextCommand.Execute(null);
 
         editor.SelectionStart.Should().Be(0);
         editor.SelectionLength.Should().Be(5); // "Dim x"
+    }
+
+    // VB6 SP6 IDE measurements: https://github.com/hexide-io/HexIDE/issues/5312 (2026-11-23).
+    [AvaloniaTheory]
+    [InlineData("zq?", "s = \"zqxzq1\"", "zqx")]
+    [InlineData("zt#", "s = \"ztxzt5\"", "zt5")]
+    [InlineData("zu[abc]", "s = \"zudzub\"", "zub")]
+    [InlineData("zu[B]", "s = \"zudzub\"", "zub")]
+    [InlineData("zv[a-c]", "s = \"zvdzvb\"", "zvb")]
+    [InlineData("zw[!a]", "s = \"zwazwb\"", "zwb")]
+    [InlineData("zf[0-9]", "s = \"zfzzf9\"", "zf9")]
+    [InlineData("za[?]", "s = \"za1za?\"", "za?")]
+    [InlineData("zj[[]", "s = \"zj[1\"", "zj[")]
+    [InlineData("zq]", "s = \"zqxzq]x\"", "zq]")]
+    [InlineData("zp[-q]", "s = \"zpxzp-\"", "zp-")]
+    [InlineData("zp[x-]", "s = \"zpxzp-\"", "zpx")]
+    [InlineData("zp[q-]", "s = \"zpxzp-\"", "zp-")]
+    [InlineData("zh[a-c-]", "s = \"zhbzh-\"", "zhb")]
+    [InlineData("zh[!a-c]", "s = \"zhbzh-\"", "zh-")]
+    [InlineData("zg[]x", "s = \"zgxzgy\"", "zgx")]
+    [InlineData("zg[!x]", "s = \"zgxzgy\"", "zgy")]
+    [InlineData("zg[!]", "s = \"zgxzg!\"", "zgx")]
+    [InlineData("zx.y", "s = \"zxqyzx.y\"", "zx.y")]
+    [InlineData("zy(1)", "s = \"zy1zy(1)\"", "zy(1)")]
+    [InlineData("zd+e", "s = \"zdezddezd+e\"", "zd+e")]
+    [InlineData("ZZCASE", "s = \"zzcase\"", "zzcase")]
+    [InlineData("zh*1", "s = \"zh1zh21\"", "zh1")]
+    [InlineData("zr*s", "s = \"zr1s22s\"", "zr1s")]
+    [InlineData("zq*x", "s = \"zqxzq1\"", "zqx")]
+    [InlineData("zg*", "s = \"zgab\"", "zgab\"")]
+    [InlineData("zc*", "s = \"zcab\": s = \"x\"", "zcab\": s = \"x\"")]
+    [InlineData("zn?*", "s = \"zn1zn2zn3\"", "zn1zn2zn3\"")]
+    [InlineData("*zqx", "    s = \"zqxzq1\"", "    s = \"zqx")]
+    [InlineData("?zqx", "s = \"zqxzq1\"", "\"zqx")]
+    [InlineData("*", "Option Explicit", "Option Explicit")]
+    [InlineData("zk?", "' zkxzk1", "zkx")]
+    [InlineData("zm?", "Dim zmxzm1 As Long", "zmx")]
+    [InlineData("zbend*zbstart", "s = \"zbend\"\r\ns = \"zbstart\"", null)]
+    [InlineData("zbend\"?", "s = \"zbend\"\r\n", null)]
+    [InlineData("zbend\"[!a]", "s = \"zbend\"\r\n", null)]
+    [InlineData("zbend\"[!]", "s = \"zbend\"\r\n", null)]
+    [InlineData("zbend\"", "s = \"zbend\"\r\n", "zbend\"")]
+    public void FindNext_MeasuredWildcardRow(string pattern, string text, string? expected)
+    {
+        var editor = CreateMockEditor(text);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = pattern;
+        sut.UsePatternMatching = true;
+        sut.MatchCase = true;
+
+        sut.FindNextCommand.Execute(null);
+
+        editor.SelectionStart.Should().Be(expected is null ? 0 : text.IndexOf(expected, StringComparison.Ordinal));
+        editor.SelectionLength.Should().Be(expected?.Length ?? 0);
+        if (expected is null)
+            _windowManager.Received().MessageBox("The search text '" + pattern + "' was not found.", "Find",
+                MessageBoxButtons.Ok, MessageBoxIcon.Information);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("zv[c-a]", "Invalid pattern string")]
+    [InlineData("zq[", "Unmatched brackets in search string")]
+    public void FindNext_MeasuredMalformedWildcard(string pattern, string message)
+    {
+        var editor = CreateMockEditor("s = \"zvqzqx\"");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = pattern;
+        sut.UsePatternMatching = true;
+
+        sut.FindNextCommand.Execute(null);
+
+        editor.SelectionLength.Should().Be(0);
+        // One box and nothing else: the search never ran, so there is no not-found message after it.
+        _windowManager.Received(1).MessageBox(message, "Find", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+        _windowManager.ReceivedWithAnyArgs(1).MessageBox(default!, default, default, default);
+    }
+
+    // Current Project searches the active document a second time, wrapping, after the others. Checked per search, the
+    // malformed pattern was reported once for each pass and then as not found: three boxes for one press.
+    [AvaloniaFact]
+    public void FindNext_MalformedWildcard_InCurrentProject_GivesOneBox()
+    {
+        var editor = CreateMockEditor("s = \"zvqzqx\"");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.Scope = FindScope.CurrentProject;
+        sut.SearchText = "zq[";
+        sut.UsePatternMatching = true;
+
+        sut.FindNextCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox("Unmatched brackets in search string", "Find", MessageBoxButtons.Ok,
+            MessageBoxIcon.Warning);
+        _windowManager.ReceivedWithAnyArgs(1).MessageBox(default!, default, default, default);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("zq?", "R", "zqxzq1", "RR")]
+    [InlineData("zh*1", "R", "zh1zh21", "RR")]
+    [InlineData("zc*", "R", "s = \"zcab\": s = \"x\"", "s = \"R")]
+    [InlineData("zr[0-9]", "$0", "zr1zr2", "$0$0")]
+    [InlineData("zs?", "a?b", "zsx", "a?b")]
+    [InlineData("ZT?", "r", "ztx", "r")]
+    public void ReplaceAll_MeasuredWildcardRow(string pattern, string replacement, string before, string after)
+    {
+        var editor = CreateMockEditor(before);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = pattern;
+        sut.ReplaceText = replacement;
+        sut.UsePatternMatching = true;
+        sut.MatchCase = true;
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        editor.Document.Text.Should().Be(after);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("zq?", "zqx")]
+    [InlineData("zx.y", "zx.y")]
+    [InlineData("ZZCASE", "zzcase")]
+    public void ReplaceOne_MeasuredWildcardSelection(string pattern, string selected)
+    {
+        var editor = CreateMockEditor(selected);
+        SetActiveEditor(editor);
+        editor.SelectionStart = 0;
+        editor.SelectionLength = selected.Length;
+        var sut = CreateSut();
+        sut.SearchText = pattern;
+        sut.ReplaceText = "R";
+        sut.UsePatternMatching = true;
+        sut.MatchCase = true;
+
+        sut.ReplaceOneCommand.Execute(null);
+
+        editor.Document.Text.Should().Be("R");
     }
 
     // --- Scope items ---

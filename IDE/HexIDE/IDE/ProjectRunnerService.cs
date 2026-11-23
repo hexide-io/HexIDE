@@ -97,6 +97,23 @@ public partial class ProjectRunnerService : IProjectRunnerService
     /// <inheritdoc />
     public ErrorLocation? FailureLocation { get; private set; }
 
+    private ErrorTrapping errorTrapping = SettingsDefaults.ErrorTrapping;
+    public ErrorTrapping ErrorTrapping
+    {
+        get => errorTrapping;
+        set
+        {
+            errorTrapping = value;
+            ApplyErrorTrapping();
+        }
+    }
+
+    private void ApplyErrorTrapping()
+    {
+        if (debugController is IDebugGate gate)
+            gate.ErrorTrapping = errorTrapping;
+    }
+
     // Raises a failure event, with where its error was raised readable while the handlers run (#955).
     private void Report(Action<string>? failed, RunFailure failure)
     {
@@ -328,6 +345,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         // statement can already be a break.
         debugController.Reset();
         ApplyBreakpoints(project);
+        ApplyErrorTrapping();
         ApplyWatchBreaks();   // push Break-When-True/Changed watches so the run can break on them from line 1
         if (runTo is { } rt)   // an idle Run-To-Cursor: arm the target now that Reset has cleared it
             debugController.RunToCursor(rt.Document.Name, rt.Line);

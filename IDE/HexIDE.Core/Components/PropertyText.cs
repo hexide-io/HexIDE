@@ -178,7 +178,7 @@ public static partial class PropertyText
     /// <remarks>
     /// <para>The review of #923 found three ways the window's rows alone would mislead a caller:</para>
     /// <list type="bullet">
-    /// <item>A value the file holds and HexIDE could not read, such as a palette colour (#786), is kept as the file's
+    /// <item>A value the file holds and HexIDE could not read, such as an invalid system colour, is kept as the file's
     /// own line and the window shows the default. The row gives the file's text, not settable, since setting it would
     /// replace the line the save otherwise keeps.</item>
     /// <item>A property HexIDE does not model, such as a TextBox's MultiLine, is in no row

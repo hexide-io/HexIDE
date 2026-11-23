@@ -170,8 +170,7 @@ public sealed class VBFlatScrollBar : Control, ICSharpPropertyBag
     {
         value = name.ToLowerInvariant() switch
         {
-            "value" => new Vb6Value(current),
-            "_value" => current == 0 ? new Vb6Value(0) : throw Unimplemented("_Value after Value changes"),
+            "value" or "_value" or "[_value]" => new Vb6Value(current),
             "min" => new Vb6Value(min), "max" => new Vb6Value(max),
             "smallchange" => new Vb6Value(smallChange), "largechange" => new Vb6Value(largeChange),
             "orientation" => new Vb6Value((long)orientation), "appearance" => new Vb6Value((long)appearance),
@@ -181,7 +180,7 @@ public sealed class VBFlatScrollBar : Control, ICSharpPropertyBag
             "tabstop" or "causesvalidation" => throw Missing(name),
             _ => default,
         };
-        return name.ToLowerInvariant() is "value" or "_value" or "min" or "max" or "smallchange" or "largechange"
+        return name.ToLowerInvariant() is "value" or "_value" or "[_value]" or "min" or "max" or "smallchange" or "largechange"
             or "orientation" or "appearance" or "arrows" or "mousepointer" or "enabled";
     }
 
@@ -190,7 +189,9 @@ public sealed class VBFlatScrollBar : Control, ICSharpPropertyBag
         switch (name.ToLowerInvariant())
         {
             case "value":
-                var number = Integer(value, conversion: true);
+            case "_value":
+            case "[_value]":
+                var number = Integer(value);
                 if (number < Math.Min(min, max) || number > Math.Max(min, max)) throw Invalid();
                 if (current != number)
                 {
@@ -214,18 +215,16 @@ public sealed class VBFlatScrollBar : Control, ICSharpPropertyBag
             case "arrows": arrows = Enum(value, 2); break;
             case "mousepointer":
                 var pointer = Integral(value);
-                if (pointer == -1) throw Invalid();
-                if (pointer is < 0 or > 3) throw Unimplemented("MousePointer outside the measured range 0–3");
+                if (pointer is not (>= 0 and <= 15 or 99)) throw Invalid();
                 mousePointer = pointer;
+                Cursor = ((VBCursorType)pointer).ToCursor();
                 break;
             case "enabled":
-                if (value.Type != Vb6Value.ValueType.Boolean && value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long)
-                    throw Unimplemented("Enabled conversion");
-                IsEnabled = Convert.ToInt64(value.Value) != 0;
+                IsEnabled = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
                 break;
             case "hwnd": throw new VBRunTimeException(new VBStandardError(383, "Set not supported (read-only property)"));
             case "tabstop" or "causesvalidation": throw Missing(name);
-            case "_value" or "mouseicon": throw Unimplemented(name);
+            case "mouseicon": throw Unimplemented(name);
             default: return false;
         }
         InvalidateVisual();
@@ -245,12 +244,7 @@ public sealed class VBFlatScrollBar : Control, ICSharpPropertyBag
                 else arrows = low <= 2 ? low : throw Invalid();
             }
             else if (name == "mousepointer")
-            {
-                // The saved probe reads 11; runtime assignments beyond 0–3 remain unmeasured.
-                var pointer = Convert.ToInt64(value.Value);
-                if (pointer is not (0 or 1 or 2 or 3 or 11)) throw Unimplemented("saved MousePointer");
-                mousePointer = pointer;
-            }
+                TrySetProperty(name, new Vb6Value(Convert.ToInt64(value.Value)));
             else if (name is "min" or "max" or "smallchange" or "largechange" or "value" or "enabled")
                 TrySetProperty(name, new Vb6Value(Convert.ToInt32(value.Value)));
             else if (name is not ("left" or "top" or "width" or "height" or "tabindex" or "visible" or "tag" or "tooltiptext"))
@@ -267,14 +261,8 @@ public sealed class VBFlatScrollBar : Control, ICSharpPropertyBag
     }
 
     private void Clamp() => current = Math.Clamp(current, Math.Min(min, max), Math.Max(min, max));
-    private static int Integer(Vb6Value value, bool conversion = false)
-    {
-        if (!conversion && (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long))
-            throw Unimplemented("numeric conversion");
-        if (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long && value.Type != Vb6Value.ValueType.Single
-            && value.Type != Vb6Value.ValueType.Double && value.Type != Vb6Value.ValueType.String) throw Unimplemented("numeric conversion");
-        return Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value);
-    }
+    private static int Integer(Vb6Value value) =>
+        Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value);
     private static int Positive(Vb6Value value)
     {
         var number = Integer(value);

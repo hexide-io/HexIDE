@@ -93,7 +93,7 @@ public sealed class ArchiveProjectService
             projects[path] = replacement;
             foreach (var tab in Tabs(replacement.ContainerPath))
                 if (replacement.TryGetEntry(tab.Entry.Identity, out var entry))
-                    tab.Update(entry, replacement.BuildType);
+                    tab.Update(entry, replacement.BuildType, replacement.LanguageOf(entry));
                 else dock.CloseDocument(tab);
             dock.RecentlyClosed?.RefreshArchive(replacement);
             Publish();
@@ -126,9 +126,10 @@ public sealed class ArchiveProjectService
         try
         {
             // Selection can outlive a closed tree node while waiting for another operation.
-            if (!Projects.Any(p => p.CanSynchronizeFolder && ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, path))) return;
-            var engine = new ArchiveSourceFolder { ChosenRoot = folderChoices.GetValueOrDefault(path) };
-            ArchiveFolderResult result;
+            var format = Projects.FirstOrDefault(p => ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, path))?.FolderFormat();
+            if (format == null) return;
+            var engine = new CompoundSourceFolder(format) { ChosenRoot = folderChoices.GetValueOrDefault(path) };
+            CompoundFolderResult result;
             try { result = await Task.Run(() => engine.Synchronize(path)); }
             catch (ProjectLocalStateConflict conflict)
             {
@@ -170,7 +171,7 @@ public sealed class ArchiveProjectService
         }
         if (current.Archive == null && !current.IsDocument) return;
         if (!dock.TryActivate<ArchiveDocumentViewModel>(vm => vm.Entry.Identity.Equals(current.Identity)))
-            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, conditionalCode, project.BuildType, project.SupportsLanguageServers ? lspClient?.Invoke() : null));
+            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, conditionalCode, project.BuildType, project.SupportsLanguageServers ? lspClient?.Invoke() : null, project.LanguageOf(current)));
     }
 
     private ArchiveDocumentViewModel[] Tabs(string? path) => dock.OpenDocuments

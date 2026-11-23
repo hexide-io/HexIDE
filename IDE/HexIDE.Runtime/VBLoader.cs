@@ -268,9 +268,12 @@ public class VBLoader
         foreach (var toolbar in placed.Values.OfType<VBToolbar>())
         {
             if (toolbar.SavedImageListName is not { } name) continue;
-            var matches = placed.Values.Where(c => VBProps.GetName(c) == name).ToArray();
-            if (matches.Length != 1 || matches[0] is not VBImageList images)
-                throw ToolbarItems.Unmeasured();
+            var matches = placed.Values.Where(c => string.Equals(VBProps.GetName(c), name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length != 1 || matches[0] is not VBImageList images || VBProps.GetIndex(images) is not null)
+            {
+                toolbar.UnresolvedSavedImageList = true;
+                continue;
+            }
             toolbar.TrySetProperty("ImageList", new Vb6Value((Control)images));
         }
 
@@ -892,6 +895,25 @@ public class VBLoader
     // The ScaleMode a container's .frm block declares, from the line HexIDE preserves for it: `ScaleMode = 3  'Pixel`.
     internal static VBScaleMode? DeclaredScaleMode(ComponentInstance component) =>
         RawNumber(component, "ScaleMode") is { } mode && Enum.IsDefined(typeof(VBScaleMode), mode) ? (VBScaleMode)mode : null;
+
+    /// <summary>The designer caption's image, generic-window stand-in, and visibility (#2716).</summary>
+    public static (byte[]? Image, bool UseFormGlyph, bool Visible) ReadDesignerCaptionIcon(ComponentInstance form)
+    {
+        var icon = AvaloniaInterop.FormIcon.Read(form);
+        var image = icon.Image;
+        if (icon.Kind == AvaloniaInterop.FormIconKind.Default)
+        {
+            using var source = Avalonia.Platform.AssetLoader.Open(new Uri("avares://HexIDE.Runtime/form.ico"));
+            using var bytes = new MemoryStream();
+            source.CopyTo(bytes);
+            image = bytes.ToArray();
+        }
+        var borderStyle = form.TryGetProperty(VBProperties.FormBorderStyleProperty, out var style)
+            ? (int)style
+            : RawNumber(form, "BorderStyle") ?? (int)form.GetPropertyOrDefault(VBProperties.FormBorderStyleProperty);
+        return (image, icon.Kind == AvaloniaInterop.FormIconKind.None,
+            borderStyle is not (4 or 5) && RawNumber(form, "ControlBox") != 0);
+    }
 
     // The number on a property line HexIDE preserves without modelling it, as a Double, sign and fraction included:
     // `ScaleTop = -12.5`. Null when the component has no such line, or its value is not a number.

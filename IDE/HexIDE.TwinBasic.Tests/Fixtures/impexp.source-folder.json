@@ -1,0 +1,236 @@
+{
+  "Format": 1,
+  "ContainerVersion": 1,
+  "ContainerHash": "f9b9c3241b2534f90b60e9b4f4596a4dab0acac83e59a0ec443829cde625fac5",
+  "Entries": [
+    {
+      "Path": [],
+      "Name": "impexp",
+      "Directory": true,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 0,
+      "Length": 0,
+      "Hash": null,
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "ImportedTypeLibraries"
+      ],
+      "Name": "ImportedTypeLibraries",
+      "Directory": true,
+      "Category": 5,
+      "Flags": 0,
+      "Revision": 0,
+      "Length": 0,
+      "Hash": null,
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Miscellaneous"
+      ],
+      "Name": "Miscellaneous",
+      "Directory": true,
+      "Category": 6,
+      "Flags": 0,
+      "Revision": 0,
+      "Length": 0,
+      "Hash": null,
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Packages"
+      ],
+      "Name": "Packages",
+      "Directory": true,
+      "Category": 7,
+      "Flags": 0,
+      "Revision": 0,
+      "Length": 0,
+      "Hash": null,
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Resources"
+      ],
+      "Name": "Resources",
+      "Directory": true,
+      "Category": 2,
+      "Flags": 0,
+      "Revision": 0,
+      "Length": 0,
+      "Hash": null,
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources"
+      ],
+      "Name": "Sources",
+      "Directory": true,
+      "Category": 3,
+      "Flags": 0,
+      "Revision": 0,
+      "Length": 0,
+      "Hash": null,
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "ByteBuilder.twin"
+      ],
+      "Name": "ByteBuilder.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 1789,
+      "Hash": "a28fa178c6f516815904074447ab0b847232f1891c982812fe8d28d482a1eb07",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "Entry.twin"
+      ],
+      "Name": "Entry.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 2331,
+      "Hash": "efc5e2323e8bfc19ac43a07f02320a63d57f67ea0b9ea5e12bd8a871c3b29c18",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "FileSys.twin"
+      ],
+      "Name": "FileSys.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 16736,
+      "Hash": "c05c4dba9b75bb9ee8415fc4e89ac18346a4011a31275f0639cdc2d2dfc944e7",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "Impexp.twin"
+      ],
+      "Name": "Impexp.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 19736,
+      "Hash": "13070d01e0f0f2f8d825bf3c64f745badcd4c77e51c9c0d74dc66f35ebd843b1",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "Json.twin"
+      ],
+      "Name": "Json.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 8205,
+      "Hash": "1369afdd8c01674db160939fb6da0104f59abc84531040c3a0aeac7557d1a8a6",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "MainModule.twin"
+      ],
+      "Name": "MainModule.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 13199,
+      "Hash": "154e7e12e83bde79e6e6f1bb918ce77e5465c2fd5182c63d2e2daa0699db2df0",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "Outcome.twin"
+      ],
+      "Name": "Outcome.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 743,
+      "Hash": "f7446a2648993ebcc6406442d393f26fd4f604cebf143ea7a252a30f0b3de06d",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "ProjectFormat.twin"
+      ],
+      "Name": "ProjectFormat.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 7231,
+      "Hash": "9f9340f89415f39b78a93e51f099886ec8fe8e5e948c99e1fab60de28e5cb90c",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "SelfTest.twin"
+      ],
+      "Name": "SelfTest.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 32625,
+      "Hash": "a4a6e2500d3002739522c7b94252952cfa1cfbe903d3f6526f0c6e0bcb24324b",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Sources",
+        "TextKit.twin"
+      ],
+      "Name": "TextKit.twin",
+      "Directory": false,
+      "Category": 0,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 5319,
+      "Hash": "43a86da5845beef15f860e9081ddab225431d8b7753b0f97c83017a1f079d972",
+      "Revisions": []
+    },
+    {
+      "Path": [
+        "Settings"
+      ],
+      "Name": "Settings",
+      "Directory": false,
+      "Category": 4,
+      "Flags": 0,
+      "Revision": 2,
+      "Length": 1846,
+      "Hash": "3242c8c2ca9a312a368650928031555848825e5fb2519fadcfe8f1349aae0787",
+      "Revisions": []
+    }
+  ]
+}
