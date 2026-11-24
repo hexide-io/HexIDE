@@ -1,16 +1,14 @@
-using System.IO;
-using System.Text.Json;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Tests.Localization;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Tests.ViewModels;
 
 /// <summary>
-/// Dialog chrome set from C# rather than AXAML (#3384), which <see cref="LocalizationCoverageTests"/> cannot see:
-/// that test reads AXAML keys only, so a <c>GetString</c> key missing from the canonical pack would render raw.
+/// Dialog chrome set from C# rather than AXAML (#3384), including template names resolved through the canonical union.
 /// </summary>
 public class DialogChromeLocalizationTests
 {
@@ -121,14 +119,5 @@ public class DialogChromeLocalizationTests
         CanonicalStrings().Should().ContainKey(key);
     }
 
-    private static Dictionary<string, string> CanonicalStrings()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var en = Path.Combine(dir.FullName, "IDE", "HexIDE", "Localization", "Packs", "en.json");
-            if (File.Exists(en))
-                return JsonSerializer.Deserialize(File.ReadAllText(en), LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
-        }
-        throw new DirectoryNotFoundException("Could not locate the canonical language pack");
-    }
+    private static Dictionary<string, string> CanonicalStrings() => InTreeLanguagePacks.Merged("en");
 }

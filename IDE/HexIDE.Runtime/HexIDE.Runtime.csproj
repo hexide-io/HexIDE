@@ -66,6 +66,8 @@
     <ItemGroup>
         <None Remove="form.ico" />
         <AvaloniaResource Include="form.ico" />
+        <None Remove="Localization\Packs\*.json" />
+        <AvaloniaResource Include="Localization\Packs\*.json" />
     </ItemGroup>
 
     <ItemGroup>

@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using HexIDE.Localization;
+using HexIDE.Tests.Localization;
 using HexIDE.Runtime.Components;
 
 namespace HexIDE.Tests;
@@ -54,13 +55,12 @@ public class LocalizationCoverageTests
     public void EveryAxamlStrKey_ExistsInEnglishPack()
     {
         var hexIdeDir = FindHexIdeProjectDir();
-        var enKeys = LoadEnglishKeys(Path.Combine(hexIdeDir, "Localization", "Packs", "en.json"));
+        var enKeys = InTreeLanguagePacks.Merged("en").Keys.ToHashSet();
 
         var pattern = new Regex(@"\{DynamicResource\s+(Str\.[A-Za-z0-9_.]+)\}", RegexOptions.Compiled);
         var missing = new SortedSet<string>();
 
-        foreach (var file in Directory.EnumerateFiles(hexIdeDir, "*.axaml", SearchOption.AllDirectories)
-                     .Concat(Directory.EnumerateFiles(Path.Combine(hexIdeDir, "..", "HexIDE.AIChat"), "*.axaml", SearchOption.AllDirectories)))
+        foreach (var file in ProductionSources("*.axaml"))
         {
             foreach (Match m in pattern.Matches(File.ReadAllText(file)))
             {
@@ -77,11 +77,9 @@ public class LocalizationCoverageTests
     public void EveryCSharpGetStringLiteralKey_ExistsInEnglishPack()
     {
         var hexIdeDir = FindHexIdeProjectDir();
-        var enKeys = LoadEnglishKeys(Path.Combine(hexIdeDir, "Localization", "Packs", "en.json"));
+        var enKeys = InTreeLanguagePacks.Merged("en").Keys.ToHashSet();
         var missing = new SortedSet<string>();
-        foreach (var file in Directory.EnumerateFiles(hexIdeDir, "*.cs", SearchOption.AllDirectories)
-                     .Where(path => !Path.GetRelativePath(hexIdeDir, path).Split(Path.DirectorySeparatorChar)
-                         .Any(part => part is "bin" or "obj")))
+        foreach (var file in ProductionSources("*.cs"))
         {
             foreach (var key in CSharpGetStringLiteralKeys(File.ReadAllText(file)))
                 if (!enKeys.Contains(key))
@@ -149,7 +147,7 @@ public class LocalizationCoverageTests
         // have one (else GetPropertyDescription returns null and the grid silently falls back).
         _ = VBProperties.NameProperty; // force static init -> populate PropertiesByName
 
-        var loc = new LocalizationService();
+        var loc = InTreeLanguagePacks.Service();
         loc.Apply("en");
 
         // PropertyCategory.Internal properties never appear in the property grid — Menu.SubItems is the
@@ -169,18 +167,27 @@ public class LocalizationCoverageTests
     {
         // A region/language pack must only override keys that exist in the canonical en pack —
         // an orphan key would never be reachable and signals a typo or a stale key.
-        var packsDir = Path.Combine(FindHexIdeProjectDir(), "Localization", "Packs");
-        var canonical = LoadEnglishKeys(Path.Combine(packsDir, "en.json"));
-
-        foreach (var file in Directory.EnumerateFiles(packsDir, "*.json"))
+        foreach (var packsDir in InTreeLanguagePacks.Areas)
         {
-            if (Path.GetFileName(file).Equals("en.json", StringComparison.OrdinalIgnoreCase))
-                continue;
+            var canonical = LoadEnglishKeys(Path.Combine(packsDir, "en.json"));
 
-            var orphans = LoadEnglishKeys(file).Except(canonical).ToList();
-            orphans.Should().BeEmpty($"{Path.GetFileName(file)} must only override keys present in en.json");
+            foreach (var file in Directory.EnumerateFiles(packsDir, "*.json"))
+            {
+                if (Path.GetFileName(file).Equals("en.json", StringComparison.OrdinalIgnoreCase) || Path.GetFileName(file).StartsWith("zz", StringComparison.Ordinal))
+                    continue;
+
+                var orphans = LoadEnglishKeys(file).Except(canonical).ToList();
+                orphans.Should().BeEmpty($"{Path.GetFileName(file)} must only override keys present in en.json");
+            }
         }
     }
+
+    private static IEnumerable<string> ProductionSources(string pattern) =>
+        Directory.EnumerateDirectories(InTreeLanguagePacks.IdeDirectory)
+            .Where(dir => !Path.GetFileName(dir).Contains("Tests", StringComparison.Ordinal)
+                          && !Path.GetFileName(dir).Contains("TestAddin", StringComparison.Ordinal))
+            .SelectMany(dir => Directory.EnumerateFiles(dir, pattern, SearchOption.AllDirectories))
+            .Where(file => !file.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"));
 
     private static HashSet<string> LoadEnglishKeys(string enJsonPath)
     {

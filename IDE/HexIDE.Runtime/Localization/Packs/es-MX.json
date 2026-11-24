@@ -1,0 +1,8 @@
+{
+  "name": "Spanish (Mexico)",
+  "direction": "ltr",
+  "strings": {
+    "Str.PropDesc.MousePointer": "La forma del puntero mostrada cuando el mouse está sobre el objeto.",
+    "Str.PropDesc.MouseIcon": "Una imagen personalizada usada para el puntero del mouse."
+  }
+}

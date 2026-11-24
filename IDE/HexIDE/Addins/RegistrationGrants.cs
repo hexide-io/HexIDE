@@ -69,7 +69,7 @@ internal static class RegistrationGrants
             LanguagePackKeys =
             [
                 "Str.PropDesc.*", "Str.ProjectType.*", "Str.ProjectLoad.*", "Str.MakeProject.*", "Str.Vb6Toolchain.*",
-                "Str.ProjectRunner.NotImplementedYet",
+                "Str.ProjectRunner.NotImplementedYet", "Str.Standalone.WaylandUnavailableEnvironment",
             ],
         },
     ];
