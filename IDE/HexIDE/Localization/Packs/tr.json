@@ -1145,6 +1145,7 @@
     "Str.Addins.DebugLaunchRefused": "'{0}' eklentisinin hata ayıklama bağdaştırıcısının başlatılması reddedildi.",
     "Str.Addins.Incompatible": "Eklenti yüklenemiyor: gerekli şema {0}, en düşük HexIDE {1}; bu derleme şema {2}, HexIDE {3} destekler. Şema veya sürüm gereksinimi desteklenmiyor ya da geçersiz.",
     "Str.Addins.DuplicateId": "Eklenti yüklenemiyor: '{0}' kimliği zaten '{1}' paket klasörü tarafından kullanılıyor.",
+    "Str.Addins.ReservedId": "Eklenti yüklenemiyor: '{0}' kimliği HexIDE'nin kendi eklentileri için ayrılmıştır.",
     "Str.Addins.ChangedAfterVerification": "Eklenti yüklenemiyor: paket doğrulandıktan sonra diskte değiştirildi.",
     "Str.ScrollBar.LineUp": "Bir satır yukarı",
     "Str.ScrollBar.PageUp": "Bir sayfa yukarı",

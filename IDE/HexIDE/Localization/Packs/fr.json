@@ -1183,6 +1183,7 @@
     "Str.Addins.DebugLaunchRefused": "Le démarrage de l’adaptateur de débogage du complément « {0} » a été refusé.",
     "Str.Addins.Incompatible": "Impossible de charger le complément : schéma requis {0}, HexIDE minimum {1} ; cette compilation prend en charge le schéma {2}, HexIDE {3}. Le schéma ou la version exigés ne sont pas pris en charge ou sont invalides.",
     "Str.Addins.DuplicateId": "Impossible de charger le complément : l’identifiant « {0} » est déjà utilisé par le dossier de paquet « {1} ».",
+    "Str.Addins.ReservedId": "Impossible de charger le complément : l’identifiant « {0} » est réservé aux compléments propres à HexIDE.",
     "Str.Addins.ChangedAfterVerification": "Impossible de charger le complément : le paquet a été modifié sur le disque après sa vérification.",
     "Str.ScrollBar.LineUp": "Ligne vers le haut",
     "Str.ScrollBar.PageUp": "Page vers le haut",

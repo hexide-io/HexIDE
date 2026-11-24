@@ -1195,6 +1195,7 @@
     "Str.Addins.DebugLaunchRefused": "Debug adapter launch refused for add-in '{0}'.",
     "Str.Addins.Incompatible": "Cannot load add-in: required schema {0}, minimum HexIDE {1}; this build supports schema {2}, HexIDE {3}. The schema or version requirement is unsupported or invalid.",
     "Str.Addins.DuplicateId": "Cannot load add-in: id '{0}' is already held by package folder '{1}'.",
+    "Str.Addins.ReservedId": "Cannot load add-in: id '{0}' is reserved for HexIDE's own add-ins.",
     "Str.Addins.ChangedAfterVerification": "Cannot load add-in: the package changed on disk after it was verified.",
     "Str.ScrollBar.LineUp": "Line up",
     "Str.ScrollBar.PageUp": "Page up",

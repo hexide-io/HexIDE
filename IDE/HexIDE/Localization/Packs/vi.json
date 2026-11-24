@@ -1145,6 +1145,7 @@
     "Str.Addins.DebugLaunchRefused": "Đã từ chối khởi chạy bộ điều hợp gỡ lỗi cho phần bổ trợ '{0}'.",
     "Str.Addins.Incompatible": "Không thể tải phần bổ trợ: lược đồ yêu cầu {0}, HexIDE tối thiểu {1}; bản dựng này hỗ trợ lược đồ {2}, HexIDE {3}. Yêu cầu lược đồ hoặc phiên bản không được hỗ trợ hoặc không hợp lệ.",
     "Str.Addins.DuplicateId": "Không thể tải phần bổ trợ: ID '{0}' đã được thư mục gói '{1}' sử dụng.",
+    "Str.Addins.ReservedId": "Không thể tải phần bổ trợ: ID '{0}' được dành riêng cho các phần bổ trợ của chính HexIDE.",
     "Str.Addins.ChangedAfterVerification": "Không thể tải phần bổ trợ: gói trên đĩa đã thay đổi sau khi được xác minh.",
     "Str.ScrollBar.LineUp": "Lên một dòng",
     "Str.ScrollBar.PageUp": "Lên một trang",

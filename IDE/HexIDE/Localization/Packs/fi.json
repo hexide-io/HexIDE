@@ -1150,6 +1150,7 @@
     "Str.Addins.DebugLaunchRefused": "Lisäosan ”{0}” virheenkorjaussovittimen käynnistys estettiin.",
     "Str.Addins.Incompatible": "Lisäosaa ei voi ladata: vaadittu skeema {0}, vähintään HexIDE {1}; tämä koonti tukee skeemaa {2}, HexIDE {3}. Skeema- tai versiovaatimusta ei tueta tai se on virheellinen.",
     "Str.Addins.DuplicateId": "Apuohjelmaa ei voi ladata: tunnus ”{0}” on jo pakettikansion ”{1}” käytössä.",
+    "Str.Addins.ReservedId": "Apuohjelmaa ei voi ladata: tunnus ”{0}” on varattu HexIDE:n omille apuohjelmille.",
     "Str.Addins.ChangedAfterVerification": "Lisäosaa ei voi ladata: paketti muuttui levyllä tarkistuksen jälkeen.",
     "Str.ScrollBar.LineUp": "Rivi ylös",
     "Str.ScrollBar.PageUp": "Sivu ylös",

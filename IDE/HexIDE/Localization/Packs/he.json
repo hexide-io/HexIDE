@@ -1217,6 +1217,7 @@
     "Str.Addins.DebugLaunchRefused": "הפעלת מתאם ניפוי הבאגים עבור התוספת '{0}' נדחתה.",
     "Str.Addins.Incompatible": "לא ניתן לטעון את התוסף: הסכמה הנדרשת {0}, גרסת HexIDE מזערית {1}; בנייה זו תומכת בסכמה {2}, HexIDE {3}. דרישת הסכמה או הגרסה אינה נתמכת או אינה תקינה.",
     "Str.Addins.DuplicateId": "לא ניתן לטעון את התוסף: המזהה '{0}' כבר בשימוש בתיקיית החבילה '{1}'.",
+    "Str.Addins.ReservedId": "לא ניתן לטעון את התוסף: המזהה '{0}' שמור לתוספים של HexIDE עצמו.",
     "Str.Addins.ChangedAfterVerification": "לא ניתן לטעון את התוסף: החבילה השתנתה בדיסק לאחר שאומתה.",
     "Str.ScrollBar.LineUp": "שורה למעלה",
     "Str.ScrollBar.PageUp": "עמוד למעלה",
