@@ -158,4 +158,20 @@ internal sealed class HexIdeHost(
         AddinInitializationScope.Record(handle.Dispose);
         return handle;
     }
+
+    /// <summary>What draws the designer's controls (#5591). Its registrations are held per application.</summary>
+    internal AddinDesignerPictureService DesignerPictures { get; init; } = new();
+
+    // As resources: only an add-in's own host registers what draws the designer's controls, with the add-in as its owner.
+    public IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures) =>
+        throw new InvalidOperationException("What draws the designer's controls is registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked.
+    internal IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures, AddinOrigin origin)
+    {
+        var handle = DesignerPictures.Register(pictures, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
 }

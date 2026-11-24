@@ -2,7 +2,8 @@ namespace HexIDE.Addins;
 
 /// <summary>
 /// What one owner may register through the host's add-in registrations that change what the IDE shows: its resources
-/// (#5396), and its language packs (#5394). Kept in HexIDE's own source, so a package can't grant itself anything.
+/// (#5396), its language packs (#5394), and what draws the designer's controls (#5591). Kept in HexIDE's own source, so a
+/// package can't grant itself anything.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -40,6 +41,11 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     /// <summary>Whether <paramref name="key"/> is a text key this grant's language packs may supply.</summary>
     public bool CoversLanguagePackKey(string key) => LanguagePackKeys.Any(family => Matches(family, key));
 
+    /// <summary>
+    /// Whether it may register what draws the designer's controls (#5591), which is given a place in the designer's tree.
+    /// </summary>
+    public bool DesignerPictures { get; init; }
+
     /// <summary>Whether a type declared in <paramref name="assembly"/> may key one of its resources.</summary>
     public bool CoversResourceType(string? assembly) =>
         assembly is not null && ResourceTypeAssemblies.Contains(assembly, StringComparer.Ordinal);
@@ -71,6 +77,8 @@ internal static class RegistrationGrants
                 "Str.PropDesc.*", "Str.ProjectType.*", "Str.ProjectLoad.*", "Str.MakeProject.*", "Str.Vb6Toolchain.*",
                 "Str.ProjectRunner.NotImplementedYet", "Str.Standalone.WaylandUnavailableEnvironment",
             ],
+            // Its controls draw themselves in the designer (#5591).
+            DesignerPictures = true,
         },
     ];
 

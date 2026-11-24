@@ -194,6 +194,48 @@ public class DesignerPictureTests
         });
     }
 
+    // #5591: the drawer is the provider's, registered for the application, and the renderer asks it for each picture.
+    [AvaloniaFact]
+    public void Without_a_drawer_of_its_own_the_renderer_draws_with_the_applications()
+    {
+        var renderer = new ControlRenderer { Width = 100, Height = 30 };
+        Showing(renderer, () =>
+        {
+            renderer.Pictures.Should().BeOfType<InProcessDesignerPictures>();
+            renderer.Component = Placed();
+            Dispatcher.UIThread.RunJobs();
+
+            renderer.Child.Should().BeOfType<Image>();
+        });
+    }
+
+    // #5591: whatever draws is given a place in the designer's tree, and gets room for its own control and nothing else.
+    [AvaloniaFact]
+    public void The_surface_takes_only_one_control_that_isnt_anywhere_and_lets_go_only_of_that()
+    {
+        var renderer = new ControlRenderer { Width = 100, Height = 30 };
+        IDesignerDrawingSurface surface = renderer;
+        Showing(renderer, () =>
+        {
+            FluentActions.Invoking(() => surface.Attach("a picture")).Should().Throw<ArgumentException>();
+            var elsewhere = new Border();
+            var parent = new Decorator { Child = elsewhere };
+            FluentActions.Invoking(() => surface.Attach(elsewhere)).Should().Throw<ArgumentException>();
+            parent.Child.Should().BeSameAs(elsewhere);
+            renderer.GetVisualChildren().Should().BeEmpty();
+
+            var drawn = new Border();
+            surface.Attach(drawn);
+            FluentActions.Invoking(() => surface.Attach(new Border())).Should().Throw<ArgumentException>();
+            surface.Detach(new Border());
+            renderer.GetVisualChildren().Should().ContainSingle().Which.Should().BeSameAs(drawn);
+
+            surface.Detach(drawn);
+            renderer.GetVisualChildren().Should().BeEmpty();
+            drawn.GetVisualParent().Should().BeNull();
+        });
+    }
+
     // VB6 SP6: docs/vb6-fidelity-oracle/an-empty-listbox-an-empty-image-and-a-label-narrower-than-its-caption.md (#860).
     [AvaloniaFact]
     public void An_empty_Image_has_only_a_grey_dashed_edge_in_the_designer()

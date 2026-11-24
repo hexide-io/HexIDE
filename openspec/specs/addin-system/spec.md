@@ -553,6 +553,27 @@ owners.
 - **WHEN** a dictionary holds a `Str.*` key, at its top or in a merged dictionary, even one its owner's grant would cover
 - **THEN** the dictionary is refused and the IDE's text is unchanged
 
+### Requirement: A granted owner SHALL be able to draw the designer's controls, one owner at a time
+`IHexIdeHost.RegisterDesignerPictures` SHALL make the caller what draws the form designer's controls, only for an owner whose grant in
+HexIDE's own table says so (#5591). The IDE's own host SHALL refuse the call. While one registration holds, another SHALL be refused, and
+disposing a registration SHALL take out that registration only.
+
+#### Scenario: The provider draws the designer's controls
+- **WHEN** the Basic provider registers its drawer at startup, through the owned host the IDE composes for it
+- **THEN** each control the designer shows is the picture that drawer made
+
+#### Scenario: An owner with no grant for it
+- **WHEN** an add-in whose grant doesn't name designer pictures, or that holds no grant, registers a drawer
+- **THEN** it is refused and nothing draws for it
+
+#### Scenario: A second drawer
+- **WHEN** a granted owner registers a drawer while another owner's is held
+- **THEN** it is refused, naming both owners, and the first drawer stays
+
+#### Scenario: The place a drawer is lent
+- **WHEN** a drawer asks the designer to hold an object that isn't a control, a control that has a parent, or a second control
+- **THEN** it is refused, and the drawer can take out only the control it was lent
+
 ### Requirement: Grants SHALL be held only by the owners HexIDE names
 A grant for an owner the IDE composes SHALL match only an origin marked as composed, which nothing that reads a package's manifest marks.
 Any other grant SHALL match only a package signed by the first-party key. No grant SHALL name a key the trust and consent views read. When

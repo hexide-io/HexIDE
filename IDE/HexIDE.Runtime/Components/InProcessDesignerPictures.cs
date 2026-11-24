@@ -5,24 +5,21 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using HexIDE.Runtime.BuiltinControls;
-using HexIDE.Runtime.Components;
 
-namespace HexIDE.Controls;
+namespace HexIDE.Runtime.Components;
 
-/// <summary>Where a control being drawn sits for the moment, which is what gives it its styles and resources.</summary>
-internal interface IDesignerDrawingHost
-{
-    void Attach(Control visual);
-    void Detach(Control visual);
-    void UpdateLayout();
-}
-
-/// <summary>Draws a control with the engine's own controls, in this process, and hands back its pixels.</summary>
-internal sealed class InProcessDesignerPictures(IDesignerDrawingHost host) : IDesignerPictures
+/// <summary>
+/// Draws a control with the provider's own controls, in the IDE's process, and hands back its pixels. The provider registers
+/// it as what draws the designer's controls (#5591), and the designer lends each control a place while it's drawn.
+/// </summary>
+internal sealed class InProcessDesignerPictures(IDesignerDrawingSurface host) : IDesignerPictures
 {
     public DesignerPicture Draw(ComponentInstance instance, DesignerDrawRequest request)
     {
-        var visual = ((IDesignerComponentClass)instance.BaseClass).InstantiateForDesigner(instance);
+        // The toolbox offers any class with Core's designer facts, so one that can't draw itself is refused here, in its place.
+        if (instance.BaseClass is not IDesignerComponentClass drawn)
+            throw new NotSupportedException($"{instance.BaseClass.Name} doesn't draw itself in the designer.");
+        var visual = drawn.InstantiateForDesigner(instance);
         using var target = new RenderTargetBitmap(new PixelSize(request.PixelWidth, request.PixelHeight), new Vector(96, 96));
         // A Line draws itself from its endpoints in its container's scale, which only the form knows (#163).
         if (visual is VBLine line)
