@@ -16,6 +16,7 @@ public class ControlLibraryContractTests
         public string Description => "Contract controls";
         public string File => "ContractControls.ocx";
         public string Guid => "{A1234567-1234-1234-1234-123456789ABC}";
+        public string Version => "1.0";
         public string ProjectLine => $"Object={Guid}#1.0#0; {File}";
         public string FormLine => $"Object = \"{Guid}#1.0#0\"; \"{File}\"";
         public string TypeName(string className) => $"{Name}.{className}";

@@ -23,6 +23,12 @@ public interface IControlLibrary
     /// <summary>Its type library's GUID, with braces.</summary>
     string Guid { get; }
 
+    /// <summary>
+    /// Its type library's version: 2.0. Part of its identity: a project's <c>Reference=</c> line names it by GUID and version
+    /// both (#5610).
+    /// </summary>
+    string Version { get; }
+
     /// <summary>The control file: MSCOMCTL.OCX.</summary>
     string File { get; }
 
