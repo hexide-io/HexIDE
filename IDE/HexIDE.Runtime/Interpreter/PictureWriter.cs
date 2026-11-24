@@ -1,4 +1,5 @@
 using System.IO;
+using HexIDE.Imaging;
 using HexIDE.Runtime.Serialization;
 using SkiaSharp;
 
