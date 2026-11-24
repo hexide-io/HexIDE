@@ -59,6 +59,8 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
     public IDisposable RegisterLanguagePacks(Uri folder) =>
         host is HexIdeHost concrete ? concrete.RegisterLanguagePacks(folder, origin, Assembly.GetCallingAssembly())
             : host.RegisterLanguagePacks(folder);
+    public IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures) =>
+        host is HexIdeHost concrete ? concrete.RegisterDesignerPictures(pictures, origin) : host.RegisterDesignerPictures(pictures);
     public bool RunProject() => host.RunProject();
     public bool StopProject() => host.StopProject();
 }

@@ -65,3 +65,50 @@ HexIDE.Runtime.Components.IControlLibrary.IsNamedBy(HexIDE.Runtime.ProjectElemen
 HexIDE.Runtime.Components.IControlLibrary.Name.get -> string!
 HexIDE.Runtime.Components.IControlLibrary.ProjectLine.get -> string!
 HexIDE.Runtime.Components.IControlLibrary.TypeName(string! className) -> string!
+HexIDE.Addins.IHexIdeHost.RegisterDesignerPictures(System.Func<HexIDE.Runtime.Components.IDesignerDrawingSurface!, HexIDE.Runtime.Components.IDesignerPictures!>! pictures) -> System.IDisposable!
+HexIDE.Runtime.Components.IDesignerDrawingSurface
+HexIDE.Runtime.Components.IDesignerDrawingSurface.Attach(object! visual) -> void
+HexIDE.Runtime.Components.IDesignerDrawingSurface.Detach(object! visual) -> void
+HexIDE.Runtime.Components.IDesignerDrawingSurface.UpdateLayout() -> void
+HexIDE.Runtime.Components.DesignerDrawRequest
+HexIDE.Runtime.Components.DesignerDrawRequest.Deconstruct(out int PixelWidth, out int PixelHeight, out (double X, double Y) LineTwipsPerUnit) -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.DesignerDrawRequest() -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.DesignerDrawRequest(int PixelWidth, int PixelHeight, (double X, double Y) LineTwipsPerUnit) -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.Equals(HexIDE.Runtime.Components.DesignerDrawRequest other) -> bool
+HexIDE.Runtime.Components.DesignerDrawRequest.LineTwipsPerUnit.get -> (double X, double Y)
+HexIDE.Runtime.Components.DesignerDrawRequest.LineTwipsPerUnit.init -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.PixelHeight.get -> int
+HexIDE.Runtime.Components.DesignerDrawRequest.PixelHeight.init -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.PixelWidth.get -> int
+HexIDE.Runtime.Components.DesignerDrawRequest.PixelWidth.init -> void
+HexIDE.Runtime.Components.DesignerPicture
+HexIDE.Runtime.Components.DesignerPicture.<Clone>$() -> HexIDE.Runtime.Components.DesignerPicture!
+HexIDE.Runtime.Components.DesignerPicture.Deconstruct(out int PixelWidth, out int PixelHeight, out byte[]! Pixels, out double MinWidth, out double MinHeight, out double MaxWidth, out double MaxHeight) -> void
+HexIDE.Runtime.Components.DesignerPicture.DesignerPicture(int PixelWidth, int PixelHeight, byte[]! Pixels, double MinWidth, double MinHeight, double MaxWidth, double MaxHeight) -> void
+HexIDE.Runtime.Components.DesignerPicture.Equals(HexIDE.Runtime.Components.DesignerPicture? other) -> bool
+HexIDE.Runtime.Components.DesignerPicture.MaxHeight.get -> double
+HexIDE.Runtime.Components.DesignerPicture.MaxHeight.init -> void
+HexIDE.Runtime.Components.DesignerPicture.MaxWidth.get -> double
+HexIDE.Runtime.Components.DesignerPicture.MaxWidth.init -> void
+HexIDE.Runtime.Components.DesignerPicture.MinHeight.get -> double
+HexIDE.Runtime.Components.DesignerPicture.MinHeight.init -> void
+HexIDE.Runtime.Components.DesignerPicture.MinWidth.get -> double
+HexIDE.Runtime.Components.DesignerPicture.MinWidth.init -> void
+HexIDE.Runtime.Components.DesignerPicture.PixelHeight.get -> int
+HexIDE.Runtime.Components.DesignerPicture.PixelHeight.init -> void
+HexIDE.Runtime.Components.DesignerPicture.PixelWidth.get -> int
+HexIDE.Runtime.Components.DesignerPicture.PixelWidth.init -> void
+HexIDE.Runtime.Components.DesignerPicture.Pixels.get -> byte[]!
+HexIDE.Runtime.Components.DesignerPicture.Pixels.init -> void
+HexIDE.Runtime.Components.IDesignerPictures
+HexIDE.Runtime.Components.IDesignerPictures.Draw(HexIDE.Runtime.Components.ComponentInstance! instance, HexIDE.Runtime.Components.DesignerDrawRequest request) -> HexIDE.Runtime.Components.DesignerPicture!
+override HexIDE.Runtime.Components.DesignerDrawRequest.GetHashCode() -> int
+override HexIDE.Runtime.Components.DesignerPicture.Equals(object? obj) -> bool
+override HexIDE.Runtime.Components.DesignerPicture.GetHashCode() -> int
+override HexIDE.Runtime.Components.DesignerPicture.ToString() -> string!
+static HexIDE.Runtime.Components.DesignerDrawRequest.operator !=(HexIDE.Runtime.Components.DesignerDrawRequest left, HexIDE.Runtime.Components.DesignerDrawRequest right) -> bool
+static HexIDE.Runtime.Components.DesignerDrawRequest.operator ==(HexIDE.Runtime.Components.DesignerDrawRequest left, HexIDE.Runtime.Components.DesignerDrawRequest right) -> bool
+static HexIDE.Runtime.Components.DesignerPicture.operator !=(HexIDE.Runtime.Components.DesignerPicture? left, HexIDE.Runtime.Components.DesignerPicture? right) -> bool
+static HexIDE.Runtime.Components.DesignerPicture.operator ==(HexIDE.Runtime.Components.DesignerPicture? left, HexIDE.Runtime.Components.DesignerPicture? right) -> bool
+~override HexIDE.Runtime.Components.DesignerDrawRequest.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.DesignerDrawRequest.ToString() -> string
