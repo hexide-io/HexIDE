@@ -123,10 +123,40 @@ public sealed class ReservedProviderIdTests : IDisposable
         registry.ReportFailure(Provider, "The provider failed", null);
 
         registry.GetReportedFailure("HexIDE.Basic").Should().BeNull();
-        var package = new AddinOrigin("HexIDE.Basic", "Impostor");
-        FluentActions.Invoking(() => registry.CheckLanguageServerLaunch(package))
-            .Should().Throw<InvalidOperationException>("the package itself is still checked, and it never loaded");
-        FluentActions.Invoking(() => registry.CheckDebugLaunch(package)).Should().Throw<InvalidOperationException>();
+    }
+
+    // A row refused at load shares the id of the package that loaded: a duplicate's, or, once phase 3 of #3411 loads the
+    // provider as a first-party hexide.basic package, a reserved id's. It never loaded, so it owns nothing: deactivating or
+    // revoking it takes out nothing, and its state refuses none of the loaded package's launches.
+    // The duplicate is always listed after the package that claimed the id; a reserved id's refused row can come first.
+    [AvaloniaTheory]
+    [InlineData("com.example.probe", false)]
+    [InlineData("hexide.basic", true)]
+    public async Task Deactivating_or_revoking_a_refused_row_leaves_the_loaded_package_s_registrations(string id, bool firstParty)
+    {
+        var loaded = Package(firstParty ? "b" : "a", id, firstParty);
+        var refused = Package(firstParty ? "a" : "b", id, firstParty: false);
+        using var registry = Registry();
+        registry.LoadAll(host);
+        await registry.PromptPendingConsentAsync();
+        registry.GetStatus(loaded).Should().Be(AddinStatus.Loaded);
+        registry.GetStatus(refused).Should().Be(AddinStatus.Error);
+        var owner = new AddinOrigin(id, "Loaded", IsFirstParty: firstParty);
+        var earlier = new Counted();
+        registry.TrackContribution(owner, earlier);
+
+        registry.SetEnabled(refused, false);
+        registry.RevokeConsent("hash-" + Path.GetFileName(refused));
+        var later = new Counted();
+        registry.TrackContribution(owner, later);
+
+        earlier.Disposed.Should().Be(0);
+        later.Disposed.Should().Be(0);
+        if (!firstParty)
+            FluentActions.Invoking(() => registry.CheckLanguageServerLaunch(owner)).Should().NotThrow();
+        registry.SetEnabled(loaded, false);
+        earlier.Disposed.Should().Be(1, "the package that loaded still takes out its own");
+        later.Disposed.Should().Be(1);
     }
 
     [AvaloniaFact]

@@ -10,6 +10,13 @@ internal sealed class AddinContext(AddinInfo info)
     public string? ErrorMessage { get; set; }
     public AddinFailureReport? ReportedFailure { get; set; }
 
+    /// <summary>
+    /// Whether the package was refused before it could load: incompatible, under a reserved or duplicate id, untrusted, or
+    /// without a manifest. Such a row can share the id of a package that did load, or of the Basic provider, so it owns no
+    /// contributions and its state refuses no one's launches (#5597).
+    /// </summary>
+    public bool RefusedAtLoad { get; init; }
+
     /// <summary>The package directory this add-in was loaded from (also the enable/disable key).</summary>
     public string PackageDirectory { get; set; } = info.AssemblyPath;
 
