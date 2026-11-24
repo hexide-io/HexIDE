@@ -3204,10 +3204,12 @@ Form and PictureBox mouse coordinates SHALL use the object’s
 own mapping; other controls retain their existing mouse units. A form resize SHALL retain the size
 of a user unit. A placed UserControl SHALL own the same coordinate properties, Scale statement and conversions,
 initialized from its saved scale over its child canvas. Its saved child positions SHALL remain twips even when
-its .ctl declares pixels. A form or PictureBox saved in User mode with no extents or origins SHALL use one twip
-per unit and zero origins. Origins and extents of a saved UserControl User scale without extents SHALL remain refused as unmeasured.
-Me-qualified coordinate access and Object aliases to the own root SHALL retain their prior refusals pending measurement.
-PictureBox resize and UserControl drawing remain unmeasured (#4693).
+its .ctl declares pixels. A form, PictureBox or UserControl saved in User mode with no extents or origins
+SHALL use one twip per unit and zero origins. Scale members through an Object holding a UserControl’s Me
+or its placed extender SHALL raise 438 without changing the scale. Set of the bare UserControl base-class name SHALL raise
+"Invalid use of base class name" as the statement runs; other uses of that name as a value retain their behaviour.
+A PictureBox resize SHALL retain origins and units per twip on each axis; an unchanged dimension SHALL retain
+its extent (oracle PR #5212). UserControl drawing remains unmeasured (#5515).
 
 The interpreter and bundled LSP grammars SHALL parse the bare and qualified Scale statement with either
 two points or no arguments. ScaleX and ScaleY SHALL default from HiMetric to the current scale, returning
@@ -3218,12 +3220,14 @@ The measured metric factor and its accepted last-place precision difference are 
 
 Late-bound Scale, ScaleX and ScaleY SHALL use a form's or PictureBox's mapping; TextBox and UserControl
 extenders SHALL raise 438. Other objects SHALL retain their existing behaviour. Zero conversion arguments
-SHALL raise "Argument not optional"; four on either axis and five on ScaleX SHALL raise "Wrong number of
-arguments or invalid property assignment" as execution reaches the statement. ScaleY with five and counts
-above five SHALL remain refused as unmeasured. Centimetre PictureBox Line endpoints SHALL load as whole twips
-using the approved factor, with the one-Single-step X1/Y1 difference the maintainer accepted with #990's factor.
-These rows are measured in the coordinate oracle's #4693 sections.
-User-scale PictureBox Lines and other unmeasured Line modes SHALL remain refused naming #4693.
+SHALL raise "Argument not optional" early-bound; four or more on either axis SHALL raise "Wrong number of
+arguments or invalid property assignment" as execution reaches the statement. Late-bound invalid counts
+SHALL raise 450, "Wrong number of arguments or invalid property assignment". Centimetre PictureBox Line
+endpoints SHALL load as whole twips using the approved factor, with the one-Single-step X1/Y1 difference the maintainer accepted with #990's factor.
+A centimetre-loaded PictureBox Line SHALL read its ends in the container's current ScaleMode, User included,
+adding the container's ScaleLeft and ScaleTop, and a write SHALL take them off and store whole twips. These final rows are measured in
+[#4693](https://github.com/hexide-io/HexIDE/issues/4693) (oracle PR #5514).
+Loading Lines saved in User-scale PictureBoxes and other unmeasured Line modes SHALL remain refused naming #4693.
 
 #### Scenario: A pixel-saved UserControl
 - **WHEN** a 2400 by 1800 twip UserControl is saved in pixel mode with a Label at 10, 20, 40 by 17
@@ -3363,7 +3367,8 @@ The conflicting AutoRedraw-toggle Paint sequences and Cls's effect on each layer
 
 The interpreter SHALL evaluate `Date`, `Date$`, `Time` and `Time$` assignment operands before
 raising the measured conversion error or error 70. It SHALL never change the host clock, even
-elevated (deliberate divergence from VB6). Measurements: #4681 and
+elevated (deliberate divergence from VB6, the maintainer's decision of 2026-11-24 on #4681: no opt-in without a
+serious use case). Measurements: #4681 and
 [#4733](https://github.com/hexide-io/HexIDE/issues/4733), SP6 native and p-code, measurement PR #4777.
 
 #### Scenario: Scalar conversion precedes permission

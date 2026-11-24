@@ -36,7 +36,7 @@ public sealed class ArchiveFileToolsTests : IDisposable
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         archives = new ArchiveProjectService(dock, Substitute.For<IRecentProjectsService>(), localization,
             Substitute.For<IWindowManager>(), new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
-        editors = new EditorService(dock, () => throw new InvalidOperationException(),
+        editors = new EditorService(Substitute.For<HexIDE.IDE.IWindowManager>(), dock, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => new ProjectDocumentViewModel(localization),
             () => throw new InvalidOperationException(), () => projects, localization,
             projects: () => Substitute.For<IProjectService>());

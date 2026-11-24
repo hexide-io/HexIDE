@@ -11,9 +11,16 @@ public class PropertyConverter : IValueConverter
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (parameter is PropertyClass property &&
-            value is ComponentInstanceViewModel instance)
-            return instance.Instance.GetBoxedPropertyOrDefault(property);
+        if (value is ComponentInstanceViewModel instance)
+        {
+            var property = parameter as PropertyClass;
+            if (parameter is string name)
+                property = name == MenuPropertyNames.SubItems
+                    ? MenuPropertyNames.SubItemsProperty
+                    : instance.Instance.BaseClass.PropertiesByName[name];
+            if (property is not null)
+                return instance.Instance.GetBoxedPropertyOrDefault(property);
+        }
         return null;
     }
 

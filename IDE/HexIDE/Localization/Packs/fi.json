@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Tiedoston {0} päivittäminen projektissa {1} hylkää kyseisen projektin tallentamattomat muutokset. Haluatko jatkaa?",
     "Str.Dialog.SharedFile.DiskChanged": "Tiedosto '{0}' on muuttunut levyllä sen jälkeen, kun projektin {1} kopio ladattiin tai tallennettiin. Haluatko korvata sen?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Kohteen {0} kirjanmerkkejä, keskeytyskohtia ja muita käyttäjäkohtaisia asetuksia ei ladata eikä tallenneta tämän istunnon aikana.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "MDI-lomakesuunnittelijaa ei ole toteutettu (#5313).",
+    "Str.MDIForm.RunNotImplemented": "MDI-lomakkeen suorittamista ei ole toteutettu (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Ohjausobjekti nimeltä '{0}' on jo olemassa.  Haluatko luoda ohjausobjektitaulukon?",
     "Str.Options.Environment.ErrorTrapping.Header": "Virheiden sieppaus",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Keskeytä kaikissa virheissä",

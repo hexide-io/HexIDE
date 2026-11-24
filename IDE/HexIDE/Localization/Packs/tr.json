@@ -1526,6 +1526,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "{1} projesinde {0} dosyasını güncellemek, o projenin kaydedilmemiş değişikliklerini siler. Devam etmek ister misiniz?",
     "Str.Dialog.SharedFile.DiskChanged": "'{0}' dosyası, {1} projesinin kopyası yüklendikten veya kaydedildikten sonra diskte değiştirildi. Üzerine yazmak ister misiniz?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} için yer imleri, kesme noktaları ve kullanıcıya özgü diğer ayarlar bu oturumda yüklenmeyecek ve kaydedilmeyecek.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "MDI form tasarımcısı henüz uygulanmadı (#5313).",
+    "Str.MDIForm.RunNotImplemented": "MDI formunun çalıştırılması henüz uygulanmadı (#5313).",
     "Str.Naming.Msg.CreateControlArray": "'{0}' adlı bir denetim zaten var.  Bir denetim dizisi oluşturmak istiyor musunuz?",
     "Str.Options.Environment.ErrorTrapping.Header": "Hata yakalama",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Tüm hatalarda kes",

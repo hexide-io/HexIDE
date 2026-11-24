@@ -123,10 +123,17 @@
        KEY GATE (Exists firstparty.key): packing is SKIPPED unless the first-party signing key is present
        in the trust dir. A source tree WITHOUT the key — a contributor clone, or the public repo before
        the trust-chain rotation (see CONTRIBUTING.md) — still builds cleanly; it simply ships
-       no bundled first-party add-ins. A release build supplies the key (locally in firstparty/, or in CI
-       from a secret written into the trust dir before Build), so the add-ins are signed and bundled. -->
+       no bundled first-party add-ins. A local build with the key in firstparty/ signs and bundles them, and
+       build.yml packs them with a throwaway chain. A release never packs here: no job that builds holds the
+       real key, and publish.yml's sign-addins job signs the add-ins with the packer alone (#4740). -->
+  <!-- The manifest's fields are in HexIDE.AIChat/pack.args, one argument per line, so this target and publish.yml's
+       signing job give the release the same manifest. Its lines follow the paths here, and the packer takes the first
+       value of a repeated option, so the file can't move the output or the trust folder. -->
   <Target Name="PackAIChatAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and Exists('$(AddinTrustDir)/firstparty.key')">
-    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net11.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --id com.hexide.aichat --title &quot;AI Chat&quot; --description &quot;AI-powered VB6 coding assistant&quot; --version 1.0.0 --author HexIDE --capability project.read --capability project.write --capability program.run --capability ui.contribute --entry HexIDE.AIChat.dll --trust &quot;$(AddinTrustDir)&quot;" />
+    <ReadLinesFromFile File="$(MSBuildProjectDirectory)/../HexIDE.AIChat/pack.args">
+      <Output TaskParameter="Lines" ItemName="_AIChatPackArgument" />
+    </ReadLinesFromFile>
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net11.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --trust &quot;$(AddinTrustDir)&quot; @(_AIChatPackArgument->'&quot;%(Identity)&quot;', ' ')" />
   </Target>
 
   <Target Name="PackTestAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and '$(Configuration)' == 'Debug' and Exists('$(AddinTrustDir)/firstparty.key')">
@@ -135,7 +142,7 @@
 
   <!-- Visibility when the key is absent: make the skip explicit rather than silent. -->
   <Target Name="WarnFirstPartyAddinsUnsigned" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and !Exists('$(AddinTrustDir)/firstparty.key')">
-    <Message Importance="high" Text="HexIDE: no first-party signing key at $(AddinTrustDir)/firstparty.key — skipping add-in packing. This build bundles no first-party add-ins (expected for a keyless clone; a release build supplies the key — see CONTRIBUTING.md)." />
+    <Message Importance="high" Text="HexIDE: no first-party signing key at $(AddinTrustDir)/firstparty.key — skipping add-in packing. This build bundles no first-party add-ins (expected for a keyless clone, see CONTRIBUTING.md; a release adds them after building, signed in a job of their own)." />
   </Target>
 
   <!-- The Pack* targets above write into the build $(OutDir). 'dotnet publish -o <dir>' copies only the

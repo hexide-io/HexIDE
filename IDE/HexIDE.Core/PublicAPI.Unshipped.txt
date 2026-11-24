@@ -26,3 +26,10 @@ HexIDE.Addins.IHexIdeHost.ReportFailure(string! message, System.Exception? excep
 HexIDE.IDE.Vb6TextEncoding.GetEncoding() -> System.Text.Encoding!
 HexIDE.Addins.IHexIdeHost.RegisterResources(System.Uri! dictionary) -> System.IDisposable!
 HexIDE.Addins.IHexIdeHost.RegisterLanguagePacks(System.Uri! folder) -> System.IDisposable!
+HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Control = 0 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Form = 1 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Menu = 2 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Line = 3 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.IComponentClass.Role.get -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.IComponentClass.IsContainer.get -> bool

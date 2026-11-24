@@ -134,16 +134,16 @@ internal static class FormMembers
         throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented{TrackedBy(name)}");
     }
 
-    /// <summary>Read a method's result through the form's window; statements use CallAsync directly.</summary>
-    public static Vb6Value Call(VbObject form, string name, IReadOnlyList<Vb6Value> args)
+    /// <summary>Read a method's result through the form's window.</summary>
+    public static Vb6Value Call(VbObject form, string name, IReadOnlyList<Vb6Value> args, bool lateBound = false)
     {
         if (name.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
             throw new NotImplementedException("Refresh used as a value is not implemented (#991)");
         if (name.Equals("Cls", StringComparison.OrdinalIgnoreCase))
             throw RuntimeDrawing.Refused("Cls used as a value");
         var owner = Owner(form, name);
-        return form.ClassDef.HostedControl && RuntimeScale.IsConversion(name)
-            ? RuntimeScale.ConvertUnits(owner, name, args)
+        return RuntimeScale.IsConversion(name)
+            ? RuntimeScale.ConvertUnits(owner, name, args, lateBound)
             : owner.Call(name, args);
     }
 

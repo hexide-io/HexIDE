@@ -1,0 +1,20 @@
+--id
+com.hexide.aichat
+--title
+AI Chat
+--description
+AI-powered VB6 coding assistant
+--version
+1.0.0
+--author
+HexIDE
+--capability
+project.read
+--capability
+project.write
+--capability
+program.run
+--capability
+ui.contribute
+--entry
+HexIDE.AIChat.dll

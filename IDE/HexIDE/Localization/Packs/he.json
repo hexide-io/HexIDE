@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "עדכון {0} בפרויקט {1} ימחק את השינויים שלא נשמרו באותו פרויקט. האם להמשיך?",
     "Str.Dialog.SharedFile.DiskChanged": "הקובץ '{0}' השתנה בדיסק מאז טעינת העותק של פרויקט {1} או שמירתו. האם להחליף אותו?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "הסימניות, נקודות העצירה והגדרות אחרות לכל משתמש של {0} לא ייטענו ולא יישמרו בהפעלה זו.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "מעצב טופסי MDI אינו ממומש (#5313).",
+    "Str.MDIForm.RunNotImplemented": "הפעלת טופס MDI אינה ממומשת (#5313).",
     "Str.Naming.Msg.CreateControlArray": "כבר קיים פקד בשם '{0}'.  האם ליצור מערך פקדים?",
     "Str.Options.Environment.ErrorTrapping.Header": "לכידת שגיאות",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "עצירה בכל שגיאה",

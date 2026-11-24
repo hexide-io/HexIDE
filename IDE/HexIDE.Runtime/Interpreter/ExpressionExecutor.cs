@@ -1994,6 +1994,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return MemberArgs(member) is { } fieldArgs
                     ? await FieldElement(variable, vobj, memberName, fieldVal, await EvaluateCallArgs(fieldArgs), ctx)
                     : fieldVal;
+            if (vobj.ClassDef.HostedControl && RuntimeScale.IsLateBound(variable) && FormMembers.IsCoordinateMember(memberName))
+                throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
             if (vobj.ClassDef.Kind == InterpreterModuleKind.Form
                 && string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
                 && !FormMembers.IsMember(memberName, out _))
@@ -2007,7 +2009,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 if (vobj.ClassDef.Kind == InterpreterModuleKind.Form && FormMembers.IsMember(memberName, out var formMember))
                 {
                     if (formMember.IsMethod)
-                        return FormMembers.Call(vobj, memberName, await EvaluateMemberArgs(variable, memberName, MemberArgs(member)));
+                        return FormMembers.Call(vobj, memberName, await EvaluateMemberArgs(variable, memberName, MemberArgs(member)), RuntimeScale.IsLateBound(variable));
                     if (MemberArgs(member) == null)
                         return FormMembers.Read(vobj, memberName);
                     if (FormMembers.IsControls(memberName))

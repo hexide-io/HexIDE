@@ -1,0 +1,5 @@
+Type=Exe
+Form=MDIForm1.frm
+Form=Form1.frm
+Startup="MDIForm1"
+Name="MDIProbe"

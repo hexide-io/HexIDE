@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "{1} proiektuan {0} eguneratzeak proiektu horren gorde gabeko aldaketak baztertuko ditu. Jarraitu nahi duzu?",
     "Str.Dialog.SharedFile.DiskChanged": "'{0}' fitxategia diskoan aldatu da {1} proiektuaren kopia kargatu edo gorde zenetik. Gainidatzi nahi duzu?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "{0} proiektuaren laster-markak, eten-puntuak eta erabiltzailearen beste ezarpenak ez dira kargatuko ez gordeko saio honetan.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "MDI inprimakien diseinatzailea ez dago inplementatuta (#5313).",
+    "Str.MDIForm.RunNotImplemented": "MDI inprimaki bat exekutatzea ez dago inplementatuta (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Dagoeneko badago '{0}' izeneko kontrol bat.  Kontrol-matrize bat sortu nahi duzu?",
     "Str.Options.Environment.ErrorTrapping.Header": "Erroreen atzematea",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Eten errore guztietan",

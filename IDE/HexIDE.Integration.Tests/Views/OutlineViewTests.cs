@@ -65,7 +65,7 @@ public class OutlineViewTests
             return new FormEditViewModel(null!, bus, Substitute.For<IProjectService>(), editors,
                 Substitute.For<IWindowManager>(), settings, localization);
         }
-        editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
+        editors = new EditorService(Substitute.For<HexIDE.IDE.IWindowManager>(), dock, NewEditor, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), NewDesigner, () => manager, localization);
         using var outline = new OutlineToolViewModel(localization, dock);
         var view = new OutlineToolView { DataContext = outline };
