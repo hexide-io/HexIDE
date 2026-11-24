@@ -1184,6 +1184,7 @@
     "Str.Addins.DebugLaunchRefused": "Het starten van de debugadapter voor invoegtoepassing '{0}' is geweigerd.",
     "Str.Addins.Incompatible": "Invoegtoepassing kan niet worden geladen: vereist schema {0}, minimaal HexIDE {1}; deze build ondersteunt schema {2}, HexIDE {3}. De schema- of versievereiste wordt niet ondersteund of is ongeldig.",
     "Str.Addins.DuplicateId": "Kan invoegtoepassing niet laden: id '{0}' wordt al gebruikt door pakketmap '{1}'.",
+    "Str.Addins.ReservedId": "Kan invoegtoepassing niet laden: id '{0}' is gereserveerd voor de eigen invoegtoepassingen van HexIDE.",
     "Str.Addins.ChangedAfterVerification": "Kan de invoegtoepassing niet laden: het pakket is na verificatie op de schijf gewijzigd.",
     "Str.ScrollBar.LineUp": "Een regel omhoog",
     "Str.ScrollBar.PageUp": "Een pagina omhoog",

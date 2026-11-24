@@ -1183,6 +1183,7 @@
     "Str.Addins.DebugLaunchRefused": "Spuštění ladicího adaptéru doplňku „{0}“ bylo odmítnuto.",
     "Str.Addins.Incompatible": "Doplněk nelze načíst: požadované schéma {0}, minimálně HexIDE {1}; toto sestavení podporuje schéma {2}, HexIDE {3}. Požadavek na schéma nebo verzi není podporován nebo je neplatný.",
     "Str.Addins.DuplicateId": "Doplněk nelze načíst: identifikátor „{0}“ již používá složka balíčku „{1}“.",
+    "Str.Addins.ReservedId": "Doplněk nelze načíst: identifikátor „{0}“ je vyhrazen pro vlastní doplňky HexIDE.",
     "Str.Addins.ChangedAfterVerification": "Doplněk nelze načíst: balíček se na disku po ověření změnil.",
     "Str.ScrollBar.LineUp": "O řádek nahoru",
     "Str.ScrollBar.PageUp": "O stránku nahoru",

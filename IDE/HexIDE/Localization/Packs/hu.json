@@ -1195,6 +1195,7 @@
     "Str.Addins.DebugLaunchRefused": "A(z) „{0}” bővítmény hibakeresési adapterének indítása megtagadva.",
     "Str.Addins.Incompatible": "A bővítmény nem tölthető be: szükséges séma: {0}, minimális HexIDE: {1}; ez a fordítás a(z) {2} sémát és a(z) {3} HexIDE-verziót támogatja. A séma- vagy verziókövetelmény nem támogatott vagy érvénytelen.",
     "Str.Addins.DuplicateId": "A bővítmény nem tölthető be: a(z) „{0}” azonosítót már a(z) „{1}” csomagmappa használja.",
+    "Str.Addins.ReservedId": "A bővítmény nem tölthető be: a(z) „{0}” azonosító a HexIDE saját bővítményei számára van fenntartva.",
     "Str.Addins.ChangedAfterVerification": "A bővítmény nem tölthető be: a csomag az ellenőrzés után megváltozott a lemezen.",
     "Str.ScrollBar.LineUp": "Egy sorral feljebb",
     "Str.ScrollBar.PageUp": "Egy lappal feljebb",

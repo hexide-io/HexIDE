@@ -1145,6 +1145,7 @@
     "Str.Addins.DebugLaunchRefused": "Start av felsökningsadaptern för tillägget '{0}' nekades.",
     "Str.Addins.Incompatible": "Kan inte läsa in tillägget: krävt schema {0}, minst HexIDE {1}; denna version stöder schema {2}, HexIDE {3}. Schema- eller versionskravet stöds inte eller är ogiltigt.",
     "Str.Addins.DuplicateId": "Det går inte att läsa in tillägget: ID:t ”{0}” används redan av paketmappen ”{1}”.",
+    "Str.Addins.ReservedId": "Det går inte att läsa in tillägget: ID:t ”{0}” är reserverat för HexIDE:s egna tillägg.",
     "Str.Addins.ChangedAfterVerification": "Det går inte att läsa in tillägget: paketet ändrades på disken efter verifieringen.",
     "Str.ScrollBar.LineUp": "En rad uppåt",
     "Str.ScrollBar.PageUp": "En sida uppåt",

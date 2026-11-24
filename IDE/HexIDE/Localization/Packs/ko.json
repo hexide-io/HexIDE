@@ -1184,6 +1184,7 @@
     "Str.Addins.DebugLaunchRefused": "추가 기능 '{0}'의 디버그 어댑터 시작이 거부되었습니다.",
     "Str.Addins.Incompatible": "추가 기능을 로드할 수 없습니다. 필요한 스키마: {0}, 최소 HexIDE: {1}. 이 빌드는 스키마 {2}, HexIDE {3}을 지원합니다. 스키마 또는 버전 요구 사항이 지원되지 않거나 잘못되었습니다.",
     "Str.Addins.DuplicateId": "추가 기능을 로드할 수 없습니다. ID '{0}'은(는) 패키지 폴더 '{1}'에서 이미 사용 중입니다.",
+    "Str.Addins.ReservedId": "추가 기능을 로드할 수 없습니다. ID '{0}'은(는) HexIDE 자체 추가 기능용으로 예약되어 있습니다.",
     "Str.Addins.ChangedAfterVerification": "추가 기능을 로드할 수 없습니다. 검증 후 디스크의 패키지가 변경되었습니다.",
     "Str.ScrollBar.LineUp": "한 줄 위로",
     "Str.ScrollBar.PageUp": "한 페이지 위로",

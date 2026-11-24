@@ -1161,6 +1161,7 @@
     "Str.Addins.DebugLaunchRefused": "Lisandmooduli „{0}” silumisadapteri käivitamine keelati.",
     "Str.Addins.Incompatible": "Lisandmoodulit ei saa laadida: nõutud skeem {0}, minimaalne HexIDE {1}; see versioon toetab skeemi {2}, HexIDE {3}. Skeemi- või versiooninõue on toetamata või vigane.",
     "Str.Addins.DuplicateId": "Lisandmoodulit ei saa laadida: tunnust „{0}” kasutab juba paketikaust „{1}”.",
+    "Str.Addins.ReservedId": "Lisandmoodulit ei saa laadida: tunnus „{0}” on reserveeritud HexIDE enda lisandmoodulitele.",
     "Str.Addins.ChangedAfterVerification": "Lisandmoodulit ei saa laadida: pakett muutus kettal pärast kontrollimist.",
     "Str.ScrollBar.LineUp": "Rida üles",
     "Str.ScrollBar.PageUp": "Lehekülg üles",

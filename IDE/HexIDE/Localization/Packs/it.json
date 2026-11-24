@@ -1184,6 +1184,7 @@
     "Str.Addins.DebugLaunchRefused": "Avvio dell’adattatore di debug per il componente aggiuntivo «{0}» rifiutato.",
     "Str.Addins.Incompatible": "Impossibile caricare il componente aggiuntivo: schema richiesto {0}, HexIDE minimo {1}; questa build supporta lo schema {2}, HexIDE {3}. Il requisito di schema o versione non è supportato o non è valido.",
     "Str.Addins.DuplicateId": "Impossibile caricare il componente aggiuntivo: l’ID «{0}» è già utilizzato dalla cartella del pacchetto «{1}».",
+    "Str.Addins.ReservedId": "Impossibile caricare il componente aggiuntivo: l’ID «{0}» è riservato ai componenti aggiuntivi di HexIDE.",
     "Str.Addins.ChangedAfterVerification": "Impossibile caricare il componente aggiuntivo: il pacchetto è stato modificato sul disco dopo la verifica.",
     "Str.ScrollBar.LineUp": "Una riga verso l’alto",
     "Str.ScrollBar.PageUp": "Una pagina verso l’alto",
