@@ -44,8 +44,10 @@ public class ControlRenderer : Decorator, IDesignerDrawingSurface
         set => pictures = value;
     }
 
-    // The one control being drawn. Whatever draws is given a place in the designer's tree, so it gets room for its own control
-    // and nothing else: not another object, not a control that's somewhere already, and only that control is taken out.
+    // The control being drawn. Who may draw here is the grant's to decide (#5591): the drawer runs in this process, and its
+    // control sits in the designer's tree, where it could reach the rest. So these checks keep the loan tidy, and aren't the
+    // boundary: one control at a time, only a control that isn't somewhere else, only that control taken out, and whatever is
+    // still held once a draw returns taken out then.
     private Control? drawing;
 
     void IDesignerDrawingSurface.Attach(object visual)
@@ -65,8 +67,15 @@ public class ControlRenderer : Decorator, IDesignerDrawingSurface
     {
         if (drawing is null || !ReferenceEquals(visual, drawing))
             return;
-        LogicalChildren.Remove(drawing);
-        VisualChildren.Remove(drawing);
+        EndLoan();
+    }
+
+    private void EndLoan()
+    {
+        if (drawing is not { } held)
+            return;
+        LogicalChildren.Remove(held);
+        VisualChildren.Remove(held);
         drawing = null;
     }
 
@@ -175,6 +184,11 @@ public class ControlRenderer : Decorator, IDesignerDrawingSurface
                 Log.Error(ex, "Designer preview failed for {Control}", Component.AddressedName);
                 Component.PreviewFailure = ex.Message;
                 ShowFailure();
+            }
+            finally
+            {
+                // The loan ends with the draw, so a drawer that left its control here can't block the next one.
+                EndLoan();
             }
         }
     }

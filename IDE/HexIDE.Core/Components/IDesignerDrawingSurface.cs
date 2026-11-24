@@ -11,7 +11,10 @@ namespace HexIDE.Runtime.Components;
 /// the drawer no place in the IDE's tree at all.
 /// </para>
 /// <para>
-/// Only an owner HexIDE grants it gets one, through <see cref="HexIDE.Addins.IHexIdeHost.RegisterDesignerPictures"/>.
+/// <b>The grant is the boundary.</b> Only an owner HexIDE grants it gets one, through
+/// <see cref="HexIDE.Addins.IHexIdeHost.RegisterDesignerPictures"/>. A visual in the designer's tree could reach the rest of
+/// it, so the rules below keep the loan tidy rather than contain the drawer. The loan ends with the draw: whatever is still
+/// held when the drawer returns is taken out then.
 /// </para>
 /// </remarks>
 public interface IDesignerDrawingSurface

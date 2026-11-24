@@ -92,6 +92,26 @@ public class RegisterDesignerPicturesTests
             .Should().Throw<InvalidOperationException>().WithMessage("*only through the host an add-in is given.");
     }
 
+    // The provider's own path: an add-in's owned host passes its origin to the IDE's host, which checks it.
+    [AvaloniaFact]
+    public void An_add_ins_owned_host_registers_under_its_own_origin()
+    {
+        var scope = new object();
+        var ide = new HexIdeHost(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+            null!, new AddinResourceService(), new AddinLanguagePackService())
+        {
+            DesignerPictures = Service(scope, Grant("granted", pictures: true)),
+        };
+        var drawer = Drawer();
+
+        FluentActions.Invoking(() => new AddinOwnedHost(ide, null!, Owner("other")).RegisterDesignerPictures(Drawer()))
+            .Should().Throw<InvalidOperationException>().WithMessage("Owner other isn't one HexIDE lets draw*");
+        AddinDesignerPictureService.For(scope).Should().BeNull();
+
+        using var registration = new AddinOwnedHost(ide, null!, Owner("granted")).RegisterDesignerPictures(drawer);
+        AddinDesignerPictureService.For(scope).Should().BeSameAs(drawer);
+    }
+
     [AvaloniaFact]
     public void Each_application_holds_its_own_drawer_and_the_providers_is_the_test_apps()
     {
