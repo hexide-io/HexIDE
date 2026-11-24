@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -24,6 +25,7 @@ using Dock.Model.Mvvm.Controls;
 using PropertyChanged.SourceGenerator;
 using R3;
 using Serilog;
+using HexIDE.Imaging;
 
 namespace HexIDE.VisualDesigner;
 
@@ -306,6 +308,25 @@ public partial class PropertiesToolViewModel : Tool
         property == VBProperties.PictureProperty || property == VBProperties.IconProperty
         || property == VBProperties.MouseIconProperty || property == VBProperties.DragIconProperty;
 
+    internal static string? FormatPictureValue(object? value)
+    {
+        if (value == null) return "(None)";
+        if (FrxImageHelper.PicturePayload(value as byte[]) is not { } payload) return value.ToString();
+
+        if (payload.Length >= 44 && BinaryPrimitives.ReadUInt32LittleEndian(payload) == 1
+            && payload.AsSpan(40).StartsWith(" EMF"u8))
+            return "(Metafile)";
+        if (payload.AsSpan().StartsWith("GIF8"u8))
+            return "(Bitmap)";
+
+        return FrxImageHelper.DetectKind(payload) switch
+        {
+            FrxImageHelper.FrxBlobKind.Icon => "(Icon)",
+            FrxImageHelper.FrxBlobKind.Bitmap or FrxImageHelper.FrxBlobKind.Jpeg => "(Bitmap)",
+            _ => value.ToString(),
+        };
+    }
+
     internal async Task LoadPictureAsync(PropertyClass property)
     {
         if (!IsPicture(property) || currentDocument is not { } document
@@ -573,6 +594,12 @@ public partial class PropertyViewModel : BasePropertyViewModel
         OnPropertyChanged(nameof(CanExportPicture));
         ExportPictureCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(Value));
+    }
+
+    internal void ClearPicture()
+    {
+        if (CanLoadPicture && Value != null)
+            parent.UpdateValue(PropertyClass, null);
     }
 
     public bool CanLoadPicture => PropertiesToolViewModel.IsPicture(PropertyClass);

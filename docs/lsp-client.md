@@ -86,6 +86,9 @@ the production formatter and source-generated context to guard absence and prese
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
 | Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `inlineValue`, `semanticTokens/full`, `selectionRange`, `prepareCallHierarchy`, `prepareTypeHierarchy` |
+| Completion resolve | `completionItem/resolve` |
+
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `inlineValue`, `semanticTokens/full`, `semanticTokens/full/delta`, `selectionRange`, `prepareCallHierarchy`, `prepareTypeHierarchy` |
 | Actions | `codeLens/resolve`, `codeAction/resolve`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`, `typeHierarchy/subtypes`, `typeHierarchy/supertypes`, `workspace/executeCommand` — see *Commands and lenses* |
 | Workspace | `workspace/symbol`, `didChangeWorkspaceFolders`, `didChangeConfiguration`, `didCreateFiles`, `didRenameFiles`, `didDeleteFiles` |
 | Protocol | `$/setTrace`, `$/cancelRequest` |
@@ -94,7 +97,8 @@ the production formatter and source-generated context to guard absence and prese
 Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
 `documentationFormat: ["plaintext"]`, `snippetSupport: true`, `insertReplaceSupport: true`,
 `insertTextModeSupport` with modes 1 and 2, and default `insertTextMode: 1` (`asIs`). List item defaults advertise only `insertTextMode`.
-Resolve, commit characters, context and other list item defaults are not advertised.
+Completion resolve advertises `resolveSupport.properties: ["documentation", "detail"]`. Commit
+characters, context and other list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
 while the displayed label and insertion fallback remain the label. The full list stays visible. Matching
@@ -113,6 +117,13 @@ match immediately (#3056). Descriptions show detail alongside string or MarkupCo
 rendered as plain text (including markdown
 source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
 glyphs; kinds without a counterpart have none.
+
+Selecting an item sends `completionItem/resolve` only to the server that supplied it, and only when
+that server advertises `completionProvider.resolveProvider: true`. The request preserves the item's
+opaque `data`. Only returned detail and documentation update the tooltip. Each item is requested at
+most once per list. Moving the selection or closing the list cancels the pending request, and accepting
+an item uses the insertion supplied in the list without waiting for resolve ([#5445](https://github.com/hexide-io/HexIDE/issues/5445)).
+
 The VB code editor suppresses completion in comments and string literals, independently of the server
 (#3577). It also dismisses an existing list before accepting a key there and checks late replies against
 the current caret context. A caret immediately after `Rem` remains in code until a following delimiter
@@ -171,8 +182,9 @@ The #2204 result-union audit used the pinned LSP metamodel. Among implemented re
 `definition` and `declaration` already normalize single locations, location arrays and location-link
 arrays; `documentSymbol` and `workspace/symbol` already normalize both symbol shapes. Hover's
 nested content union is handled by its converter. Diagnostic reports are read by `kind`, and
-`workspace/executeCommand` retains arbitrary JSON. Folding ranges, semantic tokens (full), signature
-help, highlights, rename, formatting and code lenses accept their single non-null result shape or
+`workspace/executeCommand` retains arbitrary JSON. Semantic-token deltas accept either edits or a
+replacement full result. Folding ranges, full semantic tokens, signature help, highlights, rename,
+formatting and code lenses accept their single non-null result shape or
 `null`. Resolve requests have a single result shape.
 
 `textDocument/codeAction` accepts its mixed Command/CodeAction array or null (#453). Other unimplemented
@@ -452,13 +464,20 @@ an answer. Cancellation sends `$/cancelRequest` best effort; returning never dep
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
 
-Full semantic-token requests answered with Content Modified (`-32801`) retry after 250 ms,
+Semantic-token requests declare `full: {"delta": true}`. The client retains a result ID and data per
+open document on a connection. When the server offers `full.delta`, subsequent requests send
+`textDocument/semanticTokens/full/delta` with `previousResultId`. Edits index the previous integer array
+and are applied in descending start order; a full reply replaces it. A failed delta or invalid edit
+clears the held result, logs once and falls back to full. Close/reopen and reconnect clear held results.
+Callers still receive a complete token array (#5447).
+
+Full and delta semantic-token requests answered with Content Modified (`-32801`) retry after 250 ms,
 with exponential backoff capped at 4 seconds (#2913). These replies do not spend the document's
 once-only warning. Cancellation, a document change or close, or a connection change stops the retry.
 The backoff uses an injectable `TimeProvider` (system time by default); retry tests advance it by hand.
-Semantic-token refresh requests remain unsupported.
+Semantic-token refresh requests invalidate attached editors’ analysis (#4254).
 
-Before a document change, the client cancels outstanding diagnostic pulls, full semantic-token requests
+Before a document change, the client cancels outstanding diagnostic pulls, semantic-token requests
 and folding requests for that document and waits for their cancellation frames to be sent before
 `didChange` (#2365). Hover, completion and other user requests are left alone, as are requests for other
 documents. The change starts a fresh diagnostic pull; editor refreshes request fresh tokens and folds.
@@ -613,7 +632,7 @@ It uses the code window's 400 ms delay, cancellation and tooltip renderer, inclu
 code fences. Format Document and Format Selection use the claiming server's corresponding advertised
 provider, flush pending edits, and pass the configured Tab Width with spaces. Each reply applies as
 one undo step; a reply to an older buffer or detached view is discarded. A read-only editor refuses
-formatting with an explanation. Archive previews and project-file views remain read-only and have
+formatting with an explanation. Archive and project-file views have
 no formatting commands. Carried files do not format on save. The code window retains its guarded
 formatting and format-on-save paths, diagnostic tips and debugger data tips.
 
@@ -694,7 +713,10 @@ whichever count was behind, and either window's close closed the document for bo
 ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
 
 **Closing a dirty code window keeps its server document open** (#3064). The project holds an independent
-session with the edited text until save, discard/reload or removal. Closing still gives no save prompt.
+session with the edited text until save, discard/reload or removal. Closing normally gives no save prompt. A dirty
+shared copy asks whether to save when the person closes its code window, as
+[#2756 measured](vb6-fidelity-oracle/a-file-shared-by-two-projects-of-a-group.md); No keeps the edits in the
+project session.
 Pending edits are flushed before the window lets go; reopening joins the same document without a second
 `didOpen` or a version reset. A server starting later receives that retained text in `didOpen`.
 Saving a closed document updates its whole-file text and wire name, announces the save, then releases the
@@ -744,9 +766,12 @@ Each ordinal entry name segment is percent-encoded independently, including embe
 the container's complete `file:` URI is percent-encoded as the query value. `ArchiveEntryUri`, beside
 `LspDocumentUri`, builds and parses it. Containers compare as host file paths (case-insensitively on Windows),
 while entry segments remain case-sensitive. Distinct containers never share document identity.
-An available twinBASIC text preview opens a session with its text, routed by the entry's extension, and closes it
-with the tab. Reload recreates that session and its diagnostic markers. Entries stay read-only and send
-no `didChange`; no shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
+An available twinBASIC text preview opens a session with its text and closes it with the tab. Source entries
+(`.twin` and the VB6 source extensions, ignoring case) carry the `twinbasic` language label: only servers
+claiming the extension and declaring `languageId` `twinbasic` receive them (#1122). Other entries route by
+extension. Without a matching server, no diagnostics are produced. Reload recreates that session and its
+diagnostic markers. Read-only entries send no `didChange`; editable project-backed `.twin` sources send
+text changes through the same session (#5143). No shadow file is written. `get_project_info` pairs entry paths with their URIs in `entryUris`.
 The protocol inspector and `list_lsp_messages` record the conversation normally; pseudonymised exports redact
 both entry names and the nested container URI.
 
@@ -1111,6 +1136,15 @@ neither start for nor receive that document. Requests, changes, saves and closes
 If the owner is null, or none of its servers claims the extension, ordinary extension and membership
 routing applies. HexIDE's own projects (including `.vbp` groups) and carried files keep that routing.
 The registration's `AddinId` identifies the owner; `Origin` remains the display title.
+
+A configuration entry can also displace the bundled `hexide.vb6` entry
+([#5384](https://github.com/hexide-io/HexIDE/issues/5384)). After the project-owner route, for each extension,
+the bundled entry is excluded if another entry with no `AddinId` claims that extension, establishes VB6
+through `DocumentLanguage.EstablishesVb6`, and ranks above the bundled entry's current priority. Members
+and carried files use this rule before the membership and carried `.cls` content gates. Unclaimed
+extensions stay bundled; equal or lower priorities, a LaTeX `.cls` claim, and add-in entries outside their
+own project type keep ordinary routing. Overriding `hexide.vb6` itself displaces nothing. A displaced
+bundled entry never starts unless it still claims another opened document.
 
 ### The one place the identifier still counts: a project's class modules
 
@@ -1897,7 +1931,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 65 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 67 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1919,7 +1953,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 31 of 41
+### `textDocument/*` — 32 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1958,7 +1992,7 @@ than inferred.
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
 | ✅ | `textDocument/selectionRange` | → | Expand/Shrink Selection commands and server parent chains (#3076) |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
-| ○ | `textDocument/semanticTokens/full/delta` | → |  |
+| ✅ | `textDocument/semanticTokens/full/delta` | → | Per-document result IDs; applies edits against the previous array, with full fallback (#5447) |
 | ○ | `textDocument/semanticTokens/range` | → |  |
 | ✅ | `textDocument/signatureHelp` | → |  |
 | ✅ | `textDocument/typeDefinition` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
@@ -2027,11 +2061,11 @@ than inferred.
 | ○ | `notebookDocument/didOpen` | → |  |
 | ○ | `notebookDocument/didSave` | → |  |
 
-### `completionItem/*` — 0 of 1
+### `completionItem/*` — 1 of 1
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `completionItem/resolve` | → |  |
+| ✅ | `completionItem/resolve` | → | Selected item, routed to its server for detail and documentation |
 
 ### `codeAction/*` — 1 of 1
 
@@ -2224,7 +2258,7 @@ awaiting effort, they are **server** features awaiting a server.
 |---|---|---|
 | Find all references | `textDocument/references` | Shift+F12 and menus; grouped, navigable results and per-server errors (#2907) |
 | Code actions / quick fixes | `textDocument/codeAction` | Relays server quick fixes, refactorings and source actions on request; computes none (#453, #4256) |
-| Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
+| Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full and delta requests, with refresh; range remains unwired (#2054, #4254, #5447) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
 | Type hierarchy | `textDocument/prepareTypeHierarchy`, `typeHierarchy/*` | Provider-gated code context and Edit commands; each prepared item has lazy Subtypes and Supertypes groups, empty/error states and selection-range navigation (#4056). Items retain their owning server and opaque data. Shows server answers; computes none |

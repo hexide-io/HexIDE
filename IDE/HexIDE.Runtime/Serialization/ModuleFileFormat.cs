@@ -1,4 +1,5 @@
 using System;
+using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Serialization;

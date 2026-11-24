@@ -64,6 +64,10 @@ internal static class DesktopStartup
 
         HexIDE.Static.DesktopStartupHook = (setup, desktop) =>
         {
+            // First, before add-ins load and before the startup project opens: the provider's themes are what the first
+            // designer draws with (#5396). In recovery sessions too, where VB6 projects still open.
+            BasicProviderComposition.Register(setup.HexIdeHost);
+
             // The registry also guards loading in recovery sessions.
             var loader = setup.AddinLoader;
             loader.LoadAll(setup.HexIdeHost);

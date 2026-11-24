@@ -1,0 +1,6 @@
+{
+  "name": "Fixture clash",
+  "strings": {
+    "Str.Fixture.Area.Hello": "Someone else"
+  }
+}

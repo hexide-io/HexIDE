@@ -10,6 +10,7 @@ using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.IDE;
+using HexIDE.Runtime.Debugging;
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
 
@@ -68,7 +69,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private bool Traps => errorMode != ErrorMode.None && !inHandler;
 
     // Whether an error raised now continues with the next statement: On Error Resume Next, and no handler running.
-    private bool ResumesNext => errorMode == ErrorMode.ResumeNext && !inHandler;
+    private bool ResumesNext => errorMode == ErrorMode.ResumeNext && !inHandler && !OverriddenByAllErrors();
 
     // Object-holding slots this activation OWNS (its own `Dim` locals, appended in declaration order), released by
     // RunProcedure at scope-exit for reference counting (Phase 4.2). Non-null only for a PROCEDURE-body executor —
@@ -173,6 +174,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // adopted into / terminated by the PAUSED statement's frame.
             var evaluator = new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets);
             var result = ImmediateValue(await evaluator.EvaluateValue(tree));
+            if (forcedExpression)
+                result = await ControlMembers.ReadDefaultValue(result, "?");
             return forcedExpression && IsPrintable(result) ? VbPrint.ItemText(result) : FormatEvalResult(result);
         }
         catch (Debugging.ImmediateEvalException ex) { return ex.Message; }        // user-call / New rejection
@@ -389,7 +392,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <summary>
     /// What <c>? x</c> prints for an object: its default member, as Print does everywhere. Reading a class's is a call
     /// into the program, refused here as D15 refuses <c>? obj.Prop</c>; one with none is 438, and Err is its Number
-    /// (ObjectAsValue). A control, a control array and Nothing print as they did.
+    /// (ObjectAsValue). The Print path reads control defaults separately.
     /// </summary>
     private static Vb6Value ImmediateValue(Vb6Value v) => v.Value switch
     {
@@ -2441,7 +2444,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (reference.Value is (VBTextBox or VBUserControl) && RuntimeScale.IsConversion(member)
             && (reference.HeldAsVariant || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
-        return ((Control)reference.Value!).CallAsync(member, args, ModalOwner());
+        return reference.CallAsync(member, args, ModalOwner());
     }
 
     private VbObject? ModalOwner()
@@ -2671,13 +2674,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         try
         {
             value = await interpreter.ResolveDefaultMember(value, callerFrames: stmtFrames);
-            // Returned controls and Container follow the measured Let-value reads (#4520).
-            if (ControlMembers.DefaultMember(value) is { } defaultMember)
-                value = await ControlMembers.Read(value, defaultMember, null);
             if (value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } formValue
                 && !formValue.ClassDef.PrePass.DeclaresDefaultMember)
                 throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
             value = ObjectAsValue.Scalar(value, context);
+            // Let reads a control's default (#790). Slider has its own measured read (#1091).
+            if (value.Type == Vb6Value.ValueType.Control && value.Value is not null and not VBSlider)
+                return await ControlMembers.ReadDefaultValue(value,
+                    $"{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}", intrinsicOnly: false);
             if (value.Type == Vb6Value.ValueType.Object)
                 throw new VBRunTimeException(context, value.Value is null
                     ? VBStandardError.ObjectVariableOrWithBlockVariableNotSet
@@ -2690,19 +2694,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw;
         }
 
-        // A control on the right of a Let stands for its default member in VB6: `s = Text1` reads Text1.Text,
-        // `v = Command1` reads its Value, `n = Check1` its Value (all measured). TextBox is resolved above (#4520),
-        // and the other measured intrinsic defaults are resolved above (#790); Slider remains below (#1091). Storing the reference gave
-        // a wrong value: a String took the .NET type name, a Variant kept the control. A Let never stores a
-        // reference in VB6, even into an object variable, where it assigns that object's default member. Set, For
-        // Each and argument passing do not come here. The in-box objects (Err, App, Debug, a control array) were
-        // settled by ObjectAsValue above, and controls are the one kind it leaves alone.
         if (value.Value is VBSlider sliderValue)
             return new Vb6Value(sliderValue.Value);
-        if (value.Type == Vb6Value.ValueType.Control && value.Value is not null)
-            throw new NotImplementedException(
-                $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
-                + "member, which is not implemented (#790). Name the property, or use Set to keep the reference.");
         return value;
     }
 
@@ -3426,6 +3419,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             if (ControlMembers.TryWrite(variable, memberIdentifier, null, value))
                 return default;
+            VB6ControlMembers.RefuseUnresolved(variable, UdtFieldName(members[0]));
             throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} doesn't have member {memberIdentifier}");
         }
         if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } procedureOrArrayCall)
@@ -3900,7 +3894,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         async Task PrintItem(VB6Parser.ValueStmtContext expression)
         {
             var value = await expressionExecutor.EvaluateScalarFast(expression);
-            value.RefuseOddBytes(printed is not null ? "Debug.Print" : "Print #");
+            var operation = printed is not null ? "Debug.Print" : "Print #";
+            value = await ControlMembers.ReadDefaultValue(value, operation);
+            value.RefuseOddBytes(operation);
             if (printed is not null)
             {
                 // An object prints its default member, and one with none is 438 (ObjectAsValue).
@@ -5935,8 +5931,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 case VB6Parser.OutputList_ExpressionContext item:
                     if (!afterSeparator)
                         files.Write(number, ",");
-                    if (item.valueStmt() is { } value)
-                        files.Write(number, VbWrite.ItemText(await expressionExecutor.EvaluateValueFast(value)));
+                    if (item.valueStmt() is { } expression)
+                    {
+                        var value = await expressionExecutor.EvaluateValueFast(expression);
+                        if (value.Type == Vb6Value.ValueType.Control && value.Value is not null)
+                        {
+                            // #5385: Write writes a control's default as String, except for Boolean defaults.
+                            value = await ControlMembers.ReadDefaultValue(value, "Write #");
+                            if (value.Type != Vb6Value.ValueType.Boolean && value.Type != Vb6Value.ValueType.Control)
+                                value = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, expression);
+                        }
+                        files.Write(number, VbWrite.ItemText(value));
+                    }
                     else
                         await PrintPosition(target, item.SPC() != null, item.argsCall()?.argCall().FirstOrDefault()?.valueStmt());
                     afterSeparator = false;
@@ -6386,7 +6392,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 };
                 faultPc = -1;
             }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.GoToLabel && !inHandler)
+            catch (VBRunTimeException ex) when (errorMode == ErrorMode.GoToLabel && !inHandler && !OverriddenByAllErrors())
             {
                 CaptureError(ex);
                 faultPc = pc;
@@ -6482,12 +6488,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return found.ToArray();
         });
 
+    private bool OverriddenByAllErrors()
+    {
+        // Only standard-module handlers were measured under All Errors (#1070). A class's or form's own
+        // handler keeps today's behaviour until measured. These exception filters leave the normal path alone.
+        if (interpreter.DebugController is not { CanHalt: true, ErrorTrapping: ErrorTrapping.BreakOnAllErrors }
+            || currentModule.Kind != InterpreterModuleKind.Standard)
+            return false;
+        foreach (var frame in interpreter.ActivationStack)
+            if (ReferenceEquals(frame, this))
+                return true;
+        return false;
+    }
+
     /// <summary>
     /// Whether a run-time error raised in this activation is one nothing handles, so the program halts at the statement
     /// that raised it (#1011). Asked where the error is caught, before anything has unwound. It is handled when this
     /// activation would trap it, or a caller below would, as far down as the activation the program was entered at:
     /// a handler in the code that raised an event never sees the event's error (measured, b1 to b3 in the oracle).
-    /// A class's error that its caller traps goes to the caller, as a compiled program does (decided on #1011, D27).
+    /// Error Trapping can override the measured handled-error shapes (#1070); its default keeps #1011 / D27.
     /// </summary>
     private bool HaltsHere(VBRunTimeException error)
     {
@@ -6506,10 +6525,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A module's declarations, or code the host ran without entering the program, which halting has no frame for.
         if (at < 0)
             return false;
+        // #1070: only a non-trapping class with a trapping direct standard-module/form caller is measured.
+        // Forms/standard modules raising, class callers, longer chains and own handlers keep today's result.
+        // The cached decision above must win as an error unwinds through a longer chain.
+        if (interpreter.DebugController.ErrorTrapping == ErrorTrapping.BreakInClassModule
+            && currentModule.Kind == InterpreterModuleKind.Class && !Traps && at > 0
+            && stack[at - 1].Traps
+            && stack[at - 1].currentModule.Kind is InterpreterModuleKind.Standard or InterpreterModuleKind.Form)
+            return true;
         for (var i = at; i >= 0; i--)
         {
             if (stack[i].Traps)
             {
+                if (interpreter.DebugController.ErrorTrapping == ErrorTrapping.BreakOnAllErrors
+                    && stack[i].currentModule.Kind == InterpreterModuleKind.Standard)
+                    return true;
                 error.TrappedBy = stack[i];
                 return false;
             }

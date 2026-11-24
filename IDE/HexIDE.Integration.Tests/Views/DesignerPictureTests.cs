@@ -8,6 +8,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Controls;
@@ -78,14 +79,18 @@ public class DesignerPictureTests
         return new DesignerPicture(request.PixelWidth, request.PixelHeight, pixels, 0, 0, double.PositiveInfinity, double.PositiveInfinity);
     }
 
+    // In BGRA whatever the bitmap's own order. A RenderTargetBitmap takes Skia's native order, which is RGBA on macOS,
+    // so comparing its raw bytes with the designer's BGRA picture failed there with both showing red (#860).
     private static byte[] PixelsOf(Bitmap bitmap)
     {
+        (bitmap.Format == PixelFormat.Bgra8888 || bitmap.Format == PixelFormat.Rgba8888)
+            .Should().BeTrue($"the test reads 4-byte BGRA or RGBA pixels, and this bitmap is {bitmap.Format}");
         var stride = bitmap.PixelSize.Width * 4;
         var pixels = new byte[stride * bitmap.PixelSize.Height];
         var pin = GCHandle.Alloc(pixels, GCHandleType.Pinned);
         try { bitmap.CopyPixels(new PixelRect(bitmap.PixelSize), pin.AddrOfPinnedObject(), pixels.Length, stride); }
         finally { pin.Free(); }
-        return pixels;
+        return bitmap.Format == PixelFormat.Rgba8888 ? InProcessDesignerPictures.SwapRedAndBlue(pixels) : pixels;
     }
 
     private static void Showing(ControlRenderer renderer, Action shown)
@@ -186,6 +191,64 @@ public class DesignerPictureTests
 
             draw.Should().Throw<InvalidOperationException>().WithMessage("No room");
             renderer.GetVisualChildren().Should().BeEmpty();
+        });
+    }
+
+    // VB6 SP6: docs/vb6-fidelity-oracle/an-empty-listbox-an-empty-image-and-a-label-narrower-than-its-caption.md (#860).
+    [AvaloniaFact]
+    public void An_empty_Image_has_only_a_grey_dashed_edge_in_the_designer()
+    {
+        var renderer = new ControlRenderer { Width = 81, Height = 65 };
+        Showing(renderer, () =>
+        {
+            renderer.Component = new ComponentInstanceViewModel(Designer(), new ComponentInstance(ImageComponentClass.Instance, "Image1"));
+            Dispatcher.UIThread.RunJobs();
+            var bitmap = renderer.Child.Should().BeOfType<Image>().Subject.Source.Should().BeAssignableTo<Bitmap>().Subject;
+            var pixels = PixelsOf(bitmap);
+            for (var y = 1; y < 64; y++)
+                for (var x = 1; x < 80; x++)
+                    pixels[(y * 81 + x) * 4 + 3].Should().Be(0);
+            foreach (var edge in new[] {
+                         Enumerable.Range(8, 60).Select(x => x * 4).ToArray(),
+                         Enumerable.Range(8, 60).Select(x => (64 * 81 + x) * 4).ToArray(),
+                         Enumerable.Range(8, 48).Select(y => y * 81 * 4).ToArray(),
+                         Enumerable.Range(8, 48).Select(y => (y * 81 + 80) * 4).ToArray() })
+            {
+                edge.Count(i => pixels[i + 3] == 255).Should().Be(edge.Length / 2);
+                foreach (var i in edge.Where(i => pixels[i + 3] != 0))
+                    pixels.Skip(i).Take(4).Should().Equal(100, 100, 100, 255);
+                // Ignore phase and corners: every complete interior run is three pixels on or off.
+                var runs = new List<int>();
+                var length = 1;
+                for (var j = 1; j < edge.Length; j++)
+                {
+                    if (pixels[edge[j] + 3] == pixels[edge[j - 1] + 3]) length++;
+                    else { runs.Add(length); length = 1; }
+                }
+                runs.Skip(1).Should().OnlyContain(run => run == 3);
+            }
+        });
+    }
+
+    [AvaloniaFact]
+    public void An_Image_with_a_picture_keeps_its_picture_in_the_designer()
+    {
+        using var source = new RenderTargetBitmap(new PixelSize(81, 65), new Vector(96, 96));
+        var red = new Border { Background = Brushes.Red, Width = 81, Height = 65 };
+        red.Measure(new Size(81, 65));
+        red.Arrange(new Rect(0, 0, 81, 65));
+        source.Render(red);
+        using var stream = new System.IO.MemoryStream();
+        source.Save(stream, PngBitmapEncoderOptions.Default);
+        var instance = new ComponentInstance(ImageComponentClass.Instance, "Image1");
+        instance.SetProperty(VBProperties.PictureProperty, stream.ToArray());
+        var renderer = new ControlRenderer { Width = 81, Height = 65 };
+        Showing(renderer, () =>
+        {
+            renderer.Component = new ComponentInstanceViewModel(Designer(), instance);
+            Dispatcher.UIThread.RunJobs();
+            var bitmap = renderer.Child.Should().BeOfType<Image>().Subject.Source.Should().BeAssignableTo<Bitmap>().Subject;
+            PixelsOf(bitmap).Should().Equal(PixelsOf(source));
         });
     }
 

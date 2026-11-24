@@ -148,7 +148,8 @@ public partial class DISetup
                 ctx.Inject<IProjectManager>(out var projects);
                 ctx.Inject<LanguageServerEditorStore>(out var editorStore);
                 ctx.Inject<ILspWorkspace>(out var workspace);
-                return new LanguageServersToolViewModel(registry, localization, capture, events, pseudonyms, projects, editorStore, workspace);
+                ctx.Inject<LanguageServerTrial>(out var trial);
+                return new LanguageServersToolViewModel(registry, localization, capture, events, pseudonyms, projects, editorStore, workspace, trial);
             })
             .Bind().As(Singleton).To(ctx =>
             {
@@ -455,6 +456,22 @@ public partial class DISetup
                 return new LspClientRegistry(
                     registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems, artifacts, capture: capture);
             })
+            .Bind<ILanguageServerLaunchConfirmation>().As(Singleton).To<LanguageServerLaunchConfirmation>()
+            .Bind<LanguageServerTrial>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                ctx.Inject<LanguageServerEditorStore>(out var editorStore);
+                ctx.Inject<ILanguageServerLaunchConfirmation>(out var confirmation);
+                ctx.Inject<ILspWorkspace>(out var workspace);
+                ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
+                ctx.Inject<HexIDE.Redaction.Pseudonymiser>(out var pseudonyms);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<ISettingsService>(out var settings);
+                return new LanguageServerTrial(loggerFactory, editorStore.Seen, confirmation, workspace, capture,
+                    providers, new HexIDE.Redaction.ConversationRedactor(pseudonyms),
+                    () => localization.ResolvedLanguage, settings);
+            })
             // One factory for the configured servers and the ones add-ins contribute, so both are made the same way.
             .Bind<LanguageServerRegistrationFactory>().As(Singleton).To(ctx =>
             {
@@ -577,6 +594,8 @@ public partial class DISetup
                 return types;
             })
             .Bind().As(Singleton).To<AddinOptionsService>()
+            .Bind().As(Singleton).To<AddinResourceService>()
+            .Bind().As(Singleton).To<AddinLanguagePackService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
             {

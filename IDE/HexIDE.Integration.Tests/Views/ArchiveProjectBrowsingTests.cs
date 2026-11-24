@@ -198,7 +198,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             editor.Text.Should().Contain(file == "userform.xlsm" ? "CommandButton1_Click" : "Option Explicit");
             view.GetLogicalDescendants().OfType<TextBlock>().Should().Contain(b => b.Text == tab.Notice);
             FluentActions.Invoking(() => tab.Document.Insert(0, "bad")).Should().Throw<InvalidOperationException>();
-            await lsp.Received(1).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true);
+            await lsp.Received(1).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true, languageId: null);
             lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
                 new PublishDiagnosticsParams(tab.DocumentUri, [new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 6)), "problem", DiagnosticSeverity.Error)]));
             Dispatcher.UIThread.RunJobs();
@@ -206,7 +206,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             editor.TextArea.TextView.BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers.Should().ContainSingle();
             await archives.Reload(OfficeFile(file));
             await lsp.Received(1).CloseDocumentAsync(tab.DocumentUri);
-            await lsp.Received(2).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true);
+            await lsp.Received(2).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, true, languageId: null);
             tab.Markers.Should().BeEmpty();
             await archives.Close(OfficeFile(file));
             await lsp.Received(2).CloseDocumentAsync(tab.DocumentUri);
@@ -281,7 +281,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         archives.OpenDocument(archives.Projects[0].Root.Children[0]);
         var tab = tabs.OfType<ArchiveDocumentViewModel>().Single();
         var uri = "archive-entry:/Module%20%23%201.twin?container=" + Uri.EscapeDataString(LspDocumentUri.ForFile(path));
-        await lsp.Received(1).OpenDocumentAsync(uri, "Module Main", false);
+        await lsp.Received(1).OpenDocumentAsync(uri, "Module Main", false, languageId: DocumentLanguage.TwinBasic);
         var view = new ArchiveDocumentView { DataContext = tab };
         var window = new Window { Content = view, Width = 600, Height = 400 };
         window.Show();
@@ -298,11 +298,11 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             tab.Markers.Should().ContainSingle();
             var editor = view.FindControl<TextEditor>("Editor")!;
             editor.TextArea.TextView.BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers.Should().ContainSingle();
-            FluentActions.Invoking(() => tab.Document.Insert(0, "bad")).Should().ThrowExactly<InvalidOperationException>();
+            tab.IsReadOnlyDocument.Should().BeFalse();
             Write("one.twinproj", "replacement", name: "Module # 1.twin");
             await archives.Reload(path);
             await lsp.Received(1).CloseDocumentAsync(uri);
-            await lsp.Received(1).OpenDocumentAsync(uri, "replacement", false);
+            await lsp.Received(1).OpenDocumentAsync(uri, "replacement", false, languageId: DocumentLanguage.TwinBasic);
             tab.Markers.Should().BeEmpty();
             lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
                 new PublishDiagnosticsParams(uri, [new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 3)), "new", DiagnosticSeverity.Error)]));
@@ -422,7 +422,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     [AvaloniaFact]
     public async Task Text_is_searchable_but_editor_replace_and_direct_mutation_are_read_only()
     {
-        await archives.Open(Write("one.twinproj", "hello world hello"));
+        await archives.Open(Write("one.twinproj", "hello world hello", name: "preview.json"));
         archives.OpenDocument(archives.Projects[0].Root.Children[0]);
         var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
         dock.ActiveDocument.Returns(tab);
@@ -548,7 +548,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task Source_folder_command_uses_selected_project_saved_bytes_and_keeps_previews_read_only()
+    public async Task Source_folder_command_uses_selected_project_saved_bytes_and_keeps_open_buffers_unchanged()
     {
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
@@ -566,12 +566,12 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         Write("one.twinproj", "saved after opening");
         var before = File.ReadAllBytes(path);
         await tree.SynchronizeArchiveFolder();
-        var target = Path.Combine(directory, ".hexide", ".twinproj", "one.twinproj");
+        var target = Path.Combine(directory, ".hexide", "one.twinproj");
         File.ReadAllText(Path.Combine(target, "main.twin")).Should().Be("saved after opening");
-        Directory.Exists(Path.Combine(directory, ".hexide", ".twinproj", "two.twinproj")).Should().BeFalse();
+        Directory.Exists(Path.Combine(directory, ".hexide", "two.twinproj")).Should().BeFalse();
         File.ReadAllBytes(path).Should().Equal(before);
         tab.Document.Text.Should().Be("preview");
-        tab.IsReadOnlyDocument.Should().BeTrue();
+        tab.IsReadOnlyDocument.Should().BeFalse();
         await windows.Received(1).MessageBox(Arg.Is<string>(s => s.StartsWith("Ready: ") && s.Contains("one.twinproj")),
             "Str.Archive.SyncFolder", MessageBoxButtons.Ok, MessageBoxIcon.Information);
         await archives.Reload(path);
@@ -584,7 +584,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         var path = Write("one.twinproj", "saved");
         await archives.Open(path);
         await archives.SynchronizeFolder(path);
-        var member = Path.Combine(directory, ".hexide", ".twinproj", "one.twinproj", "main.twin");
+        var member = Path.Combine(directory, ".hexide", "one.twinproj", "main.twin");
         File.WriteAllText(member, "user edit");
         windows.ClearReceivedCalls();
         await archives.SynchronizeFolder(path);

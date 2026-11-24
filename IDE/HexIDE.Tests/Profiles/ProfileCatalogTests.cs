@@ -12,23 +12,31 @@ public class ProfileCatalogTests
     public void BuiltinsAreVersionedIndexedManifestsWithTheApprovedOfferings()
     {
         var profiles = ProfileCatalog.Builtins;
-        profiles.Select(x => x.Id).Should().Equal("vb6", "vbaode", "vba");
+        profiles.Select(x => x.Id).Should().Equal("neutral", "vb6", "vbaode", "vba");
         foreach (var profile in profiles)
         {
             profile.SchemaVersion.Should().Be(1);
             profile.Source.Should().Be($"HexIDE.IDE.Profiles.Builtins.{profile.Id}.json");
-            profile.MenuVisibility["project.references"].Should().Be(profile.Id == "vb6");
-            profile.MenuVisibility["tools.references"].Should().Be(profile.Id != "vb6");
+            if (profile.Id == "neutral")
+            {
+                profile.ProjectTypes.Should().BeNull();
+                profile.MenuVisibility.Should().BeEmpty();
+            }
+            else
+            {
+                profile.MenuVisibility["project.references"].Should().Be(profile.Id == "vb6");
+                profile.MenuVisibility["tools.references"].Should().Be(profile.Id != "vb6");
+            }
             profile.Keymap.Should().BeNull();
             profile.Theme.Should().BeNull();
             profile.SettingsDefaults.Should().BeNull();
             profile.LanguageOverrides.Should().BeEmpty();
             profile.ToolbarVisibility.Should().BeEmpty();
         }
-        profiles[0].ProjectTypes!.Value.Should().Equal("standard-exe", "activex-exe", "activex-dll",
+        profiles[1].ProjectTypes!.Value.Should().Equal("standard-exe", "activex-exe", "activex-dll",
             "activex-control", "application-wizard", "wizard-manager", "data-project", "enterprise-controls");
-        profiles[1].ProjectTypes!.Value.Should().Equal("standard-exe");
-        profiles[2].ProjectTypes!.Value.Should().BeEmpty();
+        profiles[2].ProjectTypes!.Value.Should().Equal("standard-exe");
+        profiles[3].ProjectTypes!.Value.Should().BeEmpty();
     }
 
     [Fact]

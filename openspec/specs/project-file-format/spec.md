@@ -34,7 +34,7 @@ untouched while the rest of the save continues (#2756, round 1).
 ### Requirement: Shared copy overwrites and updates SHALL guard against lost edits
 HexIDE deliberately exceeds VB6's protection: it SHALL require consent before overwriting disk content changed since
 that copy was loaded or saved, and before an update discards another copy's unsaved changes. Each copy SHALL retain its
-own disk and render baselines after No to an update. A close or reload SHALL be cancelled if a selected shared copy
+own disk and render baselines after No to an update. A project close or reload SHALL be cancelled if a selected shared copy
 remains unsaved after saving (#2756).
 
 #### Scenario: A stale copy or unsaved update target
@@ -45,7 +45,7 @@ remains unsaved after saving (#2756).
 
 #### Scenario: A selected shared copy remains unsaved during closing
 - **WHEN** the developer declines a shared overwrite, cancels the copy choice, or keeps another selected copy's edits
-- **THEN** other selected files can finish saving, but the close or reload is cancelled
+- **THEN** other selected files can finish saving, but the project close or reload is cancelled
 - **AND** the group keeps its name, project order and startup project, with unsaved copies still loaded
 
 ### Requirement: Unattended shared saves SHALL refuse when consent is needed
@@ -56,6 +56,36 @@ program caller (#2756).
 - **WHEN** an unattended save would require a copy choice, overwrite confirmation or update question
 - **THEN** no question is shown and no shared file is written
 - **AND** the caller receives a refusal naming the reason
+
+### Requirement: Shared members SHALL use one open code window
+When another loaded copy of the same file has a code window open, opening a copy SHALL show the localized
+VB6 already-open warning with OK, activate the existing window and open no second code window, whether or
+not the existing copy is modified. This SHALL apply to modules, classes and form code after UserControl
+routing, without changing designer opening (#2756, round 2).
+
+#### Scenario: Another project's code window is already open
+- **WHEN** the developer opens a second project's copy of a shared member
+- **THEN** the warning appears and the first copy's code window becomes active
+- **AND** the requested copy has no new code window
+
+### Requirement: Person-driven shared code closes SHALL offer to save
+A person-driven close of a dirty shared code window SHALL ask whether to save, naming the member and its
+project, with Yes and No. Yes SHALL save that member interactively through the ordinary save pipeline,
+including the shared update question. No SHALL leave the file unchanged. The window SHALL close either
+way; retained unsaved text SHALL remain in the project session. IDE-driven closes, including Close All,
+unload and reload replacement, SHALL bypass this window question and retain their existing unsaved-changes
+flow. Clean shared code windows SHALL retain their existing close without a question (#2756).
+
+#### Scenario: Saving on a person-driven close
+- **WHEN** a dirty shared code window is closed through the tab's close command or `close_document_tab`
+- **AND** the developer answers Yes
+- **THEN** that member is saved and the shared update question follows
+- **AND** the code window closes
+
+#### Scenario: Keeping edits in a closed window
+- **WHEN** the developer answers No to the shared window's save question
+- **THEN** the window closes without writing the file
+- **AND** another project's copy can open without the already-open warning
 
 ### Requirement: Save pickers SHALL ask explicitly before replacement
 The IDE SHALL ask its own localized Yes/No replacement question, with No the default, after a form, module, project,

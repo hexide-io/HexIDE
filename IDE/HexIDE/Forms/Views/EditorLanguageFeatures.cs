@@ -4,8 +4,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
@@ -19,6 +21,7 @@ public interface IEditorDocumentQueries
 {
     Task FlushDocumentAsync(CancellationToken ct = default);
     Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default);
+    Task<CompletionItem?> ResolveCompletionItemAsync(CompletionItem item, CancellationToken ct);
     Task<CompletionItem[]> RequestCompletionForTriggerAsync(Position position, string triggerCharacter, CancellationToken ct = default);
     IReadOnlyList<string> CompletionTriggerCharacters { get; }
     Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null);
@@ -253,6 +256,7 @@ internal sealed class EditorLanguageFeatures : IDisposable
                 completionChanged?.Invoke(_completionWindow);
                 FillCompletionList(_completionWindow, items, rules.RefusesTyping, () => queries.DocumentUri, position,
                     selectMatch ? null : item => _outlinedItem = item);
+                ResolveSelectedCompletion(_completionWindow);
 
                 _completionWindow.Closed += (_, _) =>
                 {
@@ -268,6 +272,66 @@ internal sealed class EditorLanguageFeatures : IDisposable
         {
             Log.Debug("[completion] {ErrorMessage}", ex.Message);
         }
+    }
+
+    private void ResolveSelectedCompletion(CompletionWindow window)
+    {
+        var list = window.CompletionList;
+        VbCompletionData? selected = null;
+        var requested = new HashSet<VbCompletionData>();
+        CancellationTokenSource? request = null;
+
+        async void SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            var item = list.SelectedItem as VbCompletionData;
+            if (ReferenceEquals(item, selected)) return;
+            selected = item;
+            CancelResolve();
+            if (item is null || !requested.Add(item)) return;
+
+            request = new CancellationTokenSource();
+            var token = request.Token;
+            try
+            {
+                var resolved = await queries.ResolveCompletionItemAsync(item.Item, token);
+                if (resolved is null || token.IsCancellationRequested) return;
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (token.IsCancellationRequested || !window.IsOpen || !ReferenceEquals(list.SelectedItem, item))
+                        return;
+                    item.SetResolvedDescription(resolved);
+                    // AvaloniaEdit reads Description on selection changes. Refresh the existing tooltip
+                    // through that handler without clearing or moving the actual selection.
+                    var empty = Array.Empty<object>();
+                    list.RaiseEvent(new SelectionChangedEventArgs(SelectingItemsControl.SelectionChangedEvent, empty, empty));
+                }, DispatcherPriority.Normal);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                Log.Debug("[completion resolve] {ErrorMessage}", ex.Message);
+            }
+            finally
+            {
+                // Moving on cancels the request, so an item passed over on the way down the list is asked again when
+                // it is selected again. Only an answer, or a server's refusal, counts as its one resolve.
+                if (token.IsCancellationRequested) requested.Remove(item);
+            }
+        }
+
+        void CancelResolve()
+        {
+            request?.Cancel();
+            request?.Dispose();
+            request = null;
+        }
+
+        list.SelectionChanged += SelectionChanged;
+        window.Closed += (_, _) =>
+        {
+            list.SelectionChanged -= SelectionChanged;
+            CancelResolve();
+        };
     }
 
     /// <summary>
@@ -451,9 +515,16 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
     // What an item reads as to the automation surface, whose ListBoxItem holds this object rather than the text: an item
     // was named by its position alone, and selecting one by its text found none (#942 review).
     public override string ToString() => item.Label;
-    public object? Description => item.Documentation is { } documentation
-        ? string.IsNullOrEmpty(item.Detail) ? documentation.Value : item.Detail + "\n\n" + documentation.Value
-        : item.Detail;
+    private string? _resolvedDescription;
+
+    internal CompletionItem Item => item;
+    internal void SetResolvedDescription(CompletionItem resolved) => _resolvedDescription = FormatDescription(resolved);
+
+    public object? Description => _resolvedDescription ?? FormatDescription(item);
+
+    private static string? FormatDescription(CompletionItem value) => value.Documentation is { } documentation
+        ? string.IsNullOrEmpty(value.Detail) ? documentation.Value : value.Detail + "\n\n" + documentation.Value
+        : value.Detail;
     public double Priority => 0;
     public IImage? Image => null;
 

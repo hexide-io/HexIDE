@@ -118,10 +118,10 @@ public class ListViewLabelEditTests
             var contentHeight = editor.Bounds.Height - editor.BorderThickness.Top - editor.BorderThickness.Bottom
                 - editor.Padding.Top - editor.Padding.Bottom;
             contentHeight.Should().BeGreaterThanOrEqualTo(presenter.TextLayout.Height);
-            editor.FontFamily.Should().Be(VBListView.LabelTypeface.FontFamily);
-            editor.FontSize.Should().Be(VBListView.LabelFontSize);
-            editor.FontWeight.Should().Be(VBListView.LabelTypeface.Weight);
-            editor.FontStyle.Should().Be(VBListView.LabelTypeface.Style);
+            editor.FontFamily.Should().Be(list.LabelTypeface.FontFamily);
+            editor.FontSize.Should().Be(list.LabelFontSize);
+            editor.FontWeight.Should().Be(list.LabelTypeface.Weight);
+            editor.FontStyle.Should().Be(list.LabelTypeface.Style);
             editor.Padding.Should().Be(new Thickness(0));
             editor.BorderThickness.Should().Be(new Thickness(1));
             editor.VerticalContentAlignment.Should().Be(Avalonia.Layout.VerticalAlignment.Center);

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Serialization;
 using Avalonia;
@@ -7,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Classic.Avalonia.Theme;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Imaging;
 using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
@@ -21,7 +23,7 @@ public class PictureBoxComponentClass : ComponentBaseClass
     FontProperty, ForeColorProperty,
     MousePointerProperty, TabIndexProperty, TabStopProperty,
     ToolTipTextProperty, PictureProperty,
-    ], [ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent])
+    ], [ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent, RuntimePaint.PaintEvent, RuntimePaint.ResizeEvent])
     {
     }
 

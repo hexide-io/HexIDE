@@ -21,6 +21,10 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
 
     public List<MenuViewModel> Deleted { get; } = new();
 
+    private readonly IWindowManager? windowManager;
+    private readonly ILocalizationService? localization;
+    private readonly IEnumerable<string> controlNames = [];
+
     private MenuViewModel blankMenu = null!;
     private readonly List<(MenuViewModel Menu, int Indent)> originalItems = new();
     internal bool HasLayoutChanges => !ItemsToApply.Select(menu => (menu, menu.Indent)).SequenceEqual(originalItems);
@@ -87,6 +91,14 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         SelectedMenu = blankMenu;
     }
 
+    internal MenuEditorViewModel(FormEditViewModel form, IWindowManager windowManager,
+        IEnumerable<string> controlNames, ILocalizationService localization) : this(form, localization)
+    {
+        this.windowManager = windowManager;
+        this.localization = localization;
+        this.controlNames = controlNames;
+    }
+
     private void AddBlankRow()
     {
         blankMenu = new MenuViewModel();
@@ -106,6 +118,13 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
 
     public void Accept()
     {
+        if (localization is not null && ComponentNaming.MenuRefusalFor(ItemsToApply, controlNames, localization) is { } refusal)
+        {
+            SelectedMenu = refusal.Row;
+            // VB6 titles these boxes with its product name, as the default caption does here.
+            _ = windowManager!.MessageBox(refusal.Message, null, MessageBoxButtons.Ok, MessageBoxIcon.Error);
+            return;
+        }
         CloseRequested?.Invoke(true);
     }
 
@@ -144,10 +163,11 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         if (selectedMenu == null || selectedMenu == blankMenu)
             return;
 
-        var indexOf = FlatMenu.IndexOf(selectedMenu);
+        var menu = selectedMenu;
+        var indexOf = FlatMenu.IndexOf(menu);
         FlatMenu.RemoveAt(indexOf);
         indexOf = Math.Min(indexOf, FlatMenu.Count - 1);
-        Deleted.Add(selectedMenu);
+        Deleted.Add(menu);
         if (indexOf >= 0)
             SelectedMenu = FlatMenu[indexOf];
         else
@@ -175,10 +195,12 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         if (selectedMenu == null || selectedMenu == blankMenu)
             return;
 
-        var indexOf = FlatMenu.IndexOf(selectedMenu);
+        var menu = selectedMenu;
+        var indexOf = FlatMenu.IndexOf(menu);
         if (indexOf > 0)
         {
             FlatMenu.Move(indexOf, indexOf - 1);
+            SelectedMenu = menu;
         }
     }
 
@@ -187,10 +209,12 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         if (selectedMenu == null)
             return;
 
-        var indexOf = FlatMenu.IndexOf(selectedMenu);
+        var menu = selectedMenu;
+        var indexOf = FlatMenu.IndexOf(menu);
         if (indexOf < FlatMenu.Count - 2)
         {
             FlatMenu.Move(indexOf, indexOf + 1);
+            SelectedMenu = menu;
         }
     }
 

@@ -14,6 +14,7 @@ A test that reaches the provider only at run time, through the application's com
 
 | File | Label |
 |---|---|
+| `Addins/RegisterResourcesTests.cs` | split |
 | `Automation/ActiveDocumentDumpTests.cs` | split |
 | `Automation/AddWatchAccessorContextTests.cs` | split |
 | `Automation/AutomationNameGuardTests.cs` | split |
@@ -47,10 +48,12 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
 | `Debugging/CallStackReplyTests.cs` | split |
 | `Debugging/IdleBreakCommandsTests.cs` | split |
+| `TestApp.cs` | split |
 | `TestRunners.cs` | split |
 | `Views/ActiveFormSaveTests.cs` | split |
 | `Views/AddWatchDialogTests.cs` | split |
 | `Views/ArchiveProjectBrowsingTests.cs` | split |
+| `Views/ArchiveProjectSavingTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
 | `Views/BrandWindowIconTests.cs` | split |
@@ -101,6 +104,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ForegroundWindowLifetimeTests.cs` | split |
 | `Views/ForegroundWindowTests.cs` | split |
 | `Views/FormActivationTests.cs` | split |
+| `Views/FormBorderStyleTests.cs` | split |
 | `Views/FormEditViewModelContainerTests.cs` | split |
 | `Views/FormLayoutToolViewTests.cs` | split |
 | `Views/FormPreviewTests.cs` | split |
@@ -118,7 +122,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/LockControlsSaveTests.cs` | split |
 | `Views/MarkGutterOnReadOnlyLineTests.cs` | split |
 | `Views/MemberRunFoldTests.cs` | split |
-| `Views/MemberRunFollowsItsLineTests.cs` | split |
 | `Views/MenuMembersTests.cs` | split |
 | `Views/MessageBoxAcrossRestartTests.cs` | split |
 | `Views/MinesweeperFormsDemoTests.cs` | split |

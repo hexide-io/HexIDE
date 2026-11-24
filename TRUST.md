@@ -49,6 +49,9 @@ written chain. The maintainer returns these two files and the public `intermedia
 `intermediate.sig` chain files. Issuance requires maintainer review; no marketplace service is implied.
 The root supplied during issuance must be the root trusted by the intended HexIDE build.
 
+`hexide-pack`, built from `IDE/HexIDE.AddinPacker.Interactive`, runs every packer command and asks for any option
+you leave out, so `hexide-pack pack` walks you through signing an add-in.
+
 Put those four public chain files in your `pack --trust <dir>` directory. The packer currently reads
 your own private signing key from `firstparty.key` in that directory; the filename does not grant
 first-party status. Pack with your own key, and keep it private.

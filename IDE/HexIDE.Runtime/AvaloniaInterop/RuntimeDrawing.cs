@@ -15,7 +15,7 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Runtime.AvaloniaInterop;
 
 // #988: docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md and the coordinate-system page.
-// State belongs to the running object, not the designer. AutoRedraw's repaint/event semantics remain #991.
+// State belongs to the running object, not the designer. #991 separates the kept picture from the window.
 internal sealed class RuntimeDrawing
 {
     private static readonly ConditionalWeakTable<Control, RuntimeDrawing> drawings = new();
@@ -29,6 +29,7 @@ internal sealed class RuntimeDrawing
     private VBColor fillColor;
     private bool autoRedraw, fontTransparent;
     private int[] pixels = [];
+    private int[] keptPixels = [];
     private int width, height;
     private WriteableBitmap? bitmap;
     private bool dirty;
@@ -137,8 +138,14 @@ internal sealed class RuntimeDrawing
                 var enabled = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
                 if (enabled != drawing.autoRedraw)
                 {
+                    drawing.EnsureSurface();
                     drawing.handles.Retire(drawing.redrawHandle);
                     drawing.autoRedraw = enabled;
+                    if (enabled)
+                    {
+                        // Enabling without a preceding Refresh is unmeasured; retain today's visible drawing.
+                        Array.Copy(drawing.pixels, drawing.keptPixels, drawing.pixels.Length);
+                    }
                     if (enabled) drawing.redrawHandle = drawing.handles.Issue(drawing);
                 }
                 return true;
@@ -166,16 +173,27 @@ internal sealed class RuntimeDrawing
     }
 
     internal static bool IsMethod(string name) => name.Equals("Cls", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("Point", StringComparison.OrdinalIgnoreCase);
+        || name.Equals("Point", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("Refresh", StringComparison.OrdinalIgnoreCase);
 
     internal static Vb6Value Call(Control owner, string name, IReadOnlyList<Vb6Value> args)
     {
         var drawing = Of(owner) ?? throw Refused(name + " on this object");
+        if (name.Equals("Refresh", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
+        {
+            drawing.EnsureSurface();
+            Array.Copy(drawing.keptPixels, drawing.pixels, drawing.pixels.Length);
+            drawing.dirty = true;
+            drawing.Publish();
+            RuntimePaint.Raise(owner);
+            return Vb6Value.Nothing;
+        }
         if (name.Equals("Cls", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
         {
             drawing.EnsureSurface();
             drawing.RenewRedrawHandle();
             Array.Fill(drawing.pixels, drawing.Background());
+            if (drawing.autoRedraw) Array.Copy(drawing.pixels, drawing.keptPixels, drawing.pixels.Length);
             drawing.currentX = drawing.currentY = 0;
             drawing.Changed();
             return Vb6Value.Nothing;
@@ -186,7 +204,7 @@ internal sealed class RuntimeDrawing
             var y = drawing.PointPixel(args[1], true);
             drawing.EnsureSurface();
             return new Vb6Value((long)(x < 0 || y < 0 || x >= drawing.width || y >= drawing.height
-                ? -1 : ToOle(drawing.pixels[y * drawing.width + x] is 0 ? drawing.Background() : drawing.pixels[y * drawing.width + x])));
+                ? -1 : ToOle(drawing.ReadPixel(y * drawing.width + x))));
         }
         throw Refused(name + " with this argument count");
     }
@@ -462,9 +480,18 @@ internal sealed class RuntimeDrawing
 
     private static int ToOle(int argb) => (argb >> 16 & 255) | (argb & 0xFF00) | (argb & 255) << 16;
 
+    private int ReadPixel(int index)
+    {
+        var colour = (autoRedraw ? keptPixels : pixels)[index];
+        return colour == 0 ? Background() : colour;
+    }
+
     private void Put(int x, int y, int colour)
     {
-        if (x >= 0 && y >= 0 && x < width && y < height) pixels[y * width + x] = colour;
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        var index = y * width + x;
+        pixels[index] = colour;
+        if (autoRedraw) keptPixels[index] = colour;
     }
 
     private void Line(int x1, int y1, int x2, int y2, int colour)
@@ -521,6 +548,10 @@ internal sealed class RuntimeDrawing
         var resized = new int[checked(w * h)];
         for (var y = 0; y < Math.Min(height, h); y++)
             Array.Copy(pixels, y * width, resized, y * w, Math.Min(width, w));
+        var kept = new int[resized.Length];
+        for (var y = 0; y < Math.Min(height, h); y++)
+            Array.Copy(keptPixels, y * width, kept, y * w, Math.Min(width, w));
+        keptPixels = kept;
         pixels = resized;
         width = w;
         height = h;
@@ -572,7 +603,13 @@ internal sealed class RuntimeDrawing
         Changed();
     }
 
-    private void Changed() { dirty = true; Publish(); }
+    internal bool AutoRedraw => autoRedraw;
+
+    private void Changed()
+    {
+        dirty = true;
+        Publish();
+    }
 
     private void Publish()
     {

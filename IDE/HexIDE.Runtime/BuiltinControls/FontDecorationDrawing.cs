@@ -32,7 +32,7 @@ internal static class FontDecorationDrawing
         // Keep the lines there too so they follow scrolling, clipping and the control's stacking order.
         TemplatedControl.TemplateAppliedEvent.AddClassHandler<TextBox>((box, e) =>
         {
-            if (box is not VBTextBox && box.TemplatedParent is not VBComboBox)
+            if (box is not VBTextBox && box.TemplatedParent is not VBComboBox && box.Parent is not VBListView)
                 return;
 
             if (e.NameScope.Find<TextPresenter>("PART_TextPresenter") is { } presenter
