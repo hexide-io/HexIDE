@@ -63,7 +63,7 @@ public class DocumentSavedAnnouncementTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), lspClient: () => _lsp);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), lspClient: () => _lsp);
     }
 
     private ProjectDefinition AProjectWith(params string[] moduleNames)

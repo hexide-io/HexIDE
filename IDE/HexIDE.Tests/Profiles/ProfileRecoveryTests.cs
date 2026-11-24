@@ -174,7 +174,7 @@ public sealed class ProfileRecoveryTests : IDisposable
                 Substitute.For<IWindowManager>(), new EventBus(), manager,
                 Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
                 Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-                Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+                Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
             try { await Static.StartupProjectHook!(projects, manager); }
             finally { window.Close(); }
             manager.Received(1).AddProject(Arg.Is<HexIDE.Runtime.ProjectElements.ProjectDefinition>(

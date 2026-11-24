@@ -21,7 +21,7 @@ public class DesignerReferenceTests
     public void The_last_selected_control_is_the_reference(string gesture)
     {
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
             null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>())
             .Initialize(new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1"));

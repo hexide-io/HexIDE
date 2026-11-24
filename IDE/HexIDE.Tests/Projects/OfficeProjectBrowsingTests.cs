@@ -200,7 +200,7 @@ public sealed class OfficeProjectBrowsingTests : IDisposable
         Vb6ProjectType.Register(types, format);
         return new ProjectService(() => throw new InvalidOperationException(), windows, Substitute.For<IEventBus>(), manager,
             recent, Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), archives, contributed: types);
+            localization, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), archives, contributed: types);
     }
 
     public void Dispose()

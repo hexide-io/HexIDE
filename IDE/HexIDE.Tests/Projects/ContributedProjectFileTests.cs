@@ -64,7 +64,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: _types);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: _types);
     }
 
     public void Dispose()

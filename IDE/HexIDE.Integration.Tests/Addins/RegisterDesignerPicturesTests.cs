@@ -129,7 +129,7 @@ public class RegisterDesignerPicturesTests
     }
 
     [AvaloniaFact]
-    public void The_Basic_provider_registers_its_drawer_last_so_a_refusal_leaves_its_themes_and_text()
+    public void The_Basic_provider_registers_its_drawer_last_so_a_refusal_leaves_its_themes_text_and_controls()
     {
         var host = Substitute.For<IHexIdeHost>();
         host.RegisterDesignerPictures(Arg.Any<Func<IDesignerDrawingSurface, IDesignerPictures>>())
@@ -140,6 +140,8 @@ public class RegisterDesignerPicturesTests
 
         host.Received(BasicProvider.Resources.Count).RegisterResources(Arg.Any<Uri>());
         host.Received(1).RegisterLanguagePacks(Arg.Any<Uri>());
+        host.Received(BasicProvider.Components.Count).RegisterComponent(Arg.Any<IComponentClass>());
+        host.Received(BasicProvider.Toolbox.Count).RegisterToolboxItem(Arg.Any<IComponentClass>(), Arg.Any<string?>());
         host.Received(1).RegisterDesignerPictures(Arg.Is<Func<IDesignerDrawingSurface, IDesignerPictures>>(
             pictures => pictures(new Surface()) is InProcessDesignerPictures));
     }

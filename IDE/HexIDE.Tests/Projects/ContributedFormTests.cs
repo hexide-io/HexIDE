@@ -187,7 +187,7 @@ public sealed class ContributedFormTests : IDisposable
         _headers = new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService());
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             _events, projects, Substitute.For<IRecentProjectsService>(),
-            Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings, _headers, new ComponentRegistry(),
+            Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings, _headers, InBoxRegistry.Create(),
             contributed: _types);
     }
 

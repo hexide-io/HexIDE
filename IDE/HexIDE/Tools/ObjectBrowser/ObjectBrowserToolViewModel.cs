@@ -38,6 +38,9 @@ public partial class ObjectBrowserToolViewModel : Document
     private readonly Dictionary<ProjectDefinition, OBLibraryViewModel> projectToLibrary = new();
     private readonly Dictionary<ProjectDefinition, List<OBLibraryViewModel>> projectReferences = new();
     private OBLibraryViewModel? vbaLibrary;
+    private OBLibraryViewModel? vbLibrary;
+    // Each registered class's row, by the class: two owners' classes can share a short name, as Label and Acme.Label do.
+    private readonly Dictionary<IComponentClass, OBClassViewModel> vbClasses = new(ReferenceEqualityComparer.Instance);
     private readonly OBLibraryViewModel allLibraries;
 
     private OBLibraryViewModel? libraryBeforeReload;
@@ -211,42 +214,73 @@ public partial class ObjectBrowserToolViewModel : Document
         OnPropertyChanged(nameof(DescriptionMembership));
     }
 
+    // The registry's classes, which arrive as their owners register them (#5594): the IDE builds this before the Basic
+    // provider registers its controls, so the library follows the registry rather than reading it once.
     private void AddVbLibrary(IComponentRegistry componentRegistry)
     {
-        var lib = new OBLibraryViewModel("VB");
+        var lib = vbLibrary = new OBLibraryViewModel("VB");
         foreach (var component in componentRegistry.Components)
-        {
-            var cls = new OBClassViewModel(component.ClassName, OBClassKind.ClassModule, "VB");
-            if (component is ComponentBaseClass { Members.Count: > 0 } table)
-            {
-                foreach (var member in table.Members)
-                {
-                    var kind = member.Kind switch
-                    {
-                        InBox.MemberKind.Property => OBMemberKind.Property,
-                        InBox.MemberKind.Event => OBMemberKind.Event,
-                        _ => OBMemberKind.Method,
-                    };
-                    cls.Members.Add(new OBMemberViewModel(member.Name, kind, $"{member.Kind} {member.Name}",
-                        member.Origin.HasFlag(InBox.MemberOrigin.HexIde)
-                            ? localization.GetString("Str.MemberOrigin.HexIde") : null)
-                    {
-                        DescriptionKey = member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? "Str.MemberOrigin.HexIde" : null
-                    });
-                }
-            }
-            else
-            {
-                foreach (var prop in component.Properties)
-                    cls.Members.Add(new OBMemberViewModel(prop.Name, OBMemberKind.Property, $"Property {prop.Name}"));
-                foreach (var evt in component.Events)
-                    cls.Members.Add(new OBMemberViewModel(evt.Name, OBMemberKind.Event, $"Event {evt.Name}"));
-            }
-            lib.Classes.Add(cls);
-        }
+            lib.Classes.Add(vbClasses[component] = VbClass(component));
         lib.Classes.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
         Libraries.Add(lib);
         ReorderLibraries();
+        componentRegistry.ComponentRegistered += OnComponentRegistered;
+        componentRegistry.ComponentUnregistered += OnComponentUnregistered;
+    }
+
+    private void OnComponentRegistered(IComponentClass component)
+    {
+        if (vbLibrary is not { } lib)
+            return;
+        var cls = vbClasses[component] = VbClass(component);
+        var at = 0;
+        while (at < lib.Classes.Count && string.Compare(lib.Classes[at].Name, cls.Name, StringComparison.OrdinalIgnoreCase) <= 0)
+            at++;
+        lib.Classes.Insert(at, cls);
+        if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
+            RebuildFilteredClasses();
+    }
+
+    private void OnComponentUnregistered(IComponentClass component)
+    {
+        if (vbLibrary is not { } lib)
+            return;
+        if (!vbClasses.Remove(component, out var gone))
+            return;
+        lib.Classes.Remove(gone);
+        if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
+            RebuildFilteredClasses();
+    }
+
+    private OBClassViewModel VbClass(IComponentClass component)
+    {
+        var cls = new OBClassViewModel(component.ClassName, OBClassKind.ClassModule, "VB");
+        if (component is ComponentBaseClass { Members.Count: > 0 } table)
+        {
+            foreach (var member in table.Members)
+            {
+                var kind = member.Kind switch
+                {
+                    InBox.MemberKind.Property => OBMemberKind.Property,
+                    InBox.MemberKind.Event => OBMemberKind.Event,
+                    _ => OBMemberKind.Method,
+                };
+                cls.Members.Add(new OBMemberViewModel(member.Name, kind, $"{member.Kind} {member.Name}",
+                    member.Origin.HasFlag(InBox.MemberOrigin.HexIde)
+                        ? localization.GetString("Str.MemberOrigin.HexIde") : null)
+                {
+                    DescriptionKey = member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? "Str.MemberOrigin.HexIde" : null
+                });
+            }
+        }
+        else
+        {
+            foreach (var prop in component.Properties)
+                cls.Members.Add(new OBMemberViewModel(prop.Name, OBMemberKind.Property, $"Property {prop.Name}"));
+            foreach (var evt in component.Events)
+                cls.Members.Add(new OBMemberViewModel(evt.Name, OBMemberKind.Event, $"Event {evt.Name}"));
+        }
+        return cls;
     }
 
     private void AddVbaLibraryStub()

@@ -186,7 +186,7 @@ public sealed class ArchiveProjectSavingTests : IDisposable
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
             new FileBaselineStore(), c.LocalizationService, Substitute.For<IHeaderRefresher>(),
-            new ComponentRegistry(), archives);
+            InBoxRegistry.Create(), archives);
         await FluentActions.Awaiting(service.UnloadAllProjects).Should().ThrowAsync<OperationCanceledException>();
         manager.DidNotReceive().UnloadAllProjects();
         manager.LoadedProjects.Should().Equal(one, two);

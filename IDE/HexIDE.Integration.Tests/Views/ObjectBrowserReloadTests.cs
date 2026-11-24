@@ -114,7 +114,7 @@ public class ObjectBrowserReloadTests
                 var service = new ProjectService(() => throw new InvalidOperationException(),
                     windows, new EventBus(), projects, Substitute.For<IRecentProjectsService>(),
                     Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-                    Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(),                     new ComponentRegistry());
+                    Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(),                     InBoxRegistry.Create());
                 await service.OpenProject();
             }
             finally { Directory.Delete(directory, true); }

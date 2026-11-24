@@ -96,7 +96,7 @@ public sealed class ProjectFileNodeTests
             var service = new ProjectService(() => throw new InvalidOperationException(),
                 Substitute.For<IWindowManager>(), events, manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-                Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+                Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
             if (groupFile)
             {
                 var groupPath = Path.Join(directory, "Group.vbg");

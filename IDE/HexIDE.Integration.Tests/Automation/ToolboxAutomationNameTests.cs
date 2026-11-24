@@ -26,7 +26,7 @@ public class ToolboxAutomationNameTests
         var comctl = ControlLibraries.MSComctlLib;
         project.UnknownPreSectionLines.Add((1, comctl.ProjectLine));
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         toolbox.ShowProject(project);
         var window = new Window { Content = new ToolBoxToolView { DataContext = toolbox }, Width = 300, Height = 600 };
         window.Show();
@@ -53,7 +53,7 @@ public class ToolboxAutomationNameTests
     public void The_tooltip_shows_the_measured_control_class(string className)
     {
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         toolbox.ShowProject(new ProjectDefinition(VBProjectType.EXE, "P"));
         var window = new Window { Content = new ToolBoxToolView { DataContext = toolbox }, Width = 300, Height = 600 };
         window.Show();
@@ -72,7 +72,7 @@ public class ToolboxAutomationNameTests
     public void The_name_is_the_class_part_of_the_type_name_and_the_pointer_keeps_its_own()
     {
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         toolbox.ShowProject(new ProjectDefinition(VBProjectType.EXE, "P"));
 
         var command = toolbox.Components.Single(c => c.BaseClass?.VBTypeName == "VB.CommandButton");

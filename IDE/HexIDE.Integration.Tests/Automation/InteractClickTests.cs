@@ -544,7 +544,7 @@ public class InteractClickTests
     public async Task A_drag_draws_a_toolbox_control_from_the_press_to_the_release()
     {
         var toolbox = new ToolBoxToolViewModel(
-            Substitute.For<IDocumentDockService>(), new ComponentRegistry(),
+            Substitute.For<IDocumentDockService>(), InBoxRegistry.Create(),
             Substitute.For<ILocalizationService>());
         toolbox.SelectedComponent = System.Linq.Enumerable.First(toolbox.Components,
             c => c.BaseClass == CommandButtonComponentClass.Instance);

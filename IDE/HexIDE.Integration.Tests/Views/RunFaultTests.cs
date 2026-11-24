@@ -190,7 +190,7 @@ public class RunFaultTests
             .Replace("End\r\nAttribute", "Begin VB.Label Label1\r\nWidth = -150\r\nEnd\r\nEnd\r\nAttribute");
         var run = FormProject("Private Sub Form_Load()\r\nDebug.Print CStr(Command2.Width) & \" \" & CStr(Label1.Width)\r\nEnd Sub\r\n", frm);
         using var designer = openDesigner ? new HexIDE.VisualDesigner.FormEditViewModel(
-            new HexIDE.VisualDesigner.ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), new ComponentRegistry(),
+            new HexIDE.VisualDesigner.ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), InBoxRegistry.Create(),
                 Substitute.For<ILocalizationService>()), new EventBus(), Substitute.For<HexIDE.Projects.IProjectService>(),
             Substitute.For<IEditorService>(), run.WindowManager, Substitute.For<ISettingsService>(),
             Substitute.For<ILocalizationService>()).Initialize(run.Project.Forms.Single()) : null;

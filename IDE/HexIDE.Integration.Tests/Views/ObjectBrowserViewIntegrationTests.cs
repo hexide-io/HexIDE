@@ -346,7 +346,7 @@ public class ObjectBrowserViewIntegrationTests
             pm,
             Substitute.For<ILspClient>(),
             Substitute.For<IEditorService>(),
-            new ComponentRegistry(),
+            InBoxRegistry.Create(),
             Substitute.For<ITypeLibraryService>(),
             Substitute.For<IFocusedProjectUtil>(),
             Loc(),

@@ -89,7 +89,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase
         return new ProjectService(() => throw new InvalidOperationException("no new-project dialog here"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, localization,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: types);
     }
 
     private async Task<ProjectService> Opened(string? path = null)

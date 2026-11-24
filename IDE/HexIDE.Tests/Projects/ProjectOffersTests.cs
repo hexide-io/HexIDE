@@ -40,7 +40,7 @@ public class ProjectOffersTests : IDisposable
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry());
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), InBoxRegistry.Create());
     }
 
     public void Dispose()

@@ -27,7 +27,7 @@ public class ObjectBrowserComponentLibraryTests
         loc.GetString("Str.Tool.ObjectBrowser.MembersUnavailable").Returns("Localized unavailable members");
         loc.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable").Returns("Localized unavailable type metadata");
         return (new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
-            Substitute.For<IEditorService>(), components ?? new ComponentRegistry(), types,
+            Substitute.For<IEditorService>(), components ?? InBoxRegistry.Create(), types,
             FocusedProject(project), loc, Substitute.For<ILanguageConnectionRegistry>()), projects);
     }
 

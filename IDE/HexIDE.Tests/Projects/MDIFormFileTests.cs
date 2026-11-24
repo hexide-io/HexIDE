@@ -45,7 +45,7 @@ public sealed class MDIFormFileTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         await service.OpenProject(Path.Join(directory, "MDIProbe.vbp"));
         return service;
     }

@@ -79,6 +79,48 @@ public class ObjectBrowserBehaviourTests
 
     // The IDE raises LanguageChanged on the UI thread (Apply swaps Application.Resources), and the browser refreshes there
     // at once rather than queuing it (#4382).
+    // The IDE builds the Object Browser before the Basic provider registers its controls, so the VB library follows the
+    // registry rather than reading it once (#5594).
+    [AvaloniaFact]
+    public void TheVbLibraryFollowsARegistryTheProviderFillsLater()
+    {
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns(new List<ProjectDefinition>());
+        var components = new ComponentRegistry();
+        var vm = new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(), Substitute.For<IEditorService>(),
+            components, Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(),
+            Substitute.For<ILocalizationService>(), Substitute.For<ILanguageConnectionRegistry>());
+        var vb = vm.Libraries.Single(l => l.Name == "VB");
+        vm.SelectedLibrary = vb;
+        vb.Classes.Should().BeEmpty();
+
+        InBoxRegistry.Fill(components);
+
+        vb.Classes.Select(c => c.Name).Should().Equal(
+            HexIDE.Runtime.BasicProvider.Components.Select(c => c.ClassName).Order(StringComparer.OrdinalIgnoreCase));
+        vb.Classes.Single(c => c.Name == "CommandButton").Members.Should().NotBeEmpty();
+        vm.FilteredClasses.Select(c => c.Name).Should().Contain("CommandButton");
+
+        var gauge = Substitute.For<IComponentClass>();
+        gauge.VBTypeName.Returns("Probe.Gauge");
+        gauge.ClassName.Returns("Gauge");
+        var registration = components.Register(gauge, new HexIDE.Addins.AddinOrigin("probe", "Probe"));
+        vb.Classes.Select(c => c.Name).Should().Contain("Gauge").And.BeInAscendingOrder(StringComparer.OrdinalIgnoreCase);
+        registration.Dispose();
+        vb.Classes.Select(c => c.Name).Should().NotContain("Gauge");
+        vm.FilteredClasses.Select(c => c.Name).Should().NotContain("Gauge");
+
+        // Another owner's class with the provider's short name goes alone, by the class, not by the name.
+        var label = vb.Classes.Single(c => c.Name == "Label");
+        var acme = Substitute.For<IComponentClass>();
+        acme.VBTypeName.Returns("Acme.Label");
+        acme.ClassName.Returns("Label");
+        var acmeRegistration = components.Register(acme, new HexIDE.Addins.AddinOrigin("acme", "Acme"));
+        vb.Classes.Where(c => c.Name == "Label").Should().HaveCount(2);
+        acmeRegistration.Dispose();
+        vb.Classes.Where(c => c.Name == "Label").Should().ContainSingle().Which.Should().BeSameAs(label);
+    }
+
     [AvaloniaFact]
     public void LanguageSwitchRefreshesStatusAtOnceOnTheUiThread()
     {

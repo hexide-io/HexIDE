@@ -38,7 +38,7 @@ public sealed class AddinLanguageServerTests : IDisposable
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _addins,
             new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
-            _options, new ComponentRegistry(), _runner,
+            _options, InBoxRegistry.Create(), _runner,
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance),
                 new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance, null),

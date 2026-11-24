@@ -138,7 +138,7 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
         Vb6ProjectType.Register(types, current);
         return new ProjectService(() => throw new InvalidOperationException(), windows, new EventBus(), projects,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar, baselines,
-            new LocalizationService(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
+            new LocalizationService(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: types);
     }
 
     private HeaderRefresher Refresher(IReadOnlyRegionWriter provider, params CodeEditorViewModel[] open)

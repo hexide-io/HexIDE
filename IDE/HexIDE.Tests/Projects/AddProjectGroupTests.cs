@@ -36,7 +36,7 @@ public sealed class AddProjectGroupTests : IDisposable
         service = new ProjectService(() => throw new InvalidOperationException(),
             windows, events, manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            strings, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
+            strings, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: types);
         explorer = new ProjectToolViewModel(manager, events, service, editors, strings);
     }
 
@@ -200,7 +200,7 @@ public sealed class AddProjectGroupTests : IDisposable
         var group = manager.CurrentGroup;
         var project = manager.LoadedProjects[0];
         var browser = new HexIDE.Tools.ObjectBrowser.ObjectBrowserToolViewModel(manager, lsp,
-            Substitute.For<IEditorService>(), new ComponentRegistry(), Substitute.For<ITypeLibraryService>(),
+            Substitute.For<IEditorService>(), InBoxRegistry.Create(), Substitute.For<ITypeLibraryService>(),
             Substitute.For<IFocusedProjectUtil>(), Substitute.For<ILocalizationService>(),
             Substitute.For<ILanguageConnectionRegistry>());
         browser.SelectedLibrary = browser.Libraries.Single(l => l.Name == "First");

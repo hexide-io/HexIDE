@@ -42,7 +42,7 @@ public class RemoveDocumentTests : IDisposable
         service = new ProjectService(() => throw new InvalidOperationException(), windows, events, manager,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 
     public void Dispose()
