@@ -190,10 +190,10 @@ public partial class FormDefinition : INotifyPropertyChanged
     {
         get
         {
-            // The root, whichever of the three it is: a placed UserControl's class is named for its project, never VB's.
+            // The root, whichever kind it is: a placed UserControl's class is named for its project, never VB's.
             foreach (var c in components)
             {
-                if (c.BaseClass.VBTypeName is "VB.Form" or "VB.UserControl" or "VB.PropertyPage")
+                if (c.BaseClass.VBTypeName is "VB.Form" or "VB.UserControl" or "VB.PropertyPage" or "VB.MDIForm")
                     return c.GetPropertyOrDefault(VBProperties.NameProperty) ?? throw new Exception("Form without a name!");
             }
             throw new Exception("FormDefinition has no form component!");

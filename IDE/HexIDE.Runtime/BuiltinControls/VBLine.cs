@@ -101,14 +101,14 @@ public class VBLine : Control
     /// <see cref="Components.LineComponentClass.TwipsPerUnit"/>), and the quotient rounded to a Single.
     /// </remarks>
     public float Read(int coordinate) =>
-        TwipsPerUnit is null ? (float)declared[coordinate] : (float)(twips[coordinate] / Factor(coordinate));
+        TwipsPerUnit is null ? (float)declared[coordinate] : (float)(Origin(coordinate) + twips[coordinate] / Factor(coordinate));
 
     /// <summary>An endpoint coordinate a program assigns, in the container's scale.</summary>
     public void Write(int coordinate, double value)
     {
         if (TwipsPerUnit is null)
             throw new InvalidOperationException("A Line is written to before it is placed");
-        twips[coordinate] = WholeTwips(value * Factor(coordinate));
+        twips[coordinate] = WholeTwips((value - Origin(coordinate)) * Factor(coordinate));
         Place();
     }
 
@@ -123,15 +123,21 @@ public class VBLine : Control
         return Math.Round(value, MidpointRounding.ToEven);
     }
 
+    // A Line's ends add the container's ScaleLeft and ScaleTop, and a write takes them off (#5530, oracle PR #5534:
+    // measured on Lines loaded in twips, pixels and inches, which once loaded are whole twips as a centimetre Line is).
+    private double Origin(int coordinate) =>
+        TwipsPerUnit is { X: AvaloniaInterop.RuntimeScale.TwipsPerCentimetre }
+            && Parent is Control host && AvaloniaInterop.RuntimeScale.Of(host) is { } scale
+            ? scale.Origin(coordinate % 2 != 0) : 0;
+
     private double Factor(int coordinate)
     {
         if (TwipsPerUnit is { X: AvaloniaInterop.RuntimeScale.TwipsPerCentimetre }
             && Parent is Control host && AvaloniaInterop.RuntimeScale.Of(host) is { } scale)
         {
-            var mode = VBProps.GetScaleMode(host);
-            if (mode is not (VBScaleMode.Twip or VBScaleMode.Centimiter))
-                throw new NotImplementedException($"A Line in a container whose ScaleMode is {mode} is not implemented (#4693)");
-            return scale.TwipsPerUnit(coordinate % 2 != 0);
+            var factor = scale.TwipsPerUnit(coordinate % 2 != 0);
+            // A Line divides by a Single user unit (#4693, oracle PR #5514).
+            return VBProps.GetScaleMode(host) == VBScaleMode.User ? (float)factor : factor;
         }
         return coordinate % 2 == 0 ? TwipsPerUnit!.Value.X : TwipsPerUnit!.Value.Y;
     }

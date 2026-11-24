@@ -462,8 +462,15 @@ public class VBLoader
     private static bool HasInWindowMenuBar(FormDefinition element, bool nativeMenus) =>
         HasMenuBar(element) && !nativeMenus;
 
+    internal static void RefuseMDIForm(FormDefinition definition)
+    {
+        if (definition.RootVBTypeName == "VB.MDIForm")
+            throw new HexIDE.IDE.MDIFormRunRefusal();
+    }
+
     private static VBFormRuntime DesktopWindow(FormDefinition definition)
     {
+        RefuseMDIForm(definition);
         var nativeMenus = FormNativeMenu.UseSystemMenuBar;
         var component = FormComponentOf(definition);
         var window = ((FormComponentClass)component.BaseClass).InstantiateWindow(component,
@@ -1227,6 +1234,7 @@ public class VBLoader
     public static VBProgram PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
         Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host = null)
     {
+        RefuseMDIForm(element);
         var program = new VBProgram(element, context, debugController, openForm, win64OnlySetOnWindows, host);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary,
             context.FormInstance, program, context));

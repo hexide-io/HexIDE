@@ -1526,6 +1526,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "При обновлении {0} в проекте {1} несохранённые изменения этого проекта будут потеряны. Продолжить?",
     "Str.Dialog.SharedFile.DiskChanged": "Файл '{0}' изменился на диске после загрузки или сохранения копии проекта {1}. Перезаписать его?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Закладки, точки останова и другие пользовательские параметры для {0} не будут загружены или сохранены в этом сеансе.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Конструктор форм MDI не реализован (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Запуск формы MDI не реализован (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Элемент управления с именем '{0}' уже существует.  Создать массив элементов управления?",
     "Str.Options.Environment.ErrorTrapping.Header": "Перехват ошибок",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Прерывать при всех ошибках",

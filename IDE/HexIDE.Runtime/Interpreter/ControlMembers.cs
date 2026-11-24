@@ -121,7 +121,8 @@ internal static class ControlMembers
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
-        if (throughObject && control is (VBTextBox or VBUserControl) && RuntimeScale.IsConversion(memberName))
+        if (throughObject && (control is VBTextBox && RuntimeScale.IsConversion(memberName)
+            || control is VBUserControl && FormMembers.IsCoordinateMember(memberName)))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (control is VBPictureBox && RuntimeDrawing.IsMethod(memberName))
         {
@@ -133,7 +134,7 @@ internal static class ControlMembers
         }
         if (control is VBPictureBox && RuntimeScale.IsConversion(memberName))
             return RuntimeScale.ConvertUnits(control, memberName,
-                evaluateMemberArgs is not null ? await evaluateMemberArgs() : await Arguments());
+                evaluateMemberArgs is not null ? await evaluateMemberArgs() : await Arguments(), throughObject);
 
         if (control is VBShape or VBLine && memberIdentifier.Equals("MousePointer", StringComparison.OrdinalIgnoreCase))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
@@ -207,6 +208,8 @@ internal static class ControlMembers
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (control is ICSharpPropertyBag bag && bag.TrySetProperty(memberIdentifier, value)) return true;
         VBProps.RefuseIfRemoved(control);
+        if (throughObject && control is VBUserControl && FormMembers.IsCoordinateMember(memberIdentifier))
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (ListMembers.IsList(control) && args is not null)
         {
             if (memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase))

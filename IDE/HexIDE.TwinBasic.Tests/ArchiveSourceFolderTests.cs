@@ -790,6 +790,202 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         public void ValidateManifest(byte[] bytes) { }
     }
 
+    private static readonly DateTime RetentionNow = new(2026, 11, 24, 12, 0, 0, DateTimeKind.Utc);
+    private sealed class RetentionClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(RetentionNow);
+    }
+    private CompoundSourceFolder RetentionEngine() => new(new TwinBasicFolderFormat()) { Clock = new RetentionClock() };
+
+    private string[] RetentionHistory()
+    {
+        for (var i = 0; i < 12; i++)
+        {
+            Save(FileNode("main", i.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            Sync();
+        }
+        var transactions = Directory.GetDirectories(Control).Order(StringComparer.Ordinal).ToArray();
+        for (var i = 0; i < transactions.Length; i++)
+            File.SetLastWriteTimeUtc(Path.Combine(transactions[i], "new.json"), RetentionNow.AddDays(-30).AddHours(i));
+        return transactions;
+    }
+    private CompoundFolderResult ChangingRetentionSync()
+    {
+        Save(FileNode("main", "latest"));
+        var result = RetentionEngine().Synchronize(Source, Token);
+        result.Changed.Should().BeTrue();
+        return result;
+    }
+
+    public static bool IsWindows => OperatingSystem.IsWindows();
+
+    // A junction needs no privilege on Windows, where a symbolic link does.
+    private static void Junction(string link, string target)
+    {
+        var start = new ProcessStartInfo("cmd.exe") { RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in new[] { "/c", "mklink", "/J", link, target }) start.ArgumentList.Add(arg);
+        using var process = Process.Start(start)!;
+        process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit(10_000).Should().BeTrue("mklink timed out.");
+        process.ExitCode.Should().Be(0, error);
+        (File.GetAttributes(link) & FileAttributes.ReparsePoint).Should().Be(FileAttributes.ReparsePoint);
+    }
+
+    [Fact]
+    public void Retention_prunes_only_old_transactions_outside_the_newest_ten()
+    {
+        var history = RetentionHistory();
+        // The changing sync makes thirteen: two expired trees, one recent tree, and ten newer ones.
+        for (var i = 2; i < history.Length; i++)
+            File.SetLastWriteTimeUtc(Path.Combine(history[i], "new.json"), RetentionNow.AddDays(-6).AddHours(i));
+        ChangingRetentionSync();
+        history.Take(2).Should().OnlyContain(p => !Directory.Exists(p));
+        history.Skip(2).Should().OnlyContain(p => Directory.Exists(p));
+    }
+
+    [Fact]
+    public void Retention_keeps_old_transactions_within_the_newest_ten()
+    {
+        var history = RetentionHistory();
+        ChangingRetentionSync();
+        history.Skip(3).Should().OnlyContain(p => Directory.Exists(p));
+    }
+
+    [Theory]
+    [InlineData("previous")]
+    [InlineData("next")]
+    [InlineData("missing-metadata")]
+    [InlineData("unreadable-metadata")]
+    public void Retention_keeps_external_edits_and_undatable_transactions(string change)
+    {
+        var history = RetentionHistory();
+        var candidate = history.First(p => Directory.Exists(Path.Combine(p, "previous")));
+        if (change == "previous") File.AppendAllText(Path.Combine(candidate, "previous", "main"), "edit");
+        if (change == "next")
+        {
+            Directory.CreateDirectory(Path.Combine(candidate, "next"));
+            File.WriteAllText(Path.Combine(candidate, "next", "main"), "edit");
+        }
+        if (change == "missing-metadata") File.Delete(Path.Combine(candidate, "new.json"));
+        if (change == "unreadable-metadata") File.WriteAllText(Path.Combine(candidate, "new.json"), "invalid");
+        ChangingRetentionSync();
+        Directory.Exists(candidate).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Retention_leaves_non_candidates_untouched()
+    {
+        var history = RetentionHistory();
+        // Old, datable and verifiable, but named as the sync never names a transaction.
+        var upper = Path.Combine(Control, Path.GetFileName(history[0]).ToUpperInvariant());
+        var hyphens = Path.Combine(Control, Guid.ParseExact(Path.GetFileName(history[1]), "N").ToString("D"));
+        Directory.Move(history[0], upper);
+        Directory.Move(history[1], hyphens);
+        var other = Path.Combine(Control, "unrelated");
+        Directory.CreateDirectory(other);
+        File.WriteAllText(Path.Combine(other, "keep"), "directory");
+        File.WriteAllText(Path.Combine(Control, "loose"), "file");
+        ChangingRetentionSync();
+        File.ReadAllText(Path.Combine(other, "keep")).Should().Be("directory");
+        File.ReadAllText(Path.Combine(Control, "loose")).Should().Be("file");
+        Directory.Exists(upper).Should().BeTrue();
+        Directory.Exists(hyphens).Should().BeTrue();
+    }
+
+    [Fact(Skip = "A symbolic link needs a privilege on Windows; the junction tests cover links there", SkipWhen = nameof(IsWindows))]
+    public void Retention_keeps_linked_candidates_without_touching_targets()
+    {
+        var history = RetentionHistory();
+        var outside = Path.Combine(directory, "outside");
+        File.WriteAllText(outside, "keep");
+        var link = Path.Combine(history[0], "link");
+        File.CreateSymbolicLink(link, outside);
+        try
+        {
+            var result = ChangingRetentionSync();
+            File.Exists(link).Should().BeTrue();
+            File.ReadAllText(outside).Should().Be("keep");
+            result.Kept.Should().ContainSingle(k => k.StartsWith(history[0] + ":", StringComparison.Ordinal));
+        }
+        finally { File.Delete(link); }
+    }
+
+    [Theory(Skip = "Junctions are Windows-only", SkipUnless = nameof(IsWindows))]
+    [InlineData("inside")]
+    [InlineData("candidate")]
+    public void Retention_never_deletes_through_a_junction(string where)
+    {
+        var history = RetentionHistory();
+        var outside = Path.Combine(directory, "outside");
+        string junction;
+        if (where == "inside")
+        {
+            Directory.CreateDirectory(outside);
+            File.WriteAllText(Path.Combine(outside, "keep"), "keep");
+            junction = Path.Combine(history[0], "junction");
+        }
+        else
+        {
+            // An old, datable transaction moved out of .sync, with a junction left in its place.
+            Directory.Move(history[0], outside);
+            junction = history[0];
+        }
+        var before = Inventory(outside);
+        Junction(junction, outside);
+        try
+        {
+            var result = ChangingRetentionSync();
+            (File.GetAttributes(junction) & FileAttributes.ReparsePoint).Should().Be(FileAttributes.ReparsePoint);
+            Inventory(outside).Should().Equal(before);
+            result.Kept.Should().ContainSingle(k => k.StartsWith(history[0], StringComparison.Ordinal));
+        }
+        finally { Directory.Delete(junction); }
+    }
+
+    [Fact]
+    public void Retention_finishes_a_deletion_that_stopped_part_way()
+    {
+        RetentionHistory();
+        var renamed = Path.Combine(Control, Guid.NewGuid().ToString("N") + ".pruning");
+        Directory.CreateDirectory(Path.Combine(renamed, "previous"));
+        File.WriteAllText(Path.Combine(renamed, "previous", "main"), "left over");
+        ChangingRetentionSync().Kept.Should().BeEmpty();
+        Directory.Exists(renamed).Should().BeFalse();
+    }
+
+    [Fact(Skip = "Only Windows refuses to rename a folder holding an open file", SkipUnless = nameof(IsWindows))]
+    public void Retention_keeps_and_reports_a_folder_it_cannot_remove_and_still_succeeds()
+    {
+        var history = RetentionHistory();
+        var held = Path.Combine(history[0], "new.json");
+        var before = Inventory(history[0]);
+        CompoundFolderResult result;
+        using (new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read))
+            result = ChangingRetentionSync();
+        Inventory(history[0]).Should().Equal(before);
+        result.Kept.Should().ContainSingle(k => k.StartsWith(history[0] + ":", StringComparison.Ordinal));
+        Directory.Exists(history[1]).Should().BeFalse();
+        Directory.Exists(history[2]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Retention_does_nothing_while_a_journal_exists()
+    {
+        var history = RetentionHistory();
+        File.WriteAllText(Path.Combine(Control, "pending.json"), "pending");
+        RetentionEngine().Prune(Control, "");
+        history.Should().OnlyContain(p => Directory.Exists(p));
+    }
+
+    [Fact]
+    public void Retention_does_nothing_on_an_unchanged_sync()
+    {
+        var history = RetentionHistory();
+        RetentionEngine().Synchronize(Source, Token).Changed.Should().BeFalse();
+        history.Should().OnlyContain(p => Directory.Exists(p));
+    }
+
     private string LegacyTarget => Path.Combine(directory, ".hexide", ".twinproj", "project.twinproj");
     private string LegacyManifest => Path.Combine(directory, ".hexide", ".twinproj", ".manifests", "project.twinproj.json");
     private string LegacyControl => Path.Combine(directory, ".hexide", ".twinproj-sync", "project.twinproj");

@@ -80,6 +80,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/ContributedProjectTests.cs` | split |
 | `Projects/DesignerHalfSaveTests.cs` | split |
 | `Projects/DocumentSavedAnnouncementTests.cs` | split |
+| `Projects/MDIFormFileTests.cs` | split |
 | `Projects/MemberWithoutAFileTests.cs` | split |
 | `Projects/NamedFormFormatTests.cs` | split |
 | `Projects/NegativeSizeSaveTests.cs` | split |
@@ -127,6 +128,7 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/CodeWindowHoldsTheFileTests.cs` | split |
 | `ViewModels/ComponentClassNameTests.cs` | split |
 | `ViewModels/ComponentNamingTests.cs` | split |
+| `ViewModels/ComponentRoleTests.cs` | split |
 | `ViewModels/ComponentsViewModelTests.cs` | split |
 | `ViewModels/DocumentModifiedMarkerTests.cs` | split |
 | `ViewModels/DocumentSessionTests.cs` | split |
@@ -140,6 +142,7 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/MarkOnReadOnlyLineTests.cs` | split |
 | `ViewModels/MenuEditorInteractionTests.cs` | split |
 | `ViewModels/MenuEditorViewModelTests.cs` | split |
+| `ViewModels/MenuPropertyNamesTests.cs` | split |
 | `ViewModels/ModuleRenameTests.cs` | split |
 | `ViewModels/ObjectBrowserComponentLibraryTests.cs` | split |
 | `ViewModels/ObjectBrowserExtensionTests.cs` | split |

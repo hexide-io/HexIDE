@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.BuiltinTypes;
 
 namespace HexIDE.IDE;
 
@@ -34,6 +36,34 @@ public sealed class InterpreterRunningProgram : IRunningProgram
                 return PumpOf(at);
         return Activity(null);
     }
+
+    public string? ControlName(object element) => element is AvaloniaObject control ? VBProps.GetName(control) : null;
+
+    public bool IsMenuItem(object element) => element is VBMenu;
+
+    public bool NeverShows(object element) => element is VBTimer or VBCommonDialog;
+
+    public (bool? On, LockKeySource Source) ReadLockKey(LockKey key)
+    {
+#if DEBUG
+        if (LockKeys.Override(key) is { } set)
+            return (set, LockKeySource.Set);
+#endif
+        return LockKeys.Keyboard(key) is { } keyboard
+            ? (keyboard, LockKeySource.Keyboard) : (null, LockKeySource.Window);
+    }
+
+    public void SetLockKey(LockKey key, bool? on)
+    {
+#if DEBUG
+        LockKeys.SetOverride(key, on);
+#endif
+    }
+
+    public ProgramPointer? PointerOf(object cursor) => VBCursorTypeExtensions.PointerOf(cursor as Cursor) is { } pointer
+        ? new(pointer, pointer.ToStandardCursorType().ToString()) : null;
+
+    public bool CanNameFont(string? family) => VBFontExtensions.IsNameable(family);
 
     private static readonly HashSet<Window> opened = Track();
 

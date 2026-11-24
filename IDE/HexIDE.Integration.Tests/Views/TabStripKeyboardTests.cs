@@ -151,6 +151,6 @@ public class TabStripKeyboardTests
     [AvaloniaFact]
     public void TabStrip_is_excluded_from_designer_container_classes()
     {
-        ContainerClasses.IsContainer(TabStripComponentClass.Instance).Should().BeFalse();
+        TabStripComponentClass.Instance.IsContainer.Should().BeFalse();
     }
 }

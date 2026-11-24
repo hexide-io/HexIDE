@@ -58,7 +58,7 @@ public class ServerApplyEditTests : IAsyncDisposable
                 if (c.Arg<bool>()) active = found;
                 return true;
             });
-        editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
+        editors = new EditorService(Substitute.For<HexIDE.IDE.IWindowManager>(), dock, NewEditor, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
         localization.GetString("Str.CodeEditor.QuickFix.Refused").Returns("Edit refused: {0}");
         localization.GetString("Str.Lsp.EditNotApplied").Returns("Server edit not applied: {0}");

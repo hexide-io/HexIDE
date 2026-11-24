@@ -807,7 +807,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // With the value it holds, so a font given in part keeps the rest (#952).
             // A face named here is a face, whatever its name ends in: Wingdings 2 read as Wingdings at size 2 (#1311).
             if (!PropertyText.TryParse(propClass, value, out var parsed, out var why, control.GetBoxedPropertyOrDefault(propClass),
-                    HexIDE.Runtime.BuiltinTypes.VBFontExtensions.IsNameable))
+                    RunningProgram.Current.CanNameFont))
                 return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
                                     + $"takes {PropertyText.Accepted(propClass)}");
 
@@ -1149,6 +1149,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (named.Form is not { } form)
                 return new MutateResult(false, named.Error);
             ctx.EditorService.EditForm(form);
+            if (form.RootVBTypeName == "VB.MDIForm")
+                return Naming(new MutateResult(false, "The MDI form designer is not implemented (#5313)."), named.Document);
             return Naming(new MutateResult(true, null, TabStateNote(), Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null), named.Document);
         }));
     }
@@ -4702,8 +4704,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_lock_key")]
-    [DescribesEnum(typeof(HexIDE.Runtime.BuiltinControls.LockKey))]
-    [DescribesEnum(typeof(HexIDE.Runtime.BuiltinControls.LockKeySource))]
+    [DescribesEnum(typeof(LockKey))]
+    [DescribesEnum(typeof(LockKeySource))]
     [Description("Sets a lock key's toggle as programs running in HexIDE read it, so a StatusBar's key panels (Style 1 to 4) can be checked on and off. The machine's keyboard is untouched: press_key raises key events but can't change the toggle Windows keeps, which is what a StatusBar reads there. 'key' is CapsLock, NumLock, Insert or ScrollLock. 'state' is On, Off, or Keyboard, which returns the key to the keyboard's own toggle. Both are matched without regard to case. A state set here lasts until it is set to Keyboard or the IDE exits, and a StatusBar on screen repaints at once. Called with neither argument, nothing changes. Every reply lists all four keys, each with 'on' as a running program reads it and a 'source': Set (by this tool), Keyboard (the keyboard's toggle, on Windows), or Window (on another host, where each window follows the presses it has seen, so 'on' is null). Code that calls GetKeyState through a Declare reads the real keyboard, not this.")]
     public Task<LockKeysResult> SetLockKeyAsync(
         [Description("CapsLock, NumLock, Insert or ScrollLock.")] string? key = null,
@@ -4711,13 +4713,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         CancellationToken ct = default)
     {
         static LockKeysResult Reply(bool success, string? error, string note) => new(success, error,
-            Enum.GetValues<HexIDE.Runtime.BuiltinControls.LockKey>().Select(k =>
+            Enum.GetValues<LockKey>().Select(k =>
             {
-                if (HexIDE.Runtime.BuiltinControls.LockKeys.Override(k) is { } set)
-                    return new LockKeyRow(k, set, HexIDE.Runtime.BuiltinControls.LockKeySource.Set);
-                return HexIDE.Runtime.BuiltinControls.LockKeys.Keyboard(k) is { } keyboard
-                    ? new LockKeyRow(k, keyboard, HexIDE.Runtime.BuiltinControls.LockKeySource.Keyboard)
-                    : new LockKeyRow(k, null, HexIDE.Runtime.BuiltinControls.LockKeySource.Window);
+                var reading = RunningProgram.Current.ReadLockKey(k);
+                return new LockKeyRow(k, reading.On, reading.Source);
             }).ToArray(), note);
 
         const string Vocabulary = "'key' is CapsLock, NumLock, Insert or ScrollLock, and 'state' is On, Off or Keyboard";
@@ -4729,7 +4728,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 + $"Pass both, or neither to read the keys; {Vocabulary}.", "The keys are as before."));
         // By name only: TryParse would also take "1" as NumLock.
         if (!key.Trim().All(char.IsLetter)
-            || !Enum.TryParse<HexIDE.Runtime.BuiltinControls.LockKey>(key.Trim(), ignoreCase: true, out var lockKey))
+            || !Enum.TryParse<LockKey>(key.Trim(), ignoreCase: true, out var lockKey))
             return Task.FromResult(Reply(false, $"Nothing was changed: '{key}' is not a lock key; {Vocabulary}.", "The keys are as before."));
         bool? on;
         switch (state.Trim().ToLowerInvariant())
@@ -4741,7 +4740,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return Task.FromResult(Reply(false, $"Nothing was changed: '{state}' is not a state; {Vocabulary}.", "The keys are as before."));
         }
 
-        HexIDE.Runtime.BuiltinControls.LockKeys.SetOverride(lockKey, on);
+        RunningProgram.Current.SetLockKey(lockKey, on);
         return Task.FromResult(Reply(true, null, on is { } set
             ? $"{lockKey} now reads {(set ? "on" : "off")} to a running program, whatever the keyboard says, until it is set to Keyboard or the IDE exits. The machine's own keyboard is unchanged."
             : $"{lockKey} now follows the keyboard again."));
@@ -5153,7 +5152,7 @@ internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending
 internal record LockKeysResult(bool Success, string? Error, LockKeyRow[] Keys, string Note);
 
 /// <param name="On">The key's toggle as a running program reads it; null where each window follows its own presses.</param>
-internal record LockKeyRow(HexIDE.Runtime.BuiltinControls.LockKey Key, bool? On, HexIDE.Runtime.BuiltinControls.LockKeySource Source);
+internal record LockKeyRow(LockKey Key, bool? On, LockKeySource Source);
 
 // The note is written first: a client that cuts or previews a long reply keeps its start, and the note says how to
 // narrow it (#1982 review).

@@ -19,6 +19,25 @@ public class ControlArrayIndexTests : IDisposable
 
     public void Dispose() => Directory.Delete(directory, recursive: true);
 
+    [AvaloniaFact]
+    public async Task Menu_SubItems_is_not_an_automation_property()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project,
+            "VERSION 5.00\nBegin VB.Form Form1\n   Begin VB.Menu Menu1\n   End\nEnd\n",
+            Substitute.For<IDeserializeErrorSink>())!;
+        project.AddForm(form);
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns([]);
+        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, null!, null!, new EventBus(),
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, Substitute.For<ILocalizationService>(), null!);
+        var reply = await new HexIdeTools(context).SetControlPropertyAsync("Form1", "Menu1", "SubItems", "x");
+        reply.Success.Should().BeFalse();
+        reply.Error.Should().Be("Property 'SubItems' not found on VB.Menu");
+    }
+
     // #1397 / oracle PR #5234: the tool cannot ask a question; it names the two-call route instead.
     [AvaloniaTheory]
     [InlineData(false)]

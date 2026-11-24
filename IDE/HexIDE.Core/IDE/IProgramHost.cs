@@ -4,7 +4,7 @@ namespace HexIDE.IDE;
 
 /// <summary>
 /// What a run engine asks of the IDE that hosts a running program (#4066, step 2a of the run side of #3411's split): the
-/// single-view form window, CommonDialog's dialogs, a program's MsgBox and InputBox, and the engine's two failure texts
+/// single-view form window, CommonDialog's dialogs, a program's MsgBox and InputBox, and the engine's failure texts
 /// (#4068 completes operation 1).
 /// </summary>
 /// <remarks>
@@ -40,4 +40,7 @@ public interface IProgramHost
 
     /// <summary>The heading for a construct the engine doesn't implement yet, in the IDE's language.</summary>
     string NotImplementedYet { get; }
+
+    /// <summary>The IDE's refusal to run an MDI form until its runtime is implemented (#5313).</summary>
+    string MDIFormNotImplemented { get; }
 }

@@ -237,6 +237,7 @@
     "Str.Dialog.SharedFile.DiscardChanges": "A atualização de {0} no projeto {1} descartará as alterações não salvas desse projeto. Deseja continuar?",
     "Str.Dialog.SharedFile.DiskChanged": "O arquivo '{0}' foi alterado no disco desde que a cópia do projeto {1} foi carregada ou salva. Deseja substituí-lo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os pontos de interrupção e as outras configurações por usuário de {0} não serão carregados nem salvos nesta sessão.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "O designer de formulários MDI não está implementado (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Já existe um controle chamado '{0}'.  Deseja criar uma matriz de controles?",
     "Str.Options.Environment.ErrorTrapping.Header": "Interceptação de erros",
     "Str.Tool.LanguageServers.Trial.Testing": "Testando…",

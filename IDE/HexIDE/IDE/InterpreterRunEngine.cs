@@ -235,7 +235,9 @@ public sealed class InterpreterRunEngine : IRunEngine
     };
 
     private string DescribeFault(Exception e) =>
-        RunErrorText.ForFault(e, programHost.NotImplementedYet);
+        RunErrorText.ForFault(e is MDIFormRunRefusal
+            ? new NotImplementedException(programHost.MDIFormNotImplemented, e)
+            : e, programHost.NotImplementedYet);
 
     private sealed class Run(Func<Task<RunFailure?>> toEnd, Action end) : IEngineRun
     {

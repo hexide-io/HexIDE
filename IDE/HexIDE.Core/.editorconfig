@@ -20,6 +20,9 @@ dotnet_diagnostic.RS0016.severity = error
 [Components/EventClass.cs]
 dotnet_diagnostic.RS0016.severity = error
 
+[Components/ComponentRole.cs]
+dotnet_diagnostic.RS0016.severity = error
+
 [Components/IComponentClass.cs]
 dotnet_diagnostic.RS0016.severity = error
 

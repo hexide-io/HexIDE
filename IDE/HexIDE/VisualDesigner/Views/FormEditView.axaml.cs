@@ -366,7 +366,7 @@ public partial class FormEditView : UserControl
 
         rootVm.RequestCode(rootVm.RootDoubleClickProcedure,
             rootVm.Form.Instance.BaseClass.Name,
-            ((HexIDE.Runtime.Components.FormComponentClass)rootVm.Form.Instance.BaseClass).DesignerDoubleClickEvent);
+            rootVm.Form.Instance.BaseClass.DesignerDoubleClickEvent);
         e.Handled = true;
     }
 

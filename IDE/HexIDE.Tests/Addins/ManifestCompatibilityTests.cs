@@ -213,13 +213,28 @@ public sealed class ManifestCompatibilityTests : IDisposable
         while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "openspec")))
             root = root.Parent;
         root.Should().NotBeNull();
-        var project = System.Xml.Linq.XDocument.Load(Path.Combine(root!.FullName, "IDE", "HexIDE.Desktop", "HexIDE.Desktop.csproj"));
-        var command = project.Descendants("Exec").Select(e => (string?)e.Attribute("Command"))
-            .Single(c => c is not null && c.Contains("--entry " + entry, StringComparison.Ordinal))!;
-        var arguments = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var arguments = PackArguments(root!.FullName, entry);
         var capabilities = arguments.Select((value, index) => (value, index))
             .Where(a => a.value == "--capability").Select(a => arguments[a.index + 1]);
         capabilities.Should().BeEquivalentTo(expected);
+    }
+
+    // A recipe is inline in the Desktop project's Exec, or in the add-in's pack.args, one argument per line, which the
+    // project reads and so does publish.yml's signing job (#4740).
+    private static string[] PackArguments(string root, string entry)
+    {
+        var project = System.Xml.Linq.XDocument.Load(Path.Combine(root, "IDE", "HexIDE.Desktop", "HexIDE.Desktop.csproj"));
+        var inline = project.Descendants("Exec").Select(e => (string?)e.Attribute("Command"))
+            .SingleOrDefault(c => c is not null && c.Contains("--entry " + entry, StringComparison.Ordinal));
+        if (inline is not null)
+            return inline.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        var name = Path.GetFileNameWithoutExtension(entry);
+        project.Descendants("ReadLinesFromFile").Select(e => (string?)e.Attribute("File"))
+            .Should().Contain($"$(MSBuildProjectDirectory)/../{name}/pack.args");
+        var lines = File.ReadAllLines(Path.Combine(root, "IDE", name, "pack.args"));
+        lines.Should().ContainInConsecutiveOrder("--entry", entry);
+        return lines;
     }
 
     [Fact]

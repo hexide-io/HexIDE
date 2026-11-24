@@ -1526,6 +1526,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Оновлення {0} у проєкті {1} призведе до втрати незбережених змін цього проєкту. Бажаєте продовжити?",
     "Str.Dialog.SharedFile.DiskChanged": "Файл '{0}' змінився на диску після завантаження або збереження копії проєкту {1}. Бажаєте перезаписати його?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Закладки, точки зупину та інші параметри користувача для {0} не буде завантажено чи збережено в цьому сеансі.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Конструктор форм MDI не реалізовано (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Запуск форми MDI не реалізовано (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Елемент керування з іменем '{0}' уже існує.  Створити масив елементів керування?",
     "Str.Options.Environment.ErrorTrapping.Header": "Перехоплення помилок",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Переривати за всіх помилок",
