@@ -80,6 +80,51 @@ public class ObjectBrowserInBoxMembersTests
 
     private static string Here([CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
 
+    // The Object Browser finds a table through the interface, so a class that keeps one without saying so loses its members.
+    [Fact]
+    public void Every_class_that_keeps_a_member_table_declares_it()
+    {
+        var keeping = typeof(ComponentBaseClass).Assembly.GetTypes()
+            .Where(type => typeof(ComponentBaseClass).IsAssignableFrom(type)
+                && type.GetProperty(nameof(ComponentBaseClass.Members))!.DeclaringType != typeof(ComponentBaseClass))
+            .ToList();
+
+        keeping.Should().NotBeEmpty();
+        keeping.Where(type => !typeof(IComponentMemberTable).IsAssignableFrom(type)).Should().BeEmpty();
+    }
+
+    private sealed class EmptyTable : IComponentClass, IComponentMemberTable
+    {
+        public string Name => "Gauge";
+        public string VBTypeName => "VB.Gauge";
+        public string ClassName => "Gauge";
+        public bool IsVisual => true;
+        public IReadOnlyList<PropertyClass> Properties => [VBProperties.NameProperty];
+        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName => new Dictionary<string, PropertyClass>();
+        public IReadOnlyList<EventClass> Events => [];
+        public IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
+        public IReadOnlyList<ComponentMember> MembersIn(IControlLibrary? library) => [];
+    }
+
+    // As before #5610: the VB library describes a class whose table is empty by its properties and events.
+    [Fact]
+    public void A_registered_class_with_an_empty_table_is_listed_by_its_properties()
+    {
+        var registry = InBoxRegistry.Create();
+        registry.Register(new EmptyTable(), InBoxRegistry.Provider);
+        var projects = Substitute.For<IProjectManager>();
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        projects.LoadedProjects.Returns([project]);
+        var focused = Substitute.For<IFocusedProjectUtil>();
+        focused.FocusedOrStartupProject.Returns(project);
+        var browser = new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(), Substitute.For<IEditorService>(),
+            registry, Substitute.For<ITypeLibraryService>(), focused, Substitute.For<ILocalizationService>(),
+            Substitute.For<ILanguageConnectionRegistry>());
+
+        browser.Libraries.Single(l => l.Name == "VB").Classes.Single(c => c.Name == "Gauge").Members
+            .Select(m => (m.Name, m.Kind)).Should().Equal([(VBProperties.NameProperty.Name, OBMemberKind.Property)]);
+    }
+
     [Fact]
     public void Every_in_box_member_the_Object_Browser_lists_matches_the_listing()
     {
