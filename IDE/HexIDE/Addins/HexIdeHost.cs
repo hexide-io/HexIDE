@@ -76,9 +76,15 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey, AddinOrigin origin) =>
         componentRegistry.RegisterToolboxItem(component, iconKey, origin);
 
+    // Taken out, as its components are, when the add-in is disabled or its consent is revoked (#5601): the Components dialog
+    // stops listing it, and the toolbox stops offering its controls.
     internal IDisposable RegisterControlLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls,
-        AddinOrigin origin) =>
-        componentRegistry.RegisterLibrary(library, controls, origin);
+        AddinOrigin origin)
+    {
+        var handle = componentRegistry.RegisterLibrary(library, controls, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        return handle;
+    }
 
     public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) =>
         projectTemplateService.Register(template);

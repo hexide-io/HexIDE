@@ -647,6 +647,11 @@ library that throws when asked SHALL offer nothing, and the others SHALL still o
 - **WHEN** a library is registered, or taken out, while the toolbox shows a project that references it
 - **THEN** the toolbox offers its controls, or stops offering them
 
+#### Scenario: Disabling an add-in that registered a library
+- **WHEN** an add-in that registered a control library is disabled, or its consent is revoked
+- **THEN** the Components dialog stops listing the library and the toolbox stops offering its controls, and the provider's
+  libraries stay (#5601)
+
 ### Requirement: Grants SHALL be held only by the owners HexIDE names
 A grant for an owner the IDE composes SHALL match only an origin marked as composed, which nothing that reads a package's manifest marks.
 Any other grant SHALL match only a package signed by the first-party key. No grant SHALL name a key the trust and consent views read. When
