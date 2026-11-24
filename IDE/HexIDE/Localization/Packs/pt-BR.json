@@ -252,6 +252,14 @@
     "Str.Tool.LanguageServers.Trial.ConfirmPrompt": "O IDE nunca iniciou este item nem se conectou a ele, ou ele foi alterado desde então. Ao aceitar, você inicia um programa neste computador ou estabelece uma conexão com este endereço.",
     "Str.Tool.LanguageServers.Problem.UnseenEndpoint": "'{0}' vai se conectar a um endereço ao qual o HexIDE nunca se conectou: {1}",
     "Str.Archive.SaveChanged": "Não é possível salvar '{0}': o arquivo foi alterado no disco. Recarregue-o antes de salvar.",
-    "Str.Archive.SaveRefused": "Não é possível salvar '{0}': não foi possível verificar e gravar o contêiner com segurança. A edição continua sem salvar."
+    "Str.Archive.SaveRefused": "Não é possível salvar '{0}': não foi possível verificar e gravar o contêiner com segurança. A edição continua sem salvar.",
+    "Str.SystemColor.Scrollbar": "Barras de rolagem",
+    "Str.SystemColor.Desktop": "Área de trabalho",
+    "Str.SystemColor.Activeborder": "Borda ativa",
+    "Str.SystemColor.Inactiveborder": "Borda inativa",
+    "Str.SystemColor.Appworkspace": "Área de trabalho do aplicativo",
+    "Str.SystemColor.Highlight": "Destaque",
+    "Str.SystemColor.Highlighttext": "Texto destacado",
+    "Str.SystemColor.Btnhighlight": "Destaque do botão"
   }
 }
