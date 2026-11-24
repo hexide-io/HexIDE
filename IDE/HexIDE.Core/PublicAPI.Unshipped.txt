@@ -113,3 +113,17 @@ static HexIDE.Runtime.Components.DesignerPicture.operator !=(HexIDE.Runtime.Comp
 static HexIDE.Runtime.Components.DesignerPicture.operator ==(HexIDE.Runtime.Components.DesignerPicture? left, HexIDE.Runtime.Components.DesignerPicture? right) -> bool
 ~override HexIDE.Runtime.Components.DesignerDrawRequest.Equals(object obj) -> bool
 ~override HexIDE.Runtime.Components.DesignerDrawRequest.ToString() -> string
+HexIDE.Runtime.Components.ComponentMember
+HexIDE.Runtime.Components.ComponentMember.ComponentMember(string! Name, HexIDE.Runtime.Components.ComponentMemberKind Kind, bool HexIdeOnly) -> void
+HexIDE.Runtime.Components.ComponentMember.HexIdeOnly.get -> bool
+HexIDE.Runtime.Components.ComponentMember.HexIdeOnly.init -> void
+HexIDE.Runtime.Components.ComponentMember.Kind.get -> HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.ComponentMember.Kind.init -> void
+HexIDE.Runtime.Components.ComponentMember.Name.get -> string!
+HexIDE.Runtime.Components.ComponentMember.Name.init -> void
+HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.ComponentMemberKind.Event = 2 -> HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.ComponentMemberKind.Method = 1 -> HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.ComponentMemberKind.Property = 0 -> HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.IComponentMemberTable
+HexIDE.Runtime.Components.IComponentMemberTable.MembersIn(HexIDE.Runtime.Components.IControlLibrary? library) -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentMember!>!

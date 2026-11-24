@@ -7,7 +7,7 @@ using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
 
-public class FormComponentClass : ComponentBaseClass
+public class FormComponentClass : ComponentBaseClass, IComponentMemberTable
 {
     public FormComponentClass() : base([CaptionProperty,
     FormBorderStyleProperty,

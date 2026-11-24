@@ -137,6 +137,14 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
   - **Its second part (#5594) owns the components and the toolbox.** The provider registers its Form, its controls and
     their toolbox items through the owned host, with `IHexIdeHost.RegisterToolboxItem` new for the items. The control
     libraries register the same way in a third part.
+- **The Object Browser's in-box members (2.4d, #5610).** Agreed with the supervisor, as two PRs.
+  - **Its first part reads members through Core.** `IComponentMemberTable.MembersIn(IControlLibrary?)` is optional and
+    library-aware, because Common Controls 5.0 and 6.0 offer the same class with different members. Its
+    `ComponentMemberKind` is named apart from the type library's `MemberKind`. Whether a member is written in a `.frm`,
+    and whether HexIDE implements it, stay with the runtime.
+  - **A listing generated before the change pins it.** Every member the Object Browser lists for an in-box class or
+    library, with its kind and HexIDE-only note, must stay the same through both parts.
+  - **Its second part takes a library's classes and references from the registered libraries.**
 - **Designer pictures (2.4b).** This was agreed with hexide-frm, and the supervisor reviews the draft.
   - `RegisterDesignerPictures` is one service per host and is grant-gated, since it draws every form's controls. A
     third-party component is drawn by that service through its own `IComponentClass`.
