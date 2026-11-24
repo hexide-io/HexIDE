@@ -122,13 +122,28 @@ public class WorkflowActionTests
     public void EveryUseHasTheReviewedActionVersion(string action, string version)
     {
         var workflows = Directory.GetFiles(Path.Combine(RepoTree.Root(), ".github", "workflows"), "*.yml");
-        var versions = workflows.SelectMany(path => Regex.Matches(File.ReadAllText(path),
-                @"uses:\s*" + Regex.Escape(action) + @"@([^\s]+)")
-            .Select(match => match.Groups[1].Value)).ToArray();
+        var uses = workflows.SelectMany(path => Regex.Matches(File.ReadAllText(path),
+                @"uses:\s*" + Regex.Escape(action) + @"@([^\s]+)(?:[ \t]+(#[^\r\n]*))?")
+            .Select(match => (Ref: match.Groups[1].Value, Comment: match.Groups[2].Value.Trim()))).ToArray();
 
-        versions.Should().NotBeEmpty();
-        versions.Should().AllBe(version);
+        uses.Should().NotBeEmpty();
+        ReviewedCommits.TryGetValue(action, out var commit);
+        foreach (var use in uses)
+            if (use.Ref != version)
+                $"{use.Ref} {use.Comment}".Should().Be(commit, $"{action} is used at the reviewed {version}, or at its reviewed commit");
+        if (commit is not null)
+            uses.Should().Contain(use => $"{use.Ref} {use.Comment}" == commit, "a reviewed commit nothing uses has gone stale");
     }
+
+    // The job that holds the release signing key pins its actions by commit, so a tag moved upstream can't reach the
+    // key (#4740). Each commit is the release named beside it, of the reviewed major version, checked against the tag
+    // through GitHub's API on 2026-11-23. Bumping one means checking the new commit the same way.
+    private static readonly Dictionary<string, string> ReviewedCommits = new()
+    {
+        ["actions/checkout"] = "3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+        ["actions/upload-artifact"] = "cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2",
+        ["actions/download-artifact"] = "9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2",
+    };
 
     // A hung test otherwise holds its job for GitHub's six-hour default, and cancelling the job to free the queue
     // throws its log away, so nothing says which test hung. A step that times out ends the job normally, log kept.
