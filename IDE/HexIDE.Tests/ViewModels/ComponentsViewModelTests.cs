@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -81,15 +82,15 @@ public class ComponentsViewModelTests
         var vm = new ComponentsViewModel(project, new ComponentRegistry());
         var row = vm.Controls.Single(c => c.Location == "MSCOMCT2.OCX");
 
-        row.Library.Should().NotBeNull();
+        row.Library.Should().BeSameAs(ControlLibraries.MSComCtl2);
         row.Name.Should().Be("Microsoft Windows Common Controls-2 6.0 (SP6)");
         row.CanChange.Should().BeTrue();
         row.IsSelected.Should().BeTrue();
-        row.Library!.PersistedVersion.Should().Be(393216);
-        row.Library.TryBare("NoSuchConstant", out _).Should().BeFalse();
-        row.Library.ProjectLine.Should().Be(line);
-        row.Library.FormLine.Should().Be("Object = \"{86CF1D34-0C5F-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCT2.OCX\"");
-        row.Library.Controls.Keys.Should().BeEquivalentTo("UpDown", "DTPicker", "MonthView", "Animation", "FlatScrollBar");
+        ControlLibraries.MSComCtl2.PersistedVersion.Should().Be(393216);
+        ControlLibraries.MSComCtl2.TryBare("NoSuchConstant", out _).Should().BeFalse();
+        row.Library!.ProjectLine.Should().Be(line);
+        row.Library!.FormLine.Should().Be("Object = \"{86CF1D34-0C5F-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCT2.OCX\"");
+        ControlLibraries.MSComCtl2.Controls.Keys.Should().BeEquivalentTo("UpDown", "DTPicker", "MonthView", "Animation", "FlatScrollBar");
         InBoxComponentClass.IssueFor("MSComCtl2.UpDown").Should().Be(1093);
 
         row.IsSelected = false;
@@ -129,7 +130,7 @@ public class ComponentsViewModelTests
     {
         var project = Project(form1UsesMsComctl: true, Ocx6);
         var vm = new ComponentsViewModel(project, new ComponentRegistry());
-        RuntimeLibrary? refused = null;
+        IControlLibrary? refused = null;
         vm.Refused += library => refused = library;
 
         var row = vm.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib);

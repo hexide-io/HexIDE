@@ -1,5 +1,4 @@
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 
 namespace HexIDE.IDE;
 
@@ -9,4 +8,4 @@ namespace HexIDE.IDE;
 /// <param name="ControlName">Its name in the library: <c>ProgressBar</c>.</param>
 /// <param name="TypeName">The type name a control placed from this library takes: <c>ComctlLib.ProgressBar</c>.</param>
 /// <param name="IconKey">The key of the icon its button shows.</param>
-public sealed record LibraryControl(IComponentClass Class, RuntimeLibrary Library, string ControlName, string TypeName, string IconKey);
+public sealed record LibraryControl(IComponentClass Class, IControlLibrary Library, string ControlName, string TypeName, string IconKey);

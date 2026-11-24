@@ -124,3 +124,6 @@ dotnet_diagnostic.RS0016.severity = error
 
 [Components/DesignerInset.cs]
 dotnet_diagnostic.RS0016.severity = error
+
+[Components/IControlLibrary.cs]
+dotnet_diagnostic.RS0016.severity = error

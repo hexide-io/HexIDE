@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 
 namespace HexIDE.IDE;
 
@@ -12,7 +11,7 @@ public interface IComponentRegistry
     IReadOnlyList<ToolboxEntry> Toolbox { get; }
 
     /// <summary>The control libraries a project can reference, which the Components dialog lists.</summary>
-    IReadOnlyList<RuntimeLibrary> Libraries { get; }
+    IReadOnlyList<IControlLibrary> Libraries { get; }
 
     /// <summary>What those libraries offer the toolbox: one entry for each library that declares each control.</summary>
     IReadOnlyList<LibraryControl> LibraryControls { get; }
