@@ -1184,6 +1184,7 @@
     "Str.Addins.DebugLaunchRefused": "Peluncuran adaptor debug untuk add-in '{0}' ditolak.",
     "Str.Addins.Incompatible": "Tidak dapat memuat add-in: skema yang diperlukan {0}, minimum HexIDE {1}; build ini mendukung skema {2}, HexIDE {3}. Persyaratan skema atau versi tidak didukung atau tidak valid.",
     "Str.Addins.DuplicateId": "Tidak dapat memuat add-in: ID '{0}' sudah digunakan oleh folder paket '{1}'.",
+    "Str.Addins.ReservedId": "Tidak dapat memuat add-in: ID '{0}' dicadangkan untuk add-in milik HexIDE sendiri.",
     "Str.Addins.ChangedAfterVerification": "Tidak dapat memuat add-in: paket berubah di disk setelah diverifikasi.",
     "Str.ScrollBar.LineUp": "Satu baris ke atas",
     "Str.ScrollBar.PageUp": "Satu halaman ke atas",

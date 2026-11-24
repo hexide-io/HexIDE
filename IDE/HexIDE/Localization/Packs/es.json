@@ -1183,6 +1183,7 @@
     "Str.Addins.DebugLaunchRefused": "Se ha rechazado el inicio del adaptador de depuración del complemento «{0}».",
     "Str.Addins.Incompatible": "No se puede cargar el complemento: esquema requerido {0}, HexIDE mínimo {1}; esta compilación admite el esquema {2}, HexIDE {3}. El requisito de esquema o versión no se admite o no es válido.",
     "Str.Addins.DuplicateId": "No se puede cargar el complemento: la carpeta del paquete «{1}» ya utiliza el identificador «{0}».",
+    "Str.Addins.ReservedId": "No se puede cargar el complemento: el identificador «{0}» está reservado para los complementos propios de HexIDE.",
     "Str.Addins.ChangedAfterVerification": "No se puede cargar el complemento: el paquete cambió en el disco después de verificarse.",
     "Str.ScrollBar.LineUp": "Una línea hacia arriba",
     "Str.ScrollBar.PageUp": "Una página hacia arriba",

@@ -1195,6 +1195,7 @@
     "Str.Addins.DebugLaunchRefused": "Priedo „{0}“ derinimo adapterio paleidimas atmestas.",
     "Str.Addins.Incompatible": "Nepavyko įkelti priedo: reikia schemos {0}, bent HexIDE {1}; ši versija palaiko schemą {2}, HexIDE {3}. Schemos arba versijos reikalavimas nepalaikomas arba netinkamas.",
     "Str.Addins.DuplicateId": "Nepavyko įkelti priedo: identifikatorių „{0}“ jau naudoja paketo aplankas „{1}“.",
+    "Str.Addins.ReservedId": "Nepavyko įkelti priedo: identifikatorius „{0}“ rezervuotas paties HexIDE priedams.",
     "Str.Addins.ChangedAfterVerification": "Nepavyko įkelti priedo: po patikrinimo paketas diske pasikeitė.",
     "Str.ScrollBar.LineUp": "Eilute aukštyn",
     "Str.ScrollBar.PageUp": "Puslapiu aukštyn",

@@ -1150,6 +1150,7 @@
     "Str.Addins.DebugLaunchRefused": "Start af fejlfindingsadapteren for tilføjelsesprogrammet '{0}' blev afvist.",
     "Str.Addins.Incompatible": "Tilføjelsen kan ikke indlæses: krævet skema {0}, mindst HexIDE {1}; denne udgave understøtter skema {2}, HexIDE {3}. Skema- eller versionskravet understøttes ikke eller er ugyldigt.",
     "Str.Addins.DuplicateId": "Tilføjelsesprogrammet kan ikke indlæses: id'et »{0}« bruges allerede af pakkemappen »{1}«.",
+    "Str.Addins.ReservedId": "Tilføjelsesprogrammet kan ikke indlæses: id'et »{0}« er reserveret til HexIDE's egne tilføjelsesprogrammer.",
     "Str.Addins.ChangedAfterVerification": "Tilføjelsesprogrammet kan ikke indlæses: pakken blev ændret på disken efter verificeringen.",
     "Str.ScrollBar.LineUp": "En linje op",
     "Str.ScrollBar.PageUp": "En side op",

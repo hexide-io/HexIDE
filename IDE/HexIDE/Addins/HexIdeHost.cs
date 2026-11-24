@@ -98,7 +98,7 @@ internal sealed class HexIdeHost(
         }
         var connection = languageServers.Register(server, origin.Title, origin.Id, origin.PublisherNamespaces);
         optionsService.TrackServer(origin.Id, string.IsNullOrWhiteSpace(server.Entry.DisplayName) ? connection.Id : server.Entry.DisplayName, connection);
-        if (Registry is AddinRegistry owner) owner.TrackContribution(origin.Id, connection);
+        if (Registry is AddinRegistry owner) owner.TrackContribution(origin, connection);
         AddinInitializationScope.Record(connection.Dispose);
         return connection;
     }
@@ -114,7 +114,7 @@ internal sealed class HexIdeHost(
     {
         var addins = Registry as AddinRegistry;
         var handle = debugLaunches.Register(launch, origin, addins is null ? null : () => addins.CheckDebugLaunch(origin.Id));
-        addins?.TrackContribution(origin.Id, handle);
+        addins?.TrackContribution(origin, handle);
         return handle;
     }
 
@@ -128,7 +128,7 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterProjectType(AddinProjectType type, AddinOrigin origin)
     {
         var handle = contributedProjects.Register(type, origin);
-        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         return handle;
     }
 
@@ -141,7 +141,7 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterResources(Uri dictionary, AddinOrigin origin, System.Reflection.Assembly caller)
     {
         var handle = resources.Register(dictionary, origin, caller);
-        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         AddinInitializationScope.Record(handle.Dispose);
         return handle;
     }
@@ -154,7 +154,7 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterLanguagePacks(Uri folder, AddinOrigin origin, System.Reflection.Assembly caller)
     {
         var handle = languagePacks.Register(folder, origin, caller);
-        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         AddinInitializationScope.Record(handle.Dispose);
         return handle;
     }
@@ -170,7 +170,7 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures, AddinOrigin origin)
     {
         var handle = DesignerPictures.Register(pictures, origin);
-        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         AddinInitializationScope.Record(handle.Dispose);
         return handle;
     }

@@ -1184,6 +1184,7 @@
     "Str.Addins.DebugLaunchRefused": "Oppstart av feilsøkingsadapteren for tillegget '{0}' ble avvist.",
     "Str.Addins.Incompatible": "Kan ikke laste tillegget: påkrevd skjema {0}, minst HexIDE {1}; denne utgaven støtter skjema {2}, HexIDE {3}. Skjema- eller versjonskravet støttes ikke eller er ugyldig.",
     "Str.Addins.DuplicateId": "Kan ikke laste inn tillegget: ID-en «{0}» brukes allerede av pakkemappen «{1}».",
+    "Str.Addins.ReservedId": "Kan ikke laste inn tillegget: ID-en «{0}» er reservert for HexIDEs egne tillegg.",
     "Str.Addins.ChangedAfterVerification": "Kan ikke laste inn tillegget: pakken ble endret på disken etter at den ble verifisert.",
     "Str.ScrollBar.LineUp": "Én linje opp",
     "Str.ScrollBar.PageUp": "Én side opp",

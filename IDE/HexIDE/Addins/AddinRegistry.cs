@@ -32,8 +32,18 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private readonly object _serverTrustGate = new();
     private readonly HashSet<string> _revokedConsent = new(StringComparer.Ordinal);
     // What each add-in contributed that is taken out when it is disabled or its consent is revoked: its language servers,
-    // debug launches and project types.
-    private readonly Dictionary<string, List<IDisposable>> _contributions = new(StringComparer.OrdinalIgnoreCase);
+    // debug launches, project types, resources, language packs and the designer's drawer, by owner.
+    private readonly Dictionary<ContributionOwner, List<IDisposable>> _contributions = [];
+
+    // Whose contributions a list holds: an add-in's id, compared without regard to case, and whether HexIDE composes it.
+    // A composed owner, the Basic provider, is never a package, so no package's id can address its registrations (#5597).
+    private readonly record struct ContributionOwner(string Id, bool Composed)
+    {
+        public bool Equals(ContributionOwner other) =>
+            Composed == other.Composed && string.Equals(Id, other.Id, StringComparison.OrdinalIgnoreCase);
+
+        public override int GetHashCode() => HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(Id), Composed);
+    }
     private readonly bool _recoveryMode = Static.IsRecoveryMode;
 
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
@@ -162,6 +172,17 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             info = info with { CompatibilityError = message, CompatibilityMessage = details };
             _contexts.Add(new AddinContext(info) { Status = AddinStatus.Incompatible, ErrorMessage = message, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Dir} is incompatible ({Reason}) — not loaded", packageDir, result.Error);
+            return;
+        }
+
+        // HexIDE's own ids, hexide. and under it, are kept for packages the first-party key signed: the Basic provider is
+        // hexide.basic, and phase 3 of #3411 loads it as such a package (#5597).
+        if (result.Manifest is { } reservedManifest && PublisherNamespaces.IsReserved(reservedManifest.Id) && !result.IsFirstParty)
+        {
+            var message = string.Format(_localization.GetString("Str.Addins.ReservedId"), reservedManifest.Id);
+            info = info with { LoadError = new AddinMessage("Str.Addins.ReservedId", reservedManifest.Id) };
+            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
+            Log.Warning("AddinRegistry: {Message}", message);
             return;
         }
 
@@ -487,27 +508,30 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     }
 
     // Keeps what an add-in contributed, to take out when it is disabled or its consent is revoked; taken out at once when
-    // it is already.
-    internal void TrackContribution(string id, IDisposable contribution)
+    // it is already. A composed owner has no package to disable, so a package's state never reaches it (#5597).
+    internal void TrackContribution(AddinOrigin owner, IDisposable contribution)
     {
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            var ctx = owner.IsComposed ? null
+                : _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, owner.Id, StringComparison.OrdinalIgnoreCase));
             if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
                 || _revokedConsent.Contains(ctx.Info.ManifestHash)))
             {
                 contribution.Dispose();
                 return;
             }
-            if (!_contributions.TryGetValue(id, out var contributions))
-                _contributions[id] = contributions = [];
+            var key = new ContributionOwner(owner.Id, owner.IsComposed);
+            if (!_contributions.TryGetValue(key, out var contributions))
+                _contributions[key] = contributions = [];
             contributions.Add(contribution);
         }
     }
 
+    // A package's: never a composed owner's, whatever id the package's manifest names.
     private void RemoveContributions(string id)
     {
-        if (!_contributions.Remove(id, out var contributions)) return;
+        if (!_contributions.Remove(new ContributionOwner(id, Composed: false), out var contributions)) return;
         foreach (var contribution in contributions) contribution.Dispose();
     }
 
