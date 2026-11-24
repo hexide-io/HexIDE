@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "生成",
     "Str.Dialog.MakeProjectGroup.Cancel": "取消",
     "Str.Dialog.MakeProjectGroup.Help": "帮助(_H)",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "菜单控件数组元素必须相邻且位于同一子菜单中",
     "Str.FilePicker.ReplaceExisting": "{0} 已存在。是否要替换它？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} 加载时出现错误，因此无法覆盖保存到原始文件。请选择新的文件名。",
     "Str.Menu.Edit.Refactor": "重构",

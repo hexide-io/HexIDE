@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HexIDE.Runtime.BuiltinTypes;
 
 namespace HexIDE.Runtime.AvaloniaInterop;
 
@@ -41,16 +42,13 @@ internal static class VbFontSizes
     // GDI's vector fonts, which go down to one pixel where a TrueType font stops at two.
     private static readonly HashSet<string> Vector = new(StringComparer.OrdinalIgnoreCase) { "Modern", "Roman", "Script" };
 
-    internal static int RoundToPixels(double size) =>
-        (int)Math.Round((decimal)size * 4m / 3m, MidpointRounding.AwayFromZero);
-
     /// <summary>
     /// The size, in points, and the family a font of <paramref name="family"/> asked to be <paramref name="size"/> points
     /// is given. The family is <paramref name="family"/> unless a bitmap font gave way to Arial.
     /// </summary>
     public static (double Size, string Family) Snap(string family, double size)
     {
-        var asked = RoundToPixels(size);
+        var asked = VBFontSizing.RoundToPixels(size);
         var pixels = Math.Max(asked, Vector.Contains(family) ? 1 : 2);
         if (Bitmap.TryGetValue(family, out var runs))
         {

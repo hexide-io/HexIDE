@@ -2128,6 +2128,28 @@ The output rules are measured in [#5385](https://github.com/hexide-io/HexIDE/iss
 - **THEN** it writes the CheckBox value as a quoted String
 - **AND** `Write #` of the explicit Value property writes a bare number
 
+### Requirement: Intrinsic control defaults as operands
+
+`+ - * / \ Mod ^ = <> < > <= >= And Or Xor Eqv Imp Like Not` and unary `-`
+SHALL read modeled intrinsic control defaults, typed early-bound and Variant late-bound.
+Unmodeled defaults SHALL refuse with #790. `Is` SHALL compare references.
+Integer/Boolean `Mod` SHALL follow p-code. These rules are measured in
+[#5504](https://github.com/hexide-io/HexIDE/issues/5504).
+Conditions, loop bounds, Select Case and conversion functions are outside this change.
+
+#### Scenario: Numeric and String defaults participate in addition
+- **WHEN** a CheckBox at 1 is added to 2, or a TextBox containing "12" is added to "1"
+- **THEN** the results are Integer 3 and String "121", respectively, with no error
+
+#### Scenario: A nonnumeric TextBox compared through an Object
+- **WHEN** a TextBox containing "T1" is compared with 2
+- **THEN** an early-bound read raises 13
+- **AND** the same comparison through an Object reference returns Boolean False with no error
+
+#### Scenario: A PictureBox operand refuses the unmodeled handle
+- **WHEN** an empty PictureBox is added to 2 under On Error Resume Next
+- **THEN** execution refuses with NotImplementedException naming #790 instead of resuming with error 13
+
 ### Requirement: New on a form creates a separate instance
 
 Explicit `New Form2` SHALL create an instance distinct from the form's default instance, from any executing

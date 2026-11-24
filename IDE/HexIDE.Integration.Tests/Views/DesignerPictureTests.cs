@@ -54,7 +54,7 @@ public class DesignerPictureTests
         public IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
         public bool IsWindowless => false;
         public (int Width, int Height) AddedSize => (600, 300);
-        public Thickness ClientInset(ComponentInstance instance) => default;
+        public DesignerInset ClientInset(ComponentInstance instance) => default;
         public Control InstantiateForDesigner(ComponentInstance instance) => new RefusesToMeasure();
     }
 

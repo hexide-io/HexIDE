@@ -22,15 +22,25 @@ internal static class ControlMembers
         _ => null,
     };
 
+    // Every operator operand passes through here, so anything but a control returns at once, with no state machine.
     internal static ValueTask<Vb6Value> ReadDefaultValue(Vb6Value value, string expression, bool intrinsicOnly = true)
     {
+        if (value.Value is not Control control)
+            return new(value);
         if (DefaultMember(value) is { } member)
-            return new(Read(value, member, null));
-        if (value.Type == Vb6Value.ValueType.Control && value.Value is Control control
+            return ReadDefaultMember(value, member);
+        if (value.Type == Vb6Value.ValueType.Control
             && (!intrinsicOnly || ControlObjectType.IsIntrinsic(VB6BuiltIns.ControlTypeName(control))))
             throw new NotImplementedException($"`{expression}` reads a default member, which is not implemented (#790). "
                 + "Name the property, or use Set to keep the reference.");
         return new(value);
+    }
+
+    private static async ValueTask<Vb6Value> ReadDefaultMember(Vb6Value value, string member)
+    {
+        var result = await Read(value, member, null);
+        // A late-bound default reads as a Variant (#5504, SP6 native and p-code).
+        return IsLateBoundListReference(value) ? result.AsVariant() : result;
     }
 
     // Measured late-bound list receivers, including Collection items and function results (#5135).

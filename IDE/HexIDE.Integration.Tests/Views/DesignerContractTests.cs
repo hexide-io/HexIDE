@@ -39,12 +39,45 @@ public class DesignerContractTests
 
         public bool IsWindowless => true;
         public (int Width, int Height) AddedSize => (600, 300);
-        public Thickness ClientInset(ComponentInstance instance) => new(7, 9, 0, 0);
+        public DesignerInset ClientInset(ComponentInstance instance) => new(7, 9, 0, 0);
         public Control InstantiateForDesigner(ComponentInstance instance)
         {
             Drawn++;
             return new Border { Background = Brushes.Red };
         }
+    }
+
+    private sealed class CoreOnlyClass : IDesignerComponent
+    {
+        public string Name => "Drawn";
+        public string VBTypeName => "Test.Drawn";
+        public string ClassName => "Drawn";
+        public bool IsVisual => true;
+        public IReadOnlyList<PropertyClass> Properties { get; } =
+        [
+            VBProperties.NameProperty, VBProperties.LeftProperty, VBProperties.TopProperty,
+            VBProperties.WidthProperty, VBProperties.HeightProperty,
+        ];
+        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName =>
+            Properties.ToDictionary(p => p.Name, p => p, System.StringComparer.OrdinalIgnoreCase);
+        public IReadOnlyList<EventClass> Events { get; } = [];
+        public IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
+
+        public bool IsWindowless => true;
+        public (int Width, int Height) AddedSize => (600, 300);
+        public DesignerInset ClientInset(ComponentInstance instance) => new(7, 9, 0, 0);
+    }
+
+    [AvaloniaFact]
+    public void A_Core_only_class_supplies_its_windowless_flag() =>
+        FormEditViewModel.IsWindowless(new CoreOnlyClass()).Should().BeTrue();
+
+    [AvaloniaFact]
+    public void A_Core_only_class_supplies_its_client_inset()
+    {
+        var component = new ComponentInstanceViewModel(Designer(), Placed(new CoreOnlyClass()));
+
+        component.ClientOrigin.Should().Be(new Point(component.Left + 7, component.Top + 9));
     }
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }

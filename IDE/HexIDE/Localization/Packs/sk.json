@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Zostaviť",
     "Str.Dialog.MakeProjectGroup.Cancel": "Zrušiť",
     "Str.Dialog.MakeProjectGroup.Help": "_Pomocník",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Prvky poľa ovládacích prvkov ponuky musia susediť a byť v rovnakej podponuke",
     "Str.FilePicker.ReplaceExisting": "{0} už existuje. Chcete ho nahradiť?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} bol načítaný s chybami, preto nemôže prepísať pôvodný súbor. Vyberte nový názov súboru.",
     "Str.Menu.Edit.Refactor": "Re_faktoring",

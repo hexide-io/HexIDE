@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "สร้าง",
     "Str.Dialog.MakeProjectGroup.Cancel": "ยกเลิก",
     "Str.Dialog.MakeProjectGroup.Help": "วิธีใช้",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "สมาชิกของอาร์เรย์ตัวควบคุมเมนูต้องอยู่ติดกันและอยู่ในเมนูย่อยเดียวกัน",
     "Str.FilePicker.ReplaceExisting": "{0} มีอยู่แล้ว คุณต้องการแทนที่หรือไม่",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "โหลด {0} โดยมีข้อผิดพลาด จึงไม่สามารถบันทึกทับไฟล์ต้นฉบับได้ โปรดเลือกชื่อไฟล์ใหม่",
     "Str.Menu.Edit.Refactor": "ปรับโครงสร้าง",

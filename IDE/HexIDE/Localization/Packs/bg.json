@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Първо запазете или отхвърлете всички промени в изходния код в този контейнер.",
     "Str.Archive.StructureUnmeasured": "Тази операция е отказана, защото поведението ѝ не е измерено в twinBASIC IDE.",
     "Str.Archive.StructureName": "Използвайте уникален ASCII идентификатор в тази папка, най-много 255 байта; запазените имена на устройства не са разрешени.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Елементите на масива от контроли за меню трябва да са последователни и в едно и също подменю",
     "Str.Dialog.MenuEditor.Msg.NoName": "Контролата на менюто трябва да има име",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Невалидно име на обект: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Елементът на масива от контроли на менюто трябва да има индекс",

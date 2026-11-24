@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Primeiro garde ou descarte todos os cambios do código fonte deste contedor.",
     "Str.Archive.StructureUnmeasured": "Rexéitase esta operación porque non se mediu no IDE de twinBASIC.",
     "Str.Archive.StructureName": "Use un identificador ASCII único neste cartafol, de como máximo 255 bytes; non se permiten nomes de dispositivos reservados.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Os elementos da matriz de controis de menú deben ser contiguos e estar no mesmo submenú",
     "Str.Dialog.MenuEditor.Msg.NoName": "O control de menú debe ter un nome",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Nome de obxecto non válido: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "O elemento da matriz de controis de menú debe ter un índice",

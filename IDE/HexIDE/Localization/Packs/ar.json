@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "احفظ جميع تعديلات المصدر في هذه الحاوية أو تجاهلها أولًا.",
     "Str.Archive.StructureUnmeasured": "تم رفض هذه العملية لأنها لم تُقَس في بيئة تطوير twinBASIC.",
     "Str.Archive.StructureName": "استخدم معرّفًا بنظام ASCII فريدًا في هذا المجلد بحد أقصى 255 بايت؛ أسماء الأجهزة المحجوزة غير مسموح بها.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "يجب أن تكون عناصر مصفوفة عناصر تحكم القائمة متجاورة وضمن القائمة الفرعية نفسها",
     "Str.Dialog.MenuEditor.Msg.NoName": "يجب أن يكون لعنصر تحكم القائمة اسم",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "اسم كائن غير صالح: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "يجب أن يكون لعنصر مصفوفة عناصر تحكم القائمة فهرس",
