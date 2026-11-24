@@ -11,6 +11,7 @@ using HexIDE.Lsp;
 using HexIDE.Localization;
 using HexIDE.TwinBasic;
 using HexIDE.Utils;
+using Serilog;
 
 namespace HexIDE.Projects;
 
@@ -143,6 +144,8 @@ public sealed class ArchiveProjectService
                 engine.ChosenRoot = choice;
                 result = await Task.Run(() => engine.Synchronize(path));
             }
+            foreach (var kept in result.Kept)
+                Log.Warning("Source-folder sync kept old recovery data it would have pruned: {Kept}", kept);
             message = string.Format(localization.GetString("Str.Archive.FolderReadyFormat"), result.Directory);
         }
         catch (ProjectLocalStatePathException ex)
