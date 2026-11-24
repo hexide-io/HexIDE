@@ -809,7 +809,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type != Vb6Value.ValueType.Date && value.Type != Vb6Value.ValueType.String)
             throw new NotImplementedException("Date/Time assignment conversion from this type is not implemented (#4733)");
         _ = VB6BuiltIns.CDate(value);
-        // Deliberate divergence (#4681): never change the host clock, even elevated, where VB6 would set it.
+        // Deliberate divergence (#4681): never change the host clock, even elevated, where VB6 would set it. The maintainer's
+        // decision (2026-11-24): no opt-in without a serious use case; docs/interpreter-gaps.md has the reasons.
         throw new VBRunTimeException(context, VBStandardError.PermissionDenied);
     }
 
