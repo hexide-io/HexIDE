@@ -109,6 +109,16 @@ public class ObjectBrowserBehaviourTests
         registration.Dispose();
         vb.Classes.Select(c => c.Name).Should().NotContain("Gauge");
         vm.FilteredClasses.Select(c => c.Name).Should().NotContain("Gauge");
+
+        // Another owner's class with the provider's short name goes alone, by the class, not by the name.
+        var label = vb.Classes.Single(c => c.Name == "Label");
+        var acme = Substitute.For<IComponentClass>();
+        acme.VBTypeName.Returns("Acme.Label");
+        acme.ClassName.Returns("Label");
+        var acmeRegistration = components.Register(acme, new HexIDE.Addins.AddinOrigin("acme", "Acme"));
+        vb.Classes.Where(c => c.Name == "Label").Should().HaveCount(2);
+        acmeRegistration.Dispose();
+        vb.Classes.Where(c => c.Name == "Label").Should().ContainSingle().Which.Should().BeSameAs(label);
     }
 
     [AvaloniaFact]

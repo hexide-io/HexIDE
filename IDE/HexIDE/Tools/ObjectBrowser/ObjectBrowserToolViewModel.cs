@@ -39,6 +39,8 @@ public partial class ObjectBrowserToolViewModel : Document
     private readonly Dictionary<ProjectDefinition, List<OBLibraryViewModel>> projectReferences = new();
     private OBLibraryViewModel? vbaLibrary;
     private OBLibraryViewModel? vbLibrary;
+    // Each registered class's row, by the class: two owners' classes can share a short name, as Label and Acme.Label do.
+    private readonly Dictionary<IComponentClass, OBClassViewModel> vbClasses = new(ReferenceEqualityComparer.Instance);
     private readonly OBLibraryViewModel allLibraries;
 
     private OBLibraryViewModel? libraryBeforeReload;
@@ -218,7 +220,7 @@ public partial class ObjectBrowserToolViewModel : Document
     {
         var lib = vbLibrary = new OBLibraryViewModel("VB");
         foreach (var component in componentRegistry.Components)
-            lib.Classes.Add(VbClass(component));
+            lib.Classes.Add(vbClasses[component] = VbClass(component));
         lib.Classes.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
         Libraries.Add(lib);
         ReorderLibraries();
@@ -230,7 +232,7 @@ public partial class ObjectBrowserToolViewModel : Document
     {
         if (vbLibrary is not { } lib)
             return;
-        var cls = VbClass(component);
+        var cls = vbClasses[component] = VbClass(component);
         var at = 0;
         while (at < lib.Classes.Count && string.Compare(lib.Classes[at].Name, cls.Name, StringComparison.OrdinalIgnoreCase) <= 0)
             at++;
@@ -243,8 +245,7 @@ public partial class ObjectBrowserToolViewModel : Document
     {
         if (vbLibrary is not { } lib)
             return;
-        var gone = lib.Classes.FirstOrDefault(cls => cls.Name == component.ClassName);
-        if (gone is null)
+        if (!vbClasses.Remove(component, out var gone))
             return;
         lib.Classes.Remove(gone);
         if (ReferenceEquals(SelectedLibrary, lib) || SelectedLibrary == allLibraries)
