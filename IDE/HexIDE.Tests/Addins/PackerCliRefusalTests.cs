@@ -52,7 +52,7 @@ public sealed class PackerCliRefusalTests : IDisposable
     {
         { "no arguments", [], "usage: genkeys <outDir> | sign-publisher --root-public-key .. --intermediate-key .. "
             + "--intermediate .. --publisher-id .. --display-name .. --public-key .. --out .. [--namespaces rdcore.,..] | "
-            + "pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust ..\n"
+            + "pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust .. [--key ..]\n"
             + "       genkeys-release --root-out .. --intermediate-out .. --firstparty-out .. --public-out ..\n"
             + "         --intermediate-id .. --intermediate-name .. --firstparty-id .. --firstparty-name ..\n"
             + "       sign-revocations --in .. --root-key .. --out .. | verify-revocations --json .. --sig .. --root ..\n", true },
