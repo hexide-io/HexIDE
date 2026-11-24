@@ -112,8 +112,9 @@ public class RegisterControlLibraryTests
             .Should().Throw<InvalidOperationException>()
             .WithMessage("Owner b can't register the acme control library: Owner a (a) holds Acme, by its name or GUID.");
         FluentActions.Invoking(() => Host(registry, Composed("b")).RegisterControlLibrary(
-                new Library("Acme", "{11111111-1111-1111-1111-111111111111}"), () => []))
-            .Should().Throw<InvalidOperationException>().WithMessage("Owner b can't register the Acme control library: Owner a (a) holds*");
+                new Library("Acme2", "{11111111-1111-1111-1111-111111111111}"), () => []))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("Owner b can't register the Acme2 control library: Owner a (a) holds Acme, by its name or GUID.");
 
         registry.Libraries.Should().ContainSingle().Which.Should().BeSameAs(first);
     }
@@ -156,8 +157,9 @@ public class RegisterControlLibraryTests
         var registry = Shared();
         var changed = 0;
         registry.LibrariesChanged += () => changed++;
+        registry.LibraryControls.Should().BeEmpty();
         var registration = Host(registry, Composed("a")).RegisterControlLibrary(new Library("Acme"), () => [new Probe("Acme.Gauge")]);
-        registry.LibraryControls.Should().ContainSingle();
+        registry.LibraryControls.Should().ContainSingle("what the libraries offer is asked again once one comes");
 
         registration.Dispose();
         registration.Dispose();
