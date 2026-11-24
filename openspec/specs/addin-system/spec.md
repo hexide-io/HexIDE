@@ -580,10 +580,10 @@ disposing a registration SHALL take out that registration only.
 - **THEN** it is refused, and the drawer can take out only the control it was lent
 
 ### Requirement: Component registration SHALL be owned
-`IHexIdeHost.RegisterComponent` and `IHexIdeHost.RegisterToolboxItem` SHALL register under the owner the add-in's own host
-names, and the IDE's own host SHALL refuse both (#5594). A class whose role isn't `Control`, or that's a container, SHALL be
-refused unless the owner's grant in HexIDE's own table names components. The component registry SHALL start empty: the
-Basic provider SHALL register its Form, its controls and their toolbox items the same way.
+`RegisterComponent` and `RegisterToolboxItem` SHALL register under the owner the add-in's own host names, and the IDE's
+own host SHALL refuse both (#5594). Without a grant in HexIDE's own table naming components, a class whose role isn't
+`Control`, a container, or a type name in VB6's `VB` namespace SHALL be refused, whether or not the provider registered it.
+The registry SHALL start empty, and the Basic provider SHALL register its Form, controls and toolbox items the same way.
 
 #### Scenario: The provider's controls
 - **WHEN** the Basic provider registers its Form, its controls and their toolbox items at startup, through the owned host
@@ -593,6 +593,10 @@ Basic provider SHALL register its Form, its controls and their toolbox items the
 #### Scenario: An add-in registers a form, menu, line or container
 - **WHEN** a signed third-party add-in registers a class whose role is `Form`, `Menu` or `Line`, or that's a container
 - **THEN** it is refused, naming the add-in and the class, and the designer offers no such class
+
+#### Scenario: An add-in registers a VB type name first
+- **WHEN** a signed third-party add-in registers a plain class named `VB.Gauge` before the provider has registered anything
+- **THEN** it is refused, naming the add-in and the class
 
 ### Requirement: A component registration SHALL only add
 A class whose type name a registration holds, in any case and the owner's own included, SHALL be refused, naming both

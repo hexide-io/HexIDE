@@ -18,7 +18,8 @@ namespace HexIDE.IDE;
 /// <para>
 /// <b>Deny by default beyond a plain control.</b> A class whose role isn't <see cref="ComponentRole.Control"/>, or that's a
 /// container, needs its owner's grant (<see cref="RegistrationGrant.Components"/>): the designer gives such a class a place
-/// no plain control has, as a form's root or as other controls' parent.
+/// no plain control has, as a form's root or as other controls' parent. So does a type name in VB6's own <c>VB</c>
+/// namespace, which is refused without the grant even before the provider has registered it.
 /// </para>
 /// <para>
 /// <b>Only adds.</b> A class whose type name a registration holds is refused, naming both owners, and so is one in a control
@@ -29,6 +30,9 @@ public class ComponentRegistry : IComponentRegistry
 {
     /// <summary>The icon a toolbox item shows when its owner names none, and a library's control shows.</summary>
     internal const string GenericIcon = "Geo.Object";
+
+    /// <summary>The namespace of VB6's own type names, <c>VB.CommandButton</c> and the rest, kept for an owner with the grant.</summary>
+    private const string VbNamespace = "VB.";
 
     private readonly List<IComponentClass> components = [];
     private readonly Dictionary<IComponentClass, Registration> owners = new(ReferenceEqualityComparer.Instance);
@@ -71,11 +75,17 @@ public class ComponentRegistry : IComponentRegistry
     {
         ArgumentNullException.ThrowIfNull(component);
         var name = component.VBTypeName;
+        var granted = RegistrationGrants.For(owner, Grants) is { Components: true };
 
-        if ((component.Role != ComponentRole.Control || component.IsContainer)
-            && RegistrationGrants.For(owner, Grants) is not { Components: true })
+        // VB6's own type names are refused without the grant whether or not the provider has registered them yet: the held
+        // check alone would depend on who registers first, and once the provider is a package among others it may not be.
+        var what = granted ? null
+            : component.Role != ComponentRole.Control ? $"a {component.Role.ToString().ToLowerInvariant()} component"
+            : component.IsContainer ? "a container"
+            : name.StartsWith(VbNamespace, StringComparison.OrdinalIgnoreCase) ? "in VB6's own VB namespace"
+            : null;
+        if (what is not null)
         {
-            var what = component.Role != ComponentRole.Control ? $"a {component.Role.ToString().ToLowerInvariant()} component" : "a container";
             Log.Warning("Components: refused {Addin} ({AddinId}): {Type} is {What}, which it holds no grant to register",
                 owner.Title, owner.Id, name, what);
             throw new InvalidOperationException($"{owner.Title} isn't one HexIDE lets register {name}, which is {what}.");

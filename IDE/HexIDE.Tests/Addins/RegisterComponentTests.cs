@@ -106,15 +106,45 @@ public class RegisterComponentTests
     }
 
     [Fact]
-    public void An_add_in_is_refused_a_type_name_the_provider_holds()
+    public void An_add_in_is_refused_a_type_name_the_provider_registered()
     {
         var registry = InBoxRegistry.Create();
 
         FluentActions.Invoking(() => Host(registry, Signed).RegisterComponent(new Probe("VB.CommandButton")))
             .Should().Throw<InvalidOperationException>()
-            .WithMessage("Signed Add-in can't register VB.CommandButton: HexIDE.Basic (hexide.basic) holds that type name already.");
+            .WithMessage("Signed Add-in isn't one HexIDE lets register VB.CommandButton, which is in VB6's own VB namespace.");
 
         registry.Components.Should().Equal(BasicProvider.Components);
+    }
+
+    // Refused by the namespace, not because the provider holds the name: the provider needn't have registered first.
+    [Theory]
+    [InlineData("VB.Gauge")]
+    [InlineData("vb.gauge")]
+    [InlineData("VB.UserControl")]
+    [InlineData("VB.PropertyPage")]
+    [InlineData("VB.MDIForm")]
+    [InlineData("VB.Line")]
+    [InlineData("VB.Menu")]
+    public void A_signed_third_party_add_in_is_refused_a_VB_type_name_before_the_provider_registers(string name)
+    {
+        var registry = new ComponentRegistry();
+
+        FluentActions.Invoking(() => Host(registry, Signed).RegisterComponent(new Probe(name)))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage($"Signed Add-in isn't one HexIDE lets register {name}, which is in VB6's own VB namespace.");
+
+        registry.Components.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void A_type_name_that_only_starts_like_the_VB_namespace_registers()
+    {
+        var registry = new ComponentRegistry();
+
+        using var registration = Host(registry, Signed).RegisterComponent(new Probe("VBX.Gauge"));
+
+        registry.Components.Should().ContainSingle();
     }
 
     [Fact]
