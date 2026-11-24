@@ -1,4 +1,5 @@
 using HexIDE.Addins;
+using HexIDE.Runtime.Components.InBox;
 
 namespace HexIDE.Runtime;
 
@@ -13,9 +14,9 @@ namespace HexIDE.Runtime;
 /// add-in instead, and nothing here changes.
 /// </para>
 /// <para>
-/// It registers its controls' resources, its language packs, its Form and controls with their toolbox items (#5594), and
-/// what draws the designer's controls (#5591). Its control libraries, the run engine and the project type join it as their
-/// slices land.
+/// It registers its controls' resources, its language packs, its Form and controls with their toolbox items (#5594), its
+/// control libraries (#5599), and what draws the designer's controls (#5591). The run engine and the project type join it
+/// as their slices land.
 /// </para>
 /// </remarks>
 public sealed class BasicProvider : IAddin
@@ -70,6 +71,22 @@ public sealed class BasicProvider : IAddin
         (ImageComponentClass.Instance, "Geo.Image"),
     ];
 
+    /// <summary>The control libraries it registers, in the order the Components dialog and the toolbox have always had them.</summary>
+    internal static IReadOnlyList<RuntimeLibrary> Libraries => ControlLibraries.All;
+
+    /// <summary>
+    /// What <paramref name="library"/> offers: the in-box controls HexIDE implements that it declares, in their order. Asked
+    /// only when something first needs to know, so these classes load only then.
+    /// </summary>
+    internal static IReadOnlyList<IComponentClass> ControlsOf(RuntimeLibrary library)
+    {
+        var controls = new List<IComponentClass>();
+        foreach (var control in InBoxComponentClass.Implemented)
+            if (control.Libraries.Contains(library))
+                controls.Add(control);
+        return controls;
+    }
+
     private readonly List<IDisposable> registrations = [];
 
     // A real frame: the host names the caller's assembly as the dictionaries' owner, so this can't be inlined away.
@@ -84,6 +101,8 @@ public sealed class BasicProvider : IAddin
             registrations.Add(host.RegisterComponent(component));
         foreach (var (component, iconKey) in Toolbox)
             registrations.Add(host.RegisterToolboxItem(component, iconKey));
+        foreach (var library in Libraries)
+            registrations.Add(host.RegisterControlLibrary(library, () => ControlsOf(library)));
         // Last: a refusal here leaves the themes, text and controls already registered.
         registrations.Add(host.RegisterDesignerPictures(surface => new InProcessDesignerPictures(surface)));
     }

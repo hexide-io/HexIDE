@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using HexIDE.Addins;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 using Serilog;
 
 namespace HexIDE.IDE;
@@ -18,12 +17,17 @@ namespace HexIDE.IDE;
 /// <para>
 /// <b>Deny by default beyond a plain control.</b> A class whose role isn't <see cref="ComponentRole.Control"/>, or that's a
 /// container, needs its owner's grant (<see cref="RegistrationGrant.Components"/>): the designer gives such a class a place
-/// no plain control has, as a form's root or as other controls' parent. So does a type name in VB6's own <c>VB</c>
-/// namespace, which is refused without the grant even before the provider has registered it.
+/// no plain control has, as a form's root or as other controls' parent.
 /// </para>
 /// <para>
-/// <b>Only adds.</b> A class whose type name a registration holds is refused, naming both owners, and so is one in a control
-/// library's namespace while the libraries are HexIDE's own list. A toolbox item comes only from its class's owner.
+/// <b>Namespaces are kept by grant, not by who registers first (#5599).</b> A type name in a namespace any grant names
+/// (<see cref="RegistrationGrant.TypeNamespaces"/>), <c>VB</c> or a control library's, is refused to every other owner,
+/// even before the keeper has registered anything. A control library registers only under a namespace its owner's grant
+/// names, so libraries are first-party in phase 2.
+/// </para>
+/// <para>
+/// <b>Only adds.</b> A class whose type name a registration holds is refused, naming both owners, and so is a library whose
+/// name or GUID one holds. A toolbox item comes only from its class's owner.
 /// </para>
 /// </remarks>
 public class ComponentRegistry : IComponentRegistry
@@ -31,10 +35,8 @@ public class ComponentRegistry : IComponentRegistry
     /// <summary>The icon a toolbox item shows when its owner names none, and a library's control shows.</summary>
     internal const string GenericIcon = "Geo.Object";
 
-    /// <summary>The namespace of VB6's own type names, <c>VB.CommandButton</c> and the rest, kept for an owner with the grant.</summary>
-    private const string VbNamespace = "VB.";
-
     private readonly List<IComponentClass> components = [];
+    private readonly List<LibraryRegistration> libraries = [];
     private readonly Dictionary<IComponentClass, Registration> owners = new(ReferenceEqualityComparer.Instance);
     private readonly List<ToolboxEntry> toolbox = [];
 
@@ -45,18 +47,21 @@ public class ComponentRegistry : IComponentRegistry
 
     public IReadOnlyList<ToolboxEntry> Toolbox => toolbox;
 
-    public IReadOnlyList<IControlLibrary> Libraries => ControlLibraries.All;
+    public IReadOnlyList<IControlLibrary> Libraries => [.. libraries.Select(registration => registration.Library)];
 
-    // Built on first use, so these classes load only once a project references one of their libraries, as they always did.
+    // Built on first use, so a library's classes load only once something asks what it offers, as they always did, and
+    // built again after a library comes or goes.
     private IReadOnlyList<LibraryControl>? libraryControls;
 
     public IReadOnlyList<LibraryControl> LibraryControls => libraryControls ??=
     [
-        .. from library in ControlLibraries.All
-           from control in InBoxComponentClass.Implemented
-           where control.Libraries.Contains(library)
-           select new LibraryControl(control, library, control.ControlClassName, library.TypeName(control.ControlClassName), GenericIcon),
+        .. from registration in libraries
+           from control in registration.Controls()
+           select new LibraryControl(control, registration.Library, control.ClassName,
+               registration.Library.TypeName(control.ClassName), GenericIcon),
     ];
+
+    public event Action? LibrariesChanged;
 
     public event Action<IComponentClass>? ComponentRegistered;
 
@@ -75,20 +80,26 @@ public class ComponentRegistry : IComponentRegistry
     {
         ArgumentNullException.ThrowIfNull(component);
         var name = component.VBTypeName;
-        var granted = RegistrationGrants.For(owner, Grants) is { Components: true };
+        var grant = RegistrationGrants.For(owner, Grants);
 
-        // VB6's own type names are refused without the grant whether or not the provider has registered them yet: the held
-        // check alone would depend on who registers first, and once the provider is a package among others it may not be.
-        var what = granted ? null
+        var what = grant is { Components: true } ? null
             : component.Role != ComponentRole.Control ? $"a {component.Role.ToString().ToLowerInvariant()} component"
             : component.IsContainer ? "a container"
-            : name.StartsWith(VbNamespace, StringComparison.OrdinalIgnoreCase) ? "in VB6's own VB namespace"
             : null;
         if (what is not null)
         {
             Log.Warning("Components: refused {Addin} ({AddinId}): {Type} is {What}, which it holds no grant to register",
                 owner.Title, owner.Id, name, what);
             throw new InvalidOperationException($"{owner.Title} isn't one HexIDE lets register {name}, which is {what}.");
+        }
+
+        // Whether or not the namespace's keeper has registered yet: the held check alone would depend on who registers
+        // first, and once the provider is a package among others it may not be first.
+        if (NamespaceOf(name) is { } ns && KeeperOf(ns) is { } keeper && !ReferenceEquals(keeper, grant))
+        {
+            Log.Warning("Components: refused {Addin} ({AddinId}): {Type} is in the {Namespace} namespace, which {Keeper} keeps",
+                owner.Title, owner.Id, name, ns, keeper.OwnerId);
+            throw new InvalidOperationException($"{owner.Title} can't register {name}: the {ns} namespace is kept for {keeper.OwnerId}.");
         }
 
         foreach (var held in owners.Values)
@@ -99,17 +110,6 @@ public class ComponentRegistry : IComponentRegistry
                 owner.Title, owner.Id, held.Owner.Title, held.Owner.Id, name);
             throw new InvalidOperationException(
                 $"{owner.Title} can't register {name}: {held.Owner.Title} ({held.Owner.Id}) holds that type name already.");
-        }
-
-        // The libraries' controls aren't registered yet, so a type name in a library's namespace is the library's.
-        foreach (var library in Libraries)
-        {
-            if (!name.StartsWith(library.TypeName(""), StringComparison.OrdinalIgnoreCase))
-                continue;
-            Log.Warning("Components: refused {Addin} ({AddinId}): {Type} is in the {Library} library's namespace",
-                owner.Title, owner.Id, name, library.Name);
-            throw new InvalidOperationException(
-                $"{owner.Title} can't register {name}: that type name is the {library.Name} control library's.");
         }
 
         var registration = new Registration(this, component, owner);
@@ -152,6 +152,50 @@ public class ComponentRegistry : IComponentRegistry
         return handle;
     }
 
+    /// <summary>
+    /// Registers <paramref name="library"/>, which a project can then reference, for <paramref name="owner"/> until the handle
+    /// is disposed (#5599). <paramref name="controls"/> is asked what it offers only when something first needs to know, and
+    /// again after the libraries change.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The owner's grant doesn't keep the library's name as a namespace, or a registered library holds its name or GUID.
+    /// </exception>
+    internal IDisposable RegisterLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls, AddinOrigin owner)
+    {
+        ArgumentNullException.ThrowIfNull(library);
+        ArgumentNullException.ThrowIfNull(controls);
+        if (RegistrationGrants.For(owner, Grants) is not { } grant || !grant.KeepsTypeNamespace(library.Name))
+        {
+            Log.Warning("Components: refused {Addin} ({AddinId}) the {Library} control library: its grant doesn't keep that namespace",
+                owner.Title, owner.Id, library.Name);
+            throw new InvalidOperationException($"{owner.Title} isn't one HexIDE lets register the {library.Name} control library.");
+        }
+
+        foreach (var held in libraries)
+        {
+            if (!string.Equals(held.Library.Name, library.Name, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(held.Library.Guid, library.Guid, StringComparison.OrdinalIgnoreCase))
+                continue;
+            Log.Warning("Components: refused {Addin} ({AddinId}) the {Library} control library: {Owner} ({OwnerId}) holds {Held}",
+                owner.Title, owner.Id, library.Name, held.Owner.Title, held.Owner.Id, held.Library.Name);
+            throw new InvalidOperationException(
+                $"{owner.Title} can't register the {library.Name} control library: {held.Owner.Title} ({held.Owner.Id}) holds {held.Library.Name}, by its name or GUID.");
+        }
+
+        var registration = new LibraryRegistration(this, library, controls, owner);
+        libraries.Add(registration);
+        libraryControls = null;
+        AddinInitializationScope.Record(registration.Dispose);
+        LibrariesChanged?.Invoke();
+        return registration;
+    }
+
+    // The namespace a type name is in: VB in VB.CommandButton. Null when it has none.
+    private static string? NamespaceOf(string typeName) => typeName.IndexOf('.') is var dot and > 0 ? typeName[..dot] : null;
+
+    // The grant that keeps ns, or null when none does.
+    private RegistrationGrant? KeeperOf(string ns) => Grants.FirstOrDefault(grant => grant.KeepsTypeNamespace(ns));
+
     // An owner is one add-in by its id; a composed owner is never a package that names itself after it.
     private static bool SameOwner(AddinOrigin a, AddinOrigin b) =>
         string.Equals(a.Id, b.Id, StringComparison.Ordinal) && a.IsComposed == b.IsComposed;
@@ -176,6 +220,42 @@ public class ComponentRegistry : IComponentRegistry
             registry.owners.Remove(component);
             registry.components.Remove(component);
             registry.ComponentUnregistered?.Invoke(component);
+        }
+    }
+
+    private sealed class LibraryRegistration(ComponentRegistry registry, IControlLibrary library,
+        Func<IReadOnlyList<IComponentClass>> controls, AddinOrigin owner) : IDisposable
+    {
+        private bool disposed;
+
+        internal IControlLibrary Library => library;
+
+        internal AddinOrigin Owner => owner;
+
+        // What the library offers. Its owner's code, asked late, from whatever needs it: a throw is logged and offers nothing,
+        // rather than reaching the toolbox, the Components dialog or the Object Browser.
+        internal IReadOnlyList<IComponentClass> Controls()
+        {
+            try
+            {
+                return controls() ?? [];
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Components: the {Library} control library of {Addin} ({AddinId}) couldn't say what it offers",
+                    library.Name, owner.Title, owner.Id);
+                return [];
+            }
+        }
+
+        public void Dispose()
+        {
+            if (disposed)
+                return;
+            disposed = true;
+            registry.libraries.Remove(this);
+            registry.libraryControls = null;
+            registry.LibrariesChanged?.Invoke();
         }
     }
 

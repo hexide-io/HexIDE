@@ -52,6 +52,20 @@ public interface IHexIdeHost
     /// The class isn't registered, or this add-in didn't register it, or the toolbox offers it already.
     /// </exception>
     IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey = null);
+
+    /// <summary>
+    /// Registers a control library a project can reference until the returned handle is disposed (#5599): the Components
+    /// dialog lists it, and while a project references it the toolbox offers <paramref name="controls"/>.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="controls"/> is asked only when something first needs to know what the library offers, so its classes
+    /// load only then. A library writes <c>Object=</c> lines into the projects that reference it, so it registers only under
+    /// a namespace HexIDE's grant for its owner keeps: first-party only, for now.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The owner may not register this library, or a registered library holds its name or GUID. The message names both owners.
+    /// </exception>
+    IDisposable RegisterControlLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls);
     /// <summary>Contributes a template to subsequently opened New Project dialogs until the returned handle is disposed.</summary>
     IDisposable RegisterProjectTemplate(IAddinProjectTemplate template);
 

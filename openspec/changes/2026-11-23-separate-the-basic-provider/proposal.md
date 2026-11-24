@@ -137,6 +137,9 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
   - **Its second part (#5594) owns the components and the toolbox.** The provider registers its Form, its controls and
     their toolbox items through the owned host, with `IHexIdeHost.RegisterToolboxItem` new for the items. The control
     libraries register the same way in a third part.
+  - **Its third part (#5599) owns the control libraries.** `IHexIdeHost.RegisterControlLibrary` registers a library and,
+    lazily, what it offers. The grant table names the type-name namespaces each owner keeps, `VB` and the provider's
+    libraries' names, and a namespace a grant keeps is refused to every other owner whoever registers first.
 - **Designer pictures (2.4b).** This was agreed with hexide-frm, and the supervisor reviews the draft.
   - `RegisterDesignerPictures` is one service per host and is grant-gated, since it draws every form's controls. A
     third-party component is drawn by that service through its own `IComponentClass`.

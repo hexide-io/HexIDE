@@ -67,6 +67,7 @@ HexIDE.Runtime.Components.IControlLibrary.ProjectLine.get -> string!
 HexIDE.Runtime.Components.IControlLibrary.TypeName(string! className) -> string!
 HexIDE.Addins.IHexIdeHost.RegisterDesignerPictures(System.Func<HexIDE.Runtime.Components.IDesignerDrawingSurface!, HexIDE.Runtime.Components.IDesignerPictures!>! pictures) -> System.IDisposable!
 HexIDE.Addins.IHexIdeHost.RegisterToolboxItem(HexIDE.Runtime.Components.IComponentClass! component, string? iconKey = null) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterControlLibrary(HexIDE.Runtime.Components.IControlLibrary! library, System.Func<System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.IComponentClass!>!>! controls) -> System.IDisposable!
 HexIDE.Runtime.Components.IDesignerDrawingSurface
 HexIDE.Runtime.Components.IDesignerDrawingSurface.Attach(object! visual) -> void
 HexIDE.Runtime.Components.IDesignerDrawingSurface.Detach(object! visual) -> void

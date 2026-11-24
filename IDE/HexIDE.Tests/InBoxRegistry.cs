@@ -21,6 +21,8 @@ internal static class InBoxRegistry
             registry.Register(component, Provider);
         foreach (var (component, iconKey) in BasicProvider.Toolbox)
             registry.RegisterToolboxItem(component, iconKey, Provider);
+        foreach (var library in BasicProvider.Libraries)
+            registry.RegisterLibrary(library, () => BasicProvider.ControlsOf(library), Provider);
         return registry;
     }
 }
