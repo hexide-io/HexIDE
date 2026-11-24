@@ -158,14 +158,15 @@ public class ControlRenderer : Decorator, IDesignerDrawingSurface
             }
             // A control can refuse while it is created, laid out or drawn, and none of them may take the designer down
             // (#2405): a StatusBar refuses only once it lays out its panels.
-            if (Pictures is not { } drawer)
-            {
-                // Only when the provider's registration was refused at startup, which is logged then too.
-                Log.Error("Designer preview: nothing is registered to draw {Control}", Component.AddressedName);
-                return;
-            }
             try
             {
+                // Inside the guard: the drawer's factory runs here too, and may refuse as a control does.
+                if (Pictures is not { } drawer)
+                {
+                    // Only when the provider's registration was refused at startup, which is logged then too.
+                    Log.Error("Designer preview: nothing is registered to draw {Control}", Component.AddressedName);
+                    return;
+                }
                 var picture = drawer.Draw(Component.Instance,
                     new DesignerDrawRequest((int)Bounds.Width, (int)Bounds.Height, Component.LineTwipsPerUnit));
 
