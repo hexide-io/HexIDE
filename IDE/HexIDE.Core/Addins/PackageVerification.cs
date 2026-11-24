@@ -23,7 +23,12 @@ public static class PackageVerification
         "addin.json", "addin.sig",
         "publisher.json", "publisher.sig",
         "intermediate.json", "intermediate.sig",
+        PackageRootFile,
     };
+
+    /// <summary>The root public key the package says its chain was signed under (#5316). It is a claim, never trusted:
+    /// the embedded root alone decides. It is read only to explain a refusal, and only once the chain verifies under it.</summary>
+    public const string PackageRootFile = "root.pub";
 
     public static Version RunningVersion { get; } = typeof(PackageVerification).Assembly.GetName().Version!;
 
@@ -93,11 +98,18 @@ public static class PackageVerification
         if (!TryReadText(packageDirectory, "publisher.sig", out var pubSig))           return Untrusted("publisher.sig missing");
         if (!TryReadText(packageDirectory, "addin.sig", out var addinSig))             return Untrusted("addin.sig missing");
 
-        // 1. intermediate record signed by the root.
+        // 1. intermediate record signed by the root. When it isn't, the package may still be signed under a root this
+        // build doesn't carry: a newer HexIDE's, or a forger's own. Verification then goes on under the package's own root
+        // only to tell that apart from a broken chain, and the package is refused either way (#5316).
+        string? unrecognisedRoot = null;
         try
         {
             using var root = PackageCrypto.ImportPublicKey(rootPublicKeyBase64);
-            if (!PackageCrypto.Verify(root, interBytes, interSig)) return Untrusted("intermediate signature invalid");
+            if (!PackageCrypto.Verify(root, interBytes, interSig))
+            {
+                unrecognisedRoot = UnrecognisedRootFingerprint(packageDirectory, rootPublicKeyBase64, interBytes, interSig);
+                if (unrecognisedRoot is null) return Untrusted("intermediate signature invalid");
+            }
         }
         catch (Exception ex) { return Untrusted($"root key error: {ex.Message}"); }
 
@@ -182,6 +194,11 @@ public static class PackageVerification
             return Untrusted($"unlisted file in package: {rel}");
         }
 
+        // Every check below the root passed, but the root is the package's own, not this build's. Refused like any other
+        // untrusted package; only the reason differs, so the IDE can say which root the chain leads to.
+        if (unrecognisedRoot is not null)
+            return Untrusted("signed under a root this HexIDE doesn't carry") with { UnrecognisedRootFingerprint = unrecognisedRoot };
+
         // First-party is pinned to the publisher's KEY, not the publisherId string: only a package
         // signed by the first-party private key (which only HexIDE holds) matches.
         var isFirstParty = !string.IsNullOrEmpty(firstPartyPublicKeyBase64)
@@ -223,6 +240,30 @@ public static class PackageVerification
             // From the record whose signature was checked above, never from the manifest (#4258).
             PublisherNamespaces = HexIDE.Addins.PublisherNamespaces.From(pub.Namespaces),
         };
+    }
+
+    /// <summary>
+    /// The fingerprint of the package's own root key, when the intermediate's signature verifies under it; otherwise null.
+    /// A forger can copy a real root's public key into a package to borrow its fingerprint, but can't make the signature
+    /// verify under it, so a fingerprint shown here is one the chain really was signed under. The embedded root's own key
+    /// yields null: the signature has already failed under it.
+    /// </summary>
+    private static string? UnrecognisedRootFingerprint(string packageDirectory, string embeddedRoot, byte[] interBytes, string interSig)
+    {
+        if (!TryReadText(packageDirectory, PackageRootFile, out var packageRoot) || string.IsNullOrWhiteSpace(packageRoot))
+            return null;
+        packageRoot = packageRoot.Trim();
+        try
+        {
+            if (string.Equals(PackageCrypto.KeyFingerprint(packageRoot), PackageCrypto.KeyFingerprint(embeddedRoot), StringComparison.Ordinal))
+                return null;
+            using var key = PackageCrypto.ImportPublicKey(packageRoot);
+            return PackageCrypto.Verify(key, interBytes, interSig) ? PackageCrypto.KeyFingerprint(packageRoot) : null;
+        }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
+        {
+            return null;
+        }
     }
 
     /// <summary>A safe package-relative path: not rooted, not absolute, and with no <c>..</c> segment that

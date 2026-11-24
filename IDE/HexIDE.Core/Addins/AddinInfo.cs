@@ -30,6 +30,10 @@ public record AddinInfo(
     public AddinMessage? CompatibilityMessage { get; init; }
 
     public string? CompatibilityError { get; init; }
+
+    /// <summary>For a refused package whose chain verifies only under the root it carries: that root's fingerprint
+    /// (<see cref="PackageVerificationResult.UnrecognisedRootFingerprint"/>, #5316). Null otherwise.</summary>
+    public string? UnrecognisedRootFingerprint { get; init; }
 }
 
 public enum AddinStatus
