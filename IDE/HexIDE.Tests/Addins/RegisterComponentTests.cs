@@ -160,6 +160,20 @@ public class RegisterComponentTests
     }
 
     [Fact]
+    public void A_package_that_names_itself_after_the_provider_is_refused_a_toolbox_item_for_the_provider_s_class()
+    {
+        var registry = new ComponentRegistry();
+        using var provider = Host(registry, InBoxRegistry.Provider).RegisterComponent(CommandButtonComponentClass.Instance);
+        var impostor = new AddinOrigin(RegistrationGrants.BasicProvider, "Impostor", IsFirstParty: true);
+
+        FluentActions.Invoking(() => Host(registry, impostor).RegisterToolboxItem(CommandButtonComponentClass.Instance))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("Impostor can't put VB.CommandButton in the toolbox: HexIDE.Basic (hexide.basic) registered it.");
+
+        registry.Toolbox.Should().BeEmpty();
+    }
+
+    [Fact]
     public void An_owner_s_toolbox_items_come_in_its_order_once_each_and_go_with_their_class()
     {
         var registry = new ComponentRegistry();

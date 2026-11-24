@@ -75,7 +75,7 @@ public class ToolboxFromRegistryTests
         registration.Dispose();
 
         toolbox.Components.Select(tool => tool.Name).Should().Equal(before);
-        toolbox.IsCursorSelected.Should().BeTrue();
+        toolbox.SelectedComponent.Should().BeSameAs(toolbox.Arrow);
         toolbox.ShowProject(Referencing(ControlLibraries.MSComctlLib));
         toolbox.Components.Select(tool => tool.Name).Should().Equal(before);
     }
