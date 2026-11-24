@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Зібрати",
     "Str.Dialog.MakeProjectGroup.Cancel": "Скасувати",
     "Str.Dialog.MakeProjectGroup.Help": "Довідка",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Елементи масиву елементів керування меню мають бути суміжними та в одному підменю",
     "Str.FilePicker.ReplaceExisting": "{0} уже існує. Замінити його?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} завантажено з помилками, тому його не можна зберегти поверх початкового файлу. Виберіть нове ім’я файлу.",
     "Str.Menu.Edit.Refactor": "Рефакторинг",

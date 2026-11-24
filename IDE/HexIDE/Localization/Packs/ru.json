@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Собрать",
     "Str.Dialog.MakeProjectGroup.Cancel": "Отмена",
     "Str.Dialog.MakeProjectGroup.Help": "Справка",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Элементы массива элементов управления меню должны располагаться подряд и в одном подменю",
     "Str.FilePicker.ReplaceExisting": "{0} уже существует. Заменить его?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} загружен с ошибками, поэтому сохранить его поверх исходного файла нельзя. Выберите новое имя файла.",
     "Str.Menu.Edit.Refactor": "Рефакторинг",

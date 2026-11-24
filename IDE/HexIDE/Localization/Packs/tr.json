@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Derle",
     "Str.Dialog.MakeProjectGroup.Cancel": "İptal",
     "Str.Dialog.MakeProjectGroup.Help": "_Yardım",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Menü denetim dizisi öğeleri bitişik ve aynı alt menü içinde olmalıdır",
     "Str.FilePicker.ReplaceExisting": "{0} zaten var. Değiştirmek istiyor musunuz?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} hatalarla yüklendiği için özgün dosyasının üzerine kaydedilemez. Yeni bir dosya adı seçin.",
     "Str.Menu.Edit.Refactor": "Ye_niden düzenle",

@@ -65,15 +65,16 @@ public static class ComponentNaming
 
     // Menu Editor measurements: #853 (2026-11-23), oracle PR #5370 and the oracle's
     // "The Menu Editor's checks on a Name". Mixed-error precedence is reasoned: first row wins.
-    // VB6 also refuses an array that isn't contiguous within one submenu; that check is #5428.
+    // #5428 measures consecutive siblings (an element's own submenu may intervene), checked before index order.
     internal static (string Message, MenuViewModel Row)? MenuRefusalFor(
         IEnumerable<MenuViewModel> items, IEnumerable<string> controlNames, ILocalizationService localization)
     {
         var rows = items.ToList();
         var controls = new HashSet<string>(controlNames, StringComparer.OrdinalIgnoreCase);
         var earlier = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var row in rows)
+        for (var position = 0; position < rows.Count; position++)
         {
+            var row = rows[position];
             string? key = null;
             if (string.IsNullOrEmpty(row.Name))
             {
@@ -84,15 +85,19 @@ public static class ComponentNaming
                 key = "NotLegalName";
             else if (row.Index is null && rows.Count(other => string.Equals(other.Name, row.Name, StringComparison.OrdinalIgnoreCase)) > 1)
                 key = "ArrayNeedsIndex";
-            else if (row.Index is { } index && earlier.TryGetValue(row.Name, out var previous) && index <= previous)
+            else if (row.Index is not null && earlier.TryGetValue(row.Name, out var previousPosition)
+                && (rows[previousPosition].Indent != row.Indent
+                    || rows.Skip(previousPosition + 1).Take(position - previousPosition - 1).Any(other => other.Indent <= row.Indent)))
+                key = "NotContiguous";
+            else if (row.Index is { } index && earlier.TryGetValue(row.Name, out var previous) && index <= rows[previous].Index)
                 key = "IndexesAscending";
             else if (controls.Contains(row.Name))
                 key = "ControlName";
 
             if (key is not null)
                 return (string.Format(localization.GetString("Str.Dialog.MenuEditor.Msg." + key), row.Name), row);
-            if (row.Index is { } current)
-                earlier[row.Name] = current;
+            if (row.Index is not null)
+                earlier[row.Name] = position;
         }
         return null;
     }

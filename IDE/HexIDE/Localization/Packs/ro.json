@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "Compilează",
     "Str.Dialog.MakeProjectGroup.Cancel": "Anulare",
     "Str.Dialog.MakeProjectGroup.Help": "_Ajutor",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Elementele matricei de controale de meniu trebuie să fie consecutive și în același submeniu",
     "Str.FilePicker.ReplaceExisting": "{0} există deja. Doriți să îl înlocuiți?",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} a fost încărcat cu erori și nu poate fi salvat peste fișierul original. Alegeți un nume de fișier nou.",
     "Str.Menu.Edit.Refactor": "Refact_orizare",

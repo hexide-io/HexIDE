@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "יש לשמור או לבטל תחילה את כל שינויי קוד המקור במכל זה.",
     "Str.Archive.StructureUnmeasured": "פעולה זו נדחית משום שהתנהגותה טרם נמדדה בסביבת הפיתוח twinBASIC.",
     "Str.Archive.StructureName": "יש להשתמש במזהה ASCII ייחודי בתיקייה זו, עד 255 בתים; שמות התקנים שמורים אינם מותרים.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "רכיבי מערך פקדי התפריט חייבים להיות רצופים ובאותו תפריט משנה",
     "Str.Dialog.MenuEditor.Msg.NoName": "לפקד התפריט חייב להיות שם",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "שם אובייקט לא חוקי: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "לרכיב במערך פקדי התפריט חייב להיות אינדקס",

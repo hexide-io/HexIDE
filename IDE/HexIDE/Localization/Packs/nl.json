@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Sla eerst alle wijzigingen in de broncode in deze container op of verwerp ze.",
     "Str.Archive.StructureUnmeasured": "Deze bewerking wordt geweigerd omdat het gedrag ervan niet in de twinBASIC-IDE is gemeten.",
     "Str.Archive.StructureName": "Gebruik een unieke ASCII-id in deze map, maximaal 255 bytes; gereserveerde apparaatnamen zijn niet toegestaan.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Elementen van een menubesturingselementarray moeten aaneengesloten zijn en zich in hetzelfde submenu bevinden",
     "Str.Dialog.MenuEditor.Msg.NoName": "Het menubesturingselement moet een naam hebben",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Ongeldige objectnaam: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Het element van de menubesturingselementmatrix moet een index hebben",

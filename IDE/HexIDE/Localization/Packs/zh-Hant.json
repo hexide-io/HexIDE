@@ -17,6 +17,7 @@
     "Str.Dialog.MakeProjectGroup.Build": "建置",
     "Str.Dialog.MakeProjectGroup.Cancel": "取消",
     "Str.Dialog.MakeProjectGroup.Help": "說明(_H)",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "功能表控制項陣列元素必須相鄰且位於同一子功能表中",
     "Str.FilePicker.ReplaceExisting": "{0} 已存在。是否要取代它？",
     "Str.Dialog.SaveLoadedForm.ChooseNewFile": "{0} 載入時發生錯誤，因此無法覆寫原始檔案。請選擇新的檔案名稱。",
     "Str.Menu.Edit.Refactor": "重構",

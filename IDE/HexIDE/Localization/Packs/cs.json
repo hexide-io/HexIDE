@@ -10,6 +10,7 @@
     "Str.Archive.StructureUnsaved": "Nejprve uložte nebo zahoďte všechny změny zdrojového kódu v tomto kontejneru.",
     "Str.Archive.StructureUnmeasured": "Tato operace je odmítnuta, protože její chování nebylo změřeno v IDE twinBASIC.",
     "Str.Archive.StructureName": "Použijte jedinečný identifikátor ASCII v této složce, nejvýše 255 bajtů; vyhrazené názvy zařízení nejsou povoleny.",
+    "Str.Dialog.MenuEditor.Msg.NotContiguous": "Prvky pole ovládacích prvků nabídky musí sousedit a být ve stejné podnabídce",
     "Str.Dialog.MenuEditor.Msg.NoName": "Ovládací prvek nabídky musí mít název",
     "Str.Dialog.MenuEditor.Msg.NotLegalName": "Neplatný název objektu: '{0}'",
     "Str.Dialog.MenuEditor.Msg.ArrayNeedsIndex": "Prvek pole ovládacích prvků nabídky musí mít index",
