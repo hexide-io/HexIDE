@@ -1,5 +1,32 @@
 # Add-in packer
 
+## hexide-pack: the packer that asks
+
+`hexide-pack` (`IDE/HexIDE.AddinPacker.Interactive`) takes the same commands and options as this packer. On a
+terminal, it asks for any required option you leave out, and then the optional ones, with Enter to skip. It checks
+each answer as you give it, shows the whole command, and asks before running it. With no command it offers the list.
+It hands the finished command line to this packer's own dispatch, `PackerCli.Run`, so there is one signing path.
+
+```sh
+dotnet run --project IDE/HexIDE.AddinPacker.Interactive/ -- pack
+```
+
+- **It asks only on a terminal, outside CI.** `--no-input` turns asking off. Anywhere else, a missing option fails at
+  once, every missing option is listed, and the message says why it didn't ask.
+- **A complete command runs straight away,** without asking anything.
+- **It refuses a folder for private keys inside a git clone,** the development chain's included. Run
+  `HexIDE.AddinPacker genkeys` directly to put the development chain where a clone expects it. A home folder that is
+  itself a git work tree, as some dotfiles setups are, counts as a clone. Choose a folder on another drive, such as
+  removable media, or one outside the work tree.
+- **It refuses some command lines this packer accepts:**
+  - an option it doesn't know, which `pack`, `genkeys-release` and `sign-revocations` ignore;
+  - a single-valued option given twice, where those three take the first value. `sign-publisher` and
+    `verify-revocations` refuse both, as hexide-pack does;
+  - a blank value, which `pack` takes for `--description` and `--author`.
+
+Spectre.Console, which draws the prompts, is a package of `hexide-pack` only. This project takes no packages, because
+the release's signing job runs it next to the first-party key.
+
 ## Release key generation
 
 `genkeys-release` is separate from `genkeys <outDir>`, which retains its development defaults.
@@ -22,9 +49,9 @@ HexIDE.AddinPacker.exe genkeys-release --root-out signing/root --intermediate-ou
 
 The three private directories contain only `root.key`, `intermediate.key` and `firstparty.key`,
 respectively. `--public-out` contains `hexide-root.pub`, `hexide-firstparty.pub`,
-`intermediate.json/.sig` and `publisher.json/.sig`. To use the existing `pack --trust` interface,
-copy the four JSON/signature records beside `firstparty.key`; root and intermediate private keys
-are not inputs to `pack`.
+`intermediate.json/.sig` and `publisher.json/.sig`. To pack with them, give `pack --trust` a folder holding the
+four JSON/signature records and `pack --key` the `firstparty.key` file, or copy the records beside `firstparty.key`
+and leave out `--key`. Root and intermediate private keys are not inputs to `pack`.
 
 Ids follow the grammar in [TRUST.md](../../TRUST.md). Display names must be non-empty, already
 trimmed, at most 128 characters, and contain no control, Unicode format, line-separator or
@@ -64,7 +91,8 @@ same commands without a `dotnet` prefix. No CI artifact is added by this command
 - `IDE/HexIDE.AddinPacker/firstparty/README.md`
 - `TRUST.md` — `HexIDE root`, `First-party publisher` SHA-256 fingerprints
 
-`pack` refuses a `firstparty.key` that isn't the key its trust folder's `publisher.json` names, before it writes anything,
+`pack` refuses a key that isn't the one its trust folder's `publisher.json` names, whether `--key` gives it or it is the
+trust folder's `firstparty.key` (#5318), before it writes anything,
 and the error gives both fingerprints. So a release whose `HEXIDE_FIRSTPARTY_KEY` and committed records come from different
 chains fails at packing instead of shipping first-party add-ins that HexIDE refuses. A Desktop build fails the same way
 when `firstparty/` holds a key left over from an earlier chain: remove it, or get the current key (#4109).

@@ -58,6 +58,7 @@ public partial class MessageBox : UserControl
     /// </remarks>
     public async Task<MessageBoxResult> ShowAndWait(Window window, Window owner)
     {
+        MessageBoxFormHold.EnterNative();
         window.FlowDirection = (Layout & MessageBoxLayout.RtlReading) != 0
             ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         ApplyWindowStyles(window);
@@ -96,6 +97,7 @@ public partial class MessageBox : UserControl
         ProgramDialogChrome.Apply(again);
         current = again;
         window.Close();
+        MessageBoxFormHold.RefreshNative(owner);
         var closed = Watch(again);
         void OnOwnerClosed(object? sender, EventArgs e) => again.Close();
         owner.Closed += OnOwnerClosed;
@@ -193,6 +195,7 @@ public partial class MessageBox : UserControl
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        new KeyUpCommit(this);
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
@@ -219,14 +222,25 @@ public partial class MessageBox : UserControl
         Grid.SetColumnSpan(prompt, Icon == MessageBoxIcon.None ? 2 : 1);
         PART_Content.Children.Add(prompt);
 
-        foreach (var (label, result) in GetButtonDefs())
+        var defaultButton = (Layout & MessageBoxLayout.ThirdButtonDefault) != 0 ? 2
+            : (Layout & MessageBoxLayout.SecondButtonDefault) != 0 ? 1 : 0;
+        var definitions = new List<(string Label, MessageBoxResult Result)>(GetButtonDefs());
+        if (defaultButton >= definitions.Count)
+            defaultButton = 0;
+        foreach (var (label, result) in definitions)
         {
             var captured = result;
             var caption = ProgramButtonCaptions.Get(result, label);
-            var btn = new Button { Content = caption, MinWidth = 75, IsDefault = false };
+            var btn = new Button
+            {
+                Content = caption, MinWidth = 75,
+                IsDefault = PART_Buttons.Children.Count == defaultButton,
+                IsCancel = result == AnswerOnClose(Buttons)
+            };
             btn.Click += (_, _) => AcceptRequest?.Invoke(captured);
             PART_Buttons.Children.Add(btn);
         }
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => PART_Buttons.Children[defaultButton].Focus());
     }
 
     public static Control BuildIconElement(MessageBoxIcon icon)

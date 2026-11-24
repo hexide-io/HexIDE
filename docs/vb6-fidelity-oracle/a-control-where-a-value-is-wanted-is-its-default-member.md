@@ -72,3 +72,62 @@ refusal now covers controls only.
 - **`Image1 = Form1.Icon` assigns the picture without `Set`.**
 
 **Not measured:** `Option1 = False` on a selected button; a ListBox write of text that matches no item; MDIForm and the other form classes.
+
+### A control printed, written to a file, and joined with `&` (2026-11-23, #5385, SP6)
+
+**The question.** The sections above read a control into a variable. #5385 found HexIDE printing a control's .NET type
+name for `Debug.Print c`. What do `Print #`, `Write #` and `&` give for a control, and is it the same through
+`Control`, `Object` and a Variant?
+
+**The probes.**
+- **Setup:** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle guest. Each project was built with `/make` as native code
+  (`CompilationType=0`) and as p-code (`CompilationType=-1`), and each exe was run in session 0. The two builds wrote
+  the same file, line for line, in every probe.
+- **`Print #` stands in for `Debug.Print`,** which a compiled program drops.
+- **The program:** each statement ran in `Form_Load` under `On Error Resume Next`, followed by a line logging
+  `Err.Number`. Every row below read 0.
+- **The first form** held `Label1` ("L1"), `Text1` ("T1"), `Command1`, `Check1` and an empty `Picture1`. Each was
+  printed directly, then through `c As Control`, `o As Object` and `Set v =` a Variant.
+- **The second form** held one each of the eleven controls in the table below. Before the probes,
+  `List1.AddItem "a"`, `List1.AddItem "b"`, `Check1.Value = 1`, `Option1.Value = True`, `HScroll1.Value = 5`,
+  `VScroll1.Value = 7` and `Shape1.Shape = 3`. Each control went through `Print #1, X`, `Print #1, o` with
+  `Set o = X`, `Write #1, X`, `Write #1, o`, and `s = "" & X`.
+
+| Control | `Print #1, X`, and through `Object` | `Write #1, X`, and through `Object` | `"" & X` |
+|---|---|---|---|
+| TextBox `"T1"` | `T1` | `"T1"` | `T1` |
+| Label `"L1"` | `L1` | `"L1"` | `L1` |
+| Frame `"F1"` | `F1` | `"F1"` | `F1` |
+| ComboBox, Style 0, `"K1"` | `K1` | `"K1"` | `K1` |
+| ListBox, nothing selected | an empty line | `""` | empty |
+| ListBox, `ListIndex = 1` | `b` | `"b"` | — |
+| CommandButton | `False` | `#FALSE#` | `False` |
+| OptionButton, `True` | `True` | `#TRUE#` | `True` |
+| CheckBox, 1 | ` 1 ` | **`"1"`** | `1` |
+| HScrollBar, 5 | ` 5 ` | **`"5"`** | `5` |
+| VScrollBar, 7 | ` 7 ` | **`"7"`** | `7` |
+| Shape, 3 | ` 3 ` | **`"3"`** | `3` |
+
+From the first form:
+- **Through `Control`, `Object` and a Variant,** each control printed what it printed directly: `L1`, `T1`, `False`
+  and ` 0 ` for the empty PictureBox.
+- **`Print #1, Command1; Check1; Picture1`** gave `False 0  0 `.
+- **`Print #1, Label1; Text1`** gave `L1T1`.
+- **`Print #1, Label1, Text1`** gave `L1` and `T1` a print zone apart.
+- **`Print #1, Label1;`** left the line open, as for any item.
+- **`Write #1, Label1, Command1, Check1, Picture1`** gave `"L1",#FALSE#,"0","0"`.
+
+**Readings:**
+- **`Print #` and `&` use the default member,** the value `v = X` reads. A number prints as numbers do, with a leading
+  space and a trailing one, and a Boolean as `True` or `False`.
+- **`Write #` of a control quotes a numeric default.** A Boolean default is written as `#TRUE#` or `#FALSE#`, and every
+  other default, numbers included, as a quoted string: `"1"`, `"5"`, `"0"`.
+  - **The same values written once read out of the control are numbers:** `Write #1, Check1.Value,
+    Picture1.Picture.Handle` gave `0,0`.
+  - **So do these:** `v = Check1: Write #1, v` (`TypeName(v)` Integer), `i = Check1: Write #1, i`, and
+    `Write #1, Check1 + 0, Picture1 + 0`.
+  - **It's the control that's quoted,** reached directly, through `Object`, or through a Variant set to it (`Set v =
+    Check1: Write #1, v` gave `"0"`). That's measured, but there's no rule I'd defend for why a Boolean escapes it.
+
+**Not measured:** `Debug.Print` itself in the IDE's Immediate window; a PictureBox or Image holding a picture; the
+Image, Line, Timer, Menu, the three file-system lists, Data and OLE controls.

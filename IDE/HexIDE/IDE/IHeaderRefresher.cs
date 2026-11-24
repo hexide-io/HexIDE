@@ -67,7 +67,8 @@ public interface IHeaderRefresher
 
     /// <summary>
     /// Moves a document's breakpoints and bookmarks by the change in the header's line count. Marks inside
-    /// the old header stay where they are.
+    /// the old header stay where they are. An open window's prefix refresh moves both marks through its
+    /// document change. Whole-text reloads still shift both here.
     /// </summary>
-    void ShiftMarks(DocumentIdentity document, string oldHeader, string newHeader);
+    void ShiftMarks(DocumentIdentity document, string oldHeader, string newHeader, bool shiftBreakpoints = true);
 }

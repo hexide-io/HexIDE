@@ -24,6 +24,58 @@ public sealed class BreakpointServiceTests
     }
 
     [Fact]
+    public void RemapMovesEveryConditionTogetherAndNotifiesOnce()
+    {
+        var svc = new BreakpointService();
+        svc.SetDocument(_module1, [3, 4, 9]);
+        svc.SetCondition(_module1, 3, "first");
+        svc.SetCondition(_module1, 4, "second");
+        svc.SetDocument(_form1, [3]);
+        var changed = new List<DocumentIdentity>();
+        svc.BreakpointsChanged += changed.Add;
+
+        svc.Remap(_module1, line => line == 9 ? null : line + 1);
+
+        svc.GetBreakpoints(_module1).Should().Equal(4, 5);
+        svc.GetCondition(_module1, 4).Should().Be("first");
+        svc.GetCondition(_module1, 5).Should().Be("second");
+        svc.GetCondition(_module1, 3).Should().BeNull();
+        svc.GetBreakpoints(_form1).Should().Equal(3);
+        changed.Should().Equal(_module1);
+    }
+
+    [Fact]
+    public void RemapRemovingEveryMarkForgetsTheDocumentAndNotifiesOnce()
+    {
+        var svc = new BreakpointService();
+        svc.SetDocument(_module1, [3, 4]);
+        svc.SetCondition(_module1, 3, "first");
+        var changed = new List<DocumentIdentity>();
+        svc.BreakpointsChanged += changed.Add;
+
+        svc.Remap(_module1, _ => null);
+
+        svc.All().Should().NotContainKey(_module1);
+        svc.GetCondition(_module1, 3).Should().BeNull();
+        changed.Should().Equal(_module1);
+    }
+
+    [Fact]
+    public void RemapWithNoChangeOrNoDocumentSaysNothing()
+    {
+        var svc = new BreakpointService();
+        svc.SetDocument(_module1, [3, 4]);
+        var changed = new List<DocumentIdentity>();
+        svc.BreakpointsChanged += changed.Add;
+
+        svc.Remap(_module1, line => line);
+        svc.Remap(_form1, _ => throw new InvalidOperationException("no marks to map"));
+
+        svc.GetBreakpoints(_module1).Should().Equal(3, 4);
+        changed.Should().BeEmpty();
+    }
+
+    [Fact]
     public void ConditionIsKeptOnTheBreakpointAndNotifiesItsDocument()
     {
         var svc = new BreakpointService();

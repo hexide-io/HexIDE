@@ -18,7 +18,7 @@ public static class VBColorExtensions
 {
     public static IBrush ToBrush(this VBColor color)
     {
-        if (color.Type == VBColor.ColorType.Raw)
+        if (color.Type != VBColor.ColorType.SystemColor)
             return new SolidColorBrush(new Color(0xFF, color.R, color.G, color.B));
 
         // FindResource returns AvaloniaProperty.UnsetValue (not null) when the key is missing in
@@ -69,39 +69,6 @@ public static class VBColorExtensions
             VbSystemColor._3DLIGHT => SystemColors.ControlLightLightBrushKey,
             VbSystemColor.Infotext => SystemColors.InfoTextBrushKey,
             VbSystemColor.Infobk => SystemColors.InfoBrushKey,
-            _ => throw new ArgumentOutOfRangeException(nameof(color), color, null)
-        };
-    }
-
-    public static string GetDescription(this VbSystemColor color)
-    {
-        return color switch
-        {
-            VbSystemColor.Scrollbar => "Scroll Bars",
-            VbSystemColor.Desktop => "Desktop",
-            VbSystemColor.Activecaption => "Active Title Bar",
-            VbSystemColor.Inactivecaption => "Inactive Title Bar",
-            VbSystemColor.Menu => "Menu Bar",
-            VbSystemColor.Window => "Window Background",
-            VbSystemColor.Windowframe => "Window Frame",
-            VbSystemColor.Menutext => "Menu Text",
-            VbSystemColor.Windowtext => "Window Text",
-            VbSystemColor.Captiontext => "Active Title Bar Text",
-            VbSystemColor.Activeborder => "Active Border",
-            VbSystemColor.Inactiveborder => "Inactive Border",
-            VbSystemColor.Appworkspace => "Application Workspace",
-            VbSystemColor.Highlight => "Highlight",
-            VbSystemColor.Highlighttext => "Highlight Text",
-            VbSystemColor.Btnface => "Button Face",
-            VbSystemColor.Btnshadow => "Button Shadow",
-            VbSystemColor.Graytext => "Disabled Text",
-            VbSystemColor.Btntext => "Button Text",
-            VbSystemColor.Inactivecaptiontext => "Inactive Title Bar Text",
-            VbSystemColor.Btnhighlight => "Button Highlight",
-            VbSystemColor._3DDKSHADOW => "Button Dark Shadow",
-            VbSystemColor._3DLIGHT => "Button Light Shadow",
-            VbSystemColor.Infotext => "ToolTip Text",
-            VbSystemColor.Infobk => "ToolTip",
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, null)
         };
     }

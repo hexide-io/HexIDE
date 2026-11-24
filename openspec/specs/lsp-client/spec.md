@@ -2349,14 +2349,14 @@ anyway, so it is recorded rather than defended.
 The client SHALL declare `textDocument.completion` in initialize with default `insertTextMode: 1`
 (asIs), all 25 completion kinds, preselect support, plaintext documentation support, insert/replace
 support, snippet support, both insert text modes and the `insertTextMode` list item default.
-It SHALL omit optional completion capabilities it does not implement, including completion resolve
-and context support.
+It SHALL advertise completion resolve for `documentation` and `detail`. It SHALL omit optional
+completion capabilities it does not implement, including context support.
 
 #### Scenario: A server inspects completion capabilities
 - **WHEN** the client sends initialize
 - **THEN** completion declares kind values 1 through 25, preselect support, plaintext documentation and default insertion mode `1`
 - **AND** insert/replace and both indentation modes are supported, with only `insertTextMode` advertised as a list item default
-- **AND** snippet support is declared; resolve and context support are absent
+- **AND** snippet support is declared, resolve lists only `documentation` and `detail`, and context support is absent
 
 ### Requirement: Completion text edits commit together
 The editor SHALL apply a completion's TextEdit instead of its insertText or label when provided,
@@ -2492,6 +2492,23 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 - **WHEN** the user requests completion with the caret within or after `Ms`
 - **THEN** the request position is before `M`
 - **AND** after `c.` or `UBound(` with no identifier, the request position remains after the punctuation
+
+### Requirement: Resolve the selected completion item's description
+
+The editor SHALL resolve a selected completion item at most once per list, through the server that
+supplied it, when that server advertises `completionProvider.resolveProvider: true`. The request SHALL
+preserve opaque `data` when present. The editor SHALL update the still-selected item's tooltip with
+returned detail and documentation only. Moving selection or closing the list SHALL cancel the request.
+Accepting an item SHALL use its existing insertion data without waiting for resolve.
+
+#### Scenario: Documentation arrives after selection
+- **WHEN** the user selects an item and its server resolves it with detail and documentation
+- **THEN** the selected item's tooltip shows that detail and documentation
+- **AND** insertion still uses the item from the completion list
+
+#### Scenario: The user moves away while resolve is pending
+- **WHEN** the selection changes or the list closes before resolve completes
+- **THEN** the request is cancelled and a late reply cannot change the tooltip
 
 ### Requirement: Completion acceptance keys
 In ordinary code the editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts
@@ -2731,16 +2748,32 @@ only on their ranges; read-only region and diagnostic colours SHALL retain their
 
 An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
 permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
-version or detached view SHALL NOT be applied. Delta and range requests are not supported.
+version or detached view SHALL NOT be applied. Range requests are not supported.
+
+The client SHALL declare full delta support and retain the last result ID and data per document per
+connection. If the server advertises `full.delta` and a previous result ID is held, it SHALL request
+`textDocument/semanticTokens/full/delta` with that ID. Delta edits SHALL index the previous array; a full
+reply SHALL replace the held array. A failed delta or out-of-range edit SHALL clear the held result,
+log once and fall back to a full request. Close, reopen, reconnect, server restart and errors SHALL clear
+held results. Callers SHALL continue to receive the complete array.
 
 Content Modified (`-32801`) replies SHALL retry with exponential backoff from 250 ms to a 4-second cap,
 without spending the per-document warning. Cancellation, a changed or closed document, or a changed
 connection SHALL stop the retry.
 
 #### Scenario: A semantic answer was overtaken
-- **WHEN** a full semantic-token request receives Content Modified
+- **WHEN** a full or delta semantic-token request receives Content Modified
 - **THEN** the client asks again without requiring an edit
 - **AND** applies the eventual successful answer if the request is still current
+
+#### Scenario: A delta updates several parts of the array
+- **WHEN** the server returns several edits against the previous result
+- **THEN** each edit uses the original array indices, including deletion-only edits and insertion at its end
+- **AND** the reply's result ID is used by the next delta request
+
+#### Scenario: A delta cannot be applied
+- **WHEN** a delta edit lies outside the previous array
+- **THEN** the client discards that result and requests full tokens
 
 #### Scenario: A server colours a name differently from the lexical rules
 - **WHEN** a full response classifies a range as a class
@@ -3302,8 +3335,10 @@ NOT clear its value.
 
 The client SHALL accept `transport: "tcp"` with a `tcp://host:port` endpoint and `tcpRole`
 `connect` (default) or `listen`, using Content-Length framed JSON-RPC in both directions.
-Listen SHALL bind IPv4 loopback for `localhost` and SHALL require an explicit IP literal for
-other bind addresses. Listener port 0 SHALL allocate an OS-selected port; connect SHALL require
+Listen SHALL bind IPv4 loopback for `localhost`, and SHALL otherwise require a loopback IP literal
+(`127.0.0.0/8` or `[::1]`); any other bind address SHALL be refused during configuration loading and by
+the transport, as a WebSocket listener's is, because whatever dials in first is taken as the server (#5465).
+Listener port 0 SHALL allocate an OS-selected port; connect SHALL require
 a nonzero port. Invalid endpoints and roles SHALL be rejected during configuration loading.
 The transport SHALL support the pipe launch fields and workspace placeholders, with `{host}`
 and `{port}` providing the host and actual port. A listener SHALL bind before launching its child.
@@ -3323,6 +3358,39 @@ the host and port. The transport inventory test SHALL enumerate all four support
 - **WHEN** the connection starts
 - **THEN** HexIDE binds loopback before launching and passes its allocated port to the child
 - **AND** receives the child's connection and exchanges framed language-server messages
+
+#### Scenario: A listener off this machine is refused
+
+- **GIVEN** a TCP listen entry whose endpoint is `tcp://0.0.0.0:6005` or another non-loopback address
+- **WHEN** the configuration loads
+- **THEN** the entry is refused with a problem naming `localhost`, `127.0.0.1` and `[::1]`, and nothing is bound
+
+### Requirement: A new command or address from the configuration file is announced
+
+`lsp-servers.json` is a file any process running as the user may write, so an entry's first launch or dial SHALL
+NOT be silent. The IDE SHALL keep, per entry id, the identity it last reached: the command it starts and, for
+a tcp or WebSocket `connect` entry, the address it dials. A new or changed identity SHALL be reported as an
+`UnseenCommand` problem and recorded, and the entry SHALL still load. A trial launch from the Language
+Servers window SHALL confirm an unseen identity first (#5465).
+
+#### Scenario: An entry that only connects is announced
+
+- **GIVEN** an entry with `transport` `tcp`, no `command`, and endpoint `tcp://192.168.0.100:47321`
+- **WHEN** the configuration loads for the first time
+- **THEN** a problem says the entry will connect to an address the IDE has not connected to before, naming it
+- **AND** the next load reports nothing, until the endpoint changes
+
+#### Scenario: Saving in the window records what the entry reaches
+
+- **GIVEN** an entry saved in the Language Servers window, whose endpoint the IDE dials
+- **WHEN** the configuration next loads
+- **THEN** it is not announced, because the save recorded its command and address as seen
+
+#### Scenario: A command already seen stays seen
+
+- **GIVEN** a stdio entry whose command line was recorded before addresses counted
+- **WHEN** the configuration loads
+- **THEN** it is not announced again, because an entry that only launches keeps the identity it had
 
 ### Requirement: A declared typing trigger owns the editor gesture
 
@@ -3444,3 +3512,35 @@ offering connection; editor.action.rename and editor.action.showReferences SHALL
 #### Scenario: A host call outlives its authorization
 - **WHEN** the add-in calls any action without a running claimed handler on its connection
 - **THEN** InvalidOperationException is thrown and no UI is shown
+
+
+### Requirement: Test a configured language server from its definition row
+
+The Language Servers window SHALL offer a user-requested Test action for each bundled or user definition,
+resolve its entry once, and pass that same entry to the gated isolated language-server trial. It SHALL
+allow only one trial per row at a time, show Testing while running, and retain an accessible text result
+beneath the row. The trial SHALL use the editor store's seen-command store and SHALL never register a client
+for documents, allow editor callbacks, or generate a declared workspace file.
+
+#### Scenario: Successful test
+- **WHEN** a user tests an entry and it initializes
+- **THEN** the result shows its reported name and version, or their absence, sorted advertised capabilities,
+  any declined capabilities, and the stop outcome
+- **AND** disabled entries are tested with a notice explaining normal starts remain disabled
+- **AND** Show messages opens the separate `test:<id>` protocol capture
+
+#### Scenario: Silent server
+- **WHEN** a test connects but the server never answers initialize within the client's timeout
+- **THEN** the result explicitly says so, shows the startup steps and stopping detail, and reports the stop
+
+#### Scenario: Start failure
+- **WHEN** the configured command cannot start
+- **THEN** the result identifies Connecting and its detail using the live connection step renderer
+- **AND** a failed trial declaring a workspace file explains that only a real start generates it with consent
+
+#### Scenario: Declined command
+- **WHEN** an unseen or changed command is tested
+- **THEN** a confirmation dialog shows the server name and id and the full unchanged command in selectable,
+  read-only wrapping monospaced text
+- **AND** only Run agrees; Cancel is the default and Escape action, and closing or failing to show declines
+- **AND** declining launches nothing and the result says nothing was run, with no Show messages action, since nothing connected

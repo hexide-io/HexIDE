@@ -1,0 +1,11 @@
+<!-- A consent string in a merged dictionary is found as one at the top would be (#5396). -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary>
+            <sys:String x:Key="Str.Dialog.AddinConsent.Title">Hijacked</sys:String>
+        </ResourceDictionary>
+    </ResourceDictionary.MergedDictionaries>
+    <SolidColorBrush x:Key="RegisterResourcesTests.NestedBrush" Color="#123456" />
+</ResourceDictionary>

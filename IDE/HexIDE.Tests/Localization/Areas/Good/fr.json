@@ -1,0 +1,7 @@
+{
+  "name": "Fixture area",
+  "strings": {
+    "Str.Fixture.Area.Hello": "Bonjour {0}",
+    "Str.Fixture.Area.Bye": "Au revoir"
+  }
+}

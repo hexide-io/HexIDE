@@ -28,8 +28,9 @@ public class FormMemberTableTests
         members.Should().OnlyContain(m => m.Origin == MemberOrigin.VB6);
         members.Where(m => m.IsFrmProperty).Select(m => m.Name).Should().BeEquivalentTo(
             "Caption BackColor Enabled ForeColor Icon MousePointer ShowInTaskbar Font StartUpPosition KeyPreview MaxButton MinButton Left Top Width Height Visible Tag".Split(' '));
+        // #991: Refresh now runs; the drawing oracle is exercised by PaintAndRefreshTests.
         members.Where(m => m.Implemented).Select(m => m.Name).Should().BeEquivalentTo(
-            "ActiveControl Controls Name Icon CurrentX CurrentY DrawWidth DrawStyle DrawMode FillStyle FillColor AutoRedraw hDC FontTransparent ScaleMode ScaleLeft ScaleTop ScaleWidth ScaleHeight WindowState Left Top Width Height MousePointer RightToLeft KeyPreview Visible Enabled Tag BackColor ForeColor Font Caption FontName FontSize FontBold FontItalic FontUnderline FontStrikethru Circle Cls Hide Line Move PSet Scale SetFocus Show Point ScaleX ScaleY Activate Click DblClick Deactivate GotFocus Initialize KeyDown KeyPress KeyUp Load LostFocus MouseDown MouseMove MouseUp Paint QueryUnload Resize Terminate Unload".Split(' '));
+            "ActiveControl Controls Name Icon CurrentX CurrentY DrawWidth DrawStyle DrawMode FillStyle FillColor AutoRedraw hDC FontTransparent ScaleMode ScaleLeft ScaleTop ScaleWidth ScaleHeight WindowState Left Top Width Height MousePointer RightToLeft KeyPreview Visible Enabled Tag BackColor ForeColor Font Caption FontName FontSize FontBold FontItalic FontUnderline FontStrikethru Circle Cls Hide Line Move PSet Refresh Scale SetFocus Show Point ScaleX ScaleY Activate Click DblClick Deactivate GotFocus Initialize KeyDown KeyPress KeyUp Load LostFocus MouseDown MouseMove MouseUp Paint QueryUnload Resize Terminate Unload".Split(' '));
     }
 
     [Fact]

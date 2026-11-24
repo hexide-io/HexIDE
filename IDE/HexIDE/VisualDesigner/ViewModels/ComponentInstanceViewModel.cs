@@ -3,6 +3,7 @@ using Avalonia;
 using System.Linq;
 using Avalonia.Data;
 using Avalonia.Media;
+using HexIDE.Converters;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
@@ -65,7 +66,10 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     private void InstanceOnOnComponentPropertyChanged(ComponentInstance _, PropertyClass propertyClass)
     {
-        if (propertyClass == VBProperties.LeftProperty)
+        if ((propertyClass == VBProperties.IconProperty || propertyClass == VBProperties.FormBorderStyleProperty)
+            && ReferenceEquals(this, parentViewModel.Form))
+            parentViewModel.RefreshCaptionIcon();
+        else if (propertyClass == VBProperties.LeftProperty)
         {
             OnPropertyChanged(nameof(Left));
             OnPropertyChanged(nameof(RelativeLeft));
@@ -395,9 +399,11 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     public string? Caption => instance.GetPropertyOrDefault(VBProperties.CaptionProperty);
 
-    public IBrush BackColor => instance.GetPropertyOrDefault(VBProperties.BackColorProperty).ToBrush();
+    public IBrush BackColor =>
+        VBColorBrushes.ToBrush(instance.GetPropertyOrDefault(VBProperties.BackColorProperty));
 
-    public IBrush ForeColor => instance.GetPropertyOrDefault(VBProperties.ForeColorProperty).ToBrush();
+    public IBrush ForeColor =>
+        VBColorBrushes.ToBrush(instance.GetPropertyOrDefault(VBProperties.ForeColorProperty));
 
     // The root's class is the designer's kind, not the form component every root shares (#1544).
     public string BaseClassName => instance.BaseClass is FormComponentClass ? parentViewModel.RootClassName : instance.BaseClass.ClassName;

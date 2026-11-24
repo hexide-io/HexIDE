@@ -7,6 +7,7 @@ using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.TwinBasic;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
@@ -27,6 +28,26 @@ public partial class ProjectToolViewModel : Tool
     private bool synchronizingArchiveFolder;
     public bool HasArchiveSelection => SelectedItem is ArchiveTreeNode;
     public bool HasSynchronizableArchiveSelection => SelectedItem is ArchiveTreeNode { CanSynchronizeFolder: true };
+    public bool CanRenameArchive => CanEditArchive(ArchiveStructureOperation.Rename);
+    public bool CanDeleteArchive => CanEditArchive(ArchiveStructureOperation.Delete);
+    public bool CanAddArchiveFolder => CanEditArchive(ArchiveStructureOperation.NewFolder);
+    private bool CanEditArchive(ArchiveStructureOperation operation) => SelectedItem is ArchiveTreeNode node
+        && archives?.CanEditStructure(node.Entry, operation) == true;
+    public Task RenameArchive() => EditArchive(ArchiveStructureOperation.Rename);
+    public Task DeleteArchive() => EditArchive(ArchiveStructureOperation.Delete);
+    public Task NewArchiveFolder() => EditArchive(ArchiveStructureOperation.NewFolder);
+    private async Task EditArchive(ArchiveStructureOperation operation)
+    {
+        if (SelectedItem is not ArchiveTreeNode node || archives == null) return;
+        var identity = await archives.EditStructure(node.Entry, operation);
+        if (identity == null) return;
+        var nodes = RootItems.OfType<ArchiveTreeNode>().SelectMany(WalkArchive).ToArray();
+        if (operation == ArchiveStructureOperation.NewFolder
+            && nodes.FirstOrDefault(n => n.Entry.Identity.Equals(node.Entry.Identity)) is { } parent)
+            parent.IsExpanded = true;
+        if (SelectedItem == null || SelectedItem is ArchiveTreeNode current && current.Entry.Identity.Equals(node.Entry.Identity))
+            SelectedItem = nodes.FirstOrDefault(n => n.Entry.Identity.Equals(identity));
+    }
     [Notify] private bool showHiddenArchiveEntries;
     private void OnShowHiddenArchiveEntriesChanged() => RebuildRootItems();
     private Dictionary<ProjectDefinition, ProjectViewModel> projectToViewModel = new();
@@ -34,7 +55,7 @@ public partial class ProjectToolViewModel : Tool
     public ObservableCollection<ProjectViewModel> LoadedProjects { get; } = new();
     public ObservableCollection<object> RootItems { get; } = new();
 
-    [Notify] [AlsoNotify(nameof(HasArchiveSelection), nameof(HasSynchronizableArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader), nameof(HasRemovableSelection))] private object? selectedItem;
+    [Notify] [AlsoNotify(nameof(CanRenameArchive), nameof(CanDeleteArchive), nameof(CanAddArchiveFolder), nameof(HasArchiveSelection), nameof(HasSynchronizableArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader), nameof(HasRemovableSelection))] private object? selectedItem;
 
     public FormViewModel? SelectedForm
     {
@@ -210,10 +231,10 @@ public partial class ProjectToolViewModel : Tool
             foreach (var project in archives.Projects)
             {
                 var root = new ArchiveTreeNode(project.Root, ShowHiddenArchiveEntries,
-                    project.CanSynchronizeFolder
+                    project.FolderFormat() is not null
                         ? string.Format(localization.GetString("Str.Archive.ProjectFormat"), project.Name)
                         : string.Format(localization.GetString(project.IsLocked ? "Str.Office.LockedCaption" : "Str.Office.ProjectCaption"), project.Name, System.IO.Path.GetFileName(project.ContainerPath)),
-                    localization, project.NoticeKey is { } key ? localization.GetString(key) : null, project.CanSynchronizeFolder);
+                    localization, project.NoticeKey is { } key ? localization.GetString(key) : null, project.FolderFormat() is not null);
                 foreach (var node in WalkArchive(root))
                     if (previous.TryGetValue(node.Entry.Identity, out var old)) node.IsExpanded = old.IsExpanded;
                 RootItems.Add(root);

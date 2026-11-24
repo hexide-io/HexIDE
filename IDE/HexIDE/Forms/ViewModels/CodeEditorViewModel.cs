@@ -54,7 +54,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Code");
 
-    private TextDocument document = new TextDocument();
+    private readonly TextDocument document = new TextDocument();
     private FormDefinition? formDefinition;
     private ModuleDefinition? moduleDefinition;
 
@@ -284,6 +284,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
+        Document.Changing += FollowMarks;
+        AutoDispose(new ActionDisposable(() => Document.Changing -= FollowMarks));
         Document.TextChanged += (_, _) =>
         {
             RefreshBufferModified();
@@ -434,6 +436,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }));
         AutoDispose(new ActionDisposable(() =>
         {
+            LeaveLastPositionLine();
             var body = BufferBody;   // the same split as the flush above, for the same reason
             formDefinition?.UpdateCode(body);
             if (moduleDefinition is not null)
@@ -445,6 +448,30 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (session is { } closing)
                 ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, IsModified && !unloading);
         }));
+    }
+
+    private void FollowMarks(object? sender, DocumentChangeEventArgs change)
+    {
+        if (identity is not { } current ||
+            (change.Offset == 0 && change.RemovalLength == Document.TextLength))
+            return;
+
+        var removed = FormCodeText.LineBreaks(change.RemovedText.Text);
+        var inserted = FormCodeText.LineBreaks(change.InsertedText.Text);
+        if (ExternalDebugger?.IsActive != true)
+            breakpointService.Remap(current, line => line < 1 || line > Document.LineCount ? line :
+                HexIDE.Debugging.MarkLines.Remap(line, change.Offset, change.RemovalLength, removed, inserted, ReadLine));
+        bookmarkService.Remap(current, line => line < 0 || line >= Document.LineCount ? line :
+            HexIDE.Debugging.MarkLines.RemapBookmark(line + 1, change.Offset, change.RemovalLength, removed, inserted, ReadLine) - 1);
+
+        (int Begin, int Statement, int End, int Next) ReadLine(int line)
+        {
+            var before = Document.GetLineByNumber(line);
+            var statement = before.Offset;
+            while (statement < before.EndOffset && char.IsWhiteSpace(Document.GetCharAt(statement)))
+                statement++;
+            return (before.Offset, statement, before.EndOffset, before.Offset + before.TotalLength);
+        }
     }
 
     private bool modelIsModified;
@@ -569,9 +596,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private bool qualifierWriteWasUndone;
 
     /// <summary>
-    /// Makes this buffer's attribute qualifiers the ones a save just wrote into the document's code,
-    /// <paramref name="written"/> (#273 task 4.4), as one of the IDE's own writes. Does nothing when the buffer's
-    /// runs already name their members, or when the save did not rewrite them.
+    /// Makes this buffer's leading attributes and member qualifiers the ones a save just wrote into the document's
+    /// code, <paramref name="written"/> (#273 task 4.4, #1661), as one of the IDE's own writes.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -586,7 +612,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <para>
     /// <b>Replaced span by span, rather than by assigning the body</b>, for <see cref="RefreshPrefix"/>'s reason:
     /// the caret, the selection and the folds over the rest of the buffer stay where they were. Each span is in a
-    /// member's read-only run, which the developer can neither type into nor have the caret inside, and which a
+    /// read-only Attribute run, which the developer can neither type into nor have the caret inside, and which a
     /// fold usually hides. The view model's own <see cref="CaretOffset"/> is moved with the text, as there.
     /// </para>
     /// </remarks>
@@ -594,6 +620,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var text = Document.Text;
         var rewrites = RegionWriter?.SaveRewrites(text, bufferPrefix.Length) ?? [];
+        var attributes = FormCodeText.AttributeBlock(FormCodeText.BodyOf(text, bufferPrefix));
+        var savedAttributes = FormCodeText.AttributeBlock(written);
+        if (!string.Equals(attributes, savedAttributes, StringComparison.Ordinal))
+            rewrites = [new TextChange(bufferPrefix.Length, attributes.Length, savedAttributes), .. rewrites];
         if (rewrites.Count == 0)
             return;
         if (!string.Equals(FormCodeText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
@@ -1344,7 +1374,36 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         FocusWindowRequest?.Invoke();
     }
 
-    private void OnCaretOffsetChanged() => SyncCombosToCaret();
+    private int? lastPositionEditedLine;
+
+    internal void LastPositionTextEntered(string text)
+    {
+        if (text.Length > 0 && !text.Contains('\r') && !text.Contains('\n'))
+            lastPositionEditedLine = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber;
+    }
+
+    internal void RecordLastPosition()
+    {
+        if (identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document,
+                Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber));
+    }
+
+    internal void LeaveLastPositionLine()
+    {
+        if (lastPositionEditedLine is not { } line) return;
+        lastPositionEditedLine = null;
+        if (identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document, line));
+    }
+
+    private void OnCaretOffsetChanged()
+    {
+        if (lastPositionEditedLine is { } line &&
+            Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber != line)
+            LeaveLastPositionLine();
+        SyncCombosToCaret();
+    }
 
     private bool syncingFromCaret;
 
@@ -2389,6 +2448,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<CompletionItem[]> RequestCompletionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestCompletionAsync(uri, position, ct) : Task.FromResult<CompletionItem[]>([]);
 
+    Task<CompletionItem?> HexIDE.Forms.Views.IEditorDocumentQueries.ResolveCompletionItemAsync(
+        CompletionItem item, CancellationToken ct) => lspClient.ResolveCompletionItemAsync(item, ct);
+
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
         => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
@@ -2739,6 +2801,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // protocol's zero-based Position.
         if (!editorService.NavigateTo(uri, line, col))
             Log.Debug("[definition] Nothing loaded answers to {Uri}", uri);
+    }
+
+    internal void NavigateToDefinitionUri(string uri, int line, int column)
+    {
+        var origin = Document.GetLineByOffset(Math.Clamp(CaretOffset, 0, Document.TextLength)).LineNumber;
+        if (editorService.NavigateTo(uri, line, column) && identity is { } document && !unloading)
+            eventBus.Publish(new LastPositionRecordedEvent(document, origin));
     }
 
     // A hover's file link opens a document the project already holds, and nothing else: a server's link is not the

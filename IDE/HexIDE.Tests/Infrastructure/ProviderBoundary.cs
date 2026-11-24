@@ -14,12 +14,15 @@ internal static class ProviderBoundary
     {
         ["HexIDE"] = ProjectKind.Product,
         ["HexIDE.Core"] = ProjectKind.Product,
+        ["HexIDE.Imaging"] = ProjectKind.Product,
         ["HexIDE.Desktop"] = ProjectKind.Product,
         ["HexIDE.Browser"] = ProjectKind.Product,
         ["HexIDE.Lsp"] = ProjectKind.Product,
         ["HexIDE.Dap"] = ProjectKind.Product,
         ["HexIDE.AIChat"] = ProjectKind.Product,
         ["HexIDE.AddinPacker"] = ProjectKind.Product,
+        // hexide-pack (#5555): a command-line tool for publishers, built to an assembly of that name.
+        ["HexIDE.AddinPacker.Interactive"] = ProjectKind.Tool,
         ["HexIDE.LspGuard"] = ProjectKind.Product,
         ["HexIDE.Office"] = ProjectKind.Product,
         ["HexIDE.Repack"] = ProjectKind.Product,

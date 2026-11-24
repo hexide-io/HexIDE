@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using Avalonia.Media;
+using Avalonia.Media.Fonts;
 using HexIDE.IDE;
 using HexIDE.Runtime.BuiltinTypes;
 using PropertyChanged.SourceGenerator;
@@ -20,6 +21,10 @@ public partial class FontDialogViewModel
     [Notify] private double? _selectedSizeItem;
     [Notify] private string _sizeText;
     [Notify] private int _selectedScriptIndex;
+    private readonly Func<string, FontCodePageCoverage> _coverage;
+    [Notify] private IReadOnlyList<string> _scriptKeys;
+    // Include the saved size even when it is absent from the selected font's list (#910).
+    [Notify] private IReadOnlyList<double> _fontSizes;
     private readonly double _initialSize;
     private readonly int? _initialCharset;
     private bool _sizeEdited;
@@ -56,8 +61,42 @@ public partial class FontDialogViewModel
     public IReadOnlyList<string> FontStyles { get; } = ["Regular", "Bold", "Italic", "Bold Italic"];
     private static readonly double[] StandardSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
 
-    /// <summary>The sizes offered, with the font's own among them when it is not one of the usual, as 8.25 or 9.6 (#910).</summary>
-    public IReadOnlyList<double> FontSizes { get; }
+    private static readonly double[] BitmapSizes = [8, 10, 12, 14, 15, 17, 18, 23, 24, 30];
+
+    // Measured order and charsets: docs/vb6-fidelity-oracle/the-design-time-font-dialog-its-script-list-its-sizes-and-the-charset-it-writes.md.
+    private static readonly (FontCodePageCoverage Coverage, string Name, int Charset)[] Scripts =
+    [
+        (FontCodePageCoverage.Latin1, "Western", 0),
+        (FontCodePageCoverage.Hebrew, "Hebrew", 177),
+        (FontCodePageCoverage.Arabic, "Arabic", 178),
+        (FontCodePageCoverage.Greek, "Greek", 161),
+        (FontCodePageCoverage.Turkish, "Turkish", 162),
+        (FontCodePageCoverage.WindowsBaltic, "Baltic", 186),
+        (FontCodePageCoverage.Latin2EasternEurope, "CentralEuropean", 238),
+        (FontCodePageCoverage.Cyrillic, "Cyrillic", 204),
+        (FontCodePageCoverage.Vietnamese, "Vietnamese", 163),
+        (FontCodePageCoverage.Symbol, "Symbol", 2)
+    ];
+
+    internal static IReadOnlyList<string> GetScriptKeys(string family, FontCodePageCoverage coverage)
+    {
+        var scripts = IsBitmapFamily(family) ? [] : Scripts.Where(script => (coverage & script.Coverage) != 0)
+            .Select(script => "Str.Dialog.Font.Script." + script.Name).ToArray();
+        return scripts.Length == 0 ? ["Str.Dialog.Font.Script.Western"] : scripts;
+    }
+
+    private static bool IsBitmapFamily(string family) =>
+        string.Equals(family, "MS Sans Serif", StringComparison.OrdinalIgnoreCase);
+
+    private static FontCodePageCoverage ReadCoverage(string family) =>
+        FontManager.Current.TryGetGlyphTypeface(new Typeface(new FontFamily(family)), out var glyphs)
+            ? glyphs.CodePageCoverage : FontCodePageCoverage.None;
+
+    private IReadOnlyList<double> SizesFor(string family) =>
+        (IsBitmapFamily(family) ? BitmapSizes : StandardSizes).Append(_initialSize).Distinct().Order().ToArray();
+
+    private int CharsetAt(int index) => Scripts.First(script =>
+        "Str.Dialog.Font.Script." + script.Name == ScriptKeys[index]).Charset;
 
     public FontStyle PreviewFontStyle =>
         SelectedStyle.Contains("Italic") ? FontStyle.Italic : FontStyle.Normal;
@@ -68,8 +107,11 @@ public partial class FontDialogViewModel
     public event Action<FontDialogResult?>? AcceptRequested;
     public event Action? CancelRequested;
 
-    public FontDialogViewModel(FontDialogResult? initial)
+    public FontDialogViewModel(FontDialogResult? initial) : this(initial, ReadCoverage) { }
+
+    internal FontDialogViewModel(FontDialogResult? initial, Func<string, FontCodePageCoverage> coverage)
     {
+        _coverage = coverage;
         CanEditEffects = initial?.Underline != null && initial.Strikethrough != null;
         _underline = initial?.Underline ?? false;
         _strikethrough = initial?.Strikethrough ?? false;
@@ -85,8 +127,10 @@ public partial class FontDialogViewModel
         _selectedSizeItem = _selectedSize;
         _sizeText = Math.Round(_selectedSize, MidpointRounding.AwayFromZero).ToString(CultureInfo.InvariantCulture);
         _initialCharset = initial?.Charset;
-        _selectedScriptIndex = _initialCharset is null or 0 ? 0 : -1;
-        FontSizes = StandardSizes.Contains(_selectedSize) ? StandardSizes : [.. StandardSizes.Append(_selectedSize).Order()];
+        _scriptKeys = GetScriptKeys(_selectedFamily, _coverage(_selectedFamily));
+        _selectedScriptIndex = Enumerable.Range(0, ScriptKeys.Count)
+            .FirstOrDefault(index => CharsetAt(index) == (_initialCharset ?? 0), -1);
+        _fontSizes = SizesFor(_selectedFamily);
         _selectedStyle  = initial != null ? ToStyleName(initial.Style, initial.Weight) : "Regular";
         _familyText = _selectedFamily;
         _styleText = _selectedStyle;
@@ -104,7 +148,15 @@ public partial class FontDialogViewModel
         if (match != null) SelectedStyle = match;
     }
 
-    private void OnSelectedFamilyChanged() => FamilyText = SelectedFamily;
+    private void OnSelectedFamilyChanged()
+    {
+        var selected = SelectedScriptIndex >= 0 && SelectedScriptIndex < ScriptKeys.Count
+            ? ScriptKeys[SelectedScriptIndex] : null;
+        ScriptKeys = GetScriptKeys(SelectedFamily, _coverage(SelectedFamily));
+        SelectedScriptIndex = Math.Max(0, ScriptKeys.ToList().IndexOf(selected!));
+        FontSizes = SizesFor(SelectedFamily);
+        FamilyText = SelectedFamily;
+    }
     private void OnSelectedStyleChanged() => StyleText = SelectedStyle;
 
     private void OnSizeTextChanged()
@@ -139,8 +191,6 @@ public partial class FontDialogViewModel
     // The dialog's 96-dpi measurements are in #4153. An untouched fractional font must survive OK.
     public string? Accept()
     {
-        if (SelectedScriptIndex is < -1 or > 0)
-            throw new NotImplementedException("Font dialog scripts other than Western are not measured (#4153).");
         var size = SelectedSize;
         if (_sizeEdited)
         {
@@ -159,7 +209,8 @@ public partial class FontDialogViewModel
             _selectedStyle.Contains("Italic") ? FontStyle.Italic : FontStyle.Normal,
             _selectedStyle.Contains("Bold")   ? FontWeight.Bold   : FontWeight.Normal,
             size, _underline, _strikethrough,
-            CanEditCharset && SelectedScriptIndex == 0 ? 0 : null);
+            CanEditCharset && SelectedScriptIndex >= 0 && SelectedScriptIndex < ScriptKeys.Count
+                ? CharsetAt(SelectedScriptIndex) : null);
         AcceptRequested?.Invoke(result);
         return null;
     }

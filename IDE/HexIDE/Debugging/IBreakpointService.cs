@@ -19,10 +19,10 @@ namespace HexIDE.Debugging;
 /// numbers differ from VB6's there; that divergence is deliberate.
 /// </para>
 /// <para>
-/// <b>Lines are bare integers, with no anchor.</b> Typing above a breakpoint does not move it. What does is
-/// the IDE's own: when a committed designer change, a save or a reload changes the header's line count,
-/// <c>HeaderRefresher.ShiftMarks</c> moves every mark below the header here, in the store, so a document with
-/// no window open moves too; and the sidecar's load moves marks written before the header was counted. This
+/// <b>Lines are stored as integers.</b> An open code window remaps them through edits, undo and redo,
+/// keeping conditions with their statements (#1053). Whole-text replacements are not followed. When a
+/// designer change, save or reload changes the header's line count, <c>HeaderRefresher.ShiftMarks</c>
+/// also moves closed-document marks; the sidecar's load moves marks written before the header was counted. This
 /// store accepts any line it is given. Refusing a new breakpoint on a line that never runs, in the header or
 /// a member's <c>Attribute</c> lines, is its callers' job: the code window, and <c>MarkLineRules</c> for
 /// automation.
@@ -63,6 +63,9 @@ public interface IBreakpointService
 
     /// <summary>Move lines and their conditions together after a header change.</summary>
     void MoveLines(DocumentIdentity document, int firstLine, int delta);
+
+    /// <summary>Remap every line and its condition together; null removes a breakpoint. Notify once if changed.</summary>
+    void Remap(DocumentIdentity document, Func<int, int?> newLineOf);
 
     /// <summary>Remove all breakpoints in a document.</summary>
     void ClearDocument(DocumentIdentity document);

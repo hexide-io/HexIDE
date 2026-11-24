@@ -6,7 +6,6 @@ using System.ComponentModel;
 using Avalonia.Threading;
 using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.Serialization;
 using HexIDE.IDE;
 using HexIDE.Lsp;
 
@@ -122,7 +121,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 Guid.TryParse(r.Guid, out var guid) ? guid : null,
                 Version.TryParse(r.Version, out var version) ? version.Major : null,
                 Version.TryParse(r.Version, out version) ? version.Minor : null,
-                r.Lcid, r.LibPath is null ? null : SerializedProject.ToHostPath(r.LibPath))).ToArray();
+                r.Lcid, r.LibPath is null ? null : Vb6ProjectPaths.ToHostPath(r.LibPath))).ToArray();
             references = WithProjectReferences(project, references);
             var arguments = project.ConditionalArguments() ?? ConditionalConstants.NoArguments;
             contexts.Add(new WorkspaceArtifactContext(root,
@@ -148,7 +147,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
             var parts = line.Split('=', 2);
             if (parts.Length != 2 || !parts[0].Trim().Equals("Reference", StringComparison.OrdinalIgnoreCase)
                 || !parts[1].StartsWith("*\\A", StringComparison.OrdinalIgnoreCase)) continue;
-            var path = Path.GetFullPath(SerializedProject.ToHostPath(parts[1][3..]), folder);
+            var path = Path.GetFullPath(Vb6ProjectPaths.ToHostPath(parts[1][3..]), folder);
             var target = _observed!.LoadedProjects.FirstOrDefault(p => p != project && p.AbsolutePath is { } candidate
                 && HexIDE.IO.HostFilePath.Equals(path, candidate));
             if (target is null) continue;
@@ -221,7 +220,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 foreach (var source in sources)
                 {
                     if (source is null) continue;
-                    var hostPath = Path.GetFullPath(SerializedProject.ToHostPath(source), full);
+                    var hostPath = Path.GetFullPath(Vb6ProjectPaths.ToHostPath(source), full);
                     if (!File.Exists(hostPath)) continue;
                     var relative = Path.GetRelativePath(full, hostPath);
                     if (relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar,

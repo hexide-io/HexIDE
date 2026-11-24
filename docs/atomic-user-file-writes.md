@@ -18,6 +18,7 @@ power-loss guarantee for directory metadata on every filesystem.
 | Path | Entry points / destinations | Status |
 |---|---|---|
 | Project saves | `ProjectService.AtomicWriteText`: designer sources (`.frm`, `.ctl`, `.pag`), modules (`.bas`, `.cls`), `.vbp`, `.vbg`; Save As and temporary Make source copies share these paths | Shared flushed writer; baseline recorded only after replacement |
+| twinBASIC source saves | `ArchiveProjectSave.Save`: edited `.twin` sources in a `.twinproj` | Verified in memory and checked against the snapshot's disk bytes before recoverable atomic replacement (#5143); see [editing twinBASIC projects](twinbasic-projects.md) |
 | Companion saves | `ProjectService.AtomicWriteBytes`: `.frx`, `.ctx`, `.pgx` | Shared flushed writer |
 | Package source encoding | `ProjectService.EncodePackageSources`: disposable source copies converted to UTF-8 | Shared flushed writer |
 | Carried-document saves | `RelatedDocumentEditorViewModel.SaveAsync`: arbitrary user-owned text files | Shared flushed writer; dirty state cleared only after replacement |

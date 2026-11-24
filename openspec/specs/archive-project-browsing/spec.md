@@ -1,12 +1,12 @@
 # archive-project-browsing Specification
 
 ## Purpose
-Allow offline inspection of archive projects without modifying project content or invoking a compiler.
+Allow offline inspection of archive projects and safe source editing without invoking a compiler.
 
 ## Requirements
 
 ### Requirement: Open archive projects independently of VB6 models
-The IDE MUST route supported archive project paths to the archive reader from normal project opening and recent-project reopening. It MUST show the stored hierarchy and a persistent read-only indication without registering VB6 modules. twinBASIC text previews MAY attach language servers by extension under opaque archive-entry URIs.
+The IDE MUST route supported archive project paths to the archive reader from normal project opening and recent-project reopening. It MUST show the stored hierarchy and a read-only indication for entries without an edit path without registering VB6 modules. twinBASIC text previews MAY attach language servers by extension under opaque archive-entry URIs.
 
 #### Scenario: Open an archive project
 - **WHEN** a user opens a supported archive project
@@ -17,21 +17,23 @@ The IDE MUST route supported archive project paths to the archive reader from no
 An available text preview MUST use
 `archive-entry:/<percent-encoded segments>?container=<percent-encoded file URI>`.
 Entry segments MUST compare ordinally; the container MUST compare as a host file path, ignoring case on Windows.
-The entry's extension MUST determine server routing.
+A twinBASIC source entry (`.twin` or a VB6 source extension, ignoring case) MUST route only to servers
+that claim its extension and declare language `twinbasic`, ignoring case. Other entries MUST route by extension.
 
 #### Scenario: A source name contains a space and a hash
-- **WHEN** a text entry named `Module # 1.twin` opens with a server claiming `.twin`
+- **WHEN** a text entry named `Module # 1.twin` opens with a server claiming `.twin` and declaring `twinbasic`
 - **THEN** didOpen names `Module%20%23%201.twin` under the archive-entry scheme and carries its text
 
 ### Requirement: Maintain read-only archive document sessions
-For twinBASIC entries, servers claiming the entry's extension MUST receive its text on open and a close when the tab closes.
-Read-only entries MUST NOT send changes. Published diagnostics MUST reach the matching tab, including
-when a server changes the container drive letter's case on Windows. Reload MUST recreate the session and markers.
+Matching servers MUST receive open text and close notifications. Reload, reopen and workspace replay MUST
+preserve the language label. An unmatched preview MUST remain available without diagnostics. Read-only
+entries MUST NOT send changes. Diagnostics MUST reach the matching tab even when a server changes the
+container drive letter's case on Windows. Reload MUST recreate sessions and markers.
 
 #### Scenario: Reload an open text entry
 - **WHEN** a validated replacement updates an open entry
 - **THEN** its old session closes and a new session opens with the replacement text
-- **AND** diagnostics reach the new buffer while edits remain refused
+- **AND** diagnostics reach the new buffer while read-only entries continue to refuse edits
 
 ### Requirement: Record archive document conversations
 Protocol recording and inspection MUST retain the archive-entry URI as sent.
@@ -43,9 +45,9 @@ Pseudonymised exports MUST redact entry and container names, and their disclosur
 - **AND** the disclosure preview shows the entry name
 
 ### Requirement: Inspect content without mutations
-Known text documents MUST support Find and copy. Editing and replacement MUST NOT change their buffers or source bytes. Unsupported text previews MUST show an explanatory status. Entry metadata and hidden entries MUST be available through explicit inspection controls. The Project Explorer's Show hidden archive entries toggle MUST be visible only when a twinBASIC archive root or node is selected.
+Known text documents MUST support Find and copy. Except for editable project-backed `.twin` sources, editing and replacement MUST NOT change their buffers or source bytes. Unsupported text previews MUST show an explanatory status. Entry metadata and hidden entries MUST be available through explicit inspection controls. The Project Explorer's Show hidden archive entries toggle MUST be visible only when a twinBASIC archive root or node is selected.
 
-#### Scenario: Find and replace in an archive tab
+#### Scenario: Find and replace in a read-only archive tab
 - **WHEN** the user finds text and invokes replacement
 - **THEN** Find selects the text and replacement leaves the document unchanged
 
@@ -54,7 +56,7 @@ Known text documents MUST support Find and copy. Editing and replacement MUST NO
 - **THEN** the tab shows metadata and explains that text preview is unavailable
 
 ### Requirement: Reload and close archive documents consistently
-Explicit reload MUST publish only a validated replacement and update retained open entries by identity. Removed entries MUST close. Failed reload MUST preserve the last good tree and tabs. Closing an archive MUST close its tabs without saving content.
+Explicit reload MUST publish only a validated replacement and update retained open entries by identity. Removed entries MUST close. Failed reload MUST preserve the last good tree and tabs. Closing an archive MUST resolve modified source tabs through the ordinary save-changes prompt before closing its tabs. Reload MUST also resolve unsaved edits before replacing the snapshot.
 
 #### Scenario: Reload fails validation
 - **WHEN** an external replacement is invalid and the user reloads
@@ -96,7 +98,7 @@ The IDE MUST report a refused archive open with the selected file name and the r
 - **AND** the refused archive is not added to recent projects
 
 ### Requirement: Browse Office documents through the container seam
-The IDE MUST use a shared read-only container abstraction for twinBASIC and Office documents, without
+The IDE MUST use a shared container abstraction for twinBASIC and Office documents, without
 adding a writable Office project type. Opening an Office document from the picker, recent list or path
 MUST preserve the loaded workspace and group. A missing VBA project MUST name the file; an unreadable
 project MUST show the reader's reason. Failed opens MUST NOT enter recent projects.
@@ -160,3 +162,62 @@ execute its code or events.
 #### Scenario: Read Office source beside a loaded startup project
 - **WHEN** an Office source tab is active
 - **THEN** diagnostics are shown as markers and implicit build and run commands are unavailable
+
+### Requirement: Save editable twinBASIC sources safely
+Available UTF-8 `.twin` entries in a `.twinproj` project MUST be editable with an unsaved marker. Ordinary
+Save MUST collect that container's modified sources, preserve their UTF-8 BOM choices and increase each
+changed file's revision by 2. Other entries and metadata MUST remain unchanged. The proposed container
+MUST be written in memory and read back equal before any disk write. Save MUST refuse externally changed
+disk bytes, retain edits on refusal, and use a flushed atomic replacement with recovery of the previous bytes.
+On success the project MUST publish a snapshot read from the written bytes and clear the saved markers.
+Standalone previews, Office entries and non-`.twin` entries MUST remain read-only. Modified tab close MUST
+ask whether to save, discard or cancel. Detecting another IDE with the project open is outside this capability.
+
+#### Scenario: Save a source edit
+- **WHEN** an editable source changes and the user invokes ordinary Save
+- **THEN** the checked container replaces the unchanged disk baseline with a recovery sibling
+- **AND** the snapshot refreshes and the unsaved marker clears
+
+#### Scenario: Another program saved the container
+- **WHEN** Save finds disk bytes different from the snapshot's baseline
+- **THEN** it refuses with a localized reason naming the file, preserving the disk bytes and unsaved edit
+
+### Requirement: Apply measured twinBASIC structural edits
+Project Explorer MUST offer Rename/Delete for an unpaired `.twin` under Sources in an open `.twinproj`,
+and New Folder for Sources and descendant folders. Commands MUST write immediately through the verified,
+recoverable, external-change-refusing save path. Rename MUST preserve content, metadata and position;
+deletion MUST remove only its entry; a new empty folder MUST be first with revision, flags and category zero,
+following the container-v1 oracle (#5144).
+
+#### Scenario: Add a source folder
+- **WHEN** New Folder succeeds under Sources or one of its descendant folders
+- **THEN** the new empty entry is first in its parent with revision, flags and category zero
+
+### Requirement: Guard structural commands and retain workspace state
+All three commands MUST refuse while any source in that container has unsaved edits, including edits made
+while a prompt is open. Delete MUST first ask for confirmation naming the entry. An open renamed tab MUST
+follow its entry and a deleted entry's tab MUST close. Tree selection MUST follow a rename or select the
+parent after deletion, retaining archive focus. A loaded VB6 group's name, order, startup project and saved
+state MUST remain unchanged.
+
+#### Scenario: Rename an open module
+- **WHEN** a module is renamed with a valid unique identifier and the container has no unsaved edits
+- **THEN** the checked replacement is saved immediately and the same tab remains open under its new name
+
+#### Scenario: Delete confirmation is cancelled
+- **WHEN** the user declines the named module deletion
+- **THEN** the container bytes, tree and open tabs remain unchanged
+
+#### Scenario: Unsaved source edits prevent folder creation
+- **WHEN** New Folder is requested while another source in that container has unsaved edits
+- **THEN** a localized refusal asks the user to save or discard them first and nothing is written
+
+### Requirement: Restrict structural names and unmeasured operations
+Names MUST be ASCII identifiers `[A-Za-z_][A-Za-z0-9_]*` of at most 255 bytes with any `.twin` extension included, unique in their folder ignoring
+case, excluding reserved Windows device names. This is a HexIDE safety policy. Other structural operations
+MUST remain refused as unmeasured. Office and standalone archive browsers MUST NOT offer these mutations.
+
+#### Scenario: An operation has not been measured
+- **WHEN** module/form addition, folder rename/delete, rename/delete of a source with a same-named `.tbform`,
+  or a Settings edit is requested
+- **THEN** the operation refuses with an explanation that it has not been measured

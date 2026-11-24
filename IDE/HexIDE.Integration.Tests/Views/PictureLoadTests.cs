@@ -2,10 +2,15 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Headless.XUnit;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using HexIDE.Controls;
 using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -16,6 +21,7 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 using HexIDE.VisualDesigner.Views;
 using HexIDE.VisualDesigner;
+using HexIDE.Imaging;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -61,12 +67,107 @@ public class PictureLoadTests
         finally { window.Close(); }
     }
 
+    // VB6 SP6, #2872:
+    // docs/vb6-fidelity-oracle/a-picture-in-the-properties-window-and-the-save-and-the-designers-caption-icon.md
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Delete_clears_a_picture_only_from_its_value_cell(bool focusValue)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDefinition(project, FormComponentClass.Instance, "Form1");
+        var instance = new ComponentInstance(PictureBoxComponentClass.Instance, "Picture1");
+        form.UpdateComponents([..form.Components, instance]);
+
+        var record = FramePicture(Bitmap());
+        var property = VBProperties.PictureProperty;
+        instance.SetUntypedProperty(property, record);
+
+        var bus = new EventBus();
+        var loc = Substitute.For<ILocalizationService>();
+        var windows = Substitute.For<IWindowManager>();
+        using var designer = new FormEditViewModel(null!, bus, null!, null!, null!, null!, loc).Initialize(form);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(designer);
+        var grid = new PropertiesToolViewModel(dock, bus, windows, loc);
+        designer.SelectedComponent = designer.AllComponents.Single(c => c.Instance == instance);
+        var row = grid.Properties.OfType<PropertyViewModel>().Single(p => p.PropertyClass == property);
+
+        var view = new PropertiesToolView { DataContext = grid };
+        var window = new Window { Content = view, Width = 400, Height = 800 };
+        var app = new App();
+        app.LoadMarkup();
+        var resources = app.Resources;
+        app.Resources = new ResourceDictionary();
+        window.Resources.MergedDictionaries.Add(resources);
+        window.SetRenderScaling(1.5);
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            window.Show();
+            view.FindControl<TabItem>("AlphabeticPropertiesTab")!.IsSelected = true;
+            window.UpdateLayout();
+            var list = view.FindControl<ListBox>("AlphabeticProperties")!;
+            list.ScrollIntoView(row);
+            window.UpdateLayout();
+            var item = (ListBoxItem)list.ContainerFromItem(row)!;
+            item.Should().NotBeNull();
+            var box = item.FindDescendantOfType<PropertyBox>();
+            box.Should().NotBeNull();
+            var editor = box!.FindDescendantOfType<TextBox>();
+            editor.Should().NotBeNull();
+            var point = focusValue
+                ? editor!.TranslatePoint(new Point(editor.Bounds.Width / 2, editor.Bounds.Height / 2), window)!.Value
+                : item.TranslatePoint(new Point(10, item.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+            grid.SelectedProperty.Should().BeSameAs(row);
+            editor!.IsFocused.Should().Be(focusValue);
+
+            window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+            if (focusValue)
+            {
+                editor.Text.Should().Be("(None)");
+                instance.GetBoxedPropertyOrDefault(property).Should().BeNull();
+                form.AbsolutePath = Path.Combine(directory.FullName, "Form1.frm");
+                var service = new ProjectService(null!, windows, bus, Substitute.For<IProjectManager>(),
+                    Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
+                    Substitute.For<IUserSidecarService>(), new FileBaselineStore(), loc, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+                (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
+                var source = await File.ReadAllTextAsync(form.AbsolutePath);
+                source.Should().Contain("Begin VB.PictureBox Picture1");
+                source.Should().NotMatchRegex(@"(?m)^\s*Picture\s*=");
+            }
+            else
+            {
+                instance.GetBoxedPropertyOrDefault(property).Should().BeSameAs(record);
+                designer.CanUndo.Should().BeFalse();
+            }
+        }
+        finally
+        {
+            window.Close();
+            directory.Delete(recursive: true);
+        }
+    }
+
     private static byte[] Bitmap()
     {
         var bytes = new byte[58];
         bytes[0] = (byte)'B'; bytes[1] = (byte)'M'; bytes[2] = 58; bytes[10] = 54;
         bytes[14] = 40; bytes[18] = 1; bytes[22] = 1; bytes[26] = 1; bytes[28] = 24;
         return bytes;
+    }
+
+    private static byte[] FramePicture(byte[] payload)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write(payload.Length + 8);
+        writer.Write(0x746c);
+        writer.Write(payload.Length);
+        writer.Write(payload);
+        return stream.ToArray();
     }
 
     [AvaloniaTheory]
@@ -98,17 +199,7 @@ public class PictureLoadTests
     {
         var path = Path.Join(Path.GetTempPath(), Guid.NewGuid() + ".bmp");
         var payload = Bitmap();
-        var input = payload;
-        if (outcome == "framed")
-        {
-            using var stream = new MemoryStream();
-            using var writer = new BinaryWriter(stream);
-            writer.Write(payload.Length + 8);
-            writer.Write(0x746c);
-            writer.Write(payload.Length);
-            writer.Write(payload);
-            input = stream.ToArray();
-        }
+        var input = outcome == "framed" ? FramePicture(payload) : payload;
         if (outcome != "missing") await File.WriteAllBytesAsync(path, outcome == "invalid" ? [1, 2, 3] : input);
         try
         {

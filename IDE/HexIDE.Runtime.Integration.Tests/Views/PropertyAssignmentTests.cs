@@ -554,17 +554,25 @@ public class PropertyAssignmentTests
         ColourOf(canvas, "Text1").Should().Be(VBColor.FromOle(expectedOle));
     }
 
+    // Measured in #786, docs/vb6-fidelity-oracle/assigning-to-a-control-property.md.
     [AvaloniaTheory]
-    [InlineData("&H1000000")]           // a palette index
-    [InlineData("&H100FFFF")]           // the last one
-    [InlineData("&H2FFFFFF")]           // a palette-relative RGB
-    [InlineData("\"&H1000001\"")]       // as a String
-    [InlineData("16777217#")]           // as a Double
-    public async Task A_palette_colour_is_refused_rather_than_stored_as_another_colour(string value)
+    [InlineData("&H1000000", "16777216", 0)]
+    [InlineData("&H1000001", "16777217", 0)]
+    [InlineData("&H100000F", "16777231", 0)]
+    [InlineData("&H100FFFF", "16842751", 0)]
+    [InlineData("&H10000FF", "16777471", 0)]
+    [InlineData("&H1010000", "0", 380)]
+    [InlineData("&H2000001", "33554433", 0)]
+    [InlineData("&H2808080", "41975936", 0)]
+    [InlineData("&H2FFFFFF", "50331647", 0)]
+    [InlineData("\"&H1000001\"", "16777217", 0)]
+    [InlineData("16777217#", "16777217", 0)]
+    public async Task A_palette_colour_reads_back_as_given(string value, string expected, int expectedErr)
     {
-        // VB6 keeps it as given (&H1000001 reads back 16777217). HexIDE has no colour that holds one, and used to
-        // store the RGB of its low bytes, a different colour.
-        (await Refusal($"Text1.BackColor = {value}")).Should().Contain("#786");
+        var (actual, err) = await Assign("Label1.BackColor = 0", $"Label1.BackColor = {value}", "Label1.BackColor");
+
+        actual.Should().Be(expected);
+        err.Should().Be(expectedErr);
     }
 
     // The source colours below come from the .frm, or are the control's default, with nothing assigned at run time

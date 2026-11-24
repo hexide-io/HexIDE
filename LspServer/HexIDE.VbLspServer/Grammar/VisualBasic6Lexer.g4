@@ -538,7 +538,9 @@ COLORLITERAL: '&H' [0-9A-F]+ ( AMPERSAND | PERCENT | POW {InputStream.LA(1) < '0
 // Reference, Type Declaration Characters). Not derived from any other grammar.
 // Clean-room: 'D' added as an exponent marker beside 'E', as DOUBLELITERAL already had it; vb6.exe compiles 1D3 as
 // 1000, a Double (measured, #1611). Not derived from any other grammar.
-INTEGERLITERAL: [0-9]+ (('E' | 'D') INTEGERLITERAL)* ( HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT | POW {InputStream.LA(1) < '0' || InputStream.LA(1) > '9'}?)?;
+// Clean-room: signed whole-number exponents match the interpreter (measured, #482), oracle
+// a-d-exponent-in-a-source-literal.md, "A signed exponent, and a lowercase e".
+INTEGERLITERAL: [0-9]+ (('E' | 'D') (PLUS | MINUS)? INTEGERLITERAL)* ( HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT | POW {InputStream.LA(1) < '0' || InputStream.LA(1) > '9'}?)?;
 
 // Clean-room: a literal may end in its point, `5.` or `5.D1`; vb6.exe compiles each as a Double (measured, #1615). Not
 // derived from any other grammar.

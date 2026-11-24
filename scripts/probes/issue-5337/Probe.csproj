@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../IDE/HexIDE.Runtime/Interpreter/X87Math.cs" Link="X87Math.cs" />
+    <Compile Include="../../../IDE/HexIDE.Runtime.Tests/X87MathOracle.cs" Link="X87MathOracle.cs" />
+    <Compile Include="../../../IDE/HexIDE.Runtime.Tests/X87MathArguments.cs" Link="X87MathArguments.cs" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Avalonia.Input;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
+using HexIDE.Conversations;
 using HexIDE.Forms.Views;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
@@ -10,6 +12,41 @@ namespace HexIDE.Tests.LspClient;
 
 public class CompletionForeignTests
 {
+    [ForeignServerFact("latex")]
+    public async Task TexlabAcceptsItsCompletionItemForResolve()
+    {
+        var token = TestContext.Current.CancellationToken;
+        using var logging = LoggerFactory.Create(_ => { });
+        var server = ForeignServer.Latex;
+        var transport = new StdioProcessLspTransport(
+            new LspServerInfo(server.Find()!, server.LaunchArguments, Path.GetTempPath()),
+            logging.CreateLogger<StdioProcessLspTransport>());
+        const string connection = "texlab-completion";
+        await using var capture = new ConversationLog();
+        capture.Arm(connection, armed: true);
+        await using var client = new VBLspClient(transport, logging.CreateLogger<VBLspClient>(), server.LanguageId,
+            capture: capture, connectionId: connection);
+        var uri = LspDocumentUri.ForFile(Path.Combine(Path.GetTempPath(), "hexide-resolve.tex"));
+        const string source = "\\documentclass{article}\n\\usepackage{amsm}\n\\begin{document}\n\\end{document}\n";
+        await client.StartAsync(token);
+        await client.OpenDocumentAsync(uri, source, token);
+
+        var items = await client.RequestCompletionAsync(uri, new Position(1, 16), token);
+        var item = items.Should().ContainSingle(item => item.Label == "amsmath").Subject;
+        item.Documentation.Should().BeNull();
+        var resolved = await ((ILspClient)client).ResolveCompletionItemAsync(item, token);
+        resolved.Should().NotBeNull();
+        resolved!.Documentation!.Value.Should().Contain("AMS-LaTeX distribution");
+
+        await capture.DrainAsync();
+        var request = capture.Snapshot(connection).Should().ContainSingle(e =>
+            e.Method == "completionItem/resolve" && e.Direction == ConversationDirection.Sent
+            && e.Outcome == ConversationOutcome.Answered).Subject;
+        request.AnswerSequence.Should().NotBeNull();
+        using var wire = JsonDocument.Parse(capture.Body(connection, request.AnswerSequence!.Value)!.Head);
+        wire.RootElement.GetProperty("result").GetProperty("label").GetString().Should().Be(item.Label);
+    }
+
     public static bool HasCpp => ForeignServer.Cpp.Find() is not null;
 
     [AvaloniaFact(Skip = "No clangd available; RequiredServersTests enforces availability in CI.", SkipUnless = nameof(HasCpp))]

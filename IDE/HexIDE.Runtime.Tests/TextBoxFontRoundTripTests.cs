@@ -60,6 +60,21 @@ public class TextBoxFontRoundTripTests
     private static FormDefinition Load(string source) =>
         new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, new Sink())!;
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Appearance_is_modelled_and_saves_as_VB6_writes_it(bool flat)
+    {
+        // Edge/Appearance measurements: oracle PR #5222, merged in #5241 (#918).
+        var source = flat ? Form.Replace("      BeginProperty Font", "      Appearance      =   0  'Flat\r\n      BeginProperty Font") : Form;
+        var form = Load(source);
+        var box = form.Components.Single(c => c.BaseClass is TextBoxComponentClass);
+        box.BaseClass.Properties.Should().Contain(AppearanceProperty);
+        box.GetPropertyOrDefault(AppearanceProperty).Should().Be(flat ? VBAppearance.Flat : VBAppearance._3D);
+        box.UnknownRawProperties.Should().NotContain(p => p.Name == "Appearance");
+        new FormSerializer().Serialize(form, "Form1.frm").Item1.Should().Be(source);
+    }
+
     [Fact]
     public void A_TextBox_s_Font_block_is_its_Font_and_saves_byte_for_byte()
     {

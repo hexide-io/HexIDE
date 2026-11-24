@@ -20,6 +20,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Components/FlexGridSortTests.cs` | provider |
 | `Components/PropertyTextTests.cs` | split |
 | `Controls/Vb6FoldingAdapterTests.cs` | split |
+| `Converters/VBColorBrushesTests.cs` | split |
 | `Corpus/ProjectCorpusSmokeTests.cs` | split |
 | `Corpus/ProjectSmokeHarness.cs` | provider |
 | `Corpus/ProjectSmokeHarnessTests.cs` | provider |
@@ -34,6 +35,7 @@ A test that reaches the provider only at run time, through the application's com
 | `DebugAdapter/RunWithTests.cs` | split |
 | `DebugAdapter/VbaBitnessEngineTests.cs` | split |
 | `Debugging/BreakpointServiceTests.cs` | split |
+| `Debugging/MarkLinesTests.cs` | split |
 | `IDE/CodePrefixEquivalenceTests.cs` | split |
 | `IDE/CodeTrustTests.cs` | split |
 | `IDE/DirtyDetectorTests.cs` | split |
@@ -105,24 +107,21 @@ A test that reaches the provider only at run time, through the application's com
 | `Serialization/GuardedContentTests.cs` | provider |
 | `Serialization/LineEditsTests.cs` | provider |
 | `Serialization/LoneCrLineEndTests.cs` | provider |
-| `Serialization/MemberAttributeCorpusTests.cs` | provider |
 | `Serialization/MemberAttributeQualifiersTests.cs` | provider |
-| `Serialization/MemberDeclarationsTests.cs` | provider |
-| `Serialization/MemberRunsTests.cs` | provider |
 | `Serialization/MenuPropertyPersistenceTests.cs` | split |
-| `Serialization/ReadOnlyRegionsTests.cs` | provider |
-| `Serialization/SafeImageDecoderTests.cs` | provider |
 | `Serialization/ToolbarSerializationTests.cs` | provider |
 | `Serialization/VbNameRetargetTests.cs` | provider |
 | `Serialization/VbaBitnessPersistenceTests.cs` | provider |
 | `Sidecar/SidecarMigrationTests.cs` | split |
 | `Sidecar/UserSidecarBreakpointTests.cs` | split |
 | `Sidecar/UserSidecarSaveTests.cs` | split |
+| `StartupCompositionTests.cs` | split |
 | `TestHelpers.cs` | provider |
 | `TestRunners.cs` | split |
 | `Tools/PreservedItemTreeTests.cs` | split |
 | `Tools/ProjectTreeAccessibleNameTests.cs` | split |
 | `ViewModels/ArrayElementRenameTests.cs` | split |
+| `ViewModels/BookmarkEditTests.cs` | split |
 | `ViewModels/CodeEditorUndoTests.cs` | split |
 | `ViewModels/CodeEditorViewModelTests.cs` | split |
 | `ViewModels/CodeWindowHoldsTheFileTests.cs` | split |
@@ -139,7 +138,6 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/GuardedWritersTests.cs` | split |
 | `ViewModels/MainViewViewModelTests.cs` | split |
 | `ViewModels/MarkOnReadOnlyLineTests.cs` | split |
-| `ViewModels/MemberRunFollowsItsLineTests.cs` | split |
 | `ViewModels/MenuEditorInteractionTests.cs` | split |
 | `ViewModels/MenuEditorViewModelTests.cs` | split |
 | `ViewModels/ModuleRenameTests.cs` | split |
@@ -156,4 +154,5 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/ReadOnlySectionProviderTests.cs` | split |
 | `ViewModels/ReferencesViewModelTests.cs` | split |
 | `ViewModels/SaveChangesViewModelTests.cs` | split |
+| `ViewModels/SelectionReadoutTests.cs` | split |
 | `ViewModels/WorkspaceRenameTests.cs` | split |

@@ -130,7 +130,7 @@ public partial class DrawingMethodsTests
     [InlineData("      Left")]
     public void An_unrepresentable_saved_FillColor_is_refused_instead_of_replaced_by_black(string before)
     {
-        var frm = Form.Replace(before, "FillColor = &H01000000&\n" + before);
+        var frm = Form.Replace(before, "FillColor = &H80000019&\n" + before);
         Run? run = null;
         var attempt = () => run = RunLoad(frm, "");
         var exception = Record.Exception(attempt);

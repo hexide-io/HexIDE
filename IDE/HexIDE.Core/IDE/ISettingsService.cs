@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
+using HexIDE.Runtime.Debugging;
 
 namespace HexIDE.IDE;
 
@@ -133,6 +134,9 @@ public interface ISettingsService : INotifyPropertyChanged
     /// </summary>
     bool ReloadFilesChangedOutsideIde { get; set; }
 
+    /// <summary>Which handled errors halt in the IDE debugger.</summary>
+    ErrorTrapping ErrorTrapping { get; set; }
+
     // ── Toolbar visibility ──────────────────────────────────────────
 
     /// <summary>Standard toolbar (VB6 default: visible).</summary>
@@ -183,7 +187,8 @@ public interface ISettingsService : INotifyPropertyChanged
 
 
     /// <summary>
-    /// URL of a HexIDE-root-signed add-in revocation list. With non-first-party packages, it is fetched at startup
+    /// URL of a HexIDE-root-signed add-in revocation list. With any add-in package installed, first-party included
+    /// (#5572), it is fetched at startup
     /// (the list at <c>&lt;url&gt;</c>, its signature at <c>&lt;url&gt;.sig</c>) with a short timeout and
     /// merged by freshest-validly-signed-wins. Defaults to https://hexide.io/revocations.json;
     /// null resets to that default; empty = bundled floor + cache only, no fetch.

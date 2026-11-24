@@ -37,6 +37,28 @@ public class ButtonListKeyEventsTests
         if (kind == "Combo0") ((VBComboBox)run.Control!).Text.Should().Be("k");
     }
 
+    // #1424: an Extended list's letter search follows KeyPress, so KeyAscii = 0 cancels it. Measured on a single-select
+    // list (above and below); reasoned, not measured, with MultiSelect, since Windows' list box searches on the character.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_multi_select_list_searches_after_KeyPress_which_can_cancel_it(bool preview)
+    {
+        using var run = new Run("ListBoxMulti", preview, filtering: true);
+        var list = (VBListBox)run.Control!;
+        run.Key(Key.K, "k");
+        run.Log.Should().Equal(run.Events(75, 107, "Click"));
+        list.ListIndex.Should().Be(2);
+        list.Selection.SelectedIndexes.Should().Equal(2);
+        run.Log.Clear();
+        run.Key(Key.Q, "q");
+        run.Log.Should().Equal(preview
+            ? run.Event("D", 81).Concat(new[] { "FP113" }).Concat(run.Event("U", 81))
+            : run.Events(81, 113));
+        list.ListIndex.Should().Be(2);
+        list.Selection.SelectedIndexes.Should().Equal(2);
+    }
+
     [AvaloniaTheory]
     [MemberData(nameof(Controls))]
     public void Modifiers_report_the_state_after_each_event(string kind, bool preview)
@@ -401,8 +423,9 @@ public class ButtonListKeyEventsTests
         public Run(string kind, bool preview, bool filtering = false, bool optionPair = true, bool unsupported = false, bool swallowSpace = false, bool substituteControlCharacter = false)
         {
             this.preview = preview;
-            var type = kind.StartsWith("Combo", StringComparison.Ordinal) ? "ComboBox" : kind;
-            var extra = kind == "Combo1" ? "Style = 1" : kind == "Combo2" ? "Style = 2" : kind == "OptionButton" ? "Value = -1" : "";
+            var type = kind.StartsWith("Combo", StringComparison.Ordinal) ? "ComboBox" : kind == "ListBoxMulti" ? "ListBox" : kind;
+            var extra = kind == "Combo1" ? "Style = 1" : kind == "Combo2" ? "Style = 2" : kind == "OptionButton" ? "Value = -1"
+                : kind == "ListBoxMulti" ? "MultiSelect = 2" : "";
             var nextType = kind == "CheckBox" ? "ComboBox" : kind == "OptionButton" && optionPair ? "OptionButton" : "CommandButton";
             var controls = kind == "Empty" ? "" : $"""
                 Begin VB.{type} Target
@@ -484,7 +507,8 @@ public class ButtonListKeyEventsTests
             Dispatcher.UIThread.RunJobs();
             Control = Window.GetVisualDescendants().OfType<Control>().SingleOrDefault(c => VBProps.GetName(c) == "Target");
             if (Control is Avalonia.Controls.Primitives.SelectingItemsControl list)
-                foreach (var item in kind == "ListBox" ? new[] { "apple", "banana", "kiwi", "pear" } : new[] { "apple", "banana", "cherry" })
+                foreach (var item in kind == "ListBox" ? new[] { "apple", "banana", "kiwi", "pear" }
+                    : kind == "ListBoxMulti" ? new[] { "apple", "banana", "kiwi", "pear", "quince" } : new[] { "apple", "banana", "cherry" })
                     list.Items.Add(item);
             Control?.Focus();
             Window.UpdateLayout();

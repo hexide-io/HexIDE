@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using HexIDE.Language;
 using HexIDE.Runtime.BuiltinTypes;
 
 namespace HexIDE.Runtime.Serialization;
