@@ -121,9 +121,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 Log.Error(ex, "AddinRegistry: failed to verify package {Dir} — skipped", packageDir);
             }
         }
-        // A normal cold start with only key-pinned first-party packages does no fetch or delay.
-        // Refresh before loading code or offering consent, with a short timeout and fail-open.
-        if (packages.Any(package => package.Result.Manifest is not null && !package.Result.IsFirstParty)
+        // Refresh before loading code or offering consent, with a short timeout and fail-open. First-party packages
+        // count too: a build revocation applies to them, and a default install has nothing else (#5572).
+        if (packages.Any(package => package.Result.Manifest is not null)
             && !string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
             _revocations.RefreshFromUrl(_settings.RevocationListUrl, TimeSpan.FromSeconds(3));
 

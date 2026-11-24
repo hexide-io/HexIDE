@@ -19,6 +19,8 @@ public class UserControlComponentClass : ComponentBaseClass
         _registry = registry;
     }
 
+    public override bool IsContainer => true;
+
     public override string Name =>
         _typeName.Contains('.') ? _typeName[(_typeName.LastIndexOf('.') + 1)..] : _typeName;
 

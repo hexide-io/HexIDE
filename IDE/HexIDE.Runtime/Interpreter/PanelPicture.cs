@@ -1,6 +1,7 @@
 using System.IO;
 using Avalonia.Media.Imaging;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Imaging;
 
 namespace HexIDE.Runtime.Interpreter;
 

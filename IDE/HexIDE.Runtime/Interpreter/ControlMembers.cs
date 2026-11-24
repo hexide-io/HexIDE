@@ -22,11 +22,23 @@ internal static class ControlMembers
         _ => null,
     };
 
+    internal static ValueTask<Vb6Value> ReadDefaultValue(Vb6Value value, string expression, bool intrinsicOnly = true)
+    {
+        if (DefaultMember(value) is { } member)
+            return new(Read(value, member, null));
+        if (value.Type == Vb6Value.ValueType.Control && value.Value is Control control
+            && (!intrinsicOnly || ControlObjectType.IsIntrinsic(VB6BuiltIns.ControlTypeName(control))))
+            throw new NotImplementedException($"`{expression}` reads a default member, which is not implemented (#790). "
+                + "Name the property, or use Set to keep the reference.");
+        return new(value);
+    }
+
+    // Measured late-bound list receivers, including Collection items and function results (#5135).
     // VB.Control declarations also reach dispatch with the bare Control view.
     private static bool IsLateBoundListReference(Vb6Value variable) =>
-        variable.ReadFromControlSlot && (variable.HeldAsVariant
+        variable.HeldAsVariant
             || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(variable.DeclaredAs, "Control", StringComparison.OrdinalIgnoreCase));
+            || string.Equals(variable.DeclaredAs, "Control", StringComparison.OrdinalIgnoreCase);
 
     internal static async Task<Vb6Value> Read(Vb6Value variable, string memberIdentifier, IReadOnlyList<Vb6Value>? args,
         string? propertySpelling = null, Func<Task<List<Vb6Value>>>? evaluateArgs = null,
@@ -63,14 +75,23 @@ internal static class ControlMembers
         if (variable.Value is ItemsControl searchList && ListMembers.IsList(searchList) && ListMembers.IsExtension(searchList, memberIdentifier))
             return ListMembers.CallExtension(searchList, memberIdentifier, await Arguments());
 
-        // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
-        if (variable.Value is Control listControl && ListMembers.IsList(listControl) && hasArgs)
+        // A list's List(i) and ItemData(i), including a late-bound empty argument list (#5135).
+        if (variable.Value is Control listControl && ListMembers.IsList(listControl))
         {
-            if (memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
-                return ListMembers.ReadItemData(listControl, await Arguments());
-            if (memberIdentifier.Equals("List", StringComparison.OrdinalIgnoreCase))
-                return ListMembers.ReadItem(listControl, await Arguments());
-            if (listControl is VBListBox listBox && memberIdentifier.Equals("Selected", StringComparison.OrdinalIgnoreCase))
+            var itemData = memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase);
+            var item = memberIdentifier.Equals("List", StringComparison.OrdinalIgnoreCase);
+            if (itemData || item)
+            {
+                var indexes = await Arguments();
+                if (IsLateBoundListReference(variable) && indexes.Count == 0)
+                {
+                    VBProps.RefuseIfRemoved(listControl);
+                    throw new VBRunTimeException(VBStandardError.NeedPropertyArrayIndex);
+                }
+                if (hasArgs)
+                    return itemData ? ListMembers.ReadItemData(listControl, indexes) : ListMembers.ReadItem(listControl, indexes);
+            }
+            if (hasArgs && listControl is VBListBox listBox && memberIdentifier.Equals("Selected", StringComparison.OrdinalIgnoreCase))
                 return ListMembers.ReadSelected(listBox, await Arguments());
         }
 
@@ -100,17 +121,20 @@ internal static class ControlMembers
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
-        if (throughObject && control is (VBTextBox or VBUserControl) && RuntimeScale.IsConversion(memberName))
+        if (throughObject && (control is VBTextBox && RuntimeScale.IsConversion(memberName)
+            || control is VBUserControl && FormMembers.IsCoordinateMember(memberName)))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (control is VBPictureBox && RuntimeDrawing.IsMethod(memberName))
         {
+            if (memberName.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException("Refresh used as a value is not implemented (#991)");
             if (memberName.Equals("Cls", StringComparison.OrdinalIgnoreCase))
                 throw RuntimeDrawing.Refused("Cls used as a value");
             return RuntimeDrawing.Call(control, memberName, await Arguments());
         }
         if (control is VBPictureBox && RuntimeScale.IsConversion(memberName))
             return RuntimeScale.ConvertUnits(control, memberName,
-                evaluateMemberArgs is not null ? await evaluateMemberArgs() : await Arguments());
+                evaluateMemberArgs is not null ? await evaluateMemberArgs() : await Arguments(), throughObject);
 
         if (control is VBShape or VBLine && memberIdentifier.Equals("MousePointer", StringComparison.OrdinalIgnoreCase))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
@@ -178,8 +202,14 @@ internal static class ControlMembers
         var control = (Control)variable.Value!;
         var throughObject = variable.HeldAsVariant || string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
         if (control is VBCommonDialog dialog && dialog.TrySetProperty(memberIdentifier, value, throughObject)) return true;
+        // FlatScrollBar's typed stores report Null differently through Object (#1097, oracle PR #5507).
+        if (control is VBFlatScrollBar && throughObject && value.IsNull
+            && memberIdentifier.ToLowerInvariant() is "value" or "_value" or "[_value]" or "min" or "max" or "smallchange" or "largechange" or "enabled")
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (control is ICSharpPropertyBag bag && bag.TrySetProperty(memberIdentifier, value)) return true;
         VBProps.RefuseIfRemoved(control);
+        if (throughObject && control is VBUserControl && FormMembers.IsCoordinateMember(memberIdentifier))
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (ListMembers.IsList(control) && args is not null)
         {
             if (memberIdentifier.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
@@ -209,7 +239,7 @@ internal static class ControlMembers
             return true;
 
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
-        if (SliderMembers.TrySet(control, memberIdentifier, value) is { } slider)
+        if (SliderMembers.TrySet(control, memberIdentifier, value, throughObject) is { } slider)
         {
             if (!slider) throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
             return true;

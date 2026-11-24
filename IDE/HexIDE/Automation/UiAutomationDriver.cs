@@ -17,6 +17,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
+using CommunityToolkit.Mvvm.Input;
 using HexIDE.Utils;
 using HexIDE.VisualDesigner;
 
@@ -763,9 +764,9 @@ public static class UiAutomationDriver
                                            : ""));
                         // A running form's ticks are its program's to set, in a Click that runs later, through the program's
                         // queue, so they are read once the wait for the program finds it idle (#1255).
-                        if (clickItem is HexIDE.Runtime.BuiltinControls.VBMenu programItem)
+                        if (RunningProgram.Current.IsMenuItem(clickItem))
                         {
-                            var moved = TicksMoved(programItem);
+                            var moved = TicksMoved(clickItem);
                             return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}") with { Settled = moved };
                         }
                         return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}");
@@ -779,7 +780,7 @@ public static class UiAutomationDriver
                     // checkable item offers a toggle, but it only sets IsChecked: no Click is raised, so neither the
                     // program's handler nor the command behind an IDE tick runs. So a menu item is refused whatever its
                     // peer offers.
-                    if (control is HexIDE.Runtime.BuiltinControls.VBMenu)
+                    if (RunningProgram.Current.IsMenuItem(control))
                         return Err("a running form's menu item has no toggle of its own: its program sets the tick, in the "
                                    + "item's Click, which 'invoke' runs as a click does. inspect_element reads the tick as "
                                    + "toggleState; nothing was done");
@@ -1780,7 +1781,7 @@ public static class UiAutomationDriver
 
         // A running form's item is put back before its Click, and the program sets its tick when it runs, which the caller
         // reads once it has (#1255): read now, it said the tick stayed where the program was about to move it.
-        var tick = item is HexIDE.Runtime.BuiltinControls.VBMenu || item.ToggleType == MenuItemToggleType.None
+        var tick = RunningProgram.Current.IsMenuItem(item) || item.ToggleType == MenuItemToggleType.None
                    || item.IsChecked == wasChecked ? ""
             : item.IsChecked ? " (now ticked)" : " (now unticked)";
         return tick + (CloseMenu(menu) ? " and closed the menu, as a click does" : "");
@@ -1795,10 +1796,10 @@ public static class UiAutomationDriver
     /// The whole menu, not the item alone: a level menu ticks the chosen item and unticks the others, and naming only the
     /// chosen one left the others' change unsaid (#1255 review).
     /// </remarks>
-    private static Func<string?> TicksMoved(HexIDE.Runtime.BuiltinControls.VBMenu item)
+    private static Func<string?> TicksMoved(MenuItem item)
     {
-        HexIDE.Runtime.BuiltinControls.VBMenu[] items = MenuHolding(item) is { } menu
-            ? [.. menu.GetLogicalDescendants().OfType<HexIDE.Runtime.BuiltinControls.VBMenu>()]
+        MenuItem[] items = MenuHolding(item) is { } menu
+            ? [.. menu.GetLogicalDescendants().OfType<MenuItem>().Where(RunningProgram.Current.IsMenuItem)]
             : [item];
         var was = items.Select(i => i.IsChecked).ToArray();
         return () =>
@@ -2319,7 +2320,8 @@ public static class UiAutomationDriver
     /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
     /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame, after bringing a clipped
     /// press point into view. A <c>toggle</c> reads its
-    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). Every other action is
+    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). An IDE button or menu invoke
+    /// waits for its exposed command task or a new modal dialog, bounded by <see cref="ToggleSettleWait"/>. Every other action is
     /// <see cref="Interact"/> as it is.
     /// </summary>
     /// <remarks>
@@ -2341,6 +2343,8 @@ public static class UiAutomationDriver
             var aimed = value;
             if (!CodeWindowPointer.Aim(control, ref aimed, out var aimError)) return Err(aimError!);
         }
+        if (verb == "invoke" && control is Button or MenuItem && !InProgram(control))
+            return await InvokeSettledAsync(control, action, value);
         if (verb is not ("click" or "wheel" or "doubleclick"))
             return Interact(control, action, value);
         var scrollNote = "";
@@ -2380,6 +2384,43 @@ public static class UiAutomationDriver
                         + $"has nothing drawn there yet, since {(verb == "click" ? "a press" : "a wheel")} is hit-tested against what was drawn: try again once it shows",
             };
         return scrollNote.Length == 0 ? outcome : WithClickScroll(outcome, scrollNote);
+    }
+
+    private static async Task<InteractOutcome> InvokeSettledAsync(Control control, string action, string? value)
+    {
+        static object Shown(Window dialog) => dialog.Content ?? dialog;
+        var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
+        var outcome = Interact(control, action, value);
+        if (!outcome.Success)
+            return outcome;
+        var command = control switch { Button button => button.Command, MenuItem item => item.Command, _ => null };
+        var task = command switch
+        {
+            IRunningCommand running => running.ExecutionTask,
+            IAsyncRelayCommand relay => relay.ExecutionTask,
+            _ => null,
+        };
+        var timeout = Task.Delay(ToggleSettleWait);
+        bool OpenedDialog() => OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(Shown(d)));
+        if (task is { IsCompleted: false })
+        {
+            // A command may await the dialog's answer; naming the new dialog must not wait for that answer.
+            while (!task.IsCompleted && !OpenedDialog() && !timeout.IsCompleted)
+                await Task.WhenAny(task, timeout, Task.Delay(10));
+            if (!task.IsCompleted && !OpenedDialog())
+                return outcome with
+                {
+                    Detail = outcome.Detail + "; replied before the work it set off had finished, which took longer than "
+                             + $"{ToggleSettleWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms",
+                };
+        }
+        else
+        {
+            var settled = Avalonia.Threading.Dispatcher.UIThread
+                .InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background).GetTask();
+            await Task.WhenAny(settled, timeout);
+        }
+        return outcome;
     }
 
     /// <summary>
@@ -5844,8 +5885,8 @@ public static class UiAutomationDriver
     // whose popup is a window of its own, and one on an MDI child hosted in a pane count too. The form designer's
     // controls carry the same names but no running form above them. A Timer and a CommonDialog never show at run time.
     private static bool IsProgramControl(Control control) =>
-        HexIDE.Runtime.BuiltinControls.VBProps.GetName(control) is not null
-        && control is not (HexIDE.Runtime.BuiltinControls.VBTimer or HexIDE.Runtime.BuiltinControls.VBCommonDialog)
+        RunningProgram.Current.ControlName(control) is not null
+        && !RunningProgram.Current.NeverShows(control)
         && control.GetLogicalAncestors().Any(a => RunningProgram.Current.Form(a) is { IsRunning: true });
 
     private static UiNode BareNode(MeaningfulChild node, string path, object? parentContext) =>

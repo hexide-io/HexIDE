@@ -146,6 +146,8 @@ public sealed class ProgramHost(IWindowManager windowManager, ILocalizationServi
     public string StartupFormFailedToLoad(string formName, string description) =>
         string.Format(localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad"), formName, description);
 
+    public string MDIFormNotImplemented => localization.GetString("Str.MDIForm.RunNotImplemented");
+
     public string NotImplementedYet => localization.GetString("Str.ProjectRunner.NotImplementedYet");
 
     public async Task<VbFileDialogAnswer?> FileDialog(VbFileDialogRequest request)

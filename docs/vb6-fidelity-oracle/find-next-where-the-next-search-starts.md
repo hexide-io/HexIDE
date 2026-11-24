@@ -149,3 +149,94 @@ told apart.
   prompt before it. So a project search goes on through the other modules without asking, and stops where it began.
 
 **Still not measured:** Selected Text, and a project search that started with matches before the caret.
+
+### Use Pattern Matching: the syntax, and what a match covers (2026-11-23, #5312, SP6)
+
+**The question.** The rows above showed `a?` matching two characters, so the pattern isn't a regular expression. #5312
+asks what the syntax is, so that HexIDE can translate it: `?`, `*` and `#`, the bracket forms, whether a match can
+cross a line, and what an unclosed `[` does.
+
+**The probe.**
+- **Setup:** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle guest, driven on its console, with a fresh vb6.exe per run.
+- **The module** held one line per test, each a string literal with a distinct token, such as `s = "zqxzq1"`, plus a
+  comment line `' zkxzk1` and a declaration `Dim zmxzm1 As Long`.
+- **Each search** began with Ctrl+Home, Ctrl+F, the pattern typed into Find What, and Enter.
+- **The read-back:** Esc closed the dialog with the match still selected. `Q` was typed over the match, the line was
+  read back, and Ctrl+Z undid the `Q`.
+- **The options:** the first search's dialog set Use Pattern Matching (Alt+U), then went back to Find What (Alt+F) for
+  the search. Screenshots of later dialogs show it still ticked, with Match Case greyed and the scope Current Module.
+- **One run used Direction Down, and one Direction All,** where a search that finds nothing gives an OK box rather
+  than Down's wrap prompt.
+
+**Find, with Use Pattern Matching ticked:**
+
+| Find What | The line | Matched (`Q` typed over it) |
+|---|---|---|
+| `zq?` | `s = "zqxzq1"` | `zqx`: `s = "Qzq1"` |
+| `zt#` | `s = "ztxzt5"` | `zt5` |
+| `zu[abc]` | `s = "zudzub"` | `zub` |
+| `zu[B]` | `s = "zudzub"` | `zub` |
+| `zv[a-c]` | `s = "zvdzvb"` | `zvb` |
+| `zw[!a]` | `s = "zwazwb"` | `zwb` |
+| `zf[0-9]` | `s = "zfzzf9"` | `zf9` |
+| `za[?]` | `s = "za1za?"` | `za?` |
+| `zj[[]` | `s = "zj[1"` | `zj[` |
+| `zx.y` | `s = "zxqyzx.y"` | `zx.y`, not `zxqy` |
+| `zy(1)` | `s = "zy1zy(1)"` | `zy(1)`, not `zy1` |
+| `zd+e` | `s = "zdezddezd+e"` | `zd+e` |
+| `ZZCASE` | `s = "zzcase"` | `zzcase` |
+| `zh*1` | `s = "zh1zh21"` | `zh1`: `s = "Qzh21"` |
+| `zr*s` | `s = "zr1s22s"` | `zr1s`: `s = "Q22s"` |
+| `zq*x` | `s = "zqxzq1"` | `zqx` |
+| `zg*` | `s = "zgab"` | `zgab"`, to the end of the line: `s = "Q` |
+| `zc*` | `s = "zcab": s = "x"` | `zcab": s = "x"`, to the end of the line: `s = "Q` |
+| `zn?*` | `s = "zn1zn2zn3"` | to the end of the line |
+| `*zqx` | `    s = "zqxzq1"` | from the line's first column, indent included, to `zqx`: `Qzq1"` |
+| `?zqx` | `s = "zqxzq1"` | `"zqx`: `s = Qzq1"` |
+| `*`, from Ctrl+Home | `Option Explicit` | the whole first line |
+| `zk?` | the comment `' zkxzk1` | `zkx` |
+| `zk*` | the comment `' zkxzk1` | to the end of the line: `' Q` |
+| `zm?` | `Dim zmxzm1 As Long` | `zmx` |
+| `zbend*zbstart` | `s = "zbend"`, with `s = "zbstart"` on the next line | not found. Down's wrap prompt, then "Search text is not found" |
+| `zbend"?` | `s = "zbend"` | not found: "Search text is not found" |
+| `zv[c-a]` | — | a box, with OK and Help: **"Invalid pattern string"** |
+| `zq[` | — | a box, with OK and Help: **"Unmatched brackets in search string"** |
+
+**Replace All, with Use Pattern Matching ticked,** Ctrl+H on a fresh module, each row in turn in the same dialog:
+
+| Find What | Replace With | The line before | After | VB6's message |
+|---|---|---|---|---|
+| `zq?` | `R` | `s = "zqxzq1"` | `s = "RR"` | "The specified region has been searched. 2 replacements were made." |
+| `zh*1` | `R` | `s = "zh1zh21"` | `s = "RR"` | the same, 2 |
+| `zc*` | `R` | `s = "zcab": s = "x"` | `s = "R` | "... 1 replacement was made." |
+| `zr[0-9]` | `$0` | `s = "zr1zr2"` | `s = "$0$0"` | 2 |
+| `zs?` | `a?b` | `s = "zsx"` | `s = "a?b"` | 1 |
+| `ZT?` | `r` | `s = "ztx"` | `s = "r"` | 1 |
+
+**Readings:**
+- **The syntax is `Like`'s:** `?` is any one character, `*` any run, and `#` a digit. `[list]`, `[a-c]` and `[!list]`
+  match one character, and `[?]` and `[[]` match the character inside. Every other character stands for itself,
+  `.`, `(`, `)`, `+` and `"` included.
+- **Case is ignored,** in brackets too, and Match Case is greyed while the box is ticked.
+- **A match stays on one line.** `*` doesn't run past the line's end, and `?` doesn't match the line break.
+- **The earliest start wins:** the first position from the caret where the pattern can match. So a leading `*` starts
+  at the line's first column.
+- **From that start, `*` takes the shortest run that lets the rest of the pattern match.** A `*` at the end of the
+  pattern takes the rest of the line. The two together are measured, and no single rule I'd defend covers both.
+- **Comments, string literals and code** are all searched.
+- **Replace With is literal.** `$0` and `?` were written as typed. Replace All finds each match as Find does, and
+  carries on after it.
+- **A malformed pattern** is refused in a box before anything is searched: "Invalid pattern string" for a backwards
+  range, and "Unmatched brackets in search string" for an unclosed `[`.
+
+**Overturned, ours:** three earlier runs set the box and then pressed Esc to close the dialog before searching.
+- **What they showed:** every wildcard pattern came back "Search text is not found", and every literal one was found.
+  That reads like "pattern matching skips comments".
+- **The cause:** Esc is the dialog's Cancel. One of those runs searched the same module as the run in the table, with
+  the same keys, except that it ticked the box and pressed Esc before its first search. Every wildcard came back not
+  found there, and matched here.
+- **So a tick doesn't survive Cancel.** It held for the rest of the session once a search had run from the dialog that
+  set it. That's measured only this far.
+
+**Not measured:** Direction Up with a pattern; Find Whole Word Only with a pattern; a pattern under Selected Text; the
+single Replace button.

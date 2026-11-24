@@ -1,9 +1,9 @@
 # Designer-file corpus
 
-Three files that exist because nothing else in the repository is one: an ActiveX control project with a
-`.ctl` **and** a `.pag`. `WholeFileGrammarTests`, in both halves, parses every corpus file whole — header
-and designer block included — and without these two the `.ctl` case rested on a VB6 install that only some
-machines have, and the `.pag` case on nothing at all.
+An ActiveX control project with a `.ctl` **and** a `.pag`, and an MDI-form fixture with a child-form
+project. `WholeFileGrammarTests`, in both halves, parses every corpus file whole — header and designer
+block included. Without the ActiveX pair, the `.ctl` case rested on a VB6 install that only some machines
+have, and the `.pag` case on nothing at all. The MDI fixture covers the root that #5313 originally dropped.
 
 They are here rather than in `demo/` because they are not a demo: nothing about them is worth showing, and
 `demo/README.md` describes each project there as something to open and look at. They are here rather than
@@ -49,3 +49,11 @@ That is the 2026-09-20 compile result, not a new compile of the IDE-saved files.
 | `Gauge.ctl` | A UserControl with a persisted property, so `ReadProperties`/`WriteProperties` and a `Property Get`/`Let` pair are in the body, and one CommandButton nested in its designer block |
 | `GaugeGeneral.pag` | The PropertyPage — the only `.pag` anywhere in the corpus — with one Label nested in its designer block |
 | `PagProbe.vbp` | `Type=Control`, so the two above are reachable as a project |
+| `mdi/MDIForm1.frm` | A new MDI form saved by VB6 SP6 on 2026-11-23; the exact 478 bytes and SHA-256 are recorded in [#5313](https://github.com/hexide-io/HexIDE/issues/5313) |
+| `mdi/Form1.frm` | Hand-authored child-form input with `MDIChild = -1`; no claim of VB6-saved bytes |
+| `mdi/MDIProbe.vbp` | Hand-authored project input listing both forms with ordinary `Form=` lines, starting at MDIForm1 |
+
+The MDI fixture is separate from the ActiveX project described above. Only `MDIForm1.frm` is the measured
+VB6 output; its companion project and child are authored harness inputs. `SerializationCorpusTests` always
+reads this directory, even without `HEXIDE_ROUNDTRIP_CORPUS`. `ProjectCorpusSmokeTests` also loads and saves
+its projects; running the MDI startup form is explicitly refused pending the runtime slice of #5313.

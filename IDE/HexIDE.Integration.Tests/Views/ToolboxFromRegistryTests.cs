@@ -26,10 +26,19 @@ public class ToolboxFromRegistryTests
 
         toolbox.Components.Select(tool => tool.Name).Should().Equal("Mouse",
             "Picture", "Label", "Text", "Frame", "Command", "Check", "Option", "Combo", "List",
-            "HScroll", "VScroll", "Timer", "Shape");
+            "HScroll", "VScroll", "Timer", "Shape", "Image");
         toolbox.Components.Skip(1).Select(tool => tool.IconKey).Should().Equal(
             "Geo.Picture", "Geo.Label", "Geo.Textbox", "Geo.Groupbox", "Geo.Button", "Geo.Checkbox", "Geo.Radio", "Geo.Combo", "Geo.Listbox",
-            "Geo.Hscroll", "Geo.Vscroll", "Geo.Timer", "Geo.Shape");
+            "Geo.Hscroll", "Geo.Vscroll", "Geo.Timer", "Geo.Shape", "Geo.Image");
+    }
+
+    [AvaloniaFact]
+    public void Every_registered_control_except_the_form_is_in_the_toolbox()
+    {
+        var registry = new ComponentRegistry();
+        var toolbox = Toolbox(registry);
+        toolbox.Components.Skip(1).Select(tool => tool.BaseClass).Should().BeEquivalentTo(
+            registry.Components.Where(component => component != FormComponentClass.Instance));
     }
 
     [AvaloniaFact]

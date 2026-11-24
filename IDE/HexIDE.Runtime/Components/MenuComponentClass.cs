@@ -16,6 +16,8 @@ public class MenuComponentClass : ComponentBaseClass
     public static readonly PropertyClass<string> ShortcutProperty = new("Shortcut", "", PropertyCategory.Internal, "");
     public static readonly PropertyClass<int> NegotiatePositionProperty = new("NegotiatePosition", "", PropertyCategory.Internal);
 
+    public override ComponentRole Role => ComponentRole.Menu;
+
     public override string Name => "Menu";
     public override string VBTypeName => "VB.Menu";
 

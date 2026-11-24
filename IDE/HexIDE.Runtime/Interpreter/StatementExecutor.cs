@@ -174,6 +174,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // adopted into / terminated by the PAUSED statement's frame.
             var evaluator = new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets);
             var result = ImmediateValue(await evaluator.EvaluateValue(tree));
+            if (forcedExpression)
+                result = await ControlMembers.ReadDefaultValue(result, "?");
             return forcedExpression && IsPrintable(result) ? VbPrint.ItemText(result) : FormatEvalResult(result);
         }
         catch (Debugging.ImmediateEvalException ex) { return ex.Message; }        // user-call / New rejection
@@ -390,7 +392,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <summary>
     /// What <c>? x</c> prints for an object: its default member, as Print does everywhere. Reading a class's is a call
     /// into the program, refused here as D15 refuses <c>? obj.Prop</c>; one with none is 438, and Err is its Number
-    /// (ObjectAsValue). A control, a control array and Nothing print as they did.
+    /// (ObjectAsValue). The Print path reads control defaults separately.
     /// </summary>
     private static Vb6Value ImmediateValue(Vb6Value v) => v.Value switch
     {
@@ -807,7 +809,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type != Vb6Value.ValueType.Date && value.Type != Vb6Value.ValueType.String)
             throw new NotImplementedException("Date/Time assignment conversion from this type is not implemented (#4733)");
         _ = VB6BuiltIns.CDate(value);
-        // Deliberate divergence (#4681): never change the host clock, even elevated, where VB6 would set it.
+        // Deliberate divergence (#4681): never change the host clock, even elevated, where VB6 would set it. The maintainer's
+        // decision (2026-11-24): no opt-in without a serious use case; docs/interpreter-gaps.md has the reasons.
         throw new VBRunTimeException(context, VBStandardError.PermissionDenied);
     }
 
@@ -1097,7 +1100,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         foreach (var point in context.valueStmt())
             points.Add(await expressionExecutor.EvaluateScalarFast(point));
         var late = target.HeldAsVariant || string.Equals(target.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
-        if (late && target.Value is (VBTextBox or VBUserControl))
+        if (late && target.Value is (VBTextBox or VBUserControl or VbObject { ClassDef.HostedControl: true }))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         if (late && target.Value is not (VbObject { ClassDef.Kind: InterpreterModuleKind.Form } or VBPictureBox))
             throw new NotImplementedException("Late-bound Scale is not implemented (#4693)");
@@ -1176,7 +1179,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
         {
-            await CallControl(value, identifier, callArgs);
+            await CallControl(value, identifier, callArgs, RuntimeScale.IsLateBound(reference));
         }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");
@@ -2434,7 +2437,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             || currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
     }
 
-    private ValueTask<Vb6Value> CallControl(Vb6Value reference, string member, IReadOnlyList<Vb6Value> args)
+    private ValueTask<Vb6Value> CallControl(Vb6Value reference, string member, IReadOnlyList<Vb6Value> args, bool lateBound)
     {
         foreach (var arg in args) arg.RefuseOddBytes(member);
         VBFlatScrollBar.RefuseEarlyBound(reference, member);
@@ -2442,6 +2445,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (reference.Value is (VBTextBox or VBUserControl) && RuntimeScale.IsConversion(member)
             && (reference.HeldAsVariant || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        if (RuntimeScale.IsConversion(member) && reference.Value is Control control && RuntimeScale.Of(control) is not null)
+            return new ValueTask<Vb6Value>(RuntimeScale.ConvertUnits(control, member, args, lateBound));
         return reference.CallAsync(member, args, ModalOwner());
     }
 
@@ -2672,13 +2677,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         try
         {
             value = await interpreter.ResolveDefaultMember(value, callerFrames: stmtFrames);
-            // Returned controls and Container follow the measured Let-value reads (#4520).
-            if (ControlMembers.DefaultMember(value) is { } defaultMember)
-                value = await ControlMembers.Read(value, defaultMember, null);
             if (value.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } formValue
                 && !formValue.ClassDef.PrePass.DeclaresDefaultMember)
                 throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
             value = ObjectAsValue.Scalar(value, context);
+            // Let reads a control's default (#790). Slider has its own measured read (#1091).
+            if (value.Type == Vb6Value.ValueType.Control && value.Value is not null and not VBSlider)
+                return await ControlMembers.ReadDefaultValue(value,
+                    $"{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}", intrinsicOnly: false);
             if (value.Type == Vb6Value.ValueType.Object)
                 throw new VBRunTimeException(context, value.Value is null
                     ? VBStandardError.ObjectVariableOrWithBlockVariableNotSet
@@ -2691,19 +2697,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw;
         }
 
-        // A control on the right of a Let stands for its default member in VB6: `s = Text1` reads Text1.Text,
-        // `v = Command1` reads its Value, `n = Check1` its Value (all measured). TextBox is resolved above (#4520),
-        // and the other measured intrinsic defaults are resolved above (#790); Slider remains below (#1091). Storing the reference gave
-        // a wrong value: a String took the .NET type name, a Variant kept the control. A Let never stores a
-        // reference in VB6, even into an object variable, where it assigns that object's default member. Set, For
-        // Each and argument passing do not come here. The in-box objects (Err, App, Debug, a control array) were
-        // settled by ObjectAsValue above, and controls are the one kind it leaves alone.
         if (value.Value is VBSlider sliderValue)
             return new Vb6Value(sliderValue.Value);
-        if (value.Type == Vb6Value.ValueType.Control && value.Value is not null)
-            throw new NotImplementedException(
-                $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
-                + "member, which is not implemented (#790). Name the property, or use Set to keep the reference.");
         return value;
     }
 
@@ -3275,6 +3270,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.ReleaseRef(oldFieldLet);
                     return default;
                 }
+                if (vobj.ClassDef.HostedControl && RuntimeScale.IsLateBound(variable) && FormMembers.IsCoordinateMember(fieldName))
+                    throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
                 // A form's built-in property is its window's: `Me.Caption = "x"` (#822). One VB6's Form has is set as the bare
                 // name is, so a read-only one is VB6's compile error and one HexIDE lacks is not implemented (#995). Any
                 // other is set below, as a control's is.
@@ -3902,7 +3899,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         async Task PrintItem(VB6Parser.ValueStmtContext expression)
         {
             var value = await expressionExecutor.EvaluateScalarFast(expression);
-            value.RefuseOddBytes(printed is not null ? "Debug.Print" : "Print #");
+            var operation = printed is not null ? "Debug.Print" : "Print #";
+            value = await ControlMembers.ReadDefaultValue(value, operation);
+            value.RefuseOddBytes(operation);
             if (printed is not null)
             {
                 // An object prints its default member, and one with none is 438 (ObjectAsValue).
@@ -4405,6 +4404,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitSetStmt(VB6Parser.SetStmtContext context)
     {
         var value = await expressionExecutor.EvaluateValueFast(context.valueStmt());
+        // Only Set of the bare base-class name is measured (#4693, oracle PR #5514).
+        if (currentModule.HostedControl && value.Value is VBUserControl.RootObject
+            && context.valueStmt().GetText().Equals("UserControl", StringComparison.OrdinalIgnoreCase))
+            throw new VBCompileErrorException("Invalid use of base class name");
         // Set requires an object (a class instance, control, or proxy) or Nothing on the RHS. (Object type
         // covers both a live instance and Nothing, whose Value is null.)
         if (value.Type != Vb6Value.ValueType.Object && value.Type != Vb6Value.ValueType.Control
@@ -5937,8 +5940,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 case VB6Parser.OutputList_ExpressionContext item:
                     if (!afterSeparator)
                         files.Write(number, ",");
-                    if (item.valueStmt() is { } value)
-                        files.Write(number, VbWrite.ItemText(await expressionExecutor.EvaluateValueFast(value)));
+                    if (item.valueStmt() is { } expression)
+                    {
+                        var value = await expressionExecutor.EvaluateValueFast(expression);
+                        if (value.Type == Vb6Value.ValueType.Control && value.Value is not null)
+                        {
+                            // #5385: Write writes a control's default as String, except for Boolean defaults.
+                            value = await ControlMembers.ReadDefaultValue(value, "Write #");
+                            if (value.Type != Vb6Value.ValueType.Boolean && value.Type != Vb6Value.ValueType.Control)
+                                value = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, expression);
+                        }
+                        files.Write(number, VbWrite.ItemText(value));
+                    }
                     else
                         await PrintPosition(target, item.SPC() != null, item.argsCall()?.argCall().FirstOrDefault()?.valueStmt());
                     afterSeparator = false;
@@ -6042,7 +6055,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
-            await CallControl(value, identifier, callArgs);
+            await CallControl(value, identifier, callArgs, RuntimeScale.IsLateBound(reference));
         }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");

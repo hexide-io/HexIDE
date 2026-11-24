@@ -772,3 +772,76 @@ that is abandoned and let go where it began leaves its control where it was.
 
 - **WHEN** focus moves through the designer
 - **THEN** the form's minimize, maximize and close buttons never take it
+
+### Requirement: Menu Editor name validation
+
+The Menu Editor SHALL validate applied rows when OK is pressed, keep the dialog open on a refusal,
+show one localized error message and select the faulty row. Next, Insert and movement SHALL NOT validate names.
+Name comparisons SHALL ignore case. The measured rules and messages are recorded in
+[issue #853](https://github.com/hexide-io/HexIDE/issues/853) and
+[the oracle](../../../docs/vb6-fidelity-oracle/the-vb6-ides-own-windows-designer-tab-dialog-keys-and-run-mode.md#the-menu-editors-checks-on-a-name-2026-11-21-853-design-time-ide-sp6).
+Rows SHALL be checked top to bottom; precedence between different errors is reasoned, not measured.
+A name repeated in a submenu with no Index on either row gets the same missing-index refusal, as measured in
+[#5428](https://github.com/hexide-io/HexIDE/issues/5428). VB6 also refuses a menu array whose elements are not
+adjacent within one submenu; that check is not implemented yet (#5428).
+
+#### Scenario: Invalid or missing name
+- **WHEN** an applied row has a caption without a name, or its name fails `ProjectNaming.IsValidName`
+- **THEN** OK refuses with "Menu control must have a name" or "Not a legal object name: '{name}'" respectively
+- **AND** keyword-shaped identifiers such as `Print` and `If` are accepted
+
+#### Scenario: Menu array names
+- **WHEN** rows share a name and one has no Index
+- **THEN** OK refuses with "Menu control array element must have an index" and selects the first row missing an Index
+- **WHEN** a later row's Index is no greater than an earlier same-name row's Index
+- **THEN** OK refuses with "Menu control array indexes must be in ascending order" and selects the later row
+- **WHEN** same-name rows have ascending indexes, such as 0 then 1
+- **THEN** OK accepts the menu array
+
+#### Scenario: Name already belongs to a control
+- **WHEN** a menu row uses a non-menu component's name on the form
+- **THEN** OK refuses with "'{name}' is a control name" and selects that row
+
+### Requirement: The designer caption follows the form Icon
+
+The form designer SHALL draw the form's own Icon at 16 × 16 in the caption. With no Icon line it SHALL
+use the shared neutral `form.ico`; with `(None)` it SHALL use `Geo.Form` as the generic window stand-in.
+It SHALL suppress the icon for Fixed ToolWindow, Sizable ToolWindow and ControlBox False. Icon-row
+changes, undo and redo SHALL update the caption.
+
+The designer measurements are in [the caption oracle](../../../docs/vb6-fidelity-oracle/a-picture-in-the-properties-window-and-the-save-and-the-designers-caption-icon.md).
+The stand-ins and suppression for ControlBox False across styles are product decisions in #2716.
+The smaller tool-window caption and removal of the caption for BorderStyle None are deferred frame work.
+
+#### Scenario: Loading and undoing a form icon
+
+- **GIVEN** a sizable form with no Icon line
+- **WHEN** an icon is loaded through the Icon row
+- **THEN** the caption draws that icon instead of the neutral form icon
+- **WHEN** the edit is undone
+- **THEN** the caption draws the neutral form icon again
+
+#### Scenario: A tool window has no caption icon
+
+- **GIVEN** a form with an Icon of its own
+- **WHEN** its saved BorderStyle is Fixed ToolWindow or Sizable ToolWindow, or ControlBox is False
+- **THEN** its designer caption has no icon
+
+### Requirement: CommandButton Style selects its face
+
+A CommandButton SHALL expose Style in Properties, defaulting to Standard (0). Its preview SHALL paint
+Standard with the button-face system colour regardless of stored BackColor, and Graphical (1) with
+BackColor. Changing either property SHALL refresh the preview without changing the stored BackColor.
+Saving SHALL omit Standard and write Graphical as `Style = 1  'Graphical`, after Picture and before
+TabIndex.
+
+#### Scenario: A red Standard button becomes Graphical
+
+- **GIVEN** a Standard CommandButton with BackColor `&H000000FF&`
+- **THEN** its designer face is the button-face colour
+- **WHEN** Style changes to Graphical
+- **THEN** its face is red and saving writes Style with the Graphical comment
+- **WHEN** Style changes back to Standard
+- **THEN** its face is the button-face colour and saving omits Style
+
+Authority: [#913 measurements](../../../docs/vb6-fidelity-oracle/a-commandbuttons-style-assigned-from-code-and-painted-in-the-designer.md).

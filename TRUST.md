@@ -28,6 +28,26 @@ space-separated groups of four.
 | **HexIDE root** | `DF36 B067 BF3A C047 CC28 B9E4 D5D4 B323 A491 84D4 C28E B0ED F9E8 9928 89D3 F491` |
 | **First-party publisher** (`com.hexide.firstparty`) | `7929 689A 38A1 DF58 9869 3FD3 2B67 1249 909C 99D5 C7F6 6092 22D4 FB35 7312 B4C8` |
 
+## The revocation list HexIDE fetches
+
+HexIDE refuses an add-in build, a publisher or a marketplace intermediate that has been revoked. The list of
+revocations is signed by the HexIDE root, and HexIDE checks that signature before using it.
+
+- **What is requested:** `https://hexide.io/revocations.json` and its signature,
+  `https://hexide.io/revocations.json.sig`. They are two plain downloads with no data from HexIDE added: no
+  identifier, settings or project information. hexide.io sees the requests' address and time, as any website
+  does.
+- **When:** at every start with at least one add-in installed, before any add-in loads. A default install counts,
+  because HexIDE ships with the AI Chat add-in. HexIDE waits at most three seconds. If hexide.io can't be reached,
+  it starts anyway with the list built into your version and the last list it fetched.
+- **Turning it off:** set `revocationListUrl` to `""` in `settings.json`, in HexIDE's settings directory (see
+  [`--user-data-dir`](docs/command-line.md)). Removing the line, or setting it to `null`, restores the default. Another
+  address works too, for a mirror, but the list must still be signed by the HexIDE root. A profile can't change this
+  setting.
+- **What turning it off costs:** HexIDE then knows only the list built into your version, and any list it fetched
+  before. An add-in build revoked after your version was released, a first-party one included, keeps loading until
+  you update HexIDE.
+
 ## For third-party publishers
 
 Request a publisher record from the HexIDE maintainer through the repository's issue tracker. Send
@@ -49,9 +69,13 @@ written chain. The maintainer returns these two files and the public `intermedia
 `intermediate.sig` chain files. Issuance requires maintainer review; no marketplace service is implied.
 The root supplied during issuance must be the root trusted by the intended HexIDE build.
 
-Put those four public chain files in your `pack --trust <dir>` directory. The packer currently reads
-your own private signing key from `firstparty.key` in that directory; the filename does not grant
-first-party status. Pack with your own key, and keep it private.
+`hexide-pack`, built from `IDE/HexIDE.AddinPacker.Interactive`, runs every packer command and asks for any option
+you leave out, so `hexide-pack pack` walks you through signing an add-in.
+
+Put those four public chain files in your `pack --trust <dir>` directory, and give your private signing key with
+`pack --key <file>`, wherever you keep it. Keep the key out of any folder you publish or commit. `pack` refuses a key
+that isn't the one your `publisher.json` names, and a key named among the files to bundle. Without `--key`, `pack`
+reads `firstparty.key` from the trust folder; that filename does not grant first-party status.
 
 Publish your add-in signing key's fingerprint somewhere users already trust you (your website, repo, or
 release notes). A user can then compare it against the **Publisher** row in HexIDE's trust inspector.

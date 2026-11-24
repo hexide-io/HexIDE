@@ -17,6 +17,7 @@ kill switch — the same posture every comparable IDE takes. Containment would r
 process, which is a different capability and is not built.
 
 ## Requirements
+
 ### Requirement: An add-in SHALL be a signed package verified before any of its code runs
 An add-in SHALL be distributed as a package carrying a manifest, the manifest's signature, and the records
 and signatures forming a chain to a key the IDE ships. Verification SHALL complete before any assembly from
@@ -187,18 +188,22 @@ its absence as a revocation would do far more damage than the case it guards aga
 
 ### Requirement: Startup revocation retrieval SHALL depend on installed packages
 The default source SHALL be `https://hexide.io/revocations.json`, with its signature at the URL plus
-`.sig`. A user URL SHALL override it; null SHALL select the default and an empty URL SHALL disable retrieval. Startup SHALL fetch only
-when an enabled discovered package is not verified against the pinned first-party key, before packages
-load or await consent. Retrieval SHALL retain the three-second timeout, root verification and strictly
-newer `issuedUtc` check.
+`.sig`. A user URL SHALL override it; null SHALL select the default and an empty URL SHALL disable retrieval. Startup SHALL fetch
+whenever an enabled discovered package has a manifest, first-party packages included, before packages
+load or await consent, because a build revocation applies to first-party packages too. Retrieval SHALL retain the three-second
+timeout, root verification and strictly newer `issuedUtc` check.
 
 #### Scenario: Only first-party components installed
-- **WHEN** every enabled discovered package is verified against the pinned first-party key
-- **THEN** startup makes no revocation fetch
+- **WHEN** every enabled discovered package is verified against the pinned first-party key and a nonempty source is configured
+- **THEN** startup attempts retrieval before those packages load, so a revoked first-party build is refused
 
 #### Scenario: Third-party package awaiting consent
 - **WHEN** an enabled third-party package is discovered and a nonempty source is configured
 - **THEN** startup attempts retrieval before deciding whether that package may load
+
+#### Scenario: No add-in packages
+- **WHEN** no discovered package has a manifest
+- **THEN** startup makes no revocation fetch
 
 ### Requirement: The revocation cache SHALL replace signed pairs atomically
 The cache SHALL atomically replace the signed bytes and signature together, preserving the previous

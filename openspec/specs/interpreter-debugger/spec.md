@@ -88,9 +88,10 @@ remove the breakpoint. These shapes reproduce the
 use the same rule as decided in #1053, without claiming further measurements.
 
 Whole-text replacements and edits while an external debugger is active SHALL NOT remap the interpreter
-store. Closed-document edits SHALL retain stored numbers. Bookmarks SHALL retain their existing edit
-behaviour pending #5334. Explicit header refreshes SHALL still shift bookmarks and closed-document
-breakpoints, while an open window's document change moves its breakpoints exactly once.
+store. Closed-document edits SHALL retain stored numbers. Explicit header refreshes SHALL shift
+closed-document breakpoints, while an open window's document change moves its breakpoints exactly once.
+See [Open-window bookmarks follow statements through edits](../bookmarks/spec.md#requirement-open-window-bookmarks-follow-statements-through-edits)
+for the bookmark rule.
 
 #### Scenario: Insert and undo above a conditional breakpoint
 - **WHEN** a line is inserted above a statement carrying a conditional breakpoint
@@ -528,22 +529,22 @@ length at every one of those, and a single place that forgot would stop on, or s
 
 ### Requirement: A run-time error nothing handles SHALL halt the program at the statement that raised it
 The halt SHALL follow the Error Trapping setting in Tools > Options > Environment > General. Its default SHALL be
-Break on Unhandled Errors, whose behaviour is specified below. Under that setting, a run-time error that no active
-error handler traps SHALL stop the program at the statement that
-raised it, before any procedure unwinds. The developer SHALL be offered End and Debug, and nothing else in the program
+Break in Class Module. Under every setting, a run-time error that no active error handler traps SHALL
+stop the program at the statement that raised it, before any procedure unwinds. The developer SHALL be offered End and Debug, and nothing else in the program
 SHALL run until they choose. Debug SHALL enter break mode at that statement with its procedure still active, and
 continuing SHALL run that statement again, all of it. End SHALL end the program as the End command does.
 
 The error is handled if the procedure that raised it, or any procedure below it, would trap it. The search SHALL stop
 at the procedure where the program was entered: an event procedure, a procedure called to handle a `RaiseEvent`, or
 `Sub Main`. A handler in the code that raised an event SHALL NOT see that event's error. A class's error that its caller
-traps SHALL go to the caller, as a compiled program does, rather than stopping in the class as VB6's IDE does under its
-default Error Trapping setting.
+traps SHALL go to the caller under Break on Unhandled Errors, and in a made program. Under the default, a class
+with no handler of its own SHALL halt when its direct standard-module or form caller has an active handler.
 
 VB6's IDE halts this way, and leaving the procedure abandoned while the program carried on let timers and clicks run
 on whatever state it had left half-updated. Measured on vb6.exe: the dialog, what runs behind it, the break's location,
-the retry, and the event boundary (`docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, "An unhandled run-time error"). The exception for a
-class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
+the retry, and the event boundary (`docs/vb6-fidelity-oracle/an-unhandled-run-time-error.md`, "An unhandled run-time error").
+The default follows the measured direct class-caller shapes
+(`docs/vb6-fidelity-oracle/the-error-trapping-option.md`, hexide-io/HexIDE#5303); unmeasured shapes retain their handlers.
 
 #### Scenario: Break on All Errors with a standard-module handler
 - **WHEN** Error Trapping is Break on All Errors and a standard-module handler would trap an error
@@ -596,7 +597,8 @@ handler behaviour: a form or standard module raising, a class caller, a longer c
 #### Scenario: A caller's handler
 - **WHEN** a procedure with no handler of its own, in a standard module or a class, raises an error, and a caller with an
   active handler called it from the same event
-- **THEN** the caller's handler runs and the program does not halt
+- **THEN** the caller's handler runs and the program does not halt under Break on Unhandled Errors, and for the
+  shapes Break in Class Module does not cover when that setting is selected
 
 ### Requirement: Run state in the IDE chrome
 The IDE SHALL show localized design, run and break title tags, with break selected while the interpreter debugger is paused. The no-project title SHALL be localized. Title and OS window title SHALL refresh on debugger stop, continue and language changes. The running status message SHALL be cleared while paused and restored on continuing a running program.

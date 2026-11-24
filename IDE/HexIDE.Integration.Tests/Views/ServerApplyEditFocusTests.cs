@@ -57,7 +57,7 @@ public class ServerApplyEditFocusTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(), localization);
-        editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
+        editors = new EditorService(Substitute.For<HexIDE.IDE.IWindowManager>(), dock, NewEditor, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
         try
         {

@@ -70,6 +70,46 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </summary>
     public bool HasWindowFrame => formDefinition?.RootVBTypeName is not ("VB.UserControl" or "VB.PropertyPage");
 
+    [Notify]
+    private Bitmap? captionIcon;
+
+    [Notify]
+    private bool hasCaptionIcon;
+
+    [Notify]
+    private bool hasCaptionGlyph;
+
+    // Designer measurements and the two stand-ins: #2716. The runtime and designer share the file-state reader.
+    internal void RefreshCaptionIcon()
+    {
+        var previous = CaptionIcon;
+        Bitmap? image = null;
+        var icon = VBLoader.ReadDesignerCaptionIcon(Form.Instance);
+        try
+        {
+            if (icon.Image is { } bytes)
+            {
+                using var stream = new MemoryStream(bytes, writable: false);
+                image = new Bitmap(stream);
+            }
+        }
+        catch (Exception)
+        {
+            // An unreadable picture must not prevent the form from opening.
+        }
+        CaptionIcon = image;
+        HasCaptionIcon = icon.Visible;
+        HasCaptionGlyph = icon.UseFormGlyph;
+        previous?.Dispose();
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        CaptionIcon?.Dispose();
+        CaptionIcon = null;
+    }
+
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Form");
 
     [Notify]
@@ -231,8 +271,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// The procedure a double click on the designer's background writes: the root's own event, a form's Form_Load, a
     /// UserControl's UserControl_Initialize and a PropertyPage's PropertyPage_SelectionChanged (measured, #1632).
     /// </summary>
-    public string RootDoubleClickProcedure => Form.Instance.BaseClass is FormComponentClass root
-        ? $"{root.Name}_{root.DesignerDoubleClickEvent}"
+    public string RootDoubleClickProcedure => Form.Instance.BaseClass.Role == ComponentRole.Form
+        ? $"{Form.Instance.BaseClass.Name}_{Form.Instance.BaseClass.DesignerDoubleClickEvent}"
         : "Form_Load";
 
     /// <summary>
@@ -404,7 +444,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var contents = new Dictionary<ComponentInstance, List<ComponentInstance>>(ReferenceEqualityComparer.Instance);
         foreach (var component in fileOrder)
         {
-            if (ReferenceEquals(component, Form.Instance) || component.BaseClass is MenuComponentClass)
+            if (ReferenceEquals(component, Form.Instance) || component.BaseClass.Role == ComponentRole.Menu)
                 continue;
             var parent = ParentOf(component);
             if (!contents.TryGetValue(parent, out var list))
@@ -433,8 +473,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         Draw(Form.Instance);
 
         order.AddRange(fileOrder.Where(c =>
-            !ReferenceEquals(c, Form.Instance) && c.BaseClass is not MenuComponentClass && !drawn.Contains(c)));
-        order.AddRange(fileOrder.Where(c => c.BaseClass is MenuComponentClass));
+            !ReferenceEquals(c, Form.Instance) && c.BaseClass.Role != ComponentRole.Menu && !drawn.Contains(c)));
+        order.AddRange(fileOrder.Where(c => c.BaseClass.Role == ComponentRole.Menu));
         return order;
     }
 
@@ -442,7 +482,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     private ComponentInstance ParentOf(ComponentInstance control) =>
         control.Container is { } container && !ReferenceEquals(container, Form.Instance) ? container : Form.Instance;
 
-    private static bool IsMenu(ComponentInstanceViewModel component) => component.Instance.BaseClass is MenuComponentClass;
+    private static bool IsMenu(ComponentInstanceViewModel component) => component.Instance.BaseClass.Role == ComponentRole.Menu;
 
     internal static bool IsWindowless(IComponentClass type) => type is IDesignerComponent { IsWindowless: true };
 
@@ -702,7 +742,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             var vm = new ComponentInstanceViewModel(this, comp);
             viewModels[comp] = vm;
             // A UserControl's and a PropertyPage's roots are classes of their own (#1585).
-            if (comp.BaseClass is FormComponentClass)
+            if (comp.BaseClass.Role == ComponentRole.Form)
                 Form = vm;
             AllComponents.Add(vm);
         }
@@ -713,12 +753,14 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         foreach (var comp in DrawOrder(fileOrder))
             Components.Add(viewModels[comp]);
 
+        RefreshCaptionIcon();
+
         // Menus stay in the flat component list; SubItems identifies which belong under another menu.
         TopLevelMenu.Clear();
         var menus = AllComponents.Where(IsMenu).ToList();
         var subItems = new HashSet<ComponentInstance>(ReferenceEqualityComparer.Instance);
         foreach (var menu in menus)
-            if (menu.Instance.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } children)
+            if (menu.Instance.GetPropertyOrDefault(MenuPropertyNames.SubItemsProperty) is { } children)
                 subItems.UnionWith(children);
         foreach (var menu in menus)
             if (!subItems.Contains(menu.Instance))
@@ -875,7 +917,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         for (var i = Components.Count - 1; i >= 0; i--)
         {
             var candidate = Components[i];
-            if (candidate != Form && ContainerClasses.IsContainer(candidate.Instance.BaseClass)
+            if (candidate != Form && candidate.Instance.BaseClass.IsContainer
                 && new Rect(candidate.Left, candidate.Top, candidate.Width, candidate.Height).Contains(pressedAt))
                 return candidate;
         }
@@ -1760,7 +1802,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public async Task EditMenu()
     {
-        var vm = new MenuEditorViewModel(this, localization);
+        var vm = new MenuEditorViewModel(this, windowManager,
+            ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance).Where(c => c.BaseClass is not MenuComponentClass)), localization);
         if (!await windowManager.ShowDialog(vm) || !vm.HasChanges)
             return;
 
@@ -1784,7 +1827,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         {
             if (menuViewModel.Menu != null)
             {
-                if (menuViewModel.Menu.TryGetProperty(MenuComponentClass.SubItemsProperty, out var subItems) &&
+                if (menuViewModel.Menu.TryGetProperty(MenuPropertyNames.SubItemsProperty, out var subItems) &&
                     subItems != null)
                     subItems.Clear();
             }
@@ -1806,9 +1849,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 topLevel.Add(AllComponents.First(c => c.Instance == menu));
             else
             {
-                var elements = parent.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) ?? new();
+                var elements = parent.GetPropertyOrDefault(MenuPropertyNames.SubItemsProperty) ?? new();
                 elements.Add(menu);
-                parent.SetProperty(MenuComponentClass.SubItemsProperty, elements);
+                parent.SetProperty(MenuPropertyNames.SubItemsProperty, elements);
             }
 
             stack.Push((menuViewModel.Indent, menu));

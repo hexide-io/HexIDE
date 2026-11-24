@@ -27,7 +27,7 @@ namespace HexIDE.Desktop.Server;
 internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpContextAccessor = null)
 {
     [McpServerTool(Name = "get_project_info")]
-    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set. It also names projects with no chosen home, even when a working-copy path exists: Save Project asks where to put them. Each project reports its own projectFile. Open archive projects are also in projects, with their container path and entries (folders and hidden entries included): /-separated, percent-escaped name segments, matched exactly by open_file. entryUris pairs each path with its opaque URI. Office documents also appear as read-only containers; their VBA modules reach language servers by export extension as project members. Archive entries open read-only; available twinBASIC text previews reach servers claiming their extensions under opaque archive-entry: URIs; use the container path as project to disambiguate.")]
+    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set. It also names projects with no chosen home, even when a working-copy path exists: Save Project asks where to put them. Each project reports its own projectFile. Open archive projects are also in projects, with their container path and entries (folders and hidden entries included): /-separated, percent-escaped name segments, matched exactly by open_file. entryUris pairs each path with its opaque URI. Office documents also appear as read-only containers; their VBA modules reach language servers by export extension as project members. Project-backed .twin sources are editable; other archive entries are read-only. Available twinBASIC text previews reach servers claiming their extensions under opaque archive-entry: URIs; use the container path as project to disambiguate.")]
     public async Task<ProjectInfoResult> GetProjectInfoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -66,7 +66,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             };
 
             if (ctx.Archives?.Projects.Count is > 0)
-                note = $"{ctx.Archives.Projects.Count} archive project(s) are open read-only; 'projects' lists their container paths "
+                note = $"{ctx.Archives.Projects.Count} archive project(s) are open; 'projects' lists their container paths "
                     + "and entries with their opaque language-server URIs. "
                     + (loaded.Count == 0 ? "The top-level startup-project fields are empty." : note);
 
@@ -807,7 +807,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // With the value it holds, so a font given in part keeps the rest (#952).
             // A face named here is a face, whatever its name ends in: Wingdings 2 read as Wingdings at size 2 (#1311).
             if (!PropertyText.TryParse(propClass, value, out var parsed, out var why, control.GetBoxedPropertyOrDefault(propClass),
-                    HexIDE.Runtime.BuiltinTypes.VBFontExtensions.IsNameable))
+                    RunningProgram.Current.CanNameFont))
                 return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
                                     + $"takes {PropertyText.Accepted(propClass)}");
 
@@ -941,7 +941,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place. Also opens archive entries by the exact paths get_project_info lists: /-separated, percent-escaped segments. Pass project as the container path, filename or stored project name. Office documents also appear as read-only containers; their VBA modules reach language servers by export extension as project members. Archive entries open read-only; available twinBASIC text previews reach servers claiming their extensions under opaque archive-entry: URIs; a line needs an available text preview. Also opens a project file by filename; VB6 .vbp tabs are editable, group and add-in files read-only. project selects its owner by name or path.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'area' is the document area (0 for the first, 1 for the next, in layout order). New tabs open in the area last used; an existing tab stays in its area. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place. Also opens archive entries by the exact paths get_project_info lists: /-separated, percent-escaped segments. Pass project as the container path, filename or stored project name. Office documents also appear as read-only containers; their VBA modules reach language servers by export extension as project members. Project-backed .twin sources are editable; other archive entries are read-only. Available twinBASIC text previews reach servers claiming their extensions under opaque archive-entry: URIs; a line needs an available text preview. Also opens a project file by filename; VB6 .vbp tabs are editable, group and add-in files read-only. project selects its owner by name or path.")]
     public async Task<MutateResult> OpenFileAsync(
         string name, string? project = null,
         [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
@@ -1035,7 +1035,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var at = editor.Document.GetLocation(editor.CaretOffset);
                 return placedInArchive != null || placedInProjectFile != null
                     ? $"The caret is at line {at.Line}, column {at.Column}: offset {editor.CaretOffset} in the "
-                        + (placedInProjectFile is { IsReadOnlyDocument: false } ? "project file's text." : "read-only preview.")
+                        + (placedInProjectFile is { IsReadOnlyDocument: false } ? "project file's text."
+                            : placedInArchive is { IsReadOnlyDocument: false } ? "source's text." : "read-only preview.")
                     : HexIDE.Automation.CaretPlacement.Where(editor, line ?? at.Line, line is null ? at.Column : column ?? 1);
             },
             DispatcherPriority.Background);
@@ -1131,7 +1132,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return new MutateResult(true, null,
                 TabStateNote() + (entry.Archive is null
                     ? $" This VBA module is read-only. Language servers know it as {entry.Name}{entry.LanguageServerExtension}, the name VBA's Export File gives it. Office may run compiled p-code that differs from the stored source."
-                    : " This archive entry is read-only. A text preview goes to the language servers that claim its extension, and a twinBASIC source only to those that also declare the language twinbasic."),
+                    : (placedInArchive.IsReadOnlyDocument ? " This archive entry is read-only." : " This .twin source is editable; Save writes its container.") + " A text preview goes to the language servers that claim its extension, and a twinBASIC source only to those that also declare the language twinbasic."),
                 Project: entry.Identity.ContainerPath, Document: ArchiveToolPaths.PathOf(entry),
                 Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null);
         }
@@ -1148,6 +1149,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (named.Form is not { } form)
                 return new MutateResult(false, named.Error);
             ctx.EditorService.EditForm(form);
+            if (form.RootVBTypeName == "VB.MDIForm")
+                return Naming(new MutateResult(false, "The MDI form designer is not implemented (#5313)."), named.Document);
             return Naming(new MutateResult(true, null, TabStateNote(), Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null), named.Document);
         }));
     }
@@ -2979,6 +2982,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     if (ctx.ProjectService.HasUnsavedChanges(module))
                         documents.Add($"{project.Name}/{module.Name}");
             }
+            // A twinBASIC source edited in its container is a document too (#5143); the VB6 projects above don't hold it.
+            foreach (var archive in ctx.DocumentDockService.OpenDocuments.OfType<ArchiveDocumentViewModel>())
+                if (archive is { CanHoldUnsavedChanges: true, IsModified: true })
+                    documents.Add($"{archive.Entry.Identity.ContainerPath}{ArchiveToolPaths.PathOf(archive.Entry)}");
             var prepared = IdeShutdown.Prepare(ctx, force);
             return (prepared.ProjectStopped, prepared.DialogsClosed, documents.ToArray());
         });
@@ -3595,7 +3602,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; with 'value' on a closed ComboBox, opens the list first and closes it after selecting or a miss; an already-open list closes on selection as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); wheel (turn the mouse wheel over the target as a person does, so its own wheel handling runs; the reply says what moved); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; with 'value' on a closed ComboBox, opens the list first and closes it after selecting or a miss; an already-open list closes on selection as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); wheel (turn the mouse wheel over the target as a person does, so its own wheel handling runs; the reply says what moved); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox or the run-time error dialog refuses, a form's QueryUnload may; not the IDE's main window).")]
         string action,
         [Description("For set_value: text; set_range_value: number; scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. For wheel: up, down, left or right, then notches (default 1) and an optional x,y, as 'down 3'. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double; add hold to a drag to stop before its release, with the button still down at the to point until action release. While it is held, every reply's heldButton says where, a snapshot or a dump shows the drag in progress, click, double_click and hover are refused, and keys still go. For release: x,y relative to the target, or <path>:x,y, moves the held button there first; with no value it lets go where it is held. Code windows, text and margins also take 1-based line:N or line:N,col:M for click/double_click; off-screen lines scroll into view; invalid lines report the line count. With no call for 120 s a hold is abandoned; heldButton says how, and the next reply what it did.")]
         string? value = null,
@@ -4174,7 +4181,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns EVERY tab across all document areas, including splits, with area (0 for the first area, 1 for the next, in layout order; distinguishes equal titles), title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form, module or carried file's source; for an archive entry they are the container path and percent-escaped entry path returned by open_file. isModified is absent where nothing can be saved: a tool tab or a read-only view. Editable VB6 project-file tabs report it. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, 'archive' for a read-only archive entry, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the document region and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
+    [Description("Returns EVERY tab across all document areas, including splits, with area (0 for the first area, 1 for the next, in layout order; distinguishes equal titles), title, type, project, document, whether it is the active one, and isModified: whether the tab has unsaved changes. The tab marks those with a `*` that the title leaves out, so the title stays the one activate_document_tab and close_document_tab match. Project and document name a form, module or carried file's source; for an archive entry they are the container path and percent-escaped entry path returned by open_file. isModified is absent where nothing can be saved: a tool tab or a read-only view. Editable VB6 project-file tabs report it. It is per tab: a form's designer and code tabs each have one, and they can differ, so the form is unsaved if either is true. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, 'archive' for a container entry, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the document region and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -4190,7 +4197,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (a form, module or carried file's name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. The document must already have an open tab. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and read-only archive entries (type 'archive'); a duplicate title is refused. A trailing unsaved `*` is accepted when no exact title matches; the note explains that the title omits it. A title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (a form, module or carried file's name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. The document must already have an open tab. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and archive entries (type 'archive'); a duplicate title is refused. A trailing unsaved `*` is accepted when no exact title matches; the note explains that the title omits it. A title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
@@ -4301,7 +4308,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and read-only archive entries (type 'archive'); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool) and archive entries (type 'archive'); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
@@ -4697,8 +4704,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_lock_key")]
-    [DescribesEnum(typeof(HexIDE.Runtime.BuiltinControls.LockKey))]
-    [DescribesEnum(typeof(HexIDE.Runtime.BuiltinControls.LockKeySource))]
+    [DescribesEnum(typeof(LockKey))]
+    [DescribesEnum(typeof(LockKeySource))]
     [Description("Sets a lock key's toggle as programs running in HexIDE read it, so a StatusBar's key panels (Style 1 to 4) can be checked on and off. The machine's keyboard is untouched: press_key raises key events but can't change the toggle Windows keeps, which is what a StatusBar reads there. 'key' is CapsLock, NumLock, Insert or ScrollLock. 'state' is On, Off, or Keyboard, which returns the key to the keyboard's own toggle. Both are matched without regard to case. A state set here lasts until it is set to Keyboard or the IDE exits, and a StatusBar on screen repaints at once. Called with neither argument, nothing changes. Every reply lists all four keys, each with 'on' as a running program reads it and a 'source': Set (by this tool), Keyboard (the keyboard's toggle, on Windows), or Window (on another host, where each window follows the presses it has seen, so 'on' is null). Code that calls GetKeyState through a Declare reads the real keyboard, not this.")]
     public Task<LockKeysResult> SetLockKeyAsync(
         [Description("CapsLock, NumLock, Insert or ScrollLock.")] string? key = null,
@@ -4706,13 +4713,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         CancellationToken ct = default)
     {
         static LockKeysResult Reply(bool success, string? error, string note) => new(success, error,
-            Enum.GetValues<HexIDE.Runtime.BuiltinControls.LockKey>().Select(k =>
+            Enum.GetValues<LockKey>().Select(k =>
             {
-                if (HexIDE.Runtime.BuiltinControls.LockKeys.Override(k) is { } set)
-                    return new LockKeyRow(k, set, HexIDE.Runtime.BuiltinControls.LockKeySource.Set);
-                return HexIDE.Runtime.BuiltinControls.LockKeys.Keyboard(k) is { } keyboard
-                    ? new LockKeyRow(k, keyboard, HexIDE.Runtime.BuiltinControls.LockKeySource.Keyboard)
-                    : new LockKeyRow(k, null, HexIDE.Runtime.BuiltinControls.LockKeySource.Window);
+                var reading = RunningProgram.Current.ReadLockKey(k);
+                return new LockKeyRow(k, reading.On, reading.Source);
             }).ToArray(), note);
 
         const string Vocabulary = "'key' is CapsLock, NumLock, Insert or ScrollLock, and 'state' is On, Off or Keyboard";
@@ -4724,7 +4728,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 + $"Pass both, or neither to read the keys; {Vocabulary}.", "The keys are as before."));
         // By name only: TryParse would also take "1" as NumLock.
         if (!key.Trim().All(char.IsLetter)
-            || !Enum.TryParse<HexIDE.Runtime.BuiltinControls.LockKey>(key.Trim(), ignoreCase: true, out var lockKey))
+            || !Enum.TryParse<LockKey>(key.Trim(), ignoreCase: true, out var lockKey))
             return Task.FromResult(Reply(false, $"Nothing was changed: '{key}' is not a lock key; {Vocabulary}.", "The keys are as before."));
         bool? on;
         switch (state.Trim().ToLowerInvariant())
@@ -4736,7 +4740,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return Task.FromResult(Reply(false, $"Nothing was changed: '{state}' is not a state; {Vocabulary}.", "The keys are as before."));
         }
 
-        HexIDE.Runtime.BuiltinControls.LockKeys.SetOverride(lockKey, on);
+        RunningProgram.Current.SetLockKey(lockKey, on);
         return Task.FromResult(Reply(true, null, on is { } set
             ? $"{lockKey} now reads {(set ? "on" : "off")} to a running program, whatever the keyboard says, until it is set to Keyboard or the IDE exits. The machine's own keyboard is unchanged."
             : $"{lockKey} now follows the keyboard again."));
@@ -5148,7 +5152,7 @@ internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending
 internal record LockKeysResult(bool Success, string? Error, LockKeyRow[] Keys, string Note);
 
 /// <param name="On">The key's toggle as a running program reads it; null where each window follows its own presses.</param>
-internal record LockKeyRow(HexIDE.Runtime.BuiltinControls.LockKey Key, bool? On, HexIDE.Runtime.BuiltinControls.LockKeySource Source);
+internal record LockKeyRow(LockKey Key, bool? On, LockKeySource Source);
 
 // The note is written first: a client that cuts or previews a long reply keeps its start, and the note says how to
 // narrow it (#1982 review).

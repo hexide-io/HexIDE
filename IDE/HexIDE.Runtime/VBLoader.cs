@@ -462,8 +462,15 @@ public class VBLoader
     private static bool HasInWindowMenuBar(FormDefinition element, bool nativeMenus) =>
         HasMenuBar(element) && !nativeMenus;
 
+    internal static void RefuseMDIForm(FormDefinition definition)
+    {
+        if (definition.RootVBTypeName == "VB.MDIForm")
+            throw new HexIDE.IDE.MDIFormRunRefusal();
+    }
+
     private static VBFormRuntime DesktopWindow(FormDefinition definition)
     {
+        RefuseMDIForm(definition);
         var nativeMenus = FormNativeMenu.UseSystemMenuBar;
         var component = FormComponentOf(definition);
         var window = ((FormComponentClass)component.BaseClass).InstantiateWindow(component,
@@ -896,6 +903,25 @@ public class VBLoader
     internal static VBScaleMode? DeclaredScaleMode(ComponentInstance component) =>
         RawNumber(component, "ScaleMode") is { } mode && Enum.IsDefined(typeof(VBScaleMode), mode) ? (VBScaleMode)mode : null;
 
+    /// <summary>The designer caption's image, generic-window stand-in, and visibility (#2716).</summary>
+    public static (byte[]? Image, bool UseFormGlyph, bool Visible) ReadDesignerCaptionIcon(ComponentInstance form)
+    {
+        var icon = AvaloniaInterop.FormIcon.Read(form);
+        var image = icon.Image;
+        if (icon.Kind == AvaloniaInterop.FormIconKind.Default)
+        {
+            using var source = Avalonia.Platform.AssetLoader.Open(new Uri("avares://HexIDE.Runtime/form.ico"));
+            using var bytes = new MemoryStream();
+            source.CopyTo(bytes);
+            image = bytes.ToArray();
+        }
+        var borderStyle = form.TryGetProperty(VBProperties.FormBorderStyleProperty, out var style)
+            ? (int)style
+            : RawNumber(form, "BorderStyle") ?? (int)form.GetPropertyOrDefault(VBProperties.FormBorderStyleProperty);
+        return (image, icon.Kind == AvaloniaInterop.FormIconKind.None,
+            borderStyle is not (4 or 5) && RawNumber(form, "ControlBox") != 0);
+    }
+
     // The number on a property line HexIDE preserves without modelling it, as a Double, sign and fraction included:
     // `ScaleTop = -12.5`. Null when the component has no such line, or its value is not a number.
     internal static double? RawDouble(ComponentInstance component, string name)
@@ -1208,6 +1234,7 @@ public class VBLoader
     public static VBProgram PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
         Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host = null)
     {
+        RefuseMDIForm(element);
         var program = new VBProgram(element, context, debugController, openForm, win64OnlySetOnWindows, host);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary,
             context.FormInstance, program, context));

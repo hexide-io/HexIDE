@@ -38,7 +38,11 @@ public sealed class ProjectLoader
     /// </param>
     /// <param name="ProjectFileBytes">The project file's bytes, read from disk or encoded from proposed text.</param>
     public sealed record Result(ProjectDefinition Project, SerializedProject Serialized, IReadOnlyList<string> ReadByteForByte,
-        byte[] ProjectFileBytes);
+        byte[] ProjectFileBytes)
+    {
+        /// <summary>The User Document paths skipped while reading the project file.</summary>
+        public IReadOnlyList<string> SkippedUserDocumentPaths => Serialized.SkippedUserDocumentPaths;
+    }
 
     /// <summary>Load the project at <paramref name="projectPath"/>. Errors short of an unreadable project file go to the sink.</summary>
     public async Task<Result> LoadAsync(string projectPath, IDeserializeErrorSink errorSink)

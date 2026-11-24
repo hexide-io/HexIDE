@@ -211,7 +211,12 @@
                                     </controls:MDICaptionButtons.Styles>
                                 </controls:MDICaptionButtons>
 
-                                <Path Data="{StaticResource Geo.Form}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+                                <Panel Width="16" Height="16" IsVisible="{CompiledBinding HasCaptionIcon}">
+                                    <Image Source="{CompiledBinding CaptionIcon}" Stretch="Uniform" Width="16" Height="16"
+                                           IsVisible="{CompiledBinding !HasCaptionGlyph}" />
+                                    <Path Data="{StaticResource Geo.Form}" Fill="{DynamicResource IconInk}" Stretch="Uniform"
+                                          Width="16" Height="16" IsVisible="{CompiledBinding HasCaptionGlyph}" />
+                                </Panel>
 
                                 <TextBlock
                                     Text="{CompiledBinding Form.Caption}"
@@ -235,7 +240,7 @@
                                 <Menu.Styles>
                                     <Style Selector="MenuItem" x:DataType="visualDesigner:ComponentInstanceViewModel">
                                         <Setter Property="Header" Value="{CompiledBinding Caption}" />
-                                        <Setter Property="ItemsSource" Value="{CompiledBinding ., Converter={x:Static views:PropertyConverter.Instance}, ConverterParameter={x:Static components:MenuComponentClass.SubItemsProperty}}" />
+                                        <Setter Property="ItemsSource" Value="{CompiledBinding ., Converter={x:Static views:PropertyConverter.Instance}, ConverterParameter={x:Static visualDesigner:MenuPropertyNames.SubItems}}" />
                                     </Style>
                                 </Menu.Styles>
                             </Menu>

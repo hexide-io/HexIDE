@@ -23,6 +23,7 @@ HexIDE.Runtime.Components.ComponentInstance.SetPreservedChildText(int index, str
 HexIDE.Addins.IAddinCodeEditorActions.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 HexIDE.Addins.IAddinServerConnection.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 HexIDE.Addins.IHexIdeHost.ReportFailure(string! message, System.Exception? exception = null) -> void
+HexIDE.IDE.Vb6TextEncoding.GetEncoding() -> System.Text.Encoding!
 HexIDE.Addins.IHexIdeHost.RegisterResources(System.Uri! dictionary) -> System.IDisposable!
 HexIDE.Runtime.Components.DesignerInset
 HexIDE.Runtime.Components.DesignerInset.Bottom.get -> double
@@ -46,3 +47,11 @@ static HexIDE.Runtime.Components.DesignerInset.operator !=(HexIDE.Runtime.Compon
 static HexIDE.Runtime.Components.DesignerInset.operator ==(HexIDE.Runtime.Components.DesignerInset left, HexIDE.Runtime.Components.DesignerInset right) -> bool
 ~override HexIDE.Runtime.Components.DesignerInset.Equals(object obj) -> bool
 ~override HexIDE.Runtime.Components.DesignerInset.ToString() -> string
+HexIDE.Addins.IHexIdeHost.RegisterLanguagePacks(System.Uri! folder) -> System.IDisposable!
+HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Control = 0 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Form = 1 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Menu = 2 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Line = 3 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.IComponentClass.Role.get -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.IComponentClass.IsContainer.get -> bool

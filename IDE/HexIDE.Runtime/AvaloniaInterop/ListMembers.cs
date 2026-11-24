@@ -141,7 +141,7 @@ internal static class ListMembers
             value = new Vb6Value(list.ItemCount);
             return true;
         }
-        if (lateBound && member.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
+        if (lateBound && (member.Equals("List", StringComparison.OrdinalIgnoreCase) || member.Equals("ItemData", StringComparison.OrdinalIgnoreCase)))
             throw new VBRunTimeException(VBStandardError.NeedPropertyArrayIndex);
         // List with no index, `x = List1.List`: VB6's compile error, measured as `List1.List()`.
         if (member.Equals("List", StringComparison.OrdinalIgnoreCase) || member.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
@@ -174,12 +174,15 @@ internal static class ListMembers
                 combo.SetTextFromCode(Text(value));
             return true;
         }
-        if (lateBound && member.Equals("NewIndex", StringComparison.OrdinalIgnoreCase))
+        if (lateBound && (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase) || member.Equals("NewIndex", StringComparison.OrdinalIgnoreCase)))
             throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
         if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase) || member.Equals("NewIndex", StringComparison.OrdinalIgnoreCase))
             throw new VBCompileErrorException(AssignToReadOnly);
         if (member.Equals("List", StringComparison.OrdinalIgnoreCase) || member.Equals("ItemData", StringComparison.OrdinalIgnoreCase))
+        {
+            if (lateBound) throw new VBRunTimeException(VBStandardError.NeedPropertyArrayIndex);
             throw new VBCompileErrorException("Argument not optional");
+        }
         return false;
     }
 
@@ -204,7 +207,7 @@ internal static class ListMembers
             // #5134: a failed ComboBox write advances its selection silently before raising the error.
             if (list is VBComboBox && list.SelectedIndex >= 0 && list.SelectedIndex < list.ItemCount - 1)
                 list.SelectedIndex++;
-            throw new VBRunTimeException(lateBound && index == -2 ? VBStandardError.OutOfMemory : OutOfMemoryHResult);
+            throw new VBRunTimeException(lateBound && index is -2 or -3 ? VBStandardError.OutOfMemory : OutOfMemoryHResult);
         }
         if (index == -1 || index == list.ItemCount)
         {
@@ -213,14 +216,16 @@ internal static class ListMembers
             list.Items.Add(text);
             return;
         }
-        // Avalonia drops the selection of an item replaced; VB6 keeps it. On a multi-select list each item keeps its own,
-        // which is not measured.
+        // VB6 keeps a selected item's selection and moves multi-select focus and anchor to it (#1424).
         if (list is VBListBox { IsMultiSelect: true } multi)
         {
             var wasSelected = multi.Selection.IsSelected(index);
             list.Items[index] = text;
             if (wasSelected)
+            {
                 multi.Selection.Select(index);
+                multi.ItemTextReplaced(index);
+            }
             return;
         }
         var selected = list.SelectedIndex;

@@ -29,6 +29,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Automation/InspectItemCountTests.cs` | split |
 | `Automation/InspectPointerTests.cs` | split |
 | `Automation/InteractClickTests.cs` | split |
+| `Automation/InterpreterRunningProgramTests.cs` | provider |
 | `Automation/OpenDialogsTests.cs` | split |
 | `Automation/PressKeyWindowInputTests.cs` | split |
 | `Automation/ProgramPrintedStartTests.cs` | split |
@@ -53,6 +54,8 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ActiveFormSaveTests.cs` | split |
 | `Views/AddWatchDialogTests.cs` | split |
 | `Views/ArchiveProjectBrowsingTests.cs` | split |
+| `Views/ArchiveProjectSavingTests.cs` | split |
+| `Views/ArchiveProjectStructureTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
 | `Views/BrandWindowIconTests.cs` | split |
@@ -119,9 +122,9 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/LineNumbersFromTheTopOfTheFileTests.cs` | split |
 | `Views/LoadedFormMenuTests.cs` | split |
 | `Views/LockControlsSaveTests.cs` | split |
+| `Views/MDIFormLoadingTests.cs` | split |
 | `Views/MarkGutterOnReadOnlyLineTests.cs` | split |
 | `Views/MemberRunFoldTests.cs` | split |
-| `Views/MemberRunFollowsItsLineTests.cs` | split |
 | `Views/MenuMembersTests.cs` | split |
 | `Views/MessageBoxAcrossRestartTests.cs` | split |
 | `Views/MinesweeperFormsDemoTests.cs` | split |

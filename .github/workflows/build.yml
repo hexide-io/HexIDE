@@ -395,8 +395,8 @@ jobs:
   build-ide-desktop:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
-    name: build-ide (${{ matrix.name }}${{ matrix.name == 'windows-arm' && ', advisory' || '' }})
-    continue-on-error: ${{ matrix.name == 'windows-arm' }}
+    name: build-ide (${{ matrix.name }}${{ (matrix.name == 'windows-arm' || matrix.name == 'macos-intel') && ', advisory' || '' }})
+    continue-on-error: ${{ matrix.name == 'windows-arm' || matrix.name == 'macos-intel' }}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -409,8 +409,14 @@ jobs:
       # speed on 2026-11-16, 28 PR runs were queued and each wanted one of the few macOS runners the account shares, so
       # batch 355's macOS job waited about 90 minutes to start. A batch that fails on macOS stops the merge chain, as any
       # batch failure does, and the failing PR is found and left out.
+      #
+      # macOS on Intel runs only for a push to a `release/` branch (#5564). publish.yml ships an osx-x64 build from
+      # macos-15-intel, while macos-latest and every Mac here are Apple silicon, so before this nothing tested the build
+      # Intel Macs get. Releases only, as the maintainer asked: the Intel runners are few and slow, and every batch would
+      # otherwise queue for one. Push the release commit to `release/v<version>` while the release is still a draft,
+      # and read this leg before publishing. It is advisory, like Windows on Arm.
       matrix:
-        include: ${{ fromJSON((github.event_name != 'pull_request' || startsWith(github.head_ref, 'batch/')) && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"},{"name":"macos","runner":"macos-latest"}]' || '[{"name":"windows","runner":"windows-latest"}]') }}
+        include: ${{ fromJSON(startsWith(github.ref, 'refs/heads/release/') && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"},{"name":"macos","runner":"macos-latest"},{"name":"macos-intel","runner":"macos-15-intel"}]' || ((github.event_name != 'pull_request' || startsWith(github.head_ref, 'batch/')) && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"},{"name":"macos","runner":"macos-latest"}]' || '[{"name":"windows","runner":"windows-latest"}]')) }}
 
     steps:
       - name: Checkout code
@@ -574,10 +580,12 @@ jobs:
       # its tests were still making progress. the test runner holds the host's output until the run ends, so that step
       # kept nothing, not even --long-running's notices. HangDump 1.x's mutex made macOS count the whole run
       # (#3874); 2.x signals activity over the pipe, so the timer counts quiet time on every platform.
-      # Keep 40 minutes pending the macOS measurement. The step's 50 minutes cover build, run, timeout and dump.
+      # Keep 40 minutes pending the macOS measurement. The step's minutes cover build, run, timeout and dump: 70, not 50,
+      # because macOS on Intel ran this suite in 45 minutes on a healthy run, and its build sat inside the same 50
+      # (2026-11-23, #5564). A hang still ends at the 40 quiet minutes above, so the cap is only the backstop.
       - name: Run ViewModel Tests
         id: viewmodel
-        timeout-minutes: 50
+        timeout-minutes: 70
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
           HEXIDE_FOREIGN_LSP_NO_PATH: '1'

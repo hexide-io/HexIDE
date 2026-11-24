@@ -2116,6 +2116,18 @@ as not implemented.
 - **THEN** Print # writes "Error 5" and Write # writes "#ERROR 5#"
 - **AND** implicit string coercion still raises 13
 
+### Requirement: Intrinsic control defaults in output and concatenation
+
+`Print #`, `Debug.Print`, paused Immediate `?` and `&` SHALL read the intrinsic control default that a Let reads.
+`Write #` SHALL write a Boolean control default as a Boolean and other modeled control defaults as quoted Strings,
+using Let-to-String coercion. An intrinsic control with an unimplemented default SHALL refuse with #790.
+The output rules are measured in [#5385](https://github.com/hexide-io/HexIDE/issues/5385).
+
+#### Scenario: Writing a numeric default and an explicit property
+- **WHEN** `Write #` receives a CheckBox control reference
+- **THEN** it writes the CheckBox value as a quoted String
+- **AND** `Write #` of the explicit Value property writes a bare number
+
 ### Requirement: New on a form creates a separate instance
 
 Explicit `New Form2` SHALL create an instance distinct from the form's default instance, from any executing
@@ -2762,10 +2774,12 @@ item index SHALL raise 381. A direct or typed read without an index SHALL raise 
 
 A ListBox or ComboBox reached through an Object, Control or Variant variable SHALL report the
 measured runtime errors in [#5117](https://github.com/hexide-io/HexIDE/issues/5117)
-(SP6 native/p-code, oracle PRs #5118 and #5125).
+(SP6 native/p-code, oracle PRs #5118 and #5125). Collection items, Object/Control function results
+and CallByName SHALL use the same late-bound answers measured in
+[#5135](https://github.com/hexide-io/HexIDE/issues/5135) (oracle PR #5189).
 
 #### Scenario: List and item data errors preserve the stored items
-- **WHEN** code assigns a string to List(-2)
+- **WHEN** code assigns a string to List(-2) or List(-3)
 - **THEN** it raises error 7, "Out of memory", and ListCount retains its value
 - **AND** a direct or typed write raises -2147024882 with the same description
 - **WHEN** code assigns Null to ItemData(0) on a populated list
@@ -2773,17 +2787,18 @@ measured runtime errors in [#5117](https://github.com/hexide-io/HexIDE/issues/51
 - **AND** a direct or typed write raises error 94
 
 #### Scenario: Read-only or missing-index access
-- **WHEN** code assigns to NewIndex
+- **WHEN** code assigns to NewIndex or ListCount
 - **THEN** it raises error 383 and NewIndex retains its value
-- **WHEN** code reads ItemData without an index
+- **WHEN** code reads List or ItemData without an index, reads ItemData(), or writes List or ItemData without an index
 - **THEN** it raises error 385
 
 ### Requirement: Failed ComboBox List writes move the selection silently
 
 The runtime SHALL apply silent selection movement before a failed ComboBox List write below -1,
 following [#5134](https://github.com/hexide-io/HexIDE/issues/5134) (SP6 native/p-code, oracle PR #5159).
-A late-bound reference SHALL move the selection the same way, raising 7 (measured from every starting
-selection: oracle PR #5125 and #5134's comments).
+A late-bound reference SHALL move the selection the same way, raising 7 at the measured indexes -2 and -3
+(oracle PR #5189; starting selections at -2: oracle PR #5125 and #5134's comments).
+Indexes below -3 SHALL retain their existing error pending measurement.
 
 #### Scenario: A failed ComboBox List write silently advances the selection
 - **WHEN** a ComboBox with a selected item before its last receives a List write below -1
@@ -3189,10 +3204,12 @@ Form and PictureBox mouse coordinates SHALL use the object’s
 own mapping; other controls retain their existing mouse units. A form resize SHALL retain the size
 of a user unit. A placed UserControl SHALL own the same coordinate properties, Scale statement and conversions,
 initialized from its saved scale over its child canvas. Its saved child positions SHALL remain twips even when
-its .ctl declares pixels. A form or PictureBox saved in User mode with no extents or origins SHALL use one twip
-per unit and zero origins. Origins and extents of a saved UserControl User scale without extents SHALL remain refused as unmeasured.
-Me-qualified coordinate access and Object aliases to the own root SHALL retain their prior refusals pending measurement.
-PictureBox resize and UserControl drawing remain unmeasured (#4693).
+its .ctl declares pixels. A form, PictureBox or UserControl saved in User mode with no extents or origins
+SHALL use one twip per unit and zero origins. Scale members through an Object holding a UserControl’s Me
+or its placed extender SHALL raise 438 without changing the scale. Set of the bare UserControl base-class name SHALL raise
+"Invalid use of base class name" as the statement runs; other uses of that name as a value retain their behaviour.
+A PictureBox resize SHALL retain origins and units per twip on each axis; an unchanged dimension SHALL retain
+its extent (oracle PR #5212). UserControl drawing remains unmeasured (#5515).
 
 The interpreter and bundled LSP grammars SHALL parse the bare and qualified Scale statement with either
 two points or no arguments. ScaleX and ScaleY SHALL default from HiMetric to the current scale, returning
@@ -3203,12 +3220,14 @@ The measured metric factor and its accepted last-place precision difference are 
 
 Late-bound Scale, ScaleX and ScaleY SHALL use a form's or PictureBox's mapping; TextBox and UserControl
 extenders SHALL raise 438. Other objects SHALL retain their existing behaviour. Zero conversion arguments
-SHALL raise "Argument not optional"; four on either axis and five on ScaleX SHALL raise "Wrong number of
-arguments or invalid property assignment" as execution reaches the statement. ScaleY with five and counts
-above five SHALL remain refused as unmeasured. Centimetre PictureBox Line endpoints SHALL load as whole twips
-using the approved factor, with the one-Single-step X1/Y1 difference the maintainer accepted with #990's factor.
-These rows are measured in the coordinate oracle's #4693 sections.
-User-scale PictureBox Lines and other unmeasured Line modes SHALL remain refused naming #4693.
+SHALL raise "Argument not optional" early-bound; four or more on either axis SHALL raise "Wrong number of
+arguments or invalid property assignment" as execution reaches the statement. Late-bound invalid counts
+SHALL raise 450, "Wrong number of arguments or invalid property assignment". Centimetre PictureBox Line
+endpoints SHALL load as whole twips using the approved factor, with the one-Single-step X1/Y1 difference the maintainer accepted with #990's factor.
+A centimetre-loaded PictureBox Line SHALL read its ends in the container's current ScaleMode, User included,
+adding the container's ScaleLeft and ScaleTop, and a write SHALL take them off and store whole twips. These final rows are measured in
+[#4693](https://github.com/hexide-io/HexIDE/issues/4693) (oracle PR #5514).
+Loading Lines saved in User-scale PictureBoxes and other unmeasured Line modes SHALL remain refused naming #4693.
 
 #### Scenario: A pixel-saved UserControl
 - **WHEN** a 2400 by 1800 twip UserControl is saved in pixel mode with a Label at 10, 20, 40 by 17
@@ -3276,7 +3295,36 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 - **THEN** execution refuses with NotImplementedException naming #988
 - **AND** late-bound Line/PSet/Circle, FontTransparent assignments, Cls used as a value and unmeasured Cls/Point argument counts refuse likewise
 - **AND** an unrepresentable saved FillColor refuses instead of silently using black
-- **AND** AutoRedraw assignments are retained; persistence and Paint-event timing remain #991, and text drawing #989
+- **AND** text drawing remains #989; Image and Picture = Image remain #992
+
+#### Scenario: AutoRedraw keeps a picture independently of the window
+- **WHEN** a form or PictureBox draws with AutoRedraw True
+- **THEN** it SHALL draw into its kept picture and display that picture
+- **WHEN** it draws with AutoRedraw False
+- **THEN** only the window SHALL change; Point SHALL read the window until Refresh
+- **AND** turning AutoRedraw off SHALL keep the picture
+- **WHEN** Refresh runs with no arguments
+- **THEN** the window SHALL reset to the kept picture and only that object's Paint SHALL run before the next statement if AutoRedraw is False
+- **AND** with AutoRedraw True no Paint SHALL run
+- **AND** Refresh used as a value and CallByName Refresh SHALL refuse explicitly with #991, pending measurement of their results
+
+#### Scenario: Paint follows measured visibility and growth changes
+- **WHEN** a form first shows
+- **THEN** Resize SHALL run once synchronously, followed by posted Activate, form Paint and visible PictureBox Paint
+- **WHEN** a form shows after Hide or restores from minimized
+- **THEN** form Paint and visible PictureBox Paint SHALL be posted, after Resize on restore
+- **WHEN** a form's client area grows by a native resize or code size assignment
+- **THEN** its Paint SHALL be posted after Resize; a pure shrink or position-only Move SHALL raise no Paint
+- **WHEN** a control is hidden, or a PictureBox is shown or grows
+- **THEN** form Paint, or that PictureBox's Paint respectively, SHALL be posted
+- **AND** a PictureBox size change while shown SHALL raise Resize synchronously
+- **AND** AutoRedraw True SHALL suppress that object's Paint on all these paths
+- **AND** drawing, Cls, Caption and BackColor SHALL raise no Paint
+- **AND** these posted Paints SHALL retain window drawing; exposure by another application SHALL neither raise Paint nor discard drawing
+
+These #991 scenarios use the [drawing oracle's console measurements](../../../docs/vb6-fidelity-oracle/the-drawing-methods-line-pset-circle-cls-and-point.md).
+Retaining drawing for posted Paint, and ignoring other applications' exposure, are the issue's explicit fidelity decisions.
+The conflicting AutoRedraw-toggle Paint sequences and Cls's effect on each layer remain unpinned.
 
 #### Scenario: Drawing and readback use distinct rounding paths
 - **WHEN** a form draws PSet (7.5, 7.5) in twips
@@ -3319,7 +3367,8 @@ coordinate system, with the state, syntax, pixels and refusals measured for
 
 The interpreter SHALL evaluate `Date`, `Date$`, `Time` and `Time$` assignment operands before
 raising the measured conversion error or error 70. It SHALL never change the host clock, even
-elevated (deliberate divergence from VB6). Measurements: #4681 and
+elevated (deliberate divergence from VB6, the maintainer's decision of 2026-11-24 on #4681: no opt-in without a
+serious use case). Measurements: #4681 and
 [#4733](https://github.com/hexide-io/HexIDE/issues/4733), SP6 native and p-code, measurement PR #4777.
 
 #### Scenario: Scalar conversion precedes permission
@@ -3436,3 +3485,32 @@ implementation scope: [#5065](https://github.com/hexide-io/HexIDE/issues/5065).
 - **WHEN** it loads
 - **THEN** Width, Height, ScaleWidth and ScaleHeight read 2610, 2955, 2520 and 2520
 - **AND** its window has a caption bar
+
+### Requirement: CommandButton Style is readable and cannot be assigned at run time
+
+A CommandButton’s Style SHALL read as Integer 0 (Standard) or 1 (Graphical). Assigning Style SHALL
+raise 382, "'Style' property cannot be set at run time", and leave Style unchanged. Standard SHALL
+paint the button-face system colour regardless of stored BackColor; Graphical SHALL paint BackColor.
+
+#### Scenario: An Object cannot change a Graphical button’s Style
+
+- **GIVEN** an Object holding a Graphical CommandButton
+- **WHEN** code assigns its Style to 0 under On Error Resume Next
+- **THEN** Err.Number is 382 and Err.Description is "'Style' property cannot be set at run time"
+- **AND** Style remains Integer 1
+
+#### Scenario: Direct assignment uses the interpreter’s execution policy
+
+- **WHEN** code directly assigns `Command1.Style = 1`
+- **THEN** the interpreter raises the same 382 when the statement runs
+- **AND** VB6’s compile-time rejection is documented as a difference in evaluation point
+
+#### Scenario: Code sets a Standard button’s BackColor
+
+- **WHEN** code assigns BackColor on a Standard button
+- **THEN** it keeps painting the button face and reads back the assigned BackColor
+- **AND** this follows #913’s decision to share the loaded-colour paint rule, rather than a measurement of that assignment
+
+CallByName remains outside this requirement (#4520). Authority:
+[Style measurements](../../../docs/vb6-fidelity-oracle/a-commandbuttons-style-assigned-from-code-and-painted-in-the-designer.md)
+and [loaded runtime paint](../../../docs/vb6-fidelity-oracle/a-form-based-games-runtime-surface.md).

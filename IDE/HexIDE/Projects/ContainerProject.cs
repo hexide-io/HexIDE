@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using HexIDE.Lsp;
+using HexIDE.IDE;
 using HexIDE.TwinBasic;
 
 namespace HexIDE.Projects;
@@ -13,7 +14,6 @@ public interface IContainerProject
     string ContainerPath { get; }
     string Name { get; }
     ContainerFolder Root { get; }
-    bool CanSynchronizeFolder { get; }
     bool SupportsLanguageServers { get; }
     string? LanguageOf(ContainerEntry entry);
     bool IsLocked { get; }
@@ -68,14 +68,25 @@ public sealed class ContainerDocument : ContainerEntry
     public new ArchiveText ReadText() => base.ReadText() ?? new(ArchiveTextStatus.UnsupportedType, null);
 }
 
-internal sealed class TwinBasicBrowserProject : IContainerProject
+internal interface ICompoundFolderProject
 {
-    private readonly ArchiveProjectSnapshot snapshot;
+    ICompoundFolderFormat FolderFormat { get; }
+}
+
+internal static class CompoundFolderProjectExtensions
+{
+    internal static ICompoundFolderFormat? FolderFormat(this IContainerProject project) =>
+        (project as ICompoundFolderProject)?.FolderFormat;
+}
+
+internal sealed class TwinBasicBrowserProject : IContainerProject, ICompoundFolderProject
+{
+    internal ArchiveProjectSnapshot Snapshot { get; }
     private readonly Dictionary<ArchiveEntryIdentity, ContainerEntry> entries = new();
-    public string ContainerPath => snapshot.ContainerPath;
-    public string Name => snapshot.Name;
+    public string ContainerPath => Snapshot.ContainerPath;
+    public string Name => Snapshot.Name;
     public ContainerFolder Root { get; }
-    public bool CanSynchronizeFolder => true;
+    public ICompoundFolderFormat FolderFormat => TwinBasicFolderFormat.Instance;
     public bool SupportsLanguageServers => true;
     public string? LanguageOf(ContainerEntry entry) =>
         entry.Name.EndsWith(".twin", StringComparison.OrdinalIgnoreCase)
@@ -83,11 +94,11 @@ internal sealed class TwinBasicBrowserProject : IContainerProject
             ? DocumentLanguage.TwinBasic : null;
     public bool IsLocked => false;
     public string? NoticeKey => null;
-    public string? BuildType => TwinBasicCompilationConstants.BuildTypeOf(snapshot.Container);
+    public string? BuildType => TwinBasicCompilationConstants.BuildTypeOf(Snapshot.Container);
 
     public TwinBasicBrowserProject(ArchiveProjectSnapshot snapshot)
     {
-        this.snapshot = snapshot;
+        Snapshot = snapshot;
         Root = (ContainerFolder)ContainerEntry.FromArchive(snapshot.Root);
         void Add(ContainerEntry entry)
         {

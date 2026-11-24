@@ -13,7 +13,7 @@ namespace HexIDE.Tests.ViewModels;
 /// in the whole tree: the DI binding and the class implementing it. Every failure mode on the language-server
 /// seam presented identically, as nothing happening and nothing saying why (hexide-io/HexIDE#259).
 /// </summary>
-public class LanguageServersToolViewModelTests : IAsyncDisposable
+public partial class LanguageServersToolViewModelTests : IAsyncDisposable
 {
     /// <summary>
     /// A real capture, not a substitute.

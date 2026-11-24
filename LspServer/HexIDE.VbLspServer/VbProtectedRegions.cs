@@ -26,7 +26,7 @@ namespace HexIDE.VbLspServer;
 /// </para>
 /// <para>
 /// <b>This is the IDE's rule, ported rather than shared.</b> The IDE's own copy is
-/// <c>IDE/HexIDE.Runtime/Serialization/ReadOnlyRegions.cs</c>, and the two halves of the repository do not
+/// <c>IDE/HexIDE.Core/Language/ReadOnlyRegions.cs</c>, and the two halves of the repository do not
 /// reference each other, for the same reasons the two grammar copies are separate. The server only ever has
 /// the text, so this is that file's text-only branch. <c>BundledServerRespectsTheIdesRegionsTests</c> in
 /// <c>HexIDE.Tests</c> drives the built server against the IDE's copy over the corpus, which is what keeps
@@ -371,10 +371,14 @@ internal sealed class VbProtectedRegions
             if (moduleNames is null)
             {
                 moduleNames = DeclaredNames(lines, header);
-                foreach (var line in logical)
+                var first = FirstBody();
+                for (var i = 0; i < logical.Count; i++)
                 {
-                    foreach (var d in ReadDeclarations(Text(line), out _))
-                        moduleNames.Add(d.Name);
+                    foreach (var d in ReadDeclarations(Text(logical[i]), out _))
+                    {
+                        if (d.Kind == DeclarationKind.Procedure || i < first)
+                            moduleNames.Add(d.Name);
+                    }
                 }
             }
             return moduleNames;

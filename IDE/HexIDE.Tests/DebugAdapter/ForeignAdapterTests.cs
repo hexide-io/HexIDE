@@ -38,6 +38,8 @@ public class ForeignAdapterTests
         var resolve = () => ForeignAdapterAcquisition.Asset("netcoredbg", "win-arm64");
 
         resolve.Should().Throw<PlatformNotSupportedException>("its only Windows build is x64, which crashes launching an Arm program");
+        var intelMac = () => ForeignAdapterAcquisition.Asset("netcoredbg", "osx-x64");
+        intelMac.Should().Throw<PlatformNotSupportedException>("its only macOS build is arm64 (#5564)");
     }
 
     [ForeignAdapterFact("debugpy")]

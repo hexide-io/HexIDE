@@ -4,8 +4,8 @@ using System.Threading.Tasks;
 namespace HexIDE.Lsp;
 
 /// <summary>
-/// Asks the person whether to launch a language server's command that the IDE hasn't run before, or whose
-/// command line has changed since it last did (#1209).
+/// Asks the person whether to launch a language server's command that the IDE hasn't run before, or to dial an
+/// address it hasn't connected to before, or either one changed since it last did (#1209, #5465).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,7 +24,9 @@ public interface ILanguageServerLaunchConfirmation
 {
     /// <param name="serverId">The entry's id.</param>
     /// <param name="serverName">The entry's display name, or its id when it has none.</param>
-    /// <param name="command">The command identity, from <c>LanguageServerConfigLoader.LaunchedCommandOf</c>.</param>
+    /// <param name="command">The identity, from <c>LanguageServerConfigLoader.SeenIdentityOf</c>: the command line it starts,
+    /// with <c>; connect &lt;endpoint&gt;</c> after it when it also dials, or <c>connect &lt;endpoint&gt;</c> alone for an
+    /// entry that only connects.</param>
     /// <param name="cancellationToken">Cancels the prompt, which then answers <c>false</c>.</param>
     Task<bool> ConfirmLaunchAsync(string serverId, string serverName, string command, CancellationToken cancellationToken);
 }

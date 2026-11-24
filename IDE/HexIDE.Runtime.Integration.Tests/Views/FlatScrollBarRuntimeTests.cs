@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using HexIDE.Runtime;
+using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.Interpreter;
@@ -55,10 +57,9 @@ public class FlatScrollBarRuntimeTests
         Bag(bar).TrySetProperty("Enabled", new Vb6Value(2));
         bar.IsEnabled.Should().BeTrue();
         Bag(bar).TrySetProperty("Value", new Vb6Value(12));
-        var hidden = () => Read(bar, "_Value");
-        hidden.Should().Throw<NotImplementedException>().WithMessage("*FlatScrollBar*not implemented*");
+        Read(bar, "_Value").Should().Be(12);
         var pointerOutsideProbe = () => Bag(bar).TrySetProperty("MousePointer", new Vb6Value(32768L));
-        pointerOutsideProbe.Should().Throw<NotImplementedException>().WithMessage("*FlatScrollBar*not implemented*");
+        pointerOutsideProbe.Should().Throw<VBRunTimeException>().Which.Error.ErrNo.Should().Be(380);
     }
 
     [AvaloniaFact]
@@ -170,5 +171,243 @@ public class FlatScrollBarRuntimeTests
         var bar = Create();
         var act = () => Read(bar, member);
         act.Should().Throw<NotImplementedException>().WithMessage("*FlatScrollBar*not implemented*");
+    }
+
+    // VB6 SP6 native and p-code: #1097's conversions comment, oracle PR #5507.
+    [AvaloniaTheory]
+    [InlineData("Value", "Empty", 0, 0)]
+    [InlineData("Value", "True", 380, 37)]
+    [InlineData("Value", "False", 0, 0)]
+    [InlineData("Value", "\"7\"", 0, 7)]
+    [InlineData("Value", "CByte(7)", 0, 7)]
+    [InlineData("Value", "CCur(7.5)", 0, 8)]
+    [InlineData("Value", "CDate(7.5)", 0, 8)]
+    [InlineData("Value", "CDec(7.5)", 0, 8)]
+    [InlineData("Value", "7.5", 0, 8)]
+    [InlineData("Value", "CSng(2.5)", 0, 2)]
+    [InlineData("Value", "\"abc\"", 13, 37)]
+    [InlineData("Value", "40000&", 6, 37)]
+    [InlineData("Value", "Null", 94, 37)]
+    [InlineData("Min", "Empty", 0, 0)]
+    [InlineData("Min", "True", 0, -1)]
+    [InlineData("Min", "False", 0, 0)]
+    [InlineData("Min", "\"7\"", 0, 7)]
+    [InlineData("Min", "CByte(7)", 0, 7)]
+    [InlineData("Min", "CCur(7.5)", 0, 8)]
+    [InlineData("Min", "CDate(7.5)", 0, 8)]
+    [InlineData("Min", "CDec(7.5)", 0, 8)]
+    [InlineData("Min", "7.5", 0, 8)]
+    [InlineData("Min", "CSng(2.5)", 0, 2)]
+    [InlineData("Min", "\"abc\"", 13, 0)]
+    [InlineData("Min", "40000&", 6, 0)]
+    [InlineData("Min", "Null", 94, 0)]
+    [InlineData("Max", "Empty", 0, 0)]
+    [InlineData("Max", "True", 0, -1)]
+    [InlineData("Max", "False", 0, 0)]
+    [InlineData("Max", "\"7\"", 0, 7)]
+    [InlineData("Max", "CByte(7)", 0, 7)]
+    [InlineData("Max", "CCur(7.5)", 0, 8)]
+    [InlineData("Max", "CDate(7.5)", 0, 8)]
+    [InlineData("Max", "CDec(7.5)", 0, 8)]
+    [InlineData("Max", "7.5", 0, 8)]
+    [InlineData("Max", "CSng(2.5)", 0, 2)]
+    [InlineData("Max", "\"abc\"", 13, 100)]
+    [InlineData("Max", "40000&", 6, 100)]
+    [InlineData("Max", "Null", 94, 100)]
+    [InlineData("SmallChange", "Empty", 380, 1)]
+    [InlineData("SmallChange", "True", 380, 1)]
+    [InlineData("SmallChange", "False", 380, 1)]
+    [InlineData("SmallChange", "\"7\"", 0, 7)]
+    [InlineData("SmallChange", "CByte(7)", 0, 7)]
+    [InlineData("SmallChange", "CCur(7.5)", 0, 8)]
+    [InlineData("SmallChange", "CDate(7.5)", 0, 8)]
+    [InlineData("SmallChange", "CDec(7.5)", 0, 8)]
+    [InlineData("SmallChange", "7.5", 0, 8)]
+    [InlineData("SmallChange", "CSng(2.5)", 0, 2)]
+    [InlineData("SmallChange", "\"abc\"", 13, 1)]
+    [InlineData("SmallChange", "40000&", 6, 1)]
+    [InlineData("SmallChange", "Null", 94, 1)]
+    [InlineData("LargeChange", "Empty", 380, 1)]
+    [InlineData("LargeChange", "True", 380, 1)]
+    [InlineData("LargeChange", "False", 380, 1)]
+    [InlineData("LargeChange", "\"7\"", 0, 7)]
+    [InlineData("LargeChange", "CByte(7)", 0, 7)]
+    [InlineData("LargeChange", "CCur(7.5)", 0, 8)]
+    [InlineData("LargeChange", "CDate(7.5)", 0, 8)]
+    [InlineData("LargeChange", "CDec(7.5)", 0, 8)]
+    [InlineData("LargeChange", "7.5", 0, 8)]
+    [InlineData("LargeChange", "CSng(2.5)", 0, 2)]
+    [InlineData("LargeChange", "\"abc\"", 13, 1)]
+    [InlineData("LargeChange", "40000&", 6, 1)]
+    [InlineData("LargeChange", "Null", 94, 1)]
+    public async Task Measured_conversions(string member, string expression, int error, int expected)
+    {
+        var bar = Create();
+        Bag(bar).TrySetProperty("Max", new Vb6Value(100));
+        Bag(bar).TrySetProperty("Value", new Vb6Value(37));
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        context.AllocVariable(environment, "Flat1", new Vb6Value(bar), declaredClass: "MSComCtl2.FlatScrollBar");
+        var result = await ContainerRuntimeHarness.Run(context, environment, $"""
+            On Error Resume Next
+            Flat1.{member} = {expression}
+            Debug.Print Err.Number
+            Debug.Print Flat1.{member}
+            """);
+        Convert.ToInt32(result[0].Value).Should().Be(error);
+        Convert.ToInt32(result[1].Value).Should().Be(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("0", false, 0)]
+    [InlineData("Empty", false, 0)]
+    [InlineData("CSng(0)", false, 0)]
+    [InlineData("\"False\"", false, 0)]
+    [InlineData("1", true, 0)]
+    [InlineData("-1", true, 0)]
+    [InlineData("2", true, 0)]
+    [InlineData("1.5", true, 0)]
+    [InlineData("CByte(1)", true, 0)]
+    [InlineData("CCur(1)", true, 0)]
+    [InlineData("\"True\"", true, 0)]
+    [InlineData("\"abc\"", true, 13)]
+    [InlineData("Null", true, 94)]
+    public async Task Measured_Enabled_conversions(string expression, bool expected, int error)
+    {
+        var bar = Create();
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        context.AllocVariable(environment, "Flat1", new Vb6Value(bar), declaredClass: "MSComCtl2.FlatScrollBar");
+        var result = await ContainerRuntimeHarness.Run(context, environment, $"""
+            On Error Resume Next
+            Flat1.Enabled = {expression}
+            Debug.Print Err.Number
+            """);
+        Convert.ToInt32(result.Single().Value).Should().Be(error);
+        bar.IsEnabled.Should().Be(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Value")]
+    [InlineData("Min")]
+    [InlineData("Max")]
+    [InlineData("SmallChange")]
+    [InlineData("LargeChange")]
+    [InlineData("Enabled")]
+    public async Task Object_Null_store_raises_13_and_keeps_property(string member)
+    {
+        var bar = Create();
+        var before = Read(bar, member);
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        context.AllocVariable(environment, "Flat1", new Vb6Value(bar));
+        var result = await ContainerRuntimeHarness.Run(context, environment, $"""
+            Dim o As Object
+            Set o = Flat1
+            On Error Resume Next
+            o.{member} = Null
+            Debug.Print Err.Number
+            """);
+        Convert.ToInt32(result.Single().Value).Should().Be(13);
+        Read(bar, member).Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    [InlineData(99)]
+    public void MousePointer_updates_stored_and_visible_cursor(int pointer)
+    {
+        var bar = Create();
+        Bag(bar).TrySetProperty("MousePointer", new Vb6Value(pointer)).Should().BeTrue();
+        Read(bar, "MousePointer").Should().Be((long)pointer);
+        VBCursorTypeExtensions.PointerOf(bar.Cursor).Should().Be((VBCursorType)pointer);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(-1)]
+    [InlineData(98)]
+    [InlineData(100)]
+    public void Invalid_MousePointer_keeps_value_and_cursor(int pointer)
+    {
+        var bar = Create();
+        Bag(bar).TrySetProperty("MousePointer", new Vb6Value(2));
+        var cursor = bar.Cursor;
+        var act = () => Bag(bar).TrySetProperty("MousePointer", new Vb6Value(pointer));
+        act.Should().Throw<VBRunTimeException>().Which.Error.ErrNo.Should().Be(380);
+        Read(bar, "MousePointer").Should().Be(2L);
+        bar.Cursor.Should().BeSameAs(cursor);
+    }
+
+    [AvaloniaFact]
+    public void Saved_MousePointer_sets_cursor()
+    {
+        var bar = (VBFlatScrollBar)Create();
+        bar.LoadProperties([("MousePointer", new Vb6Value(11.0))]);
+        Read(bar, "MousePointer").Should().Be(11L);
+        VBCursorTypeExtensions.PointerOf(bar.Cursor).Should().Be((VBCursorType)11);
+    }
+
+    [AvaloniaFact]
+    public async Task Hidden_Value_uses_Value_and_raises_Change_once()
+    {
+        var bar = Create();
+        VBProps.SetName(bar, "Flat1");
+        var root = new ContainerRuntimeHarness.RecordingRoot { Child = bar };
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        context.AllocVariable(environment, "Flat1", new Vb6Value(bar));
+        var result = await ContainerRuntimeHarness.Run(context, environment, """
+            Flat1.Value = 37
+            Debug.Print Flat1.[_Value]
+            Flat1.[_Value] = 12
+            Debug.Print Flat1.Value
+            Flat1.[_Value] = 12
+            """);
+        result.Select(v => Convert.ToInt32(v.Value)).Should().Equal(37, 12);
+        root.Calls.Select(c => c.Name).Should().Equal("Flat1_Change", "Flat1_Change");
+    }
+
+    [AvaloniaFact]
+    public void Unmeasured_Refresh_arguments_keep_the_existing_refusal()
+    {
+        var bar = Create();
+        var act = () => bar.Call("Refresh", [new Vb6Value(1)]);
+        act.Should().Throw<NotImplementedException>().WithMessage("FlatScrollBar Refresh is not implemented (#1097)");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Refresh_succeeds(bool lateBound)
+    {
+        var bar = Create();
+        var context = new ModuleExecutionContext();
+        var environment = new ExecutionEnvironment();
+        context.AllocVariable(environment, "Flat1", new Vb6Value(bar), declaredClass: "MSComCtl2.FlatScrollBar");
+        var result = await ContainerRuntimeHarness.Run(context, environment, lateBound ? """
+            Dim o As Object
+            Set o = Flat1
+            o.Refresh
+            Debug.Print Err.Number
+            """ : """
+            Flat1.Refresh
+            Debug.Print Err.Number
+            """);
+        Convert.ToInt32(result.Single().Value).Should().Be(0);
     }
 }

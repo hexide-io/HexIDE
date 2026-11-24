@@ -36,7 +36,7 @@ public sealed class ArchiveFileToolsTests : IDisposable
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         archives = new ArchiveProjectService(dock, Substitute.For<IRecentProjectsService>(), localization,
             Substitute.For<IWindowManager>(), new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
-        editors = new EditorService(dock, () => throw new InvalidOperationException(),
+        editors = new EditorService(Substitute.For<HexIDE.IDE.IWindowManager>(), dock, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => new ProjectDocumentViewModel(localization),
             () => throw new InvalidOperationException(), () => projects, localization,
             projects: () => Substitute.For<IProjectService>());
@@ -178,7 +178,7 @@ public sealed class ArchiveFileToolsTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task An_entry_opens_read_only_and_the_reply_names_its_container_and_entry()
+    public async Task A_source_entry_opens_for_editing_and_the_reply_names_its_container_and_entry()
     {
         var path = Write("one.twinproj", "main.twin");
         await archives.Open(path);
@@ -186,10 +186,10 @@ public sealed class ArchiveFileToolsTests : IDisposable
         reply.Success.Should().BeTrue(reply.Error);
         reply.Project.Should().Be(path);
         reply.Document.Should().Be("/main.twin");
-        reply.Note.Should().Contain("read-only").And.Contain("language server");
+        reply.Note.Should().Contain("editable").And.Contain("language server");
         var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
         tab.Document.Text.Should().Be("first\nsecond");
-        tab.IsReadOnlyDocument.Should().BeTrue();
+        tab.IsReadOnlyDocument.Should().BeFalse();
     }
 
     [AvaloniaFact]
@@ -294,7 +294,10 @@ public sealed class ArchiveFileToolsTests : IDisposable
         tab.GetProperty("project").GetString().Should().Be(opened.Project);
         tab.GetProperty("document").GetString().Should().Be(opened.Document);
         tab.GetProperty("type").GetString().Should().Be("archive");
-        tab.TryGetProperty("isModified", out _).Should().BeFalse();
+        tab.GetProperty("isModified").GetBoolean().Should().BeFalse();
+        tabs.OfType<ArchiveDocumentViewModel>().Single().Document.Insert(0, "edit");
+        var modified = await tools.GetDocumentTabsAsync(TestContext.Current.CancellationToken);
+        modified.Tabs.Single().IsModified.Should().BeTrue();
     }
 
     [AvaloniaFact]

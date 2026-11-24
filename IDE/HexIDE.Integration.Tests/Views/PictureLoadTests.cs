@@ -21,6 +21,7 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 using HexIDE.VisualDesigner.Views;
 using HexIDE.VisualDesigner;
+using HexIDE.Imaging;
 
 namespace HexIDE.Integration.Tests.Views;
 
