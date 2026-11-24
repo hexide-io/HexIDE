@@ -32,6 +32,15 @@ public static class AvaloniaInteroperability
         return held.Value.Picture!;
     }
 
+    // A control's separate Picture object must retain a LoadPicture icon's original save restriction (#992).
+    private static void RememberSaveLayout(Control control, byte[]? bytes, PanelPicture? picture)
+    {
+        if (picture?.SaveLayoutUnmeasured != true) return;
+        var held = controlPictures.GetOrCreateValue(control);
+        if (!ReferenceEquals(held.Value.Bytes, bytes) || held.Value.Picture?.SaveLayoutUnmeasured != true)
+            held.Value = (bytes, new PanelPicture(picture.FileBytes) { SaveLayoutUnmeasured = true });
+    }
+
     private static Dictionary<PropertyClass, List<IAvaloniaBinding>> bindingsByProperty = new();
 
     // VB6 coerces any numeric to a numeric property (e.g. `Command1.Left = 100` assigns an Integer to the Double
@@ -316,6 +325,7 @@ public static class AvaloniaInteroperability
             && (value.Value is PanelPicture || value == Vb6Value.Nothing))
         {
             image.SetRuntimePicture(value.Value as PanelPicture);
+            RememberSaveLayout(image, image.Picture, value.Value as PanelPicture);
             return true;
         }
         if (control is VBPictureBox box && ReferenceEquals(property, VBProperties.PictureProperty))
@@ -323,6 +333,7 @@ public static class AvaloniaInteroperability
             if (value.Value is not PanelPicture picture)
                 throw UnmeasuredAssignment(property, value);
             box.PictureData = picture.FileBytes;
+            RememberSaveLayout(box, box.PictureData, picture);
             return true;
         }
         if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(control))

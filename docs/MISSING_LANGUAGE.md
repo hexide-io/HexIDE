@@ -125,7 +125,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 0 | 0 | 3 | 59 | 0 | 47 | 109 |
+| Statements | 0 | 0 | 2 | 60 | 0 | 47 | 109 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 1 | 80 | 0 | 74 | 155 |
 | Keywords and modifiers | 0 | 0 | 0 | 24 | 1 | 26 | 51 |
@@ -133,7 +133,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 0 | 0 | 17 | 16 | 14 | 47 |
 | In-box objects | 0 | 0 | 35 | 50 | 0 | 40 | 125 |
 | Intrinsic constants | 0 | 0 | 0 | 256 | 0 | 365 | 621 |
-| **Total** | **0** | **0** | **40** | **526** | **17** | **610** | **1193** |
+| **Total** | **0** | **0** | **39** | **527** | **17** | **610** | **1193** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -167,7 +167,7 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 3% of VB6's statements (3
+damage is concentrated in **statements** and the **in-box object model**: 2% of VB6's statements (2
 of 109) and 28% of the
 in-box surface (`App`, `Printer`, `Clipboard`; 35 of 125) are unavailable. Both
 figures are rounded to the nearest whole percent.
@@ -285,7 +285,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 40 names
+## Dies mid-run — 39 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -330,9 +330,10 @@ most of the in-box object model.
 | `Printer.PrintQuality` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printers` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `PropertyBag_VB5` | **Dies** | The name lexes as an ordinary IDENTIFIER (digits and `_` are both in LETTERORDIGIT, VB6.g4). Measured for `Dim p As PropertyBag_VB5` and for `Set p = New PropertyBag_VB5`:… | StatementExecutor.cs |
-| `SavePicture` | **Dies** | Named parameter names are measured and declared (#1087); execution still throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
 | `SelectedControls` | **Dies** | `Dim s As SelectedControls` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
+
+SavePicture is now Partial (#992); its supported layouts and remaining refusals are listed in the statement inventory below.
 
 ## Full inventory by category
 
@@ -341,7 +342,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 109 names (0 silently wrong, 3 absent, 59 partial, 47 supported)
+### Statements — 109 names (0 silently wrong, 2 absent, 60 partial, 47 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -390,7 +391,7 @@ missing.
 | `Return` | Partial | **[#4726](https://github.com/hexide-io/HexIDE/issues/4726), measured rows G1–G35, G41–G42:** Returns from the innermost GoSub; with none pending raises 3, "Return without GoSub". Return with an expression remains a load-time dialect refusal (#3434); parse-time refusals carry their module and whole-file line for `get_last_runtime_error` ([#3960](https://github.com/hexide-io/HexIDE/issues/3960)). | StatementExecutor.cs |
 | `RmDir` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `RSet` | Partial | **#2517:** named String variables and Variants holding a String or Integer justify to the current text length; both retain the leftmost characters of overlong values. Integer, Double, Boolean and Empty sources convert to text; Null raises 94 without changing the target (measured). **#179:** the six measured fixed-length scalar rows now run too. UDT copying, other target types, other source conversions and other member/indexed targets remain not implemented. **[#4626](https://github.com/hexide-io/HexIDE/issues/4626):** class-instance member targets (named or inside With) raise "Variable required - can't assign to this expression" when executed, matching the measured LSet named/With and RSet With compile errors (named RSet follows the same rule but is unmeasured); Type, Nothing, control and indexed leads remain unmeasured and refused. | StatementExecutor.cs |
-| `SavePicture` | **Dies** | Named parameter names are measured and declared (#1087); execution still throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
+| `SavePicture` | **Partial** | Writes the measured 8-/24-/32-bit BMP (40-byte DIB header), JPEG, single-image 32×32 icon and GIF subset (one full-canvas image at 0,0, 256-entry global table, no local table/interlacing, unused transparent index); BMP pixels/indexes and palettes are preserved, JPEG pixels come from the host's decoder, and for the measured fixture they are VB6's output byte for byte. Empty raises 380; missing folder raises 76 with the original path. Named Picture/FileName work in either order. [SP6 fixtures and scope (#992)](https://github.com/hexide-io/HexIDE/issues/992#issuecomment-7094565387), [errors](vb6-fidelity-oracle/loadpicture-file-kinds-and-file-errors.md). Other GIF shapes, compressed/top-down/other-depth BMPs, short palettes, other icon layouts, Image (#991), conversions, existing destinations and other write errors refuse (#992). | StatementExecutor.cs, PictureWriter.cs |
 | `SaveSetting` | Supported | **#1562:** runs as vb6.exe measured, as a statement, by `Call`, and as `VBA.SaveSetting`, with its named arguments. The setting is kept as text, a backslash in the program or section name makes a path, an empty name is 5, and Null 94. On Windows it writes the registry key VB6 uses, `HKCU\Software\VB and VBA Program Settings`; elsewhere `program-settings.json` under stock HexIDE’s configuration directory, shared by brands and made EXEs unless `--user-data-dir` redirects the IDE run ([#4070](https://github.com/hexide-io/HexIDE/issues/4070), measured in [oracle PR #4072](https://github.com/hexide-io/HexIDE/pull/4072)) | VB6BuiltIns.Settings.cs |
 | `Seek (statement)` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** `Seek #n, position`, or with no `#`, moves the next read or write to that byte, as vb6.exe measured: below 1 is 63; past the end an Input file is at its end and an Output file's next Print fills the gap with NULs; on an Append file it writes over what is there. On a Binary file the byte, on a Random file the record, and EOF False after it ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | StatementExecutor.cs, VbFiles.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
@@ -1163,6 +1164,21 @@ these restrictions apply to the new VBA7 type, not to the existing VB6 argument 
 | PictureBox.Picture conversions | Dies | Assignment accepts LoadPicture objects; other conversions refuse as not implemented. Picture reads now supply a Picture object for the measured SSTab control-assignment path (#3426 / #4297), and it is one object until the picture is assigned again: `Picture1.Picture Is Picture1.Picture` is True, as measured; empty Type reads 0. Native/default handles and remaining StdPicture submembers remain refused. | AvaloniaInteroperability.cs; PanelPicture.cs |
 | Label.AutoSize | Partial | Runtime caption/font changes and enabling AutoSize fit the caption; saved and explicit dimensions hold until a trigger (#922, [measurements](vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md), [oracle PR #4984](https://github.com/hexide-io/HexIDE/pull/4984)). Windows uses GDI in the VBFont at 96 DPI; other platforms approximate with whole-pixel advances in the drawn font, without overhang. MS Sans Serif is drawn with a substitute that can differ from the measured font. Center with WordWrap deliberately avoids VB6’s repeated odd-width growth: from Left 600 / Width 1000 the sentence gives 600 / 1005, versus VB6 585 / 1035; after the long word, Hi holds 90 / 2025 versus VB6 75 / 2055. Captions consisting only of line breaks other than the measured CRLF refuse with a program-facing English not-implemented error; no width is guessed. Identical font assignments retain today’s no-resize behaviour, unmeasured in VB6. Design time and unmeasured triggers (Alignment, BorderStyle, WordWrap, UseMnemonic changes) remain unchanged. | LabelAutoSize.cs, LabelCaptionMetrics.cs |
 | Label.AutoSize with only unmeasured line breaks | Dies | A caption consisting only of line breaks, except the measured CRLF pair, refuses with not implemented (#922). [Oracle PR #4984](https://github.com/hexide-io/HexIDE/pull/4984) explicitly leaves other break-only captions unmeasured. | LabelCaptionMetrics.cs |
+
+## SavePicture remaining surface (outside the baseline inventory)
+
+The supported layouts and measured errors are listed in the SavePicture statement inventory above, from
+[#992's SP6 fixtures and scope](https://github.com/hexide-io/HexIDE/issues/992#issuecomment-7094565387).
+
+| Surface | Status | Detail | Source |
+|---|---|---|---|
+| SavePicture other GIF shapes | Dies | Local tables, used transparency, no transparent index, interlacing, multiple images, short global tables, partial/offset image rectangles and extensions other than one preceding Graphic Control Extension refuse (#992). | PictureWriter.cs |
+| SavePicture other BMP layouts | Dies | DIB headers other than the measured 40-byte header, compressed, top-down and depths other than 8/24/32 refuse (#992). | PictureWriter.cs |
+| SavePicture short 8-bit BMP tables | Dies | Fewer than 256 entries refuse (#992). | PictureWriter.cs |
+| SavePicture other icon layouts | Dies | Sources other than one 32×32 image refuse, including a multi-image source reduced by LoadPicture (#992). | PanelPicture.cs; PictureWriter.cs |
+| PictureBox.Image | Dies | Reading the drawing as a Picture remains not implemented (#991, #992). Removed controls retain error 735 ([measurements](vb6-fidelity-oracle/controls-add-and-controls-remove.md)). | ControlMembers.cs |
+| SavePicture replacing an existing destination | Dies | Replacement and file metadata semantics are unmeasured; refuses before writing and preserves the existing file (#992). | PictureWriter.cs |
+| SavePicture other write errors and conversions | Dies | Only missing-folder errors and Picture/String arguments are implemented; the rest refuse (#992). | PictureWriter.cs |
 
 ## CommandButton Style (outside the baseline inventory)
 

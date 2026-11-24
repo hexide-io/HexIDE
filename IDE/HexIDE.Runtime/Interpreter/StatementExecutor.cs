@@ -4061,7 +4061,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitSavepictureStmt(VB6Parser.SavepictureStmtContext context)
     {
-        throw new NotImplementedException("Savepicture not implemented");
+        var args = new List<CallArg>();
+        foreach (var argument in context.valueStmt())
+        {
+            if (argument is VB6Parser.VsAssignContext assign)
+                args.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
+                    Deferred: async () => new CallArg(await expressionExecutor.EvaluateValueFast(assign.valueStmt()), null)));
+            else
+            {
+                if (args.Count > 0 && args[^1].Name is not null) throw new VBCompileErrorException("Syntax error");
+                args.Add(new CallArg(await expressionExecutor.EvaluateValueFast(argument), null));
+            }
+        }
+        PictureWriter.Save(await VB6BuiltIns.ArrangeIntrinsicArguments("SavePicture", args), interpreter.BuiltIns.Files);
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitSaveSettingStmt(VB6Parser.SaveSettingStmtContext context)
