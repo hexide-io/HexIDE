@@ -466,3 +466,30 @@ SHALL remove what the Translation Editor shows and SHALL leave the kept override
 #### Scenario: Resetting German
 - **WHEN** the user resets German while its file holds a kept translation
 - **THEN** the file holds only that translation afterwards
+
+### Requirement: The Basic provider owns its language-pack area
+The Basic provider SHALL ship and register its own language-pack area through its host, and SHALL dispose that
+registration with its resources. Moving text between areas SHALL preserve its value, including distribution branding.
+
+#### Scenario: Text belongs to the provider
+- **WHEN** the Basic provider initializes
+- **THEN** its area SHALL hold property descriptions, project type names, provider project-load messages, Make and VB6
+  toolchain messages, the not-implemented runner message, and the Standalone Wayland diagnostic
+- **AND** the IDE SHALL retain its startup diagnostic and project-load heading, warning summary and ActiveX-document notice
+
+#### Scenario: Moving provider text preserves the displayed language
+- **WHEN** a user selects German with the Basic provider registered
+- **THEN** VB6 property descriptions SHALL resolve from the provider's German pack
+- **AND** moving the text between areas SHALL preserve its value, including distribution branding
+
+#### Scenario: Standalone has no IDE pack dependency
+- **WHEN** Standalone reads its Wayland diagnostic or not-implemented runner message
+- **THEN** both SHALL resolve from the provider's English pack embedded in Standalone
+
+### Requirement: Shipped pack guards cover every production area
+Every in-tree production area SHALL have every neutral language declared in the manifest. English keys SHALL be disjoint,
+and provider keys SHALL stay inside the provider's grant. Source coverage SHALL resolve keys against the union of areas.
+
+#### Scenario: A provider translation loses a key
+- **WHEN** a provider neutral pack lacks one of its area's canonical English keys
+- **THEN** shipped pack parity SHALL fail, as it does for the shell's area

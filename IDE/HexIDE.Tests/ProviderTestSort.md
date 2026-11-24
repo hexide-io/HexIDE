@@ -66,6 +66,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/SplitDocumentTabsTests.cs` | split |
 | `Infrastructure/WaylandStartupTests.cs` | split |
 | `Infrastructure/WorkingCopyReplyTests.cs` | split |
+| `Localization/BasicProviderPackRegistrationTests.cs` | provider |
 | `LspClient/BundledServerRespectsTheIdesRegionsTests.cs` | split |
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
 | `LspClient/DocumentWireNameTests.cs` | split |

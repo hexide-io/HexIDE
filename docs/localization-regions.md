@@ -33,8 +33,10 @@ key and both line numbers; presence checks alone cannot detect last-value-wins m
 ## How packs and regions work
 
 - **Pack ids are BCP-47** — a neutral language (`en`, `fr`, `zh-Hans`) or `language-REGION` (`en-GB`,
-  `fr-FR`). One JSON file per pack at `IDE/HexIDE/Localization/Packs/{id}.json`.
-- **`en` is the canonical pack** — the single key-complete source of truth and the universal fallback
+  `fr-FR`). One JSON file per pack in each shipped area: `IDE/HexIDE/Localization/Packs/{id}.json` for the
+  shell and `IDE/HexIDE.Runtime/Localization/Packs/{id}.json` for the Basic provider (#5395). The provider
+  registers its area through its host; its property descriptions, project and toolchain text are kept there.
+- **Each area’s `en` is canonical** — their disjoint union is the key-complete source of truth and universal fallback
   (US-spelled neutral English; renamed from `en-US` in P17). Every other pack lists only the keys it overrides.
 - **The picker is two cascading combos (P17):** a **Language** combo (one entry per translation) drives a
   dependent **Region** combo (a `(Standard)` entry = the bare neutral, plus that language's regions).

@@ -48,7 +48,7 @@ public class Program
                 BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
                 return 0;
             },
-            reason => string.Format(App.ErrorString("Str.Startup.WaylandUnavailableEnvironment"), reason),
+            reason => string.Format(App.ErrorString("Str.Standalone.WaylandUnavailableEnvironment"), reason),
             _ => { });
     }
 
