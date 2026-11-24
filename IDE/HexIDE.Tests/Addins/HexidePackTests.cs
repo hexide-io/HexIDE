@@ -23,7 +23,9 @@ public sealed class HexidePackTests : IDisposable
         new(console ?? new TestConsole(), _output, _error, args => { _runs.Add(args); return exitCode; }, blocker,
             windows: false);
 
-    private void MakeAddinFolders(params string[] dlls)
+    private void MakeAddinFolders(params string[] dlls) => MakeAddinFolders(keyInTrust: true, dlls);
+
+    private void MakeAddinFolders(bool keyInTrust, params string[] dlls)
     {
         Directory.CreateDirectory(Src);
         foreach (var dll in dlls)
@@ -31,6 +33,16 @@ public sealed class HexidePackTests : IDisposable
         Directory.CreateDirectory(Trust);
         foreach (var name in PackerCommands.TrustFiles)
             File.WriteAllText(Path.Combine(Trust, name), "");
+        if (keyInTrust)
+            File.WriteAllText(Path.Combine(Trust, "firstparty.key"), "");
+    }
+
+    private string KeyElsewhere()
+    {
+        var key = Path.Combine(_root, "private", "acme.key");
+        Directory.CreateDirectory(Path.GetDirectoryName(key)!);
+        File.WriteAllText(key, "");
+        return key;
     }
 
     private string[] Complete => ["pack", "--src", Src, "--entry", "A.dll", "--id", "com.acme.a", "--title", "A",
@@ -84,6 +96,7 @@ public sealed class HexidePackTests : IDisposable
         console.Input.PushTextWithEnter("A");
         console.Input.PushTextWithEnter("1.0.0");
         console.Input.PushTextWithEnter(Trust);
+        console.Input.PushKey(ConsoleKey.Enter);          // --key: skipped, as the trust folder holds firstparty.key
         console.Input.PushTextWithEnter(Out);
         console.Input.PushKey(ConsoleKey.Enter);          // --description: skipped
         console.Input.PushKey(ConsoleKey.Enter);          // --author: skipped
@@ -151,7 +164,7 @@ public sealed class HexidePackTests : IDisposable
         var console = new TestConsole().Interactive();
         console.Input.PushKey(ConsoleKey.Enter);          // no default, so an empty --entry is refused
         console.Input.PushTextWithEnter("B.dll");
-        for (var skipped = 0; skipped < 5; skipped++)     // the optional ones not typed: --author to --min-hexide-version
+        for (var skipped = 0; skipped < 6; skipped++)     // the optional ones not typed: --key, then --author to --min-hexide-version
             console.Input.PushKey(ConsoleKey.Enter);
         console.Input.PushKey(ConsoleKey.Enter);          // Go ahead?
 
@@ -222,5 +235,50 @@ public sealed class HexidePackTests : IDisposable
         process.WaitForExit();
 
         echoed.Split('\n', StringSplitOptions.RemoveEmptyEntries).Should().Equal(arguments);
+    }
+
+    // #5318: the private key can live outside the trust folder, so a trust folder of public files is enough with --key.
+    [Fact]
+    public void Off_a_terminal_a_trust_folder_without_a_key_needs_key_and_says_why()
+    {
+        MakeAddinFolders(keyInTrust: false, "A.dll");
+
+        Pack(null, "input or output isn't a terminal").Run(Complete).Should().Be(1);
+
+        _runs.Should().BeEmpty();
+        _error.ToString().Should().Contain("missing --key").And.Contain($"'{Trust}' has no firstparty.key, so give your key's file");
+    }
+
+    [Fact]
+    public void With_key_given_a_trust_folder_of_public_files_runs_at_once()
+    {
+        MakeAddinFolders(keyInTrust: false, "A.dll");
+        var key = KeyElsewhere();
+        var console = new TestConsole().Interactive();
+
+        Pack(console).Run([.. Complete, "--key", key]).Should().Be(0);
+
+        _runs.Should().ContainSingle().Which.Should().ContainInConsecutiveOrder("--trust", Trust, "--key", key);
+        console.Output.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void On_a_terminal_key_cannot_be_skipped_without_firstparty_key_in_the_trust_folder()
+    {
+        MakeAddinFolders(keyInTrust: false, "A.dll");
+        var key = KeyElsewhere();
+        var console = new TestConsole().Interactive();
+        console.Input.PushKey(ConsoleKey.Enter);          // --key: refused, the trust folder holds no key
+        console.Input.PushTextWithEnter(Path.Combine(_root, "private", "missing.key"));   // refused: no such file
+        console.Input.PushTextWithEnter(key);
+        for (var skipped = 0; skipped < 6; skipped++)     // --description to --min-hexide-version
+            console.Input.PushKey(ConsoleKey.Enter);
+        console.Input.PushKey(ConsoleKey.Enter);          // Go ahead?
+
+        Pack(console).Run(Complete).Should().Be(0);
+
+        // The console wraps at its width, so each check is a part that fits on one line.
+        console.Output.Should().Contain("firstparty.key, so give your key's file").And.Contain("there's no file at");
+        _runs.Should().ContainSingle().Which.Should().ContainInConsecutiveOrder("--key", key);
     }
 }

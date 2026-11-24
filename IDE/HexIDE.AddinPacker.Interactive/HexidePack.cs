@@ -74,7 +74,8 @@ public sealed class HexidePack(IAnsiConsole console, TextWriter output, TextWrit
         }
 
         var missing = command.Options
-            .Where(option => option.Required && !answers.ContainsKey(option.Name) && !problems.ContainsKey(option.Name)).ToArray();
+            .Where(option => (option.Required || AnswerChecks.NeededWhenSkipped(option, AnswerOf(answers)) is not null)
+                && !answers.ContainsKey(option.Name) && !problems.ContainsKey(option.Name)).ToArray();
         if (missing.Length == 0 && problems.Count == 0)
             return run(Arguments(command, answers));
 
@@ -84,6 +85,9 @@ public sealed class HexidePack(IAnsiConsole console, TextWriter output, TextWrit
                 error.WriteLine($"hexide-pack {command.Name}: {command.Options.Single(o => o.Name == name).Display}: {problem}");
             if (missing.Length > 0)
                 error.WriteLine($"hexide-pack {command.Name}: missing {string.Join(", ", missing.Select(o => o.Display))}");
+            foreach (var option in missing)
+                if (AnswerChecks.NeededWhenSkipped(option, AnswerOf(answers)) is { } needed)
+                    error.WriteLine($"hexide-pack {command.Name}: {option.Display}: {needed}");
             error.WriteLine($"It didn't ask {(missing.Length > 0 ? "for them" : "again")} because {blocker}. "
                 + $"hexide-pack {command.Name} --help lists the options.");
             return 1;
@@ -144,7 +148,9 @@ public sealed class HexidePack(IAnsiConsole console, TextWriter output, TextWrit
             var prompt = new TextPrompt<string>(option.Repeatable && answers.Count > 0
                     ? $"[bold]{Markup.Escape(option.Display)}[/] [grey]another one[/]" : label)
                 .Validate(value => string.IsNullOrEmpty(value) && !option.Required
-                    ? ValidationResult.Success()
+                    ? AnswerChecks.NeededWhenSkipped(option, answerOf) is { } needed
+                        ? ValidationResult.Error($"[red]{Markup.Escape(needed)}[/]")
+                        : ValidationResult.Success()
                     : AnswerChecks.Check(option, AnswerChecks.Normalise(option, value), answerOf) is { } problem
                         ? ValidationResult.Error($"[red]{Markup.Escape(problem)}[/]")
                         : ValidationResult.Success());
@@ -262,7 +268,7 @@ public sealed class HexidePack(IAnsiConsole console, TextWriter output, TextWrit
 
     private static string Placeholder(OptionKind kind) => kind switch
     {
-        OptionKind.ExistingFile => "file",
+        OptionKind.ExistingFile or OptionKind.SigningKey => "file",
         OptionKind.ExistingFolder or OptionKind.TrustFolder or OptionKind.OutputFolder or OptionKind.KeyFolder => "folder",
         OptionKind.FileInSource => "file in --src",
         OptionKind.PublisherId => "id",

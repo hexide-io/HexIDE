@@ -17,7 +17,7 @@ public class VBColorConverter : IValueConverter
             if (targetType == typeof(string))
                 return color.ToString();
             if (targetType == typeof(IBrush))
-                return color.ToBrush();
+                return VBColorBrushes.ToBrush(color);
             throw new NotSupportedException($"The target type {targetType} is not supported.");
         }
         if (value is string s)

@@ -181,3 +181,43 @@ ask whether to save, discard or cancel. Detecting another IDE with the project o
 #### Scenario: Another program saved the container
 - **WHEN** Save finds disk bytes different from the snapshot's baseline
 - **THEN** it refuses with a localized reason naming the file, preserving the disk bytes and unsaved edit
+
+### Requirement: Apply measured twinBASIC structural edits
+Project Explorer MUST offer Rename/Delete for an unpaired `.twin` under Sources in an open `.twinproj`,
+and New Folder for Sources and descendant folders. Commands MUST write immediately through the verified,
+recoverable, external-change-refusing save path. Rename MUST preserve content, metadata and position;
+deletion MUST remove only its entry; a new empty folder MUST be first with revision, flags and category zero,
+following the container-v1 oracle (#5144).
+
+#### Scenario: Add a source folder
+- **WHEN** New Folder succeeds under Sources or one of its descendant folders
+- **THEN** the new empty entry is first in its parent with revision, flags and category zero
+
+### Requirement: Guard structural commands and retain workspace state
+All three commands MUST refuse while any source in that container has unsaved edits, including edits made
+while a prompt is open. Delete MUST first ask for confirmation naming the entry. An open renamed tab MUST
+follow its entry and a deleted entry's tab MUST close. Tree selection MUST follow a rename or select the
+parent after deletion, retaining archive focus. A loaded VB6 group's name, order, startup project and saved
+state MUST remain unchanged.
+
+#### Scenario: Rename an open module
+- **WHEN** a module is renamed with a valid unique identifier and the container has no unsaved edits
+- **THEN** the checked replacement is saved immediately and the same tab remains open under its new name
+
+#### Scenario: Delete confirmation is cancelled
+- **WHEN** the user declines the named module deletion
+- **THEN** the container bytes, tree and open tabs remain unchanged
+
+#### Scenario: Unsaved source edits prevent folder creation
+- **WHEN** New Folder is requested while another source in that container has unsaved edits
+- **THEN** a localized refusal asks the user to save or discard them first and nothing is written
+
+### Requirement: Restrict structural names and unmeasured operations
+Names MUST be ASCII identifiers `[A-Za-z_][A-Za-z0-9_]*` of at most 255 bytes with any `.twin` extension included, unique in their folder ignoring
+case, excluding reserved Windows device names. This is a HexIDE safety policy. Other structural operations
+MUST remain refused as unmeasured. Office and standalone archive browsers MUST NOT offer these mutations.
+
+#### Scenario: An operation has not been measured
+- **WHEN** module/form addition, folder rename/delete, rename/delete of a source with a same-named `.tbform`,
+  or a Settings edit is requested
+- **THEN** the operation refuses with an explanation that it has not been measured
