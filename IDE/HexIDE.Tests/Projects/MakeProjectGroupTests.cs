@@ -48,7 +48,7 @@ public class MakeProjectGroupTests : IDisposable
         service = new ProjectService(() => throw new InvalidOperationException(), windows, events, manager,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(), localization,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         service.RuntimeDirectory = root;
         var standalone = Directory.CreateDirectory(Path.Join(root, "standalone")).FullName;
         File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runner");

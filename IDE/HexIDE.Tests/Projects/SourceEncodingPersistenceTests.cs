@@ -69,7 +69,7 @@ public class SourceEncodingPersistenceTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             localization,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 
     private string WriteProject()

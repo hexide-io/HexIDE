@@ -140,7 +140,7 @@ public class DocumentContentTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry());
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), InBoxRegistry.Create());
     }
 
     private static string? FindUpwards(string relative)

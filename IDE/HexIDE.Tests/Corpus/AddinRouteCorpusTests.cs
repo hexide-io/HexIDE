@@ -202,7 +202,7 @@ public sealed class AddinRouteCorpusTests
         var service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), windows,
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: types);
         await service.OpenProject(path);
         if (loaded.Count != 1)
             throw new InvalidOperationException($"{Path.GetFileName(path)} didn't open: " + string.Join("; ", messages));

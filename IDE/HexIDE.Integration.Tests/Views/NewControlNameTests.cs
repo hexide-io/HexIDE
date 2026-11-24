@@ -79,7 +79,7 @@ public class NewControlNameTests
         project.AddForm(form);
         // A toolbox, because adding a control puts the pointer tool back.
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         return new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
             Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
     }

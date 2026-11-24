@@ -33,7 +33,7 @@ public sealed class ProjectGroupExpansionTests : IDisposable
         service = new ProjectService(() => throw new InvalidOperationException(),
             Substitute.For<IWindowManager>(), events, manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            strings, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            strings, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         explorer = new ProjectToolViewModel(manager, events, service, editors, strings);
     }
 

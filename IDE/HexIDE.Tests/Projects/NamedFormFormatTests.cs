@@ -98,7 +98,7 @@ public sealed class NamedFormFormatTests : IDisposable
         var (project, problems) = await Build(new("Test") { Members = [Member("Test.frm", AddinMemberKind.Form, text)] });
         problems.Should().BeEmpty();
         project.Forms.Single().Components.Should().Contain(c => c.BaseClass is ListViewComponentClass);
-        var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), new ComponentRegistry(), new LocalizationService());
+        var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), InBoxRegistry.Create(), new LocalizationService());
         toolbox.ShowProject(project);
         toolbox.Components.Should().NotContain(c => c.VBTypeName == "MSComctlLib.ListView");
     }
@@ -126,7 +126,7 @@ public sealed class NamedFormFormatTests : IDisposable
         project.ObjectReferences.Should().Equal(
             new ObjectReference("{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}", "2.0", "MSCOMCTL.OCX"),
             new ObjectReference("{00000000-0000-0000-0000-000000000000}", "a.b", "Probe.ocx"));
-        var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), new ComponentRegistry(), new LocalizationService());
+        var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), InBoxRegistry.Create(), new LocalizationService());
         toolbox.ShowProject(project);
         toolbox.Components.Should().Contain(c => c.VBTypeName == "MSComctlLib.ListView");
     }

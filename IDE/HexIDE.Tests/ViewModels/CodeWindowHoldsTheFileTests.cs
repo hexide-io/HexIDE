@@ -79,7 +79,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            refresher, new ComponentRegistry());
+            refresher, InBoxRegistry.Create());
     }
 
     /// <summary>A code window on the document, on the same bus as the save, and open as far as the dock knows.</summary>

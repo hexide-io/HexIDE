@@ -14,6 +14,7 @@ public sealed class AddinInitializationTests : IDisposable
     private readonly AddinOptionsService _options = new();
     private readonly AddinProjectTemplateService _templates = new();
     private readonly ComponentRegistry _components = new();
+    private static readonly AddinOrigin Probe = new("probe", "Probe");
     private readonly EventBus _bus = new();
     private readonly IProjectRunnerService _runner = Substitute.For<IProjectRunnerService>();
     private readonly IProjectManager _projects = Substitute.For<IProjectManager>();
@@ -32,7 +33,9 @@ public sealed class AddinInitializationTests : IDisposable
         _host.RegisterCommand(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Action>(), null, null)
             .Returns(c => _commands.Register(c.ArgAt<string>(0), c.ArgAt<string>(1), c.ArgAt<Action>(2), null, null));
         _host.When(h => h.RegisterComponent(Arg.Any<IComponentClass>()))
-            .Do(c => _components.Register(c.Arg<IComponentClass>()));
+            .Do(c => _components.Register(c.Arg<IComponentClass>(), Probe));
+        _host.When(h => h.RegisterToolboxItem(Arg.Any<IComponentClass>(), Arg.Any<string?>()))
+            .Do(c => _components.RegisterToolboxItem(c.ArgAt<IComponentClass>(0), c.ArgAt<string?>(1), Probe));
         _host.When(h => h.RegisterProjectTemplate(Arg.Any<IAddinProjectTemplate>()))
             .Do(c => _templates.Register(c.Arg<IAddinProjectTemplate>()));
         _registry = new AddinRegistry(Substitute.For<IPackageVerifier>(), Substitute.For<ISettingsService>(),
@@ -147,7 +150,11 @@ public sealed class AddinInitializationTests : IDisposable
         var toolbox = new HexIDE.VisualDesigner.ToolBoxToolViewModel(
             Substitute.For<IDocumentDockService>(), _components, Substitute.For<ILocalizationService>());
         var previous = _tools.Register("previous", "Previous", null, () => new object());
-        var component = HexIDE.Runtime.Components.PictureBoxComponentClass.Instance;
+        // A class another owner registered earlier, which the rollback leaves (#5594).
+        var earlier = Named("Previous.Dial");
+        using var earlierClass = _components.Register(earlier, new AddinOrigin("previous", "Previous"));
+        using var earlierItem = _components.RegisterToolboxItem(earlier, null, new AddinOrigin("previous", "Previous"));
+        var component = Named("Failed.Gauge");
         var originalCount = toolbox.Components.Count;
         var removed = 0;
         _tools.ToolUnregistered += _ => removed++;
@@ -155,6 +162,7 @@ public sealed class AddinInitializationTests : IDisposable
         failed.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(_ =>
         {
             _host.RegisterComponent(component);
+            _host.RegisterToolboxItem(component);
             toolbox.SelectedComponent = toolbox.Components.Last();
             _host.ToolWindows.Register("failed", "Failed", null, () => new object());
             _host.ToolWindows.Register("broken", "Broken", null, () => throw new InvalidOperationException("factory failed"));
@@ -164,7 +172,8 @@ public sealed class AddinInitializationTests : IDisposable
 
         toolbox.Components.Count.Should().Be(originalCount);
         toolbox.SelectedComponent.Should().BeSameAs(toolbox.Arrow);
-        _components.Components.Count(c => ReferenceEquals(c, component)).Should().Be(1);
+        _components.Components.Should().Equal(earlier);
+        toolbox.Components.Select(tool => tool.Name).Should().Contain("Previous.Dial").And.NotContain("Failed.Gauge");
         _tools.Tools.Should().ContainSingle().Which.Id.Should().Be("previous");
         removed.Should().Be(1);
         previous.Dispose();
@@ -194,4 +203,11 @@ public sealed class AddinInitializationTests : IDisposable
         _tools.Tools.Should().HaveCount(2);
     }
 
+    private static IComponentClass Named(string typeName)
+    {
+        var component = Substitute.For<IComponentClass>();
+        component.VBTypeName.Returns(typeName);
+        component.Name.Returns(typeName);
+        return component;
+    }
 }

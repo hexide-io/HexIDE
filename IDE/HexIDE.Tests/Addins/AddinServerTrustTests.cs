@@ -51,7 +51,7 @@ public sealed class AddinServerTrustTests : IDisposable
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _registry,
             new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), projects),
             new AddinProjectService(projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
-            new AddinOptionsService(), new ComponentRegistry(), runner,
+            new AddinOptionsService(), InBoxRegistry.Create(), runner,
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
                 NullLogger<LanguageServerContributions>.Instance, null),

@@ -166,7 +166,7 @@ public sealed class Vb6ProjectTypeTests : IDisposable
             () => throw new InvalidOperationException("no new-project dialog here"), _windows, Substitute.For<IEventBus>(),
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar,
             new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(),
-            new ComponentRegistry(), archives: archives, contributed: types);
+            InBoxRegistry.Create(), archives: archives, contributed: types);
     }
 
     private string Vbp()

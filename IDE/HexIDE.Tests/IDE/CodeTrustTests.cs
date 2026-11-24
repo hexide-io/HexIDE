@@ -398,7 +398,7 @@ public class CodeTrustTests : IDisposable
             windows, Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), localization,
             new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new HexIDE.Bookmarks.BookmarkService()),
-            new ComponentRegistry(), trust: trust);
+            InBoxRegistry.Create(), trust: trust);
         return (service, () => opened);
     }
 

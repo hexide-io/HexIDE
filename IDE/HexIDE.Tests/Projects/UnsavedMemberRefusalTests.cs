@@ -77,7 +77,7 @@ public class UnsavedMemberRefusalTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             localization,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 
     /// <summary>A project as File ▸ New Project makes it: a <c>Form1</c> that is its startup form, and no files.</summary>

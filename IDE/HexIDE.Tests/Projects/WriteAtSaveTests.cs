@@ -64,7 +64,7 @@ public class WriteAtSaveTests : IDisposable
             realSidecar ?? sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            refresher ?? Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            refresher ?? Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 
     /// <summary>A project as File ▸ New Project leaves it: no file and no folder.</summary>

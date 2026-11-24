@@ -23,7 +23,7 @@ public class ObjectBrowserExtensionTests
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString("Str.MemberOrigin.HexIde").Returns("HexIDE extension; not available in VB6.");
         var vm = new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
-            Substitute.For<IEditorService>(), new ComponentRegistry(), Substitute.For<ITypeLibraryService>(),
+            Substitute.For<IEditorService>(), InBoxRegistry.Create(), Substitute.For<ITypeLibraryService>(),
             Substitute.For<IFocusedProjectUtil>(), loc, Substitute.For<ILanguageConnectionRegistry>());
         var cls = vm.Libraries.Single(l => l.Name == "VB").Classes.Single(c => c.Name == control);
         foreach (var name in new[] { "FindString", "FindStringExact" })
@@ -53,7 +53,7 @@ public class ObjectBrowserExtensionTests
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString("Str.MemberOrigin.HexIde").Returns("HexIDE extension; not available in VB6.");
         var vm = new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
-            Substitute.For<IEditorService>(), new ComponentRegistry(), types,
+            Substitute.For<IEditorService>(), InBoxRegistry.Create(), types,
             Substitute.For<IFocusedProjectUtil>(), loc, Substitute.For<ILanguageConnectionRegistry>());
         var browserLibrary = vm.Libraries.Single(l => l.Name == library.Name);
         vm.SelectedLibrary = browserLibrary;

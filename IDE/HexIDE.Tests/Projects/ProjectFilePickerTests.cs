@@ -49,7 +49,7 @@ public sealed class ProjectFilePickerTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
+            localization, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: types);
         var existingGroup = method == "ExistingGroupPath";
         if (existingGroup) method = "ChooseGroupPath";
         object document = method switch
@@ -86,7 +86,7 @@ public sealed class ProjectFilePickerTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            new LocalizationService(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: new ContributedProjects());
+            new LocalizationService(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: new ContributedProjects());
 
         var save = () => service.SaveAllProjects(saveAs: true);
         await save.Should().ThrowAsync<OperationCanceledException>();

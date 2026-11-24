@@ -83,7 +83,7 @@ public sealed class RecoveryOffersTests : IDisposable
             Service = new ProjectService(                () => throw new InvalidOperationException("new-project dialog must not be reached"),
                 Windows, Bus, Manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), sidecar, Store, Substitute.For<ILocalizationService>(),
-                Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: Types, documents: Dock);
+                Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: Types, documents: Dock);
         }
 
         public ProjectDefinition Project => Loaded.Single();

@@ -134,6 +134,9 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     `ComponentRegistry` starts empty.
   - Control libraries are first-party in phase 2, because a library writes `Object=` lines into users' files.
   - `IControlLibrary` is public in Core. Designer-time hooks go on the designer contract, not on `IComponentClass`.
+  - **Its second part (#5594) owns the components and the toolbox.** The provider registers its Form, its controls and
+    their toolbox items through the owned host, with `IHexIdeHost.RegisterToolboxItem` new for the items. The control
+    libraries register the same way in a third part.
 - **Designer pictures (2.4b).** This was agreed with hexide-frm, and the supervisor reviews the draft.
   - `RegisterDesignerPictures` is one service per host and is grant-gated, since it draws every form's controls. A
     third-party component is drawn by that service through its own `IComponentClass`.

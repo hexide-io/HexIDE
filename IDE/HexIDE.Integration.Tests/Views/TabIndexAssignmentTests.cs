@@ -100,7 +100,7 @@ public class TabIndexAssignmentTests
         settings.GridWidth.Returns(8);
         settings.GridHeight.Returns(8);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         return new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
             settings, Substitute.For<ILocalizationService>()).Initialize(form);
     }

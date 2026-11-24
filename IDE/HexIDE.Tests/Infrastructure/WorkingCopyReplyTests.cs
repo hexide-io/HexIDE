@@ -84,13 +84,13 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         try
         {
             var localization = Substitute.For<ILocalizationService>();
-            var toolbox = new ToolBoxToolViewModel(dock, new ComponentRegistry(), localization);
+            var toolbox = new ToolBoxToolViewModel(dock, InBoxRegistry.Create(), localization);
             using var designer = operation == "control"
                 ? new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
                     Substitute.For<ISettingsService>(), localization).Initialize(form)
@@ -180,7 +180,7 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         try
@@ -262,7 +262,7 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         var outside = directory + "-outside";
@@ -291,7 +291,7 @@ public class WorkingCopyReplyTests
         try
         {
             var localization = Substitute.For<ILocalizationService>();
-            var toolbox = new ToolBoxToolViewModel(dock, new ComponentRegistry(), localization);
+            var toolbox = new ToolBoxToolViewModel(dock, InBoxRegistry.Create(), localization);
             using var designer = operation == "control"
                 ? new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
                     Substitute.For<ISettingsService>(), localization).Initialize(form)

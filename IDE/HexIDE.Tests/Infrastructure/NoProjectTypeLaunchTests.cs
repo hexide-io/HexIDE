@@ -47,7 +47,7 @@ public class NoProjectTypeLaunchTests : CompositionTestBase
             var service = new ProjectService(() => throw new InvalidOperationException("no dialog"),
                 windows, Composition.EventBus, Composition.ProjectManager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-                Composition.LocalizationService, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(),
+                Composition.LocalizationService, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(),
                 contributed: Composition.ContributedProjects, templates: Composition.AddinProjectTemplateService);
             if (route == "service")
                 await service.CreateDefaultProject();

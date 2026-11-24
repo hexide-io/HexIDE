@@ -24,5 +24,16 @@ internal sealed class RealComposition : IAsyncDisposable
 {
     public DISetup Composition { get; } = new();
 
+    // As HexIDE.Desktop's startup does, the provider registers its controls and toolbox through the host an add-in is given
+    // (#5594): the composition's registry starts empty.
+    public RealComposition()
+    {
+        var host = new HexIDE.Addins.AddinOwnedHost(Composition.HexIdeHost, null!, HexIDE.Desktop.BasicProviderComposition.Origin);
+        foreach (var component in HexIDE.Runtime.BasicProvider.Components)
+            host.RegisterComponent(component);
+        foreach (var (component, iconKey) in HexIDE.Runtime.BasicProvider.Toolbox)
+            host.RegisterToolboxItem(component, iconKey);
+    }
+
     public ValueTask DisposeAsync() => Composition.LspClient.DisposeAsync();
 }

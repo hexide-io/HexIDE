@@ -36,7 +36,10 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
             menus is AddinMenuService service ? service.AddOwned(owner, parentPath, label, icon, onInvoke, canExecute, Assembly.GetCallingAssembly())
                 : menus.Add(parentPath, label, icon, onInvoke, canExecute);
     }
-    public IDisposable RegisterComponent(IComponentClass component) => host.RegisterComponent(component);
+    public IDisposable RegisterComponent(IComponentClass component) =>
+        host is HexIdeHost concrete ? concrete.RegisterComponent(component, origin) : host.RegisterComponent(component);
+    public IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey = null) =>
+        host is HexIdeHost concrete ? concrete.RegisterToolboxItem(component, iconKey, origin) : host.RegisterToolboxItem(component, iconKey);
     public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) => host.RegisterProjectTemplate(template);
     public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server) =>
         host is HexIdeHost concrete ? concrete.RegisterLanguageServer(server, origin) : host.RegisterLanguageServer(server);
