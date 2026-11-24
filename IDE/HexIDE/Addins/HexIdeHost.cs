@@ -59,10 +59,17 @@ internal sealed class HexIdeHost(
     public IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey = null) =>
         throw new InvalidOperationException("Toolbox items are registered only through the host an add-in is given.");
 
-    // Under the add-in's identity, which the registry checks. Taken out by the add-in's handle, as before (#5594).
-    internal IDisposable RegisterComponent(IComponentClass component, AddinOrigin origin) =>
-        componentRegistry.Register(component, origin);
+    // Under the add-in's identity, which the registry checks (#5594). Taken out, as the add-in's other contributions are,
+    // when it is disabled or its consent is revoked (#5601): the designer stops offering the class, and the toolbox drops
+    // its item, which goes with its class. The composed provider's never meet a package's state (#5597).
+    internal IDisposable RegisterComponent(IComponentClass component, AddinOrigin origin)
+    {
+        var handle = componentRegistry.Register(component, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        return handle;
+    }
 
+    // Only the class's owner puts it in the toolbox, and the item goes when the class does, so tracking the class is enough.
     internal IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey, AddinOrigin origin) =>
         componentRegistry.RegisterToolboxItem(component, iconKey, origin);
 
