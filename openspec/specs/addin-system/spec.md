@@ -582,8 +582,8 @@ disposing a registration SHALL take out that registration only.
 ### Requirement: Component registration SHALL be owned
 `RegisterComponent` and `RegisterToolboxItem` SHALL register under the owner the add-in's own host names, and the IDE's
 own host SHALL refuse both (#5594). Without a grant in HexIDE's own table naming components, a class whose role isn't
-`Control`, a container, or a type name in VB6's `VB` namespace SHALL be refused, whether or not the provider registered it.
-The registry SHALL start empty, and the Basic provider SHALL register its Form, controls and toolbox items the same way.
+`Control`, or a container, SHALL be refused. The registry SHALL start empty, and the Basic provider SHALL register its Form,
+controls and toolbox items the same way.
 
 #### Scenario: The provider's controls
 - **WHEN** the Basic provider registers its Form, its controls and their toolbox items at startup, through the owned host
@@ -598,14 +598,29 @@ The registry SHALL start empty, and the Basic provider SHALL register its Form, 
 - **WHEN** an add-in that registered a control and its toolbox item is disabled, or its consent is revoked
 - **THEN** the toolbox drops the item and the designer stops offering the class, and the provider's controls stay (#5601)
 
+### Requirement: A type-name namespace SHALL be kept by the grant that names it
+A grant in HexIDE's own table SHALL name the type-name namespaces its owner keeps: `VB`, and its control libraries' names
+(#5599). A class whose type name is in a namespace any grant keeps, in any case, SHALL be refused to every other owner,
+whether or not the keeper has registered anything yet. A control library SHALL register only under a namespace its owner's
+grant keeps, so only the Basic provider registers one today.
+
 #### Scenario: An add-in registers a VB type name first
 - **WHEN** a signed third-party add-in registers a plain class named `VB.Gauge` before the provider has registered anything
-- **THEN** it is refused, naming the add-in and the class
+- **THEN** it is refused, naming the add-in, the class and the namespace's keeper
+
+#### Scenario: An add-in registers a type name in a library's namespace first
+- **WHEN** a signed third-party add-in registers a class named `MSComctlLib.Gauge`, before or after the provider registers
+  its libraries
+- **THEN** it is refused, naming the namespace's keeper
+
+#### Scenario: An add-in registers a control library
+- **WHEN** a signed third-party add-in registers a control library
+- **THEN** it is refused, and the Components dialog doesn't list it
 
 ### Requirement: A component registration SHALL only add
 A class whose type name a registration holds, in any case and the owner's own included, SHALL be refused, naming both
-owners, and so SHALL a type name in a control library's namespace (#5594). A toolbox item SHALL be refused unless its
-owner registered the class, and the toolbox SHALL offer a class once at most.
+owners, and so SHALL a library whose name or GUID a registered library holds (#5594, #5599). A toolbox item SHALL be
+refused unless its owner registered the class, and the toolbox SHALL offer a class once at most.
 
 #### Scenario: A held type name
 - **WHEN** an add-in registers a class whose type name another registration holds, in any case
@@ -614,6 +629,28 @@ owner registered the class, and the toolbox SHALL offer a class once at most.
 #### Scenario: A toolbox item for a class that isn't the owner's
 - **WHEN** an add-in registers a toolbox item for a class another owner registered, or that nobody registered
 - **THEN** it is refused and the toolbox is unchanged
+
+#### Scenario: A held library
+- **WHEN** an owner registers a library whose name or GUID another registered library holds
+- **THEN** it is refused, naming both owners, and the first library stands
+
+### Requirement: A control library SHALL be asked what it offers only when that's needed
+A library registered through `RegisterControlLibrary` SHALL be asked what controls it offers only when something first needs
+to know, such as the toolbox showing a project that references it, and again only after the libraries change (#5599). A
+library that throws when asked SHALL offer nothing, and the others SHALL still offer theirs.
+
+#### Scenario: A project that references no library
+- **WHEN** the toolbox shows a project that references no library
+- **THEN** no library is asked what it offers
+
+#### Scenario: A library registered after its project is shown
+- **WHEN** a library is registered, or taken out, while the toolbox shows a project that references it
+- **THEN** the toolbox offers its controls, or stops offering them
+
+#### Scenario: Disabling an add-in that registered a library
+- **WHEN** an add-in that registered a control library is disabled, or its consent is revoked
+- **THEN** the Components dialog stops listing the library and the toolbox stops offering its controls, and the provider's
+  libraries stay (#5601)
 
 ### Requirement: Grants SHALL be held only by the owners HexIDE names
 A grant for an owner the IDE composes SHALL match only an origin marked as composed, which nothing that reads a package's manifest marks.

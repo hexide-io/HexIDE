@@ -40,6 +40,8 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
         host is HexIdeHost concrete ? concrete.RegisterComponent(component, origin) : host.RegisterComponent(component);
     public IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey = null) =>
         host is HexIdeHost concrete ? concrete.RegisterToolboxItem(component, iconKey, origin) : host.RegisterToolboxItem(component, iconKey);
+    public IDisposable RegisterControlLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls) =>
+        host is HexIdeHost concrete ? concrete.RegisterControlLibrary(library, controls, origin) : host.RegisterControlLibrary(library, controls);
     public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) => host.RegisterProjectTemplate(template);
     public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server) =>
         host is HexIdeHost concrete ? concrete.RegisterLanguageServer(server, origin) : host.RegisterLanguageServer(server);

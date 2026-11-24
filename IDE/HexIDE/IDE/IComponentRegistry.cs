@@ -11,7 +11,7 @@ public interface IComponentRegistry
     /// <summary>The controls the toolbox offers, in the order their owners put them there.</summary>
     IReadOnlyList<ToolboxEntry> Toolbox { get; }
 
-    /// <summary>The control libraries a project can reference, which the Components dialog lists.</summary>
+    /// <summary>The control libraries a project can reference, which the Components dialog lists, as their owners registered them.</summary>
     IReadOnlyList<IControlLibrary> Libraries { get; }
 
     /// <summary>What those libraries offer the toolbox: one entry for each library that declares each control.</summary>
@@ -25,4 +25,7 @@ public interface IComponentRegistry
 
     /// <summary>A toolbox item was taken out, by its owner or with its class.</summary>
     event Action<ToolboxEntry>? ToolboxItemRemoved;
+
+    /// <summary>A control library was registered or taken out (#5599), so what a project's references offer may differ.</summary>
+    event Action? LibrariesChanged;
 }

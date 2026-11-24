@@ -112,7 +112,7 @@ public class RegisterComponentTests
 
         FluentActions.Invoking(() => Host(registry, Signed).RegisterComponent(new Probe("VB.CommandButton")))
             .Should().Throw<InvalidOperationException>()
-            .WithMessage("Signed Add-in isn't one HexIDE lets register VB.CommandButton, which is in VB6's own VB namespace.");
+            .WithMessage("Signed Add-in can't register VB.CommandButton: the VB namespace is kept for hexide.basic.");
 
         registry.Components.Should().Equal(BasicProvider.Components);
     }
@@ -132,7 +132,7 @@ public class RegisterComponentTests
 
         FluentActions.Invoking(() => Host(registry, Signed).RegisterComponent(new Probe(name)))
             .Should().Throw<InvalidOperationException>()
-            .WithMessage($"Signed Add-in isn't one HexIDE lets register {name}, which is in VB6's own VB namespace.");
+            .WithMessage($"Signed Add-in can't register {name}: the {name[..name.IndexOf('.')]} namespace is kept for hexide.basic.");
 
         registry.Components.Should().BeEmpty();
     }
@@ -154,7 +154,7 @@ public class RegisterComponentTests
 
         FluentActions.Invoking(() => Host(registry, Signed).RegisterComponent(new Probe("MSComctlLib.Gauge")))
             .Should().Throw<InvalidOperationException>()
-            .WithMessage("Signed Add-in can't register MSComctlLib.Gauge: that type name is the MSComctlLib control library's.");
+            .WithMessage("Signed Add-in can't register MSComctlLib.Gauge: the MSComctlLib namespace is kept for hexide.basic.");
 
         registry.Components.Should().BeEmpty();
     }

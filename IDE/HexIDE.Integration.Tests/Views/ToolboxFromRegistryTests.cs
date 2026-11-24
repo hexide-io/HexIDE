@@ -80,6 +80,47 @@ public class ToolboxFromRegistryTests
         toolbox.Components.Select(tool => tool.Name).Should().Equal(before);
     }
 
+    // A library registered or taken out after its project was shown changes what the toolbox offers (#5599), and a project
+    // that references no library never asks a library what it offers.
+    [AvaloniaFact]
+    public void A_library_registered_after_its_project_is_shown_offers_its_controls_until_it_goes()
+    {
+        var registry = new ComponentRegistry();
+        var toolbox = Toolbox(registry);
+        var asked = 0;
+        toolbox.ShowProject(Referencing(ControlLibraries.MSComctlLib));
+        toolbox.Components.Select(tool => tool.Name).Should().Equal("Mouse");
+
+        var registration = registry.RegisterLibrary(ControlLibraries.MSComctlLib,
+            () => { asked++; return BasicProvider.ControlsOf(ControlLibraries.MSComctlLib); },
+            HexIDE.Desktop.BasicProviderComposition.Origin);
+
+        toolbox.Components.Skip(1).Should().NotBeEmpty()
+            .And.OnlyContain(tool => ReferenceEquals(tool.Library, ControlLibraries.MSComctlLib));
+        toolbox.ShowProject(new ProjectDefinition(VBProjectType.EXE, "References nothing"));
+        toolbox.ShowProject(Referencing(ControlLibraries.MSComctlLib));
+        asked.Should().Be(1, "what a library offers is kept until a library comes or goes");
+
+        registration.Dispose();
+
+        toolbox.Components.Select(tool => tool.Name).Should().Equal("Mouse");
+    }
+
+    [AvaloniaFact]
+    public void A_project_that_references_no_library_never_asks_one_what_it_offers()
+    {
+        var registry = new ComponentRegistry();
+        var toolbox = Toolbox(registry);
+        var asked = 0;
+        using var registration = registry.RegisterLibrary(ControlLibraries.MSComctlLib,
+            () => { asked++; return BasicProvider.ControlsOf(ControlLibraries.MSComctlLib); },
+            HexIDE.Desktop.BasicProviderComposition.Origin);
+
+        toolbox.ShowProject(new ProjectDefinition(VBProjectType.EXE, "References nothing"));
+
+        asked.Should().Be(0);
+    }
+
     [AvaloniaFact]
     public void Every_registered_control_except_the_form_is_in_the_toolbox()
     {

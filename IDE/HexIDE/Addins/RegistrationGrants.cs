@@ -2,8 +2,9 @@ namespace HexIDE.Addins;
 
 /// <summary>
 /// What one owner may register through the host's add-in registrations that change what the IDE shows: its resources
-/// (#5396), its language packs (#5394), what draws the designer's controls (#5591), and components beyond a plain control
-/// (#5594). Kept in HexIDE's own source, so a package can't grant itself anything.
+/// (#5396), its language packs (#5394), what draws the designer's controls (#5591), components beyond a plain control
+/// (#5594), and the type-name namespaces and control libraries it keeps (#5599). Kept in HexIDE's own source, so a package
+/// can't grant itself anything.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -53,6 +54,18 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     /// </summary>
     public bool Components { get; init; }
 
+    /// <summary>
+    /// The type-name namespaces it keeps (#5599): <c>VB</c> in <c>VB.CommandButton</c>, a control library's name in
+    /// <c>MSComctlLib.ProgressBar</c>. A namespace a grant names is its owner's whether or not that owner has registered
+    /// anything yet, so any other owner is refused a component in it, and only this owner may register a control library
+    /// under it. A library's controls never pass the component checks, so this is what lets a library offer a container
+    /// such as the SSTab.
+    /// </summary>
+    public IReadOnlyList<string> TypeNamespaces { get; init; } = [];
+
+    /// <summary>Whether <paramref name="ns"/> is a type-name namespace this grant keeps, compared without regard to case.</summary>
+    public bool KeepsTypeNamespace(string ns) => TypeNamespaces.Contains(ns, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Whether a type declared in <paramref name="assembly"/> may key one of its resources.</summary>
     public bool CoversResourceType(string? assembly) =>
         assembly is not null && ResourceTypeAssemblies.Contains(assembly, StringComparer.Ordinal);
@@ -88,6 +101,9 @@ internal static class RegistrationGrants
             DesignerPictures = true,
             // Its Form, and its Frame and PictureBox, which hold other controls (#5594).
             Components = true,
+            // VB6's own type names, and its control libraries', the in-box OCXs it implements (#5599).
+            TypeNamespaces =
+                ["VB", "MSComctlLib", "ComctlLib", "MSFlexGridLib", "TabDlg", "MSComDlg", "MSComCtl2", "MSMask", "RichTextLib"],
         },
     ];
 
