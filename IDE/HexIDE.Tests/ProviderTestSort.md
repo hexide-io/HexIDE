@@ -18,6 +18,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/AddinLanguageServerTests.cs` | split |
 | `Addins/AddinServerTrustTests.cs` | split |
 | `Addins/AddinWholeFileTests.cs` | split |
+| `Addins/ComponentWithdrawalTests.cs` | split |
 | `Addins/RegisterComponentTests.cs` | split |
 | `Components/FlexGridModelTests.cs` | provider |
 | `Components/FlexGridSortTests.cs` | provider |
