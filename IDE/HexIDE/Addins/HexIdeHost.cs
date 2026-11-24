@@ -90,14 +90,15 @@ internal sealed class HexIdeHost(
             {
                 BeforeLaunch = async token =>
                 {
-                    addins.CheckLanguageServerLaunch(origin.Id);
+                    addins.CheckLanguageServerLaunch(origin);
                     if (gate is not null) await gate(token);
-                    addins.CheckLanguageServerLaunch(origin.Id);
+                    addins.CheckLanguageServerLaunch(origin);
                 },
             };
         }
         var connection = languageServers.Register(server, origin.Title, origin.Id, origin.PublisherNamespaces);
-        optionsService.TrackServer(origin.Id, string.IsNullOrWhiteSpace(server.Entry.DisplayName) ? connection.Id : server.Entry.DisplayName, connection);
+        optionsService.TrackServer(origin.Id, string.IsNullOrWhiteSpace(server.Entry.DisplayName) ? connection.Id : server.Entry.DisplayName, connection,
+            origin.IsComposed);
         if (Registry is AddinRegistry owner) owner.TrackContribution(origin, connection);
         AddinInitializationScope.Record(connection.Dispose);
         return connection;
@@ -113,7 +114,7 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterDebugLaunch(AddinDebugLaunch launch, AddinOrigin origin)
     {
         var addins = Registry as AddinRegistry;
-        var handle = debugLaunches.Register(launch, origin, addins is null ? null : () => addins.CheckDebugLaunch(origin.Id));
+        var handle = debugLaunches.Register(launch, origin, addins is null ? null : () => addins.CheckDebugLaunch(origin));
         addins?.TrackContribution(origin, handle);
         return handle;
     }

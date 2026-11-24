@@ -471,7 +471,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         string title;
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, origin.Id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(origin);
             title = ctx?.Info.Title ?? origin.Title;
             if (!_disposed && ctx is not null && !_disabled.Contains(ctx.PackageDirectory)
                 && !_revokedConsent.Contains(ctx.Info.ManifestHash))
@@ -481,17 +481,17 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         Log.Warning(exception, "AddinRegistry: {Title} ({AddinId}) reported a failure: {Message}", title, origin.Id, message);
     }
 
-    internal void CheckLanguageServerLaunch(string id) => CheckLaunch(id, "Str.Addins.ServerLaunchRefused");
+    internal void CheckLanguageServerLaunch(AddinOrigin owner) => CheckLaunch(owner, "Str.Addins.ServerLaunchRefused");
 
-    internal void CheckDebugLaunch(string id) => CheckLaunch(id, "Str.Addins.DebugLaunchRefused");
+    internal void CheckDebugLaunch(AddinOrigin owner) => CheckLaunch(owner, "Str.Addins.DebugLaunchRefused");
 
     // Whether an add-in may start what it contributed, now: it is enabled and consented to, and neither it nor its
-    // publisher is revoked. Throws the refusal, naming the add-in, otherwise.
-    private void CheckLaunch(string id, string refusal)
+    // publisher is revoked. Throws the refusal, naming the add-in, otherwise. A composed owner has no package to ask.
+    private void CheckLaunch(AddinOrigin owner, string refusal)
     {
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(owner);
             if (ctx is null) return; // Host/test assemblies outside an add-in context retain their existing behaviour.
             var info = ctx.Info;
             var chain = info.Chain;
@@ -513,8 +513,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     {
         lock (_serverTrustGate)
         {
-            var ctx = owner.IsComposed ? null
-                : _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, owner.Id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(owner);
             if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
                 || _revokedConsent.Contains(ctx.Info.ManifestHash)))
             {
@@ -527,6 +526,12 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             contributions.Add(contribution);
         }
     }
+
+    // The package an owner is, by its id in any case. Never one for a composed owner, the Basic provider, which no package
+    // is, whatever id a package's manifest names: so a package's state can't refuse its launches, take out its
+    // registrations or carry its failures (#5597). Call under _serverTrustGate.
+    private AddinContext? PackageContext(AddinOrigin owner) => owner.IsComposed ? null
+        : _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, owner.Id, StringComparison.OrdinalIgnoreCase));
 
     // A package's: never a composed owner's, whatever id the package's manifest names.
     private void RemoveContributions(string id)

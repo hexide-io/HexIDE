@@ -84,6 +84,20 @@ public sealed class AddinLanguageServerTests : IDisposable
         _router.Connections.Should().ContainSingle().Which.Origin.Should().Be("Owner Add-in");
     }
 
+    // The Basic provider's servers belong to no package, so no package's page lists them, whatever id it names (#5597).
+    [Fact]
+    public void A_composed_owner_s_servers_are_listed_on_no_package_s_page()
+    {
+        var tools = new AddinToolWindowService();
+        var provider = new AddinOrigin(RegistrationGrants.BasicProvider, "HexIDE.Basic") { IsComposed = true };
+        var owned = new AddinOwnedHost(_host, tools.ForOwner(provider), provider);
+
+        using var connection = owned.RegisterLanguageServer(Probe());
+
+        _router.Connections.Should().ContainSingle();
+        _options.ServersFor("HexIDE.Basic").Should().BeEmpty();
+    }
+
     [Fact]
     [Trait("Issue", "4307")]
     public void OwnedHost_KeepsTheManifestOriginForEveryNewContribution()

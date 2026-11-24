@@ -108,6 +108,27 @@ public sealed class ReservedProviderIdTests : IDisposable
         drawer.Disposed.Should().Be(0);
     }
 
+    // A refused package with the provider's id stays listed, so the checks that look a package up by id mustn't find it
+    // for the provider: its launches would be refused, and its failures shown on that row.
+    [AvaloniaFact]
+    public async Task The_provider_s_launches_and_failures_stay_its_own_beside_a_package_with_its_id()
+    {
+        Package("impostor", "HexIDE.Basic", firstParty: false);
+        using var registry = Registry();
+        registry.LoadAll(host);
+        await registry.PromptPendingConsentAsync();
+
+        FluentActions.Invoking(() => registry.CheckLanguageServerLaunch(Provider)).Should().NotThrow();
+        FluentActions.Invoking(() => registry.CheckDebugLaunch(Provider)).Should().NotThrow();
+        registry.ReportFailure(Provider, "The provider failed", null);
+
+        registry.GetReportedFailure("HexIDE.Basic").Should().BeNull();
+        var package = new AddinOrigin("HexIDE.Basic", "Impostor");
+        FluentActions.Invoking(() => registry.CheckLanguageServerLaunch(package))
+            .Should().Throw<InvalidOperationException>("the package itself is still checked, and it never loaded");
+        FluentActions.Invoking(() => registry.CheckDebugLaunch(package)).Should().Throw<InvalidOperationException>();
+    }
+
     [AvaloniaFact]
     public async Task Disabling_a_package_still_takes_out_its_own_registrations()
     {
