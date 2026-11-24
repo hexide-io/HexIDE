@@ -594,6 +594,10 @@ The registry SHALL start empty, and the Basic provider SHALL register its Form, 
 - **WHEN** a signed third-party add-in registers a class whose role is `Form`, `Menu` or `Line`, or that's a container
 - **THEN** it is refused, naming the add-in and the class, and the designer offers no such class
 
+#### Scenario: Disabling an add-in that registered a control
+- **WHEN** an add-in that registered a control and its toolbox item is disabled, or its consent is revoked
+- **THEN** the toolbox drops the item and the designer stops offering the class, and the provider's controls stay (#5601)
+
 #### Scenario: An add-in registers a VB type name first
 - **WHEN** a signed third-party add-in registers a plain class named `VB.Gauge` before the provider has registered anything
 - **THEN** it is refused, naming the add-in and the class
