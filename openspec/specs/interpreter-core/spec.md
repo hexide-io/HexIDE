@@ -3363,7 +3363,8 @@ The conflicting AutoRedraw-toggle Paint sequences and Cls's effect on each layer
 
 The interpreter SHALL evaluate `Date`, `Date$`, `Time` and `Time$` assignment operands before
 raising the measured conversion error or error 70. It SHALL never change the host clock, even
-elevated (deliberate divergence from VB6). Measurements: #4681 and
+elevated (deliberate divergence from VB6, the maintainer's decision of 2026-11-24 on #4681: no opt-in without a
+serious use case). Measurements: #4681 and
 [#4733](https://github.com/hexide-io/HexIDE/issues/4733), SP6 native and p-code, measurement PR #4777.
 
 #### Scenario: Scalar conversion precedes permission
