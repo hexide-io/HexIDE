@@ -162,7 +162,7 @@ internal static class FormMembers
         // #4603's SP6 measurements: a bitmap is 380; an empty picture leaves the window alone, Nothing clears it.
         if (picture.FileBytes.Length != 0)
         {
-            if (Serialization.FrxImageHelper.DetectKind(picture.FileBytes) != Serialization.FrxImageHelper.FrxBlobKind.Icon)
+            if (HexIDE.Imaging.FrxImageHelper.DetectKind(picture.FileBytes) != HexIDE.Imaging.FrxImageHelper.FrxBlobKind.Icon)
                 throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
             new FormIcon(FormIconKind.Own, picture.FileBytes).Apply(window);
         }

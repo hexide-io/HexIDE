@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
+using HexIDE.Localization;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -42,6 +43,60 @@ public class ReferencesViewModelTests
     }
 
     // Measured in VB6 SP6: https://github.com/hexide-io/HexIDE/issues/1468 (2026-11-16 comment).
+    // LCID rows measured in docs/vb6-fidelity-oracle/the-references-dialogs-fixed-rows.md,
+    // "The References dialog's Language line follows the library's LCID" (#5192).
+    [Fact]
+    public void Fixed_rows_use_the_measured_English_standard_LCID()
+    {
+        Dialog(Project()).References.Take(3).Should().AllSatisfy(row =>
+        {
+            row.Lcid.Should().Be(9);
+            row.Language.Should().Be("English/Standard");
+        });
+    }
+
+    [Fact]
+    public void OLE_Automation_uses_standard_language()
+    {
+        Dialog(Project(OleAutomation)).References.Single(r => r.Name == "OLE Automation")
+            .Language.Should().Be("Standard");
+    }
+
+    [Theory]
+    [InlineData(0x409, "English/United States")]
+    [InlineData(0x407, "English/Standard")] // Unmeasured: preserve today's text.
+    public void Available_library_language_uses_its_LCID(int lcid, string expected)
+    {
+        var available = new AvailableReference("test-library", "1.0", "Test library", null) { Lcid = lcid };
+
+        Dialog(Project(), available).References.Single(r => r.Name == "Test library")
+            .Language.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(0, "LanguageStandard")]
+    [InlineData(9, "LanguageEnglishStandard")]
+    [InlineData(0x409, "LanguageEnglishUnitedStates")]
+    [InlineData(0x407, "LanguageEnglishStandard")]
+    public void Row_languages_use_localized_text(int lcid, string key)
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(call => "localized:" + call.Arg<string>());
+        var libraries = Substitute.For<IReferenceLibraryService>();
+        libraries.GetAvailableReferences().Returns(new[]
+        {
+            new AvailableReference("available", "1.0", "Available", null) { Lcid = lcid }
+        });
+        var project = Project(new VbReference("project", "1.0", lcid, null, "Project reference"));
+
+        var dialog = new ReferencesViewModel(project, libraries, Substitute.For<IWindowManager>(), localization);
+
+        dialog.References.Take(3).Should().AllSatisfy(row =>
+            row.Language.Should().Be("localized:Str.Dialog.References.LanguageEnglishStandard"));
+        dialog.References.Skip(3).Should().AllSatisfy(row =>
+            row.Language.Should().Be("localized:Str.Dialog.References." + key));
+    }
+
     [Theory]
     [InlineData("Project1")]
     [InlineData("Renamed")]

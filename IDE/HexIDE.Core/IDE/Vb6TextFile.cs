@@ -57,7 +57,7 @@ public sealed record Vb6TextEncoding(int CodePage, bool Utf8Bom = false)
     /// </summary>
     public static Vb6TextEncoding Latin1 { get; } = new(28591);
 
-    internal Encoding GetEncoding()
+    public Encoding GetEncoding()
     {
         if (CodePage == 65001)
             return new UTF8Encoding(false, true);

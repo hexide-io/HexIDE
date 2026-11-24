@@ -23,4 +23,6 @@ HexIDE.Runtime.Components.ComponentInstance.SetPreservedChildText(int index, str
 HexIDE.Addins.IAddinCodeEditorActions.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 HexIDE.Addins.IAddinServerConnection.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 HexIDE.Addins.IHexIdeHost.ReportFailure(string! message, System.Exception? exception = null) -> void
+HexIDE.IDE.Vb6TextEncoding.GetEncoding() -> System.Text.Encoding!
 HexIDE.Addins.IHexIdeHost.RegisterResources(System.Uri! dictionary) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterLanguagePacks(System.Uri! folder) -> System.IDisposable!

@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Classic.Avalonia.Theme;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Imaging;
 using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;

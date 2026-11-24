@@ -50,6 +50,9 @@ Serilog	Apache-2.0
 Serilog.Extensions.Logging	Apache-2.0
 Serilog.Sinks.File	Apache-2.0
 SharpFuzz	MIT
+Spectre.Console	MIT
+Spectre.Console.Ansi	MIT
+Spectre.Console.Testing	MIT
 StreamJsonRpc	MIT
 Svg.Skia	MIT
 xunit.analyzers	Apache-2.0
@@ -58,6 +61,8 @@ xunit.v3.core.mtp-v2	Apache-2.0
 
 # MTP v2 packages: NuGet registration API checked at 2.5.3 for #2008 (HangDump too).
 # xunit.v3.mtp-v2 and xunit.v3.core.mtp-v2 checked at 3.2.2.
+# Spectre.Console, Spectre.Console.Ansi (its one dependency) and Spectre.Console.Testing: registration API
+# checked at 0.57.2 for #5555, all MIT, published 2026-07-02.
 Microsoft.Testing.Extensions.Telemetry	MIT
 Microsoft.Testing.Extensions.TrxReport.Abstractions	MIT
 Microsoft.Testing.Platform	MIT

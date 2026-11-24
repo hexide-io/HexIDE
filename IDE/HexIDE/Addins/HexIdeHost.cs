@@ -21,7 +21,8 @@ internal sealed class HexIdeHost(
     HexIDE.Lsp.LanguageServerContributions languageServers,
     HexIDE.Debugging.DebugLaunchService debugLaunches,
     HexIDE.Projects.ContributedProjects contributedProjects,
-    AddinResourceService resources) : IHexIdeHost
+    AddinResourceService resources,
+    AddinLanguagePackService languagePacks) : IHexIdeHost
 {
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void ReportFailure(string message, Exception? exception = null) =>
@@ -140,6 +141,19 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterResources(Uri dictionary, AddinOrigin origin, System.Reflection.Assembly caller)
     {
         var handle = resources.Register(dictionary, origin, caller);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    // As resources: only an add-in's own host registers language packs, with the add-in as their owner (#5394).
+    public IDisposable RegisterLanguagePacks(Uri folder) =>
+        throw new InvalidOperationException("Language packs are registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked.
+    internal IDisposable RegisterLanguagePacks(Uri folder, AddinOrigin origin, System.Reflection.Assembly caller)
+    {
+        var handle = languagePacks.Register(folder, origin, caller);
         if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
         AddinInitializationScope.Record(handle.Dispose);
         return handle;

@@ -1802,7 +1802,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public async Task EditMenu()
     {
-        var vm = new MenuEditorViewModel(this, localization);
+        var vm = new MenuEditorViewModel(this, windowManager,
+            ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance).Where(c => c.BaseClass is not MenuComponentClass)), localization);
         if (!await windowManager.ShowDialog(vm) || !vm.HasChanges)
             return;
 

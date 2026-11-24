@@ -1143,7 +1143,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     /// <summary>
     /// Every server that claims this document's extension. An explicit language label narrows that claim;
-    /// otherwise servers may disagree about what to call the same extension.
+    /// otherwise servers may disagree about what to call the same extension. After the project-owner route,
+    /// a higher-priority configuration entry establishing VB6 displaces the bundled entry for that
+    /// extension (#5384), before the content and membership gates apply.
     ///
     /// <para>
     /// There used to be a branch above this one for HexIDE's own <c>vb6://</c> scheme, which carried no
@@ -1169,6 +1171,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             var owned = matching.Where(e => string.Equals(e.Registration.AddinId, owner, StringComparison.Ordinal)).ToList();
             if (owned.Count > 0) return owned;
         }
+
+        var bundled = matching.FirstOrDefault(e => e.Registration.Id == LanguageServerDefaults.BundledVb6Id);
+        if (bundled is not null && matching.Any(e => e.Registration.AddinId is null
+                && e.Registration.Id != LanguageServerDefaults.BundledVb6Id
+                && DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId)
+                && e.Registration.Priority > bundled.Registration.Priority))
+            matching.Remove(bundled);
 
         return matching
             // A carried class keeps its opening content claim through edits and server restarts (#279).

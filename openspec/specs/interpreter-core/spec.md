@@ -2774,10 +2774,12 @@ item index SHALL raise 381. A direct or typed read without an index SHALL raise 
 
 A ListBox or ComboBox reached through an Object, Control or Variant variable SHALL report the
 measured runtime errors in [#5117](https://github.com/hexide-io/HexIDE/issues/5117)
-(SP6 native/p-code, oracle PRs #5118 and #5125).
+(SP6 native/p-code, oracle PRs #5118 and #5125). Collection items, Object/Control function results
+and CallByName SHALL use the same late-bound answers measured in
+[#5135](https://github.com/hexide-io/HexIDE/issues/5135) (oracle PR #5189).
 
 #### Scenario: List and item data errors preserve the stored items
-- **WHEN** code assigns a string to List(-2)
+- **WHEN** code assigns a string to List(-2) or List(-3)
 - **THEN** it raises error 7, "Out of memory", and ListCount retains its value
 - **AND** a direct or typed write raises -2147024882 with the same description
 - **WHEN** code assigns Null to ItemData(0) on a populated list
@@ -2785,17 +2787,18 @@ measured runtime errors in [#5117](https://github.com/hexide-io/HexIDE/issues/51
 - **AND** a direct or typed write raises error 94
 
 #### Scenario: Read-only or missing-index access
-- **WHEN** code assigns to NewIndex
+- **WHEN** code assigns to NewIndex or ListCount
 - **THEN** it raises error 383 and NewIndex retains its value
-- **WHEN** code reads ItemData without an index
+- **WHEN** code reads List or ItemData without an index, reads ItemData(), or writes List or ItemData without an index
 - **THEN** it raises error 385
 
 ### Requirement: Failed ComboBox List writes move the selection silently
 
 The runtime SHALL apply silent selection movement before a failed ComboBox List write below -1,
 following [#5134](https://github.com/hexide-io/HexIDE/issues/5134) (SP6 native/p-code, oracle PR #5159).
-A late-bound reference SHALL move the selection the same way, raising 7 (measured from every starting
-selection: oracle PR #5125 and #5134's comments).
+A late-bound reference SHALL move the selection the same way, raising 7 at the measured indexes -2 and -3
+(oracle PR #5189; starting selections at -2: oracle PR #5125 and #5134's comments).
+Indexes below -3 SHALL retain their existing error pending measurement.
 
 #### Scenario: A failed ComboBox List write silently advances the selection
 - **WHEN** a ComboBox with a selected item before its last receives a List write below -1

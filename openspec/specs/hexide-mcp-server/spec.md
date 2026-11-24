@@ -67,7 +67,7 @@ filesystem paths or language-server URIs.
 - **THEN** its automation path is `/a%2Fb.twin`, distinct from `b.twin` inside a folder named `a`
 
 ### Requirement: Open archive entries by their listed paths
-`open_file` SHALL open an archive entry by its listed path in the existing read-only inspector, without
+`open_file` SHALL open an archive entry by its listed path in the existing container editor, without
 writing files. Text previews SHALL use their opaque archive-entry URI for language servers. Its reply SHALL name the container path as `project` and
 the entry path as `document`. The optional `project` SHALL select an archive by its container path,
 file name or stored project name. Ambiguous matches SHALL refuse and list the matching containers
@@ -77,7 +77,7 @@ before opening anything.
 - **WHEN** `open_file` names an entry path present in two open archives without `project`
 - **THEN** nothing opens and the reply lists both container paths
 - **AND WHEN** the caller repeats the request with one container path as `project`
-- **THEN** that archive's entry opens read-only and the reply names it
+- **THEN** that archive's entry opens in the container editor and the reply names it
 
 ### Requirement: Carried file tab identities
 `get_document_tabs` SHALL report a carried file tab's owner project name as `project` and its
@@ -90,7 +90,7 @@ carried document name as `document`, matching the identity returned by `open_fil
 ### Requirement: Archive tab identities and type
 `get_document_tabs` SHALL report an archive entry tab with `type: archive`, `project` equal to its
 container path and `document` equal to the entry path returned by `open_file`. It SHALL omit
-`isModified` for these read-only previews. The tab activation and closing tools SHALL accept
+`isModified` for these previews (true only for an edited, writable `.twin` source). The tab activation and closing tools SHALL accept
 `archive` as a type filter.
 
 #### Scenario: Two archive tabs show the same entry path
@@ -1528,6 +1528,23 @@ searches SHALL include the label, and interaction replies SHALL use the meaningf
 - **AND** literals, resource references and TemplateBinding retain label discriminators
 - **AND** a missing typed label with a same-type data-bound text sibling explains that such text changes,
   is addressed by position, and that the caller should dump again for its current path
+
+### Requirement: Settle IDE command invokes before replying
+
+For a successful `interact` invoke on an IDE Button or MenuItem, the reply SHALL wait for an exposed
+running command task to complete or for a new modal dialog to open, up to two seconds. Tasks exposed
+by async DelegateCommand and CommunityToolkit async relay commands SHALL be recognized. With no
+running exposed task, the invoke SHALL allow one Background dispatcher pass, bounded by the same
+limit. Running-program controls SHALL retain their program wait.
+
+#### Scenario: A command opens a modal dialog after awaiting work
+- **WHEN** an IDE button's command awaits work and then opens a modal dialog within two seconds
+- **THEN** the reply's existing modalDialog note names it as opened during this call
+- **AND** the invoke does not wait for the dialog to be answered
+
+#### Scenario: A command outlasts the wait without opening a dialog
+- **WHEN** the exposed task is still running after two seconds and no new modal dialog has opened
+- **THEN** the detail says the reply preceded completion of the work and names the 2000 ms limit
 
 ### Requirement: Attribute window waits when settling running-form actions
 

@@ -235,32 +235,94 @@ public class ListItemDataTests
             Debug.Print Err.Number, c.ItemData(0)
             """, "-2147024882", "Out of memory", "94", "77");
 
-    // Unmeasured: these receivers keep today's direct-call answer until vb6.exe is asked (#5135). They are probably late-bound.
-    [AvaloniaTheory]
-    [InlineData("v = controls.Item(1).ItemData")]
-    [InlineData("v = GetList().ItemData")]
-    [InlineData("v = GetControl().ItemData")]
-    [InlineData("v = CallByName(Items1, \"ItemData\", VbGet)")]
-    public async Task Other_receiver_paths_keep_the_missing_index_error(string statement)
+    public static IEnumerable<object[]> OtherLateBoundErrors()
     {
-        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form("ListBox", 0, false));
-        var code = $"""
-            Dim controls As New Collection
-            controls.Add Items1
-            {statement}
-            Function GetList() As Object
-                Set GetList = Items1
-            End Function
-            Function GetControl() As Control
-                Set GetControl = Items1
-            End Function
-            """;
-        Func<Task> act = () => ContainerRuntimeHarness.Run(ctx, env, code.ReplaceLineEndings("\r\n"));
-        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*Argument not optional");
+        var cases = new (string Statement, int Error)[]
+        {
+            ("col(1).List(-2) = \"v\"", 7),
+            ("col(1).ItemData(0) = vn", 13),
+            ("col(1).NewIndex = 0", 383),
+            ("v = col(1).ItemData", 385),
+            ("v = GetO().ItemData", 385),
+            ("v = GetC().ItemData", 385),
+            ("GetO().List(-2) = \"v\"", 7),
+            ("GetC().List(-2) = \"v\"", 7),
+            ("v = CallByName(Items1, \"ItemData\", VbGet)", 385),
+            ("CallByName Items1, \"List\", VbLet, -2, \"v\"", 7),
+            ("CallByName Items1, \"NewIndex\", VbLet, 0", 383),
+            ("v = o.List", 385),
+            ("o.ListCount = 1", 383),
+            ("o.ItemData = 5", 385),
+            ("o.List = \"v\"", 385),
+            ("v = o.ItemData()", 385),
+            ("o.List(-3) = \"v\"", 7),
+            ("v = k.List", 385),
+            ("k.ListCount = 1", 383)
+        };
+        foreach (var (type, style) in new[] { ("ListBox", 0), ("ComboBox", 2), ("ComboBox", 0) })
+            foreach (var (statement, error) in cases)
+                yield return [type, style, statement, error];
     }
+
+    // #5135, SP6 native/p-code: docs/vb6-fidelity-oracle/a-lists-members-listcount-list.md,
+    // "Other ways in" (measuring PR #5189), plus #5135's explicit missing-index write directive.
+    // State expectations also guard the unchanged values recorded by #5135's main probe.
+    [AvaloniaTheory]
+    [MemberData(nameof(OtherLateBoundErrors))]
+    public Task Other_late_bound_receivers_report_measured_errors(string type, int style, string statement, int error) =>
+        Check(type, style, false, $$"""
+            Items1.AddItem "c"
+            Items1.AddItem "a"
+            Items1.AddItem "b"
+            Items1.ListIndex = 1
+            Items1.ItemData(0) = 77
+            Dim col As New Collection
+            col.Add Items1
+            Dim o As Object
+            Set o = Items1
+            Dim k As Control
+            Set k = Items1
+            Dim vn As Variant
+            vn = Null
+            On Error Resume Next
+            {{statement}}
+            Debug.Print Err.Number
+            Debug.Print Items1.ListCount, Items1.NewIndex, Items1.ItemData(0), Items1.ListIndex
+            Function GetO() As Object
+                Set GetO = Items1
+            End Function
+            Function GetC() As Control
+                Set GetC = Items1
+            End Function
+            """, error.ToString(CultureInfo.InvariantCulture), "3", "2", "77",
+            type == "ComboBox" && (statement.Contains(".List(", StringComparison.Ordinal)
+                || statement.Contains("VbLet, -2", StringComparison.Ordinal)) ? "2" : "1");
+
+    // #5135 guards: direct -3 is measured in #5134; below -3 remains today's unmeasured answer.
+    [AvaloniaTheory]
+    [InlineData("ListBox", 0)]
+    [InlineData("ComboBox", 2)]
+    public Task Direct_and_unmeasured_negative_indexes_keep_the_existing_error(string type, int style) =>
+        Check(type, style, false, """
+            Items1.AddItem "c"
+            Items1.AddItem "a"
+            Items1.AddItem "b"
+            Items1.ListIndex = 1
+            Items1.ItemData(0) = 77
+            Dim o As Object
+            Set o = Items1
+            On Error Resume Next
+            Items1.List(-3) = "v"
+            Debug.Print Err.Number
+            Err.Clear
+            o.List(-4) = "v"
+            Debug.Print Err.Number
+            Debug.Print Items1.ListCount, Items1.NewIndex, Items1.ItemData(0)
+            """, "-2147024882", "-2147024882", "3", "2", "77");
 
     [AvaloniaTheory]
     [InlineData("Items1.NewIndex = 0", "Can't assign to read-only property")]
+    [InlineData("Items1.ListCount = 1", "Can't assign to read-only property")]
     [InlineData("v = Items1.ItemData", "Argument not optional")]
     public async Task Direct_call_reports_the_measured_compile_error(string code, string message)
     {

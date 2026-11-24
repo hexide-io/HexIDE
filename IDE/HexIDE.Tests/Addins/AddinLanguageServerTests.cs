@@ -42,7 +42,7 @@ public sealed class AddinLanguageServerTests : IDisposable
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance),
                 new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance, null),
-            _launches, _types, new AddinResourceService());
+            _launches, _types, new AddinResourceService(), new AddinLanguagePackService());
     }
 
     public void Dispose()

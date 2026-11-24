@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using HexIDE.Profiles;
 using Serilog;
 
@@ -27,10 +28,35 @@ public sealed class LocalizationService : ILocalizationService
     // Captured by App.Initialize before the invariant pin; never read the pinned thread culture (#799).
     internal static CultureInfo OsUICulture { get; set; } = CultureInfo.CurrentUICulture;
 
-    // The English canonical pack — the universal fallback. Loaded once, never mutated.
-    private readonly Dictionary<string, string> _englishStrings;
+    // The IDE's own English canonical pack. Loaded once, never mutated.
+    private readonly Dictionary<string, string> _ideEnglish;
 
-    internal bool HasCanonicalKey(string key) => _englishStrings.ContainsKey(key);
+    // The universal fallback: the IDE's canonical English with every registered area's (#5394), rebuilt when they change.
+    private Dictionary<string, string> _englishStrings;
+    private int _englishVersion = -1;
+    private bool _listeningToAreas;
+
+    /// <summary>The language-pack areas read beside the IDE's own packs; the running IDE's unless a test gives its own.</summary>
+    internal LanguagePackAreas Areas { get; init; } = LanguagePackAreas.Current;
+
+    private Dictionary<string, string> English
+    {
+        get
+        {
+            var version = Areas.Version;
+            if (version != _englishVersion)
+            {
+                var english = new Dictionary<string, string>(_ideEnglish);
+                Areas.AddEnglish(english);
+                _englishStrings = english;
+                _englishVersion = version;
+            }
+
+            return _englishStrings;
+        }
+    }
+
+    internal bool HasCanonicalKey(string key) => English.ContainsKey(key);
 
     // The per-user override tier, merged LAST in resolution. Optional so existing `new LocalizationService()`
     // tests still construct without it; when present, an override change live-re-applies the active language.
@@ -72,8 +98,9 @@ public sealed class LocalizationService : ILocalizationService
         DistributionIdentity? identity = null)
     {
         _identity = identity ?? Distribution.Current;
-        _englishStrings = LoadEnglish();
-        _currentStrings = new Dictionary<string, string>(_englishStrings);
+        _ideEnglish = LoadEnglish();
+        _englishStrings = _ideEnglish;
+        _currentStrings = new Dictionary<string, string>(_ideEnglish);
 
         _userTranslations = userTranslations;
         if (_userTranslations != null)
@@ -106,14 +133,14 @@ public sealed class LocalizationService : ILocalizationService
         if (profile == null)
             return;
         _profileId = profile.Id;
+        // Which keys are canonical is decided as each layer merges, not here: an area registers after the profile loads.
         foreach (var (id, payload) in profile.LanguageOverrides)
         {
             var pack = payload.Content.Deserialize(LocalizationJsonContext.Default.LanguagePackRecord)!;
             var strings = new Dictionary<string, string>(StringComparer.Ordinal);
             if (pack.Strings != null)
                 foreach (var (key, value) in pack.Strings)
-                    if (_englishStrings.ContainsKey(key) && !string.IsNullOrWhiteSpace(value)
-                        && UserTranslationsService.PreservesPlaceholders(_englishStrings, key, value))
+                    if (!string.IsNullOrWhiteSpace(value))
                         strings[key] = value;
             _profileStrings[id] = strings;
         }
@@ -134,6 +161,7 @@ public sealed class LocalizationService : ILocalizationService
 
         ActiveLanguage = id;
         _currentStrings = map;
+        ListenToAreas();
         FlowDirection = direction == "rtl"
             ? Avalonia.Media.FlowDirection.RightToLeft
             : Avalonia.Media.FlowDirection.LeftToRight;
@@ -160,7 +188,7 @@ public sealed class LocalizationService : ILocalizationService
     public string GetString(string key)
     {
         if (_currentStrings.TryGetValue(key, out var value)) return value;
-        if (_englishStrings.TryGetValue(key, out var english)) return english;
+        if (English.TryGetValue(key, out var english)) return english;
         return key;
     }
 
@@ -171,7 +199,7 @@ public sealed class LocalizationService : ILocalizationService
         // TryResolveMap returns the English map on failure, so map is always usable.
         TryResolveMap(packId, out var map, out _);
         if (map.TryGetValue(key, out var value)) return value;
-        if (_englishStrings.TryGetValue(key, out var english)) return english;
+        if (English.TryGetValue(key, out var english)) return english;
         return key;
     }
 
@@ -179,7 +207,7 @@ public sealed class LocalizationService : ILocalizationService
     {
         var key = "Str.PropDesc." + Sanitize(propertyName);
         if (_currentStrings.TryGetValue(key, out var value)) return value;
-        if (_englishStrings.TryGetValue(key, out var english)) return english;
+        if (English.TryGetValue(key, out var english)) return english;
         return null; // caller falls back to the English description embedded in HexIDE.Core
     }
 
@@ -231,6 +259,38 @@ public sealed class LocalizationService : ILocalizationService
     {
         if (IsIdInActiveChain(id))
             Apply(ActiveLanguage);
+    }
+
+    /// <summary>
+    /// Re-applies the active language whenever an area is added or taken out, once this service has applied one, so the
+    /// running IDE's text gains or loses the area's keys as a language switch would. The handler is weak: a service built
+    /// for one lookup and then dropped isn't kept alive by the process-wide registry.
+    /// </summary>
+    private void ListenToAreas()
+    {
+        if (_listeningToAreas)
+            return;
+        _listeningToAreas = true;
+        var areas = Areas;
+        var self = new WeakReference<LocalizationService>(this);
+        Action? handler = null;
+        handler = () =>
+        {
+            if (self.TryGetTarget(out var service))
+                service.OnAreasChanged();
+            else
+                areas.Changed -= handler;
+        };
+        areas.Changed += handler;
+    }
+
+    // An area can be registered from any thread; the language slot belongs to the UI thread.
+    private void OnAreasChanged()
+    {
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess())
+            Apply(ActiveLanguage);
+        else
+            Dispatcher.UIThread.Post(() => Apply(ActiveLanguage));
     }
 
     /// <summary>True if <paramref name="id"/> is the resolved active id or its neutral language.</summary>
@@ -337,7 +397,7 @@ public sealed class LocalizationService : ILocalizationService
                 return text;
         }
 
-        return _englishStrings.GetValueOrDefault(key, key);
+        return _ideEnglish.GetValueOrDefault(key, key);
     }
 
     private bool TryResolveLayers(string id, out Dictionary<string, string> map, out string direction)
@@ -351,7 +411,7 @@ public sealed class LocalizationService : ILocalizationService
         {
             // The canonical, key-complete pack (US-spelled, the de-facto neutral English). Honor user
             // overrides on `en` itself (authoring the canonical), merged last.
-            map = new Dictionary<string, string>(_englishStrings);
+            map = new Dictionary<string, string>(English);
             MergeProfileOverrides("en", map);
             MergeUserOverrides("en", map);
             return true;
@@ -360,7 +420,7 @@ public sealed class LocalizationService : ILocalizationService
         if (id is "pseudo" or "pseudo-rtl")
         {
             var rtl = id == "pseudo-rtl";
-            var source = new Dictionary<string, string>(_englishStrings);
+            var source = new Dictionary<string, string>(English);
             if (!_identity.IsStock)
                 BrandText.Apply(source, _identity.Name, hasRepository: _identity.RepositoryUrl is not null);
             map = PseudoLocalizer.Transform(source, rtl);
@@ -370,7 +430,7 @@ public sealed class LocalizationService : ILocalizationService
 
         try
         {
-            var merged = new Dictionary<string, string>(_englishStrings);
+            var merged = new Dictionary<string, string>(English);
             string? direction2 = null;
             var found = false;
 
@@ -382,6 +442,11 @@ public sealed class LocalizationService : ILocalizationService
                 found = true;
             }
 
+            // Each area's text for the same layer (#5394). Its keys are disjoint from the IDE's, so the order between them
+            // decides nothing; an area never marks an id found, and never sets the direction.
+            if (neutral != id)
+                Areas.AddTranslations(neutral, merged);
+
             // The pack itself (region or neutral). Guarded with PackExists: most region ids are now
             // fileless (the empty regional packs were deleted) and resolve through their neutral above —
             // an absent file must NOT throw, it just contributes no overrides.
@@ -390,6 +455,8 @@ public sealed class LocalizationService : ILocalizationService
                 direction2 = MergePack(id, merged) ?? direction2;
                 found = true;
             }
+
+            Areas.AddTranslations(id, merged);
 
             // Profile strings use the same locale chain, below the existing per-user tier.
             if (neutral != id && MergeProfileOverrides(neutral, merged))
@@ -422,7 +489,7 @@ public sealed class LocalizationService : ILocalizationService
         catch (Exception ex)
         {
             Log.Warning(ex, "LocalizationService: Failed to load language pack '{Id}', falling back to English", id);
-            map = new Dictionary<string, string>(_englishStrings);
+            map = new Dictionary<string, string>(English);
             return false;
         }
     }
@@ -431,8 +498,10 @@ public sealed class LocalizationService : ILocalizationService
     {
         if (!_profileStrings.TryGetValue(id, out var strings) || strings.Count == 0)
             return false;
+        var english = English;
         foreach (var (key, value) in strings)
-            into[key] = value;
+            if (english.ContainsKey(key) && UserTranslationsService.PreservesPlaceholders(english, key, value))
+                into[key] = value;
         return true;
     }
 
@@ -519,9 +588,15 @@ public sealed class LocalizationService : ILocalizationService
         var neutral = NeutralLanguageOf(id);
         var keys = new HashSet<string>();
         if (neutral != "en")
+        {
             keys.UnionWith(LoadPackOwnStrings(neutral).Keys);
+            Areas.AddOwnKeys(neutral, keys);
+        }
         if (id != neutral)
+        {
             keys.UnionWith(LoadPackOwnStrings(id).Keys);
+            Areas.AddOwnKeys(id, keys);
+        }
         return keys;
     }
 

@@ -134,4 +134,50 @@ public interface IHexIdeHost
     /// host that isn't an add-in's own: resources are registered only through the host an add-in is given.
     /// </exception>
     IDisposable RegisterResources(Uri dictionary);
+
+    /// <summary>
+    /// Contributes language packs for text the add-in owns (#5394): a folder of <c>{id}.json</c> files in the IDE's own pack
+    /// format, an <c>en.json</c> and one for each language or region it translates. The IDE reads them in every layer it
+    /// reads its own packs, and the user's translations, the Translation Editor and Pseudo cover them too.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the owners HexIDE grants it may call it.</b> The grants are in HexIDE's own source, keyed by owner, and each
+    /// names the <c>Str.*</c> families its owner's packs may supply. Any other add-in is refused, whatever its signature.
+    /// Today the only grant is the Basic provider's, which HexIDE composes itself.
+    /// </para>
+    /// <para>
+    /// <b>It only adds.</b> Every file is read before anything is merged, and the whole folder is refused if any one key is
+    /// refused. A key is refused when:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>it is outside the add-in's grant, or doesn't start <c>Str.</c>;</item>
+    /// <item>the IDE or another add-in already holds it;</item>
+    /// <item>its English is blank;</item>
+    /// <item>a language's file holds it and <c>en.json</c> doesn't;</item>
+    /// <item>a translation's placeholders differ from its English.</item>
+    /// </list>
+    /// <para>
+    /// Each refusal is logged naming the key and both owners. A pack's text direction is ignored: the IDE's own pack for
+    /// that language sets it.
+    /// </para>
+    /// <para>
+    /// The capability design will need a name for this member; none is checked today, as that design's host checks are
+    /// not built.
+    /// </para>
+    /// </remarks>
+    /// <param name="folder">An <c>avares://</c> folder in the calling add-in's own assembly, holding an <c>en.json</c>.</param>
+    /// <returns>
+    /// What takes the packs out again, and the IDE's text with them. Turning the add-in off or revoking its consent takes
+    /// them out too.
+    /// </returns>
+    /// <exception cref="ArgumentException">
+    /// The address isn't an <c>avares://</c> address in the calling assembly, the folder holds no <c>en.json</c>, or a file
+    /// in it isn't a language pack.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The add-in holds no grant, or a key is refused, as above; the message names each key and its owner. Also thrown by
+    /// a host that isn't an add-in's own: language packs are registered only through the host an add-in is given.
+    /// </exception>
+    IDisposable RegisterLanguagePacks(Uri folder);
 }

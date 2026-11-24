@@ -34,6 +34,24 @@ validation, selection, tick count and methods. Value SHALL be its default member
 - **THEN** the selection is independent of Value, SelStart truncates its length at Max, and an excessive SelLength raises 380
 - **AND** ClearSel sets SelStart to -1 and SelLength to 0
 
+### Requirement: Measured runtime stores
+
+HexIDE SHALL coerce the eight Long properties, Enabled/SelectRange and Text to Long, Boolean and String respectively,
+then apply existing property checks. The conversions are measured in [#1091 (oracle PR #5506)](https://github.com/hexide-io/HexIDE/issues/1091).
+MousePointer SHALL accept 0–15 and 99 and set both its stored value and visible cursor using the shared
+VBCursorType mapping; the mapping for 5–15 is the issue's explicit design decision.
+
+#### Scenario: Failed conversion
+
+- **WHEN** Null is assigned to a Long property, Enabled, SelectRange or Text
+- **THEN** a direct store raises 94 and an Object-bound store raises 13
+- **AND** the previous property value remains unchanged
+
+#### Scenario: Invalid pointer
+
+- **WHEN** MousePointer is assigned -1, 98 or 100
+- **THEN** error 380 leaves its stored value and cursor unchanged
+
 ### Requirement: Incomplete surface
 
 Unmeasured members and conversions SHALL refuse as not implemented. Slider own properties SHALL remain view-only
