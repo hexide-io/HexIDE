@@ -95,7 +95,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _registry,
             new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
-            new AddinOptionsService(), new ComponentRegistry(), runner,
+            new AddinOptionsService(), InBoxRegistry.Create(), runner,
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
                 NullLogger<LanguageServerContributions>.Instance, null),
@@ -286,7 +286,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         return new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry(),
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), InBoxRegistry.Create(),
             contributed: _types);
     }
 }

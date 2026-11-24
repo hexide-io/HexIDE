@@ -65,7 +65,7 @@ public sealed class ContributedProjectTests : IDisposable
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             _events, projects, _recent,
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings,
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry(),
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), InBoxRegistry.Create(),
             contributed: _types);
     }
 

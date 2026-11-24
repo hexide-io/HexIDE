@@ -65,7 +65,7 @@ public class NegativeSizeSaveTests : IDisposable
             new FileBaselineStore(),
             localization,
             refresher ?? new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()),
-            new ComponentRegistry());
+            InBoxRegistry.Create());
     }
 
     private sealed class NullSink : IDeserializeErrorSink

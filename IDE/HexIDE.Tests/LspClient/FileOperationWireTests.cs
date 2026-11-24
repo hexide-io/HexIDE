@@ -80,7 +80,7 @@ public class FileOperationWireTests : IAsyncDisposable
                 Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
                 new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
-                Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), lspClient: () => client);
+                Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), lspClient: () => client);
 
             var save = () => service.SaveModule(module, false);
             (await save.Should().ThrowAsync<Exception>()).Which.Should()

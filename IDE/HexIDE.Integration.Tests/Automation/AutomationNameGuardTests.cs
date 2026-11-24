@@ -94,7 +94,7 @@ public class AutomationNameGuardTests
             var properties = new PropertiesToolViewModel(documents, bus, Substitute.For<IWindowManager>(), loc);
             var explorer = new ProjectToolViewModel(manager, bus, Substitute.For<IProjectService>(), editor, loc);
             var browser = new ObjectBrowserToolViewModel(manager, Substitute.For<ILspClient>(), editor,
-                new ComponentRegistry(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(),
+                InBoxRegistry.Create(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(),
                 loc, Substitute.For<ILanguageConnectionRegistry>());
             var tools = new ToolDock { ActiveDockable = explorer, VisibleDockables = [explorer, properties] };
             var docs = new DocumentDock { ActiveDockable = designer, VisibleDockables = [designer, browser] };

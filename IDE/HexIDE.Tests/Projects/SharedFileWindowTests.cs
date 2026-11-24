@@ -45,7 +45,7 @@ public sealed class SharedFileWindowTests : IDisposable
         service = new ProjectService(() => throw new InvalidOperationException(), windows, events, manager,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), documents: documents);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), documents: documents);
         editors = new EditorService(windows, documents, () => ExternalFormChangeTests.Editor(service, events),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => manager, strings, events, () => service);

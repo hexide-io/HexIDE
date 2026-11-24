@@ -2,8 +2,8 @@ namespace HexIDE.Addins;
 
 /// <summary>
 /// What one owner may register through the host's add-in registrations that change what the IDE shows: its resources
-/// (#5396), its language packs (#5394), and what draws the designer's controls (#5591). Kept in HexIDE's own source, so a
-/// package can't grant itself anything.
+/// (#5396), its language packs (#5394), what draws the designer's controls (#5591), and components beyond a plain control
+/// (#5594). Kept in HexIDE's own source, so a package can't grant itself anything.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -46,6 +46,13 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     /// </summary>
     public bool DesignerPictures { get; init; }
 
+    /// <summary>
+    /// Whether it may register a component beyond a plain control (#5594): one whose role isn't
+    /// <see cref="HexIDE.Runtime.Components.ComponentRole.Control"/>, such as a form, or that's a container. The designer
+    /// gives such a class a place no plain control has, as a form's root or as other controls' parent.
+    /// </summary>
+    public bool Components { get; init; }
+
     /// <summary>Whether a type declared in <paramref name="assembly"/> may key one of its resources.</summary>
     public bool CoversResourceType(string? assembly) =>
         assembly is not null && ResourceTypeAssemblies.Contains(assembly, StringComparer.Ordinal);
@@ -79,6 +86,8 @@ internal static class RegistrationGrants
             ],
             // Its controls draw themselves in the designer (#5591).
             DesignerPictures = true,
+            // Its Form, and its Frame and PictureBox, which hold other controls (#5594).
+            Components = true,
         },
     ];
 

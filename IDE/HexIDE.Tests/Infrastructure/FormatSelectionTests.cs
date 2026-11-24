@@ -22,7 +22,7 @@ public class FormatSelectionTests
              new ComponentInstance(CommandButtonComponentClass.Instance, "Command1"),
              new ComponentInstance(CommandButtonComponentClass.Instance, "Command2")], "");
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         return new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
             null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
     }

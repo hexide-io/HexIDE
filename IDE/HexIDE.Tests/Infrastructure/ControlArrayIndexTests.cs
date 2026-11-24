@@ -70,7 +70,7 @@ public class ControlArrayIndexTests : IDisposable
         var writer = new ProjectService(() => throw new InvalidOperationException(),
             Substitute.For<IWindowManager>(), events, projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
-            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, null!, writer, events,
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, Substitute.For<ILocalizationService>(), null!);
         var tools = new HexIdeTools(context);
@@ -151,7 +151,7 @@ public class ControlArrayIndexTests : IDisposable
         var writer = new ProjectService(() => throw new InvalidOperationException(),
             Substitute.For<IWindowManager>(), events, projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
-            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(), null!, null!, writer, events,
             null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, Substitute.For<ILocalizationService>(), null!);
         var tools = new HexIdeTools(context);

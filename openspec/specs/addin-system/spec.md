@@ -137,11 +137,12 @@ need its own bespoke unregister call.
 
 ### Requirement: The IDE SHALL offer menu, tool window, command, control and template contribution
 The host surface SHALL let an add-in add menu items under Tools or AddIns (case-insensitive), register a dockable tool window
-from a factory, register a named command, register a custom VB6 control into the toolbox, and register a
+from a factory, register a named command, register a custom VB6 control and put it in the toolbox, and register a
 project template. Tool-window ids SHALL be scoped to the owning add-in id: duplicates within an add-in
 SHALL be refused before invoking the content factory; different add-ins MAY reuse the same window id.
-The owner SHALL remain attached to the host facade after initialization. A contributed control SHALL NOT be a container, and a form nesting a control under one
-SHALL be held read-only rather than saved.
+The owner SHALL remain attached to the host facade after initialization. A control contributed by an owner without the
+grant for it SHALL NOT be a container, and a form nesting a control under a class HexIDE didn't build SHALL be held
+read-only rather than saved.
 
 These are the extension points the original add-in ecosystem actually used. Controls and project templates
 matter disproportionately: a custom control that appears in the toolbox and a project type that appears in
@@ -175,8 +176,12 @@ harmless disposable handle.
 - **AND** its content is constructed eagerly at registration
 
 #### Scenario: Contributing a control
-- **WHEN** an add-in registers a custom VB6 control
+- **WHEN** an add-in registers a custom VB6 control and a toolbox item for it
 - **THEN** the control appears in the toolbox and can be placed on a form
+
+#### Scenario: A control with no toolbox item
+- **WHEN** an add-in registers a custom VB6 control and no toolbox item for it
+- **THEN** the toolbox doesn't offer it
 
 #### Scenario: A control nested under a contributed class
 - **WHEN** a form nests a control under a class an add-in contributed
@@ -573,6 +578,34 @@ disposing a registration SHALL take out that registration only.
 #### Scenario: The place a drawer is lent
 - **WHEN** a drawer asks the designer to hold an object that isn't a control, a control that has a parent, or a second control
 - **THEN** it is refused, and the drawer can take out only the control it was lent
+
+### Requirement: Component registration SHALL be owned
+`IHexIdeHost.RegisterComponent` and `IHexIdeHost.RegisterToolboxItem` SHALL register under the owner the add-in's own host
+names, and the IDE's own host SHALL refuse both (#5594). A class whose role isn't `Control`, or that's a container, SHALL be
+refused unless the owner's grant in HexIDE's own table names components. The component registry SHALL start empty: the
+Basic provider SHALL register its Form, its controls and their toolbox items the same way.
+
+#### Scenario: The provider's controls
+- **WHEN** the Basic provider registers its Form, its controls and their toolbox items at startup, through the owned host
+  the IDE composes for it
+- **THEN** the toolbox offers its controls in VB6's order, with their icons, and the designer places them
+
+#### Scenario: An add-in registers a form, menu, line or container
+- **WHEN** a signed third-party add-in registers a class whose role is `Form`, `Menu` or `Line`, or that's a container
+- **THEN** it is refused, naming the add-in and the class, and the designer offers no such class
+
+### Requirement: A component registration SHALL only add
+A class whose type name a registration holds, in any case and the owner's own included, SHALL be refused, naming both
+owners, and so SHALL a type name in a control library's namespace (#5594). A toolbox item SHALL be refused unless its
+owner registered the class, and the toolbox SHALL offer a class once at most.
+
+#### Scenario: A held type name
+- **WHEN** an add-in registers a class whose type name another registration holds, in any case
+- **THEN** it is refused, naming both owners, and the first registration stands
+
+#### Scenario: A toolbox item for a class that isn't the owner's
+- **WHEN** an add-in registers a toolbox item for a class another owner registered, or that nobody registered
+- **THEN** it is refused and the toolbox is unchanged
 
 ### Requirement: Grants SHALL be held only by the owners HexIDE names
 A grant for an owner the IDE composes SHALL match only an origin marked as composed, which nothing that reads a package's manifest marks.

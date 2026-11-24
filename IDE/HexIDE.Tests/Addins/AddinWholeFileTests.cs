@@ -641,7 +641,7 @@ public class AddinWholeFileTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            new HeaderRefresher(new EventBus(), emptyDock, new BreakpointService(), new BookmarkService()), new ComponentRegistry());
+            new HeaderRefresher(new EventBus(), emptyDock, new BreakpointService(), new BookmarkService()), InBoxRegistry.Create());
     }
 
     private static readonly string[] SourceExtensions =

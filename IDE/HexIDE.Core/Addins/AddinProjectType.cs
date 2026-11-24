@@ -58,7 +58,8 @@ public sealed record AddinProjectType(string Title)
     /// </para>
     /// <para>
     /// With this reader the controls on a form are the add-in's own <see cref="HexIDE.Runtime.Components.IComponentClass"/>es, which
-    /// <see cref="IHexIdeHost.RegisterComponent"/> offers in the toolbox. Naming <see cref="FormFormat"/> instead uses
+    /// <see cref="IHexIdeHost.RegisterComponent"/> registers, and <see cref="IHexIdeHost.RegisterToolboxItem"/> offers in the
+    /// toolbox. Naming <see cref="FormFormat"/> instead uses
     /// HexIDE's format and controls. These two properties cannot be set together.
     /// </para>
     /// </remarks>

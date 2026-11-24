@@ -14,7 +14,7 @@ public class MenuPropertyNamesTests
     [Fact]
     public void Registered_classes_lookup_exactly_their_declared_properties()
     {
-        var registry = new ComponentRegistry();
+        var registry = InBoxRegistry.Create();
         foreach (var component in registry.Components.Concat(registry.LibraryControls.Select(c => c.Class))
                      .Concat([LineComponentClass.Instance, MenuComponentClass.Instance]))
             component.PropertiesByName.Keys.Should().BeEquivalentTo(component.Properties.Select(p => p.Name), component.VBTypeName);

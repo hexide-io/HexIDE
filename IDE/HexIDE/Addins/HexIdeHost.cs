@@ -16,7 +16,7 @@ internal sealed class HexIdeHost(
     AddinCommandService commandService,
     AddinProjectTemplateService projectTemplateService,
     AddinOptionsService optionsService,
-    IComponentRegistry componentRegistry,
+    ComponentRegistry componentRegistry,
     IProjectRunnerService projectRunner,
     HexIDE.Lsp.LanguageServerContributions languageServers,
     HexIDE.Debugging.DebugLaunchService debugLaunches,
@@ -52,8 +52,28 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture, Func<bool>? canExecute, AddinOrigin origin) =>
         commandService.RegisterOwned(origin, id, label, onInvoke, gesture, canExecute);
 
+    // As resources: only an add-in's own host registers a component or a toolbox item, with the add-in as its owner (#5594).
     public IDisposable RegisterComponent(IComponentClass component) =>
-        componentRegistry.Register(component);
+        throw new InvalidOperationException("Components are registered only through the host an add-in is given.");
+
+    public IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey = null) =>
+        throw new InvalidOperationException("Toolbox items are registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked: a form naming the
+    // class then loads as it would with no add-in that registers it.
+    internal IDisposable RegisterComponent(IComponentClass component, AddinOrigin origin)
+    {
+        var handle = componentRegistry.Register(component, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        return handle;
+    }
+
+    internal IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey, AddinOrigin origin)
+    {
+        var handle = componentRegistry.RegisterToolboxItem(component, iconKey, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        return handle;
+    }
 
     public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) =>
         projectTemplateService.Register(template);

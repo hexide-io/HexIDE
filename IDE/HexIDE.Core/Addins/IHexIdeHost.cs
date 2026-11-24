@@ -28,8 +28,30 @@ public interface IHexIdeHost
 
     IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
     IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
-    /// <summary>Contributes a toolbox control until the returned handle is disposed.</summary>
+    /// <summary>
+    /// Contributes a control class until the returned handle is disposed: forms that name its type name load it, and the
+    /// designer places it. The toolbox offers it once its owner registers a toolbox item for it, with
+    /// <see cref="RegisterToolboxItem"/>.
+    /// </summary>
+    /// <remarks>
+    /// Owned (#5594): only the host an add-in is given takes it, under the add-in's identity. A class whose role isn't
+    /// <see cref="ComponentRole.Control"/>, or that's a container, is refused unless HexIDE grants its owner that.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The owner may not register such a class, or another registration, its own or another owner's, holds the class's
+    /// <see cref="IComponentClass.VBTypeName"/>. The message names both owners.
+    /// </exception>
     IDisposable RegisterComponent(IComponentClass component);
+
+    /// <summary>
+    /// Offers <paramref name="component"/> in the toolbox until the returned handle is disposed, after the items already
+    /// there, with the icon resource <paramref name="iconKey"/> names, or the toolbox's generic control icon when it's null
+    /// (#5594).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The class isn't registered, or this add-in didn't register it, or the toolbox offers it already.
+    /// </exception>
+    IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey = null);
     /// <summary>Contributes a template to subsequently opened New Project dialogs until the returned handle is disposed.</summary>
     IDisposable RegisterProjectTemplate(IAddinProjectTemplate template);
 

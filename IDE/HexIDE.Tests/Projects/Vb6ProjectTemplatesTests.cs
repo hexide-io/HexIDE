@@ -59,7 +59,7 @@ public sealed class Vb6ProjectTemplatesTests
                 Substitute.For<ISettingsService>(), Substitute.For<IProfileService>(), Substitute.For<ILocalizationService>()),
             Substitute.For<IWindowManager>(), Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), Substitute.For<ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), templates: templates);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), templates: templates);
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public sealed class Vb6ProjectTemplatesTests
         var sidecar = Substitute.For<IUserSidecarService>();
         var service = new ProjectService(            () => throw new InvalidOperationException("no new-project dialog here"), windows, Substitute.For<IEventBus>(), projects,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(),
-            new LocalizationService(), Substitute.For<IHeaderRefresher>(),             new ComponentRegistry(), contributed: Types(withAddin: true));
+            new LocalizationService(), Substitute.For<IHeaderRefresher>(),             InBoxRegistry.Create(), contributed: Types(withAddin: true));
 
         var open = () => service.OpenProject();
 

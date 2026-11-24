@@ -344,7 +344,7 @@ public partial class DISetup
             .Bind<IVb6ToolchainService>().As(Singleton).To<Vb6ToolchainService>()
             .Bind<IReferenceLibraryService>().As(Singleton).To<ReferenceLibraryService>()
             .Bind<ITypeLibraryService>().As(Singleton).To<TypeLibraryService>()
-            .Bind<IComponentRegistry>().As(Singleton).To<ComponentRegistry>()
+            .Bind<IComponentRegistry, ComponentRegistry>().As(Singleton).To<ComponentRegistry>()
             // LSP
             .Bind<LanguageServerEditorStore>().As(Singleton).To(ctx =>
             {

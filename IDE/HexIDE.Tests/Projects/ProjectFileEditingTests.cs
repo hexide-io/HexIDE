@@ -30,7 +30,7 @@ public sealed class ProjectFileEditingTests : IDisposable
         strings.GetString("Str.ProjectFile.ReplaceModel").Returns("Replace unsaved settings for {0}?");
         service = new ProjectService(() => throw new InvalidOperationException(), windows,
             events, manager, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
-            Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), documents: documents);
+            Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), documents: documents);
     }
 
     private async Task<ProjectFileDocumentViewModel> Open()

@@ -132,7 +132,7 @@ public class PictureLoadTests
                 form.AbsolutePath = Path.Combine(directory.FullName, "Form1.frm");
                 var service = new ProjectService(null!, windows, bus, Substitute.For<IProjectManager>(),
                     Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
-                    Substitute.For<IUserSidecarService>(), new FileBaselineStore(), loc, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+                    Substitute.For<IUserSidecarService>(), new FileBaselineStore(), loc, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
                 (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
                 var source = await File.ReadAllTextAsync(form.AbsolutePath);
                 source.Should().Contain("Begin VB.PictureBox Picture1");
@@ -249,7 +249,7 @@ public class PictureLoadTests
             form.AbsolutePath = Path.ChangeExtension(path, ".frm");
             var service = new ProjectService(null!, windows, bus, Substitute.For<IProjectManager>(),
                 Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
-                Substitute.For<IUserSidecarService>(), new FileBaselineStore(), loc, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+                Substitute.For<IUserSidecarService>(), new FileBaselineStore(), loc, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
             (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
             var source = await File.ReadAllTextAsync(form.AbsolutePath);
             var companion = await File.ReadAllBytesAsync(Path.ChangeExtension(path, ".frx"));

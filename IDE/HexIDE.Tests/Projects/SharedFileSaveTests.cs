@@ -41,7 +41,7 @@ public sealed class SharedFileSaveTests : IDisposable
         service = new ProjectService(() => throw new InvalidOperationException(), windows, events, manager,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), documents: documents);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), documents: documents);
     }
 
     public void Dispose() => Directory.Delete(root, true);
