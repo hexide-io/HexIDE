@@ -21,6 +21,8 @@ public class FrameComponentClass : ComponentBaseClass
 
     public override string? DesignerDoubleClickEvent => "DragDrop";
 
+    public override bool IsContainer => true;
+
     public override string Name => "Frame";
     public override string VBTypeName => "VB.Frame";
 

@@ -178,7 +178,7 @@ public partial class ComponentInstanceViewModel : ObservableObject
             if (containerResolved)
                 return containerViewModel;
             containerResolved = true;
-            if (instance.Container is { } container && container.BaseClass is not FormComponentClass &&
+            if (instance.Container is { } container && container.BaseClass.Role != ComponentRole.Form &&
                 parentViewModel.TryGetViewModel(container, out var vm))
                 containerViewModel = vm;
             return containerViewModel;
@@ -305,7 +305,7 @@ public partial class ComponentInstanceViewModel : ObservableObject
     /// A Line has no Left, Top, Width or Height (#163). The designer selects and moves it by the rectangle its endpoints
     /// and pen cover, in pixels, from the endpoints in its container's scale.
     /// </summary>
-    public bool IsLine => instance.BaseClass is LineComponentClass;
+    public bool IsLine => instance.BaseClass.Role == ComponentRole.Line;
 
 
     /// <summary>
@@ -406,7 +406,7 @@ public partial class ComponentInstanceViewModel : ObservableObject
         VBColorBrushes.ToBrush(instance.GetPropertyOrDefault(VBProperties.ForeColorProperty));
 
     // The root's class is the designer's kind, not the form component every root shares (#1544).
-    public string BaseClassName => instance.BaseClass is FormComponentClass ? parentViewModel.RootClassName : instance.BaseClass.ClassName;
+    public string BaseClassName => instance.BaseClass.Role == ComponentRole.Form ? parentViewModel.RootClassName : instance.BaseClass.ClassName;
 
     /// <summary>
     /// The control's name as the automation tools address it: <c>optSize(1)</c> for a control array's element, its bare

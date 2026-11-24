@@ -14,6 +14,8 @@ public sealed class SSTabComponentClass : InBoxComponentClass
             MouseDownEvent, MouseUpEvent, MouseMoveEvent, DblClickEvent, GotFocusEvent, LostFocusEvent]) { }
 
     public static SSTabComponentClass Instance { get; } = new();
+    public override bool IsContainer => true;
+
     public override string Name => "SSTab";
     public override string ControlClassName => "SSTab";
     public override RuntimeLibrary Library => ControlLibraries.TabDlg;

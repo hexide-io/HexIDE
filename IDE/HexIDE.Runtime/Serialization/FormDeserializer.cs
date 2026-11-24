@@ -324,7 +324,7 @@ public class FormDeserializer
             // permits writing a control nested under a ListBox and VB6 loads it without complaint, so that
             // is corrupt input rather than an exotic container: leaving the link unrecorded is what keeps
             // the depth counter below seeing the nesting, so the refusal gate still fires on it.
-            if (!isMenu && parent is not null && ContainerClasses.IsContainer(parent.BaseClass))
+            if (!isMenu && parent is not null && parent.BaseClass.IsContainer)
                 instance.SetContainer(parent);
 
             // Depth HexIDE cannot reproduce. Two kinds of nesting are now excluded, and both are excluded
