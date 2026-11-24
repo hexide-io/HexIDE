@@ -99,7 +99,7 @@ public class InBoxToolboxTests
         return (project, toolbox, vm, form);
     }
 
-    private static RuntimeLibrary?[] InBoxLibraries(ToolBoxToolViewModel toolbox) =>
+    private static IControlLibrary?[] InBoxLibraries(ToolBoxToolViewModel toolbox) =>
         toolbox.Components.Where(c => c.BaseClass is InBoxComponentClass).Select(c => c.Library).ToArray();
 
     [AvaloniaFact]

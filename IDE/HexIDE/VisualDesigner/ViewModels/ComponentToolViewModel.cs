@@ -1,6 +1,5 @@
 using Avalonia.Media;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 using HexIDE.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -36,7 +35,7 @@ public partial class ComponentToolViewModel : ObservableObject
     public IDesignerComponentClass? BaseClass { get; }
 
     /// <summary>The library an in-box control is placed from, which its type name and its form's header name (#1103).</summary>
-    public RuntimeLibrary? Library { get; init; }
+    public IControlLibrary? Library { get; init; }
 
     /// <summary>The type name a control placed from this button takes: <c>ComctlLib.ProgressBar</c> from COMCTL32.OCX's.</summary>
     public string? VBTypeName => LibraryTypeName ?? BaseClass?.VBTypeName;
