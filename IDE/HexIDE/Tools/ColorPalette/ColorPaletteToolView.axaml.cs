@@ -37,7 +37,8 @@ public partial class ColorPaletteToolView : UserControl
         {
             if (vm.SelectedColor == null)
                 return;
-            vm.SelectedColor!.Color = VBColorAvaloniaExtensions.FromAvaloniaColor(ColorView.Color);
+            var color = ColorView.Color;
+            vm.SelectedColor!.Color = VBColor.FromColor(color.R, color.G, color.B);
         }
     }
 }
