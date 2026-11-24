@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Ažuriranjem datoteke {0} u projektu {1} odbacit će se nespremljene promjene tog projekta. Želite li nastaviti?",
     "Str.Dialog.SharedFile.DiskChanged": "Datoteka '{0}' promijenjena je na disku otkad je kopija projekta {1} učitana ili spremljena. Želite li je prebrisati?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Knjižne oznake, točke prekida i ostale korisničke postavke za {0} neće se učitati ni spremiti u ovoj sesiji.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Dizajner MDI obrazaca nije implementiran (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Pokretanje MDI obrasca nije implementirano (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Već postoji kontrola naziva '{0}'.  Želite li stvoriti polje kontrola?",
     "Str.Options.Environment.ErrorTrapping.Header": "Hvatanje pogrešaka",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Prekini pri svim pogreškama",

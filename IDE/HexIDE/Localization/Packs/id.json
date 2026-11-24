@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Memperbarui {0} dalam proyek {1} akan membuang perubahan proyek tersebut yang belum disimpan. Apakah Anda ingin melanjutkan?",
     "Str.Dialog.SharedFile.DiskChanged": "Berkas '{0}' telah berubah di disk sejak salinan proyek {1} dimuat atau disimpan. Apakah Anda ingin menimpanya?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Penanda, breakpoint, dan pengaturan per pengguna lainnya untuk {0} tidak akan dimuat atau disimpan dalam sesi ini.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Perancang formulir MDI belum diimplementasikan (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Menjalankan formulir MDI belum diimplementasikan (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Kontrol bernama '{0}' sudah ada.  Apakah Anda ingin membuat larik kontrol?",
     "Str.Options.Environment.ErrorTrapping.Header": "Penangkapan Kesalahan",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Hentikan pada Semua Kesalahan",

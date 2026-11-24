@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "L'aggiornamento di {0} nel progetto {1} eliminerà le modifiche non salvate di quel progetto. Continuare?",
     "Str.Dialog.SharedFile.DiskChanged": "Il file '{0}' è stato modificato su disco da quando la copia del progetto {1} è stata caricata o salvata. Sovrascriverlo?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "I segnalibri, i punti di interruzione e le altre impostazioni per utente di {0} non verranno caricati né salvati in questa sessione.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "La finestra di progettazione dei form MDI non è implementata (#5313).",
+    "Str.MDIForm.RunNotImplemented": "L’esecuzione di un form MDI non è implementata (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Esiste già un controllo denominato '{0}'.  Creare una matrice di controlli?",
     "Str.Options.Environment.ErrorTrapping.Header": "Intercettazione errori",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Interrompi su tutti gli errori",

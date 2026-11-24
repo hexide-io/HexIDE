@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Als u {0} in project {1} bijwerkt, gaan de niet-opgeslagen wijzigingen van dat project verloren. Wilt u doorgaan?",
     "Str.Dialog.SharedFile.DiskChanged": "Het bestand '{0}' is op schijf gewijzigd sinds de kopie van project {1} is geladen of opgeslagen. Wilt u het overschrijven?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Bladwijzers, onderbrekingspunten en andere gebruikersinstellingen voor {0} worden in deze sessie niet geladen of opgeslagen.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "De MDI-formulierontwerper is niet geïmplementeerd (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Het uitvoeren van een MDI-formulier is niet geïmplementeerd (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Er bestaat al een besturingselement met de naam '{0}'.  Wilt u een besturingselementenmatrix maken?",
     "Str.Options.Environment.ErrorTrapping.Header": "Fouten afvangen",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Onderbreken bij alle fouten",

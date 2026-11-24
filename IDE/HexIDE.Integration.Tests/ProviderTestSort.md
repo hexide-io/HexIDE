@@ -122,6 +122,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/LineNumbersFromTheTopOfTheFileTests.cs` | split |
 | `Views/LoadedFormMenuTests.cs` | split |
 | `Views/LockControlsSaveTests.cs` | split |
+| `Views/MDIFormLoadingTests.cs` | split |
 | `Views/MarkGutterOnReadOnlyLineTests.cs` | split |
 | `Views/MemberRunFoldTests.cs` | split |
 | `Views/MenuMembersTests.cs` | split |

@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Aktualizace {0} v projektu {1} zahodí neuložené změny tohoto projektu. Chcete pokračovat?",
     "Str.Dialog.SharedFile.DiskChanged": "Soubor '{0}' se na disku změnil od načtení nebo uložení kopie projektu {1}. Chcete jej přepsat?",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Záložky, zarážky a další uživatelská nastavení pro {0} se v této relaci nenačtou ani neuloží.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Návrhář formulářů MDI není implementován (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Spouštění formuláře MDI není implementováno (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Ovládací prvek s názvem '{0}' již existuje.  Chcete vytvořit pole ovládacích prvků?",
     "Str.Options.Environment.ErrorTrapping.Header": "Zachytávání chyb",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Přerušit při všech chybách",

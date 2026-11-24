@@ -1149,6 +1149,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (named.Form is not { } form)
                 return new MutateResult(false, named.Error);
             ctx.EditorService.EditForm(form);
+            if (form.RootVBTypeName == "VB.MDIForm")
+                return Naming(new MutateResult(false, "The MDI form designer is not implemented (#5313)."), named.Document);
             return Naming(new MutateResult(true, null, TabStateNote(), Area: ctx.DocumentDockService.ActiveTab is { } tab ? ctx.DocumentDockService.AreaOf(tab) : null), named.Document);
         }));
     }

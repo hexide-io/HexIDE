@@ -14,6 +14,7 @@ namespace HexIDE.IDE;
 
 public partial class EditorService : IEditorService
 {
+    private readonly IWindowManager windowManager;
     private readonly IDocumentDockService documentDockService;
     private readonly Func<CodeEditorViewModel> codeEditorViewModelFactory;
     private readonly Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory;
@@ -30,7 +31,7 @@ public partial class EditorService : IEditorService
     /// Pure.DI resolves at compile time and cannot break. The <c>Func</c> is the back edge — the same
     /// device, and the same reason, as the note on <c>ILspWorkspace</c> in <c>DISetup</c>.
     /// </param>
-    public EditorService(IDocumentDockService documentDockService,
+    public EditorService(IWindowManager windowManager, IDocumentDockService documentDockService,
         Func<CodeEditorViewModel> codeEditorViewModelFactory,
         Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory,
         Func<ProjectDocumentViewModel> projectDocumentViewModelFactory,
@@ -38,6 +39,7 @@ public partial class EditorService : IEditorService
         Func<IProjectManager> projectManager, ILocalizationService localization, IEventBus? events = null,
         Func<IProjectService>? projects = null)
     {
+        this.windowManager = windowManager;
         this.documentDockService = documentDockService;
         this.codeEditorViewModelFactory = codeEditorViewModelFactory;
         this.relatedDocumentEditorViewModelFactory = relatedDocumentEditorViewModelFactory;
@@ -356,6 +358,11 @@ public partial class EditorService : IEditorService
     public void EditForm(FormDefinition? form)
     {
         if (form == null) return;
+        if (form.RootVBTypeName == "VB.MDIForm")
+        {
+            _ = windowManager.MessageBox(localization.GetString("Str.MDIForm.DesignerNotImplemented"));
+            return;
+        }
         Log.Debug("EditorService: EditForm({FormName})", form.Name);
         if (documentDockService.TryActivate<FormEditViewModel>(vm => vm.FormDefinition == form))
         {

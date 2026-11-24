@@ -52,6 +52,30 @@ The module-name collection and save order follows [measurement #3777](../../../d
 
 ## Requirements
 
+### Requirement: Loaded MDI forms retain their source
+
+A `VB.MDIForm` root SHALL load as a project form. At its current path, an unchanged file SHALL save
+byte for byte. Code edits SHALL preserve its original designer header; Save As SHALL retarget companion
+citations. Its designer and runtime SHALL refuse with #5313 until implemented.
+
+#### Scenario: Load a measured MDI form
+- **WHEN** a project lists the VB6 SP6 MDI form recorded in [#5313](https://github.com/hexide-io/HexIDE/issues/5313)
+- **THEN** it appears beside ordinary forms listed by `Form=` lines
+- **AND** its root offers no events in this slice, because its Procedure-box event list is unmeasured
+
+#### Scenario: Save an MDI form after editing its code
+- **WHEN** a project loads VB6 SP6's saved MDI form and its code is edited
+- **THEN** the saved file contains the original designer header followed by the edited code
+- **AND** opening its designer refuses without creating a designer document
+
+#### Scenario: Run a project that contains an MDI form
+- **WHEN** an MDI form is the startup form
+- **THEN** the run refuses before any VB code runs, naming #5313
+- **WHEN** a running program reaches Load or Show of an MDI form
+- **THEN** that statement refuses as not implemented before any of the MDI form's own code runs
+- **AND** earlier statements have already run
+- **AND** a project that never loads its MDI form can run as before
+
 ### Requirement: Known designer type names ignore case
 
 The form reader SHALL match known control and visual-root type names without regard to case and

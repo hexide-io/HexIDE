@@ -1531,6 +1531,8 @@
     "Str.Dialog.SharedFile.DiscardChanges": "Η ενημέρωση του {0} στο έργο {1} θα απορρίψει τις μη αποθηκευμένες αλλαγές αυτού του έργου. Θέλετε να συνεχίσετε;",
     "Str.Dialog.SharedFile.DiskChanged": "Το αρχείο '{0}' έχει αλλάξει στον δίσκο από τότε που φορτώθηκε ή αποθηκεύτηκε το αντίγραφο του έργου {1}. Θέλετε να το αντικαταστήσετε;",
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Οι σελιδοδείκτες, τα σημεία διακοπής και οι άλλες ρυθμίσεις χρήστη για το {0} δεν θα φορτωθούν ούτε θα αποθηκευτούν σε αυτήν τη συνεδρία.\n\n{1}",
+    "Str.MDIForm.DesignerNotImplemented": "Η σχεδίαση φορμών MDI δεν έχει υλοποιηθεί (#5313).",
+    "Str.MDIForm.RunNotImplemented": "Η εκτέλεση φόρμας MDI δεν έχει υλοποιηθεί (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Υπάρχει ήδη ένα στοιχείο ελέγχου με όνομα '{0}'.  Θέλετε να δημιουργήσετε έναν πίνακα στοιχείων ελέγχου;",
     "Str.Options.Environment.ErrorTrapping.Header": "Παγίδευση σφαλμάτων",
     "Str.Options.Environment.ErrorTrapping.BreakOnAllErrors": "Διακοπή σε όλα τα σφάλματα",
