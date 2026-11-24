@@ -32,7 +32,7 @@ internal static class SliderMembers
         return true;
     }
 
-    public static bool? TrySet(Control control, string name, Vb6Value value)
+    public static bool? TrySet(Control control, string name, Vb6Value value, bool throughObject = false)
     {
         if (control is not VBSlider s)
             return null;
@@ -41,11 +41,14 @@ internal static class SliderMembers
         var key = name.ToUpperInvariant();
         if (key == "GETNUMTICKS")
             throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        // #1091 / oracle PR #5506: Object dispatch reports a Null store as 13 rather than 94.
+        if (throughObject && value.IsNull && key is "MIN" or "MAX" or "VALUE" or "_VALUE"
+            or "SMALLCHANGE" or "LARGECHANGE" or "TICKFREQUENCY" or "SELSTART" or "SELLENGTH"
+            or "SELECTRANGE" or "ENABLED" or "TEXT")
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (key is "SELECTRANGE" or "ENABLED")
         {
-            if (value.Type != Vb6Value.ValueType.Boolean)
-                throw new NotImplementedException("Slider Boolean conversions are not implemented (#1091): unmeasured.");
-            var flag = (bool)value.Value!;
+            var flag = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
             if (key == "ENABLED") s.IsEnabled = flag;
             else
             {
@@ -56,14 +59,13 @@ internal static class SliderMembers
         }
         if (key == "TEXT")
         {
-            if (value.Type != Vb6Value.ValueType.String)
-                throw new NotImplementedException("Slider Text conversions are not implemented (#1091): unmeasured.");
-            s.Text = (string)value.WithoutOddBytes("SliderMembers text use").Value!;
+            var text = VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null);
+            s.Text = (string)text.WithoutOddBytes("SliderMembers text use").Value!;
             return true;
         }
         if (SliderComponentClass.Instance.Member(name) is not { Kind: MemberKind.Property } && key != "_VALUE")
             return null;
-        var n = Number(value, key is "VALUE" or "_VALUE");
+        var n = Number(value);
         switch (key)
         {
             case "VALUE": case "_VALUE": s.SetValue(n, true); break;
@@ -87,10 +89,10 @@ internal static class SliderMembers
                 }
                 break;
             case "MOUSEPOINTER":
-                if (n is not (0 or 1 or 2 or 3 or 4 or 99 or -1))
-                    throw new NotImplementedException("Slider MousePointer value is not implemented (#1091): unmeasured.");
-                if (n < 0) throw Invalid();
-                AttachedProperties.SetMousePointer(s, (VBCursorType)n);
+                if (n is not (>= 0 and <= 15 or 99)) throw Invalid();
+                var pointer = (VBCursorType)n;
+                s.Cursor = pointer.ToCursor();
+                AttachedProperties.SetMousePointer(s, pointer);
                 break;
             case "SELSTART":
                 if (n < 0 || n < s.Min || n > s.Max) throw Invalid();
@@ -125,13 +127,8 @@ internal static class SliderMembers
         }
     }
 
-    private static long Number(Vb6Value value, bool measuredString)
-    {
-        if (value.IsNull || value.Type == Vb6Value.ValueType.Boolean || value.Type == Vb6Value.ValueType.EmptyVariant
-            || value.Type == Vb6Value.ValueType.String && !measuredString)
-            throw new NotImplementedException("Slider conversion is not implemented (#1091): unmeasured.");
-        return System.Convert.ToInt64(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, null).Value);
-    }
+    private static long Number(Vb6Value value) =>
+        System.Convert.ToInt64(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, null).Value);
 
     private static long AtLeastZero(long n) => n >= 0 ? n : throw Invalid();
     private static long Choice(long n, long max) => n >= 0 && n <= max ? n : throw Invalid();

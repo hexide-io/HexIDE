@@ -236,7 +236,7 @@ internal static class ControlMembers
             return true;
 
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
-        if (SliderMembers.TrySet(control, memberIdentifier, value) is { } slider)
+        if (SliderMembers.TrySet(control, memberIdentifier, value, throughObject) is { } slider)
         {
             if (!slider) throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
             return true;
