@@ -1217,6 +1217,7 @@
     "Str.Addins.DebugLaunchRefused": "アドイン「{0}」のデバッグ アダプターの起動が拒否されました。",
     "Str.Addins.Incompatible": "アドインを読み込めません。必要なスキーマは {0}、HexIDE の最低バージョンは {1} です。このビルドはスキーマ {2}、HexIDE {3} に対応しています。スキーマまたはバージョンの要件が未対応または無効です。",
     "Str.Addins.DuplicateId": "アドインを読み込めません: ID「{0}」はパッケージフォルダー「{1}」で既に使用されています。",
+    "Str.Addins.ReservedId": "アドインを読み込めません: ID「{0}」は HexIDE 自身のアドイン用に予約されています。",
     "Str.Addins.ChangedAfterVerification": "アドインを読み込めません。検証後にディスク上のパッケージが変更されました。",
     "Str.ScrollBar.LineUp": "1 行上へ",
     "Str.ScrollBar.PageUp": "1 ページ上へ",

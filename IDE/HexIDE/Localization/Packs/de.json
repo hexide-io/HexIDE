@@ -1183,6 +1183,7 @@
     "Str.Addins.DebugLaunchRefused": "Der Start des Debugadapters für das Add-in „{0}“ wurde verweigert.",
     "Str.Addins.Incompatible": "Add-In kann nicht geladen werden: erforderliches Schema {0}, mindestens HexIDE {1}; dieser Build unterstützt Schema {2}, HexIDE {3}. Die Schema- oder Versionsanforderung wird nicht unterstützt oder ist ungültig.",
     "Str.Addins.DuplicateId": "Add-In kann nicht geladen werden: Die ID „{0}“ wird bereits vom Paketordner „{1}“ verwendet.",
+    "Str.Addins.ReservedId": "Add-In kann nicht geladen werden: Die ID „{0}“ ist für die eigenen Add-Ins von HexIDE reserviert.",
     "Str.Addins.ChangedAfterVerification": "Das Add-In kann nicht geladen werden: Das Paket wurde nach der Überprüfung auf dem Datenträger geändert.",
     "Str.ScrollBar.LineUp": "Zeile nach oben",
     "Str.ScrollBar.PageUp": "Seite nach oben",

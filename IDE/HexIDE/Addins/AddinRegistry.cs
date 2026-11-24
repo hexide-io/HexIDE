@@ -32,8 +32,23 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private readonly object _serverTrustGate = new();
     private readonly HashSet<string> _revokedConsent = new(StringComparer.Ordinal);
     // What each add-in contributed that is taken out when it is disabled or its consent is revoked: its language servers,
-    // debug launches and project types.
-    private readonly Dictionary<string, List<IDisposable>> _contributions = new(StringComparer.OrdinalIgnoreCase);
+    // debug launches, project types, resources, language packs and the designer's drawer, by owner.
+    private readonly Dictionary<ContributionOwner, List<IDisposable>> _contributions = [];
+
+    // Whose contributions a list holds (#5597): the package that loaded, by its directory; a composed owner, the Basic
+    // provider, which is never a package, by its id; or an owner in no package, a host or test assembly, by its id. No
+    // package's id addresses another's registrations: a refused row with a loaded package's id, or the provider's, owns none.
+    private enum OwnerKind { Package, Composed, Unpackaged }
+
+    private readonly record struct ContributionOwner(string Key, OwnerKind Kind)
+    {
+        // A package's directory as the file system gave it; an id in any case.
+        private StringComparer Comparer => Kind == OwnerKind.Package ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+
+        public bool Equals(ContributionOwner other) => Kind == other.Kind && Comparer.Equals(Key, other.Key);
+
+        public override int GetHashCode() => HashCode.Combine(Comparer.GetHashCode(Key), Kind);
+    }
     private readonly bool _recoveryMode = Static.IsRecoveryMode;
 
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
@@ -160,8 +175,19 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 PackageVerification.RunningVersion.ToString(3));
             var message = string.Format(_localization.GetString(details.Key), details.Arguments);
             info = info with { CompatibilityError = message, CompatibilityMessage = details };
-            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Incompatible, ErrorMessage = message, PackageDirectory = packageDir });
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Incompatible, ErrorMessage = message, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Dir} is incompatible ({Reason}) — not loaded", packageDir, result.Error);
+            return;
+        }
+
+        // HexIDE's own ids, hexide. and under it, are kept for packages the first-party key signed: the Basic provider is
+        // hexide.basic, and phase 3 of #3411 loads it as such a package (#5597).
+        if (result.Manifest is { } reservedManifest && PublisherNamespaces.IsReserved(reservedManifest.Id) && !result.IsFirstParty)
+        {
+            var message = string.Format(_localization.GetString("Str.Addins.ReservedId"), reservedManifest.Id);
+            info = info with { LoadError = new AddinMessage("Str.Addins.ReservedId", reservedManifest.Id) };
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
+            Log.Warning("AddinRegistry: {Message}", message);
             return;
         }
 
@@ -169,14 +195,14 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             var message = string.Format(_localization.GetString("Str.Addins.DuplicateId"), duplicateManifest.Id, ownerDirectory);
             info = info with { LoadError = new AddinMessage("Str.Addins.DuplicateId", duplicateManifest.Id, ownerDirectory) };
-            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Message}", message);
             return;
         }
 
         if (!result.IsVerified && !allowUnsigned)
         {
-            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Untrusted, ErrorMessage = result.Error, PackageDirectory = packageDir });
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Untrusted, ErrorMessage = result.Error, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Dir} is untrusted ({Reason}) — skipped (developer mode + load-unsigned-add-ins required)",
                 packageDir, result.Error);
             return;
@@ -184,7 +210,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
         if (result.Manifest is not { } manifest)
         {
-            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Error, ErrorMessage = result.Error ?? "no manifest", PackageDirectory = packageDir });
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Error, ErrorMessage = result.Error ?? "no manifest", PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Dir} has no usable manifest ({Reason}) — skipped", packageDir, result.Error);
             return;
         }
@@ -410,7 +436,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
             if (!enabled)
                 foreach (var addin in _contexts.Where(c => string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase)))
-                    RemoveContributions(addin.Info.Id);
+                    RemoveContributions(addin);
 
             SaveDisabledSet();
 
@@ -432,7 +458,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             _revokedConsent.Add(manifestHash);
             _consent.Revoke(manifestHash);
             foreach (var addin in _contexts.Where(c => c.Info.ManifestHash == manifestHash))
-                RemoveContributions(addin.Info.Id);
+                RemoveContributions(addin);
             var ctx = _contexts.FirstOrDefault(c => c.Info.ManifestHash == manifestHash);
             Log.Information("AddinRegistry: consent revoked for {Title} — re-prompts next launch",
                 ctx?.Info.Title ?? manifestHash);
@@ -450,7 +476,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         string title;
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, origin.Id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(origin);
             title = ctx?.Info.Title ?? origin.Title;
             if (!_disposed && ctx is not null && !_disabled.Contains(ctx.PackageDirectory)
                 && !_revokedConsent.Contains(ctx.Info.ManifestHash))
@@ -460,17 +486,17 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         Log.Warning(exception, "AddinRegistry: {Title} ({AddinId}) reported a failure: {Message}", title, origin.Id, message);
     }
 
-    internal void CheckLanguageServerLaunch(string id) => CheckLaunch(id, "Str.Addins.ServerLaunchRefused");
+    internal void CheckLanguageServerLaunch(AddinOrigin owner) => CheckLaunch(owner, "Str.Addins.ServerLaunchRefused");
 
-    internal void CheckDebugLaunch(string id) => CheckLaunch(id, "Str.Addins.DebugLaunchRefused");
+    internal void CheckDebugLaunch(AddinOrigin owner) => CheckLaunch(owner, "Str.Addins.DebugLaunchRefused");
 
     // Whether an add-in may start what it contributed, now: it is enabled and consented to, and neither it nor its
-    // publisher is revoked. Throws the refusal, naming the add-in, otherwise.
-    private void CheckLaunch(string id, string refusal)
+    // publisher is revoked. Throws the refusal, naming the add-in, otherwise. A composed owner has no package to ask.
+    private void CheckLaunch(AddinOrigin owner, string refusal)
     {
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(owner);
             if (ctx is null) return; // Host/test assemblies outside an add-in context retain their existing behaviour.
             var info = ctx.Info;
             var chain = info.Chain;
@@ -487,27 +513,39 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     }
 
     // Keeps what an add-in contributed, to take out when it is disabled or its consent is revoked; taken out at once when
-    // it is already.
-    internal void TrackContribution(string id, IDisposable contribution)
+    // it is already. A composed owner has no package to disable, so a package's state never reaches it (#5597).
+    internal void TrackContribution(AddinOrigin owner, IDisposable contribution)
     {
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(owner);
             if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
                 || _revokedConsent.Contains(ctx.Info.ManifestHash)))
             {
                 contribution.Dispose();
                 return;
             }
-            if (!_contributions.TryGetValue(id, out var contributions))
-                _contributions[id] = contributions = [];
+            var key = owner.IsComposed ? new ContributionOwner(owner.Id, OwnerKind.Composed)
+                : ctx is not null ? new ContributionOwner(ctx.PackageDirectory, OwnerKind.Package)
+                : new ContributionOwner(owner.Id, OwnerKind.Unpackaged);
+            if (!_contributions.TryGetValue(key, out var contributions))
+                _contributions[key] = contributions = [];
             contributions.Add(contribution);
         }
     }
 
-    private void RemoveContributions(string id)
+    // The package an owner is: the one with its id, in any case, that wasn't refused at load. A refused row shares a loaded
+    // package's id when it's a duplicate or reserved, and no package is a composed owner, the Basic provider: so another
+    // package's state can't refuse an owner's launches, take out its registrations or carry its failures (#5597). Call
+    // under _serverTrustGate.
+    private AddinContext? PackageContext(AddinOrigin owner) => owner.IsComposed ? null
+        : _contexts.FirstOrDefault(c => !c.RefusedAtLoad
+            && string.Equals(c.Info.Id, owner.Id, StringComparison.OrdinalIgnoreCase));
+
+    // What the package in addin contributed, by its directory: a row refused at load is never an owner, so it has none.
+    private void RemoveContributions(AddinContext addin)
     {
-        if (!_contributions.Remove(id, out var contributions)) return;
+        if (!_contributions.Remove(new ContributionOwner(addin.PackageDirectory, OwnerKind.Package), out var contributions)) return;
         foreach (var contribution in contributions) contribution.Dispose();
     }
 

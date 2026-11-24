@@ -1156,6 +1156,7 @@
     "Str.Addins.DebugLaunchRefused": "Spustenie ladiaceho adaptéra doplnku „{0}“ bolo odmietnuté.",
     "Str.Addins.Incompatible": "Doplnok sa nedá načítať: požadovaná schéma {0}, minimálna verzia HexIDE {1}; táto zostava podporuje schému {2}, HexIDE {3}. Požiadavka na schému alebo verziu je nepodporovaná alebo neplatná.",
     "Str.Addins.DuplicateId": "Doplnok sa nedá načítať: identifikátor „{0}“ už používa priečinok balíka „{1}“.",
+    "Str.Addins.ReservedId": "Doplnok sa nedá načítať: identifikátor „{0}“ je vyhradený pre vlastné doplnky HexIDE.",
     "Str.Addins.ChangedAfterVerification": "Doplnok sa nedá načítať: balík sa po overení na disku zmenil.",
     "Str.ScrollBar.LineUp": "O riadok nahor",
     "Str.ScrollBar.PageUp": "O stránku nahor",

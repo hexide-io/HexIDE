@@ -1161,6 +1161,7 @@
     "Str.Addins.DebugLaunchRefused": "«{0}» gehigarriaren arazketa-egokigailua abiaraztea ukatu da.",
     "Str.Addins.Incompatible": "Ezin da gehigarria kargatu: eskatutako eskema {0}, gutxieneko HexIDE {1}; eraikitze honek {2} eskema eta HexIDE {3} onartzen ditu. Eskema- edo bertsio-eskakizuna ez da onartzen edo baliogabea da.",
     "Str.Addins.DuplicateId": "Ezin da gehigarria kargatu: '{1}' pakete-karpetak dagoeneko erabiltzen du '{0}' identifikatzailea.",
+    "Str.Addins.ReservedId": "Ezin da gehigarria kargatu: '{0}' identifikatzailea HexIDE-ren gehigarri propioetarako gordeta dago.",
     "Str.Addins.ChangedAfterVerification": "Ezin da gehigarria kargatu: paketea diskoan aldatu da egiaztatu ondoren.",
     "Str.ScrollBar.LineUp": "Lerro bat gora",
     "Str.ScrollBar.PageUp": "Orrialde bat gora",

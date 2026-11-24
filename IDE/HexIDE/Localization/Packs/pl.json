@@ -1184,6 +1184,7 @@
     "Str.Addins.DebugLaunchRefused": "Odmówiono uruchomienia adaptera debugowania dodatku „{0}”.",
     "Str.Addins.Incompatible": "Nie można załadować dodatku: wymagany schemat {0}, minimalna wersja HexIDE {1}; ta kompilacja obsługuje schemat {2}, HexIDE {3}. Wymaganie schematu lub wersji jest nieobsługiwane albo nieprawidłowe.",
     "Str.Addins.DuplicateId": "Nie można załadować dodatku: identyfikator „{0}” jest już używany przez folder pakietu „{1}”.",
+    "Str.Addins.ReservedId": "Nie można załadować dodatku: identyfikator „{0}” jest zarezerwowany dla własnych dodatków HexIDE.",
     "Str.Addins.ChangedAfterVerification": "Nie można załadować dodatku: pakiet na dysku zmienił się po weryfikacji.",
     "Str.ScrollBar.LineUp": "O wiersz w górę",
     "Str.ScrollBar.PageUp": "O stronę w górę",

@@ -624,3 +624,17 @@ composed origin SHALL go.
 #### Scenario: The trust and consent views
 - **WHEN** the grant table is read against the resource keys the trust and consent views read
 - **THEN** no grant's families reach any of them
+
+### Requirement: HexIDE's own ids SHALL be kept from other packages
+A package whose manifest id is `hexide.` or under it, compared without regard to case, SHALL NOT load unless the
+first-party key signed it, and SHALL be listed with an error naming the reserved id (#5597). What an add-in contributed
+SHALL be kept by its owner and whether HexIDE composes that owner, so disabling a package, or revoking its consent, SHALL
+never take out a composed owner's registrations, whatever id the package's manifest names.
+
+#### Scenario: A third-party package named after the provider
+- **WHEN** a signed third-party package's manifest names it `HexIDE.Basic`
+- **THEN** it doesn't load, and its row names the reserved id
+
+#### Scenario: Disabling a package with the provider's id
+- **WHEN** a package with the provider's id is disabled, or its consent is revoked
+- **THEN** the provider's themes, text and drawer stay, including those it registers afterwards

@@ -1195,6 +1195,7 @@
     "Str.Addins.DebugLaunchRefused": "Pievienojumprogrammas “{0}” atkļūdošanas adaptera palaišana tika atteikta.",
     "Str.Addins.Incompatible": "Nevar ielādēt pievienojumprogrammu: nepieciešamā shēma {0}, minimālā HexIDE versija {1}; šis būvējums atbalsta shēmu {2}, HexIDE {3}. Shēmas vai versijas prasība nav atbalstīta vai ir nederīga.",
     "Str.Addins.DuplicateId": "Nevar ielādēt pievienojumprogrammu: identifikatoru “{0}” jau izmanto pakotnes mape “{1}”.",
+    "Str.Addins.ReservedId": "Nevar ielādēt pievienojumprogrammu: identifikators “{0}” ir rezervēts HexIDE pašas pievienojumprogrammām.",
     "Str.Addins.ChangedAfterVerification": "Nevar ielādēt pievienojumprogrammu: pēc pārbaudes pakotne diskā ir mainījusies.",
     "Str.ScrollBar.LineUp": "Rindu augšup",
     "Str.ScrollBar.PageUp": "Lapu augšup",

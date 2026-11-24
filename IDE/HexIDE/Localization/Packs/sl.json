@@ -1156,6 +1156,7 @@
     "Str.Addins.DebugLaunchRefused": "Zagon razhroščevalnega vmesnika za dodatek »{0}« je bil zavrnjen.",
     "Str.Addins.Incompatible": "Dodatka ni mogoče naložiti: zahtevana shema {0}, najmanj HexIDE {1}; ta gradnja podpira shemo {2}, HexIDE {3}. Zahteva za shemo ali različico ni podprta ali ni veljavna.",
     "Str.Addins.DuplicateId": "Dodatka ni mogoče naložiti: identifikator »{0}« že uporablja mapa paketa »{1}«.",
+    "Str.Addins.ReservedId": "Dodatka ni mogoče naložiti: identifikator »{0}« je rezerviran za lastne dodatke programa HexIDE.",
     "Str.Addins.ChangedAfterVerification": "Dodatka ni mogoče naložiti: paket na disku se je po preverjanju spremenil.",
     "Str.ScrollBar.LineUp": "Vrstico navzgor",
     "Str.ScrollBar.PageUp": "Stran navzgor",

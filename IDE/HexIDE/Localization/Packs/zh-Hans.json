@@ -1178,6 +1178,7 @@
     "Str.Addins.DebugLaunchRefused": "已拒绝启动加载项“{0}”的调试适配器。",
     "Str.Addins.Incompatible": "无法加载加载项：要求架构 {0}、最低 HexIDE {1}；此构建支持架构 {2}、HexIDE {3}。架构或版本要求不受支持或无效。",
     "Str.Addins.DuplicateId": "无法加载加载项：ID“{0}”已由程序包文件夹“{1}”占用。",
+    "Str.Addins.ReservedId": "无法加载加载项：ID“{0}”保留给 HexIDE 自己的加载项使用。",
     "Str.Addins.ChangedAfterVerification": "无法加载加载项：程序包在验证后已在磁盘上更改。",
     "Str.ScrollBar.LineUp": "向上一行",
     "Str.ScrollBar.PageUp": "向上一页",

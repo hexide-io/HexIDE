@@ -1194,6 +1194,7 @@
     "Str.Addins.DebugLaunchRefused": "S'ha refusat l'inici de l'adaptador de depuració del complement «{0}».",
     "Str.Addins.Incompatible": "No es pot carregar el complement: requereix l'esquema {0} i HexIDE {1} com a mínim; aquesta compilació admet l'esquema {2}, HexIDE {3}. El requisit d'esquema o de versió no és admès o no és vàlid.",
     "Str.Addins.DuplicateId": "No es pot carregar el complement: la carpeta del paquet «{1}» ja utilitza l’identificador «{0}».",
+    "Str.Addins.ReservedId": "No es pot carregar el complement: l’identificador «{0}» està reservat per als complements propis d’HexIDE.",
     "Str.Addins.ChangedAfterVerification": "No es pot carregar el complement: el paquet ha canviat al disc després de verificar-lo.",
     "Str.ScrollBar.LineUp": "Una línia amunt",
     "Str.ScrollBar.PageUp": "Una pàgina amunt",
