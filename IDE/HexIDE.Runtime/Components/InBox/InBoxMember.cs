@@ -36,7 +36,7 @@ public enum MemberKind
 public sealed record InBoxMember(string Name, MemberKind Kind, MemberOrigin Origin, bool IsFrmProperty, bool Implemented)
 {
     /// <summary>Whether a control of <paramref name="library"/> has the member.</summary>
-    public bool IsIn(RuntimeLibrary library) =>
+    public bool IsIn(IControlLibrary library) =>
         (Origin & MemberOrigin.HexIde) != 0 ||
-        (Origin & (library == ControlLibraries.ComctlLib ? MemberOrigin.Version5 : MemberOrigin.Version6)) != 0;
+        (Origin & (ReferenceEquals(library, ControlLibraries.ComctlLib) ? MemberOrigin.Version5 : MemberOrigin.Version6)) != 0;
 }

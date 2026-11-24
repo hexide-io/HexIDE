@@ -255,23 +255,10 @@ public partial class ObjectBrowserToolViewModel : Document
     private OBClassViewModel VbClass(IComponentClass component)
     {
         var cls = new OBClassViewModel(component.ClassName, OBClassKind.ClassModule, "VB");
-        if (component is ComponentBaseClass { Members.Count: > 0 } table)
+        if (component is IComponentMemberTable table && table.MembersIn(null) is { Count: > 0 } members)
         {
-            foreach (var member in table.Members)
-            {
-                var kind = member.Kind switch
-                {
-                    InBox.MemberKind.Property => OBMemberKind.Property,
-                    InBox.MemberKind.Event => OBMemberKind.Event,
-                    _ => OBMemberKind.Method,
-                };
-                cls.Members.Add(new OBMemberViewModel(member.Name, kind, $"{member.Kind} {member.Name}",
-                    member.Origin.HasFlag(InBox.MemberOrigin.HexIde)
-                        ? localization.GetString("Str.MemberOrigin.HexIde") : null)
-                {
-                    DescriptionKey = member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? "Str.MemberOrigin.HexIde" : null
-                });
-            }
+            foreach (var member in members)
+                cls.Members.Add(CreateMember(member));
         }
         else
         {
@@ -787,10 +774,12 @@ public partial class ObjectBrowserToolViewModel : Document
                     {
                         var classVm = new OBClassViewModel(name, OBClassKind.ClassModule, lib.Name);
                         var component = library.FindComponentClass(name);
-                        if (component is InBox.InBoxComponentClass inBox)
+                        // A class with a table lists what it has in this library, even nothing, which shows as
+                        // unavailable rather than as its properties: a library's in-box classes all keep one (#5610).
+                        if (component is IComponentMemberTable table)
                         {
-                            foreach (var member in inBox.Members.Where(m => m.IsIn(library)))
-                                classVm.Members.Add(CreateInBoxMember(member));
+                            foreach (var member in table.MembersIn(library))
+                                classVm.Members.Add(CreateMember(member));
                         }
                         else if (component != null)
                         {
@@ -830,15 +819,14 @@ public partial class ObjectBrowserToolViewModel : Document
                         classVm.Members.Add(new OBMemberViewModel(
                             member.Name, MapMemberKind(member.Kind),
                             member.Signature, member.Documentation));
-                    var component = componentRegistry.LibraryControls.FirstOrDefault(c =>
+                    // The type library has VB6's members; HexIDE's own come from the control's table.
+                    var control = componentRegistry.LibraryControls.FirstOrDefault(c =>
                         c.ControlName.Equals(type.Name, StringComparison.OrdinalIgnoreCase)
-                        && c.Library.IsNamedBy(lib.Reference))?.Class as InBox.InBoxComponentClass;
-                    if (component != null)
+                        && c.Library.IsNamedBy(lib.Reference));
+                    if (control is { Class: IComponentMemberTable table })
                     {
-                        foreach (var member in component.Members.Where(m => m.Origin.HasFlag(InBox.MemberOrigin.HexIde)))
-                        {
-                            classVm.Members.Add(CreateInBoxMember(member));
-                        }
+                        foreach (var member in table.MembersIn(control.Library).Where(m => m.HexIdeOnly))
+                            classVm.Members.Add(CreateMember(member));
                     }
                     lib.Classes.Add(classVm);
                 }
@@ -859,16 +847,17 @@ public partial class ObjectBrowserToolViewModel : Document
         finally { IsLoadingMembers = false; }
     }
 
-    private OBMemberViewModel CreateInBoxMember(InBox.InBoxMember member) => new(member.Name,
+    // A member from a class's table (#5610), with HexIDE's note on one no VB6 library has.
+    private OBMemberViewModel CreateMember(ComponentMember member) => new(member.Name,
         member.Kind switch
         {
-            InBox.MemberKind.Property => OBMemberKind.Property,
-            InBox.MemberKind.Event => OBMemberKind.Event,
+            ComponentMemberKind.Property => OBMemberKind.Property,
+            ComponentMemberKind.Event => OBMemberKind.Event,
             _ => OBMemberKind.Method,
         }, $"{member.Kind} {member.Name}",
-        member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? localization.GetString("Str.MemberOrigin.HexIde") : null)
+        member.HexIdeOnly ? localization.GetString("Str.MemberOrigin.HexIde") : null)
         {
-            DescriptionKey = member.Origin.HasFlag(InBox.MemberOrigin.HexIde) ? "Str.MemberOrigin.HexIde" : null
+            DescriptionKey = member.HexIdeOnly ? "Str.MemberOrigin.HexIde" : null
         };
 
     private static OBClassKind MapTypeKind(TypeKind kind) => kind switch

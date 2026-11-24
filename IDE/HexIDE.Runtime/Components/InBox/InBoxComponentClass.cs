@@ -12,7 +12,7 @@ namespace HexIDE.Runtime.Components.InBox;
 /// are, then <c>_ExtentX</c>, <c>_ExtentY</c> and <c>_Version</c>, then the control's own properties in the control's own
 /// fixed order, each only where it differs from the control's default, and with a comment only on a Boolean.
 /// </remarks>
-public abstract class InBoxComponentClass : ComponentBaseClass
+public abstract class InBoxComponentClass : ComponentBaseClass, IComponentMemberTable
 {
     /// <param name="extender">The extender's properties beyond the base's Name, Left, Top, Width, Height, Visible and Tag.</param>
     /// <param name="own">The control's own persisted properties, in the order it writes them.</param>
