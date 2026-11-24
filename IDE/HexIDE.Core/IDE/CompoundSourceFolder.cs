@@ -4,7 +4,11 @@ using System.Text.Json;
 
 namespace HexIDE.IDE;
 
-internal sealed record CompoundFolderResult(string Directory, bool Changed);
+internal sealed record CompoundFolderResult(string Directory, bool Changed)
+{
+    /// <summary>Old transaction folders that pruning kept, each with its reason, for the caller to log.</summary>
+    internal IReadOnlyList<string> Kept { get; init; } = [];
+}
 
 internal sealed record CompoundFolderItem(string[] Path, byte[]? Content);
 // Formats retain their own manifest field ordering and metadata. The engine reads only the
@@ -17,13 +21,17 @@ internal interface ICompoundFolderFormat
     void ValidateManifest(byte[] bytes);
 }
 
-/// <summary>Explicit, one-way projection of a saved archive. All previous trees are retained for recovery.</summary>
+/// <summary>Explicit, one-way projection of a saved archive. Previous trees are retained for recovery, with verified old transactions pruned after successful changes.</summary>
 internal sealed class CompoundSourceFolder(ICompoundFolderFormat format)
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> OpenFiles = new(
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
     private const int Limit = 64 * 1024 * 1024;
+    private const int RetainedTransactionCount = 10;
+    private const int RetainedTransactionDays = 7;
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
+    internal TimeProvider Clock { get; init; } = TimeProvider.System;
+
     internal Action<string>? Checkpoint { get; set; }
     internal DistributionIdentity Identity { get; init; } = Distribution.Current;
     internal string? ChosenRoot { get; set; }
@@ -170,7 +178,92 @@ internal sealed class CompoundSourceFolder(ICompoundFolderFormat format)
         Checkpoint?.Invoke("manifest-written");
         WriteAtomic(paths, paths.Baseline, manifestBytes);
         DeleteFile(paths.Journal);
-        return new(paths.Target, true);
+        var kept = Prune(paths.Control, transaction);
+        return new(paths.Target, true) { Kept = kept };
+    }
+
+    internal IReadOnlyList<string> Prune(string control, string completedTransaction)
+    {
+        // The sync has already succeeded. An I/O or access failure leaves that recovery data in place without
+        // changing the result, and one candidate's failure doesn't stop the next. Each folder kept that way is
+        // returned with its reason, for the caller to log.
+        var kept = new List<string>();
+        void Keep(string path, Exception ex) => kept.Add($"{path}: {ex.Message}");
+        try
+        {
+            CheckAncestors(control);
+            var journal = Path.Combine(control, "pending.json");
+            if (Exists(journal)) return kept;
+            var candidates = new List<(string Path, DateTime Modified)>();
+            foreach (var folder in Directory.GetDirectories(control))
+            {
+                var name = Path.GetFileName(folder);
+                try
+                {
+                    // A transaction this sync renamed for pruning, whose deletion stopped part-way: finish it.
+                    if (name.EndsWith(PruningSuffix, StringComparison.Ordinal) && IsTransactionName(name[..^PruningSuffix.Length]))
+                    {
+                        CheckAncestors(folder);
+                        DeleteTree(folder);
+                        continue;
+                    }
+                    // Only a name the sync itself makes, which is a lower-case GUID in "N" format.
+                    if (!IsTransactionName(name)) continue;
+                    CheckAncestors(folder);
+                    var metadata = Path.Combine(folder, "new.json");
+                    ParseManifest(ReadBounded(metadata));
+                    candidates.Add((folder, File.GetLastWriteTimeUtc(metadata)));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Keep(folder, ex); }
+            }
+            var cutoff = Clock.GetUtcNow().UtcDateTime.AddDays(-RetainedTransactionDays);
+            foreach (var candidate in candidates.OrderByDescending(c => c.Modified).Skip(RetainedTransactionCount))
+            {
+                if (candidate.Modified >= cutoff || Path.GetFileName(candidate.Path) == completedTransaction) continue;
+                try
+                {
+                    if (Exists(journal)) return kept;
+                    CheckTreeLinks(candidate.Path);
+                    foreach (var (tree, metadata) in new[] { ("previous", "old.json"), ("next", "new.json") })
+                    {
+                        var path = Path.Combine(candidate.Path, tree);
+                        if (Exists(path) || tree == "previous" && Exists(Path.Combine(candidate.Path, metadata)))
+                            VerifyTree(path, ParseManifest(ReadBounded(Path.Combine(candidate.Path, metadata))));
+                    }
+                    // Renaming first makes each removal all or nothing to the next sync. A rename Windows refuses,
+                    // because a file in the folder is open, changes nothing; a deletion that stops part-way leaves
+                    // a renamed folder, which the next prune finishes.
+                    var renamed = candidate.Path + PruningSuffix;
+                    Directory.Move(candidate.Path, renamed);
+                    DeleteTree(renamed);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Keep(candidate.Path, ex); }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Keep(control, ex); }
+        return kept;
+    }
+
+    private const string PruningSuffix = ".pruning";
+
+    private static bool IsTransactionName(string name) =>
+        Guid.TryParseExact(name, "N", out var id) && name == id.ToString("N");
+
+    // Bottom-up, one entry at a time, and never through a link: Directory.Delete with recursive: true is not used.
+    // CheckTreeLinks has refused links already, so a link found here appeared since. Stop there and keep the rest.
+    private static void DeleteTree(string directory)
+    {
+        if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+            throw Conflict("A link appeared in recovery data being pruned", directory);
+        foreach (var path in Directory.EnumerateFileSystemEntries(directory).ToArray())
+        {
+            var attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw Conflict("A link appeared in recovery data being pruned", path);
+            if ((attributes & FileAttributes.Directory) != 0) DeleteTree(path);
+            else File.Delete(path);
+        }
+        Directory.Delete(directory, recursive: false);
     }
 
     private void Recover(Locations paths)
