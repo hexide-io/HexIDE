@@ -115,4 +115,3 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.MenuComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Serialization.CodeWindowText |
 | type | HexIDE.Desktop | HexIDE.Runtime.Serialization.UnmodelledControl |
-| type | HexIDE.Desktop | HexIDE.Runtime.UiThread |
