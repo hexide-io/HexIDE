@@ -141,6 +141,9 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     gains no unit member.
   - **The precondition:** each in-box control renders byte-identically under the provider's host and under
     `ControlRenderer`, with Skia at scaling 1 and 1.5.
+  - **Its second part (#5591) registers the drawer and keeps where it draws.** The designer lends the drawer its
+    `ControlRenderer` through Core's `IDesignerDrawingSurface`, so each control is drawn where it always was. A Line's
+    units and a host of the provider's own, with the precondition above, come in a later part.
 - **The picture decoders get a product assembly of their own (2.5b, #5474),** which the IDE, the provider and
   `HexIDE.Standalone` reference.
   - After phase 4 it stays in HexIDE and is consumed by HexIDE.Basic as Core is, so a decoder fix ships in HexIDE's

@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.Themes.Simple;
+using HexIDE.Runtime.Components;
 
 [assembly: AvaloniaTestApplication(typeof(HexIDE.Integration.Tests.TestApp))]
 
@@ -110,6 +111,9 @@ public class TestApp : Application
         var host = Substitute.For<HexIDE.Addins.IHexIdeHost>();
         host.RegisterResources(Arg.Any<Uri>()).Returns(call =>
             ProviderResources.Register(call.Arg<Uri>(), origin, typeof(HexIDE.Runtime.BasicProvider).Assembly));
+        // What draws the designer's controls (#5591): through the real service, so every designer here draws as the IDE's do.
+        host.RegisterDesignerPictures(Arg.Any<Func<IDesignerDrawingSurface, IDesignerPictures>>()).Returns(call =>
+            new HexIDE.Addins.AddinDesignerPictureService().Register(call.Arg<Func<IDesignerDrawingSurface, IDesignerPictures>>(), origin));
         new HexIDE.Runtime.BasicProvider().Initialize(host);
     }
 

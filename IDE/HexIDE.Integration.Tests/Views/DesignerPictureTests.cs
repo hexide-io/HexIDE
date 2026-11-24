@@ -194,6 +194,84 @@ public class DesignerPictureTests
         });
     }
 
+    // #5591: the drawer is the provider's, registered for the application, and the renderer asks it for each picture.
+    [AvaloniaFact]
+    public void Without_a_drawer_of_its_own_the_renderer_draws_with_the_applications()
+    {
+        var renderer = new ControlRenderer { Width = 100, Height = 30 };
+        Showing(renderer, () =>
+        {
+            renderer.Pictures.Should().BeOfType<InProcessDesignerPictures>();
+            renderer.Component = Placed();
+            Dispatcher.UIThread.RunJobs();
+
+            renderer.Child.Should().BeOfType<Image>();
+        });
+    }
+
+    // #5591: the grant decides who draws; these rules keep the loan of a place in the designer's tree tidy.
+    private sealed class Leaving(IDesignerDrawingSurface surface) : IDesignerPictures
+    {
+        public List<Border> Left { get; } = [];
+
+        public DesignerPicture Draw(ComponentInstance instance, DesignerDrawRequest request)
+        {
+            var left = new Border();
+            Left.Add(left);
+            surface.Attach(left);
+            return Solid(request, 10, 20, 30);
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_control_the_drawer_left_attached_is_taken_out_when_the_draw_returns()
+    {
+        var renderer = new ControlRenderer { Width = 100, Height = 30 };
+        var drawer = new Leaving(renderer);
+        renderer.Pictures = drawer;
+        Showing(renderer, () =>
+        {
+            var first = Placed();
+            renderer.Component = first;
+            Dispatcher.UIThread.RunJobs();
+            var second = Placed();
+            renderer.Component = second;
+            Dispatcher.UIThread.RunJobs();
+
+            drawer.Left.Should().HaveCount(2, "the second draw wasn't refused for the first one's control");
+            drawer.Left.Should().AllSatisfy(left => left.GetVisualParent().Should().BeNull());
+            renderer.GetVisualChildren().Should().ContainSingle().Which.Should().BeOfType<Image>();
+            first.PreviewFailure.Should().BeNull();
+            second.PreviewFailure.Should().BeNull();
+        });
+    }
+
+    [AvaloniaFact]
+    public void The_surface_takes_only_one_control_that_isnt_anywhere_and_lets_go_only_of_that()
+    {
+        var renderer = new ControlRenderer { Width = 100, Height = 30 };
+        IDesignerDrawingSurface surface = renderer;
+        Showing(renderer, () =>
+        {
+            FluentActions.Invoking(() => surface.Attach("a picture")).Should().Throw<ArgumentException>();
+            var elsewhere = new Border();
+            var parent = new Decorator { Child = elsewhere };
+            FluentActions.Invoking(() => surface.Attach(elsewhere)).Should().Throw<ArgumentException>();
+            parent.Child.Should().BeSameAs(elsewhere);
+            renderer.GetVisualChildren().Should().BeEmpty();
+
+            var drawn = new Border();
+            surface.Attach(drawn);
+            FluentActions.Invoking(() => surface.Attach(new Border())).Should().Throw<ArgumentException>();
+            surface.Detach(new Border());
+            renderer.GetVisualChildren().Should().ContainSingle().Which.Should().BeSameAs(drawn);
+
+            surface.Detach(drawn);
+            renderer.GetVisualChildren().Should().BeEmpty();
+            drawn.GetVisualParent().Should().BeNull();
+        });
+    }
+
     // VB6 SP6: docs/vb6-fidelity-oracle/an-empty-listbox-an-empty-image-and-a-label-narrower-than-its-caption.md (#860).
     [AvaloniaFact]
     public void An_empty_Image_has_only_a_grey_dashed_edge_in_the_designer()

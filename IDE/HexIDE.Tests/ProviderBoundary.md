@@ -44,7 +44,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Components.FormComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.FrameComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.HScrollBarComponentClass |
-| type | HexIDE | HexIDE.Runtime.Components.IDesignerComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.ImageComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.ControlLibraries |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.FlatScrollBarComponentClass |
@@ -126,7 +125,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE.Desktop | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
 | type | HexIDE.Desktop | HexIDE.Runtime.BasicProvider |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.FormComponentClass |
-| type | HexIDE.Desktop | HexIDE.Runtime.Components.IDesignerComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.InBox.SSTabComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.MenuComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Serialization.CodeWindowText |

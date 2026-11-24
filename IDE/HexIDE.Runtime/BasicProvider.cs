@@ -13,8 +13,8 @@ namespace HexIDE.Runtime;
 /// add-in instead, and nothing here changes.
 /// </para>
 /// <para>
-/// It registers its controls' resources and language packs. The run engine, the designer's registry and pictures, and
-/// the project type join it as their slices land.
+/// It registers its controls' resources, its language packs, and what draws the designer's controls (#5591). The run
+/// engine, the designer's registry and the project type join it as their slices land.
 /// </para>
 /// </remarks>
 public sealed class BasicProvider : IAddin
@@ -37,6 +37,8 @@ public sealed class BasicProvider : IAddin
         foreach (var dictionary in Resources)
             registrations.Add(host.RegisterResources(dictionary));
         registrations.Add(host.RegisterLanguagePacks(new Uri("avares://HexIDE.Runtime/Localization/Packs/")));
+        // Last: a refusal here leaves the themes and text already registered.
+        registrations.Add(host.RegisterDesignerPictures(surface => new InProcessDesignerPictures(surface)));
     }
 
     public void Dispose()

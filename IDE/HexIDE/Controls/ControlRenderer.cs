@@ -6,6 +6,8 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using HexIDE.Addins;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
@@ -14,7 +16,7 @@ using ComponentInstanceViewModel = HexIDE.VisualDesigner.ComponentInstanceViewMo
 
 namespace HexIDE.Controls;
 
-public class ControlRenderer : Decorator, IDesignerDrawingHost
+public class ControlRenderer : Decorator, IDesignerDrawingSurface
 {
     public static readonly StyledProperty<ComponentInstanceViewModel?> ComponentProperty = AvaloniaProperty.Register<ControlRenderer, ComponentInstanceViewModel?>("Component");
 
@@ -34,24 +36,47 @@ public class ControlRenderer : Decorator, IDesignerDrawingHost
 
     private IDesignerPictures? pictures;
 
-    // What draws the controls. In this process for now, through this renderer, whose place in the tree gives a control its
-    // styles and resources.
-    internal IDesignerPictures Pictures
+    // What draws the controls: what the application's drawer makes for this renderer (#5591), unless a test set its own. The
+    // drawer is asked afresh for each picture, so a drawer taken out draws nothing more.
+    internal IDesignerPictures? Pictures
     {
-        get => pictures ??= new InProcessDesignerPictures(this);
+        get => pictures ?? AddinDesignerPictureService.For(Application.Current)?.Invoke(this);
         set => pictures = value;
     }
 
-    void IDesignerDrawingHost.Attach(Control visual)
+    // The control being drawn. Who may draw here is the grant's to decide (#5591): the drawer runs in this process, and its
+    // control sits in the designer's tree, where it could reach the rest. So these checks keep the loan tidy, and aren't the
+    // boundary: one control at a time, only a control that isn't somewhere else, only that control taken out, and whatever is
+    // still held once a draw returns taken out then.
+    private Control? drawing;
+
+    void IDesignerDrawingSurface.Attach(object visual)
     {
-        VisualChildren.Add(visual);
-        LogicalChildren.Add(visual);
+        if (visual is not Control control)
+            throw new ArgumentException($"The designer draws only controls, not {visual?.GetType().FullName ?? "null"}.", nameof(visual));
+        if (drawing is not null)
+            throw new ArgumentException("The designer is drawing another control here.", nameof(visual));
+        if (control.Parent is not null || control.GetVisualParent() is not null)
+            throw new ArgumentException("The control is somewhere already.", nameof(visual));
+        drawing = control;
+        VisualChildren.Add(control);
+        LogicalChildren.Add(control);
     }
 
-    void IDesignerDrawingHost.Detach(Control visual)
+    void IDesignerDrawingSurface.Detach(object visual)
     {
-        LogicalChildren.Remove(visual);
-        VisualChildren.Remove(visual);
+        if (drawing is null || !ReferenceEquals(visual, drawing))
+            return;
+        EndLoan();
+    }
+
+    private void EndLoan()
+    {
+        if (drawing is not { } held)
+            return;
+        LogicalChildren.Remove(held);
+        VisualChildren.Remove(held);
+        drawing = null;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -135,7 +160,14 @@ public class ControlRenderer : Decorator, IDesignerDrawingHost
             // (#2405): a StatusBar refuses only once it lays out its panels.
             try
             {
-                var picture = Pictures.Draw(Component.Instance,
+                // Inside the guard: the drawer's factory runs here too, and may refuse as a control does.
+                if (Pictures is not { } drawer)
+                {
+                    // Only when the provider's registration was refused at startup, which is logged then too.
+                    Log.Error("Designer preview: nothing is registered to draw {Control}", Component.AddressedName);
+                    return;
+                }
+                var picture = drawer.Draw(Component.Instance,
                     new DesignerDrawRequest((int)Bounds.Width, (int)Bounds.Height, Component.LineTwipsPerUnit));
 
                 MinHeight = picture.MinHeight;
@@ -153,6 +185,11 @@ public class ControlRenderer : Decorator, IDesignerDrawingHost
                 Log.Error(ex, "Designer preview failed for {Control}", Component.AddressedName);
                 Component.PreviewFailure = ex.Message;
                 ShowFailure();
+            }
+            finally
+            {
+                // The loan ends with the draw, so a drawer that left its control here can't block the next one.
+                EndLoan();
             }
         }
     }

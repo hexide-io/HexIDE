@@ -180,4 +180,33 @@ public interface IHexIdeHost
     /// a host that isn't an add-in's own: language packs are registered only through the host an add-in is given.
     /// </exception>
     IDisposable RegisterLanguagePacks(Uri folder);
+
+    /// <summary>
+    /// Makes the add-in what draws the form designer's controls (#5591). For each control the designer draws, it calls
+    /// <paramref name="pictures"/> with the place it lends the control while it's drawn, and asks what it gets back for
+    /// the control's picture.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the owners HexIDE grants it may call it.</b> The grants are in HexIDE's own source, keyed by owner. Any other
+    /// add-in is refused, whatever its signature, because whatever draws is given a place in the designer's tree. Today the
+    /// only grant is the Basic provider's, which HexIDE composes itself.
+    /// </para>
+    /// <para>
+    /// <b>One at a time.</b> While one registration holds, another is refused, so nothing can replace the drawer silently.
+    /// </para>
+    /// <para>
+    /// The capability design will need a name for this member; none is checked today, as that design's host checks are not
+    /// built.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// What takes the drawer out again: until another registers, the designer draws no controls. Turning the add-in off or
+    /// revoking its consent takes it out too.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// The add-in holds no grant, or another owner's drawer is registered; the message names both owners. Also thrown by a
+    /// host that isn't an add-in's own: the drawer is registered only through the host an add-in is given.
+    /// </exception>
+    IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures);
 }
