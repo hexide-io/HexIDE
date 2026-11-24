@@ -19,7 +19,6 @@ internal static class ArchiveProjectSave
     internal static ArchiveProjectSnapshot Save(ArchiveProjectSnapshot snapshot,
         IReadOnlyDictionary<ArchiveEntryIdentity, string> edits)
     {
-        byte[] bytes;
         ArchiveProjectSnapshot replacement;
         try
         {
@@ -45,12 +44,7 @@ internal static class ArchiveProjectSave
             }
 
             var proposed = snapshot.Container with { Root = (TwinBasicDirectory)Edit(snapshot.Root) };
-            using var output = new MemoryStream();
-            TwinBasicContainerWriter.Write(proposed, output);
-            bytes = output.ToArray();
-            replacement = ArchiveProjectSnapshot.Read(new MemoryStream(bytes), snapshot.ContainerPath);
-            if (!Equal(proposed.Root, replacement.Container.Root))
-                throw new InvalidOperationException("Container did not round-trip.");
+            replacement = Verify(snapshot, proposed);
             foreach (var edit in edits)
                 if (!replacement.TryGetEntry(edit.Key, out var entry) || entry is not ArchiveProjectDocument document
                     || document.ReadText(int.MaxValue).Text != edit.Value)
@@ -61,9 +55,27 @@ internal static class ArchiveProjectSave
             throw new ArchiveSaveException(ArchiveSaveFailure.CannotRoundTrip, snapshot.ContainerPath, ex);
         }
 
+        return Write(snapshot, replacement);
+    }
+
+    internal static ArchiveProjectSnapshot SaveStructure(ArchiveProjectSnapshot snapshot, TwinBasicContainer proposed) =>
+        Write(snapshot, Verify(snapshot, proposed));
+
+    private static ArchiveProjectSnapshot Verify(ArchiveProjectSnapshot snapshot, TwinBasicContainer proposed)
+    {
+        using var output = new MemoryStream();
+        TwinBasicContainerWriter.Write(proposed, output);
+        var replacement = ArchiveProjectSnapshot.Read(new MemoryStream(output.ToArray()), snapshot.ContainerPath);
+        if (!Equal(proposed.Root, replacement.Container.Root))
+            throw new ArchiveSaveException(ArchiveSaveFailure.CannotRoundTrip, snapshot.ContainerPath);
+        return replacement;
+    }
+
+    private static ArchiveProjectSnapshot Write(ArchiveProjectSnapshot snapshot, ArchiveProjectSnapshot replacement)
+    {
         if (!MatchesDisk(snapshot))
             throw new ArchiveSaveException(ArchiveSaveFailure.ChangedOnDisk, snapshot.ContainerPath);
-        AtomicFileWriter.WriteRecoverableBytes(snapshot.ContainerPath, bytes);
+        AtomicFileWriter.WriteRecoverableBytes(snapshot.ContainerPath, replacement.OriginalBytes);
         return replacement;
     }
 

@@ -229,6 +229,100 @@ public sealed class ArchiveProjectService
         return false;
     }
 
+    internal bool CanEditStructure(ContainerEntry entry, ArchiveStructureOperation operation) =>
+        projects.TryGetValue(entry.Identity.ContainerPath, out var project)
+        && project is TwinBasicBrowserProject twin && ArchiveProjectStructure.CanEdit(twin.Snapshot, entry.Identity, operation);
+
+    internal async Task<ArchiveEntryIdentity?> EditStructure(ContainerEntry entry, ArchiveStructureOperation operation)
+    {
+        var path = entry.Identity.ContainerPath;
+        if (Tabs(path).Any(tab => tab.IsModified || tab.Saving))
+        {
+            await windows.MessageBox(localization.GetString("Str.Archive.StructureUnsaved"), icon: MessageBoxIcon.Warning);
+            return null;
+        }
+        if (!CanEditStructure(entry, operation))
+        {
+            await windows.MessageBox(localization.GetString("Str.Archive.StructureUnmeasured"), icon: MessageBoxIcon.Warning);
+            return null;
+        }
+        var caption = localization.GetString(operation == ArchiveStructureOperation.Rename ? "Str.Archive.Rename"
+            : operation == ArchiveStructureOperation.Delete ? "Str.Archive.Delete" : "Str.Archive.NewFolder");
+        string? name = null;
+        if (operation == ArchiveStructureOperation.Delete)
+        {
+            if (await windows.MessageBox(string.Format(localization.GetString("Str.Archive.DeletePrompt"), entry.Name),
+                caption, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != MessageBoxResult.Yes) return null;
+        }
+        else
+        {
+            name = await windows.InputBox(localization.GetString("Str.Archive.NamePrompt"), caption,
+                operation == ArchiveStructureOperation.Rename ? entry.Name[..^5] : "");
+            if (name == null) return null;
+        }
+        string? failure = null;
+        await gate.WaitAsync();
+        var tabs = Tabs(path);
+        try
+        {
+            if (!projects.TryGetValue(path, out var project) || project is not TwinBasicBrowserProject twin) return null;
+            if (tabs.Any(tab => tab.IsModified || tab.Saving))
+                failure = localization.GetString("Str.Archive.StructureUnsaved");
+            else
+            {
+                foreach (var tab in tabs) tab.SetSaving(true);
+                var snapshot = await Task.Run(() => ArchiveProjectStructure.Save(twin.Snapshot, entry.Identity, operation, name));
+                var replacement = new TwinBasicBrowserProject(snapshot);
+                projects[path] = replacement;
+                foreach (var tab in tabs)
+                {
+                    var identity = tab.Entry.Identity;
+                    if (identity.Equals(entry.Identity))
+                    {
+                        if (operation == ArchiveStructureOperation.Delete)
+                        {
+                            tab.SetSaving(false);
+                            dock.CloseDocument(tab);
+                            continue;
+                        }
+                        if (operation == ArchiveStructureOperation.Rename)
+                            identity = new(path, identity.Segments.SetItem(identity.Segments.Length - 1, name + entry.Name[^5..]));
+                    }
+                    if (replacement.TryGetEntry(identity, out var current))
+                    {
+                        var caret = tab.CaretOffset;
+                        tab.Update(current, replacement.BuildType, replacement.LanguageOf(current));
+                        tab.CaretOffset = Math.Min(caret, tab.Document.TextLength);
+                    }
+                }
+                dock.RecentlyClosed?.RefreshArchive(replacement);
+                Publish();
+                return operation == ArchiveStructureOperation.Delete
+                    ? new(path, entry.Identity.Segments.RemoveAt(entry.Identity.Segments.Length - 1))
+                    : operation == ArchiveStructureOperation.Rename
+                        ? new(path, entry.Identity.Segments.SetItem(entry.Identity.Segments.Length - 1, name + entry.Name[^5..]))
+                        : new(path, entry.Identity.Segments.Add(name!));
+            }
+        }
+        catch (ArchiveStructureException ex)
+        {
+            failure = localization.GetString(ex.Failure == ArchiveStructureFailure.Name
+                ? "Str.Archive.StructureName" : "Str.Archive.StructureUnmeasured");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            failure = string.Format(localization.GetString(ex is ArchiveSaveException { Failure: ArchiveSaveFailure.ChangedOnDisk }
+                ? "Str.Archive.SaveChanged" : "Str.Archive.SaveRefused"), path);
+        }
+        finally
+        {
+            foreach (var tab in tabs) tab.SetSaving(false);
+            gate.Release();
+        }
+        await windows.MessageBox(failure, caption, icon: MessageBoxIcon.Warning);
+        return null;
+    }
+
     internal async Task<bool> ConfirmClose(ArchiveDocumentViewModel tab)
     {
         if (tab.Saving) return false;
