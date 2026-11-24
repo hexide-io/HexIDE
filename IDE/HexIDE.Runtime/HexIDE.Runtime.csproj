@@ -27,6 +27,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+        <ProjectReference Include="..\HexIDE.Imaging\HexIDE.Imaging.csproj" />
     </ItemGroup>
 
     <ItemGroup>

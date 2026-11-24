@@ -18,6 +18,7 @@ using HexIDE.IDE;
 using HexIDE.Keymaps;
 using HexIDE.Localization;
 using HexIDE.Themes;
+using HexIDE.Imaging;
 
 namespace HexIDE.Integration.Tests.Views;
 

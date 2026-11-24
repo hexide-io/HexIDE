@@ -104,8 +104,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Serialization.FormDeserializer |
 | type | HexIDE | HexIDE.Runtime.Serialization.FormSerializer |
 | type | HexIDE | HexIDE.Runtime.Serialization.FrxDeserializer |
-| type | HexIDE | HexIDE.Runtime.Serialization.FrxImageHelper |
-| type | HexIDE | HexIDE.Runtime.Serialization.FrxImageHelper+FrxBlobKind |
 | type | HexIDE | HexIDE.Runtime.Serialization.GroupDeserializer |
 | type | HexIDE | HexIDE.Runtime.Serialization.GroupSerializer |
 | type | HexIDE | HexIDE.Runtime.Serialization.LineEdits |
@@ -116,7 +114,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Serialization.ProjectSerializer |
 | type | HexIDE | HexIDE.Runtime.Serialization.Reduction |
 | type | HexIDE | HexIDE.Runtime.Serialization.RichTextBoxPersistence |
-| type | HexIDE | HexIDE.Runtime.Serialization.SafeImageDecoder |
 | type | HexIDE | HexIDE.Runtime.Serialization.UnmodelledControl |
 | type | HexIDE | HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader |
 | type | HexIDE | HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionRules |

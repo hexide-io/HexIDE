@@ -5,6 +5,7 @@ using HexIDE.Localization;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Serialization;
 using HexIDE.VisualDesigner;
+using HexIDE.Imaging;
 
 namespace HexIDE.Tests.ViewModels;
 

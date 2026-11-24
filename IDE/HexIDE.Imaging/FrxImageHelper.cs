@@ -1,13 +1,16 @@
 using System;
 using System.IO;
 using Avalonia.Media.Imaging;
-using HexIDE.Runtime.BuiltinControls;
 
-namespace HexIDE.Runtime.Serialization;
+namespace HexIDE.Imaging;
 
 /// <summary>
 /// Helpers for decoding .frx blob bytes into Avalonia images.
 /// </summary>
+/// <remarks>
+/// The IDE and the Basic provider both decode with these, so there is one copy of the checks (#3411). See this project's
+/// README: a program made with File &gt; Make carries this assembly in its runner.
+/// </remarks>
 public static class FrxImageHelper
 {
     // BMP magic: "BM"
@@ -54,12 +57,32 @@ public static class FrxImageHelper
     /// <summary>The image bytes of a complete VB6-framed StdPicture, or null for an opaque or empty record.</summary>
     public static byte[]? PicturePayload(byte[]? record)
     {
-        if (record == null || FrxDeserializer.PayloadOffset(record) != 4
-            || VBImage.StdPictureHeaderLength(record, 4) != 8
+        if (record == null || RecordPayloadOffset(record) != 4
+            || StdPictureHeaderLength(record, 4) != 8
             || BitConverter.ToInt32(record, 8) != record.Length - 12
             || record.Length == 12)
             return null;
         return record[12..];
+    }
+
+    /// <summary>
+    /// Where the payload starts inside a .frx record: 4 when its four-byte length prefix exactly accounts for the rest of
+    /// the record, which is true of every picture record and false of every List and ItemData record, and 0 otherwise.
+    /// </summary>
+    public static int RecordPayloadOffset(byte[] record)
+    {
+        if (record.Length < 4) return 0;
+        var declared = BitConverter.ToInt32(record, 0);
+        return declared == record.Length - 4 ? 4 : 0;
+    }
+
+    /// <summary>How many bytes to skip before the image itself: 8 for a StdPicture stream, 0 for anything else.</summary>
+    public static int StdPictureHeaderLength(byte[] bytes, int from = 0)
+    {
+        const uint StdPicturePreamble = 0x0000746C;
+        if (bytes.Length - from < 8) return 0;
+        var preamble = (uint)(bytes[from] | (bytes[from + 1] << 8) | (bytes[from + 2] << 16) | (bytes[from + 3] << 24));
+        return preamble == StdPicturePreamble ? 8 : 0;
     }
 
     /// <summary>

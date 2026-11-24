@@ -108,7 +108,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Serialization/LoneCrLineEndTests.cs` | provider |
 | `Serialization/MemberAttributeQualifiersTests.cs` | provider |
 | `Serialization/MenuPropertyPersistenceTests.cs` | split |
-| `Serialization/SafeImageDecoderTests.cs` | provider |
 | `Serialization/ToolbarSerializationTests.cs` | provider |
 | `Serialization/VbNameRetargetTests.cs` | provider |
 | `Serialization/VbaBitnessPersistenceTests.cs` | provider |
