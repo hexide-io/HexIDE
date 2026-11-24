@@ -1,0 +1,1225 @@
+VB	CheckBox	BackColor	Property	Property BackColor	-
+VB	CheckBox	Caption	Property	Property Caption	-
+VB	CheckBox	Enabled	Property	Property Enabled	-
+VB	CheckBox	Font	Property	Property Font	-
+VB	CheckBox	ForeColor	Property	Property ForeColor	-
+VB	CheckBox	MousePointer	Property	Property MousePointer	-
+VB	CheckBox	RightToLeft	Property	Property RightToLeft	-
+VB	CheckBox	ToolTipText	Property	Property ToolTipText	-
+VB	CheckBox	Value	Property	Property Value	-
+VB	CheckBox	Appearance	Property	Property Appearance	-
+VB	CheckBox	TabStop	Property	Property TabStop	-
+VB	CheckBox	TabIndex	Property	Property TabIndex	-
+VB	CheckBox	(Name)	Property	Property (Name)	-
+VB	CheckBox	Left	Property	Property Left	-
+VB	CheckBox	Top	Property	Property Top	-
+VB	CheckBox	Width	Property	Property Width	-
+VB	CheckBox	Height	Property	Property Height	-
+VB	CheckBox	Visible	Property	Property Visible	-
+VB	CheckBox	Tag	Property	Property Tag	-
+VB	CheckBox	Click	Event	Event Click	-
+VB	CheckBox	GotFocus	Event	Event GotFocus	-
+VB	CheckBox	LostFocus	Event	Event LostFocus	-
+VB	CheckBox	MouseDown	Event	Event MouseDown	-
+VB	CheckBox	MouseMove	Event	Event MouseMove	-
+VB	CheckBox	MouseUp	Event	Event MouseUp	-
+VB	CheckBox	KeyDown	Event	Event KeyDown	-
+VB	CheckBox	KeyPress	Event	Event KeyPress	-
+VB	CheckBox	KeyUp	Event	Event KeyUp	-
+VB	ComboBox	Text	Property	Property Text	-
+VB	ComboBox	Enabled	Property	Property Enabled	-
+VB	ComboBox	Font	Property	Property Font	-
+VB	ComboBox	ForeColor	Property	Property ForeColor	-
+VB	ComboBox	BackColor	Property	Property BackColor	-
+VB	ComboBox	List	Property	Property List	-
+VB	ComboBox	ItemData	Property	Property ItemData	-
+VB	ComboBox	Locked	Property	Property Locked	-
+VB	ComboBox	Style	Property	Property Style	-
+VB	ComboBox	MousePointer	Property	Property MousePointer	-
+VB	ComboBox	RightToLeft	Property	Property RightToLeft	-
+VB	ComboBox	Appearance	Property	Property Appearance	-
+VB	ComboBox	TabStop	Property	Property TabStop	-
+VB	ComboBox	TabIndex	Property	Property TabIndex	-
+VB	ComboBox	ToolTipText	Property	Property ToolTipText	-
+VB	ComboBox	Name	Property	Property Name	-
+VB	ComboBox	Left	Property	Property Left	-
+VB	ComboBox	Top	Property	Property Top	-
+VB	ComboBox	Width	Property	Property Width	-
+VB	ComboBox	Height	Property	Property Height	-
+VB	ComboBox	Visible	Property	Property Visible	-
+VB	ComboBox	Tag	Property	Property Tag	-
+VB	ComboBox	Change	Event	Event Change	-
+VB	ComboBox	Click	Event	Event Click	-
+VB	ComboBox	DblClick	Event	Event DblClick	-
+VB	ComboBox	DropDown	Event	Event DropDown	-
+VB	ComboBox	GotFocus	Event	Event GotFocus	-
+VB	ComboBox	LostFocus	Event	Event LostFocus	-
+VB	ComboBox	KeyDown	Event	Event KeyDown	-
+VB	ComboBox	KeyPress	Event	Event KeyPress	-
+VB	ComboBox	KeyUp	Event	Event KeyUp	-
+VB	ComboBox	ListIndex	Property	Property ListIndex	-
+VB	ComboBox	ListCount	Property	Property ListCount	-
+VB	ComboBox	NewIndex	Property	Property NewIndex	-
+VB	ComboBox	FontName	Property	Property FontName	-
+VB	ComboBox	FontSize	Property	Property FontSize	-
+VB	ComboBox	FontBold	Property	Property FontBold	-
+VB	ComboBox	FontItalic	Property	Property FontItalic	-
+VB	ComboBox	FontUnderline	Property	Property FontUnderline	-
+VB	ComboBox	FontStrikethru	Property	Property FontStrikethru	-
+VB	ComboBox	Index	Property	Property Index	-
+VB	ComboBox	AddItem	Method	Method AddItem	-
+VB	ComboBox	RemoveItem	Method	Method RemoveItem	-
+VB	ComboBox	Clear	Method	Method Clear	-
+VB	ComboBox	Move	Method	Method Move	-
+VB	ComboBox	ZOrder	Method	Method ZOrder	-
+VB	ComboBox	SetFocus	Method	Method SetFocus	-
+VB	ComboBox	FindString	Method	Method FindString	⟦Str.MemberOrigin.HexIde⟧
+VB	ComboBox	FindStringExact	Method	Method FindStringExact	⟦Str.MemberOrigin.HexIde⟧
+VB	CommandButton	Caption	Property	Property Caption	-
+VB	CommandButton	BackColor	Property	Property BackColor	-
+VB	CommandButton	ForeColor	Property	Property ForeColor	-
+VB	CommandButton	Appearance	Property	Property Appearance	-
+VB	CommandButton	Font	Property	Property Font	-
+VB	CommandButton	MousePointer	Property	Property MousePointer	-
+VB	CommandButton	Picture	Property	Property Picture	-
+VB	CommandButton	Style	Property	Property Style	-
+VB	CommandButton	Enabled	Property	Property Enabled	-
+VB	CommandButton	TabStop	Property	Property TabStop	-
+VB	CommandButton	Default	Property	Property Default	-
+VB	CommandButton	Cancel	Property	Property Cancel	-
+VB	CommandButton	TabIndex	Property	Property TabIndex	-
+VB	CommandButton	ToolTipText	Property	Property ToolTipText	-
+VB	CommandButton	(Name)	Property	Property (Name)	-
+VB	CommandButton	Left	Property	Property Left	-
+VB	CommandButton	Top	Property	Property Top	-
+VB	CommandButton	Width	Property	Property Width	-
+VB	CommandButton	Height	Property	Property Height	-
+VB	CommandButton	Visible	Property	Property Visible	-
+VB	CommandButton	Tag	Property	Property Tag	-
+VB	CommandButton	Click	Event	Event Click	-
+VB	CommandButton	GotFocus	Event	Event GotFocus	-
+VB	CommandButton	LostFocus	Event	Event LostFocus	-
+VB	CommandButton	MouseDown	Event	Event MouseDown	-
+VB	CommandButton	MouseMove	Event	Event MouseMove	-
+VB	CommandButton	MouseUp	Event	Event MouseUp	-
+VB	CommandButton	KeyDown	Event	Event KeyDown	-
+VB	CommandButton	KeyPress	Event	Event KeyPress	-
+VB	CommandButton	KeyUp	Event	Event KeyUp	-
+VB	Form	Activate	Event	Event Activate	-
+VB	Form	ActiveControl	Property	Property ActiveControl	-
+VB	Form	Appearance	Property	Property Appearance	-
+VB	Form	AutoRedraw	Property	Property AutoRedraw	-
+VB	Form	BackColor	Property	Property BackColor	-
+VB	Form	BorderStyle	Property	Property BorderStyle	-
+VB	Form	Caption	Property	Property Caption	-
+VB	Form	Circle	Method	Method Circle	-
+VB	Form	Click	Event	Event Click	-
+VB	Form	ClipControls	Property	Property ClipControls	-
+VB	Form	Cls	Method	Method Cls	-
+VB	Form	ControlBox	Property	Property ControlBox	-
+VB	Form	Controls	Property	Property Controls	-
+VB	Form	Count	Property	Property Count	-
+VB	Form	CurrentX	Property	Property CurrentX	-
+VB	Form	CurrentY	Property	Property CurrentY	-
+VB	Form	DblClick	Event	Event DblClick	-
+VB	Form	Deactivate	Event	Event Deactivate	-
+VB	Form	DragDrop	Event	Event DragDrop	-
+VB	Form	DragOver	Event	Event DragOver	-
+VB	Form	DrawMode	Property	Property DrawMode	-
+VB	Form	DrawStyle	Property	Property DrawStyle	-
+VB	Form	DrawWidth	Property	Property DrawWidth	-
+VB	Form	Enabled	Property	Property Enabled	-
+VB	Form	FillColor	Property	Property FillColor	-
+VB	Form	FillStyle	Property	Property FillStyle	-
+VB	Form	Font	Property	Property Font	-
+VB	Form	FontBold	Property	Property FontBold	-
+VB	Form	FontItalic	Property	Property FontItalic	-
+VB	Form	FontName	Property	Property FontName	-
+VB	Form	FontSize	Property	Property FontSize	-
+VB	Form	FontStrikethru	Property	Property FontStrikethru	-
+VB	Form	FontTransparent	Property	Property FontTransparent	-
+VB	Form	FontUnderline	Property	Property FontUnderline	-
+VB	Form	ForeColor	Property	Property ForeColor	-
+VB	Form	GotFocus	Event	Event GotFocus	-
+VB	Form	HasDC	Property	Property HasDC	-
+VB	Form	hDC	Property	Property hDC	-
+VB	Form	Height	Property	Property Height	-
+VB	Form	HelpContextID	Property	Property HelpContextID	-
+VB	Form	Hide	Method	Method Hide	-
+VB	Form	hWnd	Property	Property hWnd	-
+VB	Form	Icon	Property	Property Icon	-
+VB	Form	Image	Property	Property Image	-
+VB	Form	Initialize	Event	Event Initialize	-
+VB	Form	KeyDown	Event	Event KeyDown	-
+VB	Form	KeyPress	Event	Event KeyPress	-
+VB	Form	KeyPreview	Property	Property KeyPreview	-
+VB	Form	KeyUp	Event	Event KeyUp	-
+VB	Form	Left	Property	Property Left	-
+VB	Form	Line	Method	Method Line	-
+VB	Form	LinkClose	Event	Event LinkClose	-
+VB	Form	LinkError	Event	Event LinkError	-
+VB	Form	LinkExecute	Event	Event LinkExecute	-
+VB	Form	LinkMode	Property	Property LinkMode	-
+VB	Form	LinkOpen	Event	Event LinkOpen	-
+VB	Form	LinkTopic	Property	Property LinkTopic	-
+VB	Form	Load	Event	Event Load	-
+VB	Form	LostFocus	Event	Event LostFocus	-
+VB	Form	MaxButton	Property	Property MaxButton	-
+VB	Form	MDIChild	Property	Property MDIChild	-
+VB	Form	MinButton	Property	Property MinButton	-
+VB	Form	MouseDown	Event	Event MouseDown	-
+VB	Form	MouseIcon	Property	Property MouseIcon	-
+VB	Form	MouseMove	Event	Event MouseMove	-
+VB	Form	MousePointer	Property	Property MousePointer	-
+VB	Form	MouseUp	Event	Event MouseUp	-
+VB	Form	Move	Method	Method Move	-
+VB	Form	Moveable	Property	Property Moveable	-
+VB	Form	Name	Property	Property Name	-
+VB	Form	OLECompleteDrag	Event	Event OLECompleteDrag	-
+VB	Form	OLEDrag	Method	Method OLEDrag	-
+VB	Form	OLEDragDrop	Event	Event OLEDragDrop	-
+VB	Form	OLEDragOver	Event	Event OLEDragOver	-
+VB	Form	OLEDropMode	Property	Property OLEDropMode	-
+VB	Form	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+VB	Form	OLESetData	Event	Event OLESetData	-
+VB	Form	OLEStartDrag	Event	Event OLEStartDrag	-
+VB	Form	Paint	Event	Event Paint	-
+VB	Form	PaintPicture	Method	Method PaintPicture	-
+VB	Form	Palette	Property	Property Palette	-
+VB	Form	PaletteMode	Property	Property PaletteMode	-
+VB	Form	Picture	Property	Property Picture	-
+VB	Form	Point	Method	Method Point	-
+VB	Form	PopupMenu	Method	Method PopupMenu	-
+VB	Form	PrintForm	Method	Method PrintForm	-
+VB	Form	PSet	Method	Method PSet	-
+VB	Form	QueryUnload	Event	Event QueryUnload	-
+VB	Form	Refresh	Method	Method Refresh	-
+VB	Form	Resize	Event	Event Resize	-
+VB	Form	RightToLeft	Property	Property RightToLeft	-
+VB	Form	Scale	Method	Method Scale	-
+VB	Form	ScaleHeight	Property	Property ScaleHeight	-
+VB	Form	ScaleLeft	Property	Property ScaleLeft	-
+VB	Form	ScaleMode	Property	Property ScaleMode	-
+VB	Form	ScaleTop	Property	Property ScaleTop	-
+VB	Form	ScaleWidth	Property	Property ScaleWidth	-
+VB	Form	ScaleX	Method	Method ScaleX	-
+VB	Form	ScaleY	Method	Method ScaleY	-
+VB	Form	SetFocus	Method	Method SetFocus	-
+VB	Form	Show	Method	Method Show	-
+VB	Form	ShowInTaskbar	Property	Property ShowInTaskbar	-
+VB	Form	StartUpPosition	Property	Property StartUpPosition	-
+VB	Form	Tag	Property	Property Tag	-
+VB	Form	Terminate	Event	Event Terminate	-
+VB	Form	TextHeight	Method	Method TextHeight	-
+VB	Form	TextWidth	Method	Method TextWidth	-
+VB	Form	Top	Property	Property Top	-
+VB	Form	Unload	Event	Event Unload	-
+VB	Form	ValidateControls	Method	Method ValidateControls	-
+VB	Form	Visible	Property	Property Visible	-
+VB	Form	WhatsThisButton	Property	Property WhatsThisButton	-
+VB	Form	WhatsThisHelp	Property	Property WhatsThisHelp	-
+VB	Form	WhatsThisMode	Method	Method WhatsThisMode	-
+VB	Form	Width	Property	Property Width	-
+VB	Form	WindowState	Property	Property WindowState	-
+VB	Form	ZOrder	Method	Method ZOrder	-
+VB	Frame	Caption	Property	Property Caption	-
+VB	Frame	Enabled	Property	Property Enabled	-
+VB	Frame	BackColor	Property	Property BackColor	-
+VB	Frame	ForeColor	Property	Property ForeColor	-
+VB	Frame	Font	Property	Property Font	-
+VB	Frame	MousePointer	Property	Property MousePointer	-
+VB	Frame	TabIndex	Property	Property TabIndex	-
+VB	Frame	ToolTipText	Property	Property ToolTipText	-
+VB	Frame	(Name)	Property	Property (Name)	-
+VB	Frame	Left	Property	Property Left	-
+VB	Frame	Top	Property	Property Top	-
+VB	Frame	Width	Property	Property Width	-
+VB	Frame	Height	Property	Property Height	-
+VB	Frame	Visible	Property	Property Visible	-
+VB	Frame	Tag	Property	Property Tag	-
+VB	Frame	Click	Event	Event Click	-
+VB	Frame	DblClick	Event	Event DblClick	-
+VB	Frame	DragDrop	Event	Event DragDrop	-
+VB	Frame	MouseDown	Event	Event MouseDown	-
+VB	Frame	MouseMove	Event	Event MouseMove	-
+VB	Frame	MouseUp	Event	Event MouseUp	-
+VB	HScrollBar	CausesValidation	Property	Property CausesValidation	-
+VB	HScrollBar	Enabled	Property	Property Enabled	-
+VB	HScrollBar	SmallChange	Property	Property SmallChange	-
+VB	HScrollBar	MousePointer	Property	Property MousePointer	-
+VB	HScrollBar	LargeChange	Property	Property LargeChange	-
+VB	HScrollBar	Min	Property	Property Min	-
+VB	HScrollBar	Value	Property	Property Value	-
+VB	HScrollBar	Max	Property	Property Max	-
+VB	HScrollBar	TabStop	Property	Property TabStop	-
+VB	HScrollBar	TabIndex	Property	Property TabIndex	-
+VB	HScrollBar	(Name)	Property	Property (Name)	-
+VB	HScrollBar	Left	Property	Property Left	-
+VB	HScrollBar	Top	Property	Property Top	-
+VB	HScrollBar	Width	Property	Property Width	-
+VB	HScrollBar	Height	Property	Property Height	-
+VB	HScrollBar	Visible	Property	Property Visible	-
+VB	HScrollBar	Tag	Property	Property Tag	-
+VB	HScrollBar	Change	Event	Event Change	-
+VB	HScrollBar	GotFocus	Event	Event GotFocus	-
+VB	HScrollBar	LostFocus	Event	Event LostFocus	-
+VB	HScrollBar	KeyDown	Event	Event KeyDown	-
+VB	HScrollBar	KeyPress	Event	Event KeyPress	-
+VB	HScrollBar	KeyUp	Event	Event KeyUp	-
+VB	Image	Picture	Property	Property Picture	-
+VB	Image	Stretch	Property	Property Stretch	-
+VB	Image	BorderStyle	Property	Property BorderStyle	-
+VB	Image	MousePointer	Property	Property MousePointer	-
+VB	Image	MouseIcon	Property	Property MouseIcon	-
+VB	Image	DragIcon	Property	Property DragIcon	-
+VB	Image	Enabled	Property	Property Enabled	-
+VB	Image	ToolTipText	Property	Property ToolTipText	-
+VB	Image	(Name)	Property	Property (Name)	-
+VB	Image	Left	Property	Property Left	-
+VB	Image	Top	Property	Property Top	-
+VB	Image	Width	Property	Property Width	-
+VB	Image	Height	Property	Property Height	-
+VB	Image	Visible	Property	Property Visible	-
+VB	Image	Tag	Property	Property Tag	-
+VB	Image	Click	Event	Event Click	-
+VB	Image	DblClick	Event	Event DblClick	-
+VB	Image	MouseDown	Event	Event MouseDown	-
+VB	Image	MouseMove	Event	Event MouseMove	-
+VB	Image	MouseUp	Event	Event MouseUp	-
+VB	Label	Caption	Property	Property Caption	-
+VB	Label	Enabled	Property	Property Enabled	-
+VB	Label	Font	Property	Property Font	-
+VB	Label	BackColor	Property	Property BackColor	-
+VB	Label	BackStyle	Property	Property BackStyle	-
+VB	Label	Alignment	Property	Property Alignment	-
+VB	Label	Appearance	Property	Property Appearance	-
+VB	Label	AutoSize	Property	Property AutoSize	-
+VB	Label	BorderStyle	Property	Property BorderStyle	-
+VB	Label	ForeColor	Property	Property ForeColor	-
+VB	Label	MousePointer	Property	Property MousePointer	-
+VB	Label	RightToLeft	Property	Property RightToLeft	-
+VB	Label	ToolTipText	Property	Property ToolTipText	-
+VB	Label	UseMnemonic	Property	Property UseMnemonic	-
+VB	Label	WhatsThisHelpID	Property	Property WhatsThisHelpID	-
+VB	Label	WordWrap	Property	Property WordWrap	-
+VB	Label	TabIndex	Property	Property TabIndex	-
+VB	Label	(Name)	Property	Property (Name)	-
+VB	Label	Left	Property	Property Left	-
+VB	Label	Top	Property	Property Top	-
+VB	Label	Width	Property	Property Width	-
+VB	Label	Height	Property	Property Height	-
+VB	Label	Visible	Property	Property Visible	-
+VB	Label	Tag	Property	Property Tag	-
+VB	Label	Click	Event	Event Click	-
+VB	Label	DblClick	Event	Event DblClick	-
+VB	Label	MouseDown	Event	Event MouseDown	-
+VB	Label	MouseMove	Event	Event MouseMove	-
+VB	Label	MouseUp	Event	Event MouseUp	-
+VB	ListBox	Enabled	Property	Property Enabled	-
+VB	ListBox	Font	Property	Property Font	-
+VB	ListBox	ForeColor	Property	Property ForeColor	-
+VB	ListBox	BackColor	Property	Property BackColor	-
+VB	ListBox	List	Property	Property List	-
+VB	ListBox	ItemData	Property	Property ItemData	-
+VB	ListBox	Locked	Property	Property Locked	-
+VB	ListBox	MultiSelect	Property	Property MultiSelect	-
+VB	ListBox	DragIcon	Property	Property DragIcon	-
+VB	ListBox	MousePointer	Property	Property MousePointer	-
+VB	ListBox	RightToLeft	Property	Property RightToLeft	-
+VB	ListBox	Appearance	Property	Property Appearance	-
+VB	ListBox	TabStop	Property	Property TabStop	-
+VB	ListBox	TabIndex	Property	Property TabIndex	-
+VB	ListBox	ToolTipText	Property	Property ToolTipText	-
+VB	ListBox	Name	Property	Property Name	-
+VB	ListBox	Left	Property	Property Left	-
+VB	ListBox	Top	Property	Property Top	-
+VB	ListBox	Width	Property	Property Width	-
+VB	ListBox	Height	Property	Property Height	-
+VB	ListBox	Visible	Property	Property Visible	-
+VB	ListBox	Tag	Property	Property Tag	-
+VB	ListBox	Click	Event	Event Click	-
+VB	ListBox	ItemCheck	Event	Event ItemCheck	-
+VB	ListBox	Scroll	Event	Event Scroll	-
+VB	ListBox	DblClick	Event	Event DblClick	-
+VB	ListBox	GotFocus	Event	Event GotFocus	-
+VB	ListBox	LostFocus	Event	Event LostFocus	-
+VB	ListBox	MouseDown	Event	Event MouseDown	-
+VB	ListBox	MouseMove	Event	Event MouseMove	-
+VB	ListBox	MouseUp	Event	Event MouseUp	-
+VB	ListBox	KeyDown	Event	Event KeyDown	-
+VB	ListBox	KeyPress	Event	Event KeyPress	-
+VB	ListBox	KeyUp	Event	Event KeyUp	-
+VB	ListBox	ListIndex	Property	Property ListIndex	-
+VB	ListBox	ListCount	Property	Property ListCount	-
+VB	ListBox	NewIndex	Property	Property NewIndex	-
+VB	ListBox	Text	Property	Property Text	-
+VB	ListBox	Selected	Property	Property Selected	-
+VB	ListBox	SelCount	Property	Property SelCount	-
+VB	ListBox	TopIndex	Property	Property TopIndex	-
+VB	ListBox	Style	Property	Property Style	-
+VB	ListBox	Columns	Property	Property Columns	-
+VB	ListBox	FontName	Property	Property FontName	-
+VB	ListBox	FontSize	Property	Property FontSize	-
+VB	ListBox	FontBold	Property	Property FontBold	-
+VB	ListBox	FontItalic	Property	Property FontItalic	-
+VB	ListBox	FontUnderline	Property	Property FontUnderline	-
+VB	ListBox	FontStrikethru	Property	Property FontStrikethru	-
+VB	ListBox	Index	Property	Property Index	-
+VB	ListBox	AddItem	Method	Method AddItem	-
+VB	ListBox	RemoveItem	Method	Method RemoveItem	-
+VB	ListBox	Clear	Method	Method Clear	-
+VB	ListBox	Move	Method	Method Move	-
+VB	ListBox	ZOrder	Method	Method ZOrder	-
+VB	ListBox	SetFocus	Method	Method SetFocus	-
+VB	ListBox	FindString	Method	Method FindString	⟦Str.MemberOrigin.HexIde⟧
+VB	ListBox	FindStringExact	Method	Method FindStringExact	⟦Str.MemberOrigin.HexIde⟧
+VB	OptionButton	BackColor	Property	Property BackColor	-
+VB	OptionButton	Caption	Property	Property Caption	-
+VB	OptionButton	Enabled	Property	Property Enabled	-
+VB	OptionButton	Font	Property	Property Font	-
+VB	OptionButton	ForeColor	Property	Property ForeColor	-
+VB	OptionButton	MousePointer	Property	Property MousePointer	-
+VB	OptionButton	RightToLeft	Property	Property RightToLeft	-
+VB	OptionButton	ToolTipText	Property	Property ToolTipText	-
+VB	OptionButton	Value	Property	Property Value	-
+VB	OptionButton	Appearance	Property	Property Appearance	-
+VB	OptionButton	TabStop	Property	Property TabStop	-
+VB	OptionButton	TabIndex	Property	Property TabIndex	-
+VB	OptionButton	(Name)	Property	Property (Name)	-
+VB	OptionButton	Left	Property	Property Left	-
+VB	OptionButton	Top	Property	Property Top	-
+VB	OptionButton	Width	Property	Property Width	-
+VB	OptionButton	Height	Property	Property Height	-
+VB	OptionButton	Visible	Property	Property Visible	-
+VB	OptionButton	Tag	Property	Property Tag	-
+VB	OptionButton	Click	Event	Event Click	-
+VB	OptionButton	DblClick	Event	Event DblClick	-
+VB	OptionButton	GotFocus	Event	Event GotFocus	-
+VB	OptionButton	LostFocus	Event	Event LostFocus	-
+VB	OptionButton	MouseDown	Event	Event MouseDown	-
+VB	OptionButton	MouseMove	Event	Event MouseMove	-
+VB	OptionButton	MouseUp	Event	Event MouseUp	-
+VB	OptionButton	KeyDown	Event	Event KeyDown	-
+VB	OptionButton	KeyPress	Event	Event KeyPress	-
+VB	OptionButton	KeyUp	Event	Event KeyUp	-
+VB	PictureBox	Align	Property	Property Align	-
+VB	PictureBox	Appearance	Property	Property Appearance	-
+VB	PictureBox	AutoRedraw	Property	Property AutoRedraw	-
+VB	PictureBox	AutoSize	Property	Property AutoSize	-
+VB	PictureBox	BackColor	Property	Property BackColor	-
+VB	PictureBox	BorderStyle	Property	Property BorderStyle	-
+VB	PictureBox	CausesValidation	Property	Property CausesValidation	-
+VB	PictureBox	Enabled	Property	Property Enabled	-
+VB	PictureBox	FillColor	Property	Property FillColor	-
+VB	PictureBox	FillStyle	Property	Property FillStyle	-
+VB	PictureBox	Font	Property	Property Font	-
+VB	PictureBox	ForeColor	Property	Property ForeColor	-
+VB	PictureBox	MousePointer	Property	Property MousePointer	-
+VB	PictureBox	TabIndex	Property	Property TabIndex	-
+VB	PictureBox	TabStop	Property	Property TabStop	-
+VB	PictureBox	ToolTipText	Property	Property ToolTipText	-
+VB	PictureBox	Picture	Property	Property Picture	-
+VB	PictureBox	(Name)	Property	Property (Name)	-
+VB	PictureBox	Left	Property	Property Left	-
+VB	PictureBox	Top	Property	Property Top	-
+VB	PictureBox	Width	Property	Property Width	-
+VB	PictureBox	Height	Property	Property Height	-
+VB	PictureBox	Visible	Property	Property Visible	-
+VB	PictureBox	Tag	Property	Property Tag	-
+VB	PictureBox	Click	Event	Event Click	-
+VB	PictureBox	DblClick	Event	Event DblClick	-
+VB	PictureBox	GotFocus	Event	Event GotFocus	-
+VB	PictureBox	LostFocus	Event	Event LostFocus	-
+VB	PictureBox	MouseDown	Event	Event MouseDown	-
+VB	PictureBox	MouseMove	Event	Event MouseMove	-
+VB	PictureBox	MouseUp	Event	Event MouseUp	-
+VB	PictureBox	KeyDown	Event	Event KeyDown	-
+VB	PictureBox	KeyPress	Event	Event KeyPress	-
+VB	PictureBox	KeyUp	Event	Event KeyUp	-
+VB	PictureBox	Paint	Event	Event Paint	-
+VB	PictureBox	Resize	Event	Event Resize	-
+VB	Shape	BackColor	Property	Property BackColor	-
+VB	Shape	BackStyle	Property	Property BackStyle	-
+VB	Shape	Shape	Property	Property Shape	-
+VB	Shape	BorderWidth	Property	Property BorderWidth	-
+VB	Shape	FillColor	Property	Property FillColor	-
+VB	Shape	BorderColor	Property	Property BorderColor	-
+VB	Shape	BorderStyle	Property	Property BorderStyle	-
+VB	Shape	FillStyle	Property	Property FillStyle	-
+VB	Shape	(Name)	Property	Property (Name)	-
+VB	Shape	Left	Property	Property Left	-
+VB	Shape	Top	Property	Property Top	-
+VB	Shape	Width	Property	Property Width	-
+VB	Shape	Height	Property	Property Height	-
+VB	Shape	Visible	Property	Property Visible	-
+VB	Shape	Tag	Property	Property Tag	-
+VB	TextBox	Text	Property	Property Text	-
+VB	TextBox	Enabled	Property	Property Enabled	-
+VB	TextBox	Appearance	Property	Property Appearance	-
+VB	TextBox	BackColor	Property	Property BackColor	-
+VB	TextBox	ForeColor	Property	Property ForeColor	-
+VB	TextBox	Font	Property	Property Font	-
+VB	TextBox	TabStop	Property	Property TabStop	-
+VB	TextBox	MousePointer	Property	Property MousePointer	-
+VB	TextBox	TabIndex	Property	Property TabIndex	-
+VB	TextBox	ToolTipText	Property	Property ToolTipText	-
+VB	TextBox	(Name)	Property	Property (Name)	-
+VB	TextBox	Left	Property	Property Left	-
+VB	TextBox	Top	Property	Property Top	-
+VB	TextBox	Width	Property	Property Width	-
+VB	TextBox	Height	Property	Property Height	-
+VB	TextBox	Visible	Property	Property Visible	-
+VB	TextBox	Tag	Property	Property Tag	-
+VB	TextBox	KeyDown	Event	Event KeyDown	-
+VB	TextBox	KeyPress	Event	Event KeyPress	-
+VB	TextBox	KeyUp	Event	Event KeyUp	-
+VB	TextBox	Change	Event	Event Change	-
+VB	TextBox	Click	Event	Event Click	-
+VB	TextBox	DblClick	Event	Event DblClick	-
+VB	TextBox	GotFocus	Event	Event GotFocus	-
+VB	TextBox	LostFocus	Event	Event LostFocus	-
+VB	TextBox	MouseDown	Event	Event MouseDown	-
+VB	TextBox	MouseMove	Event	Event MouseMove	-
+VB	TextBox	MouseUp	Event	Event MouseUp	-
+VB	Timer	Enabled	Property	Property Enabled	-
+VB	Timer	Interval	Property	Property Interval	-
+VB	Timer	(Name)	Property	Property (Name)	-
+VB	Timer	Left	Property	Property Left	-
+VB	Timer	Top	Property	Property Top	-
+VB	Timer	Width	Property	Property Width	-
+VB	Timer	Height	Property	Property Height	-
+VB	Timer	Visible	Property	Property Visible	-
+VB	Timer	Tag	Property	Property Tag	-
+VB	Timer	Timer	Event	Event Timer	-
+VB	VScrollBar	CausesValidation	Property	Property CausesValidation	-
+VB	VScrollBar	Enabled	Property	Property Enabled	-
+VB	VScrollBar	SmallChange	Property	Property SmallChange	-
+VB	VScrollBar	MousePointer	Property	Property MousePointer	-
+VB	VScrollBar	LargeChange	Property	Property LargeChange	-
+VB	VScrollBar	Min	Property	Property Min	-
+VB	VScrollBar	Value	Property	Property Value	-
+VB	VScrollBar	Max	Property	Property Max	-
+VB	VScrollBar	TabStop	Property	Property TabStop	-
+VB	VScrollBar	TabIndex	Property	Property TabIndex	-
+VB	VScrollBar	(Name)	Property	Property (Name)	-
+VB	VScrollBar	Left	Property	Property Left	-
+VB	VScrollBar	Top	Property	Property Top	-
+VB	VScrollBar	Width	Property	Property Width	-
+VB	VScrollBar	Height	Property	Property Height	-
+VB	VScrollBar	Visible	Property	Property Visible	-
+VB	VScrollBar	Tag	Property	Property Tag	-
+VB	VScrollBar	Change	Event	Event Change	-
+VB	VScrollBar	GotFocus	Event	Event GotFocus	-
+VB	VScrollBar	LostFocus	Event	Event LostFocus	-
+VB	VScrollBar	KeyDown	Event	Event KeyDown	-
+VB	VScrollBar	KeyPress	Event	Event KeyPress	-
+VB	VScrollBar	KeyUp	Event	Event KeyUp	-
+MSComctlLib (no type library)	Button	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ButtonMenu	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ButtonMenus	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	Buttons	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ColumnHeader	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ColumnHeaders	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ComboItem	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ComboItems	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ImageCombo	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ImageList	ImageWidth	Property	Property ImageWidth	-
+MSComctlLib (no type library)	ImageList	ImageHeight	Property	Property ImageHeight	-
+MSComctlLib (no type library)	ImageList	MaskColor	Property	Property MaskColor	-
+MSComctlLib (no type library)	ImageList	BackColor	Property	Property BackColor	-
+MSComctlLib (no type library)	ImageList	UseMaskColor	Property	Property UseMaskColor	-
+MSComctlLib (no type library)	ImageList	ListImages	Property	Property ListImages	-
+MSComctlLib (no type library)	ImageList	hImageList	Property	Property hImageList	-
+MSComctlLib (no type library)	ImageList	Overlay	Method	Method Overlay	-
+MSComctlLib (no type library)	ListImage	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ListImages	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ListItem	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ListItems	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ListSubItem	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ListSubItems	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ListView	Arrange	Property	Property Arrange	-
+MSComctlLib (no type library)	ListView	ColumnHeaders	Property	Property ColumnHeaders	-
+MSComctlLib (no type library)	ListView	DropHighlight	Property	Property DropHighlight	-
+MSComctlLib (no type library)	ListView	HideColumnHeaders	Property	Property HideColumnHeaders	-
+MSComctlLib (no type library)	ListView	HideSelection	Property	Property HideSelection	-
+MSComctlLib (no type library)	ListView	Icons	Property	Property Icons	-
+MSComctlLib (no type library)	ListView	ListItems	Property	Property ListItems	-
+MSComctlLib (no type library)	ListView	LabelEdit	Property	Property LabelEdit	-
+MSComctlLib (no type library)	ListView	LabelWrap	Property	Property LabelWrap	-
+MSComctlLib (no type library)	ListView	MouseIcon	Property	Property MouseIcon	-
+MSComctlLib (no type library)	ListView	MousePointer	Property	Property MousePointer	-
+MSComctlLib (no type library)	ListView	MultiSelect	Property	Property MultiSelect	-
+MSComctlLib (no type library)	ListView	SelectedItem	Property	Property SelectedItem	-
+MSComctlLib (no type library)	ListView	SmallIcons	Property	Property SmallIcons	-
+MSComctlLib (no type library)	ListView	Sorted	Property	Property Sorted	-
+MSComctlLib (no type library)	ListView	SortKey	Property	Property SortKey	-
+MSComctlLib (no type library)	ListView	SortOrder	Property	Property SortOrder	-
+MSComctlLib (no type library)	ListView	View	Property	Property View	-
+MSComctlLib (no type library)	ListView	OLEDragMode	Property	Property OLEDragMode	-
+MSComctlLib (no type library)	ListView	OLEDropMode	Property	Property OLEDropMode	-
+MSComctlLib (no type library)	ListView	Appearance	Property	Property Appearance	-
+MSComctlLib (no type library)	ListView	BackColor	Property	Property BackColor	-
+MSComctlLib (no type library)	ListView	BorderStyle	Property	Property BorderStyle	-
+MSComctlLib (no type library)	ListView	Enabled	Property	Property Enabled	-
+MSComctlLib (no type library)	ListView	Font	Property	Property Font	-
+MSComctlLib (no type library)	ListView	ForeColor	Property	Property ForeColor	-
+MSComctlLib (no type library)	ListView	hWnd	Property	Property hWnd	-
+MSComctlLib (no type library)	ListView	FindItem	Method	Method FindItem	-
+MSComctlLib (no type library)	ListView	GetFirstVisible	Method	Method GetFirstVisible	-
+MSComctlLib (no type library)	ListView	HitTest	Method	Method HitTest	-
+MSComctlLib (no type library)	ListView	StartLabelEdit	Method	Method StartLabelEdit	-
+MSComctlLib (no type library)	ListView	OLEDrag	Method	Method OLEDrag	-
+MSComctlLib (no type library)	ListView	Refresh	Method	Method Refresh	-
+MSComctlLib (no type library)	ListView	AllowColumnReorder	Property	Property AllowColumnReorder	-
+MSComctlLib (no type library)	ListView	Checkboxes	Property	Property Checkboxes	-
+MSComctlLib (no type library)	ListView	FlatScrollBar	Property	Property FlatScrollBar	-
+MSComctlLib (no type library)	ListView	FullRowSelect	Property	Property FullRowSelect	-
+MSComctlLib (no type library)	ListView	GridLines	Property	Property GridLines	-
+MSComctlLib (no type library)	ListView	HotTracking	Property	Property HotTracking	-
+MSComctlLib (no type library)	ListView	HoverSelection	Property	Property HoverSelection	-
+MSComctlLib (no type library)	ListView	Picture	Property	Property Picture	-
+MSComctlLib (no type library)	ListView	PictureAlignment	Property	Property PictureAlignment	-
+MSComctlLib (no type library)	ListView	ColumnHeaderIcons	Property	Property ColumnHeaderIcons	-
+MSComctlLib (no type library)	ListView	TextBackground	Property	Property TextBackground	-
+MSComctlLib (no type library)	ListView	BeforeLabelEdit	Event	Event BeforeLabelEdit	-
+MSComctlLib (no type library)	ListView	AfterLabelEdit	Event	Event AfterLabelEdit	-
+MSComctlLib (no type library)	ListView	ColumnClick	Event	Event ColumnClick	-
+MSComctlLib (no type library)	ListView	ItemClick	Event	Event ItemClick	-
+MSComctlLib (no type library)	ListView	ItemCheck	Event	Event ItemCheck	-
+MSComctlLib (no type library)	ListView	KeyDown	Event	Event KeyDown	-
+MSComctlLib (no type library)	ListView	KeyUp	Event	Event KeyUp	-
+MSComctlLib (no type library)	ListView	KeyPress	Event	Event KeyPress	-
+MSComctlLib (no type library)	ListView	MouseDown	Event	Event MouseDown	-
+MSComctlLib (no type library)	ListView	MouseMove	Event	Event MouseMove	-
+MSComctlLib (no type library)	ListView	MouseUp	Event	Event MouseUp	-
+MSComctlLib (no type library)	ListView	Click	Event	Event Click	-
+MSComctlLib (no type library)	ListView	DblClick	Event	Event DblClick	-
+MSComctlLib (no type library)	ListView	OLEStartDrag	Event	Event OLEStartDrag	-
+MSComctlLib (no type library)	ListView	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+MSComctlLib (no type library)	ListView	OLESetData	Event	Event OLESetData	-
+MSComctlLib (no type library)	ListView	OLECompleteDrag	Event	Event OLECompleteDrag	-
+MSComctlLib (no type library)	ListView	OLEDragOver	Event	Event OLEDragOver	-
+MSComctlLib (no type library)	ListView	OLEDragDrop	Event	Event OLEDragDrop	-
+MSComctlLib (no type library)	Node	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	Nodes	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	Panel	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	Panels	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	ProgressBar	Max	Property	Property Max	-
+MSComctlLib (no type library)	ProgressBar	Min	Property	Property Min	-
+MSComctlLib (no type library)	ProgressBar	MousePointer	Property	Property MousePointer	-
+MSComctlLib (no type library)	ProgressBar	MouseIcon	Property	Property MouseIcon	-
+MSComctlLib (no type library)	ProgressBar	Value	Property	Property Value	-
+MSComctlLib (no type library)	ProgressBar	OLEDropMode	Property	Property OLEDropMode	-
+MSComctlLib (no type library)	ProgressBar	Appearance	Property	Property Appearance	-
+MSComctlLib (no type library)	ProgressBar	BorderStyle	Property	Property BorderStyle	-
+MSComctlLib (no type library)	ProgressBar	Enabled	Property	Property Enabled	-
+MSComctlLib (no type library)	ProgressBar	hWnd	Property	Property hWnd	-
+MSComctlLib (no type library)	ProgressBar	OLEDrag	Method	Method OLEDrag	-
+MSComctlLib (no type library)	ProgressBar	Orientation	Property	Property Orientation	-
+MSComctlLib (no type library)	ProgressBar	Scrolling	Property	Property Scrolling	-
+MSComctlLib (no type library)	ProgressBar	Increment	Method	Method Increment	⟦Str.MemberOrigin.HexIde⟧
+MSComctlLib (no type library)	ProgressBar	Refresh	Method	Method Refresh	-
+MSComctlLib (no type library)	ProgressBar	MouseDown	Event	Event MouseDown	-
+MSComctlLib (no type library)	ProgressBar	MouseMove	Event	Event MouseMove	-
+MSComctlLib (no type library)	ProgressBar	MouseUp	Event	Event MouseUp	-
+MSComctlLib (no type library)	ProgressBar	Click	Event	Event Click	-
+MSComctlLib (no type library)	ProgressBar	OLEStartDrag	Event	Event OLEStartDrag	-
+MSComctlLib (no type library)	ProgressBar	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+MSComctlLib (no type library)	ProgressBar	OLESetData	Event	Event OLESetData	-
+MSComctlLib (no type library)	ProgressBar	OLECompleteDrag	Event	Event OLECompleteDrag	-
+MSComctlLib (no type library)	ProgressBar	OLEDragOver	Event	Event OLEDragOver	-
+MSComctlLib (no type library)	ProgressBar	OLEDragDrop	Event	Event OLEDragDrop	-
+MSComctlLib (no type library)	Slider	Min	Property	Property Min	-
+MSComctlLib (no type library)	Slider	Max	Property	Property Max	-
+MSComctlLib (no type library)	Slider	Value	Property	Property Value	-
+MSComctlLib (no type library)	Slider	SmallChange	Property	Property SmallChange	-
+MSComctlLib (no type library)	Slider	LargeChange	Property	Property LargeChange	-
+MSComctlLib (no type library)	Slider	TickStyle	Property	Property TickStyle	-
+MSComctlLib (no type library)	Slider	TickFrequency	Property	Property TickFrequency	-
+MSComctlLib (no type library)	Slider	GetNumTicks	Property	Property GetNumTicks	-
+MSComctlLib (no type library)	Slider	Orientation	Property	Property Orientation	-
+MSComctlLib (no type library)	Slider	SelectRange	Property	Property SelectRange	-
+MSComctlLib (no type library)	Slider	SelStart	Property	Property SelStart	-
+MSComctlLib (no type library)	Slider	SelLength	Property	Property SelLength	-
+MSComctlLib (no type library)	Slider	Text	Property	Property Text	-
+MSComctlLib (no type library)	Slider	TextPosition	Property	Property TextPosition	-
+MSComctlLib (no type library)	Slider	BorderStyle	Property	Property BorderStyle	-
+MSComctlLib (no type library)	Slider	Enabled	Property	Property Enabled	-
+MSComctlLib (no type library)	Slider	MousePointer	Property	Property MousePointer	-
+MSComctlLib (no type library)	Slider	OLEDropMode	Property	Property OLEDropMode	-
+MSComctlLib (no type library)	Slider	ClearSel	Method	Method ClearSel	-
+MSComctlLib (no type library)	Slider	Refresh	Method	Method Refresh	-
+MSComctlLib (no type library)	Slider	hWnd	Property	Property hWnd	-
+MSComctlLib (no type library)	Slider	MouseIcon	Property	Property MouseIcon	-
+MSComctlLib (no type library)	Slider	OLEDrag	Method	Method OLEDrag	-
+MSComctlLib (no type library)	Slider	Change	Event	Event Change	-
+MSComctlLib (no type library)	Slider	Scroll	Event	Event Scroll	-
+MSComctlLib (no type library)	Slider	Click	Event	Event Click	-
+MSComctlLib (no type library)	Slider	KeyDown	Event	Event KeyDown	-
+MSComctlLib (no type library)	Slider	KeyPress	Event	Event KeyPress	-
+MSComctlLib (no type library)	Slider	KeyUp	Event	Event KeyUp	-
+MSComctlLib (no type library)	Slider	MouseDown	Event	Event MouseDown	-
+MSComctlLib (no type library)	Slider	MouseMove	Event	Event MouseMove	-
+MSComctlLib (no type library)	Slider	MouseUp	Event	Event MouseUp	-
+MSComctlLib (no type library)	Slider	OLEStartDrag	Event	Event OLEStartDrag	-
+MSComctlLib (no type library)	Slider	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+MSComctlLib (no type library)	Slider	OLESetData	Event	Event OLESetData	-
+MSComctlLib (no type library)	Slider	OLECompleteDrag	Event	Event OLECompleteDrag	-
+MSComctlLib (no type library)	Slider	OLEDragOver	Event	Event OLEDragOver	-
+MSComctlLib (no type library)	Slider	OLEDragDrop	Event	Event OLEDragDrop	-
+MSComctlLib (no type library)	StatusBar	Panels	Property	Property Panels	-
+MSComctlLib (no type library)	StatusBar	Style	Property	Property Style	-
+MSComctlLib (no type library)	StatusBar	SimpleText	Property	Property SimpleText	-
+MSComctlLib (no type library)	StatusBar	ShowTips	Property	Property ShowTips	-
+MSComctlLib (no type library)	StatusBar	Enabled	Property	Property Enabled	-
+MSComctlLib (no type library)	StatusBar	Font	Property	Property Font	-
+MSComctlLib (no type library)	StatusBar	MousePointer	Property	Property MousePointer	-
+MSComctlLib (no type library)	StatusBar	OLEDropMode	Property	Property OLEDropMode	-
+MSComctlLib (no type library)	StatusBar	MouseIcon	Property	Property MouseIcon	-
+MSComctlLib (no type library)	StatusBar	hWnd	Property	Property hWnd	-
+MSComctlLib (no type library)	StatusBar	Refresh	Method	Method Refresh	-
+MSComctlLib (no type library)	StatusBar	OLEDrag	Method	Method OLEDrag	-
+MSComctlLib (no type library)	StatusBar	Click	Event	Event Click	-
+MSComctlLib (no type library)	StatusBar	DblClick	Event	Event DblClick	-
+MSComctlLib (no type library)	StatusBar	MouseDown	Event	Event MouseDown	-
+MSComctlLib (no type library)	StatusBar	MouseMove	Event	Event MouseMove	-
+MSComctlLib (no type library)	StatusBar	MouseUp	Event	Event MouseUp	-
+MSComctlLib (no type library)	StatusBar	PanelClick	Event	Event PanelClick	-
+MSComctlLib (no type library)	StatusBar	PanelDblClick	Event	Event PanelDblClick	-
+MSComctlLib (no type library)	StatusBar	OLEStartDrag	Event	Event OLEStartDrag	-
+MSComctlLib (no type library)	StatusBar	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+MSComctlLib (no type library)	StatusBar	OLESetData	Event	Event OLESetData	-
+MSComctlLib (no type library)	StatusBar	OLECompleteDrag	Event	Event OLECompleteDrag	-
+MSComctlLib (no type library)	StatusBar	OLEDragOver	Event	Event OLEDragOver	-
+MSComctlLib (no type library)	StatusBar	OLEDragDrop	Event	Event OLEDragDrop	-
+MSComctlLib (no type library)	Tab	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	Tabs	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (no type library)	TabStrip	Tabs	Property	Property Tabs	-
+MSComctlLib (no type library)	TabStrip	SelectedItem	Property	Property SelectedItem	-
+MSComctlLib (no type library)	TabStrip	Style	Property	Property Style	-
+MSComctlLib (no type library)	TabStrip	MultiRow	Property	Property MultiRow	-
+MSComctlLib (no type library)	TabStrip	TabWidthStyle	Property	Property TabWidthStyle	-
+MSComctlLib (no type library)	TabStrip	TabFixedWidth	Property	Property TabFixedWidth	-
+MSComctlLib (no type library)	TabStrip	TabFixedHeight	Property	Property TabFixedHeight	-
+MSComctlLib (no type library)	TabStrip	TabMinWidth	Property	Property TabMinWidth	-
+MSComctlLib (no type library)	TabStrip	Placement	Property	Property Placement	-
+MSComctlLib (no type library)	TabStrip	TabStyle	Property	Property TabStyle	-
+MSComctlLib (no type library)	TabStrip	HotTracking	Property	Property HotTracking	-
+MSComctlLib (no type library)	TabStrip	MultiSelect	Property	Property MultiSelect	-
+MSComctlLib (no type library)	TabStrip	Separators	Property	Property Separators	-
+MSComctlLib (no type library)	TabStrip	ShowTips	Property	Property ShowTips	-
+MSComctlLib (no type library)	TabStrip	ImageList	Property	Property ImageList	-
+MSComctlLib (no type library)	TabStrip	ClientLeft	Property	Property ClientLeft	-
+MSComctlLib (no type library)	TabStrip	ClientTop	Property	Property ClientTop	-
+MSComctlLib (no type library)	TabStrip	ClientWidth	Property	Property ClientWidth	-
+MSComctlLib (no type library)	TabStrip	ClientHeight	Property	Property ClientHeight	-
+MSComctlLib (no type library)	TabStrip	Font	Property	Property Font	-
+MSComctlLib (no type library)	TabStrip	Enabled	Property	Property Enabled	-
+MSComctlLib (no type library)	TabStrip	hWnd	Property	Property hWnd	-
+MSComctlLib (no type library)	TabStrip	MousePointer	Property	Property MousePointer	-
+MSComctlLib (no type library)	TabStrip	MouseIcon	Property	Property MouseIcon	-
+MSComctlLib (no type library)	TabStrip	OLEDropMode	Property	Property OLEDropMode	-
+MSComctlLib (no type library)	TabStrip	DeselectAll	Method	Method DeselectAll	-
+MSComctlLib (no type library)	TabStrip	Refresh	Method	Method Refresh	-
+MSComctlLib (no type library)	TabStrip	OLEDrag	Method	Method OLEDrag	-
+MSComctlLib (no type library)	TabStrip	BeforeClick	Event	Event BeforeClick	-
+MSComctlLib (no type library)	TabStrip	Click	Event	Event Click	-
+MSComctlLib (no type library)	TabStrip	GotFocus	Event	Event GotFocus	-
+MSComctlLib (no type library)	TabStrip	LostFocus	Event	Event LostFocus	-
+MSComctlLib (no type library)	TabStrip	KeyDown	Event	Event KeyDown	-
+MSComctlLib (no type library)	TabStrip	KeyPress	Event	Event KeyPress	-
+MSComctlLib (no type library)	TabStrip	KeyUp	Event	Event KeyUp	-
+MSComctlLib (no type library)	TabStrip	MouseDown	Event	Event MouseDown	-
+MSComctlLib (no type library)	TabStrip	MouseMove	Event	Event MouseMove	-
+MSComctlLib (no type library)	TabStrip	MouseUp	Event	Event MouseUp	-
+MSComctlLib (no type library)	TabStrip	OLEStartDrag	Event	Event OLEStartDrag	-
+MSComctlLib (no type library)	TabStrip	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+MSComctlLib (no type library)	TabStrip	OLESetData	Event	Event OLESetData	-
+MSComctlLib (no type library)	TabStrip	OLECompleteDrag	Event	Event OLECompleteDrag	-
+MSComctlLib (no type library)	TabStrip	OLEDragOver	Event	Event OLEDragOver	-
+MSComctlLib (no type library)	TabStrip	OLEDragDrop	Event	Event OLEDragDrop	-
+MSComctlLib (no type library)	Toolbar	Appearance	Property	Property Appearance	-
+MSComctlLib (no type library)	Toolbar	AllowCustomize	Property	Property AllowCustomize	-
+MSComctlLib (no type library)	Toolbar	BorderStyle	Property	Property BorderStyle	-
+MSComctlLib (no type library)	Toolbar	ButtonHeight	Property	Property ButtonHeight	-
+MSComctlLib (no type library)	Toolbar	ButtonWidth	Property	Property ButtonWidth	-
+MSComctlLib (no type library)	Toolbar	Enabled	Property	Property Enabled	-
+MSComctlLib (no type library)	Toolbar	ShowTips	Property	Property ShowTips	-
+MSComctlLib (no type library)	Toolbar	Style	Property	Property Style	-
+MSComctlLib (no type library)	Toolbar	TextAlignment	Property	Property TextAlignment	-
+MSComctlLib (no type library)	Toolbar	Wrappable	Property	Property Wrappable	-
+MSComctlLib (no type library)	Toolbar	HelpContextID	Property	Property HelpContextID	-
+MSComctlLib (no type library)	Toolbar	HelpFile	Property	Property HelpFile	-
+MSComctlLib (no type library)	Toolbar	MousePointer	Property	Property MousePointer	-
+MSComctlLib (no type library)	Toolbar	OLEDropMode	Property	Property OLEDropMode	-
+MSComctlLib (no type library)	Toolbar	Buttons	Property	Property Buttons	-
+MSComctlLib (no type library)	Toolbar	Controls	Property	Property Controls	-
+MSComctlLib (no type library)	Toolbar	ImageList	Property	Property ImageList	-
+MSComctlLib (no type library)	Toolbar	DisabledImageList	Property	Property DisabledImageList	-
+MSComctlLib (no type library)	Toolbar	HotImageList	Property	Property HotImageList	-
+MSComctlLib (no type library)	Toolbar	MouseIcon	Property	Property MouseIcon	-
+MSComctlLib (no type library)	Toolbar	hWnd	Property	Property hWnd	-
+MSComctlLib (no type library)	Toolbar	Refresh	Method	Method Refresh	-
+MSComctlLib (no type library)	Toolbar	Customize	Method	Method Customize	-
+MSComctlLib (no type library)	Toolbar	SaveToolbar	Method	Method SaveToolbar	-
+MSComctlLib (no type library)	Toolbar	RestoreToolbar	Method	Method RestoreToolbar	-
+MSComctlLib (no type library)	Toolbar	OLEDrag	Method	Method OLEDrag	-
+MSComctlLib (no type library)	TreeView	TabIndex	Property	Property TabIndex	-
+MSComctlLib (no type library)	TreeView	TabStop	Property	Property TabStop	-
+MSComctlLib (no type library)	TreeView	Name	Property	Property Name	-
+MSComctlLib (no type library)	TreeView	Left	Property	Property Left	-
+MSComctlLib (no type library)	TreeView	Top	Property	Property Top	-
+MSComctlLib (no type library)	TreeView	Width	Property	Property Width	-
+MSComctlLib (no type library)	TreeView	Height	Property	Property Height	-
+MSComctlLib (no type library)	TreeView	Visible	Property	Property Visible	-
+MSComctlLib (no type library)	TreeView	Tag	Property	Property Tag	-
+MSComctlLib (no type library)	TreeView	Click	Event	Event Click	-
+MSComctlLib (no type library)	TreeView	DblClick	Event	Event DblClick	-
+MSComctlLib (no type library)	TreeView	GotFocus	Event	Event GotFocus	-
+MSComctlLib (no type library)	TreeView	LostFocus	Event	Event LostFocus	-
+MSComctlLib (no type library)	TreeView	MouseDown	Event	Event MouseDown	-
+MSComctlLib (no type library)	TreeView	MouseUp	Event	Event MouseUp	-
+MSComctlLib (no type library)	TreeView	MouseMove	Event	Event MouseMove	-
+MSComctlLib (no type library)	TreeView	KeyDown	Event	Event KeyDown	-
+MSComctlLib (no type library)	TreeView	KeyUp	Event	Event KeyUp	-
+MSComctlLib (no type library)	TreeView	BeforeLabelEdit	Event	Event BeforeLabelEdit	-
+MSComctlLib (no type library)	TreeView	AfterLabelEdit	Event	Event AfterLabelEdit	-
+MSComctlLib (no type library)	TreeView	NodeClick	Event	Event NodeClick	-
+MSComctlLib (no type library)	TreeView	NodeCheck	Event	Event NodeCheck	-
+MSComctlLib (no type library)	TreeView	Expand	Event	Event Expand	-
+MSComctlLib (no type library)	TreeView	Collapse	Event	Event Collapse	-
+ComctlLib (no type library)	Button	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	Buttons	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ColumnHeader	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ColumnHeaders	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ImageList	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ListImage	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ListImages	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ListItem	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ListItems	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ListView	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	Node	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	Nodes	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	Panel	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	Panels	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	ProgressBar	Max	Property	Property Max	-
+ComctlLib (no type library)	ProgressBar	Min	Property	Property Min	-
+ComctlLib (no type library)	ProgressBar	MousePointer	Property	Property MousePointer	-
+ComctlLib (no type library)	ProgressBar	MouseIcon	Property	Property MouseIcon	-
+ComctlLib (no type library)	ProgressBar	Value	Property	Property Value	-
+ComctlLib (no type library)	ProgressBar	OLEDropMode	Property	Property OLEDropMode	-
+ComctlLib (no type library)	ProgressBar	Appearance	Property	Property Appearance	-
+ComctlLib (no type library)	ProgressBar	BorderStyle	Property	Property BorderStyle	-
+ComctlLib (no type library)	ProgressBar	Enabled	Property	Property Enabled	-
+ComctlLib (no type library)	ProgressBar	hWnd	Property	Property hWnd	-
+ComctlLib (no type library)	ProgressBar	OLEDrag	Method	Method OLEDrag	-
+ComctlLib (no type library)	ProgressBar	Increment	Method	Method Increment	⟦Str.MemberOrigin.HexIde⟧
+ComctlLib (no type library)	ProgressBar	MouseDown	Event	Event MouseDown	-
+ComctlLib (no type library)	ProgressBar	MouseMove	Event	Event MouseMove	-
+ComctlLib (no type library)	ProgressBar	MouseUp	Event	Event MouseUp	-
+ComctlLib (no type library)	ProgressBar	Click	Event	Event Click	-
+ComctlLib (no type library)	ProgressBar	OLEStartDrag	Event	Event OLEStartDrag	-
+ComctlLib (no type library)	ProgressBar	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+ComctlLib (no type library)	ProgressBar	OLESetData	Event	Event OLESetData	-
+ComctlLib (no type library)	ProgressBar	OLECompleteDrag	Event	Event OLECompleteDrag	-
+ComctlLib (no type library)	ProgressBar	OLEDragOver	Event	Event OLEDragOver	-
+ComctlLib (no type library)	ProgressBar	OLEDragDrop	Event	Event OLEDragDrop	-
+ComctlLib (no type library)	Slider	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	StatusBar	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	Tab	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	Tabs	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	TabStrip	Tabs	Property	Property Tabs	-
+ComctlLib (no type library)	TabStrip	SelectedItem	Property	Property SelectedItem	-
+ComctlLib (no type library)	TabStrip	Style	Property	Property Style	-
+ComctlLib (no type library)	TabStrip	MultiRow	Property	Property MultiRow	-
+ComctlLib (no type library)	TabStrip	TabWidthStyle	Property	Property TabWidthStyle	-
+ComctlLib (no type library)	TabStrip	TabFixedWidth	Property	Property TabFixedWidth	-
+ComctlLib (no type library)	TabStrip	TabFixedHeight	Property	Property TabFixedHeight	-
+ComctlLib (no type library)	TabStrip	ShowTips	Property	Property ShowTips	-
+ComctlLib (no type library)	TabStrip	ImageList	Property	Property ImageList	-
+ComctlLib (no type library)	TabStrip	ClientLeft	Property	Property ClientLeft	-
+ComctlLib (no type library)	TabStrip	ClientTop	Property	Property ClientTop	-
+ComctlLib (no type library)	TabStrip	ClientWidth	Property	Property ClientWidth	-
+ComctlLib (no type library)	TabStrip	ClientHeight	Property	Property ClientHeight	-
+ComctlLib (no type library)	TabStrip	Font	Property	Property Font	-
+ComctlLib (no type library)	TabStrip	Enabled	Property	Property Enabled	-
+ComctlLib (no type library)	TabStrip	hWnd	Property	Property hWnd	-
+ComctlLib (no type library)	TabStrip	MousePointer	Property	Property MousePointer	-
+ComctlLib (no type library)	TabStrip	MouseIcon	Property	Property MouseIcon	-
+ComctlLib (no type library)	TabStrip	OLEDropMode	Property	Property OLEDropMode	-
+ComctlLib (no type library)	TabStrip	Refresh	Method	Method Refresh	-
+ComctlLib (no type library)	TabStrip	OLEDrag	Method	Method OLEDrag	-
+ComctlLib (no type library)	TabStrip	BeforeClick	Event	Event BeforeClick	-
+ComctlLib (no type library)	TabStrip	Click	Event	Event Click	-
+ComctlLib (no type library)	TabStrip	GotFocus	Event	Event GotFocus	-
+ComctlLib (no type library)	TabStrip	LostFocus	Event	Event LostFocus	-
+ComctlLib (no type library)	TabStrip	KeyDown	Event	Event KeyDown	-
+ComctlLib (no type library)	TabStrip	KeyPress	Event	Event KeyPress	-
+ComctlLib (no type library)	TabStrip	KeyUp	Event	Event KeyUp	-
+ComctlLib (no type library)	TabStrip	MouseDown	Event	Event MouseDown	-
+ComctlLib (no type library)	TabStrip	MouseMove	Event	Event MouseMove	-
+ComctlLib (no type library)	TabStrip	MouseUp	Event	Event MouseUp	-
+ComctlLib (no type library)	TabStrip	OLEStartDrag	Event	Event OLEStartDrag	-
+ComctlLib (no type library)	TabStrip	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+ComctlLib (no type library)	TabStrip	OLESetData	Event	Event OLESetData	-
+ComctlLib (no type library)	TabStrip	OLECompleteDrag	Event	Event OLECompleteDrag	-
+ComctlLib (no type library)	TabStrip	OLEDragOver	Event	Event OLEDragOver	-
+ComctlLib (no type library)	TabStrip	OLEDragDrop	Event	Event OLEDragDrop	-
+ComctlLib (no type library)	Toolbar	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+ComctlLib (no type library)	TreeView	TabIndex	Property	Property TabIndex	-
+ComctlLib (no type library)	TreeView	TabStop	Property	Property TabStop	-
+ComctlLib (no type library)	TreeView	Name	Property	Property Name	-
+ComctlLib (no type library)	TreeView	Left	Property	Property Left	-
+ComctlLib (no type library)	TreeView	Top	Property	Property Top	-
+ComctlLib (no type library)	TreeView	Width	Property	Property Width	-
+ComctlLib (no type library)	TreeView	Height	Property	Property Height	-
+ComctlLib (no type library)	TreeView	Visible	Property	Property Visible	-
+ComctlLib (no type library)	TreeView	Tag	Property	Property Tag	-
+ComctlLib (no type library)	TreeView	Click	Event	Event Click	-
+ComctlLib (no type library)	TreeView	DblClick	Event	Event DblClick	-
+ComctlLib (no type library)	TreeView	GotFocus	Event	Event GotFocus	-
+ComctlLib (no type library)	TreeView	LostFocus	Event	Event LostFocus	-
+ComctlLib (no type library)	TreeView	MouseDown	Event	Event MouseDown	-
+ComctlLib (no type library)	TreeView	MouseUp	Event	Event MouseUp	-
+ComctlLib (no type library)	TreeView	MouseMove	Event	Event MouseMove	-
+ComctlLib (no type library)	TreeView	KeyDown	Event	Event KeyDown	-
+ComctlLib (no type library)	TreeView	KeyUp	Event	Event KeyUp	-
+ComctlLib (no type library)	TreeView	BeforeLabelEdit	Event	Event BeforeLabelEdit	-
+ComctlLib (no type library)	TreeView	AfterLabelEdit	Event	Event AfterLabelEdit	-
+ComctlLib (no type library)	TreeView	NodeClick	Event	Event NodeClick	-
+ComctlLib (no type library)	TreeView	NodeCheck	Event	Event NodeCheck	-
+ComctlLib (no type library)	TreeView	Expand	Event	Event Expand	-
+ComctlLib (no type library)	TreeView	Collapse	Event	Event Collapse	-
+MSFlexGridLib (no type library)	MSFlexGrid	Rows	Property	Property Rows	-
+MSFlexGridLib (no type library)	MSFlexGrid	Cols	Property	Property Cols	-
+MSFlexGridLib (no type library)	MSFlexGrid	Row	Property	Property Row	-
+MSFlexGridLib (no type library)	MSFlexGrid	Col	Property	Property Col	-
+MSFlexGridLib (no type library)	MSFlexGrid	Text	Property	Property Text	-
+MSFlexGridLib (no type library)	MSFlexGrid	TextMatrix	Property	Property TextMatrix	-
+MSFlexGridLib (no type library)	MSFlexGrid	FixedRows	Property	Property FixedRows	-
+MSFlexGridLib (no type library)	MSFlexGrid	FixedCols	Property	Property FixedCols	-
+MSFlexGridLib (no type library)	MSFlexGrid	FormatString	Property	Property FormatString	-
+MSFlexGridLib (no type library)	MSFlexGrid	RowSel	Property	Property RowSel	-
+MSFlexGridLib (no type library)	MSFlexGrid	ColSel	Property	Property ColSel	-
+MSFlexGridLib (no type library)	MSFlexGrid	TopRow	Property	Property TopRow	-
+MSFlexGridLib (no type library)	MSFlexGrid	LeftCol	Property	Property LeftCol	-
+MSFlexGridLib (no type library)	MSFlexGrid	TextArray	Property	Property TextArray	-
+MSFlexGridLib (no type library)	MSFlexGrid	Clip	Property	Property Clip	-
+MSFlexGridLib (no type library)	MSFlexGrid	ColWidth	Property	Property ColWidth	-
+MSFlexGridLib (no type library)	MSFlexGrid	RowHeight	Property	Property RowHeight	-
+MSFlexGridLib (no type library)	MSFlexGrid	ColAlignment	Property	Property ColAlignment	-
+MSFlexGridLib (no type library)	MSFlexGrid	FixedAlignment	Property	Property FixedAlignment	-
+MSFlexGridLib (no type library)	MSFlexGrid	MergeRow	Property	Property MergeRow	-
+MSFlexGridLib (no type library)	MSFlexGrid	MergeCol	Property	Property MergeCol	-
+MSFlexGridLib (no type library)	MSFlexGrid	RowData	Property	Property RowData	-
+MSFlexGridLib (no type library)	MSFlexGrid	ColData	Property	Property ColData	-
+MSFlexGridLib (no type library)	MSFlexGrid	RowIsVisible	Property	Property RowIsVisible	-
+MSFlexGridLib (no type library)	MSFlexGrid	ColIsVisible	Property	Property ColIsVisible	-
+MSFlexGridLib (no type library)	MSFlexGrid	RowPos	Property	Property RowPos	-
+MSFlexGridLib (no type library)	MSFlexGrid	ColPos	Property	Property ColPos	-
+MSFlexGridLib (no type library)	MSFlexGrid	RowPosition	Property	Property RowPosition	-
+MSFlexGridLib (no type library)	MSFlexGrid	ColPosition	Property	Property ColPosition	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellBackColor	Property	Property CellBackColor	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellForeColor	Property	Property CellForeColor	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellAlignment	Property	Property CellAlignment	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellTextStyle	Property	Property CellTextStyle	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellPicture	Property	Property CellPicture	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellPictureAlignment	Property	Property CellPictureAlignment	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellFontName	Property	Property CellFontName	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellFontSize	Property	Property CellFontSize	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellFontBold	Property	Property CellFontBold	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellFontItalic	Property	Property CellFontItalic	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellFontUnderline	Property	Property CellFontUnderline	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellFontStrikeThrough	Property	Property CellFontStrikeThrough	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellFontWidth	Property	Property CellFontWidth	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellLeft	Property	Property CellLeft	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellTop	Property	Property CellTop	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellWidth	Property	Property CellWidth	-
+MSFlexGridLib (no type library)	MSFlexGrid	CellHeight	Property	Property CellHeight	-
+MSFlexGridLib (no type library)	MSFlexGrid	BackColor	Property	Property BackColor	-
+MSFlexGridLib (no type library)	MSFlexGrid	ForeColor	Property	Property ForeColor	-
+MSFlexGridLib (no type library)	MSFlexGrid	BackColorFixed	Property	Property BackColorFixed	-
+MSFlexGridLib (no type library)	MSFlexGrid	ForeColorFixed	Property	Property ForeColorFixed	-
+MSFlexGridLib (no type library)	MSFlexGrid	BackColorSel	Property	Property BackColorSel	-
+MSFlexGridLib (no type library)	MSFlexGrid	ForeColorSel	Property	Property ForeColorSel	-
+MSFlexGridLib (no type library)	MSFlexGrid	BackColorBkg	Property	Property BackColorBkg	-
+MSFlexGridLib (no type library)	MSFlexGrid	GridColor	Property	Property GridColor	-
+MSFlexGridLib (no type library)	MSFlexGrid	GridColorFixed	Property	Property GridColorFixed	-
+MSFlexGridLib (no type library)	MSFlexGrid	GridLines	Property	Property GridLines	-
+MSFlexGridLib (no type library)	MSFlexGrid	GridLinesFixed	Property	Property GridLinesFixed	-
+MSFlexGridLib (no type library)	MSFlexGrid	GridLineWidth	Property	Property GridLineWidth	-
+MSFlexGridLib (no type library)	MSFlexGrid	TextStyle	Property	Property TextStyle	-
+MSFlexGridLib (no type library)	MSFlexGrid	TextStyleFixed	Property	Property TextStyleFixed	-
+MSFlexGridLib (no type library)	MSFlexGrid	FocusRect	Property	Property FocusRect	-
+MSFlexGridLib (no type library)	MSFlexGrid	HighLight	Property	Property HighLight	-
+MSFlexGridLib (no type library)	MSFlexGrid	FillStyle	Property	Property FillStyle	-
+MSFlexGridLib (no type library)	MSFlexGrid	SelectionMode	Property	Property SelectionMode	-
+MSFlexGridLib (no type library)	MSFlexGrid	MergeCells	Property	Property MergeCells	-
+MSFlexGridLib (no type library)	MSFlexGrid	AllowBigSelection	Property	Property AllowBigSelection	-
+MSFlexGridLib (no type library)	MSFlexGrid	AllowUserResizing	Property	Property AllowUserResizing	-
+MSFlexGridLib (no type library)	MSFlexGrid	ScrollBars	Property	Property ScrollBars	-
+MSFlexGridLib (no type library)	MSFlexGrid	ScrollTrack	Property	Property ScrollTrack	-
+MSFlexGridLib (no type library)	MSFlexGrid	WordWrap	Property	Property WordWrap	-
+MSFlexGridLib (no type library)	MSFlexGrid	RowHeightMin	Property	Property RowHeightMin	-
+MSFlexGridLib (no type library)	MSFlexGrid	Redraw	Property	Property Redraw	-
+MSFlexGridLib (no type library)	MSFlexGrid	BorderStyle	Property	Property BorderStyle	-
+MSFlexGridLib (no type library)	MSFlexGrid	Appearance	Property	Property Appearance	-
+MSFlexGridLib (no type library)	MSFlexGrid	Font	Property	Property Font	-
+MSFlexGridLib (no type library)	MSFlexGrid	FontWidth	Property	Property FontWidth	-
+MSFlexGridLib (no type library)	MSFlexGrid	Picture	Property	Property Picture	-
+MSFlexGridLib (no type library)	MSFlexGrid	PictureType	Property	Property PictureType	-
+MSFlexGridLib (no type library)	MSFlexGrid	RightToLeft	Property	Property RightToLeft	-
+MSFlexGridLib (no type library)	MSFlexGrid	MousePointer	Property	Property MousePointer	-
+MSFlexGridLib (no type library)	MSFlexGrid	MouseIcon	Property	Property MouseIcon	-
+MSFlexGridLib (no type library)	MSFlexGrid	MouseRow	Property	Property MouseRow	-
+MSFlexGridLib (no type library)	MSFlexGrid	MouseCol	Property	Property MouseCol	-
+MSFlexGridLib (no type library)	MSFlexGrid	OLEDropMode	Property	Property OLEDropMode	-
+MSFlexGridLib (no type library)	MSFlexGrid	Sort	Property	Property Sort	-
+MSFlexGridLib (no type library)	MSFlexGrid	hWnd	Property	Property hWnd	-
+MSFlexGridLib (no type library)	MSFlexGrid	AddItem	Method	Method AddItem	-
+MSFlexGridLib (no type library)	MSFlexGrid	RemoveItem	Method	Method RemoveItem	-
+MSFlexGridLib (no type library)	MSFlexGrid	Clear	Method	Method Clear	-
+MSFlexGridLib (no type library)	MSFlexGrid	Refresh	Method	Method Refresh	-
+MSFlexGridLib (no type library)	MSFlexGrid	OLEDrag	Method	Method OLEDrag	-
+MSFlexGridLib (no type library)	MSFlexGrid	Click	Event	Event Click	-
+MSFlexGridLib (no type library)	MSFlexGrid	DblClick	Event	Event DblClick	-
+MSFlexGridLib (no type library)	MSFlexGrid	KeyDown	Event	Event KeyDown	-
+MSFlexGridLib (no type library)	MSFlexGrid	KeyPress	Event	Event KeyPress	-
+MSFlexGridLib (no type library)	MSFlexGrid	KeyUp	Event	Event KeyUp	-
+MSFlexGridLib (no type library)	MSFlexGrid	MouseDown	Event	Event MouseDown	-
+MSFlexGridLib (no type library)	MSFlexGrid	MouseMove	Event	Event MouseMove	-
+MSFlexGridLib (no type library)	MSFlexGrid	MouseUp	Event	Event MouseUp	-
+MSFlexGridLib (no type library)	MSFlexGrid	SelChange	Event	Event SelChange	-
+MSFlexGridLib (no type library)	MSFlexGrid	RowColChange	Event	Event RowColChange	-
+MSFlexGridLib (no type library)	MSFlexGrid	EnterCell	Event	Event EnterCell	-
+MSFlexGridLib (no type library)	MSFlexGrid	LeaveCell	Event	Event LeaveCell	-
+MSFlexGridLib (no type library)	MSFlexGrid	Scroll	Event	Event Scroll	-
+MSFlexGridLib (no type library)	MSFlexGrid	Compare	Event	Event Compare	-
+MSFlexGridLib (no type library)	MSFlexGrid	OLEStartDrag	Event	Event OLEStartDrag	-
+MSFlexGridLib (no type library)	MSFlexGrid	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+MSFlexGridLib (no type library)	MSFlexGrid	OLESetData	Event	Event OLESetData	-
+MSFlexGridLib (no type library)	MSFlexGrid	OLECompleteDrag	Event	Event OLECompleteDrag	-
+MSFlexGridLib (no type library)	MSFlexGrid	OLEDragOver	Event	Event OLEDragOver	-
+MSFlexGridLib (no type library)	MSFlexGrid	OLEDragDrop	Event	Event OLEDragDrop	-
+TabDlg (no type library)	SSTab	Tab	Property	Property Tab	-
+TabDlg (no type library)	SSTab	Tabs	Property	Property Tabs	-
+TabDlg (no type library)	SSTab	TabsPerRow	Property	Property TabsPerRow	-
+TabDlg (no type library)	SSTab	Rows	Property	Property Rows	-
+TabDlg (no type library)	SSTab	Caption	Property	Property Caption	-
+TabDlg (no type library)	SSTab	TabCaption	Property	Property TabCaption	-
+TabDlg (no type library)	SSTab	TabEnabled	Property	Property TabEnabled	-
+TabDlg (no type library)	SSTab	TabVisible	Property	Property TabVisible	-
+TabDlg (no type library)	SSTab	Style	Property	Property Style	-
+TabDlg (no type library)	SSTab	TabOrientation	Property	Property TabOrientation	-
+TabDlg (no type library)	SSTab	TabHeight	Property	Property TabHeight	-
+TabDlg (no type library)	SSTab	TabMaxWidth	Property	Property TabMaxWidth	-
+TabDlg (no type library)	SSTab	WordWrap	Property	Property WordWrap	-
+TabDlg (no type library)	SSTab	ShowFocusRect	Property	Property ShowFocusRect	-
+TabDlg (no type library)	SSTab	Enabled	Property	Property Enabled	-
+TabDlg (no type library)	SSTab	Picture	Property	Property Picture	-
+TabDlg (no type library)	SSTab	TabPicture	Property	Property TabPicture	-
+TabDlg (no type library)	SSTab	BackColor	Property	Property BackColor	-
+TabDlg (no type library)	SSTab	ForeColor	Property	Property ForeColor	-
+TabDlg (no type library)	SSTab	Font	Property	Property Font	-
+TabDlg (no type library)	SSTab	hWnd	Property	Property hWnd	-
+TabDlg (no type library)	SSTab	MousePointer	Property	Property MousePointer	-
+TabDlg (no type library)	SSTab	MouseIcon	Property	Property MouseIcon	-
+TabDlg (no type library)	SSTab	OLEDropMode	Property	Property OLEDropMode	-
+TabDlg (no type library)	SSTab	OLEDrag	Method	Method OLEDrag	-
+TabDlg (no type library)	SSTab	AboutBox	Method	Method AboutBox	-
+TabDlg (no type library)	SSTab	Click	Event	Event Click	-
+TabDlg (no type library)	SSTab	MouseDown	Event	Event MouseDown	-
+TabDlg (no type library)	SSTab	MouseUp	Event	Event MouseUp	-
+TabDlg (no type library)	SSTab	MouseMove	Event	Event MouseMove	-
+TabDlg (no type library)	SSTab	DblClick	Event	Event DblClick	-
+TabDlg (no type library)	SSTab	GotFocus	Event	Event GotFocus	-
+TabDlg (no type library)	SSTab	LostFocus	Event	Event LostFocus	-
+MSComDlg (no type library)	CommonDialog	CancelError	Property	Property CancelError	-
+MSComDlg (no type library)	CommonDialog	Color	Property	Property Color	-
+MSComDlg (no type library)	CommonDialog	Copies	Property	Property Copies	-
+MSComDlg (no type library)	CommonDialog	DefaultExt	Property	Property DefaultExt	-
+MSComDlg (no type library)	CommonDialog	DialogTitle	Property	Property DialogTitle	-
+MSComDlg (no type library)	CommonDialog	FileName	Property	Property FileName	-
+MSComDlg (no type library)	CommonDialog	Filter	Property	Property Filter	-
+MSComDlg (no type library)	CommonDialog	FilterIndex	Property	Property FilterIndex	-
+MSComDlg (no type library)	CommonDialog	Flags	Property	Property Flags	-
+MSComDlg (no type library)	CommonDialog	FontBold	Property	Property FontBold	-
+MSComDlg (no type library)	CommonDialog	FontItalic	Property	Property FontItalic	-
+MSComDlg (no type library)	CommonDialog	FontName	Property	Property FontName	-
+MSComDlg (no type library)	CommonDialog	FontSize	Property	Property FontSize	-
+MSComDlg (no type library)	CommonDialog	FontStrikeThru	Property	Property FontStrikeThru	-
+MSComDlg (no type library)	CommonDialog	FontUnderLine	Property	Property FontUnderLine	-
+MSComDlg (no type library)	CommonDialog	FromPage	Property	Property FromPage	-
+MSComDlg (no type library)	CommonDialog	HelpCommand	Property	Property HelpCommand	-
+MSComDlg (no type library)	CommonDialog	HelpContext	Property	Property HelpContext	-
+MSComDlg (no type library)	CommonDialog	HelpFile	Property	Property HelpFile	-
+MSComDlg (no type library)	CommonDialog	HelpKey	Property	Property HelpKey	-
+MSComDlg (no type library)	CommonDialog	InitDir	Property	Property InitDir	-
+MSComDlg (no type library)	CommonDialog	Max	Property	Property Max	-
+MSComDlg (no type library)	CommonDialog	Min	Property	Property Min	-
+MSComDlg (no type library)	CommonDialog	MaxFileSize	Property	Property MaxFileSize	-
+MSComDlg (no type library)	CommonDialog	PrinterDefault	Property	Property PrinterDefault	-
+MSComDlg (no type library)	CommonDialog	ToPage	Property	Property ToPage	-
+MSComDlg (no type library)	CommonDialog	Orientation	Property	Property Orientation	-
+MSComDlg (no type library)	CommonDialog	FileTitle	Property	Property FileTitle	-
+MSComDlg (no type library)	CommonDialog	hDC	Property	Property hDC	-
+MSComDlg (no type library)	CommonDialog	Action	Property	Property Action	-
+MSComDlg (no type library)	CommonDialog	ShowOpen	Method	Method ShowOpen	-
+MSComDlg (no type library)	CommonDialog	ShowSave	Method	Method ShowSave	-
+MSComDlg (no type library)	CommonDialog	ShowFont	Method	Method ShowFont	-
+MSComDlg (no type library)	CommonDialog	ShowColor	Method	Method ShowColor	-
+MSComDlg (no type library)	CommonDialog	ShowPrinter	Method	Method ShowPrinter	-
+MSComDlg (no type library)	CommonDialog	ShowHelp	Method	Method ShowHelp	-
+MSComDlg (no type library)	CommonDialog	AboutBox	Method	Method AboutBox	-
+MSComCtl2 (no type library)	Animation	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComCtl2 (no type library)	DTPicker	Value	Property	Property Value	-
+MSComCtl2 (no type library)	DTPicker	Format	Property	Property Format	-
+MSComCtl2 (no type library)	DTPicker	CustomFormat	Property	Property CustomFormat	-
+MSComCtl2 (no type library)	DTPicker	MinDate	Property	Property MinDate	-
+MSComCtl2 (no type library)	DTPicker	MaxDate	Property	Property MaxDate	-
+MSComCtl2 (no type library)	DTPicker	CheckBox	Property	Property CheckBox	-
+MSComCtl2 (no type library)	DTPicker	UpDown	Property	Property UpDown	-
+MSComCtl2 (no type library)	DTPicker	Year	Property	Property Year	-
+MSComCtl2 (no type library)	DTPicker	Month	Property	Property Month	-
+MSComCtl2 (no type library)	DTPicker	Day	Property	Property Day	-
+MSComCtl2 (no type library)	DTPicker	Hour	Property	Property Hour	-
+MSComCtl2 (no type library)	DTPicker	Minute	Property	Property Minute	-
+MSComCtl2 (no type library)	DTPicker	Second	Property	Property Second	-
+MSComCtl2 (no type library)	DTPicker	DayOfWeek	Property	Property DayOfWeek	-
+MSComCtl2 (no type library)	DTPicker	Font	Property	Property Font	-
+MSComCtl2 (no type library)	DTPicker	MouseIcon	Property	Property MouseIcon	-
+MSComCtl2 (no type library)	DTPicker	hWnd	Property	Property hWnd	-
+MSComCtl2 (no type library)	DTPicker	CalendarBackColor	Property	Property CalendarBackColor	-
+MSComCtl2 (no type library)	DTPicker	CalendarForeColor	Property	Property CalendarForeColor	-
+MSComCtl2 (no type library)	DTPicker	CalendarTitleBackColor	Property	Property CalendarTitleBackColor	-
+MSComCtl2 (no type library)	DTPicker	CalendarTitleForeColor	Property	Property CalendarTitleForeColor	-
+MSComCtl2 (no type library)	DTPicker	CalendarTrailingForeColor	Property	Property CalendarTrailingForeColor	-
+MSComCtl2 (no type library)	DTPicker	MousePointer	Property	Property MousePointer	-
+MSComCtl2 (no type library)	DTPicker	OLEDropMode	Property	Property OLEDropMode	-
+MSComCtl2 (no type library)	DTPicker	Change	Event	Event Change	-
+MSComCtl2 (no type library)	DTPicker	DropDown	Event	Event DropDown	-
+MSComCtl2 (no type library)	DTPicker	CloseUp	Event	Event CloseUp	-
+MSComCtl2 (no type library)	DTPicker	OLEDrag	Method	Method OLEDrag	-
+MSComCtl2 (no type library)	DTPicker	AboutBox	Method	Method AboutBox	-
+MSComCtl2 (no type library)	FlatScrollBar	Value	Property	Property Value	-
+MSComCtl2 (no type library)	FlatScrollBar	Min	Property	Property Min	-
+MSComCtl2 (no type library)	FlatScrollBar	Max	Property	Property Max	-
+MSComCtl2 (no type library)	FlatScrollBar	SmallChange	Property	Property SmallChange	-
+MSComCtl2 (no type library)	FlatScrollBar	LargeChange	Property	Property LargeChange	-
+MSComCtl2 (no type library)	FlatScrollBar	Orientation	Property	Property Orientation	-
+MSComCtl2 (no type library)	FlatScrollBar	Appearance	Property	Property Appearance	-
+MSComCtl2 (no type library)	FlatScrollBar	Arrows	Property	Property Arrows	-
+MSComCtl2 (no type library)	FlatScrollBar	Enabled	Property	Property Enabled	-
+MSComCtl2 (no type library)	FlatScrollBar	MousePointer	Property	Property MousePointer	-
+MSComCtl2 (no type library)	FlatScrollBar	MouseIcon	Property	Property MouseIcon	-
+MSComCtl2 (no type library)	FlatScrollBar	hWnd	Property	Property hWnd	-
+MSComCtl2 (no type library)	FlatScrollBar	Refresh	Method	Method Refresh	-
+MSComCtl2 (no type library)	FlatScrollBar	Change	Event	Event Change	-
+MSComCtl2 (no type library)	FlatScrollBar	Scroll	Event	Event Scroll	-
+MSComCtl2 (no type library)	MonthView	Value	Property	Property Value	-
+MSComCtl2 (no type library)	MonthView	MinDate	Property	Property MinDate	-
+MSComCtl2 (no type library)	MonthView	MaxDate	Property	Property MaxDate	-
+MSComCtl2 (no type library)	MonthView	SelStart	Property	Property SelStart	-
+MSComCtl2 (no type library)	MonthView	SelEnd	Property	Property SelEnd	-
+MSComCtl2 (no type library)	MonthView	MultiSelect	Property	Property MultiSelect	-
+MSComCtl2 (no type library)	MonthView	MaxSelCount	Property	Property MaxSelCount	-
+MSComCtl2 (no type library)	MonthView	MonthRows	Property	Property MonthRows	-
+MSComCtl2 (no type library)	MonthView	MonthColumns	Property	Property MonthColumns	-
+MSComCtl2 (no type library)	MonthView	StartOfWeek	Property	Property StartOfWeek	-
+MSComCtl2 (no type library)	MonthView	ShowToday	Property	Property ShowToday	-
+MSComCtl2 (no type library)	MonthView	ShowWeekNumbers	Property	Property ShowWeekNumbers	-
+MSComCtl2 (no type library)	MonthView	ScrollRate	Property	Property ScrollRate	-
+MSComCtl2 (no type library)	MonthView	Year	Property	Property Year	-
+MSComCtl2 (no type library)	MonthView	Month	Property	Property Month	-
+MSComCtl2 (no type library)	MonthView	Day	Property	Property Day	-
+MSComCtl2 (no type library)	MonthView	DayOfWeek	Property	Property DayOfWeek	-
+MSComCtl2 (no type library)	MonthView	Week	Property	Property Week	-
+MSComCtl2 (no type library)	MonthView	Appearance	Property	Property Appearance	-
+MSComCtl2 (no type library)	MonthView	BorderStyle	Property	Property BorderStyle	-
+MSComCtl2 (no type library)	MonthView	Enabled	Property	Property Enabled	-
+MSComCtl2 (no type library)	MonthView	MousePointer	Property	Property MousePointer	-
+MSComCtl2 (no type library)	MonthView	OLEDropMode	Property	Property OLEDropMode	-
+MSComCtl2 (no type library)	MonthView	BackColor	Property	Property BackColor	-
+MSComCtl2 (no type library)	MonthView	ForeColor	Property	Property ForeColor	-
+MSComCtl2 (no type library)	MonthView	MonthBackColor	Property	Property MonthBackColor	-
+MSComCtl2 (no type library)	MonthView	TitleBackColor	Property	Property TitleBackColor	-
+MSComCtl2 (no type library)	MonthView	TitleForeColor	Property	Property TitleForeColor	-
+MSComCtl2 (no type library)	MonthView	TrailingForeColor	Property	Property TrailingForeColor	-
+MSComCtl2 (no type library)	MonthView	Font	Property	Property Font	-
+MSComCtl2 (no type library)	MonthView	MouseIcon	Property	Property MouseIcon	-
+MSComCtl2 (no type library)	MonthView	hWnd	Property	Property hWnd	-
+MSComCtl2 (no type library)	MonthView	DayBold	Property	Property DayBold	-
+MSComCtl2 (no type library)	MonthView	VisibleDays	Property	Property VisibleDays	-
+MSComCtl2 (no type library)	MonthView	ComputeControlSize	Method	Method ComputeControlSize	-
+MSComCtl2 (no type library)	MonthView	HitTest	Method	Method HitTest	-
+MSComCtl2 (no type library)	MonthView	OLEDrag	Method	Method OLEDrag	-
+MSComCtl2 (no type library)	MonthView	Refresh	Method	Method Refresh	-
+MSComCtl2 (no type library)	UpDown	Value	Property	Property Value	-
+MSComCtl2 (no type library)	UpDown	Min	Property	Property Min	-
+MSComCtl2 (no type library)	UpDown	Max	Property	Property Max	-
+MSComCtl2 (no type library)	UpDown	Increment	Property	Property Increment	-
+MSComCtl2 (no type library)	UpDown	Wrap	Property	Property Wrap	-
+MSComCtl2 (no type library)	UpDown	BuddyControl	Property	Property BuddyControl	-
+MSComCtl2 (no type library)	UpDown	BuddyProperty	Property	Property BuddyProperty	-
+MSComCtl2 (no type library)	UpDown	AutoBuddy	Property	Property AutoBuddy	-
+MSComCtl2 (no type library)	UpDown	SyncBuddy	Property	Property SyncBuddy	-
+MSComCtl2 (no type library)	UpDown	Alignment	Property	Property Alignment	-
+MSComCtl2 (no type library)	UpDown	Orientation	Property	Property Orientation	-
+MSComCtl2 (no type library)	UpDown	Enabled	Property	Property Enabled	-
+MSComCtl2 (no type library)	UpDown	OLEDropMode	Property	Property OLEDropMode	-
+MSComCtl2 (no type library)	UpDown	hWnd	Property	Property hWnd	-
+MSComCtl2 (no type library)	UpDown	OLEDrag	Method	Method OLEDrag	-
+MSComCtl2 (no type library)	UpDown	Change	Event	Event Change	-
+MSComCtl2 (no type library)	UpDown	UpClick	Event	Event UpClick	-
+MSComCtl2 (no type library)	UpDown	DownClick	Event	Event DownClick	-
+MSComCtl2 (no type library)	UpDown	MouseDown	Event	Event MouseDown	-
+MSComCtl2 (no type library)	UpDown	MouseMove	Event	Event MouseMove	-
+MSComCtl2 (no type library)	UpDown	MouseUp	Event	Event MouseUp	-
+MSComCtl2 (no type library)	UpDown	OLEStartDrag	Event	Event OLEStartDrag	-
+MSComCtl2 (no type library)	UpDown	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+MSComCtl2 (no type library)	UpDown	OLESetData	Event	Event OLESetData	-
+MSComCtl2 (no type library)	UpDown	OLECompleteDrag	Event	Event OLECompleteDrag	-
+MSComCtl2 (no type library)	UpDown	OLEDragOver	Event	Event OLEDragOver	-
+MSComCtl2 (no type library)	UpDown	OLEDragDrop	Event	Event OLEDragDrop	-
+MSMask (no type library)	MaskEdBox	ClipMode	Property	Property ClipMode	-
+MSMask (no type library)	MaskEdBox	PromptInclude	Property	Property PromptInclude	-
+MSMask (no type library)	MaskEdBox	AllowPrompt	Property	Property AllowPrompt	-
+MSMask (no type library)	MaskEdBox	AutoTab	Property	Property AutoTab	-
+MSMask (no type library)	MaskEdBox	MaxLength	Property	Property MaxLength	-
+MSMask (no type library)	MaskEdBox	Mask	Property	Property Mask	-
+MSMask (no type library)	MaskEdBox	PromptChar	Property	Property PromptChar	-
+MSMask (no type library)	MaskEdBox	Text	Property	Property Text	-
+MSMask (no type library)	MaskEdBox	ClipText	Property	Property ClipText	-
+MSMask (no type library)	MaskEdBox	FormattedText	Property	Property FormattedText	-
+MSMask (no type library)	MaskEdBox	SelStart	Property	Property SelStart	-
+MSMask (no type library)	MaskEdBox	SelLength	Property	Property SelLength	-
+MSMask (no type library)	MaskEdBox	SelText	Property	Property SelText	-
+MSMask (no type library)	MaskEdBox	MousePointer	Property	Property MousePointer	-
+MSMask (no type library)	MaskEdBox	HideSelection	Property	Property HideSelection	-
+MSMask (no type library)	MaskEdBox	Format	Property	Property Format	-
+MSMask (no type library)	MaskEdBox	MouseIcon	Property	Property MouseIcon	-
+MSMask (no type library)	MaskEdBox	Appearance	Property	Property Appearance	-
+MSMask (no type library)	MaskEdBox	BackColor	Property	Property BackColor	-
+MSMask (no type library)	MaskEdBox	Font	Property	Property Font	-
+MSMask (no type library)	MaskEdBox	ForeColor	Property	Property ForeColor	-
+MSMask (no type library)	MaskEdBox	Enabled	Property	Property Enabled	-
+MSMask (no type library)	MaskEdBox	BorderStyle	Property	Property BorderStyle	-
+MSMask (no type library)	MaskEdBox	OLEDragMode	Property	Property OLEDragMode	-
+MSMask (no type library)	MaskEdBox	OLEDropMode	Property	Property OLEDropMode	-
+MSMask (no type library)	MaskEdBox	hWnd	Property	Property hWnd	-
+MSMask (no type library)	MaskEdBox	Refresh	Method	Method Refresh	-
+MSMask (no type library)	MaskEdBox	OLEDrag	Method	Method OLEDrag	-
+MSMask (no type library)	MaskEdBox	Change	Event	Event Change	-
+MSMask (no type library)	MaskEdBox	ValidationError	Event	Event ValidationError	-
+MSMask (no type library)	MaskEdBox	KeyDown	Event	Event KeyDown	-
+MSMask (no type library)	MaskEdBox	KeyPress	Event	Event KeyPress	-
+MSMask (no type library)	MaskEdBox	KeyUp	Event	Event KeyUp	-
+MSMask (no type library)	MaskEdBox	OLEStartDrag	Event	Event OLEStartDrag	-
+MSMask (no type library)	MaskEdBox	OLEGiveFeedback	Event	Event OLEGiveFeedback	-
+MSMask (no type library)	MaskEdBox	OLESetData	Event	Event OLESetData	-
+MSMask (no type library)	MaskEdBox	OLECompleteDrag	Event	Event OLECompleteDrag	-
+MSMask (no type library)	MaskEdBox	OLEDragOver	Event	Event OLEDragOver	-
+MSMask (no type library)	MaskEdBox	OLEDragDrop	Event	Event OLEDragDrop	-
+RichTextLib (no type library)	RichTextBox	⟦Str.Tool.ObjectBrowser.MembersUnavailable⟧	Status		-
+MSComctlLib (type library)	ProgressBar	Increment	Method	Method Increment	⟦Str.MemberOrigin.HexIde⟧
+ComctlLib (type library)	ProgressBar	Increment	Method	Method Increment	⟦Str.MemberOrigin.HexIde⟧
