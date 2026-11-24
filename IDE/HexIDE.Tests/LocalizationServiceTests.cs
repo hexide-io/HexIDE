@@ -12,7 +12,7 @@ namespace HexIDE.Tests;
 public class LocalizationServiceTests
 {
 
-    private static LocalizationService CreateSut() => new();
+    private static LocalizationService CreateSut() => HexIDE.Tests.Localization.InTreeLanguagePacks.Service();
 
     [AvaloniaFact]
     public void NoProjectReader_English_ReportsOnlyWhatHexIDEKnows()

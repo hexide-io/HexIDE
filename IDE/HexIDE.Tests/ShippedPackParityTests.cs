@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using HexIDE.Localization;
+using HexIDE.Tests.Localization;
 
 namespace HexIDE.Tests;
 
@@ -62,8 +63,7 @@ public class ShippedPackParityTests
     [InlineData("Str.FindReplace.Msg.ReplacementsSkippingReadOnlyText", "Str.FindReplace.Msg.ReplacementsWithSkipped")]
     public void PeopleSeeTheIdesOwnWordsForReadOnlyText(string key, string retiredKey)
     {
-        var canonical = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), "en.json")),
-            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var canonical = InTreeLanguagePacks.Merged("en");
         canonical.Should().ContainKey(key);
         foreach (var word in new[] { "Attribute", "header", "designer", "VB6" })
             canonical[key].Should().NotContainEquivalentOf(word);
@@ -84,10 +84,9 @@ public class ShippedPackParityTests
     [Fact]
     public void Upstream_statements_keep_HexIDEs_name_in_every_shipped_pack()
     {
-        var canonical = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), "en.json")),
-            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var canonical = InTreeLanguagePacks.Merged("en");
         var keys = BrandText.UpstreamKeys;
-        var localization = new LocalizationService();
+        var localization = InTreeLanguagePacks.Service();
         foreach (var language in LanguageManifest.Packs)
         foreach (var key in keys.Where(key => canonical[key].Contains("HexIDE", StringComparison.Ordinal)))
         {
@@ -102,18 +101,20 @@ public class ShippedPackParityTests
     [Fact]
     public void NoPackHasKeysAbsentFromCanonicalEnglish()
     {
-        var packs = PacksDirectory();
-        var canonical = KeysOf(Path.Combine(packs, $"{Canonical}.json"));
-        canonical.Should().NotBeEmpty("the canonical pack defines the keys that may ship");
-
-        var unexpected = new List<string>();
-        foreach (var file in Directory.EnumerateFiles(packs, "*.json"))
+        foreach (var packs in InTreeLanguagePacks.Areas)
         {
-            unexpected.AddRange(KeysOf(file).Except(canonical).Order(StringComparer.Ordinal)
-                .Select(key => $"{Path.GetFileName(file)}: {key}"));
-        }
+            var canonical = KeysOf(Path.Combine(packs, $"{Canonical}.json"));
+            canonical.Should().NotBeEmpty("the canonical pack defines the keys that may ship");
 
-        unexpected.Should().BeEmpty("all packs, including regional overrides, use only canonical English keys");
+            var unexpected = new List<string>();
+            foreach (var file in Directory.EnumerateFiles(packs, "*.json").Where(f => !Path.GetFileName(f).StartsWith("zz", StringComparison.Ordinal)))
+            {
+                unexpected.AddRange(KeysOf(file).Except(canonical).Order(StringComparer.Ordinal)
+                    .Select(key => $"{Path.GetFileName(file)}: {key}"));
+            }
+
+            unexpected.Should().BeEmpty("all packs, including regional overrides, use only canonical English keys");
+        }
     }
 
     [Fact]
@@ -202,32 +203,34 @@ public class ShippedPackParityTests
     [Fact]
     public void EveryShippedTranslationHasEveryCanonicalKey()
     {
-        var packs = PacksDirectory();
-        var canonical = KeysOf(Path.Combine(packs, $"{Canonical}.json"));
-
-        canonical.Should().NotBeEmpty("the canonical pack is what everything else is measured against");
-
-        var stale = new List<string>();
-
-        foreach (var id in ShippedTranslations())
+        foreach (var packs in InTreeLanguagePacks.Areas)
         {
-            var file = Path.Combine(packs, $"{id}.json");
-            if (!File.Exists(file)) continue;   // reported by its own test, with its own explanation
+            var canonical = KeysOf(Path.Combine(packs, $"{Canonical}.json"));
 
-            var missing = canonical.Except(KeysOf(file)).Order(StringComparer.Ordinal).ToList();
-            if (missing.Count == 0) continue;
+            canonical.Should().NotBeEmpty("the canonical pack is what everything else is measured against");
 
-            // Capped. Thirty packs each missing a hundred keys is not a failure message anybody reads,
-            // and the count plus the first few is enough to say which change left them behind.
-            var shown = string.Join(", ", missing.Take(5));
-            var rest = missing.Count > 5 ? $", and {missing.Count - 5} more" : "";
-            stale.Add($"{id} is missing {missing.Count} of {canonical.Count}: {shown}{rest}");
+            var stale = new List<string>();
+
+            foreach (var id in ShippedTranslations())
+            {
+                var file = Path.Combine(packs, $"{id}.json");
+                if (!File.Exists(file)) continue;   // reported by its own test, with its own explanation
+
+                var missing = canonical.Except(KeysOf(file)).Order(StringComparer.Ordinal).ToList();
+                if (missing.Count == 0) continue;
+
+                // Capped. Thirty packs each missing a hundred keys is not a failure message anybody reads,
+                // and the count plus the first few is enough to say which change left them behind.
+                var shown = string.Join(", ", missing.Take(5));
+                var rest = missing.Count > 5 ? $", and {missing.Count - 5} more" : "";
+                stale.Add($"{id} is missing {missing.Count} of {canonical.Count}: {shown}{rest}");
+            }
+
+            stale.Should().BeEmpty(
+                "every shipped pack is 100% complete, and a key added to en is not finished until all of them "
+                + "have it. Run `cd tools/TranslationCoverage && dotnet run` for the full list, and see "
+                + "CLAUDE.md under Localization for the one-agent-per-pack workflow");
         }
-
-        stale.Should().BeEmpty(
-            "every shipped pack is 100% complete, and a key added to en is not finished until all of them "
-            + "have it. Run `cd tools/TranslationCoverage && dotnet run` for the full list, and see "
-            + "CLAUDE.md under Localization for the one-agent-per-pack workflow");
     }
 
     [Fact]
@@ -236,14 +239,15 @@ public class ShippedPackParityTests
         // A manifest entry with no file offers the language in the combo and then resolves every string
         // through to English. Nothing errors, nothing logs, and the pack looks untranslated rather than
         // absent — so the language appears shipped and does nothing.
-        var packs = PacksDirectory();
+        foreach (var packs in InTreeLanguagePacks.Areas)
+        {
+            var absent = ShippedTranslations()
+                .Where(id => !File.Exists(Path.Combine(packs, $"{id}.json")))
+                .ToList();
 
-        var absent = ShippedTranslations()
-            .Where(id => !File.Exists(Path.Combine(packs, $"{id}.json")))
-            .ToList();
-
-        absent.Should().BeEmpty(
-            "a language offered in the manifest with no pack behind it silently renders as English");
+            absent.Should().BeEmpty(
+                "a language offered in the manifest with no pack behind it silently renders as English");
+        }
     }
 
     [Fact]
@@ -257,8 +261,8 @@ public class ShippedPackParityTests
         // ShippedTranslations because it is the thing the others are measured against.
         var declared = LanguageManifest.Packs.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
 
-        var undeclared = Directory
-            .EnumerateFiles(PacksDirectory(), "*.json")
+        var undeclared = InTreeLanguagePacks.Areas
+            .SelectMany(area => Directory.EnumerateFiles(area, "*.json"))
             .Select(Path.GetFileNameWithoutExtension)
             .Where(id => id is not null)
             .Select(id => id!)
@@ -603,7 +607,7 @@ public class ShippedPackParityTests
     /// neutrals rather than a bare <c>zh</c>, and both are full translations despite the subtag.
     /// </remarks>
     private static bool IsFullTranslation(string id) =>
-        !id.Contains('-') || id is "zh-Hans" or "zh-Hant";
+        LanguageManifest.Packs.Any(pack => pack.Id == id) || !id.Contains('-');
 
     private static HashSet<string> KeysOf(string packPath)
     {

@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
-using Avalonia.Platform;
 using HexIDE.Localization;
 
 namespace HexIDE.Tests.Localization;
@@ -10,7 +8,7 @@ namespace HexIDE.Tests.Localization;
 public class BrandedLocalizationServiceTests
 {
     private static LocalizationService Branded() =>
-        new(identity: new DistributionIdentity("acme", "Acme Studio"));
+        InTreeLanguagePacks.Service(new DistributionIdentity("acme", "Acme Studio"));
 
     [AvaloniaTheory]
     [InlineData("de")]
@@ -20,13 +18,12 @@ public class BrandedLocalizationServiceTests
     [InlineData("fr-CA")]
     public void BrandTemplates_ResolveThroughTheLanguageChain(string language)
     {
-        var stock = new LocalizationService();
+        var stock = InTreeLanguagePacks.Service();
         var branded = Branded();
         branded.Apply(language);
 
         // Use every shipped key so the upstream exceptions and assembly-name exclusions are covered too.
-        using var stream = AssetLoader.Open(new Uri("avares://HexIDE/Localization/Packs/en.json"));
-        var keys = JsonSerializer.Deserialize(stream, LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!.Keys;
+        var keys = InTreeLanguagePacks.Merged("en").Keys;
         var expected = keys.ToDictionary(k => k, k => stock.GetStringFrom(language, k));
         BrandText.Apply(expected, "Acme Studio");
 
@@ -60,7 +57,7 @@ public class BrandedLocalizationServiceTests
     [AvaloniaFact]
     public void BrandTemplates_AreAppliedBeforePseudoLocalization()
     {
-        var stock = new LocalizationService();
+        var stock = InTreeLanguagePacks.Service();
         var expected = new Dictionary<string, string> { ["Str.Menu.Help.About"] = stock.GetStringFrom("en", "Str.Menu.Help.About") };
         BrandText.Apply(expected, "Acme Studio");
         var service = Branded();

@@ -16,12 +16,12 @@
 
 using System.Text.Json;
 
-static string FindPacksDir()
+static string FindIdeDirectory()
 {
     for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
     {
         var p = Path.Combine(dir.FullName, "IDE", "HexIDE", "Localization", "Packs");
-        if (Directory.Exists(p)) return p;
+        if (Directory.Exists(p)) return Path.Combine(dir.FullName, "IDE");
     }
     throw new DirectoryNotFoundException("Could not locate IDE/HexIDE/Localization/Packs from " + AppContext.BaseDirectory);
 }
@@ -39,62 +39,68 @@ static HashSet<string> Keys(string file)
 // Region packs are either empty (inherit their neutral) or thin variants (e.g. en-GB overrides only).
 static bool IsNeutral(string id) => !id.Contains('-') || id is "zh-Hans" or "zh-Hant" or "sr-Latn";
 
-var packsDir = FindPacksDir();
-var canonical = Keys(Path.Combine(packsDir, "en.json"));
-int total = canonical.Count;
-Console.WriteLine($"Translation coverage vs canonical en ({total} keys)\n");
-
-var complete = new List<string>();
-var stale = new List<(string id, int have, List<string> missing)>();
-var variants = new List<(string id, int have)>();
-int empty = 0;
-
-foreach (var file in Directory.EnumerateFiles(packsDir, "*.json").OrderBy(f => f, StringComparer.Ordinal))
+foreach (var packsDir in Directory.EnumerateDirectories(FindIdeDirectory())
+             .Where(dir => !Path.GetFileName(dir).EndsWith(".Tests", StringComparison.Ordinal))
+             .Select(dir => Path.Combine(dir, "Localization", "Packs")).Where(Directory.Exists).Order(StringComparer.Ordinal))
 {
-    var id = Path.GetFileNameWithoutExtension(file);
-    if (id is "en" or "zz" or "zz-ZZ") continue;   // canonical + synthetic test fixtures
+    Console.WriteLine($"Area: {Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(packsDir)))}");
+    var canonical = Keys(Path.Combine(packsDir, "en.json"));
+    int total = canonical.Count;
+    Console.WriteLine($"Translation coverage vs canonical en ({total} keys)\n");
 
-    var keys = Keys(file);
-    if (keys.Count == 0) { empty++; continue; }
+    var complete = new List<string>();
+    var stale = new List<(string id, int have, List<string> missing)>();
+    var variants = new List<(string id, int have)>();
+    int empty = 0;
 
-    var missing = canonical.Where(k => !keys.Contains(k)).OrderBy(k => k, StringComparer.Ordinal).ToList();
-    if (IsNeutral(id))
+    foreach (var file in Directory.EnumerateFiles(packsDir, "*.json").OrderBy(f => f, StringComparer.Ordinal))
     {
-        if (missing.Count == 0) complete.Add(id);
-        else stale.Add((id, keys.Count, missing));
+        var id = Path.GetFileNameWithoutExtension(file);
+        if (id is "en" or "zz" or "zz-ZZ") continue;   // canonical + synthetic test fixtures
+
+        var keys = Keys(file);
+        if (keys.Count == 0) { empty++; continue; }
+
+        var missing = canonical.Where(k => !keys.Contains(k)).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        if (IsNeutral(id))
+        {
+            if (missing.Count == 0) complete.Add(id);
+            else stale.Add((id, keys.Count, missing));
+        }
+        else
+        {
+            variants.Add((id, keys.Count));   // non-empty region pack = intentional variant
+        }
+    }
+
+    Console.WriteLine($"Full translations complete (100%): {complete.Count}"
+        + (complete.Count > 0 ? "  [" + string.Join(", ", complete) + "]" : ""));
+    Console.WriteLine();
+
+    if (stale.Count == 0)
+    {
+        Console.WriteLine("STALE full translations: none — every full translation is current. ✅\n");
     }
     else
     {
-        variants.Add((id, keys.Count));   // non-empty region pack = intentional variant
+        Console.WriteLine("STALE full translations (backfill the missing keys — see CLAUDE.md → Localization):");
+        foreach (var (id, have, missing) in stale.OrderByDescending(p => p.missing.Count))
+        {
+            Console.WriteLine($"  {id,-10} {have}/{total}  {100.0 * have / total:F1}%   missing {missing.Count}:");
+            foreach (var k in missing.Take(40)) Console.WriteLine($"      {k}");
+            if (missing.Count > 40) Console.WriteLine($"      … +{missing.Count - 40} more");
+        }
+        Console.WriteLine();
     }
-}
 
-Console.WriteLine($"Full translations complete (100%): {complete.Count}"
-    + (complete.Count > 0 ? "  [" + string.Join(", ", complete) + "]" : ""));
-Console.WriteLine();
-
-if (stale.Count == 0)
-{
-    Console.WriteLine("STALE full translations: none — every full translation is current. ✅\n");
-}
-else
-{
-    Console.WriteLine("STALE full translations (backfill the missing keys — see CLAUDE.md → Localization):");
-    foreach (var (id, have, missing) in stale.OrderByDescending(p => p.missing.Count))
+    if (variants.Count > 0)
     {
-        Console.WriteLine($"  {id,-10} {have}/{total}  {100.0 * have / total:F1}%   missing {missing.Count}:");
-        foreach (var k in missing.Take(40)) Console.WriteLine($"      {k}");
-        if (missing.Count > 40) Console.WriteLine($"      … +{missing.Count - 40} more");
+        Console.WriteLine("Thin variants / partial region packs (intentional — override only what differs):");
+        foreach (var (id, have) in variants.OrderBy(v => v.id, StringComparer.Ordinal))
+            Console.WriteLine($"  {id,-10} {have}/{total}  {100.0 * have / total:F1}%");
+        Console.WriteLine();
     }
-    Console.WriteLine();
-}
 
-if (variants.Count > 0)
-{
-    Console.WriteLine("Thin variants / partial region packs (intentional — override only what differs):");
-    foreach (var (id, have) in variants.OrderBy(v => v.id, StringComparer.Ordinal))
-        Console.WriteLine($"  {id,-10} {have}/{total}  {100.0 * have / total:F1}%");
-    Console.WriteLine();
-}
+    Console.WriteLine($"Empty region packs (inherit their neutral, by design): {empty}");
 
-Console.WriteLine($"Empty region packs (inherit their neutral, by design): {empty}");
+}

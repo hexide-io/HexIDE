@@ -1,0 +1,8 @@
+{
+  "name": "French (Canada)",
+  "direction": "ltr",
+  "strings": {
+    "Str.PropDesc.ToolTipText": "L'infobulle affichée lorsque le pointeur s'arrête sur le contrôle.",
+    "Str.PropDesc.ShowTips": "Indique si les infobulles des panneaux sont affichées."
+  }
+}

@@ -48,6 +48,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
 | `Debugging/CallStackReplyTests.cs` | split |
 | `Debugging/IdleBreakCommandsTests.cs` | split |
+| `Localization/BasicProviderLanguagePackTests.cs` | split |
 | `TestApp.cs` | split |
 | `TestRunners.cs` | split |
 | `Views/ActiveFormSaveTests.cs` | split |
