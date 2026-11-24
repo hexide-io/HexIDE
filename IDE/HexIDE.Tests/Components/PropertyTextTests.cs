@@ -576,9 +576,9 @@ public class PropertyTextTests
         PropertyText.TryParse(VBProperties.FontProperty, "Arial 12", out _, Tahoma, Known).Should().BeFalse("no face is named so");
         PropertyText.TryParse(VBProperties.FontProperty, "Tahoma bold", out _, Tahoma, Known).Should().BeFalse();
 
-        // No test project references HexIDE.Desktop, so this reads the source: the tool asks what FontName takes here.
+        // The tool asks the running program what FontName takes here.
         ToolSource.Tools.Single(t => t.Name == "set_control_property").Body
-            .Should().MatchRegex(@"PropertyText\.TryParse\([^;]*VBFontExtensions\.IsNameable\s*\)");
+            .Should().MatchRegex(@"PropertyText\.TryParse\([^;]*RunningProgram\.Current\.CanNameFont\s*\)");
     }
 
     [Theory]

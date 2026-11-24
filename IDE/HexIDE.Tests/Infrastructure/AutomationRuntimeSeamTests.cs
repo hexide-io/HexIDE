@@ -22,15 +22,6 @@ public class AutomationRuntimeSeamTests
     // Inventory: https://github.com/hexide-io/HexIDE/issues/3411#issuecomment-6904319880
     private static readonly (string Type, string Group, string[] Files)[] Allowed =
     [
-        ("HexIDE.Runtime.BuiltinControls.VBMenu", Controls, [Automation + "UiAutomationDriver.cs"]),
-        ("HexIDE.Runtime.BuiltinControls.VBTimer", Controls, [Automation + "UiAutomationDriver.cs"]),
-        ("HexIDE.Runtime.BuiltinControls.VBCommonDialog", Controls, [Automation + "UiAutomationDriver.cs"]),
-        ("HexIDE.Runtime.BuiltinControls.VBProps", Controls, [Automation + "UiAutomationDriver.cs"]),
-        ("HexIDE.Runtime.BuiltinControls.LockKeys", Controls, [Server + "HexIdeTools.cs"]),
-        ("HexIDE.Runtime.BuiltinControls.LockKey", Controls, [Server + "HexIdeTools.cs"]),
-        ("HexIDE.Runtime.BuiltinControls.LockKeySource", Controls, [Server + "HexIdeTools.cs"]),
-        ("HexIDE.Runtime.BuiltinTypes.VBCursorTypeExtensions", Controls, [Automation + "PointerState.cs"]),
-        ("HexIDE.Runtime.BuiltinTypes.VBFontExtensions", Controls, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.Components.FormComponentClass", Components, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.Components.MenuComponentClass", Components, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.Components.InBox.SSTabComponentClass", Components, [Server + "HexIdeTools.cs"]),
