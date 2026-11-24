@@ -74,48 +74,72 @@ public partial class UserControlKeyTests
         run.Lib.Printed.Select(v => v.Value).Should().Equal(438L);
     }
 
-    // Preserve HexIDE's existing refusal, not a claimed VB6 measurement: the extender's scale properties
-    // are unmeasured and must not acquire the root's mapping when the root gains a RuntimeScale (#4693).
-    [AvaloniaFact]
-    public async Task Unmeasured_extender_scale_properties_keep_their_previous_refusal()
+    // SP6 native/p-code and IDE measurements: issue #4693, final comment (oracle PR #5514).
+    [AvaloniaTheory]
+    [InlineData("Debug.Print o.ScaleMode")]
+    [InlineData("Debug.Print o.ScaleWidth")]
+    [InlineData("Debug.Print o.ScaleLeft")]
+    [InlineData("o.ScaleMode = 3")]
+    [InlineData("Debug.Print o.ScaleX(1440)")]
+    public void Extender_scale_members_raise_438(string statement)
     {
-        using var run = new Run("");
-        await run.Code("Dim o As Object\nSet o = uc1");
-        var read = () => run.Code("Debug.Print o.ScaleMode");
-        await read.Should().ThrowAsync<VBMethodOrDataMemberNotFoundException>();
-        var write = () => run.Code("o.ScaleMode = 3");
-        await write.Should().ThrowAsync<VBRunTimeException>();
+        using var run = new Run("ClientWidth = 2400\nClientHeight = 1800",
+            blocks: "Begin P.Dial uc1\nWidth = 2400\nHeight = 1800\nEnd\n",
+            controlCode: "Public Sub Probe()\nDebug.Print CStr(ScaleMode) & \"|\" & CStr(ScaleLeft) & \"|\" & CStr(ScaleTop) & \"|\" & CStr(ScaleWidth) & \"|\" & CStr(ScaleHeight)\nEnd Sub",
+            formCode: "Private Sub Form_Load()\nDim o As Object\nSet o = uc1\nOn Error Resume Next\n"
+            + statement + "\nDebug.Print Err.Number & \"|\" & Err.Description\nEnd Sub");
+        ((VBUserControl)run.Named("uc1")).ExecuteSub("Probe");
+        run.Faults.Should().BeEmpty();
+        run.RunTimeErrors.Should().BeEmpty();
+        run.Lib.Printed.Select(v => v.Value).Should().Equal("438|Object doesn't support this property or method", "1|0|0|2400|1800");
     }
 
     [AvaloniaFact]
-    public async Task Unmeasured_own_root_Object_alias_keeps_its_previous_refusal()
+    public async Task Set_UserControl_is_invalid_use_of_base_class_name()
     {
         using var run = new Run("");
         var context = ((VBUserControl)run.Named("uc1")).Context!;
         Task Own(string code) => new StatementExecutor(context.Interpreter!, context.InstanceEnv, context.FormInstance!.ClassDef)
             .Visit(context.Interpreter!.TryParseStatement(code)!);
         await Own("Dim o As Object");
-        await Own("Set o = UserControl");
-        var read = () => Own("Debug.Print o.ScaleWidth");
-        await read.Should().ThrowAsync<NotImplementedException>().WithMessage("*through an Object variable*#4693*");
-        var write = () => Own("o.ScaleWidth = 100");
-        await write.Should().ThrowAsync<NotImplementedException>().WithMessage("*through an Object variable*#4693*");
+        var assign = () => Own("Set o = UserControl");
+        await assign.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*Invalid use of base class name*");
     }
 
-    // #4693 measures the no-extents default for forms and PictureBoxes only. These are engine refusals,
-    // not VB6 value assertions: an unmeasured saved UserControl mapping must not inherit that default.
     [AvaloniaTheory]
-    [InlineData("ScaleLeft")]
-    [InlineData("ScaleTop")]
-    [InlineData("ScaleWidth")]
-    [InlineData("ScaleHeight")]
-    public async Task A_saved_UserControl_User_scale_without_extents_remains_refused(string member)
+    [InlineData("Debug.Print o.ScaleWidth")]
+    [InlineData("Debug.Print o.ScaleMode")]
+    [InlineData("Debug.Print o.ScaleX(1440)")]
+    [InlineData("o.ScaleWidth = 100")]
+    [InlineData("o.ScaleMode = 3")]
+    [InlineData("o.Scale (0, 0)-(10, 10)")]
+    [InlineData("o.Scale")]
+    public void Own_Me_Object_scale_members_raise_438_without_changing_scale(string statement)
     {
-        using var run = new Run("ScaleMode = 0");
-        var context = ((VBUserControl)run.Named("uc1")).Context!;
-        var read = () => new StatementExecutor(context.Interpreter!, context.InstanceEnv, context.FormInstance!.ClassDef)
-            .Visit(context.Interpreter!.TryParseStatement("Debug.Print UserControl." + member)!);
-        await read.Should().ThrowAsync<NotImplementedException>().WithMessage("*#4693*");
+        using var run = ScaleRun("", "150", "300", "600", "255",
+            "Dim o As Object\nSet o = Me\nDebug.Print TypeName(o)\nOn Error Resume Next\n" + statement
+            + "\nDebug.Print Err.Number & \"|\" & Err.Description\nDebug.Print CStr(ScaleMode) & \"|\" & CStr(ScaleLeft) & \"|\" & CStr(ScaleTop) & \"|\" & CStr(ScaleWidth) & \"|\" & CStr(ScaleHeight)");
+        run.Faults.Should().BeEmpty();
+        run.RunTimeErrors.Should().BeEmpty();
+        run.Lib.Printed.Select(v => v.Value).Should().Equal("Dial", "438|Object doesn't support this property or method", "1|0|0|2400|1800");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("CStr(ScaleMode) & \" \" & TypeName(ScaleMode)", "0 Integer")]
+    [InlineData("CStr(ScaleLeft) & \" \" & TypeName(ScaleLeft)", "0 Single")]
+    [InlineData("CStr(ScaleTop) & \" \" & TypeName(ScaleTop)", "0 Single")]
+    [InlineData("CStr(ScaleWidth) & \" \" & TypeName(ScaleWidth)", "2400 Single")]
+    [InlineData("CStr(ScaleHeight) & \" \" & TypeName(ScaleHeight)", "1800 Single")]
+    [InlineData("CStr(Label1.Left) & \"|\" & CStr(Label1.Top) & \"|\" & CStr(Label1.Width) & \"|\" & CStr(Label1.Height)", "150|300|600|255")]
+    [InlineData("CStr(ScaleX(1, vbInches, vbUser))", "1440")]
+    [InlineData("CStr(ScaleX(1440))", "816.378")]
+    [InlineData("CStr(ScaleY(15, vbPixels, vbTwips))", "225")]
+    public void Saved_UserControl_User_scale_without_extents_uses_twips(string expression, string expected)
+    {
+        using var run = ScaleRun("ScaleMode = 0", "150", "300", "600", "255", "Debug.Print " + expression);
+        run.Faults.Should().BeEmpty();
+        run.RunTimeErrors.Should().BeEmpty();
+        run.Lib.Printed.Select(v => v.Value).Should().Equal(expected);
     }
 
     private static Run ScaleRun(string settings, string left, string top, string width, string height, string code)

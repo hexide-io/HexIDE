@@ -420,15 +420,52 @@ public partial class CoordinateSystemTests
             .Which.Message.Should().Contain(expected);
     }
 
+    // Issue #4693's final measured rows, oracle PR #5514 (SP6 native/p-code and IDE).
     [AvaloniaTheory]
-    [InlineData("ScaleY(1, 1, 1, 1, 1)")]
-    [InlineData("ScaleX(1, 1, 1, 1, 1, 1)")]
-    [InlineData("ScaleY(1, 1, 1, 1, 1, 1)")]
-    public void Unmeasured_conversion_argument_counts_still_refuse(string call)
+    [InlineData("Me.ScaleY(1, 1, 1, 1)")]
+    [InlineData("Me.ScaleY(1, 1, 1, 1, 1)")]
+    [InlineData("Me.ScaleY(1, 1, 1, 1, 1, 1)")]
+    [InlineData("Me.ScaleX(1, 1, 1, 1, 1)")]
+    [InlineData("Me.ScaleX(1, 1, 1, 1, 1, 1)")]
+    [InlineData("Picture1.ScaleY(1, 1, 1, 1, 1)")]
+    [InlineData("Picture1.ScaleX(1, 1, 1, 1, 1, 1)")]
+    public void Further_conversion_argument_counts_raise_compile_errors(string call)
     {
         var run = RunLoad(Form, $"Dim v\nv = {call}");
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("argument count").And.Contain("#4693");
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBCompileErrorException>()
+            .Which.Message.Should().Contain("Wrong number of arguments or invalid property assignment");
+    }
+
+    [AvaloniaFact]
+    public void Qualified_ScaleX_without_arguments_is_argument_not_optional()
+    {
+        var run = RunLoad(Form, "Dim v\nv = Me.ScaleX()");
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBCompileErrorException>()
+            .Which.Message.Should().Contain("Argument not optional");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ScaleX(1, 1, 1, 1)")]
+    [InlineData("ScaleX(1, 1, 1, 1, 1)")]
+    [InlineData("ScaleX(1, 1, 1, 1, 1, 1)")]
+    [InlineData("ScaleX()")]
+    [InlineData("ScaleY(1, 1, 1, 1, 1)")]
+    public void Late_bound_conversion_argument_counts_raise_450(string call)
+    {
+        var run = RunLoad(Form, $"Dim o As Object\nSet o = Me\nOn Error Resume Next\nDim v\nv = o.{call}\nDebug.Print Err.Number & \"|\" & Err.Description");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("450|Wrong number of arguments or invalid property assignment");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Call o.ScaleX(1, 1, 1, 1)")]
+    [InlineData("o.ScaleX 1, 1, 1, 1")]
+    public void Late_bound_conversion_statement_argument_counts_raise_450(string statement)
+    {
+        var run = RunLoad(Form, "Dim o As Object\nSet o = Me\nOn Error Resume Next\n"
+            + statement + "\nDebug.Print Err.Number & \"|\" & Err.Description");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("450|Wrong number of arguments or invalid property assignment");
     }
 
     [AvaloniaTheory]
