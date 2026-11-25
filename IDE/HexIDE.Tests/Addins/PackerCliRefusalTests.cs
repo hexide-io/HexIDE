@@ -58,7 +58,9 @@ public sealed class PackerCliRefusalTests : IDisposable
             + "       sign-revocations --in .. --root-key .. --out .. | verify-revocations --json .. --sig .. --root ..\n"
             + "       request-publisher --publisher-id .. --display-name .. --github .. --fingerprint-url .. (--new-key .. | --key ..)\n"
             + "         --out .. [--namespaces acme.,..] [--previous-key ..]\n"
-            + "       verify-request --request .. [--ledger ..] [--github ..]\n", true },
+            + "       verify-request --request .. [--ledger ..] [--github ..] [--root ..] [--revocations .. --revocations-sig ..]\n"
+            + "       issue-publisher --request .. --approved-sha256 .. --root-public-key .. --intermediate-key ..\n"
+            + "         --intermediate .. --ledger .. --out .. [--revocations .. --revocations-sig ..]\n", true },
         { "unknown command", ["frob"], "unknown command 'frob'\n", true },
         { "genkeys without a folder", ["genkeys"], "genkeys: missing <outDir>\n", true },
         { "genkeys-release without --public-out", ["genkeys-release", "--root-out", "r", "--intermediate-out", "i",

@@ -81,18 +81,26 @@ request-publisher --publisher-id <id> --display-name <name> --github <handle> --
 - **Namespaces** are names followed by `.`, such as `acme.`. They are the prefixes your add-ins' commands and messages
   may use. No two publishers hold overlapping namespaces, and `hexide.` is HexIDE's own.
 
-The maintainer issues the record offline with the add-in packer:
+The maintainer issues the record offline from the approved request:
 
 ```sh
-sign-publisher --root-public-key <file> --intermediate-key <file> --intermediate <dir> --publisher-id <id> --display-name <name> --public-key <file> --out <dir>
+issue-publisher --request <dir> --approved-sha256 <hash> --root-public-key <file> --intermediate-key <file>
+                --intermediate <dir> --ledger <dir> --out <dir> [--revocations <json> --revocations-sig <sig>]
 ```
 
-The command verifies the intermediate against the supplied root and refuses a mismatched intermediate
-private key or existing output files. It writes `publisher.json` and `publisher.sig`, then verifies the
-written chain. The maintainer returns these two files, the public `intermediate.json` and `intermediate.sig` chain
-files, and `hexide-root.pub`, the root they chain to. Issuance requires maintainer review; no marketplace service is
-implied.
-The root supplied during issuance must be the root trusted by the intended HexIDE build.
+- **It signs only what was approved.** The request's SHA-256 must be the one the maintainer approved, and every
+  `verify-request` check runs again against the ledger and the root, and against the revocation list, which a key
+  replacement needs. It refuses anything that needs a person's judgement, rather than signing it.
+- **It asks for your publisher id to be typed back** before it signs.
+- **It writes your trust folder:** `publisher.json` and `.sig`, `intermediate.json` and `.sig`, `hexide-root.pub`, a
+  copy of your request, and `receipt.md` with the fingerprints. It also adds the record to the public ledger,
+  `publishers/<id>/`.
+- **It never issues an id or a key twice.** A key that has been replaced stays held under `retired/`.
+
+`sign-publisher` stays for first-party records, and for a record a person decides to issue by hand. It writes only
+`publisher.json` and `.sig`, so the maintainer returns those with the two intermediate files and `hexide-root.pub`, the
+root they chain to. Issuance requires maintainer review, and no marketplace service is implied. The root supplied
+during issuance must be the root trusted by the intended HexIDE build.
 
 `hexide-pack`, built from `IDE/HexIDE.AddinPacker.Interactive`, runs every packer command and asks for any option
 you leave out, so `hexide-pack pack` walks you through signing an add-in.
