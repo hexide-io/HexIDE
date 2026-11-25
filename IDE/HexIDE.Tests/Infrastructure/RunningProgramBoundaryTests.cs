@@ -13,7 +13,6 @@ public class RunningProgramBoundaryTests
         // wider declaration would pass this guard without making the designer any less dependent on the runtime.
         string[] allowed =
         [
-            "IDE/InterpreterRunningProgram.cs", "IDE/InterpreterRunEngine.cs", "DISetup.cs",
             "VisualDesigner/ViewModels/FormEditViewModel.cs",
         ];
         var names = new Regex(@"\b(EventPump|IModuleExecutionRoot|VBFormRuntime|VBDebugConsole)\b");

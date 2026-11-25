@@ -133,12 +133,6 @@ public sealed class ProgramHost(IWindowManager windowManager, ILocalizationServi
         }
     }
 
-    public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout) =>
-        windowManager.MessageBox(text, caption, buttons, icon, isProgramDialog: true, layout: layout);
-
-    public Task<string?> InputBox(string prompt, string? title, string defaultText) =>
-        windowManager.InputBox(prompt, title, defaultText, isProgramDialog: true);
-
     public Task<bool> PrintDialog() => windowManager.ShowPrintDialog();
 
     public Task<int?> ColorDialog(int initial) => windowManager.ShowColorDialog(initial);

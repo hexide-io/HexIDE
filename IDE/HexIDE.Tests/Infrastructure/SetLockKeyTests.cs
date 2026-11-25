@@ -22,7 +22,7 @@ public sealed class SetLockKeyTests : IDisposable
     // earlier headless test having started TestApp, which installs it: run alone, this class read none and failed.
     public SetLockKeyTests()
     {
-        RunningProgram.Current = new InterpreterRunningProgram();
+        RunningProgram.Current = new HexIDE.Runtime.Running.InterpreterRunningProgram();
         tools = new HexIdeTools(context);
     }
 

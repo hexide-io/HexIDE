@@ -81,11 +81,11 @@ public class ProjectOffersTests : IDisposable
 
     private async Task WasTold(string key, int times = 1) =>
         await _windows.Received(times).MessageBox(Arg.Is<string>(text => text.Contains(key)),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>());
 
     private async Task WasNotTold(string key) =>
         await _windows.DidNotReceive().MessageBox(Arg.Is<string>(text => text.Contains(key)),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>());
 
     [Fact]
     public void A_project_offers_everything_unless_its_type_says_otherwise() =>

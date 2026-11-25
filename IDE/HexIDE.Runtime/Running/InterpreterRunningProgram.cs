@@ -7,8 +7,10 @@ using Avalonia.Input;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.Dialogs;
+using HexIDE.IDE;
 
-namespace HexIDE.IDE;
+namespace HexIDE.Runtime.Running;
 
 /// <summary>The interpreter's running-program questions. Moves to the provider with the engine at split step 2b.</summary>
 public sealed class InterpreterRunningProgram : IRunningProgram

@@ -262,7 +262,7 @@ public sealed class Vb6ProjectTypeTests : IDisposable
         _loaded.Should().BeEmpty();
         message.Should().NotContain("add-in");
         await _windows.Received(1).MessageBox(message, Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
-            MessageBoxIcon.Information, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            MessageBoxIcon.Information, Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [Fact]

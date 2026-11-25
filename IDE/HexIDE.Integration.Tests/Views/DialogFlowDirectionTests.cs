@@ -57,7 +57,12 @@ public class DialogFlowDirectionTests
                 "Print" => new PrintDialog(),
                 _ => throw new ArgumentOutOfRangeException(nameof(dialog))
             };
-            var window = new WindowManager(localization).MakeDialogWindow(dialog, content);
+            // A program's box is made as the engine makes it, through the window-maker the IDE gives it (#5616).
+            var manager = new WindowManager(localization);
+            var window = isProgramDialog
+                ? (Window)((IProgramDialogWindows)manager).MakeWindow(dialog, content,
+                    dialog == "Input" ? ProgramBox.Input : ProgramBox.Message)
+                : manager.MakeDialogWindow(dialog, content);
             var pending = window.ShowDialog(owner);
             Dispatcher.UIThread.RunJobs();
             try

@@ -40,6 +40,18 @@ public interface IRunEngine
     /// not halt, and the error unwinds to be reported by <see cref="ErrorMet"/> or as what ended the run.
     /// </summary>
     Func<RunFailure, Task<bool>>? HaltHost { get; set; }
+
+    /// <summary>
+    /// The debugger of the programs this runs (#5616): the IDE's breakpoints, stepping, locals and Immediate window reach a
+    /// program through it.
+    /// </summary>
+    HexIDE.Runtime.Debugging.IDebugController Debugger { get; }
+
+    /// <summary>What the IDE's automation and tools read about the program this runs: its forms, menus and activity.</summary>
+    IRunningProgram Program { get; }
+
+    /// <summary>Which errors break into the debugger, from Tools → Options → General. Applied again at every start.</summary>
+    HexIDE.Runtime.Debugging.ErrorTrapping ErrorTrapping { get; set; }
 }
 
 /// <summary>A program an engine has built.</summary>

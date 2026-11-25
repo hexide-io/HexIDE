@@ -70,7 +70,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         localization.GetString("Str.ProjectLocalState.ChooseFormat").Returns(
             "Multiple saved states; choose one for this session or cancel. Nothing is written before choosing.\n{0}");
         var shown = false;
-        windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(), false).Returns(call =>
+        windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>()).Returns(call =>
         {
             var prompt = call.ArgAt<string>(0);
             var input = new HexIDE.Dialogs.InputBox { Prompt = prompt };

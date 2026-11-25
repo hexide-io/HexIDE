@@ -13,6 +13,13 @@ internal sealed class StandInRunEngine : IRunEngine
 
     public Func<RunFailure, Task<bool>>? HaltHost { get; set; }
 
+    public HexIDE.Runtime.Debugging.IDebugController Debugger { get; } = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+
+    public IRunningProgram Program { get; } = new EmptyRunningProgram();
+
+    /// <summary>What the runner last set, as it does at every start.</summary>
+    public HexIDE.Runtime.Debugging.ErrorTrapping ErrorTrapping { get; set; }
+
     /// <summary>Raises <see cref="ErrorMet"/>, as an engine does when a running program meets an error.</summary>
     public void Meets(RunFailure failure) => ErrorMet?.Invoke(failure);
 

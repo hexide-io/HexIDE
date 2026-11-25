@@ -267,7 +267,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _types.Types.Should().BeEmpty();
         _opens.Should().Be(0, "the add-in is not asked to read it");
         await _windows.Received(1).MessageBox("Str.ContributedProject.NoTypeLoaded .rdproj",
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     private ProjectService ProjectService()

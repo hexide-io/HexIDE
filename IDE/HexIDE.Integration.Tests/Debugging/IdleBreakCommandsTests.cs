@@ -21,7 +21,7 @@ public class IdleBreakCommandsTests
         var composition = owned.Composition;
         var root = composition.Root;
         composition.ProjectManager.StartupProject = new ProjectDefinition(VBProjectType.EXE, "P");
-        var debug = (DebugController)composition.DebugController;
+        var debug = (DebugController)owned.Engine.Debugger;
         var runner = (ProjectRunnerService)composition.ProjectRunnerService;
         var view = new MainView { DataContext = root };
         var window = new Window { Content = view, Width = 1200, Height = 900 };
@@ -65,7 +65,7 @@ public class IdleBreakCommandsTests
         // The no-statement representation from #4261 (oracle PR #4270), through the real composition.
         await using var owned = new RealComposition();
         var composition = owned.Composition;
-        var debug = (DebugController)composition.DebugController;
+        var debug = (DebugController)owned.Engine.Debugger;
         var root = composition.Root;
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "M", ModuleKind.StandardModule);

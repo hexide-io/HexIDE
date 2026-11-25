@@ -98,6 +98,14 @@ RDCore and twinBASIC targets, and two of its flags are twinBASIC's rules. Publis
 owner's grant where it's implemented, it only adds, it's tracked so a disabled owner's helpers are withdrawn, and a helper
 that throws is contained. Task 3.1 moves it onto `IHexIdeHost` (supervisor, 2026-11-25).
 
+**A second exception: the run engine's registration is internal in phase 2 too (#5616).** It's `IRunEngineRegistration` in Core,
+implemented by the owned host an add-in receives and refused by the IDE's own. On `IHexIdeHost` it would bring the
+whole engine and debugger contract into the SDK: 31 Core types and 418 baseline lines, measured on 2026-11-24, for an
+engine only the composed provider registers. In every other way it's built as add-in API. It's checked against the
+owner's grant where it's implemented, so reflection gains nothing. It's one at a time, and tracked, so a disabled
+owner's engine is withdrawn. Its code is contained. Task 3.1 moves it onto `IHexIdeHost` with that baseline, and #5619
+publishes the contract once a second engine, RDCore's, registers (supervisor, 2026-11-24).
+
 **Slice 2.7 builds it,** with resources as the first registration (`App.axaml`'s merge of the provider's dictionaries), and the other slices add theirs. That adds an `IHexIdeHost` member on the add-in trust boundary, so it's security work: built by a Claude session and reviewed by the supervisor before merge.
 
 **The provider's strings register the same way** (slice 2.9). Its language packs are embedded in its own assembly, and the IDE reaches them through a pack area the entry type registers, which is no `TypeRef`. So the guard can't see that dependency, but the entry type's own row covers it, and phase 3 removes that row.

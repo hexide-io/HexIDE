@@ -60,7 +60,7 @@ public sealed class ContributedProjectFileTests : IDisposable
             var key => key.StartsWith("Str.ContributedProject.", StringComparison.Ordinal) ? key + " {0} {1}" : key,
         });
         _windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(),
-            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>()).Returns(Task.FromResult(MessageBoxResult.Ok));
+            Arg.Any<Avalonia.Controls.Window?>()).Returns(Task.FromResult(MessageBoxResult.Ok));
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
@@ -127,7 +127,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         });
 
     private Task ToldOf(string text) => _windows.Received().MessageBox(Arg.Is<string>(said => said.Contains(text)),
-        Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+        Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
 
     [AvaloniaFact]
     public async Task A_member_left_out_at_open_cannot_be_lost_by_saving_the_project_file()
@@ -376,7 +376,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         File.ReadAllBytes(ProjectFile).Should().Equal(before);
         File.ReadAllBytes(vbp).Should().Equal(vbpBefore);
         await _windows.DidNotReceive().MessageBox(Arg.Is<string>(said => said.Contains("is saved where it was opened")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -454,7 +454,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         File.ReadAllText(ProjectFile).Should().Be("ledger\r\n");
         Directory.GetFiles(_dir, "*.vbg").Should().BeEmpty();
         await _windows.DidNotReceive().MessageBox(Arg.Is<string>(said => said.Contains("as code modules")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
         Directory.Exists(other).Should().BeFalse();
         await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
     }
@@ -610,7 +610,7 @@ public sealed class ContributedProjectFileTests : IDisposable
         var project = await Opened();
         await _service.RemoveDocument(DocumentIdentity.For(project.Modules.Single()));
         _windows.MessageBox(Arg.Is<string>(said => said.Contains("has unsaved files")), Arg.Any<string?>(),
-            MessageBoxButtons.YesNoCancel, Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>())
+            MessageBoxButtons.YesNoCancel, Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>())
             .Returns(Task.FromResult(MessageBoxResult.Yes));
 
         var mayGo = await _service.ConfirmAddinWithdrawal("provider");
