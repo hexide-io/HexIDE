@@ -89,6 +89,15 @@ seam made public later (supervisor, 2026-11-23):
   dialog's strings. The delta's requirements say so, so phase 3's security review checks them rather than
   discovering them.
 
+**One exception: the language editing registration is internal in phase 2 (#5403).** It's `ILanguageEditingRegistration`
+in Core, implemented by the owned host an add-in receives and refused by the IDE's own. On `IHexIdeHost` it would bring
+about 9 Core types and 125 baseline lines into the SDK, measured on 2026-11-25, which is small. But one of them,
+`ConditionalConstants`, has the VB family's shape: its arguments are VB Integers, its built-ins come from the VB6, VBA,
+RDCore and twinBASIC targets, and two of its flags are twinBASIC's rules. Publishing it would make that every language's
+`#If` contract while one implementation exists. In every other way it's built as add-in API. It's checked against the
+owner's grant where it's implemented, it only adds, it's tracked so a disabled owner's helpers are withdrawn, and a helper
+that throws is contained. Task 3.1 moves it onto `IHexIdeHost` (supervisor, 2026-11-25).
+
 **Slice 2.7 builds it,** with resources as the first registration (`App.axaml`'s merge of the provider's dictionaries), and the other slices add theirs. That adds an `IHexIdeHost` member on the add-in trust boundary, so it's security work: built by a Claude session and reviewed by the supervisor before merge.
 
 **The provider's strings register the same way** (slice 2.9). Its language packs are embedded in its own assembly, and the IDE reaches them through a pack area the entry type registers, which is no `TypeRef`. So the guard can't see that dependency, but the entry type's own row covers it, and phase 3 removes that row.
@@ -166,7 +175,11 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     the program is made again. A changelog entry for such a fix says so.
 - **Text and editing helpers go where 11-16's rule puts them:**
   - `ReadOnlyRegions` and `SourceLines` go to Core (2.5a, #5440), and so do the project file's keys and path helpers (2.5c, #5521);
-  - keyword casing and block auto-close go to the IDE (2.6, #5405).
+  - keyword casing and block auto-close go to the IDE (2.6, #5405);
+  - the `#If` reader, the bracket reader and the declaration collector stay with the provider and register per language
+    (2.6, #5403). The provider registers them for `vb6`, the code window's id for every VB-family project's members, and
+    for `twinbasic`, which a twinBASIC container's sources have in the archive view. A language with none registered gets
+    no greyed branches, no coloured brackets and no declarations.
 - **Still open: a public shape for a project's targets (2.12, #5404).** The draft is on #5404
   (issuecomment-7092255114). It has `ProjectDefinition.Targets` and `AddinProjectContent.Targets` as lists of engine
   ids, with rules for an empty list, one known id, an unknown id and several ids. Its wording waits on RDCore's

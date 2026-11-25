@@ -181,7 +181,7 @@ public class TwinBasicRoutingTests
             new("md", "Markdown", [".md"], "markdown", () => markdown)
         ], Substitute.For<ILogger<LspClientRegistry>>());
         using var tab = new ArchiveDocumentViewModel(entry, Substitute.For<ILocalizationService>(),
-            Substitute.For<IConditionalCodeReader>(), lspClient: registry, languageId: project.LanguageOf(entry));
+            Substitute.For<ILanguageEditing>(), lspClient: registry, languageId: project.LanguageOf(entry));
         await markdown.Received(1).OpenDocumentAsync(tab.DocumentUri, tab.Document.Text, Arg.Any<CancellationToken>());
     }
 
@@ -210,7 +210,7 @@ public class TwinBasicRoutingTests
             foreach (var entry in project.Root.Children)
             {
                 using (var tab = new ArchiveDocumentViewModel(entry, Substitute.For<ILocalizationService>(),
-                           Substitute.For<IConditionalCodeReader>(), lspClient: registry, languageId: project.LanguageOf(entry)))
+                           Substitute.For<ILanguageEditing>(), lspClient: registry, languageId: project.LanguageOf(entry)))
                 {
                     await WaitForFrames(capture, "tb", "textDocument/didOpen", entry.DocumentUri, 1);
                     Frames(capture, "vb6", "textDocument/didOpen").Should().BeEmpty();

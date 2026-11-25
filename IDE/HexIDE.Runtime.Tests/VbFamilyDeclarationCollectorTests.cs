@@ -1,7 +1,7 @@
-using HexIDE.Language;
 using HexIDE.Lsp.Messages;
+using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Tests.ViewModels;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>Declaration-list contracts from hexide-io/HexIDE#4401, matching the bundled server.</summary>
 public class VbFamilyDeclarationCollectorTests

@@ -216,7 +216,7 @@ public class CodeEditorViewModelTests : IDisposable
         var projects = Substitute.For<IProjectManager>();
         projects.StartupProject.Returns(module.Owner);
         projects.LoadedProjects.Returns(new[] { module.Owner });
-        var result = await new HexIDE.Tools.WatchDialogContextSource(dock, projects).ReadAsync("(All Procedures)");
+        var result = await new HexIDE.Tools.WatchDialogContextSource(dock, projects, InBoxRegistry.LanguageEditing()).ReadAsync("(All Procedures)");
         result.Modules.Single().Procedures.Should().Equal(open ? "Current" : "Saved");
         await _lspClient.DidNotReceive().RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
@@ -237,7 +237,7 @@ public class CodeEditorViewModelTests : IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(editor);
         dock.OpenDocuments.Returns(new BaseEditorWindowViewModel[] { editor });
-        var result = await new HexIDE.Tools.WatchDialogContextSource(dock, Substitute.For<IProjectManager>()).ReadAsync("(All Procedures)");
+        var result = await new HexIDE.Tools.WatchDialogContextSource(dock, Substitute.For<IProjectManager>(), InBoxRegistry.LanguageEditing()).ReadAsync("(All Procedures)");
         // As VB6 lists them: each accessor apart as `Value(Get)`, and sorted, so a Sub declared last comes first (#4401).
         result.Modules.Single().Procedures.Should().Equal("Bump", "Value(Get)", "Value(Let)", "Value(Set)");
     }
@@ -421,7 +421,7 @@ public class CodeEditorViewModelTests : IDisposable
         projects.LoadedProjects.Returns(new[] { module.Owner });
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(Array.Empty<BaseEditorWindowViewModel>());
-        var context = await new HexIDE.Tools.WatchDialogContextSource(dock, projects).ReadAsync("(All Procedures)");
+        var context = await new HexIDE.Tools.WatchDialogContextSource(dock, projects, InBoxRegistry.LanguageEditing()).ReadAsync("(All Procedures)");
         _localization.GetString("Str.Dialog.AddWatch.AllContext").Returns("(All Procedures)");
         var store = new HexIDE.Debugging.WatchService();
         var dialog = new AddWatchDialogViewModel(_localization, store, module.Name, "inner", modules: context.Modules);
@@ -575,7 +575,7 @@ public class CodeEditorViewModelTests : IDisposable
                 new HexIDE.Lsp.Messages.Range(new Position(2, 9), new Position(2, 15)))]);
         _debugController.GetLocals().Returns(new HexIDE.Runtime.Debugging.DebugScope("Module1.Square", []));
         var watches = new HexIDE.Tools.WatchesToolViewModel(_localization, new HexIDE.Debugging.WatchService(), _debugController, _windowManager)
-        { DialogContextSource = new HexIDE.Tools.WatchDialogContextSource(dock, projects) };
+        { DialogContextSource = new HexIDE.Tools.WatchDialogContextSource(dock, projects, InBoxRegistry.LanguageEditing()) };
         await watches.OpenAddWatchDialog("modvar");
         var dialog = (AddWatchDialogViewModel)_windowManager.ReceivedCalls()
             .Single(c => c.GetMethodInfo().Name == "ShowDialog").GetArguments()[0]!;

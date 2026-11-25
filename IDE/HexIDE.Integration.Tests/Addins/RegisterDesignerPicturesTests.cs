@@ -86,7 +86,7 @@ public class RegisterDesignerPicturesTests
     public void The_IDEs_own_host_refuses_it_with_no_owner_to_check()
     {
         var host = new HexIdeHost(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, new AddinResourceService(), new AddinLanguagePackService());
+            null!, new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService());
 
         FluentActions.Invoking(() => host.RegisterDesignerPictures(Drawer()))
             .Should().Throw<InvalidOperationException>().WithMessage("*only through the host an add-in is given.");
@@ -98,7 +98,7 @@ public class RegisterDesignerPicturesTests
     {
         var scope = new object();
         var ide = new HexIdeHost(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, new AddinResourceService(), new AddinLanguagePackService())
+            null!, new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService())
         {
             DesignerPictures = Service(scope, Grant("granted", pictures: true)),
         };

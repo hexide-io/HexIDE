@@ -1,3 +1,4 @@
+using HexIDE.Addins;
 using HexIDE.Desktop;
 using HexIDE.IDE;
 using HexIDE.Runtime;
@@ -23,5 +24,15 @@ internal static class InBoxRegistry
         foreach (var library in BasicProvider.Libraries)
             registry.RegisterLibrary(library, () => BasicProvider.ControlsOf(library), BasicProviderComposition.Origin);
         return registry;
+    }
+
+    /// <summary>
+    /// A language registry holding the provider's editing helpers, as the IDE's does once the provider has started (#5403).
+    /// </summary>
+    internal static AddinLanguageEditingService LanguageEditing()
+    {
+        var editing = new AddinLanguageEditingService();
+        editing.Register(BasicProvider.LanguageEditing, BasicProviderComposition.Origin);
+        return editing;
     }
 }

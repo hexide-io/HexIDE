@@ -17,7 +17,7 @@ public sealed class AddinWithdrawalTests
         var components = new ComponentRegistry();
         var templates = new AddinProjectTemplateService();
         IHexIdeHost host = new HexIdeHost(null!, null!, null!, null!, null!, null!, null!, null!,
-            templates, null!, components, null!, null!, null!, null!, new AddinResourceService(), new AddinLanguagePackService());
+            templates, null!, components, null!, null!, null!, null!, new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService());
         if (owned) host = new AddinOwnedHost(host, null!, new AddinOrigin("probe", "Probe"));
         object contribution = component ? Named("Probe.One") : Substitute.For<IAddinProjectTemplate>();
         var other = component ? Named("Probe.Two") : contribution;

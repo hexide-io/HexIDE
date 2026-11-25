@@ -31,7 +31,7 @@ public class RegisterComponentTests
 
     private static HexIdeHost Ide(ComponentRegistry registry) =>
         new(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, registry, null!, null!, null!, null!,
-            new AddinResourceService(), new AddinLanguagePackService());
+            new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService());
 
     // What an add-in is given once its consent is settled, as the provider is at startup.
     private static IHexIdeHost Host(ComponentRegistry registry, AddinOrigin origin) => new AddinOwnedHost(Ide(registry), null!, origin);

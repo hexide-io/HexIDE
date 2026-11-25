@@ -23,7 +23,7 @@ public sealed class AddinReportedFailureTests : IDisposable
         registry = NewRegistry();
         context = Seed(registry, "probe", "Probe Add-in");
         var tools = new AddinToolWindowService();
-        host = new HexIdeHost(null!, tools, null!, registry, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new AddinResourceService(), new AddinLanguagePackService());
+        host = new HexIdeHost(null!, tools, null!, registry, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService());
         var origin = new AddinOrigin("probe", "Probe Add-in");
         owned = new AddinOwnedHost(host, tools.ForOwner(origin), origin);
     }

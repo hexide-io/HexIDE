@@ -94,7 +94,7 @@ public sealed class ArchiveProjectSavingTests : IDisposable
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var tabs = dock.OpenDocuments;
         var archives = new ArchiveProjectService(dock, Substitute.For<IRecentProjectsService>(), localization, windows,
-            new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
+            InBoxRegistry.LanguageEditing());
         var path = Write("Main.twin");
         await archives.Open(path);
         archives.OpenDocument(archives.Projects.Single().Root.Children.Single());
@@ -154,7 +154,7 @@ public sealed class ArchiveProjectSavingTests : IDisposable
         using var input = File.OpenRead(sourcePath);
         var source = ArchiveProjectSnapshot.Read(input, sourcePath).Root.Children.Single();
         using var standalone = new ArchiveDocumentViewModel(source, c.LocalizationService,
-            new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
+            InBoxRegistry.LanguageEditing());
         standalone.IsReadOnlyDocument.Should().BeTrue();
         FluentActions.Invoking(() => standalone.Document.Insert(0, "bad")).Should().Throw<InvalidOperationException>();
         await c.ArchiveProjects.Close();
@@ -175,7 +175,7 @@ public sealed class ArchiveProjectSavingTests : IDisposable
         manager.CurrentGroup = group;
         manager.StartupProject = two;
         var archives = new ArchiveProjectService(c.DocumentDockService, Substitute.For<IRecentProjectsService>(),
-            c.LocalizationService, windows, new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
+            c.LocalizationService, windows, InBoxRegistry.LanguageEditing());
         await archives.Open(Write("Main.twin"));
         archives.OpenDocument(archives.Projects.Single().Root.Children.Single());
         var tab = c.DocumentDockService.OpenDocuments.OfType<ArchiveDocumentViewModel>().Single();

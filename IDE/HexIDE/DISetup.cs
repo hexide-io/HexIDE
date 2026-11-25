@@ -129,13 +129,27 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
                 ctx.Inject<CallStackToolViewModel>(out var stack);
                 ctx.Inject<RecentEditHistory>(out var recentEdits);
-                ctx.Inject<HexIDE.Language.IConditionalCodeReader>(out var conditionalCode);
-                ctx.Inject<HexIDE.Language.IBracketReader>(out var brackets);
+                ctx.Inject<HexIDE.Language.ILanguageEditing>(out var languageEditing);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
-                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets);
+                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, languageEditing);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
-            .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                // Built here for the declarations it lists when no language server answers, which a language's owner
+                // registers (#5403): a constructor parameter would reach the twenty-six places tests make one.
+                ctx.Inject<IProjectManager>(out var projects);
+                ctx.Inject<ILspClient>(out var lsp);
+                ctx.Inject<IEditorService>(out var editors);
+                ctx.Inject<IComponentRegistry>(out var components);
+                ctx.Inject<ITypeLibraryService>(out var typeLibraries);
+                ctx.Inject<IFocusedProjectUtil>(out var focused);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Lsp.ILanguageConnectionRegistry>(out var connections);
+                ctx.Inject<HexIDE.Language.ILanguageEditing>(out var languageEditing);
+                return new ObjectBrowserToolViewModel(projects, lsp, editors, components, typeLibraries, focused, localization,
+                    connections) { LanguageEditing = languageEditing };
+            })
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
             .Bind().As(Singleton).To(ctx =>
             {
@@ -197,9 +211,8 @@ public partial class DISetup
             .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()
             .Bind<IRunningProgram>().As(Singleton).To<InterpreterRunningProgram>()
             .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
-            .Bind<HexIDE.Language.IConditionalCodeReader>().As(Singleton)
-                .To<HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode>()
-            .Bind<HexIDE.Language.IBracketReader>().As(Singleton).To<HexIDE.Runtime.Interpreter.InterpreterBrackets>()
+            // Each language's editing helpers, which its owner registers through the host (#5403): the Basic provider's for vb6.
+            .Bind<HexIDE.Language.ILanguageEditing>().Bind().As(Singleton).To<HexIDE.Addins.AddinLanguageEditingService>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()
@@ -263,9 +276,9 @@ public partial class DISetup
                 ctx.Inject<IRecentProjectsService>(out var recent);
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<IWindowManager>(out var windows);
-                ctx.Inject<HexIDE.Language.IConditionalCodeReader>(out var conditionalCode);
+                ctx.Inject<HexIDE.Language.ILanguageEditing>(out var languageEditing);
                 ctx.Inject<Func<ILspClient>>(out var lspClient);
-                return new ArchiveProjectService(dock, recent, localization, windows, conditionalCode, lspClient);
+                return new ArchiveProjectService(dock, recent, localization, windows, languageEditing, lspClient);
             })
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
             // One per session, and it must be the same one everywhere: it holds no state itself, but the
