@@ -61,7 +61,7 @@ public sealed class AddinRouteCorpusTests
         {
             var (vbpService, vbpProject) = await OpenThroughVbp(Path.Join(builtIn, Path.GetFileName(vbp)));
             var types = new ContributedProjects { ReadFile = path => File.ReadAllBytesAsync(path) };
-            using var vb6 = Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+            using var vb6 = Vb6Types.Register(types, new Vb6ProjectFileFormat());
             using var type = types.Register(TypeListing(vbpProject, builtIn, addin, named), Route);
             var (addinService, addinProject) = await Open(Path.Join(addin, ProjectFileName), types);
 

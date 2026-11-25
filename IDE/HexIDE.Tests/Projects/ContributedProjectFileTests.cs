@@ -34,7 +34,7 @@ public sealed class ContributedProjectFileTests : IDisposable
     public ContributedProjectFileTests()
     {
         // VB6's files are read by VB6's type, which the composition registers first (#3411 slice 10b).
-        Vb6ProjectType.Register(_types, new Vb6ProjectFileFormat());
+        Vb6Types.Register(_types, new Vb6ProjectFileFormat());
         Directory.CreateDirectory(_dir);
         File.WriteAllText(CodeFile, Module);
         File.WriteAllText(ProjectFile, "ledger\r\nCode.bas\r\n");

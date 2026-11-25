@@ -142,6 +142,8 @@ public class RegisterDesignerPicturesTests
         host.Received(1).RegisterLanguagePacks(Arg.Any<Uri>());
         host.Received(BasicProvider.Components.Count).RegisterComponent(Arg.Any<IComponentClass>());
         host.Received(BasicProvider.Toolbox.Count).RegisterToolboxItem(Arg.Any<IComponentClass>(), Arg.Any<string?>());
+        // VB6's projects too (#5625): a refused drawer mustn't cost every .vbp.
+        host.Received(1).RegisterProjectType(Arg.Is<AddinProjectType>(type => type.FileNames.SequenceEqual(new[] { "*.vbp" })));
         host.Received(1).RegisterDesignerPictures(Arg.Is<Func<IDesignerDrawingSurface, IDesignerPictures>>(
             pictures => pictures(new Surface()) is InProcessDesignerPictures));
     }

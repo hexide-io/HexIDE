@@ -1,3 +1,4 @@
+using HexIDE.Tests.Infrastructure;
 using System.IO;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.XUnit;
@@ -64,7 +65,7 @@ public sealed class RecoveryOffersTests : IDisposable
 
         public Session(ContributedProjects? contributed = null, bool realManager = false)
         {
-            Types = contributed ?? Vb6ProjectType.Alone();
+            Types = contributed ?? Vb6Types.Alone();
             Dock.OpenDocuments.Returns(Tabs);
             Dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>()))
                 .Do(ci => Tabs.Add(ci.Arg<BaseEditorWindowViewModel>()));
@@ -462,7 +463,7 @@ public sealed class RecoveryOffersTests : IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
             File.Copy(file, copy);
         }
-        var third = new Session(Vb6ProjectType.Alone());
+        var third = new Session(Vb6Types.Alone());
         answers.Enqueue(Restore);
         (await Offers(third, recoveryRoot: laterRoot).OfferAtStartAsync()).Should().BeTrue();
         third.Project.Name.Should().Be("Waiting");
@@ -536,7 +537,7 @@ public sealed class RecoveryOffersTests : IDisposable
         var run = RecoveryRun.Begin(root, Environment.ProcessId, LongAgo);
         run.Write([new UnsavedProject("Other", null, null, new Vb6TextEncoding(1252),
             new UnsavedFile("Other.other", "content"), [], Path.Join(dir, "Other.other"))], DateTime.UtcNow);
-        var types = Vb6ProjectType.Alone();
+        var types = Vb6Types.Alone();
         types.Register(new AddinProjectType("Read only")
         {
             FileNames = ["*.other"],

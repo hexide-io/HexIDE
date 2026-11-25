@@ -66,8 +66,11 @@ A test that reaches the provider only at run time, through the application's com
 | `Localization/BasicProviderLanguagePackTests.cs` | split |
 | `Localization/LanguagePackAreaCompositionTests.cs` | split |
 | `RealComposition.cs` | split |
+| `RegionStandInFormat.cs` | provider |
 | `TestApp.cs` | split |
+| `TestFixturesOnlyFormat.cs` | provider |
 | `TestRunners.cs` | split |
+| `Vb6Types.cs` | split |
 | `Views/ActiveFormSaveTests.cs` | split |
 | `Views/AddInsMenuTests.cs` | split |
 | `Views/AddWatchDialogTests.cs` | split |
@@ -175,6 +178,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/RawPropertyRowsTests.cs` | split |
 | `Views/ReadOnlyBannerIntegrationTests.cs` | split |
 | `Views/ReadOnlyGreyingTests.cs` | split |
+| `Views/ReadOnlyRegionReaderViewTests.cs` | split |
 | `Views/RefusedPropertyRowsTests.cs` | split |
 | `Views/ResetPromptTests.cs` | split |
 | `Views/RootDoubleClickTests.cs` | split |

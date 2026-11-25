@@ -18,12 +18,15 @@ public abstract class CompositionTestBase : IAsyncDisposable
     /// <summary>The interpreter the Basic provider registers, as HexIDE.Desktop's composition registers it (#5616).</summary>
     protected InterpreterRunEngine? Engine { get; private set; }
 
+    // The Basic provider's interpreter (#5616) and VB6's project type (#5625), through its owned host, as HexIDE.Desktop
+    // registers them at start-up.
     private DISetup Compose()
     {
         var setup = new DISetup();
         var provider = new AddinOrigin(RegistrationGrants.BasicProvider, "HexIDE.Basic") { IsComposed = true };
-        engineRegistration = ((IRunEngineRegistration)new AddinOwnedHost(setup.HexIdeHost, null!, provider))
-            .RegisterRunEngine(services => Engine = new InterpreterRunEngine(services));
+        var owned = new AddinOwnedHost(setup.HexIdeHost, null!, provider);
+        engineRegistration = ((IRunEngineRegistration)owned).RegisterRunEngine(services => Engine = new InterpreterRunEngine(services));
+        owned.RegisterProjectType(HexIDE.Runtime.Serialization.Vb6ProjectFileFormat.ProjectType());
         return setup;
     }
 
