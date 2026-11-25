@@ -1,7 +1,9 @@
+using HexIDE.Addins;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Running;
 
 namespace HexIDE.Tests.DebugAdapter;
 
@@ -30,7 +32,7 @@ public class VbaBitnessEngineTests
     }
 
     private static InterpreterRunEngine Engine(IProgramHost host) =>
-        new(host, new DebugController(), Substitute.For<ISettingsService>());
+        new(new RunEngineServices(host, Substitute.For<IProgramDialogWindows>(), () => false, () => false), new DebugController());
 
     private static ProjectDefinition Project(VbaBitness bitness, string declarations)
     {

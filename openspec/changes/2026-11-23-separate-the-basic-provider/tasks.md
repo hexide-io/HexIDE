@@ -7,7 +7,7 @@
 Each slice removes its rows from the guard's list. Sizes and owners are in the phase 1 comment on #3411.
 
 - [x] 2.1 The guard: a test fails on a product reference into a provider assembly that its list doesn't name, and on a listed one that has gone (#5388).
-- [ ] 2.2 The run engine behind an interface that `ProjectRunnerService` calls, with `DISetup`'s debugger wiring (slice 2 folded in: its other uses already go through Core's interface).
+- [x] 2.2 The run engine behind an interface that `ProjectRunnerService` calls, with `DISetup`'s debugger wiring (slice 2 folded in: its other uses already go through Core's interface).
 - [ ] 2.3 The running controls: the eight files that use them.
 - [ ] 2.4 A provider-fed designer: the component registry and Toolbox, "is this a form" checks, the designer's preview, and the Object Browser's in-box members.
 - [ ] 2.5 The VB6 file formats and code-window text: the text policy, path helpers, the project file format, and the designer's `.frx` helpers.
@@ -23,6 +23,6 @@ Each slice removes its rows from the guard's list. Sizes and owners are in the p
 
 ## 3. Later phases (the supervisor sequences them)
 
-- [ ] 3.1 Phase 3: VB6 registers as a bundled first-party add-in, and the registration grant switches from the Desktop composition's origin to a first-party signature with the `hexide.basic` id. The language editing registration moves from Core's internal `ILanguageEditingRegistration` onto `IHexIdeHost` then, with the contracts it reaches baselined as add-in API: about 9 types and 125 lines, measured on 2026-11-25 (#5403). Once third-party code can register, a reader the code window calls on the UI thread needs a time budget or moves off that thread, and its answers are checked before they're used.
+- [ ] 3.1 Phase 3: VB6 registers as a bundled first-party add-in, and the registration grant switches from the Desktop composition's origin to a first-party signature with the `hexide.basic` id. The language editing registration moves from Core's internal `ILanguageEditingRegistration` onto `IHexIdeHost` then, with the contracts it reaches baselined as add-in API: about 9 types and 125 lines, measured on 2026-11-25 (#5403). Once third-party code can register, a reader the code window calls on the UI thread needs a time budget or moves off that thread, and its answers are checked before they're used. The run engine's registration moves from Core's internal `IRunEngineRegistration` onto `IHexIdeHost` then too, with the engine and debugger contract it reaches baselined as add-in API (#5616, #5619).
 - [ ] 3.2 Phase 4: the namespace renames the proposal names, in one mechanical PR, announced as a breaking API change.
 - [ ] 3.3 Phase 4: the repository split.

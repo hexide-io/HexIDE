@@ -14,6 +14,7 @@ using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 using HexIDE.Tests.Infrastructure;
+using HexIDE.Runtime.Running;
 
 namespace HexIDE.Tests.Projects;
 
@@ -133,7 +134,7 @@ public sealed class MDIFormFileTests : IDisposable
         localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad").Returns("{0}: {1}");
         localization.GetString("Str.MDIForm.RunNotImplemented").Returns("Localized MDI refusal (#5313)");
         var host = new ProgramHost(windows, localization);
-        var engine = new InterpreterRunEngine(host, new DebugController(), Substitute.For<ISettingsService>());
+        var engine = new InterpreterRunEngine(TestRunners.Services(host), new DebugController());
         engine.RefusesToStart(project).Should().BeNull("the startup object exists");
         var start = engine.Prepare(project);
         try

@@ -225,7 +225,7 @@ public sealed class ContributedFormTests : IDisposable
     private async Task<FormDefinition> OpenedForm() => (await Opened()).Forms.Should().ContainSingle().Subject;
 
     private Task ToldOf(string text) => _windows.Received().MessageBox(Arg.Is<string>(said => said.Contains(text)),
-        Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+        Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
 
     [AvaloniaFact]
     public async Task A_form_is_read_by_its_type_s_reader_from_its_text_and_companion_and_joins_the_project()
@@ -942,7 +942,7 @@ public sealed class ContributedFormTests : IDisposable
         _service.HasUnsavedChanges(form).Should().BeFalse("the user let it go");
         _service.CaptureUnsavedWork().Should().BeEmpty();
         await _windows.DidNotReceive().MessageBox(Arg.Is<string>(said => said.Contains("weren't saved")), Arg.Any<string?>(),
-            Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -1054,7 +1054,7 @@ public sealed class ContributedFormTests : IDisposable
 
     private void Answer(MessageBoxResult answer) =>
         _windows.MessageBox(Arg.Is<string>(said => said.Contains("has unsaved forms")), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
-            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>()).Returns(answer);
+            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>()).Returns(answer);
 
     [Fact]
     public void No_product_code_renders_a_form_past_the_format_its_project_names() =>

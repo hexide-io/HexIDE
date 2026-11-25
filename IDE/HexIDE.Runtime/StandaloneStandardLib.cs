@@ -36,14 +36,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout)
     {
         var msgBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon, Layout = layout };
-        var window = new Window
-        {
-            Title = caption ?? OmittedTitleStandIn,
-            Content = msgBox,
-            SizeToContent = SizeToContent.WidthAndHeight,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            CanResize = false
-        };
+        var window = BoxWindow(caption ?? OmittedTitleStandIn, msgBox, ProgramBox.Message);
         return await msgBox.ShowAndWait(window, _parent);
     }
 
@@ -51,14 +44,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     {
         string? result = null;
         var inputBox = new InputBox { Prompt = prompt, Text = defaultText };
-        var window = new Window
-        {
-            Title = title ?? OmittedTitleStandIn,
-            Content = inputBox,
-            SizeToContent = SizeToContent.WidthAndHeight,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            CanResize = false
-        };
+        var window = BoxWindow(title ?? OmittedTitleStandIn, inputBox, ProgramBox.Input);
         inputBox.ApplyProgramChrome(window);
         inputBox.TextRequest += r => { result = r; window.Close(); };
         if (_parent.IsVisible)
@@ -80,6 +66,17 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         }
         return result;
     }
+
+    // In the IDE, a window the IDE makes and records as the program's (#5616); in a made EXE, one of the runtime's own.
+    private static Window BoxWindow(string title, Control box, ProgramBox kind) =>
+        HostDialogs.BoxWindows?.MakeWindow(title, box, kind) as Window ?? new Window
+        {
+            Title = title,
+            Content = box,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false
+        };
 
     // The Immediate window shows the text, not the typed values (#1380).
     public void DebugPrint(Vb6Value value) { }

@@ -90,9 +90,10 @@ public class BoxKeyUpTests
     [InlineData(Key.Enter, true, MessageBoxResult.Cancel)]
     [InlineData(Key.Escape, true, MessageBoxResult.Cancel)]
     public Task Program_box_answers_only_after_a_complete_press(Key key, bool release, MessageBoxResult expected) =>
-        WithDesktopBox((manager, _, ide) =>
-            manager.MessageBox("Program message", null, MessageBoxButtons.OkCancel, MessageBoxIcon.None, ide,
-                isProgramDialog: true, layout: MessageBoxLayout.SecondButtonDefault),
+        // The engine's own box, in a window the IDE makes for it (#5616), over the active window as before.
+        WithDesktopBox((manager, _, _) =>
+            HexIDE.Runtime.Dialogs.ProgramDialogs.ShowMessageBox(manager, singleView: false, "Program message", null,
+                MessageBoxButtons.OkCancel, MessageBoxIcon.None, MessageBoxLayout.SecondButtonDefault),
             async (box, pending) =>
             {
                 SendKeys(box, pending, key, 1, release);

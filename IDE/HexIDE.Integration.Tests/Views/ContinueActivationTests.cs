@@ -7,6 +7,7 @@ using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using Avalonia.Interactivity;
+using HexIDE.Runtime.Running;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -27,7 +28,7 @@ public class ContinueActivationTests
         var composition = owned.Composition;
         var root = composition.Root;
         var runner = (ProjectRunnerService)composition.ProjectRunnerService;
-        var debug = (DebugController)composition.DebugController;
+        var debug = (DebugController)owned.Engine.Debugger;
         var ideProbe = new IdeActivationProbe();
         var ide = ideProbe.Window;
         ide.Content = new MainView { DataContext = root };
@@ -102,7 +103,7 @@ public class ContinueActivationTests
     {
         await using var owned = new RealComposition();
         var runner = (ProjectRunnerService)owned.Composition.ProjectRunnerService;
-        var debug = (DebugController)owned.Composition.DebugController;
+        var debug = (DebugController)owned.Engine.Debugger;
         var probe = new IdeActivationProbe();
         var form = probe.Window;
         var previous = RunningProgram.Current;
@@ -168,7 +169,7 @@ public class ContinueActivationTests
     {
         await using var owned = new RealComposition();
         var runner = (ProjectRunnerService)owned.Composition.ProjectRunnerService;
-        var debug = (DebugController)owned.Composition.DebugController;
+        var debug = (DebugController)owned.Engine.Debugger;
         var probe = new IdeActivationProbe();
         var paused = probe.Window;
         var one = new Window { Title = first };
@@ -221,7 +222,7 @@ public class ContinueActivationTests
     {
         await using var owned = new RealComposition();
         var runner = (ProjectRunnerService)owned.Composition.ProjectRunnerService;
-        var debug = (DebugController)owned.Composition.DebugController;
+        var debug = (DebugController)owned.Engine.Debugger;
         var previous = RunningProgram.Current;
         var observer = new InterpreterRunningProgram();
         RunningProgram.Current = observer;

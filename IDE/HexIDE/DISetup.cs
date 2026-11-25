@@ -209,8 +209,15 @@ public partial class DISetup
             })
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IProgramHost>().As(Singleton).To<ProgramHost>()
-            .Bind<IRunningProgram>().As(Singleton).To<InterpreterRunningProgram>()
-            .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
+            // The engine an owner registers through the host (#5616): the Basic provider's, which brings its own debugger.
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IProgramHost>(out var programHost);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<ISettingsService>(out var settings);
+                return new AddinRunEngineService(programHost, windows, settings);
+            })
+            .Bind<IRunEngine>().As(Singleton).To<RunEngineForwarder>()
             // Each language's editing helpers, which its owner registers through the host (#5403): the Basic provider's for vb6.
             .Bind<HexIDE.Language.ILanguageEditing>().Bind().As(Singleton).To<HexIDE.Addins.AddinLanguageEditingService>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
@@ -309,8 +316,7 @@ public partial class DISetup
             .Bind<HexIDE.Debugging.IBreakpointService>().As(Singleton).To<HexIDE.Debugging.BreakpointService>()
             .Bind().As(Singleton).To<HexIDE.Debugging.WatchService>()
             .Bind<HexIDE.Debugging.IRunScope>().Bind().As(Singleton).To<HexIDE.Debugging.RunScope>()
-            .Bind<HexIDE.Runtime.Debugging.IDebugController>().Bind<HexIDE.Runtime.Debugging.IDebugGate>().As(Singleton)
-                .To<HexIDE.Runtime.Debugging.DebugController>()
+            .Bind<HexIDE.Runtime.Debugging.IDebugController>().As(Singleton).To<DebuggerForwarder>()
             .Bind().As(Singleton).To(ctx =>
             {
                 // Built here, not composed: its optional parameters would double Pure.DI's search, which is at its limit (#4204).
@@ -621,8 +627,33 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 return new AddinRegistry(verifier, settings, developerMode, windows, localization);
             })
-            .Bind<IHexIdeHost>().As(Singleton).To<HexIdeHost>()
-            .Root<IRunningProgram>("RunningProgram")
+            // Built here, not by Pure.DI, for the optional run engines tests leave out (#4204): DI gives it the composition's,
+            // the ones the IDE's runner and debugger forward to (#5616).
+            .Bind<IHexIdeHost>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<AddinMenuService>(out var menus);
+                ctx.Inject<AddinToolWindowService>(out var toolWindows);
+                ctx.Inject<AddinEventService>(out var events);
+                ctx.Inject<IAddinRegistry>(out var registry);
+                ctx.Inject<AddinEditorService>(out var editor);
+                ctx.Inject<AddinProjectService>(out var project);
+                ctx.Inject<AddinDiagnosticsService>(out var diagnostics);
+                ctx.Inject<AddinCommandService>(out var commands);
+                ctx.Inject<AddinProjectTemplateService>(out var templates);
+                ctx.Inject<AddinOptionsService>(out var options);
+                ctx.Inject<ComponentRegistry>(out var components);
+                ctx.Inject<IProjectRunnerService>(out var runner);
+                ctx.Inject<HexIDE.Lsp.LanguageServerContributions>(out var languageServers);
+                ctx.Inject<HexIDE.Debugging.DebugLaunchService>(out var debugLaunches);
+                ctx.Inject<HexIDE.Projects.ContributedProjects>(out var contributedProjects);
+                ctx.Inject<AddinResourceService>(out var resources);
+                ctx.Inject<AddinLanguagePackService>(out var languagePacks);
+                ctx.Inject<AddinLanguageEditingService>(out var languageEditing);
+                ctx.Inject<AddinRunEngineService>(out var runEngines);
+                return new HexIdeHost(menus, toolWindows, events, registry, editor, project, diagnostics, commands, templates,
+                    options, components, runner, languageServers, debugLaunches, contributedProjects, resources, languagePacks,
+                    languageEditing, runEngines);
+            })
             .Root<MainViewViewModel>("Root")
             .Root<ILspClient>("LspClient")
             // The conversation record. A root because the automation tools read it directly, and Pure.DI

@@ -7,7 +7,7 @@ namespace HexIDE.Integration.Tests;
 public class DialogDependencyTests
 {
     [Fact]
-    public void Only_the_program_dialog_boundary_names_runtime_dialogs()
+    public void The_IDE_names_no_runtime_dialog()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "IDE", "HexIDE")))
@@ -18,9 +18,8 @@ public class DialogDependencyTests
             .Where(file => !Path.GetRelativePath(project, file).Split('/', '\\').Any(part => part is "bin" or "obj"))
             .ToArray();
         files.Should().NotBeEmpty();
-        files.Where(file => Path.GetRelativePath(project, file).Replace('\\', '/') != "IDE/ProgramDialogs.cs")
-            .Where(file => File.ReadAllText(file).Contains("HexIDE.Runtime.Dialogs", StringComparison.Ordinal))
+        files.Where(file => File.ReadAllText(file).Contains("HexIDE.Runtime.Dialogs", StringComparison.Ordinal))
             .Select(file => Path.GetRelativePath(project, file)).Should().BeEmpty(
-                "IDE prompts belong to the IDE; only the running-program boundary may name runtime dialogs (#3513)");
+                "IDE prompts belong to the IDE, and a program's boxes are its engine's own (#3513, #5616)");
     }
 }

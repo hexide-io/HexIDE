@@ -27,7 +27,8 @@ public class ProgramDialogChromeRegistrationTests
         Source("InputBox.axaml.cs").Should().Contain(
             "ProgramDialogChrome.Apply(window);");
         // Before the window is shown, or Avalonia's icon is already in its title bar (live, 2026-11-16).
-        File.ReadAllText(Path.Combine(root!.FullName, "IDE", "HexIDE", "IDE", "ProgramDialogs.cs")).ReplaceLineEndings("\n")
-            .Should().Contain("var window = manager.MakeDialogWindow(caption, inputBox);\n            inputBox.ApplyProgramChrome(window);");
+        // The provider's own boxes now, in windows the IDE makes for them (#5616).
+        Source("ProgramDialogs.cs").Should().Contain(
+            "var window = (Window)windows.MakeWindow(caption, inputBox, ProgramBox.Input);\n            inputBox.ApplyProgramChrome(window);");
     }
 }

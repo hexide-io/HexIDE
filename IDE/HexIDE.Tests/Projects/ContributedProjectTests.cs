@@ -266,7 +266,7 @@ public sealed class ContributedProjectTests : IDisposable
         Directory.GetFiles(_dir, "*.vbg").Should().BeEmpty();
         _loaded.Any(p => p.Offers.MovesProjectFile).Should().BeFalse("Save Project As is unavailable for an OpenAsync-only type");
         await _windows.DidNotReceive().MessageBox(Arg.Is<string>(message => message.Contains("as code modules")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -350,7 +350,7 @@ public sealed class ContributedProjectTests : IDisposable
         await _windows.DidNotReceive().ShowDialog(Arg.Any<IDialog>());
         foreach (var dialog in new[] { "Properties", "References", "Components" })
             await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == $"Str.ContributedProject.{dialog}ReadOnly Ledger RDCore for HexIDE"),
-                Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+                Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -386,7 +386,7 @@ public sealed class ContributedProjectTests : IDisposable
         project.Modules.Select(module => module.Name).Should().Equal("Startup", "Account", "Sheet1");
         project.RelatedDocuments.Should().ContainSingle();
         await _windows.Received(interactive.Length).MessageBox(reason,
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -399,7 +399,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         project.Modules.Should().HaveCount(3, "its membership is the add-in's program's to change");
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.Contains("Str.ContributedProject.MembershipReadOnly")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -462,9 +462,9 @@ public sealed class ContributedProjectTests : IDisposable
         project.Modules.Select(module => module.Name).Should().Equal("Startup", "Account", "Sheet1", "Helpers", "Last");
         // The one name taken is Account's: a file reported twice is the same member, not one that takes its own name.
         await _windows.Received(1).MessageBox(Arg.Any<string>(),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NameTaken AccountCopy.bas Account"),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -476,7 +476,7 @@ public sealed class ContributedProjectTests : IDisposable
         var account = project.Modules[1];
         startup.UpdateCode("Sub Main()\r\n    Debug.Print 3\r\nEnd Sub\r\n");
         _windows.MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.RemovedWithChanges")),
-                Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>())
+                Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>())
             .Returns(MessageBoxResult.Yes);
 
         _changes!.MemberRemoved(Path.Join(_dir, "src", "Main.bas"));
@@ -486,9 +486,9 @@ public sealed class ContributedProjectTests : IDisposable
         project.Modules.Should().ContainSingle();
 
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.RemovedWithChanges")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
         await _windows.Received(1).MessageBox("Str.ContributedProject.RemovedWithChanges Startup Ledger",
-            Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
         File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 3");
         _events.Received(1).Publish(Arg.Is<ModuleUnloadedEvent>(e => e.Module == startup));
         _events.Received(1).Publish(Arg.Is<ModuleUnloadedEvent>(e => e.Module == account));
@@ -534,7 +534,7 @@ public sealed class ContributedProjectTests : IDisposable
         project.Modules.Should().ContainSingle(module => module.Name == "Startup")
             .Which.AbsolutePath.Should().Be(Path.Join(_dir, "src", "Main.bas"));
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.Contains("Str.ContributedProject.NameTaken Startup.bas Startup")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -590,7 +590,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         _loaded.Should().BeEmpty();
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.Contains("not a project file")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
         type.Dispose();
         _types.Find(ProjectFile).Should().BeNull();
     }
@@ -603,7 +603,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         _loaded.Should().BeEmpty();
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoLoadedReader")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -617,7 +617,7 @@ public sealed class ContributedProjectTests : IDisposable
         await reopen.Should().ThrowAsync<OperationCanceledException>();
         _loaded.Should().ContainSingle();
         await _windows.Received(1).MessageBox("Projet .rdproj déjà ouvert.",
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [WindowsOnlyFact]
@@ -635,7 +635,7 @@ public sealed class ContributedProjectTests : IDisposable
         await reopen.Should().ThrowAsync<OperationCanceledException>();
         _loaded.Should().ContainSingle();
         await _windows.Received(1).MessageBox("Projet .rdproj déjà ouvert.",
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -651,7 +651,7 @@ public sealed class ContributedProjectTests : IDisposable
         _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("rdcore",
             "a group names a project file as Open Project does, and is read the same way");
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoLoadedReader Other.xproj"),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [AvaloniaFact]
@@ -667,7 +667,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>());
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NotMade Ledger RDCore for HexIDE")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
         File.ReadAllText(ProjectFile).Should().Be(before);
     }
 

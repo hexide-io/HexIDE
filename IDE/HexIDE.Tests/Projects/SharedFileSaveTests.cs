@@ -32,7 +32,7 @@ public sealed class SharedFileSaveTests : IDisposable
         strings.GetString("Str.Tool.ProtocolInspector.ReplaceFiles").Returns("Str.Tool.ProtocolInspector.ReplaceFiles {0}");
         strings.GetString("Str.Dialog.SharedFile.MultipleModified").Returns("Str.Dialog.SharedFile.MultipleModified {0}");
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
-            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(call =>
+            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(call =>
         {
             questions.Add(call.ArgAt<string>(0));
             return call.Arg<MessageBoxButtons>() == MessageBoxButtons.YesNo && answers.Count > 0

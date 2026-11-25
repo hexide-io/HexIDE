@@ -10,12 +10,12 @@ public class InterpreterSeamTests
 {
     [Fact]
     public void Only_the_run_engine_and_the_bindings_name_the_interpreter() =>
-        ProductSource.FilesMatching(new Regex(@"\bHexIDE\.Runtime\.Interpreter\b"), "InterpreterRunEngine.cs", "DISetup.cs")
+        ProductSource.FilesMatching(new Regex(@"\bHexIDE\.Runtime\.Interpreter\b"), "DISetup.cs")
             .Should().BeEmpty("the IDE reaches the interpreter through IRunEngine, IConditionalCodeReader and IBracketReader");
 
     [Fact]
     public void The_IDE_does_not_own_runtime_form_roots() =>
-        typeof(HexIDE.IDE.InterpreterRunEngine).Assembly.GetTypes()
+        typeof(HexIDE.IDE.ProjectRunnerService).Assembly.GetTypes()
             .Where(type => typeof(HexIDE.Runtime.IModuleExecutionRoot).IsAssignableFrom(type)
                 || typeof(HexIDE.Runtime.IFormView).IsAssignableFrom(type))
             .Should().BeEmpty("a hosted form's event root belongs to the runtime (#4068)");

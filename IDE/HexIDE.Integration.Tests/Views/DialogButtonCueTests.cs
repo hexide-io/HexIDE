@@ -215,8 +215,11 @@ public class DialogButtonCueTests
     public void DialogFactoryExcludesProgramDialogs(bool program)
     {
         var manager = new WindowManager(Substitute.For<HexIDE.Localization.ILocalizationService>());
-        var window = manager.MakeDialogWindow("Title", program ? new HexIDE.Runtime.Dialogs.MessageBox()
-            : new HexIDE.Dialogs.MessageBox());
+        // A program's box is made as the engine makes it, through the window-maker the IDE gives it (#5616).
+        var window = program
+            ? (Window)((HexIDE.IDE.IProgramDialogWindows)manager)
+                .MakeWindow("Title", new HexIDE.Runtime.Dialogs.MessageBox(), HexIDE.IDE.ProgramBox.Message)
+            : manager.MakeDialogWindow("Title", new HexIDE.Dialogs.MessageBox());
         try { window.Classes.Contains("ideDialog").Should().Be(!program); }
         finally { window.Close(); }
     }

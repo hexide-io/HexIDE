@@ -57,11 +57,11 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
 
     private void Answer(MessageBoxResult answer) => windows.MessageBox(
         Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
-        Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(answer);
+        Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(answer);
 
     private Task Asked(int count) => windows.Received(count).MessageBox(
         "Output.exe already exists. Do you want to replace it?", null,
-        MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, false, MessageBoxLayout.SecondButtonDefault);
+        MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, MessageBoxLayout.SecondButtonDefault);
 
     private sealed class Build(IWindowManager windows, IEventBus events, ILocalizationService strings,
         IUserSidecarService sidecar, string exePath)
@@ -313,7 +313,7 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         compiler.Starts.Should().Be(1);
         await windows.Received(2).MessageBox(
             project.Name + ".exe already exists. Do you want to replace it?", null,
-            MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, false, MessageBoxLayout.SecondButtonDefault);
+            MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, MessageBoxLayout.SecondButtonDefault);
         Directory.Exists(Path.Combine(directory, "out")).Should().BeFalse();
     }
 

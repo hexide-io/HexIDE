@@ -4,8 +4,8 @@ namespace HexIDE.IDE;
 
 /// <summary>
 /// What a run engine asks of the IDE that hosts a running program (#4066, step 2a of the run side of #3411's split): the
-/// single-view form window, CommonDialog's dialogs, a program's MsgBox and InputBox, and the engine's failure texts
-/// (#4068 completes operation 1).
+/// single-view form window, CommonDialog's dialogs, and the engine's failure texts. A program's MsgBox and InputBox are the
+/// engine's own, shown in windows <see cref="IProgramDialogWindows"/> makes (#5616). #4068 completes operation 1.
 /// </summary>
 /// <remarks>
 /// An engine outside this repository inherits exactly this surface, so it stays to these operations: no other window, service
@@ -28,12 +28,6 @@ public interface IProgramHost
 
     /// <summary>A CommonDialog's ShowFont. Null when cancelled.</summary>
     Task<VbFontChoice?> FontDialog(VbFontChoice initial);
-
-    /// <summary>A program's MsgBox, kept apart from the IDE's own prompts (#3513).</summary>
-    Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout);
-
-    /// <summary>A program's InputBox, kept apart from the IDE's own prompts (#3513). Null when cancelled.</summary>
-    Task<string?> InputBox(string prompt, string? title, string defaultText);
 
     /// <summary>The text for a startup form that failed to load, in the IDE's language.</summary>
     string StartupFormFailedToLoad(string formName, string description);

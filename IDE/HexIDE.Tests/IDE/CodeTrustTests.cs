@@ -37,7 +37,7 @@ public class CodeTrustTests : IDisposable
             var key => key,
         });
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(),
-                Arg.Any<Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>())
+                Arg.Any<Window?>(), Arg.Any<MessageBoxLayout>())
             .Returns(call =>
             {
                 asked.Add(call.ArgAt<string>(0));
@@ -208,7 +208,7 @@ public class CodeTrustTests : IDisposable
 
         asked.Should().Equal("Run Invoices?   • Module1.bas (downloaded)\n  • Book1.xlsm (Office)");
         await windows.Received(1).MessageBox(Arg.Any<string>(), "Str.CodeTrust.Caption", MessageBoxButtons.YesNo,
-            MessageBoxIcon.Warning, Arg.Any<Window?>(), false, MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt);
+            MessageBoxIcon.Warning, Arg.Any<Window?>(), MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt);
     }
 
     [Fact]

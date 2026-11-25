@@ -86,8 +86,7 @@ public class MDIFormLoadingTests
         tool.SelectedForm = child;
         if (doubleClick) tool.OpenSelected(); else tool.ViewObjectCommand.Execute(null);
         windows.Received(1).MessageBox(Arg.Is<string>(text => text.Contains("#5313")),
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(),
-            Arg.Any<bool>(), Arg.Any<MessageBoxLayout>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>());
         dock.DidNotReceiveWithAnyArgs().OpenDocument(null!);
     }
 

@@ -6,43 +6,77 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using HexIDE.Addins;
+using HexIDE.IDE;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Debugging;
+using HexIDE.Runtime.Dialogs;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.IDE;
+namespace HexIDE.Runtime.Running;
 
-/// <summary>Runs a project with HexIDE's own interpreter and its run-time forms, in the IDE's process.</summary>
-public sealed class InterpreterRunEngine : IRunEngine
+/// <summary>
+/// Runs a project with HexIDE's own interpreter and its run-time forms, in the IDE's process. The Basic provider registers it
+/// through the host (#5616), with a debugger of its own that is both the IDE's controller and the interpreter's gate.
+/// </summary>
+public sealed class InterpreterRunEngine : IRunEngine, IDisposable
 {
     internal OSPlatform? Host { get; init; }
-    private readonly ISettingsService settings;
+    private readonly RunEngineServices services;
     private readonly IProgramHost programHost;
     private readonly IDebugGate debugController;
     private Func<RunFailure, Task<bool>>? haltHost;
+    // What it installed for the whole runtime, to put back when it's withdrawn (#5616).
+    private readonly Func<VbFileDialogRequest, Task<VbFileDialogAnswer?>> fileDialog;
+    private readonly Func<Task<bool>> printDialog;
+    private readonly Func<int, Task<int?>> colorDialog;
+    private readonly Func<VbFontChoice, Task<VbFontChoice?>> fontDialog;
+    private readonly Action<VBWindowContext, VBRunTimeException> runTimeError;
+    private readonly Action<VBWindowContext, VBCompileErrorException> compileError;
 
-    public InterpreterRunEngine(IProgramHost programHost, IDebugGate debugController, ISettingsService settings)
+    /// <summary>Makes the engine the provider registers: <paramref name="debugController"/> when a test brings its own.</summary>
+    public InterpreterRunEngine(RunEngineServices services, IDebugGate? debugController = null)
     {
-        this.settings = settings;
-        this.programHost = programHost;
-        this.debugController = debugController;
+        this.services = services;
+        programHost = services.Host;
+        this.debugController = debugController ?? new DebugController();
+        Program = new InterpreterRunningProgram();
         // A running program's CommonDialog shows the IDE's own dialogs (#1084), whichever window the form runs in.
-        HostDialogs.File = programHost.FileDialog;
-        HostDialogs.Print = programHost.PrintDialog;
-        HostDialogs.Color = programHost.ColorDialog;
-        HostDialogs.Font = programHost.FontDialog;
+        HostDialogs.File = fileDialog = programHost.FileDialog;
+        HostDialogs.Print = printDialog = programHost.PrintDialog;
+        HostDialogs.Color = colorDialog = programHost.ColorDialog;
+        HostDialogs.Font = fontDialog = programHost.FontDialog;
+        // And a form's MsgBox and InputBox are shown in windows the IDE makes, so it knows them as the program's (#5616).
+        HostDialogs.BoxWindows = services.Dialogs;
 
-        VBWindowContext.RunTimeError += (_, e) => ErrorMet?.Invoke(new RunFailure(RunErrorText.For(e), ErrorLocation.Of(e)));
+        runTimeError = (_, e) => ErrorMet?.Invoke(new RunFailure(RunErrorText.For(e), ErrorLocation.Of(e)));
+        VBWindowContext.RunTimeError += runTimeError;
 
         // Compile errors met while running halt through the same dialog (#759, #833), with Debug breaking.
         // VB6's Compile On Demand breaks before procedure entry; the walk meets the error at the statement:
         // docs/vb6-fidelity-oracle/a-compile-error-met-while-a-program-runs.md.
         // Without a halt host, or before the run starts, the existing reporting route still applies.
-        VBWindowContext.CompileError += (_, e) => ErrorMet?.Invoke(new RunFailure(e.Message, ErrorLocation.Of(e)));
+        compileError = (_, e) => ErrorMet?.Invoke(new RunFailure(e.Message, ErrorLocation.Of(e)));
+        VBWindowContext.CompileError += compileError;
+    }
+
+    /// <summary>
+    /// Once it's withdrawn (#5616): the runtime's dialogs and box windows go back to its own, where they're still this
+    /// engine's, and it stops hearing every form's errors. Another engine's settings are left alone.
+    /// </summary>
+    public void Dispose()
+    {
+        if (ReferenceEquals(HostDialogs.File, fileDialog)) HostDialogs.File = null;
+        if (ReferenceEquals(HostDialogs.Print, printDialog)) HostDialogs.Print = null;
+        if (ReferenceEquals(HostDialogs.Color, colorDialog)) HostDialogs.Color = null;
+        if (ReferenceEquals(HostDialogs.Font, fontDialog)) HostDialogs.Font = null;
+        if (ReferenceEquals(HostDialogs.BoxWindows, services.Dialogs)) HostDialogs.BoxWindows = null;
+        VBWindowContext.RunTimeError -= runTimeError;
+        VBWindowContext.CompileError -= compileError;
     }
 
     /// <inheritdoc />
@@ -70,6 +104,19 @@ public sealed class InterpreterRunEngine : IRunEngine
     public bool Runs(ProjectDefinition project) => project.Offers.Runs;
 
     /// <inheritdoc />
+    public IDebugController Debugger => debugController;
+
+    /// <inheritdoc />
+    public IRunningProgram Program { get; }
+
+    /// <inheritdoc />
+    public ErrorTrapping ErrorTrapping
+    {
+        get => debugController.ErrorTrapping;
+        set => debugController.ErrorTrapping = value;
+    }
+
+    /// <inheritdoc />
     /// <remarks>
     /// A Sub Main project's modules are the ones the form paths see too, so the same project sees the same modules whichever
     /// startup object it has (#220).
@@ -95,14 +142,14 @@ public sealed class InterpreterRunEngine : IRunEngine
         Task task;
         try
         {
-            if (Static.SingleView)
+            if (services.SingleView)
             {
                 task = RunFormInBrowser(form, tokenSource.Token, out _, debugController);
             }
             else
             {
                 // RunForm starts the form and shows it once Load has run (#822).
-                task = VBLoader.RunForm(form, tokenSource.Token, out _, debugController, settings.RDCoreWin64OnlySetOnWindows, Host);
+                task = VBLoader.RunForm(form, tokenSource.Token, out _, debugController, services.RDCoreWin64OnlySetOnWindows, Host);
             }
         }
         catch (Exception e)
@@ -160,9 +207,9 @@ public sealed class InterpreterRunEngine : IRunEngine
             // Building the program parses every module and runs the pre-pass over it, which throws for a syntax error,
             // naming its module, and for a declaration it cannot take. It is a start that never became a run, and is
             // reported the way the form path reports one (#590).
-            var context = new VBWindowContext(new MDIStandaloneStandardLib(programHost));
+            var context = new VBWindowContext(new MDIStandaloneStandardLib(services));
             program = new VBProgram(project, context, debugController,
-                Static.SingleView ? OpenInBrowser : VBLoader.OpenWindow, settings.RDCoreWin64OnlySetOnWindows, Host);
+                services.SingleView ? OpenInBrowser : VBLoader.OpenWindow, services.RDCoreWin64OnlySetOnWindows, Host);
             // A missing or ambiguous Main is found here, before anything runs, so it too is a start that never became a
             // run. It used to be raised as the run began, and arrived as a run that ended, which run_project answered as
             // a success (#759).
@@ -318,7 +365,7 @@ public sealed class InterpreterRunEngine : IRunEngine
         var window = (Control)hosted.Window;
         window[AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(VBProperties.BackColorProperty);
         VBProps.SetName(window, instance.GetPropertyOrDefault(VBProperties.NameProperty));
-        return new HostedFormRoot(hosted, new MDIStandaloneStandardLib(programHost));
+        return new HostedFormRoot(hosted, new MDIStandaloneStandardLib(services));
     }
 
     private Task RunFormInBrowser(FormDefinition element, CancellationToken token, out HostedFormRoot window,
@@ -328,7 +375,7 @@ public sealed class InterpreterRunEngine : IRunEngine
         // a syntax error fails the start without leaving a window behind that nothing would close. The program's other
         // forms get MDI windows of their own.
         var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element), VBLoader.HasMenuBar(element));
-        VBLoader.PrepareForm(element, shown.Context, shown.SetContent, debugController, OpenInBrowser, settings.RDCoreWin64OnlySetOnWindows, Host);
+        VBLoader.PrepareForm(element, shown.Context, shown.SetContent, debugController, OpenInBrowser, services.RDCoreWin64OnlySetOnWindows, Host);
         return VBLoader.StartAndShow(shown.Context, token, close: shown.CloseForm,
             showUntilClosed: () => shown.ShowInHost(blockBehind: true));
     }
@@ -339,11 +386,13 @@ public sealed class InterpreterRunEngine : IRunEngine
 
     public class MDIStandaloneStandardLib : IBasicStandardLibrary
     {
+        private readonly RunEngineServices services;
         private readonly IProgramHost programHost;
 
-        public MDIStandaloneStandardLib(IProgramHost programHost)
+        public MDIStandaloneStandardLib(RunEngineServices services)
         {
-            this.programHost = programHost;
+            this.services = services;
+            programHost = services.Host;
         }
 
         public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
@@ -351,12 +400,12 @@ public sealed class InterpreterRunEngine : IRunEngine
 
         public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout)
         {
-            return await programHost.MsgBox(text, caption, buttons, icon, layout);
+            return await ProgramDialogs.ShowMessageBox(services.Dialogs, services.SingleView, text, caption, buttons, icon, layout);
         }
 
         public async Task<string?> InputBox(string prompt, string? title, string defaultText)
         {
-            return await programHost.InputBox(prompt, title, defaultText);
+            return await ProgramDialogs.ShowInputBox(services.Dialogs, services.SingleView, prompt, title, defaultText);
         }
 
         // The Immediate window shows the text, not the typed values (#1380).

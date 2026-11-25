@@ -1,4 +1,5 @@
 using HexIDE.Addins;
+using HexIDE.IDE;
 using HexIDE.Language;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components.InBox;
@@ -18,8 +19,8 @@ namespace HexIDE.Runtime;
 /// </para>
 /// <para>
 /// It registers its controls' resources, its language packs, its Form and controls with their toolbox items (#5594), its
-/// control libraries (#5599), what draws the designer's controls (#5591), and the VB family's editing helpers (#5403). The run
-/// engine and the project type join it as their slices land.
+/// control libraries (#5599), what draws the designer's controls (#5591), the VB family's editing helpers (#5403),
+/// and the engine that runs projects, with its debugger (#5616). The project type joins it as its slice lands.
 /// </para>
 /// </remarks>
 public sealed class BasicProvider : IAddin
@@ -128,6 +129,9 @@ public sealed class BasicProvider : IAddin
             registrations.Add(editing.RegisterLanguageEditing(LanguageEditing));
         // Last: a refusal here leaves the themes, text, controls and editing helpers already registered.
         registrations.Add(host.RegisterDesignerPictures(surface => new InProcessDesignerPictures(surface)));
+        // Internal until a second engine registers (#5616): only the host HexIDE composes the provider with can take it.
+        if (host is IRunEngineRegistration engines)
+            registrations.Add(engines.RegisterRunEngine(services => new Running.InterpreterRunEngine(services)));
     }
 
     public void Dispose()
