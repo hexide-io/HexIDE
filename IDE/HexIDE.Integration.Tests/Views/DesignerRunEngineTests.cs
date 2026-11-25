@@ -168,6 +168,58 @@ public class DesignerRunEngineTests
         engine.Withdraw();
 
         designer.UnmodelledControls.Should().Equal(boxes, "a closed designer builds no boxes");
+        // And the forwarder, which lives as long as the IDE, holds nothing of it.
+        var handlers = (System.Delegate?)typeof(RunEngineForwarder)
+            .GetField(nameof(RunEngineForwarder.DesignerChanged), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(engine.Forwarder);
+        handlers.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void A_rebuild_posted_before_the_designer_closed_builds_nothing()
+    {
+        using var engine = new DesignerRunEngine(register: false);
+        var designer = Designer(engine.Forwarder);
+        // Registering posts the rebuild; the designer closes before it runs.
+        engine.Register();
+        designer.Dispose();
+        var boxes = designer.UnmodelledControls.ToList();
+
+        Dispatcher.UIThread.RunJobs();
+
+        designer.UnmodelledControls.Should().Equal(boxes);
+    }
+
+    [AvaloniaFact]
+    public async Task An_engine_being_withdrawn_previews_nothing_and_runs_no_carried_control()
+    {
+        using var engine = new DesignerRunEngine();
+        using var designer = Designer(engine.Forwarder);
+        // Its handle is disposed, and the withdrawal it posts hasn't run yet.
+        ((System.IDisposable)engine.Engines.Current!).Dispose();
+
+        (await Previewed(designer)).Should().BeNull();
+        engine.Forwarder.RunsWhenCarried("MSComctlLib.Toolbar", false, false).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task The_preview_is_shown_over_the_window_the_IDEs_window_maker_names()
+    {
+        var owner = new Window();
+        owner.Show();
+        try
+        {
+            var dialogs = Substitute.For<IProgramDialogWindows>();
+            dialogs.Owner.Returns(owner);
+            using var engine = new DesignerRunEngine(dialogs);
+            using var designer = Designer(engine.Forwarder);
+
+            var preview = await Previewed(designer);
+
+            preview.Should().NotBeNull();
+            preview!.Owner.Should().BeSameAs(owner);
+        }
+        finally { owner.Close(); }
     }
 
     [AvaloniaFact]
