@@ -167,6 +167,7 @@ public sealed class ProfileRecoveryTests : IDisposable
             using var loader = setup.AddinLoader;
             var window = new Avalonia.Controls.Window();
             var desktop = new Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime { MainWindow = window };
+            var basicAreas = LanguagePackAreas.Current.Areas.Count(a => a.OwnerId == "hexide.basic");
             Static.DesktopStartupHook!(setup, desktop);
             var manager = Substitute.For<IProjectManager>();
             var projects = new HexIDE.Projects.ProjectService(
@@ -176,9 +177,20 @@ public sealed class ProfileRecoveryTests : IDisposable
                 Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
                 Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
             try { await Static.StartupProjectHook!(projects, manager); }
-            finally { window.Close(); }
+            finally
+            {
+                window.Close();
+                // What the startup composed stays registered process-wide otherwise, and a later test's provider is
+                // refused (#5642). In the finally, so a failed startup project doesn't leave it behind either.
+                DesktopStartup.ComposedProvider?.Dispose();
+                DesktopStartup.ComposedProvider = null;
+            }
             manager.Received(1).AddProject(Arg.Is<HexIDE.Runtime.ProjectElements.ProjectDefinition>(
                 p => p.Name == "Explicit" && p.Modules.Count == 1));
+            using (new AddinLanguagePackService().Register(
+                new Uri("avares://HexIDE.Runtime/Localization/Packs/"), BasicProviderComposition.Origin,
+                typeof(HexIDE.Runtime.BasicProvider).Assembly)) { }
+            LanguagePackAreas.Current.Areas.Count(a => a.OwnerId == "hexide.basic").Should().Be(basicAreas);
             typeof(ServerOptions).GetProperty(nameof(ServerOptions.Profile))!.SetValue(null, "vb6");
             DesktopStartup.Register();
             Static.IsRecoveryMode.Should().BeFalse();

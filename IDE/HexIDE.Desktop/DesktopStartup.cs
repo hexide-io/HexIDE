@@ -14,6 +14,12 @@ namespace HexIDE.Desktop;
 
 internal static class DesktopStartup
 {
+    /// <summary>
+    /// The provider the startup composed, kept only so tests can release what it registered (#5642). The product never
+    /// disposes it: its themes stay while windows close, as <see cref="BasicProviderComposition.Register"/> says.
+    /// </summary>
+    internal static HexIDE.Runtime.BasicProvider? ComposedProvider { get; set; }
+
     public static void Register()
     {
         HexIDE.Static.IsRecoveryMode = ServerOptions.Profile == "none";
@@ -66,7 +72,7 @@ internal static class DesktopStartup
         {
             // First, before add-ins load and before the startup project opens: the provider's themes are what the first
             // designer draws with (#5396). In recovery sessions too, where VB6 projects still open.
-            BasicProviderComposition.Register(setup.HexIdeHost);
+            ComposedProvider = BasicProviderComposition.Register(setup.HexIdeHost);
 
             // The registry also guards loading in recovery sessions.
             var loader = setup.AddinLoader;
