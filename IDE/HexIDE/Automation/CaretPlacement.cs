@@ -1,4 +1,5 @@
 using HexIDE.Forms.ViewModels;
+using HexIDE.Language;
 
 namespace HexIDE.Automation;
 
@@ -17,7 +18,7 @@ public static class CaretPlacement
     /// the caller's next type_text there. A column one past the line's last character is its end, where typing appends.
     /// Columns count UTF-16 characters, as the status bar and get_diagnostics do, so a tab is one; a column between the
     /// halves of a surrogate pair is no place the editor can show a caret, and it would move it. Lines are counted by
-    /// <c>'\n'</c>, as <see cref="HexIDE.Runtime.Serialization.CodeWindowText.LineCount"/> counts them.
+    /// <c>'\n'</c>, as <see cref="CodeWindowText.LineCount"/> counts them.
     /// </remarks>
     public static string? Refusal(string text, int line, int column)
     {

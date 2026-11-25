@@ -1,6 +1,5 @@
 using HexIDE.Forms.ViewModels;
 using HexIDE.Language;
-using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
 
 namespace HexIDE.IDE;

@@ -89,6 +89,15 @@ public interface IProjectFileFormat : IFormFileFormat
     /// </summary>
     (string Header, string Body) SplitModule(string text, ModuleKind kind);
 
+    /// <summary>The leading Attribute block of VB code; empty by default for a format without VB headers.</summary>
+    string AttributeBlock(string code) => "";
+
+    /// <summary>The VB_Name in a VB header; the fallback name by default for a format without VB headers.</summary>
+    string ModuleNameFor(string fallbackName, string? header) => fallbackName;
+
+    /// <summary>Whether text is a VB designer file; false by default for a format without VB headers.</summary>
+    bool IsDesignerFile(string text) => false;
+
     /// <summary>
     /// The text the code window puts in front of a form's code. Its whole text is <c>CodePrefix(x) + x.Code</c>;
     /// the reader reads its regions with this prefix's length.

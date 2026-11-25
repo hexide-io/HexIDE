@@ -637,9 +637,8 @@ public partial class ObjectBrowserToolViewModel : Document
             {
                 // Keep navigation in whole-file coordinates, as for server symbols and code windows.
                 var text = classVm.ModuleDefinition is { } module
-                    ? (module.Owner.Format?.CodePrefix(module) ?? FormCodeText.Prefix(module)) + module.Code
-                    : (classVm.FormDefinition!.Owner.Format?.CodePrefix(classVm.FormDefinition)
-                        ?? FormCodeText.Prefix(classVm.FormDefinition)) + classVm.FormDefinition.Code;
+                    ? (module.Owner.Format?.CodePrefix(module) ?? "") + module.Code
+                    : (classVm.FormDefinition!.Owner.Format?.CodePrefix(classVm.FormDefinition) ?? "") + classVm.FormDefinition.Code;
                 symbols = [.. LanguageEditing?.DeclarationsFor(DocumentLanguage.Vb6).Declarations(text) ?? []];
             }
             if (requestVersion != memberRequestVersion) return;

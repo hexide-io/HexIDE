@@ -163,6 +163,7 @@ public sealed class ContributedFormTests : IDisposable
 
     public ContributedFormTests()
     {
+        HexIDE.Tests.Infrastructure.Vb6Types.Register(_types);
         Directory.CreateDirectory(_dir);
         File.WriteAllText(ProjectFile, "a project");
         WriteForm();

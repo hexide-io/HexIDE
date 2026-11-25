@@ -564,7 +564,7 @@ public partial class UserSidecarService : IUserSidecarService
             foreach (var document in byName[name])
             {
                 if (AddReorderedLines(into, document, lines, first, what, path, codeRelative: true)) continue;
-                var shift = FormCodeText.LineBreaks(document.Module is { } module ? ProjectFormats.Of(document.Project).CodePrefix(module)
+                var shift = CodeBufferText.LineBreaks(document.Module is { } module ? ProjectFormats.Of(document.Project).CodePrefix(module)
                     : ProjectFormats.Of(document.Project).CodePrefix(document.Form!));
                 var moving = WithinOldCode(document, lines, first, what, path).Select(line => line + shift);
                 AddTo(into, document, OffReadOnlyLines(document, moving.ToList(), first, what, path));

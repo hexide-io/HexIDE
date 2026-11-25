@@ -482,8 +482,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             (change.Offset == 0 && change.RemovalLength == Document.TextLength))
             return;
 
-        var removed = FormCodeText.LineBreaks(change.RemovedText.Text);
-        var inserted = FormCodeText.LineBreaks(change.InsertedText.Text);
+        var removed = CodeBufferText.LineBreaks(change.RemovedText.Text);
+        var inserted = CodeBufferText.LineBreaks(change.InsertedText.Text);
         if (ExternalDebugger?.IsActive != true)
             breakpointService.Remap(current, line => line < 1 || line > Document.LineCount ? line :
                 HexIDE.Debugging.MarkLines.Remap(line, change.Offset, change.RemovalLength, removed, inserted, ReadLine));
@@ -646,13 +646,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var text = Document.Text;
         var rewrites = RegionWriter?.SaveRewrites(text, bufferPrefix.Length) ?? [];
-        var attributes = FormCodeText.AttributeBlock(FormCodeText.BodyOf(text, bufferPrefix));
-        var savedAttributes = FormCodeText.AttributeBlock(written);
+        var attributes = Format.AttributeBlock(CodeBufferText.BodyOf(text, bufferPrefix));
+        var savedAttributes = Format.AttributeBlock(written);
         if (!string.Equals(attributes, savedAttributes, StringComparison.Ordinal))
             rewrites = [new TextChange(bufferPrefix.Length, attributes.Length, savedAttributes), .. rewrites];
         if (rewrites.Count == 0)
             return;
-        if (!string.Equals(FormCodeText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
+        if (!string.Equals(CodeBufferText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
                 StringComparison.Ordinal))
         {
             Log.Debug("{Document}: the save did not rewrite the attribute qualifiers this window holds, so they stand",
@@ -698,7 +698,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// destroy the header — the next flush splits at the prefix's length and would take the first lines of
     /// the body with it.
     /// </remarks>
-    public string BufferBody => FormCodeText.BodyOf(Document.Text, bufferPrefix);
+    public string BufferBody => CodeBufferText.BodyOf(Document.Text, bufferPrefix);
 
     /// <summary>Replaces the code, leaving the header the buffer shows in front of it untouched.</summary>
     public void ReplaceBody(string body) => Document.Text = bufferPrefix + body;

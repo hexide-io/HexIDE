@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-using HexIDE.Language;
 
-namespace HexIDE.Runtime.Serialization;
+namespace HexIDE.Language;
 
 /// <summary>
 /// A document's text as its code window numbers it: the whole file, header included, so line 1 is the file's

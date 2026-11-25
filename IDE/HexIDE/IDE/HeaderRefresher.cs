@@ -88,7 +88,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
             return;
         }
 
-        if (FormCodeText.RenderFileNameFor(form) is not { } fileName)
+        if (CodeBufferText.RenderFileNameFor(form) is not { } fileName)
         {
             Log.Debug("HeaderRefresher: not re-rendering {Document} — it has no name to render against",
                 identity.Display);
@@ -281,8 +281,8 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     public void ShiftMarks(DocumentIdentity document, string oldHeader, string newHeader, bool shiftBreakpoints = true)
     {
         // The count the sidecar's migration shifts by as well, so the two can never disagree about a header.
-        var oldLines = FormCodeText.LineBreaks(oldHeader);
-        var delta = FormCodeText.LineBreaks(newHeader) - oldLines;
+        var oldLines = CodeBufferText.LineBreaks(oldHeader);
+        var delta = CodeBufferText.LineBreaks(newHeader) - oldLines;
         if (delta == 0)
             return;
 
