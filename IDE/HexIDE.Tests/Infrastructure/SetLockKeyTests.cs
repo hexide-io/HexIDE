@@ -16,14 +16,22 @@ public sealed class SetLockKeyTests : IDisposable
         Substitute.For<ILspClient>(), null!, Substitute.For<IProjectRunnerService>(),
         null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
     private readonly HexIdeTools tools;
+    private readonly IRunningProgram previous = RunningProgram.Current;
 
-    public SetLockKeyTests() => tools = new HexIdeTools(context);
+    // The tool reads the lock keys through the installed program. Install the interpreter's here, rather than rely on an
+    // earlier headless test having started TestApp, which installs it: run alone, this class read none and failed.
+    public SetLockKeyTests()
+    {
+        RunningProgram.Current = new InterpreterRunningProgram();
+        tools = new HexIdeTools(context);
+    }
 
     public void Dispose()
     {
         foreach (var key in Enum.GetValues<LockKey>())
             LockKeys.SetOverride(key, null);
         context.Dispose();
+        RunningProgram.Current = previous;
     }
 
     private static readonly LockKeySource Unset = OperatingSystem.IsWindows() ? LockKeySource.Keyboard : LockKeySource.Window;

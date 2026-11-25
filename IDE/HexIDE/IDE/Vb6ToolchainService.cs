@@ -95,6 +95,17 @@ public class Vb6ToolchainService : IVb6ToolchainService
             return false;
         }
 
+        // The program's name comes from the project. VB6 writes it where a path there points when it builds in place, and
+        // this would move it there, and Start with VB6 would start it there, so one that isn't a plain file name is refused
+        // before VB6 starts (#5622).
+        if (ProjectOutputPath.RefusedName(project) is { } refused)
+        {
+            await windowManager.MessageBox(
+                string.Format(_localization.GetString("Str.Naming.Msg.NotAFileName"), project.Name, refused.Field, refused.Value),
+                _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            return false;
+        }
+
         var exePath = ProjectOutputPath.OutputExePath(project);
         if (File.Exists(exePath) && !(forRun && IsLastRunExe(project, exePath)))
         {

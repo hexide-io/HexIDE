@@ -1158,6 +1158,7 @@
     "Str.Naming.Msg.EmptyName": "名稱不能為空",
     "Str.Naming.Msg.NameNotUniqueInForm": "名稱在表單中必須唯一",
     "Str.Naming.Msg.NotAVb6Name": "「{0}」不是有效的名稱。名稱必須以字母開頭，後續只能是字母、數字與底線。",
+    "Str.Naming.Msg.NotAFileName": "未產生 {0} 的程式：{1} 為「{2}」，不是檔案名稱，因此會有檔案寫到其資料夾之外。",
     "Str.Naming.Msg.ReservedWord": "「{0}」不能用作名稱，因為它是 VB6 的保留字。",
     "Str.Naming.Msg.DocumentNameTaken": "「{0}」已經是此專案中某個表單、模組或類別的名稱。VB6 讓它們共用單一命名空間，因此兩者不能同名。",
     "Str.Naming.Msg.ProjectNameTaken": "名稱為「{0}」的專案已經載入。同一個專案群組中的兩個專案不能同名。",

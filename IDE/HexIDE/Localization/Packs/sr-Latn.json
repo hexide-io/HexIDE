@@ -1125,6 +1125,7 @@
     "Str.Naming.Msg.EmptyName": "Ime ne može biti prazno",
     "Str.Naming.Msg.NameNotUniqueInForm": "Ime mora biti jedinstveno u obrascu",
     "Str.Naming.Msg.NotAVb6Name": "„{0}“ nije važeće ime. Ime počinje slovom, a nastavlja se slovima, ciframa i donjim crtama.",
+    "Str.Naming.Msg.NotAFileName": "Program za {0} nije napravljen: {1} je '{2}', što nije naziv datoteke, pa bi datoteka bila upisana van svoje fascikle.",
     "Str.Naming.Msg.ReservedWord": "„{0}“ ne može biti ime jer je to rezervisana reč u VB6.",
     "Str.Naming.Msg.DocumentNameTaken": "„{0}“ je već ime obrasca, modula ili klase u ovom projektu. VB6 im daje jedan prostor imena, pa dva ne mogu da dele ime.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekat sa imenom „{0}“ je već učitan. Dva projekta u istoj grupi ne mogu da dele ime.",

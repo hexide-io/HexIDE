@@ -64,3 +64,37 @@ back thirty:
 - an ActiveX EXE or an OCX;
 - binary compatibility;
 - which other settings make `/make` write the `.vbp` back.
+
+### A path in `ExeName32` (2026-11-25, #5622, SP6)
+
+**The question.** `ExeName32` is meant to be the program's file name, with `Path32` naming its folder. What does
+`/make` do when `ExeName32` holds a path: one that climbs out of the project's folder, or a rooted one?
+
+**The probe.**
+- **The projects:** five Standard EXE projects, each one module with an empty `Sub Main`, `Startup="Sub Main"` and no
+  `Path32`. Each sat in a folder of its own, two levels below the probe's root.
+- **The runs:** in an oracle clone of the Win10 guest (Win10-D, VB6 6.00.9782), in session 0 through PowerShell Direct,
+  as `/make "<project>.vbp" /out "<log>"`, adding `/outdir "<folder>"` where a row says so. p-code.
+- **What was compared:** every `.exe` under the probe's root, listed after each build. Nothing outside the root was
+  searched.
+
+| `ExeName32` | `/outdir` | `/make` | Where the program landed |
+|---|---|---|---|
+| `..\escA.exe` | none | succeeded | **beside the project's folder**, one level up |
+| a rooted path | none | succeeded | **at that rooted path** |
+| `..\escB.exe` | a folder under the project's | succeeded | in the `/outdir` folder, as `escB.exe` |
+| a rooted path | a folder under the project's | succeeded | in the `/outdir` folder, by its file name |
+| `plainE.exe` | a folder under the project's | succeeded | in the `/outdir` folder |
+
+**What it shows:**
+- **Building in place, `/make` takes `ExeName32` as a path,** relative to the project's folder or rooted, and writes
+  the program wherever it points. The build log names only the file: "Build of 'escA.exe' succeeded."
+- **Under `/outdir`, only `ExeName32`'s file name is used.** That fits `/outdir` beating `Path32`, above.
+
+**HexIDE diverges here, deliberately (#5622).** HexIDE refuses an `ExeName32` holding a separator, `..` or a rooted path
+before it builds, for Make Project Group, Make with VB6 and Start with VB6. A project from elsewhere would otherwise
+choose where its program is written, and Start with VB6 would then start it there. `Path32` keeps VB6's meaning: the
+folder the project names, relative or absolute.
+
+**Not measured:** what VB6's own Make dialog writes to `ExeName32` and `Path32`, which is reasoned to keep the folder
+in `Path32`; and an `ExeName32` holding a path for an ActiveX DLL, which registers where it's built.

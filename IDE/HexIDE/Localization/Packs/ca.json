@@ -1163,6 +1163,7 @@
     "Str.Naming.Msg.EmptyName": "El nom no pot ser buit",
     "Str.Naming.Msg.NameNotUniqueInForm": "El nom ha de ser únic al formulari",
     "Str.Naming.Msg.NotAVb6Name": "«{0}» no és un nom vàlid. Un nom comença amb una lletra i continua amb lletres, dígits i guions baixos.",
+    "Str.Naming.Msg.NotAFileName": "No s'ha creat el programa de {0}: {1} és '{2}', que no és un nom de fitxer, de manera que s'escriuria un fitxer fora de la seva carpeta.",
     "Str.Naming.Msg.ReservedWord": "«{0}» no pot ser un nom perquè VB6 reserva aquesta paraula.",
     "Str.Naming.Msg.DocumentNameTaken": "«{0}» ja és el nom d'un formulari, mòdul o classe d'aquest projecte. VB6 els dona un únic espai de noms i, per tant, no poden compartir un nom.",
     "Str.Naming.Msg.ProjectNameTaken": "Ja hi ha carregat un projecte amb el nom «{0}». Dos projectes d'un mateix grup no poden compartir un nom.",
