@@ -7,6 +7,10 @@ internal sealed class AddinContext(AddinInfo info)
     public AddinInfo Info { get; set; } = info;
     public IAddin? Instance { get; set; }
     public AddinStatus Status { get; set; }
+
+    /// <summary>What Initialize registered, kept to take out if the add-in is revoked mid-session (#5577): its commands,
+    /// menus, tool windows, options pages, templates and event subscriptions among them.</summary>
+    public IReadOnlyList<Action> InitializationWithdrawals { get; set; } = [];
     public string? ErrorMessage { get; set; }
     public AddinFailureReport? ReportedFailure { get; set; }
 

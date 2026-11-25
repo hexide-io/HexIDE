@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using HexIDE.Addins;
+using Avalonia.Threading;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -29,6 +30,8 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private readonly HashSet<string> _disabled;
     private IHexIdeHost? _host;
     private bool _disposed;
+    private bool _hasPackages;
+    private RevocationMonitor? _revocationMonitor;
     private readonly object _serverTrustGate = new();
     private readonly HashSet<string> _revokedConsent = new(StringComparer.Ordinal);
     // What each add-in contributed that is taken out when it is disabled or its consent is revoked: its language servers,
@@ -138,8 +141,8 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         }
         // Refresh before loading code or offering consent, with a short timeout and fail-open. First-party packages
         // count too: a build revocation applies to them, and a default install has nothing else (#5572).
-        if (packages.Any(package => package.Result.Manifest is not null)
-            && !string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
+        _hasPackages = packages.Any(package => package.Result.Manifest is not null);
+        if (_hasPackages && !string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
             _revocations.RefreshFromUrl(_settings.RevocationListUrl, TimeSpan.FromSeconds(3));
 
         var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -320,9 +323,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             var origin = new AddinOrigin(ctx.Info.Id, ctx.Info.Title, ctx.Info.Chain?.IsFirstParty == true,
                 status == AddinStatus.DeveloperUnsigned) { PublisherNamespaces = ctx.Info.PublisherNamespaces };
             addin.Initialize(host.ToolWindows is AddinToolWindowService tools
-                ? new AddinOwnedHost(host, tools.ForOwner(origin), origin)
+                ? new AddinOwnedHost(host, tools.ForOwner(origin), origin, () => IsWithdrawn(origin))
                 : host);
-            contributions.Complete();
+            ctx.InitializationWithdrawals = contributions.Complete();
             ctx.Status = status;
             Log.Information("AddinRegistry: {Title} v{Version} loaded from {Dir} [{Trust}]",
                 ctx.Info.Title, ctx.Info.Version, ctx.PackageDirectory,
@@ -393,8 +396,95 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         }
     }
 
+    // ── Hourly revocation check (#5577) ──────────────────────────
+
+    /// <summary>
+    /// Starts checking the revocation list every hour, as startup did once, while any add-in package is installed. Called
+    /// once startup has loaded the add-ins; tests never start it, so no test waits on a timer or reaches the network.
+    /// </summary>
+    public void StartRevocationChecks()
+    {
+        if (_recoveryMode || !_hasPackages || _revocationMonitor is not null)
+            return;
+        _revocationMonitor = new RevocationMonitor(CheckRevocations);
+        _revocationMonitor.Start();
+    }
+
+    // Off the UI thread, never holding the gate: the fetch can take its full timeout. The address is read each time, so an
+    // empty revocationListUrl stops the checks without a restart.
+    internal void CheckRevocations()
+    {
+        var url = _settings.RevocationListUrl;
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+        if (_revocations.RefreshFromUrl(url, TimeSpan.FromSeconds(3)) == RevocationRefresh.Applied)
+            Dispatcher.UIThread.Post(() => ApplyRevocations());
+    }
+
+    /// <summary>
+    /// Re-checks every add-in against the active list, by the identity verified when it loaded, never re-read from disk.
+    /// A revoked one is marked Revoked, and everything it contributed is taken out: what Initialize registered and what it
+    /// registered since. Its code stays loaded until HexIDE restarts, but it gets no events, no command or menu of its runs,
+    /// and anything it registers from now on is refused. Runs on the UI thread. Returns the add-ins it revoked.
+    /// </summary>
+    internal IReadOnlyList<AddinInfo> ApplyRevocations()
+    {
+        var revoked = new List<AddinContext>();
+        lock (_serverTrustGate)
+        {
+            if (_disposed)
+                return [];
+            foreach (var ctx in _contexts)
+            {
+                if (ctx.RefusedAtLoad || ctx.Status == AddinStatus.Revoked)
+                    continue;
+                var chain = ctx.Info.Chain;
+                if (_revocations.IsRevoked(ctx.Info.ManifestHash, chain?.Publisher.Id, chain?.Intermediate.Id,
+                        chain?.IsFirstParty == true) is not { } reason)
+                    continue;
+                ctx.Status = AddinStatus.Revoked;
+                ctx.ErrorMessage = reason;
+                revoked.Add(ctx);
+            }
+        }
+
+        foreach (var ctx in revoked)
+        {
+            var withdrawn = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            lock (_serverTrustGate)
+            {
+                if (_contributions.TryGetValue(new ContributionOwner(ctx.PackageDirectory, OwnerKind.Package), out var tracked))
+                    withdrawn.UnionWith(tracked);
+                RemoveContributions(ctx);
+            }
+            // What Initialize registered, newest first, as a failed Initialize is rolled back; a handle already taken out
+            // above is skipped, since not every handle can be disposed twice.
+            var undo = ctx.InitializationWithdrawals;
+            ctx.InitializationWithdrawals = [];
+            for (var i = undo.Count - 1; i >= 0; i--)
+            {
+                if (undo[i].Target is { } target && withdrawn.Contains(target))
+                    continue;
+                try { undo[i](); }
+                catch (Exception ex) { Log.Warning(ex, "AddinRegistry: error withdrawing a contribution of {Title}", ctx.Info.Title); }
+            }
+            Log.Warning("AddinRegistry: {Title} REVOKED mid-session ({Reason}) — its contributions are withdrawn; its code stays "
+                + "loaded until HexIDE restarts", ctx.Info.Title, ctx.ErrorMessage);
+        }
+        return [.. revoked.Select(ctx => ctx.Info)];
+    }
+
+    // True once the package the owner is has been revoked mid-session: its owned host then refuses what it registers and
+    // runs none of its commands, menu items or event handlers. A composed owner is never a package (#5597).
+    internal bool IsWithdrawn(AddinOrigin owner)
+    {
+        lock (_serverTrustGate)
+            return PackageContext(owner)?.Status == AddinStatus.Revoked;
+    }
+
     public void Dispose()
     {
+        _revocationMonitor?.Dispose();
         lock (_serverTrustGate) _disposed = true;
         foreach (var ctx in _contexts)
         {
@@ -520,7 +610,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             var ctx = PackageContext(owner);
             if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
-                || _revokedConsent.Contains(ctx.Info.ManifestHash)))
+                || _revokedConsent.Contains(ctx.Info.ManifestHash) || ctx.Status == AddinStatus.Revoked))
             {
                 contribution.Dispose();
                 return;

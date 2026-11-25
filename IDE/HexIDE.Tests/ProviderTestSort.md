@@ -19,6 +19,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/AddinServerTrustTests.cs` | split |
 | `Addins/AddinWholeFileTests.cs` | split |
 | `Addins/ComponentWithdrawalTests.cs` | split |
+| `Addins/PeriodicRevocationTests.cs` | split |
 | `Addins/RegisterComponentTests.cs` | split |
 | `Addins/RegisterControlLibraryTests.cs` | split |
 | `Addins/RegisterLanguageEditingTests.cs` | split |
