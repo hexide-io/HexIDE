@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using HexIDE.AddinPacker;
 using HexIDE.Addins;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Addins;
 
@@ -225,9 +226,9 @@ public sealed class PackerKeyOfTheRecordTests : IDisposable
         Directory.Exists(Output).Should().BeFalse();
     }
 
-    public static bool CanCreateSymbolicLinks => !OperatingSystem.IsWindows();
+    public static bool CanCreateSymbolicLinks => SymbolicLinks.RunTests;
 
-    [Fact(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [Fact(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     public void A_bundled_symlink_to_the_key_is_refused()
     {
         var key = MoveTheKeyOutOfTheTrustFolder();
