@@ -42,8 +42,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Components.InBox.FlatScrollBarComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.ImageListComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.InBoxComponentClass |
-| type | HexIDE | HexIDE.Runtime.Components.InBox.LibraryClass |
-| type | HexIDE | HexIDE.Runtime.Components.InBox.RuntimeLibraries |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.RuntimeLibrary |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.SSTabComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.StatusBarComponentClass |

@@ -128,3 +128,14 @@ HexIDE.Runtime.Components.ComponentMemberKind.Method = 1 -> HexIDE.Runtime.Compo
 HexIDE.Runtime.Components.ComponentMemberKind.Property = 0 -> HexIDE.Runtime.Components.ComponentMemberKind
 HexIDE.Runtime.Components.IComponentMemberTable
 HexIDE.Runtime.Components.IComponentMemberTable.MembersIn(HexIDE.Runtime.Components.IControlLibrary? library) -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentMember!>!
+HexIDE.Runtime.Components.IControlLibrary.Version.get -> string!
+HexIDE.Runtime.Components.IControlLibraryContents
+HexIDE.Runtime.Components.IControlLibraryContents.Types.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.LibraryType!>!
+HexIDE.Runtime.Components.LibraryType
+HexIDE.Runtime.Components.LibraryType.Component.get -> HexIDE.Runtime.Components.IComponentClass?
+HexIDE.Runtime.Components.LibraryType.Component.init -> void
+HexIDE.Runtime.Components.LibraryType.DeclaredMembers.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Runtime.Components.LibraryType.DeclaredMembers.init -> void
+HexIDE.Runtime.Components.LibraryType.LibraryType(string! Name, HexIDE.Runtime.Components.IComponentClass? Component, System.Collections.Generic.IReadOnlyList<string!>! DeclaredMembers) -> void
+HexIDE.Runtime.Components.LibraryType.Name.get -> string!
+HexIDE.Runtime.Components.LibraryType.Name.init -> void

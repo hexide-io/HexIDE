@@ -156,7 +156,10 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     and whether HexIDE implements it, stay with the runtime.
   - **A listing generated before the change pins it.** Every member the Object Browser lists for an in-box class or
     library, with its kind and HexIDE-only note, must stay the same through both parts.
-  - **Its second part takes a library's classes and references from the registered libraries.**
+  - **Its second part takes a library's classes and references from the registered libraries.** `IControlLibrary`
+    gains `Version`, because a `Reference=` line names a library by GUID and version both. What a library declares
+    beyond its registered controls is optional, as `IControlLibraryContents`. The order a project's libraries are
+    read in moves to Core over `IControlLibrary`, so the runtime and the Object Browser share it (#2265).
 - **Designer pictures (2.4b).** This was agreed with hexide-frm, and the supervisor reviews the draft.
   - `RegisterDesignerPictures` is one service per host and is grant-gated, since it draws every form's controls. A
     third-party component is drawn by that service through its own `IComponentClass`.
