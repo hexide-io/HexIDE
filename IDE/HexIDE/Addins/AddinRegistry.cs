@@ -362,7 +362,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 ctx.Info.Title, ctx.Info.Version, ctx.Info.Author,
                 result.IsVerified ? result.PublisherDisplayName : null,
                 _localization,
-                result.Chain, _windowManager);
+                result.Chain, _windowManager, result.UnrecognisedRootFingerprint);
 
             bool allowed;
             try
@@ -555,7 +555,11 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         result.Manifest is { } m
             ? new AddinInfo(packageDir, m.Title, m.Description, m.Version, m.Author,
                             result.PublisherDisplayName ?? "", m.Id, result.ManifestHash ?? "",
-                            result.LogoPath, result.Chain) { VerifiedDeclaration = result.VerifiedDeclaration, PublisherNamespaces = result.PublisherNamespaces }
+                            result.LogoPath, result.Chain)
+              {
+                  VerifiedDeclaration = result.VerifiedDeclaration, PublisherNamespaces = result.PublisherNamespaces,
+                  UnrecognisedRootFingerprint = result.UnrecognisedRootFingerprint,
+              }
             : ShallowInfo(packageDir);
 
     private static AddinInfo ShallowInfo(string packageDir) =>

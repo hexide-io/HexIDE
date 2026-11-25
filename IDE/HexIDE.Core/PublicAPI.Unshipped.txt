@@ -162,3 +162,8 @@ static HexIDE.Runtime.Components.DesignerCaption.operator ==(HexIDE.Runtime.Comp
 HexIDE.IDE.IProjectFileFormat.AttributeBlock(string! code) -> string!
 HexIDE.IDE.IProjectFileFormat.IsDesignerFile(string! text) -> bool
 HexIDE.IDE.IProjectFileFormat.ModuleNameFor(string! fallbackName, string? header) -> string!
+const HexIDE.Addins.PackageVerification.PackageRootFile = "root.pub" -> string!
+HexIDE.Addins.AddinInfo.UnrecognisedRootFingerprint.get -> string?
+HexIDE.Addins.AddinInfo.UnrecognisedRootFingerprint.init -> void
+HexIDE.Addins.PackageVerificationResult.UnrecognisedRootFingerprint.get -> string?
+HexIDE.Addins.PackageVerificationResult.UnrecognisedRootFingerprint.init -> void

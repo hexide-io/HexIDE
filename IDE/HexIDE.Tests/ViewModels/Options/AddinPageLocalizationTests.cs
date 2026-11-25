@@ -1,4 +1,5 @@
 using System;
+using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.ViewModels.Options;
 using HexIDE.Localization;
 
@@ -119,5 +120,42 @@ public class AddinPageLocalizationTests
             changed.Should().Contain("StatusText");
         }
         if (status == AddinStatus.Incompatible) info.CompatibilityError.Should().Be(original);
+    }
+
+    // #5316: a package refused because its chain leads to a root this build doesn't carry says so, with the fingerprint,
+    // whether developer mode loaded it as unsigned or not. The status stays the unverified one.
+    [AvaloniaTheory]
+    [InlineData(AddinStatus.Untrusted)]
+    [InlineData(AddinStatus.DeveloperUnsigned)]
+    public void An_unrecognised_root_is_named_in_the_trust_line(AddinStatus status)
+    {
+        var localization = new LocalizationService();
+        localization.Apply("en");
+        var registry = Substitute.For<IAddinRegistry>();
+        registry.GetStatus("/a").Returns(status);
+        const string root = "ABCD 1234";
+
+        using var page = new AddinOptionsPageViewModel(registry,
+            new AddinInfo("/a", "Title", "", "1", "") { UnrecognisedRootFingerprint = root }, localization: localization);
+
+        page.TrustChain.UnavailableReason.Should().Be(
+            string.Format(localization.GetString("Str.Options.Addin.TrustUnrecognisedRoot"), root));
+        page.TrustChain.UnavailableReason.Should().Contain(root).And.Contain("TRUST.md");
+        page.StatusText.Should().Be(localization.GetString("Str.Options.Addin.Status." + status));
+    }
+
+    [AvaloniaFact]
+    public void The_consent_line_names_an_unrecognised_root_and_a_verified_publisher_ignores_it()
+    {
+        var localization = new LocalizationService();
+        localization.Apply("en");
+
+        var unverified = new AddinConsentDialogViewModel("T", "1", "A", null, localization, unrecognisedRootFingerprint: "ABCD 1234");
+        var verified = new AddinConsentDialogViewModel("T", "1", "A", "Acme", localization, unrecognisedRootFingerprint: "ABCD 1234");
+
+        unverified.IsUnsigned.Should().BeTrue();
+        unverified.PublisherLine.Should().Be(
+            string.Format(localization.GetString("Str.Dialog.AddinConsent.Vm.UnrecognisedRoot"), "ABCD 1234"));
+        verified.PublisherLine.Should().Be(string.Format(localization.GetString("Str.Dialog.AddinConsent.Vm.VerifiedPublisher"), "Acme"));
     }
 }

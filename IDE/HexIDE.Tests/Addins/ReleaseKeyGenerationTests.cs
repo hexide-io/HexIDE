@@ -194,8 +194,9 @@ public sealed class ReleaseKeyGenerationTests : IDisposable
     {
         var result = await Generate();
         result.Code.Should().Be(0, result.Error);
-        // pack --trust consumes the public records alongside the publisher key only.
-        foreach (var record in Directory.GetFiles(Public, "*.json").Concat(Directory.GetFiles(Public, "*.sig")))
+        // pack --trust consumes the public records and the root they chain to (#5316) alongside the publisher key only.
+        foreach (var record in Directory.GetFiles(Public, "*.json").Concat(Directory.GetFiles(Public, "*.sig"))
+                     .Append(Path.Combine(Public, "hexide-root.pub")))
             File.Copy(record, Path.Combine(PublisherKeys, Path.GetFileName(record)));
         var src = Path.Combine(_root, "src");
         Directory.CreateDirectory(src);
@@ -232,9 +233,9 @@ public sealed class ReleaseKeyGenerationTests : IDisposable
             "--display-name", "Third Party", "--public-key", publisherPublic, "--out", thirdParty);
         issued.Code.Should().Be(0, issued.Error);
 
-        foreach (var record in new[] { "intermediate.json", "intermediate.sig", "publisher.json", "publisher.sig" })
+        foreach (var record in new[] { "hexide-root.pub", "intermediate.json", "intermediate.sig", "publisher.json", "publisher.sig" })
             File.Copy(Path.Combine(Public, record), Path.Combine(PublisherKeys, record));
-        foreach (var record in new[] { "intermediate.json", "intermediate.sig" })
+        foreach (var record in new[] { "hexide-root.pub", "intermediate.json", "intermediate.sig" })
             File.Copy(Path.Combine(Public, record), Path.Combine(thirdParty, record));
 
         var src = Path.Combine(_root, "src");

@@ -21,12 +21,14 @@ public partial class AddinConsentDialogViewModel : ObservableObject, IDialog
     public event Action<bool>? CloseRequested;
 
     private readonly TrustChain? _chain;
+    private readonly string? _unrecognisedRoot;
     private readonly IWindowManager? _windowManager;
     private readonly ILocalizationService _localization;
 
     public AddinConsentDialogViewModel(string addinTitle, string version, string author, string? verifiedPublisher,
                                        ILocalizationService localization,
-                                       TrustChain? chain = null, IWindowManager? windowManager = null)
+                                       TrustChain? chain = null, IWindowManager? windowManager = null,
+                                       string? unrecognisedRootFingerprint = null)
     {
         _localization = localization;
         AddinTitle = string.IsNullOrEmpty(addinTitle) ? localization.GetString("Str.Dialog.AddinConsent.Vm.UnnamedAddin") : addinTitle;
@@ -36,6 +38,7 @@ public partial class AddinConsentDialogViewModel : ObservableObject, IDialog
         IsVerified = !string.IsNullOrEmpty(verifiedPublisher);
         _chain = chain;
         _windowManager = windowManager;
+        _unrecognisedRoot = IsVerified ? null : unrecognisedRootFingerprint;
     }
 
     /// <summary>The "Trust details…" affordance is offered only when a window manager is available to host
@@ -47,7 +50,9 @@ public partial class AddinConsentDialogViewModel : ObservableObject, IDialog
     {
         if (_windowManager is null)
             return;
-        var unavailable = _chain is null ? _localization.GetString("Str.Dialog.AddinConsent.Vm.NoVerifiableIdentity") : null;
+        var unavailable = _chain is not null ? null
+            : _unrecognisedRoot is { } root ? string.Format(_localization.GetString("Str.Options.Addin.TrustUnrecognisedRoot"), root)
+            : _localization.GetString("Str.Dialog.AddinConsent.Vm.NoVerifiableIdentity");
         await _windowManager.ShowDialog(new TrustChainViewModel(_chain, unavailable, isRevoked: false, asDialog: true, localization: _localization));
     }
 
@@ -60,7 +65,9 @@ public partial class AddinConsentDialogViewModel : ObservableObject, IDialog
 
     public string PublisherLine => IsVerified
         ? string.Format(_localization.GetString("Str.Dialog.AddinConsent.Vm.VerifiedPublisher"), VerifiedPublisher)
-        : _localization.GetString("Str.Dialog.AddinConsent.Vm.Unsigned");
+        : _unrecognisedRoot is { } root
+            ? string.Format(_localization.GetString("Str.Dialog.AddinConsent.Vm.UnrecognisedRoot"), root)
+            : _localization.GetString("Str.Dialog.AddinConsent.Vm.Unsigned");
 
     [RelayCommand] private void Allow() => CloseRequested?.Invoke(true);
     [RelayCommand] private void Block() => CloseRequested?.Invoke(false);
