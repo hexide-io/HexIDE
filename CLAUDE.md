@@ -959,10 +959,11 @@ user-facing string is a localization key, never a hardcoded literal.**
 1. **Add the key at the use site:** AXAML → `{DynamicResource Str.Area.Element}`; user-facing C# →
    `ILocalizationService.GetString("Str.Area.Element")` (use a `{0}` placeholder + `string.Format` for
    interpolation). Keys are `Str.{Area}.{Element}` (PascalCase, dot-separated).
-2. **Add the key + English value to the canonical pack** `IDE/HexIDE/Localization/Packs/en.json` — the
-   single source of truth (US-spelled neutral English; renamed from `en-US.json` in P17). `LocalizationCoverageTests`
+2. **Add the key + English value to its owner's canonical pack:** `IDE/HexIDE/Localization/Packs/en.json` for the
+   shell, `IDE/HexIDE.Runtime/Localization/Packs/en.json` for the Basic provider (#5395). Their disjoint union is the
+   source of truth (US-spelled neutral English; renamed from `en-US.json` in P17). `LocalizationCoverageTests`
    **fails the build** if an AXAML `Str.*` key (or a VB6 property's `Str.PropDesc.*`) is missing from `en`.
-   **C# `GetString` keys are NOT auto-checked — add them to `en` by hand**, or the call renders the raw key.
+   Literal C# `GetString` keys are checked against the same union; computed keys still need an explicit guard.
    New VB6 property ⇒ add its `Str.PropDesc.{name}`.
 3. **Translate every new key into all shipped packs in the same change — the build enforces it.**
    `ShippedPackParityTests` fails when a pack named in `LanguageManifest.Packs` is missing a canonical key,
