@@ -14,6 +14,7 @@ A test that reaches the provider only at run time, through the application's com
 
 | File | Label |
 |---|---|
+| `Addins/LanguageEditingCompositionTests.cs` | split |
 | `Addins/RegisterDesignerPicturesTests.cs` | split |
 | `Addins/RegisterResourcesTests.cs` | split |
 | `Automation/ActiveDocumentDumpTests.cs` | split |

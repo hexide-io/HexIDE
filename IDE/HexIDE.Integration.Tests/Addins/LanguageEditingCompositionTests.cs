@@ -1,5 +1,6 @@
 using System.Linq;
 using Avalonia.Headless.XUnit;
+using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
@@ -38,6 +39,9 @@ public class LanguageEditingCompositionTests
         }
         finally
         {
+            // Unloaded first, so the window's close leaves no project holder open on the language layer: the module is
+            // new and unsaved, and a modified project member's close keeps its document open there otherwise.
+            composition.EventBus.Publish(new ProjectUnloadedEvent(project));
             editor?.Dispose();
         }
     }
