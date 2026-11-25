@@ -185,8 +185,8 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     caption. A throw or a null answers as a class without the contract does, and is logged. The icon is decoded by the
     `.frx` decoder, as a form's own pictures are. `PreservedControlText` moves to Core as public, since the designer and
     the VB6 form reader both read it.
-  - **The second puts the preview and the carried-controls rule on the run engine,** as an optional internal
-    `IDesignerRunEngine` forwarded with the engine's containment, once #5616 has merged.
+  - **The second puts the preview and the carried-controls rule on the run engine,** as an optional
+    `IDesignerRunEngine`, public and unbaselined as `IRunEngine` is, forwarded with the engine's containment (#5645).
 - **The picture decoders get a product assembly of their own (2.5b, #5474),** which the IDE, the provider and
   `HexIDE.Standalone` reference.
   - After phase 4 it stays in HexIDE and is consumed by HexIDE.Basic as Core is, so a decoder fix ships in HexIDE's
