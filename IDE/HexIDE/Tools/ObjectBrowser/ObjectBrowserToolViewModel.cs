@@ -115,6 +115,12 @@ public partial class ObjectBrowserToolViewModel : Document
     // The control libraries' classes come from the registry, as they do for the toolbox (#3601).
     private readonly IComponentRegistry componentRegistry;
 
+    /// <summary>
+    /// Where a module's declarations come from when no language server answers: the helpers registered for <c>vb6</c>, the
+    /// language of every VB-family project's members (#5403). Without it, or with nothing registered, such a module lists none.
+    /// </summary>
+    internal ILanguageEditing? LanguageEditing { get; init; }
+
     public ObjectBrowserToolViewModel(IProjectManager projectManager, ILspClient lspClient,
         IEditorService editorService, IComponentRegistry componentRegistry,
         ITypeLibraryService typeLibraryService, IFocusedProjectUtil focusedProjectUtil,
@@ -633,7 +639,7 @@ public partial class ObjectBrowserToolViewModel : Document
                     ? (module.Owner.Format?.CodePrefix(module) ?? FormCodeText.Prefix(module)) + module.Code
                     : (classVm.FormDefinition!.Owner.Format?.CodePrefix(classVm.FormDefinition)
                         ?? FormCodeText.Prefix(classVm.FormDefinition)) + classVm.FormDefinition.Code;
-                symbols = VbFamilyDeclarationCollector.Collect(text);
+                symbols = [.. LanguageEditing?.DeclarationsFor(DocumentLanguage.Vb6).Declarations(text) ?? []];
             }
             if (requestVersion != memberRequestVersion) return;
 

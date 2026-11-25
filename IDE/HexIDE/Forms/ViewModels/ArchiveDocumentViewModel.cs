@@ -16,9 +16,13 @@ namespace HexIDE.Forms.ViewModels;
 public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISearchableDocument
 {
     private readonly ILocalizationService localization;
-    private readonly IConditionalCodeReader conditionalCode;
+    // Its #If reader is the one registered for the entry's language (#5403): a twinBASIC container's sources are twinbasic.
+    private readonly ILanguageEditing languageEditing;
+    private readonly Action onEditingChanged;
     private string? buildType;
     private string? languageId;
+    // Whether its #If branches are greyed: a .twin entry whose text could be read.
+    private bool greysIfs;
     private readonly ILspClient? lspClient;
     private LspDocumentSession? session;
     public IReadOnlyList<LspMarker> Markers { get; private set; } = [];
@@ -59,18 +63,23 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     public Func<int, int, bool> SnapshotReadOnlyRegions() => (_, _) => IsReadOnlyDocument;
 
     public ArchiveDocumentViewModel(ContainerEntry entry, ILocalizationService localization,
-        IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null, string? languageId = null)
+        ILanguageEditing languageEditing, string? buildType = null, ILspClient? lspClient = null, string? languageId = null)
     {
         this.lspClient = lspClient;
         this.localization = localization;
-        this.conditionalCode = conditionalCode;
+        this.languageEditing = languageEditing;
         Entry = entry;
         Update(entry, buildType, languageId);
+        // Raised where a registration arrives or goes, which can be under the add-in registry's lock on any thread: so this
+        // only posts, and the lines are read again inside the posted job.
+        var uiThread = Avalonia.Threading.Dispatcher.UIThread;
+        onEditingChanged = () => uiThread.Post(RefreshInactiveLines);
+        languageEditing.Changed += onEditingChanged;
     }
 
     public ArchiveDocumentViewModel(ArchiveProjectEntry entry, ILocalizationService localization,
-        IConditionalCodeReader conditionalCode, string? buildType = null, ILspClient? lspClient = null, string? languageId = null)
-        : this(ContainerEntry.FromArchive(entry), localization, conditionalCode, buildType, lspClient, languageId) { }
+        ILanguageEditing languageEditing, string? buildType = null, ILspClient? lspClient = null, string? languageId = null)
+        : this(ContainerEntry.FromArchive(entry), localization, languageEditing, buildType, lspClient, languageId) { }
 
     /// <param name="entry">The entry, from the project's latest snapshot.</param>
     /// <param name="buildType">The project's build type from its Settings, which <c>TWINBASIC_BUILD_TYPE</c> holds; null when
@@ -115,9 +124,9 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
             entry.Identity.ContainerPath, string.Join(" / ", entry.Identity.Segments),
             archive.Source.Category, archive.Source.Flags, archive.Source.Revision,
             (archive as ArchiveProjectDocument)?.File.Content.Length ?? 0) : "";
-        InactiveLines = entry.Archive != null && preview?.Status == ArchiveTextStatus.Available && entry.Name.EndsWith(".twin", StringComparison.OrdinalIgnoreCase)
-            ? InactiveLinesOf(preview.Text!, buildType)
-            : [];
+        greysIfs = entry.Archive != null && preview?.Status == ArchiveTextStatus.Available
+            && entry.Name.EndsWith(".twin", StringComparison.OrdinalIgnoreCase);
+        InactiveLines = greysIfs ? InactiveLinesOf(preview!.Text!, buildType) : [];
         Title = ComputeTitle();
         if (lspClient != null && preview?.Status == ArchiveTextStatus.Available)
         {
@@ -133,7 +142,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
 
     internal ArchiveDocumentViewModel Reopen()
     {
-        var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode, buildType, lspClient, languageId);
+        var reopened = new ArchiveDocumentViewModel(Entry, localization, languageEditing, buildType, lspClient, languageId);
         if (projects != null) reopened.EnableSaving(projects);
         reopened.CaretOffset = Math.Clamp(CaretOffset, 0, reopened.Document.TextLength);
         return reopened;
@@ -141,13 +150,20 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
 
     public override void Dispose()
     {
+        languageEditing.Changed -= onEditingChanged;
         session?.Dispose();
         session = null;
         base.Dispose();
     }
 
+    // The entry's language gained or lost its registered #If reader (#5403): grey what the reader now says, as an edit would.
+    private void RefreshInactiveLines()
+    {
+        if (greysIfs) InactiveLines = InactiveLinesOf(Document.Text, buildType);
+    }
+
     private IReadOnlyList<LineRange> InactiveLinesOf(string text, string? buildType) =>
-        conditionalCode.InactiveLines(text, new ConditionalConstants(ConditionalConstants.NoArguments)
+        languageEditing.ConditionalCodeFor(languageId).InactiveLines(text, new ConditionalConstants(ConditionalConstants.NoArguments)
         {
             BuiltIns = TwinBasicCompilationConstants.BuiltIns(win64: false, build: null, buildType),
             CallsReadZero = true,

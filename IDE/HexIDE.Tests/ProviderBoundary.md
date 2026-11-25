@@ -61,14 +61,12 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.IFormView |
 | type | HexIDE | HexIDE.Runtime.IModuleExecutionRoot |
 | type | HexIDE | HexIDE.Runtime.Interpreter.BasicInterpreter |
-| type | HexIDE | HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode |
 | type | HexIDE | HexIDE.Runtime.Interpreter.ExecutionEnvironment |
 | type | HexIDE | HexIDE.Runtime.Interpreter.HostDialogs |
 | type | HexIDE | HexIDE.Runtime.Interpreter.IBasicStandardLibrary |
 | type | HexIDE | HexIDE.Runtime.Interpreter.ITextClipboard |
 | type | HexIDE | HexIDE.Runtime.Interpreter.IVbDisplay |
 | type | HexIDE | HexIDE.Runtime.Interpreter.IVbSettingsStore |
-| type | HexIDE | HexIDE.Runtime.Interpreter.InterpreterBrackets |
 | type | HexIDE | HexIDE.Runtime.Interpreter.ModuleExecutionContext |
 | type | HexIDE | HexIDE.Runtime.Interpreter.ModuleInfo |
 | type | HexIDE | HexIDE.Runtime.Interpreter.ProcedureInfo |
@@ -103,7 +101,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.VBLoader |
 | type | HexIDE | HexIDE.Runtime.VBProgram |
 | type | HexIDE | HexIDE.Runtime.VBWindowContext |
-| type | HexIDE | VB6Lexer |
 | type | HexIDE.Desktop | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
 | type | HexIDE.Desktop | HexIDE.Runtime.BasicProvider |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.FormComponentClass |

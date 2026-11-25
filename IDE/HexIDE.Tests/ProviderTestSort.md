@@ -21,6 +21,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/ComponentWithdrawalTests.cs` | split |
 | `Addins/RegisterComponentTests.cs` | split |
 | `Addins/RegisterControlLibraryTests.cs` | split |
+| `Addins/RegisterLanguageEditingTests.cs` | split |
 | `Components/FlexGridModelTests.cs` | provider |
 | `Components/FlexGridSortTests.cs` | provider |
 | `Components/PropertyTextTests.cs` | split |

@@ -42,7 +42,7 @@ public class RegisterControlLibraryTests
 
     private static HexIdeHost Ide(ComponentRegistry registry) =>
         new(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, registry, null!, null!, null!, null!,
-            new AddinResourceService(), new AddinLanguagePackService());
+            new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService());
 
     private static IHexIdeHost Host(ComponentRegistry registry, AddinOrigin origin) => new AddinOwnedHost(Ide(registry), null!, origin);
 

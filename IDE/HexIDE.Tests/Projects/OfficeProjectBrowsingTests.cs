@@ -31,7 +31,7 @@ public sealed class OfficeProjectBrowsingTests : IDisposable
         localization.GetString("Str.Archive.OpenErrorFormat").Returns("Cannot open {0}: {1}");
         dock.OpenDocuments.Returns(tabs);
         dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>())).Do(c => tabs.Add(c.Arg<BaseEditorWindowViewModel>()));
-        archives = new(dock, recent, localization, windows, Substitute.For<HexIDE.Language.IConditionalCodeReader>());
+        archives = new(dock, recent, localization, windows, Substitute.For<HexIDE.Language.ILanguageEditing>());
     }
 
     [Fact]

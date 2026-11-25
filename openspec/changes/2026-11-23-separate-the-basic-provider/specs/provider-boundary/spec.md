@@ -56,7 +56,8 @@ Nothing a provider registers SHALL replace a resource that the add-in consent an
 ### Requirement: A bundled provider registers as any add-in does
 A provider's registrations SHALL go through the same host interface that an add-in receives once it has passed
 consent. No registration point SHALL exist outside that interface. A first-party or bundled provider SHALL use the
-same calls, and meet the same checks, as a third-party one.
+same calls, and meet the same checks, as a third-party one. The language editing registration is the one exception,
+while only the composed provider registers a language's editing helpers (#5403).
 
 #### Scenario: The bundled Basic provider starts
 - **WHEN** the IDE starts the bundled Basic provider
@@ -91,3 +92,54 @@ the localization delta (#5453).
 #### Scenario: The bundled provider registers a key the IDE holds
 - **WHEN** the provider, composed from `HexIDE.Desktop`, registers a resource key the IDE already holds
 - **THEN** the registration is refused and logged, naming the IDE as the holder
+
+### Requirement: A language's editing helpers register only through the owned host
+A language's editing helpers SHALL be registered only through the host an add-in receives, by an owner the grant names
+for them, and the IDE's own host SHALL refuse them. While only the composed provider registers them, the registration
+MAY be internal to HexIDE's assemblies instead of a member of the host interface, and it SHALL then meet the same checks
+(#5403).
+
+#### Scenario: An owner the grant doesn't name registers editing helpers
+- **WHEN** an add-in the grant doesn't name registers editing helpers, through the internal registration
+- **THEN** the registration is refused and logged, and its helpers are never asked
+
+### Requirement: A language's editing helpers only add
+A registration naming a language id another owner already serves SHALL be refused whole and logged, naming both owners.
+
+#### Scenario: A second owner registers a language that is already served
+- **WHEN** an owner registers editing helpers for a language id another owner serves
+- **THEN** the registration is refused and logged, naming both owners
+- **AND** none of the languages it named is served by it
+
+### Requirement: A language with no editing helpers gets none of them
+The code window, the archive view, the Object Browser and the Watch dialog SHALL ask for a document's editing helpers by
+its language id. A language with none registered SHALL get no greyed `#If` branches, no coloured brackets and no
+declarations, as a plain-text file has. Every VB-family project's members SHALL be asked for as `vb6`.
+
+#### Scenario: A VBA project's module is opened
+- **WHEN** a module of a VBA or RDCore project is opened in the code window
+- **THEN** its brackets and greying come from the helpers registered for `vb6`
+
+#### Scenario: Nothing is registered for the language
+- **WHEN** the Watch dialog lists a module's procedures and nothing is registered for `vb6`
+- **THEN** it lists none for that module
+
+### Requirement: An editing helper's throw answers as no helper
+A throw from a registered editing helper SHALL be logged, naming its owner, and that call SHALL answer as though no
+helper were registered. The registration SHALL stay. The first throw from each helper SHALL be logged as a warning and
+later ones at debug.
+
+#### Scenario: The bracket reader throws on an edit
+- **WHEN** the registered bracket reader throws while the code window colours a line
+- **THEN** the throw is logged, and that line's brackets are drawn uncoloured
+- **AND** the next call asks the reader again
+
+### Requirement: Withdrawing editing helpers doesn't wait on the UI thread
+Withdrawing a language's editing helpers SHALL NOT wait on the UI thread, since the add-in registry withdraws them under
+its lock. An open code window SHALL read its brackets and greying again in a job posted to the UI thread after the
+withdrawal returns.
+
+#### Scenario: The owner is disabled from another thread while a code window is open
+- **WHEN** the helpers' owner is withdrawn from a thread other than the UI thread, with a code window open
+- **THEN** the withdrawal returns without waiting on the UI thread
+- **AND** the posted refresh then draws the window's brackets uncoloured and its branches ungreyed

@@ -48,7 +48,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             .Returns(call => tabs.OfType<ArchiveDocumentViewModel>().Any(call.Arg<Func<ArchiveDocumentViewModel, bool>>()));
         localization.GetString("Str.Archive.FolderReadyFormat").Returns("Ready: {0}");
         localization.GetString("Str.Archive.FolderErrorFormat").Returns("Stopped: {0}");
-        archives = new(dock, recent, localization, windows, new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode(), () => lsp);
+        archives = new(dock, recent, localization, windows, InBoxRegistry.LanguageEditing(), () => lsp);
     }
 
     private static string OfficeFile(string name)
@@ -493,7 +493,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         await archives.Open(Write("one.twinproj", source));
         var entry = archives.Projects[0].Root.Children[0];
         var tab = new ArchiveDocumentViewModel(entry, localization,
-            new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode(),
+            InBoxRegistry.LanguageEditing(),
             updated ? "ActiveX DLL" : "Standard EXE");
         if (updated) tab.Update(entry, "Standard EXE");
         tab.InactiveLines.Should().NotBeEmpty();

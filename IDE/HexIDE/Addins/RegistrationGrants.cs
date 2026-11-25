@@ -48,6 +48,12 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     public bool DesignerPictures { get; init; }
 
     /// <summary>
+    /// Whether it may register a language's editing helpers (#5403), which the code window calls on every edit: which lines an
+    /// <c>#If</c> leaves out, where the parentheses are, and what a module declares.
+    /// </summary>
+    public bool LanguageEditing { get; init; }
+
+    /// <summary>
     /// Whether it may register a component beyond a plain control (#5594): one whose role isn't
     /// <see cref="HexIDE.Runtime.Components.ComponentRole.Control"/>, such as a form, or that's a container. The designer
     /// gives such a class a place no plain control has, as a form's root or as other controls' parent.
@@ -99,6 +105,8 @@ internal static class RegistrationGrants
             ],
             // Its controls draw themselves in the designer (#5591).
             DesignerPictures = true,
+            // The VB family's editing helpers: its interpreter's #If reader and lexer (#5403).
+            LanguageEditing = true,
             // Its Form, and its Frame and PictureBox, which hold other controls (#5594).
             Components = true,
             // VB6's own type names, and its control libraries', the in-box OCXs it implements (#5599).

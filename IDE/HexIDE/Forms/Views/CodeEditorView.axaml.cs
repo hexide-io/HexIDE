@@ -511,6 +511,7 @@ public partial class CodeEditorView : UserControl
             };
             vm.Settings.PropertyChanged += _inlaySettingsChanged;
             vm.Analysis.Refreshed += OnAnalysisRefreshed;
+            vm.EditingChanged += OnEditingChanged;
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
@@ -811,6 +812,7 @@ public partial class CodeEditorView : UserControl
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
             vm.Analysis.Refreshed -= OnAnalysisRefreshed;
+            vm.EditingChanged -= OnEditingChanged;
             if (_fontSettingsChanged is not null) vm.Settings.PropertyChanged -= _fontSettingsChanged;
             _fontSettingsChanged = null;
             if (_inlaySettingsChanged is not null)
@@ -1411,6 +1413,14 @@ public partial class CodeEditorView : UserControl
                 command => vm.RunCodeLensAsync(command).ListenErrors());
             ScheduleFolding(vm);
         }
+    }
+
+    // A language's helpers were registered or withdrawn (#5403). This runs in the job the view model posted, so the brackets
+    // and greying are read again here, on the UI thread, and never where the registration changed.
+    private void OnEditingChanged(object? sender, EventArgs args)
+    {
+        _bracketDepthColorizer?.Invalidate();
+        RefreshConditionalCompilation();
     }
 
     private void OnAnalysisRefreshed(object? sender, EventArgs args)

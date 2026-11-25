@@ -1,5 +1,8 @@
 using HexIDE.Addins;
+using HexIDE.Language;
+using HexIDE.Lsp;
 using HexIDE.Runtime.Components.InBox;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 namespace HexIDE.Runtime;
 
@@ -15,8 +18,8 @@ namespace HexIDE.Runtime;
 /// </para>
 /// <para>
 /// It registers its controls' resources, its language packs, its Form and controls with their toolbox items (#5594), its
-/// control libraries (#5599), and what draws the designer's controls (#5591). The run engine and the project type join it
-/// as their slices land.
+/// control libraries (#5599), what draws the designer's controls (#5591), and the VB family's editing helpers (#5403). The run
+/// engine and the project type join it as their slices land.
 /// </para>
 /// </remarks>
 public sealed class BasicProvider : IAddin
@@ -87,6 +90,23 @@ public sealed class BasicProvider : IAddin
         return controls;
     }
 
+    /// <summary>
+    /// The VB family's editing helpers (#5403): its interpreter's <c>#If</c> reader, and its lexer for the parentheses and the
+    /// declarations. For <c>vb6</c>, the code window's id for every VB-family project's members, VBA's and RDCore's included,
+    /// and for <c>twinbasic</c>, a twinBASIC container's sources in the archive view.
+    /// </summary>
+    /// <remarks>
+    /// <c>twinbasic</c> is here only because these helpers have always greyed a container's <c>#If</c>s. A twinBASIC-owned
+    /// registration would be refused while this one serves it, so the change that adds one removes <c>twinbasic</c> from this
+    /// list in the same change.
+    /// </remarks>
+    internal static LanguageEditing LanguageEditing { get; } = new([DocumentLanguage.Vb6, DocumentLanguage.TwinBasic])
+    {
+        ConditionalCode = new InterpreterConditionalCode(),
+        Brackets = new InterpreterBrackets(),
+        Declarations = new VbFamilyDeclarationCollector(),
+    };
+
     private readonly List<IDisposable> registrations = [];
 
     // A real frame: the host names the caller's assembly as the dictionaries' owner, so this can't be inlined away.
@@ -103,7 +123,10 @@ public sealed class BasicProvider : IAddin
             registrations.Add(host.RegisterToolboxItem(component, iconKey));
         foreach (var library in Libraries)
             registrations.Add(host.RegisterControlLibrary(library, () => ControlsOf(library)));
-        // Last: a refusal here leaves the themes, text and controls already registered.
+        // Internal until the registration is published (#5403): only the host HexIDE composes the provider with can take it.
+        if (host is ILanguageEditingRegistration editing)
+            registrations.Add(editing.RegisterLanguageEditing(LanguageEditing));
+        // Last: a refusal here leaves the themes, text, controls and editing helpers already registered.
         registrations.Add(host.RegisterDesignerPictures(surface => new InProcessDesignerPictures(surface)));
     }
 
