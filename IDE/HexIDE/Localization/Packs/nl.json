@@ -1164,6 +1164,7 @@
     "Str.Naming.Msg.EmptyName": "De naam mag niet leeg zijn",
     "Str.Naming.Msg.NameNotUniqueInForm": "De naam moet uniek zijn binnen het formulier",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' is geen geldige naam. Een naam begint met een letter en bestaat verder uit letters, cijfers en onderstrepingstekens.",
+    "Str.Naming.Msg.NotAFileName": "Het programma voor {0} is niet gemaakt: {1} is '{2}', wat geen bestandsnaam is, dus een bestand zou buiten zijn map worden geschreven.",
     "Str.Naming.Msg.ReservedWord": "'{0}' kan geen naam zijn, omdat VB6 dit woord reserveert.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' is al de naam van een formulier, module of klasse in dit project. VB6 plaatst ze in één naamruimte, dus kunnen er geen twee dezelfde naam hebben.",
     "Str.Naming.Msg.ProjectNameTaken": "Er is al een project met de naam '{0}' geladen. Twee projecten in één projectgroep kunnen niet dezelfde naam hebben.",

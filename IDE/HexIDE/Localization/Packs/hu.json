@@ -1164,6 +1164,7 @@
     "Str.Naming.Msg.EmptyName": "A név nem lehet üres",
     "Str.Naming.Msg.NameNotUniqueInForm": "A névnek egyedinek kell lennie az űrlapon",
     "Str.Naming.Msg.NotAVb6Name": "A(z) '{0}' nem érvényes név. A név betűvel kezdődik, és betűkkel, számjegyekkel és aláhúzásjelekkel folytatódhat.",
+    "Str.Naming.Msg.NotAFileName": "A(z) {0} programja nem készült el: a(z) {1} értéke '{2}', ami nem fájlnév, így egy fájl a mappáján kívülre kerülne.",
     "Str.Naming.Msg.ReservedWord": "A(z) '{0}' nem használható névként, mert a VB6 fenntartott szava.",
     "Str.Naming.Msg.DocumentNameTaken": "A(z) '{0}' már egy űrlap, modul vagy osztály neve ebben a projektben. A VB6 közös névteret használ hozzájuk, így kettőnek nem lehet azonos neve.",
     "Str.Naming.Msg.ProjectNameTaken": "Már be van töltve egy '{0}' nevű projekt. Egy csoportban két projektnek nem lehet azonos neve.",

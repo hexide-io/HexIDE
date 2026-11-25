@@ -1130,6 +1130,7 @@
     "Str.Naming.Msg.EmptyName": "Nimi ei tohi olla tühi",
     "Str.Naming.Msg.NameNotUniqueInForm": "Nimi peab vormi piires olema kordumatu",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' pole kehtiv nimi. Nimi algab tähega ja jätkub tähtede, numbrite ning allkriipsudega.",
+    "Str.Naming.Msg.NotAFileName": "Projekti {0} programmi ei loodud: {1} on '{2}', mis ei ole failinimi, seega kirjutataks fail väljapoole oma kausta.",
     "Str.Naming.Msg.ReservedWord": "'{0}' ei saa olla nimi, sest VB6 reserveerib selle sõna.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' on selles projektis juba vormi, mooduli või klassi nimi. VB6 annab neile ühe nimeruumi, seega ei saa kahel olla sama nimi.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekt nimega '{0}' on juba laaditud. Kahel sama rühma projektil ei saa olla sama nimi.",

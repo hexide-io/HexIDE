@@ -1130,6 +1130,7 @@
     "Str.Naming.Msg.EmptyName": "Izena ezin da hutsik egon",
     "Str.Naming.Msg.NameNotUniqueInForm": "Izenak bakarra izan behar du inprimakian",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' ez da baliozko izena. Izena letra batekin hasten da, eta letrekin, digituekin eta azpimarrekin jarraitzen du.",
+    "Str.Naming.Msg.NotAFileName": "Ez da {0}(r)en programa sortu: {1} '{2}' da, eta hori ez da fitxategi-izen bat; beraz, fitxategi bat bere karpetatik kanpo idatziko litzateke.",
     "Str.Naming.Msg.ReservedWord": "'{0}' ezin da izen gisa erabili, VB6k hitza erreserbatzen duelako.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' proiektu honetako inprimaki, modulu edo klase baten izena da dagoeneko. VB6k izen-eremu bakarra ematen die; beraz, bik ezin dute izen bera izan.",
     "Str.Naming.Msg.ProjectNameTaken": "'{0}' izeneko proiektua dagoeneko kargatuta dago. Talde bereko bi proiektuk ezin dute izen bera izan.",

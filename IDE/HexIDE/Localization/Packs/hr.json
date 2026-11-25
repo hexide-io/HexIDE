@@ -1197,6 +1197,7 @@
     "Str.Naming.Msg.EmptyName": "Naziv ne može biti prazan",
     "Str.Naming.Msg.NameNotUniqueInForm": "Naziv mora biti jedinstven u obrascu",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' nije valjan naziv. Naziv počinje slovom i nastavlja se slovima, znamenkama i podvlakama.",
+    "Str.Naming.Msg.NotAFileName": "Program za {0} nije izrađen: {1} je '{2}', što nije naziv datoteke, pa bi se datoteka zapisala izvan svoje mape.",
     "Str.Naming.Msg.ReservedWord": "'{0}' ne može biti naziv jer je ta riječ rezervirana u VB6.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' je već naziv obrasca, modula ili klase u ovom projektu. VB6 im daje jedan prostor naziva, pa ne mogu dijeliti naziv.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekt s nazivom '{0}' već je učitan. Dva projekta u jednoj grupi ne mogu dijeliti naziv.",

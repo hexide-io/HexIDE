@@ -1164,6 +1164,7 @@
     "Str.Naming.Msg.EmptyName": "Pavadinimas negali būti tuščias",
     "Str.Naming.Msg.NameNotUniqueInForm": "Pavadinimas formoje turi būti unikalus",
     "Str.Naming.Msg.NotAVb6Name": "„{0}“ nėra tinkamas pavadinimas. Pavadinimas prasideda raide ir tęsiamas raidėmis, skaitmenimis ir pabraukimo brūkšniais.",
+    "Str.Naming.Msg.NotAFileName": "{0} programa nesukurta: {1} yra '{2}', tai nėra failo vardas, todėl failas būtų įrašytas už savo aplanko ribų.",
     "Str.Naming.Msg.ReservedWord": "„{0}“ negali būti pavadinimas, nes VB6 šį žodį rezervuoja.",
     "Str.Naming.Msg.DocumentNameTaken": "„{0}“ jau yra šio projekto formos, modulio ar klasės pavadinimas. VB6 suteikia jiems vieną vardų sritį, todėl du negali turėti to paties pavadinimo.",
     "Str.Naming.Msg.ProjectNameTaken": "Projektas pavadinimu „{0}“ jau įkeltas. Du vienos grupės projektai negali turėti to paties pavadinimo.",

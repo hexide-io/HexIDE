@@ -1164,6 +1164,7 @@
     "Str.Naming.Msg.EmptyName": "Nosaukums nevar būt tukšs",
     "Str.Naming.Msg.NameNotUniqueInForm": "Nosaukumam jābūt unikālam formā",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' nav derīgs nosaukums. Nosaukums sākas ar burtu, un tam seko burti, cipari un pasvītrojuma zīmes.",
+    "Str.Naming.Msg.NotAFileName": "{0} programma netika izveidota: {1} ir '{2}', kas nav faila nosaukums, tāpēc fails tiktu ierakstīts ārpus savas mapes.",
     "Str.Naming.Msg.ReservedWord": "'{0}' nevar būt nosaukums, jo VB6 šo vārdu rezervē.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' jau ir formas, moduļa vai klases nosaukums šajā projektā. VB6 tiem ir viena nosaukumvieta, tāpēc diviem nevar būt vienāds nosaukums.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekts ar nosaukumu '{0}' jau ir ielādēts. Diviem projektiem vienā grupā nevar būt vienāds nosaukums.",

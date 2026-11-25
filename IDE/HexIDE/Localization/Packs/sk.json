@@ -1125,6 +1125,7 @@
     "Str.Naming.Msg.EmptyName": "Názov nemôže byť prázdny",
     "Str.Naming.Msg.NameNotUniqueInForm": "Názov musí byť v rámci formulára jedinečný",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' nie je platný názov. Názov sa začína písmenom a pokračuje písmenami, číslicami a podčiarkovníkmi.",
+    "Str.Naming.Msg.NotAFileName": "Program pre {0} nebol vytvorený: {1} je '{2}', čo nie je názov súboru, takže súbor by sa zapísal mimo svojho priečinka.",
     "Str.Naming.Msg.ReservedWord": "'{0}' nemôže byť názov, pretože VB6 toto slovo vyhradzuje.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' je už názvom formulára, modulu alebo triedy v tomto projekte. VB6 im prideľuje jeden priestor názvov, preto dve položky nemôžu mať rovnaký názov.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekt s názvom '{0}' je už načítaný. Dva projekty v jednej skupine nemôžu mať rovnaký názov.",

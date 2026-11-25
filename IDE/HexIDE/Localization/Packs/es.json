@@ -1163,6 +1163,7 @@
     "Str.Naming.Msg.EmptyName": "El nombre no puede estar vacío",
     "Str.Naming.Msg.NameNotUniqueInForm": "El nombre debe ser único en el formulario",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' no es un nombre válido. Un nombre comienza por una letra y continúa con letras, dígitos y guiones bajos.",
+    "Str.Naming.Msg.NotAFileName": "No se creó el programa de {0}: {1} es '{2}', que no es un nombre de archivo, por lo que se escribiría un archivo fuera de su carpeta.",
     "Str.Naming.Msg.ReservedWord": "'{0}' no puede ser un nombre, porque VB6 reserva esa palabra.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' ya es el nombre de un formulario, módulo o clase de este proyecto. VB6 les da un único espacio de nombres, así que dos no pueden compartir nombre.",
     "Str.Naming.Msg.ProjectNameTaken": "Ya está cargado un proyecto llamado '{0}'. Dos proyectos de un mismo grupo no pueden compartir nombre.",

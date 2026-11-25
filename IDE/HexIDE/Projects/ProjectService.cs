@@ -13,6 +13,7 @@ using HexIDE.Addins;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
+using HexIDE.IO;
 using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -1333,7 +1334,7 @@ public partial class ProjectService : IProjectService
         return await ChooseSavePath(new FilePickerSaveOptions
         {
             DefaultExtension = ext,
-            SuggestedFileName = form.Name + "." + ext,
+            SuggestedFileName = Suggest(form.Name + "." + ext),
             FileTypeChoices = [new(localization.GetString("Str.FilePicker.FormFiles")) { Patterns = [$"*.{ext}"] },
                 new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
         }, directory, form);
@@ -1345,7 +1346,7 @@ public partial class ProjectService : IProjectService
         return await ChooseSavePath(new FilePickerSaveOptions
         {
             DefaultExtension = ext,
-            SuggestedFileName = module.Name + "." + ext,
+            SuggestedFileName = Suggest(module.Name + "." + ext),
             FileTypeChoices = [new(localization.GetString("Str.FilePicker.ModuleFiles")) { Patterns = [$"*.{ext}"] },
                 new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
         }, directory, module);
@@ -1402,7 +1403,7 @@ public partial class ProjectService : IProjectService
         return await ChooseSavePath(new FilePickerSaveOptions
         {
             DefaultExtension = extension,
-            SuggestedFileName = name,
+            SuggestedFileName = Suggest(name),
             FileTypeChoices = [new(localization.GetString("Str.FilePicker.ProjectFiles")) { Patterns = patterns },
                 new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
         }, directory);
@@ -1417,7 +1418,7 @@ public partial class ProjectService : IProjectService
             Title = localization.GetString("Str.FilePicker.SaveProjectGroupAs"),
             DefaultExtension = extension,
             FileTypeChoices = [new(localization.GetString("Str.FilePicker.ProjectGroup")) { Patterns = patterns }],
-            SuggestedFileName = name
+            SuggestedFileName = Suggest(name)
         });
     }
 
@@ -1919,8 +1920,19 @@ public partial class ProjectService : IProjectService
             var project = item.Project;
             var directory = string.IsNullOrEmpty(project.AbsolutePath) ? null : Path.GetDirectoryName(project.AbsolutePath);
             // VB6's unsaved-project case is unmeasured; keep HexIDE's picker when there is no project folder.
-            var exePath = dialog.UseDefaultBuildOptions && directory is not null
-                ? ProjectOutputPath.OutputExePath(project) : null;
+            var useDefault = dialog.UseDefaultBuildOptions && directory is not null;
+            // The program's name comes from the project, and no picker shows where it would go, so one that isn't a plain
+            // file name ends the group as a failure does (#5622).
+            if (useDefault && ProjectOutputPath.RefusedName(project) is { } refused)
+            {
+                MakeOutcomes.Begin().NotMade(
+                    $"{project.Name}'s program would be written outside its folder: {refused.Field} is '{refused.Value}', "
+                    + "which isn't a file name, so nothing was written", true);
+                await windowManager.MessageBox(string.Format(localization.GetString("Str.Naming.Msg.NotAFileName"),
+                    project.Name, refused.Field, refused.Value), icon: MessageBoxIcon.Information);
+                return;
+            }
+            var exePath = useDefault ? ProjectOutputPath.OutputExePath(project) : null;
             try
             {
                 await MakeProject(project, exePath, directory);
@@ -1985,6 +1997,17 @@ public partial class ProjectService : IProjectService
         // A form or module HexIDE cannot reproduce is refused before the picker too, as Save As refuses it, and
         // every one is named at once. The write loop below still refuses one that becomes unfaithful while the
         // picker is open.
+        //
+        // First, though, a member whose name would put its file outside the folder being packaged: the name is the file's,
+        // and a project from elsewhere chooses it (#5622). The write loop below confines each file too.
+        if (MemberFileOutside(projectDefinition, tempPath) is { } outside)
+        {
+            make.NotMade($"{outside}'s file would be written outside the folder Make packages, so nothing was written", true);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Naming.Msg.NotAFileName"),
+                projectDefinition.Name, "VB_Name", outside), icon: MessageBoxIcon.Information);
+            throw new OperationCanceledException();
+        }
+
         if (projectDefinition.Forms.Cast<object>().Concat(projectDefinition.Modules).Where(RefusesUnfaithful).ToList()
             is { Count: > 0 })
         {
@@ -2014,7 +2037,7 @@ public partial class ProjectService : IProjectService
             exePath = await ChooseSavePath(new FilePickerSaveOptions()
             {
                 DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
-                SuggestedFileName = projectDefinition.Name + (OperatingSystem.IsWindows() ? ".exe" : ""),
+                SuggestedFileName = Suggest(projectDefinition.Name + (OperatingSystem.IsWindows() ? ".exe" : "")),
                 FileTypeChoices = OperatingSystem.IsWindows() ? [new("Windows EXE") { Patterns = ["*.exe"] }] : [new(localization.GetString("Str.FilePicker.AllFiles")) { Patterns = ["*.*"] }]
             }, directory: startIn, make: make);
         }
@@ -2080,7 +2103,7 @@ public partial class ProjectService : IProjectService
         try
         {
             foreach (var form in projectDefinition.Forms)
-                if (!SerializeFormToFile(form, Path.Join(tempPath, form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension),
+                if (!SerializeFormToFile(form, Confined(tempPath, form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension),
                         adoptHeader: false))
                     refused.Add(form.Name);
 
@@ -2091,7 +2114,7 @@ public partial class ProjectService : IProjectService
             // to put a file, and a module that has never been saved still belongs in the package.
             foreach (var module in projectDefinition.Modules)
             {
-                module.AbsolutePath = Path.Join(tempPath, module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind));
+                module.AbsolutePath = Confined(tempPath, module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind));
                 // announceSave: false — this writes a COPY into a temporary directory and restores every
                 // AbsolutePath in the finally below. The developer's files are untouched, so announcing a
                 // save here would report one that never happened, and point a server at a path that is
@@ -2141,6 +2164,26 @@ public partial class ProjectService : IProjectService
         AtomicFileWriter.Copy(runner.FullName, exePath);
         make.Made(exePath, Path.ChangeExtension(exePath, "dll"), replaced);
     }
+
+    /// <summary>
+    /// The name of the first form or module of <paramref name="project"/> whose file, named after it, would land outside
+    /// <paramref name="folder"/>, or null when none would (#5622).
+    /// </summary>
+    private static string? MemberFileOutside(ProjectDefinition project, string folder) =>
+        project.Forms.Select(form => (form.Name, File: form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension))
+            .Concat(project.Modules.Select(module =>
+                (module.Name, File: module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind))))
+            .Where(member => ConfinedPath.Join(folder, member.File) is null)
+            .Select(member => member.Name)
+            .FirstOrDefault();
+
+    /// <summary><paramref name="fileName"/> in <paramref name="folder"/>, or a throw when it would land anywhere else (#5622).</summary>
+    private static string Confined(string folder, string fileName) =>
+        ConfinedPath.Join(folder, fileName)
+        ?? throw new InvalidOperationException($"'{fileName}' isn't a file name, so it would be written outside {folder}.");
+
+    /// <summary>A name for a picker to suggest: <paramref name="fileName"/> when it's a plain file name, and none otherwise (#5622).</summary>
+    private static string? Suggest(string fileName) => ConfinedPath.IsFileName(fileName) ? fileName : null;
 
     /// <summary>Why a Make refused the forms and modules banked for <see cref="ReportRefusedSaves"/>, for its outcome.</summary>
     private string Unfaithful() =>
@@ -2216,6 +2259,17 @@ public partial class ProjectService : IProjectService
             throw new InvalidOperationException(
                 $"Cannot write this project to {directory}: {HexIDE.IDE.Distribution.DisplayName} cannot reproduce "
               + $"{string.Join(", ", refused)}, so nothing was written.");
+
+        // Each file is named after its member, or the project, and a project from elsewhere chooses those names (#5622).
+        var outside = new List<string>();
+        if (MemberFileOutside(project, directory) is { } member)
+            outside.Add(member);
+        if (ConfinedPath.Join(directory, project.Name + ".vbp") is null)
+            outside.Add(project.Name);
+        if (outside.Count > 0)
+            throw new InvalidOperationException(
+                $"Cannot write this project to {directory}: the files of {string.Join(", ", outside)} would be written "
+              + "outside it, because those names aren't file names, so nothing was written.");
 
         // Modules as well. Writing the forms and the .vbp but not the modules produced a directory whose
         // project file named .bas, .cls and .ctl files that were not in it — and, because every item is
