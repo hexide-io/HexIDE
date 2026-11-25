@@ -94,10 +94,38 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public override void Dispose()
     {
+        disposed = true;
+        if (runEngine is not null)
+            runEngine.DesignerChanged -= OnRunEngineChanged;
         base.Dispose();
         CaptionIcon?.Dispose();
         CaptionIcon = null;
     }
+
+    private bool disposed;
+    private readonly HexIDE.IDE.RunEngineForwarder? runEngine;
+
+    /// <summary>
+    /// The run engine as the IDE forwards to it (#5633): what previews the form, and says which carried controls it runs.
+    /// With none, the designer previews nothing and every carried control's box says it's unsupported.
+    /// </summary>
+    internal HexIDE.IDE.RunEngineForwarder? RunEngine
+    {
+        get => runEngine;
+        init
+        {
+            runEngine = value;
+            if (value is not null)
+                value.DesignerChanged += OnRunEngineChanged;
+        }
+    }
+
+    // An engine came or went, on whatever thread registered or withdrew it: the carried boxes ask again, on the UI thread.
+    private void OnRunEngineChanged() => Dispatcher.UIThread.Post(() =>
+    {
+        if (!disposed)
+            RebuildUnmodelledControls();
+    });
 
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Form");
 
@@ -217,7 +245,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 // container is (ComponentInstanceViewModel.ContainerBounds).
                 if (UnmodelledControl.Read(blocks[i].Text) is { } control)
                     UnmodelledControls.Add(new UnmodelledControlViewModel(control, ReferenceEquals(vm, Form) ? null : vm,
-                        depth: blocks.Count - 1 - i));
+                        depth: blocks.Count - 1 - i,
+                        viewOnly: runEngine?.RunsWhenCarried(control.TypeName, control.HoldsControls, control.InArray) == true));
             }
         }
         RestackCarried();
@@ -1764,24 +1793,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (formDefinition is null || !HasWindowFrame)
             return;
 
-        VBFormRuntime? preview = null;
-        try
-        {
-            preview = FormComponentClass.Instance.InstantiateWindow(Form.Instance, VBLoader.HasMenuBar(formDefinition));
-            // No SetCode, PrepareForm or Start: events have no interpreter to dispatch to (#2003).
-            preview.Content = VBLoader.SpawnComponents(formDefinition, preview.Context.ExecutionContext,
-                preview.Context.RootEnv, new StandaloneStandardLib(preview, HexIDE.IDE.Distribution.DisplayName));
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner })
-                preview.Show(owner);
-            else
-                preview.Show();
-        }
-        catch (NotImplementedException e)
-        {
-            preview?.Close();
-            await windowManager.MessageBox(e.Message, localization.GetString("Str.Designer.PreviewForm"),
+        // The run engine shows it, running none of its code (#2003, #5633). What it can't show is said in the box this was.
+        if (runEngine?.Preview(formDefinition) is { } refusal)
+            await windowManager.MessageBox(refusal, localization.GetString("Str.Designer.PreviewForm"),
                 MessageBoxButtons.Ok, MessageBoxIcon.Error);
-        }
     }
 
     public void ViewCode() => editorService.EditCode(formDefinition);

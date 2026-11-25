@@ -29,12 +29,16 @@ public sealed record UnmodelledControl(string TypeName, string Name, double Left
     /// <summary>VB6's height for the box of a control whose file records none, in twips (measured).</summary>
     public const double DefaultHeight = 480;
 
-    /// <summary>
-    /// Whether HexIDE runs the control though the designer only carries its block (#2327), as
-    /// <see cref="FormDeserializer.RunsWhenCarried"/> decides: the box then says it is view-only in the designer, not
-    /// that it is unsupported.
-    /// </summary>
-    public bool ViewOnly { get; init; }
+    /// <summary>Whether the block holds controls of its own.</summary>
+    /// <remarks>
+    /// With <see cref="InArray"/>, what the run engine is asked whether it runs the control though the designer only carries
+    /// its block (#2327, #5633): the box then says it's view-only in the designer, not that it's unsupported
+    /// (<see cref="HexIDE.IDE.IDesignerRunEngine.RunsWhenCarried"/>).
+    /// </remarks>
+    public bool HoldsControls { get; init; }
+
+    /// <summary>Whether the control is an element of a control array: its block has an <c>Index</c> line.</summary>
+    public bool InArray { get; init; }
 
     /// <summary>The control <paramref name="block"/> holds, or null when it does not open with a <c>Begin</c> line.</summary>
     public static UnmodelledControl? Read(string block)
@@ -50,7 +54,7 @@ public sealed record UnmodelledControl(string TypeName, string Name, double Left
 
         double left = 0, top = 0;
         double? width = null, height = null;
-        // Whether it holds controls of its own, or is a control array's element: a Toolbar that does either still doesn't run.
+        // Whether it holds controls of its own, or is a control array's element: the run engine says what either means.
         bool holdsControls = false, inArray = false;
         // How many blocks deep inside this one a line sits: a BeginProperty block, or a nested control's Begin block.
         var depth = 0;
@@ -84,7 +88,8 @@ public sealed record UnmodelledControl(string TypeName, string Name, double Left
 
         return new UnmodelledControl(opening[1], opening[2], left, top, width ?? DefaultWidth, height ?? DefaultHeight)
         {
-            ViewOnly = FormDeserializer.RunsWhenCarried(opening[1], holdsControls, inArray),
+            HoldsControls = holdsControls,
+            InArray = inArray,
         };
     }
 

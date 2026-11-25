@@ -61,6 +61,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/ToolFloatingTests.cs` | split |
 | `Debugging/CallStackReplyTests.cs` | split |
 | `Debugging/IdleBreakCommandsTests.cs` | split |
+| `DesignerRunEngine.cs` | split |
 | `InBoxRegistry.cs` | split |
 | `LanguageServerLeakGuardTests.cs` | split |
 | `Localization/BasicProviderLanguagePackTests.cs` | split |
@@ -111,6 +112,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/DesignerRenameTests.cs` | split |
 | `Views/DesignerRootKindTests.cs` | split |
 | `Views/DesignerRootPropertiesTests.cs` | split |
+| `Views/DesignerRunEngineTests.cs` | split |
 | `Views/DesignerTabOrderTests.cs` | split |
 | `Views/DesignerTitleBarTests.cs` | split |
 | `Views/DesignerVisibilityTests.cs` | split |
