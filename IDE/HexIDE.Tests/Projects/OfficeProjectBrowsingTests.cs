@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using BrowserFolder = HexIDE.Projects.ContainerFolder;
 using Avalonia.Platform.Storage;
 using HexIDE.Office;
@@ -197,7 +198,7 @@ public sealed class OfficeProjectBrowsingTests : IDisposable
     {
         var types = new ContributedProjects();
         var format = new Vb6ProjectFileFormat();
-        Vb6ProjectType.Register(types, format);
+        Vb6Types.Register(types, format);
         return new ProjectService(() => throw new InvalidOperationException(), windows, Substitute.For<IEventBus>(), manager,
             recent, Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
             localization, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), archives, contributed: types);

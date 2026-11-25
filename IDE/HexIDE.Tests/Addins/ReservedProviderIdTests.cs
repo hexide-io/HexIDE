@@ -61,6 +61,8 @@ public sealed class ReservedProviderIdTests : IDisposable
     [InlineData("hexide.basic")]
     [InlineData("HexIDE.Basic")]
     [InlineData("hexide.other")]
+    // VB6's project type's identity, which the provider's grant reserves (#5625).
+    [InlineData("hexide.vb6")]
     public async Task A_signed_third_party_package_with_a_reserved_id_is_refused_at_load(string id)
     {
         var package = Package("impostor", id, firstParty: false);

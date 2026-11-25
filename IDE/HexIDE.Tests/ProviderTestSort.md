@@ -78,9 +78,12 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/NoRunEngineReplyTests.cs` | split |
 | `Infrastructure/NoVb6LaunchTests.cs` | split |
 | `Infrastructure/ProjectWriteSafetyTests.cs` | split |
+| `Infrastructure/RegionStandInFormat.cs` | provider |
 | `Infrastructure/SetLockKeyTests.cs` | split |
 | `Infrastructure/ShutdownIdeTests.cs` | split |
 | `Infrastructure/SplitDocumentTabsTests.cs` | split |
+| `Infrastructure/TestFixturesOnlyFormat.cs` | provider |
+| `Infrastructure/Vb6Types.cs` | split |
 | `Infrastructure/WaylandStartupTests.cs` | split |
 | `Infrastructure/WorkingCopyReplyTests.cs` | split |
 | `Localization/BasicProviderPackRegistrationTests.cs` | provider |
@@ -88,6 +91,7 @@ A test that reaches the provider only at run time, through the application's com
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
 | `LspClient/DocumentWireNameTests.cs` | split |
 | `LspClient/FileOperationWireTests.cs` | split |
+| `LspClient/LspClientRegistryTests.cs` | split |
 | `LspClient/LspWorkspaceWiringTests.cs` | split |
 | `LspClient/WorkspaceAndPriorityTests.cs` | split |
 | `LspClient/WorkspaceArtifactProjectTests.cs` | split |
@@ -127,7 +131,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/NewMemberFileInTheWayTests.cs` | split |
 | `Projects/OfficeProjectBrowsingTests.cs` | split |
 | `Projects/PackageEncodingTests.cs` | split |
-| `Projects/ProjectFileClassifierFormatTests.cs` | split |
+| `Projects/ProjectFileClassifierFormatTests.cs` | provider |
 | `Projects/ProjectFileEditingTests.cs` | split |
 | `Projects/ProjectFileFormatSeamTests.cs` | split |
 | `Projects/ProjectFilePickerTests.cs` | split |
@@ -148,6 +152,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/UnsavedMemberRefusalTests.cs` | split |
 | `Projects/UserControlSaveRoundTripTests.cs` | split |
 | `Projects/Vb6ProjectTemplatesTests.cs` | split |
+| `Projects/Vb6ProjectTypeRegistrationTests.cs` | split |
 | `Projects/Vb6ProjectTypeTests.cs` | split |
 | `Projects/WriteAtSaveTests.cs` | split |
 | `Recovery/RecoveryOffersTests.cs` | split |

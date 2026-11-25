@@ -1,3 +1,5 @@
+using HexIDE.Runtime.Serialization;
+using HexIDE.Tests.Infrastructure;
 using System.IO;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -34,7 +36,7 @@ public sealed class ContributedProjectTests : IDisposable
     {
         _types = new ContributedProjects { ReadFile = _reads.Read };
         // VB6's files are read by VB6's type, which the composition registers first (#3411 slice 10b).
-        Vb6ProjectType.Register(_types, new Vb6ProjectFileFormat());
+        Vb6Types.Register(_types, new Vb6ProjectFileFormat());
         Directory.CreateDirectory(Path.Join(_dir, "src", "Classes"));
         Directory.CreateDirectory(Path.Join(_dir, "docs"));
         File.WriteAllText(ProjectFile, """{ "ProjectInfo": { "Name": "Ledger" } }""");

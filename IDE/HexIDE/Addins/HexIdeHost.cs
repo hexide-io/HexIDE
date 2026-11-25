@@ -161,6 +161,14 @@ internal sealed class HexIdeHost(
     // opened after that is one no loaded add-in reads.
     internal IDisposable RegisterProjectType(AddinProjectType type, AddinOrigin origin)
     {
+        // --no-vb6 leaves VB6's type out, as it always has. A no-op, not a refusal: a throw would stop the provider's other
+        // registrations (#5625).
+        if (HexIDE.Static.WithoutVb6 && contributedProjects.Reserves(type, origin) is { Id: Vb6ProjectType.Id })
+        {
+            Serilog.Log.Information("Project types: {Owner} ({OwnerId}) registered {Title}, which --no-vb6 leaves out",
+                origin.Title, origin.Id, type.Title);
+            return new HexIDE.Utils.ActionDisposable(() => { });
+        }
         var handle = contributedProjects.Register(type, origin);
         if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         return handle;

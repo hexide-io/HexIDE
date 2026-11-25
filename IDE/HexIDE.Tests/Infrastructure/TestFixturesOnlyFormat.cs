@@ -9,5 +9,5 @@ namespace HexIDE.Tests.Infrastructure;
 internal static class TestFixturesOnlyFormat
 {
     [ModuleInitializer]
-    internal static void Set() => HexIDE.IDE.ProjectFormats.TestFixturesOnlyFallback = new HexIDE.Projects.Vb6ProjectFileFormat();
+    internal static void Set() => HexIDE.IDE.ProjectFormats.TestFixturesOnlyFallback = new HexIDE.Runtime.Serialization.Vb6ProjectFileFormat();
 }

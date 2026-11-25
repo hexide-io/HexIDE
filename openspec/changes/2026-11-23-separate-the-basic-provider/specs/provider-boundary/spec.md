@@ -171,3 +171,26 @@ the engine is running SHALL be ended as End ends it, on the UI thread, after the
 - **WHEN** the engine's owner is disabled from another thread while a program is paused at a breakpoint
 - **THEN** the disable returns without waiting on the UI thread
 - **AND** the program then ends, and the IDE leaves Run mode
+
+### Requirement: A reserved project type takes its identity from the grant
+The grant SHALL be able to reserve a project type: an identity, its project and group files, and its member formats.
+Only the grant's owner, registering exactly those files, SHALL get that identity, and its projects SHALL carry it. Any
+other registration of those files or that identity SHALL be refused and logged, whatever the load order. The identity
+SHALL NOT change who is trusted: disabling, consent and launches SHALL go by the owner (#5625).
+
+#### Scenario: The provider registers VB6's type
+- **WHEN** the provider, composed from `HexIDE.Desktop`, registers a type for exactly `*.vbp` and `*.vbg`, with a format
+- **THEN** VB6's projects carry `hexide.vb6` and "Visual Basic 6.0", as before
+- **AND** the type's owner stays `hexide.basic`
+
+#### Scenario: The provider registers part of VB6's files
+- **WHEN** the provider registers a type for `*.vbp` alone, or for VB6's files and others
+- **THEN** the registration is refused and logged, naming the provider and VB6's identity
+
+#### Scenario: An add-in takes VB6's identity
+- **WHEN** an add-in whose id is `hexide.vb6` registers a project type for any files
+- **THEN** the registration is refused and logged
+
+#### Scenario: The IDE starts without VB6
+- **WHEN** the IDE starts with `--no-vb6`
+- **THEN** the provider's registration of VB6's type registers nothing, and its other registrations go ahead

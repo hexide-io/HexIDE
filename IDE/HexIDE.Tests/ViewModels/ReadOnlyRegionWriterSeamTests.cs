@@ -135,7 +135,7 @@ public class ReadOnlyRegionWriterSeamTests : IDisposable
         current.Writer = provider;
         // VB6's type, registered with the test's format, as the composition registers it with its own.
         var types = new ContributedProjects();
-        Vb6ProjectType.Register(types, current);
+        Vb6Types.Register(types, current);
         return new ProjectService(() => throw new InvalidOperationException(), windows, new EventBus(), projects,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar, baselines,
             new LocalizationService(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: types);

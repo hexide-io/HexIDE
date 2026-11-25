@@ -66,9 +66,8 @@ public partial class ProjectService : IProjectService
         this.trust = trust;
         this.documents = documents;
         if (documents is DocumentDockService dock) dock.SharedCodeClosing = SaveSharedCodeOnClose;
-        // A ProjectService made without the IDE's project types, which only a test makes, has VB6's type alone, registered
-        // as the composition registers it.
-        this.contributed = contributed ?? Vb6ProjectType.Alone();
+        // A ProjectService made without the IDE's project types, which only a test makes, has what DefaultTypes makes.
+        this.contributed = contributed ?? DefaultTypes();
         this.contributed.TypeWithdrawn += OnTypeWithdrawn;
         this.componentRegistry = componentRegistry;
         this.newProjectVm = newProjectVm;
@@ -184,6 +183,12 @@ public partial class ProjectService : IProjectService
             : null;
 
     // VB6's type, which makes every new project from its templates.
+    /// <summary>
+    /// The project types a ProjectService made without them reads with: none in the product, which always passes its own.
+    /// The test assemblies set it to VB6's type, as the Basic provider registers it (#5625).
+    /// </summary>
+    internal static Func<ContributedProjects> DefaultTypes { get; set; } = () => new ContributedProjects();
+
     private ContributedProjectType? Vb6Type => contributed.Types.FirstOrDefault(t => t.AddinId == Vb6ProjectType.Id);
 
     // A project read or made by a type with a format of its own: that format reads and writes it from here on, and the type
@@ -493,7 +498,7 @@ public partial class ProjectService : IProjectService
     private string UnreadProjectMessage(string path)
     {
         var types = contributed.Types;
-        var missing = contributed.Reserved.FirstOrDefault(reservation => reservation.Covers(path)
+        var missing = contributed.Reservations.FirstOrDefault(reservation => reservation.Covers(path)
             && (reservation.Owner == ArchiveProjectService.Reservation.Owner
                 ? archives is null
                 : !types.Any(type => type.AddinId == reservation.Owner)));
@@ -3337,7 +3342,8 @@ public partial class ProjectService : IProjectService
         foreach (var project in projectManager.LoadedProjects)
         {
             if (project.FormFormat is not ContributedFormFormat format
-                || !string.Equals(format.Type.AddinId, addinId, StringComparison.OrdinalIgnoreCase))
+                // Who registered it, not the identity a grant gave it: disabling goes by the owner (#5625).
+                || !string.Equals(format.Type.OwnerId, addinId, StringComparison.OrdinalIgnoreCase))
                 continue;
             type = format.Type;
             unsaved.AddRange(project.Forms.Where(IsDirty).Select(form => ((object)form, form.Name)));

@@ -127,7 +127,10 @@ public sealed class BasicProvider : IAddin
         // Internal until the registration is published (#5403): only the host HexIDE composes the provider with can take it.
         if (host is ILanguageEditingRegistration editing)
             registrations.Add(editing.RegisterLanguageEditing(LanguageEditing));
-        // Last: a refusal here leaves the themes, text, controls and editing helpers already registered.
+        // VB6's projects, through the call any add-in uses; the grant gives the type VB6's identity (#5625).
+        registrations.Add(host.RegisterProjectType(Serialization.Vb6ProjectFileFormat.ProjectType()));
+        // Last: a refusal here leaves the themes, text, controls, editing helpers and VB6's projects already
+        // registered.
         registrations.Add(host.RegisterDesignerPictures(surface => new InProcessDesignerPictures(surface)));
         // Internal until a second engine registers (#5616): only the host HexIDE composes the provider with can take it.
         if (host is IRunEngineRegistration engines)
