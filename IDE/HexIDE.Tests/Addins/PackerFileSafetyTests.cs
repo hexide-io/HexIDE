@@ -1,4 +1,5 @@
 using HexIDE.AddinPacker;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Addins;
 
@@ -154,9 +155,9 @@ public sealed class PackerFileSafetyTests : IDisposable
         File.ReadAllText(Path.Combine(request.OutDir, request.Entry)).Should().Be("first package");
     }
 
-    public static bool CanCreateSymbolicLinks => !OperatingSystem.IsWindows();
+    public static bool CanCreateSymbolicLinks => SymbolicLinks.RunTests;
 
-    [Theory(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [Theory(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     [InlineData(false)]
     [InlineData(true)]
     public void Packing_refuses_linked_output_but_accepts_linked_ancestor(bool ancestor)
@@ -203,7 +204,7 @@ public sealed class PackerFileSafetyTests : IDisposable
         Directory.Exists(request.OutDir).Should().BeFalse();
     }
 
-    [Theory(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [Theory(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     [InlineData("file")]
     [InlineData("directory")]
     [InlineData("dangling")]
