@@ -94,6 +94,35 @@ public sealed class ComponentWithdrawalTests : IDisposable
         components.Toolbox.Should().Equal(new ToolboxEntry(CommandButtonComponentClass.Instance, "Geo.Button"));
     }
 
+    // No real grant lets a package keep a library's namespace yet. Phase 3's first-party provider package will, so the probe
+    // stands in for one here, signed first-party, with a test grant keeping Acme.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Disabling_or_revoking_an_add_in_takes_out_its_control_libraries_and_leaves_the_provider_s(bool revoke)
+    {
+        var (addins, package) = await Loaded();
+        using var _ = addins;
+        var components = new ComponentRegistry
+        {
+            Grants = [.. RegistrationGrants.All, new(Own.Id, Composed: false) { TypeNamespaces = ["Acme"] }],
+        };
+        var ide = Ide(addins, components);
+        var acme = Substitute.For<IControlLibrary>();
+        acme.Name.Returns("Acme");
+        acme.Guid.Returns("{00000000-0000-0000-0000-00000000ac3e}");
+        new AddinOwnedHost(ide, null!, Own with { IsFirstParty = true }).RegisterControlLibrary(acme, () => [new Probe("Acme.Gauge")]);
+        var common = HexIDE.Runtime.BasicProvider.Libraries[0];
+        new AddinOwnedHost(ide, null!, Provider).RegisterControlLibrary(common, () => HexIDE.Runtime.BasicProvider.ControlsOf(common));
+        components.Libraries.Should().HaveCount(2);
+
+        if (revoke) addins.RevokeConsent("hash-own");
+        else addins.SetEnabled(package, false);
+
+        components.Libraries.Should().Equal(common);
+        components.LibraryControls.Should().NotBeEmpty().And.OnlyContain(control => ReferenceEquals(control.Library, common));
+    }
+
     [AvaloniaFact]
     public async Task A_disabled_add_in_s_earlier_component_goes_and_a_later_one_is_taken_out_at_once()
     {

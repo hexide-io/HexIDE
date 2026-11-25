@@ -39,7 +39,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.BuiltinTypes.VBFontExtensions |
 | type | HexIDE | HexIDE.Runtime.Components.ComponentBaseClass |
 | type | HexIDE | HexIDE.Runtime.Components.FormComponentClass |
-| type | HexIDE | HexIDE.Runtime.Components.InBox.ControlLibraries |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.FlatScrollBarComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.ImageListComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.InBoxComponentClass |

@@ -50,6 +50,8 @@ public partial class ToolBoxToolViewModel : Tool
         // The IDE builds the toolbox before the provider registers, so its items arrive here, as an add-in's do.
         componentRegistry.ToolboxItemAdded += OnToolboxItemAdded;
         componentRegistry.ToolboxItemRemoved += OnToolboxItemRemoved;
+        // A library registered or taken out after the project was shown changes what its references offer (#5599).
+        componentRegistry.LibrariesChanged += () => ShowProject(project);
     }
 
     private ProjectDefinition? project;

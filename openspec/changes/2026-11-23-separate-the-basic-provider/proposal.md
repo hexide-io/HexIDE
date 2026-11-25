@@ -133,6 +133,9 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
   - `RegisterComponent` becomes owned, a toolbox item may be registered only by its component's owner, and
     `ComponentRegistry` starts empty.
   - Control libraries are first-party in phase 2, because a library writes `Object=` lines into users' files.
+    **The third part (#5599) registers them.** `IHexIdeHost.RegisterControlLibrary` registers a library and, lazily,
+    what it offers. The grant table names the type-name namespaces each owner keeps, `VB` and the provider's libraries'
+    names, and a namespace a grant keeps is refused to every other owner whoever registers first.
   - `IControlLibrary` is public in Core. Designer-time hooks go on the designer contract, not on `IComponentClass`.
   - **Its second part (#5594) owns the components and the toolbox.** The provider registers its Form, its controls and
     their toolbox items through the owned host, with `IHexIdeHost.RegisterToolboxItem` new for the items. The control
