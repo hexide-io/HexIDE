@@ -180,6 +180,17 @@ public class LibraryReferenceTests
         log.Should().Equal("1", "1", "1");
     }
 
+    // What the Object Browser lists for a library no type library describes (#5610): each class once, with its members.
+    [Fact]
+    public void A_library_s_contents_list_its_classes_with_their_declared_members()
+    {
+        var library = Library("LibA", []);
+
+        library.Types.Select(type => $"{type.Name} {type.Component is null}: {string.Join(", ", type.DeclaredMembers)}")
+            .Should().Equal("Counter True: Bump, Trim", "Other True: OtherBump");
+        library.Types.Should().BeSameAs(library.Types, "they're built once, on first read");
+    }
+
     [Fact]
     public void References_select_known_GUID_and_version_in_project_order()
     {

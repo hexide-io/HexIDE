@@ -22,6 +22,7 @@ public class RegisterControlLibraryTests
         public string FormLine => $"Object = \"{guid}#1.0#0\"; \"{name}.OCX\"";
         public string Name => name;
         public string Guid => guid;
+        public string Version => "1.0";
         public string File => name + ".OCX";
         public string TypeName(string className) => $"{name}.{className}";
         public bool IsNamedBy(ObjectReference reference) => false;

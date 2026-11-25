@@ -433,12 +433,13 @@ public partial class ObjectBrowserToolViewModel : Document
     private void RefreshReferenceLibraries(ProjectDefinition project)
     {
         var references = project.References.ToList();
-        foreach (var library in InBox.RuntimeLibraries.ReferencedBy(project))
+        // The registered libraries (#5599), in the project's order (#2265, #5610).
+        foreach (var library in ControlLibraryReferences.ReferencedBy(project, componentRegistry.Libraries, componentRegistry.Libraries))
             if (!references.Any(library.IsNamedBy))
                 references.Add(new VbReference(library.Guid, library.Version, 0, null, library.Name));
 
         var components = project.ObjectReferences.Concat(project.Forms.SelectMany(f => f.ObjectReferences)).ToList();
-        foreach (var component in components.Where(c => !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(c))))
+        foreach (var component in components.Where(c => !componentRegistry.Libraries.Any(l => l.IsNamedBy(c))))
             if (!references.Any(r => component.Names(r.Guid)))
                 references.Add(new VbReference(component.Guid, component.Version, component.Lcid, null,
                     Vb6ProjectPaths.FileNameWithoutExtensionOf(component.File)));
@@ -460,7 +461,7 @@ public partial class ObjectBrowserToolViewModel : Document
             owned.Add(lib);
             Libraries.Add(lib);
             if (components.Any(c => c.Names(reference.Guid))
-                && !InBox.RuntimeLibraries.All.Any(l => l.IsNamedBy(reference)))
+                && !componentRegistry.Libraries.Any(l => l.IsNamedBy(reference)))
                 LoadReferenceLibraryAsync(lib, useMetadataName: true).ListenErrors();
         }
         ReorderLibraries();
@@ -772,14 +773,17 @@ public partial class ObjectBrowserToolViewModel : Document
 
             if (info == null)
             {
-                var library = InBox.RuntimeLibraries.All.FirstOrDefault(l => l.IsNamedBy(lib.Reference));
+                var library = componentRegistry.Libraries.FirstOrDefault(l => l.IsNamedBy(lib.Reference));
                 if (library != null)
                 {
-                    foreach (var name in library.ControlClasses.Concat(library.Controls.Keys)
-                                 .Concat(library.Classes.Select(c => c.Name)).Distinct(StringComparer.OrdinalIgnoreCase))
+                    // What the library declares, or else the controls it registered (#5610).
+                    var types = library is IControlLibraryContents contents ? contents.Types
+                        : [.. componentRegistry.LibraryControls.Where(control => ReferenceEquals(control.Library, library))
+                            .Select(control => new LibraryType(control.ControlName, control.Class, []))];
+                    foreach (var type in types)
                     {
-                        var classVm = new OBClassViewModel(name, OBClassKind.ClassModule, lib.Name);
-                        var component = library.FindComponentClass(name);
+                        var classVm = new OBClassViewModel(type.Name, OBClassKind.ClassModule, lib.Name);
+                        var component = type.Component;
                         // A class with a table lists what it has in this library, even nothing, which shows as
                         // unavailable rather than as its properties: a library's in-box classes all keep one (#5610).
                         if (component is IComponentMemberTable table)
@@ -799,9 +803,9 @@ public partial class ObjectBrowserToolViewModel : Document
                             foreach (var evt in component.Events)
                                 classVm.Members.Add(new OBMemberViewModel(evt.Name, OBMemberKind.Event, $"Event {evt.Name}"));
                         }
-                        else if (library.Classes.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } declared)
+                        else
                         {
-                            foreach (var member in declared.Members)
+                            foreach (var member in type.DeclaredMembers)
                                 classVm.Members.Add(new OBMemberViewModel(member, OBMemberKind.Method, member));
                         }
                         if (classVm.Members.Count == 0)
