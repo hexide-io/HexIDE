@@ -8,8 +8,14 @@ using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
 
-public sealed class RichTextBoxComponentClass : InBoxComponentClass
+public sealed class RichTextBoxComponentClass : InBoxComponentClass, IDesignerDrawnDefaults
 {
+    /// <summary>
+    /// A drawn RichTextBox starts with its name as its text, held as the RTF its TextRTF saves (#5633), as
+    /// VB6's designer starts it.
+    /// </summary>
+    public void Drawn(ComponentInstance instance, string name) => RichTextBoxPersistence.Seed(instance, name);
+
     private RichTextBoxComponentClass() : base([TabIndexProperty, TabStopProperty, ToolTipTextProperty], [],
         [TextBoxComponentClass.ChangeEvent, SelChangeEvent, KeyDownEvent, KeyPressEvent, KeyUpEvent,
             ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent]) { }

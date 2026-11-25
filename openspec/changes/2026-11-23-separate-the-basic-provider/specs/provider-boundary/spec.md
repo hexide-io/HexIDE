@@ -84,6 +84,21 @@ provider is composed from `HexIDE.Desktop`, the grant SHALL name that compositio
 - **WHEN** the provider, composed from `HexIDE.Desktop`, registers a component whose role is `Form`
 - **THEN** the registration succeeds
 
+### Requirement: The designer's calls into a component class are contained
+The form designer SHALL ask a registered component class for a designer root's title-bar icon only when that class is
+the root's, and SHALL never ask a control placed on the root. A throw, or a missing answer, from a class's designer
+contract SHALL be logged and SHALL answer as a class without the contract does, and the designer SHALL stay usable
+(#5633).
+
+#### Scenario: A root window's class throws for its caption
+- **WHEN** the designer asks a root window's class for its caption and the class throws
+- **THEN** the title bar shows the generic window glyph
+- **AND** the throw is logged as a warning the first time and at debug after that
+
+#### Scenario: A control on the form answers the caption contract
+- **WHEN** a control on the form has a class that answers the caption contract
+- **THEN** the designer never asks it
+
 ### Requirement: A granted registration still only adds
 A registration from an owner the grant names SHALL still only add: it SHALL be refused, and logged naming both
 owners, where any key or component it carries is already held by the IDE or another owner, and no grant SHALL

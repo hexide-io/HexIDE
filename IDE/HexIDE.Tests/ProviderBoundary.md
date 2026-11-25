@@ -37,7 +37,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Components.InBox.StatusBarComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.LineComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.MenuComponentClass |
-| type | HexIDE | HexIDE.Runtime.Components.RichTextBoxComponentClass |
 | type | HexIDE | HexIDE.Runtime.Interpreter.ExecutionEnvironment |
 | type | HexIDE | HexIDE.Runtime.Interpreter.IBasicStandardLibrary |
 | type | HexIDE | HexIDE.Runtime.Interpreter.ModuleExecutionContext |
@@ -46,9 +45,7 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Serialization.FormCodeText |
 | type | HexIDE | HexIDE.Runtime.Serialization.LineEdits |
 | type | HexIDE | HexIDE.Runtime.Serialization.ModuleFileFormat |
-| type | HexIDE | HexIDE.Runtime.Serialization.PreservedControlText |
 | type | HexIDE | HexIDE.Runtime.Serialization.Reduction |
-| type | HexIDE | HexIDE.Runtime.Serialization.RichTextBoxPersistence |
 | type | HexIDE | HexIDE.Runtime.Serialization.UnmodelledControl |
 | type | HexIDE | HexIDE.Runtime.StandaloneStandardLib |
 | type | HexIDE | HexIDE.Runtime.VBFormRuntime |
