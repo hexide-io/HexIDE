@@ -125,6 +125,70 @@ public class ObjectBrowserInBoxMembersTests
             .Select(m => (m.Name, m.Kind)).Should().Equal([(VBProperties.NameProperty.Name, OBMemberKind.Property)]);
     }
 
+    private const string AcmeGuid = "{0A0B0C0D-0000-4000-8000-00000000AC3E}";
+
+    private sealed class Gauge : IComponentClass
+    {
+        public string Name => "Gauge";
+        public string VBTypeName => "Acme.Gauge";
+        public string ClassName => "Gauge";
+        public bool IsVisual => true;
+        public IReadOnlyList<PropertyClass> Properties => [VBProperties.NameProperty];
+        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName => new Dictionary<string, PropertyClass>();
+        public IReadOnlyList<EventClass> Events => [];
+        public IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
+    }
+
+    // A library named Acme, registered under a test grant, and a project that references it, with the Object Browser showing
+    // what it lists for the library when no type library answers (#5610).
+    private static List<(string Class, string Member, OBMemberKind Kind)> AcmeMembers(IControlLibrary library, Gauge gauge)
+    {
+        library.Name.Returns("Acme");
+        library.Guid.Returns(AcmeGuid);
+        library.Version.Returns("1.0");
+        library.IsNamedBy(Arg.Any<ObjectReference>()).Returns(call => call.Arg<ObjectReference>().Names(AcmeGuid));
+        library.IsNamedBy(Arg.Any<VbReference>()).Returns(call =>
+            string.Equals(call.Arg<VbReference>().Guid, AcmeGuid, StringComparison.OrdinalIgnoreCase)
+            && call.Arg<VbReference>().Version == "1.0");
+        var registry = new ComponentRegistry { Grants = [new("acme", Composed: true) { TypeNamespaces = ["Acme"] }] };
+        registry.RegisterLibrary(library, () => [gauge], new HexIDE.Addins.AddinOrigin("acme", "Acme") { IsComposed = true });
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddObjectLine($"Object={AcmeGuid}#1.0#0; ACME.OCX");
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var focused = Substitute.For<IFocusedProjectUtil>();
+        focused.FocusedOrStartupProject.Returns(project);
+        var browser = new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(), Substitute.For<IEditorService>(),
+            registry, Substitute.For<ITypeLibraryService>(), focused, Substitute.For<ILocalizationService>(),
+            Substitute.For<ILanguageConnectionRegistry>());
+
+        var lib = browser.Libraries.Single(l => l.Name == "Acme");
+        browser.SelectedLibrary = lib;
+        return [.. from cls in lib.Classes from member in cls.Members select (cls.Name, member.Name, member.Kind)];
+    }
+
+    [Fact]
+    public void A_registered_library_without_contents_is_listed_by_the_controls_it_registered()
+    {
+        var gauge = new Gauge();
+
+        AcmeMembers(Substitute.For<IControlLibrary>(), gauge).Should().Equal([("Gauge", "Name", OBMemberKind.Property)]);
+    }
+
+    [Fact]
+    public void A_registered_library_s_contents_list_its_types_and_a_class_s_declared_members()
+    {
+        var gauge = new Gauge();
+        var library = Substitute.For<IControlLibrary, IControlLibraryContents>();
+        ((IControlLibraryContents)library).Types.Returns([new LibraryType("Gauge", gauge, []), new LibraryType("Needle", null, ["Spin", "Stop"])]);
+
+        AcmeMembers(library, gauge).Should().Equal([
+            ("Gauge", "Name", OBMemberKind.Property),
+            ("Needle", "Spin", OBMemberKind.Method),
+            ("Needle", "Stop", OBMemberKind.Method),
+        ]);
+    }
+
     [Fact]
     public void Every_in_box_member_the_Object_Browser_lists_matches_the_listing()
     {

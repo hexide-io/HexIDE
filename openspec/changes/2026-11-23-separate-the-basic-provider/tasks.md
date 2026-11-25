@@ -17,7 +17,8 @@ Each slice removes its rows from the guard's list. Sizes and owners are in the p
 - [ ] 2.9 The provider's strings into a pack area of its own, under the parity guard.
 - [ ] 2.10 A neutral default profile.
 - [ ] 2.11 #3663: move the provider's test files, and split the test files that test both sides.
-- [ ] 2.12 Core's internals: the four members the provider uses.
+- [ ] 2.12 Core's internals: the four members the provider uses, and `ControlLibraryReferences`, which the runtime's
+  library order calls since #5610.
 - [ ] 2.13 The composition point: one provider entry type, started from one `HexIDE.Desktop` file, registering through the host interface, with tests that a colliding registration is refused and that a provider can't reach a consent dialog's strings. Built with 2.7, whose resources are the first registration; security work, reviewed by the supervisor before merge.
 - [ ] 2.14 The guard's list holds only the composition point's rows, which phase 3 removes.
 
