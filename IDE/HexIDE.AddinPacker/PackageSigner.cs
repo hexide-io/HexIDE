@@ -350,6 +350,7 @@ public static class PackageSigner
 
         var keyPath = KeyPathOf(r);
         RequireKeyOfTheRecord(r.TrustDir, keyPath);
+        RequireRootOfTheIntermediate(r.TrustDir);
         RequireKeyNotPacked(r, keyPath);
         var output = Path.TrimEndingDirectorySeparator(Path.GetFullPath(r.OutDir));
         RequireOwnedOutput(output, r.TrustDir, keyPath);
@@ -393,6 +394,32 @@ public static class PackageSigner
         {
             if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
         }
+    }
+
+    // Every package carries the root its chain was signed under, as root.pub, so a HexIDE that doesn't carry that root
+    // can say which one it is (#5316). The trust folder's hexide-root.pub has to be the root that signed its intermediate,
+    // or HexIDE would name a root the chain doesn't lead to: refused before anything is written.
+    private static void RequireRootOfTheIntermediate(string trust)
+    {
+        var rootPath = Path.Combine(trust, "hexide-root.pub");
+        var intermediatePath = Path.Combine(trust, "intermediate.json");
+        if (!File.Exists(rootPath))
+            throw new InvalidOperationException($"There's no hexide-root.pub in '{trust}'. It's the public root key your "
+                + "intermediate was signed under, issued with your publisher record. Nothing was packed.");
+        bool signed;
+        try
+        {
+            using var root = PackageCrypto.ImportPublicKey(File.ReadAllText(rootPath).Trim());
+            signed = PackageCrypto.Verify(root, File.ReadAllBytes(intermediatePath),
+                File.ReadAllText(Path.Combine(trust, "intermediate.sig")).Trim());
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException)
+        {
+            throw new InvalidOperationException($"'{rootPath}' isn't a public key this tool can read. Nothing was packed.");
+        }
+        if (!signed)
+            throw new InvalidOperationException($"'{intermediatePath}' isn't signed by '{rootPath}': they come from different "
+                + "signing chains. Nothing was packed. Get the root and the intermediate from the same issue.");
     }
 
     private static string KeyPathOf(PackRequest r) => r.KeyFile ?? Path.Combine(r.TrustDir, "firstparty.key");
@@ -511,6 +538,14 @@ public static class PackageSigner
                 if (!File.ReadAllBytes(Path.Combine(output, name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(trust, name))))
                     throw new IOException(output);
             }
+            // A package from before #5316 has no root.pub, and is still this tool's own output to replace.
+            if (inventory.Contains(PackageVerification.PackageRootFile))
+            {
+                expected.Add(PackageVerification.PackageRootFile);
+                if (!File.ReadAllBytes(Path.Combine(output, PackageVerification.PackageRootFile)).AsSpan()
+                        .SequenceEqual(File.ReadAllBytes(Path.Combine(trust, "hexide-root.pub"))))
+                    throw new IOException(output);
+            }
             foreach (var file in manifest.Files)
             {
                 var name = file.Path.Replace('\\', '/');
@@ -595,6 +630,8 @@ public static class PackageSigner
 
         foreach (var f in new[] { "publisher.json", "publisher.sig", "intermediate.json", "intermediate.sig" })
             File.Copy(Path.Combine(r.TrustDir, f), Path.Combine(destination, f), overwrite: true);
+        File.Copy(Path.Combine(r.TrustDir, "hexide-root.pub"), Path.Combine(destination, PackageVerification.PackageRootFile),
+            overwrite: true);
 
         return files.Count;
     }

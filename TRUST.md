@@ -65,17 +65,24 @@ sign-publisher --root-public-key <file> --intermediate-key <file> --intermediate
 
 The command verifies the intermediate against the supplied root and refuses a mismatched intermediate
 private key or existing output files. It writes `publisher.json` and `publisher.sig`, then verifies the
-written chain. The maintainer returns these two files and the public `intermediate.json` and
-`intermediate.sig` chain files. Issuance requires maintainer review; no marketplace service is implied.
+written chain. The maintainer returns these two files, the public `intermediate.json` and `intermediate.sig` chain
+files, and `hexide-root.pub`, the root they chain to. Issuance requires maintainer review; no marketplace service is
+implied.
 The root supplied during issuance must be the root trusted by the intended HexIDE build.
 
 `hexide-pack`, built from `IDE/HexIDE.AddinPacker.Interactive`, runs every packer command and asks for any option
 you leave out, so `hexide-pack pack` walks you through signing an add-in.
 
-Put those four public chain files in your `pack --trust <dir>` directory, and give your private signing key with
+Put those five public files in your `pack --trust <dir>` directory, and give your private signing key with
 `pack --key <file>`, wherever you keep it. Keep the key out of any folder you publish or commit. `pack` refuses a key
 that isn't the one your `publisher.json` names, and a key named among the files to bundle. Without `--key`, `pack`
 reads `firstparty.key` from the trust folder; that filename does not grant first-party status.
+
+Every package carries its root's public key as `root.pub`, and `pack` refuses a `hexide-root.pub` that didn't sign the
+intermediate. A HexIDE that doesn't trust that root still refuses the add-in, as before. It now says the add-in was
+signed under a root it doesn't carry, and shows that root's fingerprint, so a user can compare it with the
+[canonical fingerprints](#canonical-fingerprints) a newer release publishes. HexIDE shows the fingerprint only when the
+add-in's chain really verifies under that key, and never trusts it.
 
 Publish your add-in signing key's fingerprint somewhere users already trust you (your website, repo, or
 release notes). A user can then compare it against the **Publisher** row in HexIDE's trust inspector.
