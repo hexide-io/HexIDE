@@ -271,6 +271,9 @@ public static class PackageSigner
                     or System.Globalization.UnicodeCategory.LineSeparator
                     or System.Globalization.UnicodeCategory.ParagraphSeparator));
 
+    /// <summary>Reads a base64 PKCS#8 P-256 private key, never echoing key material in a refusal.</summary>
+    internal static ECDsa ReadPrivateKey(string path, string label) => ReadKey(path, privateKey: true, label);
+
     private static ECDsa ReadKey(string path, bool privateKey, string label)
     {
         try
@@ -302,7 +305,7 @@ public static class PackageSigner
             throw new ArgumentException($"invalid {label}: expected ECDSA P-256");
     }
 
-    private static void WriteNewFiles(string directory, Dictionary<string, byte[]> outputs)
+    internal static void WriteNewFiles(string directory, Dictionary<string, byte[]> outputs)
     {
         var streams = new Dictionary<string, FileStream>();
         var completed = false;

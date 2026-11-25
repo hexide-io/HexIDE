@@ -40,6 +40,10 @@ public static class AnswerChecks
                 return File.Exists(value) ? null : $"there's no file at '{value}'";
             case OptionKind.SigningKey:
                 return File.Exists(value) ? null : $"there's no file at '{value}'";
+            case OptionKind.PublisherKey:
+                if (answerOf("new-key") is not null)
+                    return "you asked for a new key with --new-key; press Enter to skip this, or give --new-key no answer";
+                return File.Exists(value) ? null : $"there's no file at '{value}'";
             case OptionKind.ExistingFolder:
                 return Directory.Exists(value) ? null : $"there's no folder at '{value}'";
             case OptionKind.TrustFolder:
@@ -62,13 +66,17 @@ public static class AnswerChecks
 
     /// <summary>
     /// Returns why an optional option can't be skipped, given the other answers, or null when it can. <c>pack --key</c>
-    /// can be skipped only when the trust folder holds <c>firstparty.key</c>, which is checked by name only.
+    /// can be skipped only when the trust folder holds <c>firstparty.key</c>, which is checked by name only, and
+    /// <c>request-publisher --key</c> only when <c>--new-key</c> was answered.
     /// </summary>
-    public static string? NeededWhenSkipped(PackerOption option, Func<string, string?> answerOf) =>
-        option.Kind == OptionKind.SigningKey && answerOf("trust") is { } trust
-            && !File.Exists(Path.Combine(trust, "firstparty.key"))
-            ? $"'{trust}' has no firstparty.key, so give your key's file"
-            : null;
+    public static string? NeededWhenSkipped(PackerOption option, Func<string, string?> answerOf) => option.Kind switch
+    {
+        OptionKind.SigningKey when answerOf("trust") is { } trust && !File.Exists(Path.Combine(trust, "firstparty.key"))
+            => $"'{trust}' has no firstparty.key, so give your key's file",
+        OptionKind.PublisherKey when answerOf("new-key") is null
+            => "you didn't ask for a new key with --new-key, so give your existing key's file",
+        _ => null,
+    };
 
     /// <summary>
     /// A private key written inside a git clone is one commit from publication, so hexide-pack refuses any folder

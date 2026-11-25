@@ -16,6 +16,9 @@ public static class PackerCli
             Console.Error.WriteLine("       genkeys-release --root-out .. --intermediate-out .. --firstparty-out .. --public-out ..");
             Console.Error.WriteLine("         --intermediate-id .. --intermediate-name .. --firstparty-id .. --firstparty-name ..");
             Console.Error.WriteLine("       sign-revocations --in .. --root-key .. --out .. | verify-revocations --json .. --sig .. --root ..");
+            Console.Error.WriteLine("       request-publisher --publisher-id .. --display-name .. --github .. --fingerprint-url .. (--new-key .. | --key ..)");
+            Console.Error.WriteLine("         --out .. [--namespaces acme.,..] [--previous-key ..]");
+            Console.Error.WriteLine("       verify-request --request .. [--ledger ..] [--github ..]");
             return 1;
         }
 
@@ -74,6 +77,24 @@ public static class PackerCli
                         throw new ArgumentException("verify-revocations requires each of --json, --sig and --root exactly once");
                     return PackageSigner.VerifyRevocations(Required(vo, "json"), Required(vo, "sig"), Required(vo, "root")) ? 0 : 2;
 
+                case "request-publisher":
+                    var rq = Options(args, ["publisher-id", "display-name", "github", "fingerprint-url", "out"],
+                        ["namespaces", "new-key", "key", "previous-key"]);
+                    var made = PublisherRequests.Create(Required(rq, "publisher-id"), Required(rq, "display-name"),
+                        rq.TryGetValue("namespaces", out var requested)
+                            ? requested[0].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) : null,
+                        Required(rq, "github"), Required(rq, "fingerprint-url"), Optional(rq, "new-key"), Optional(rq, "key"),
+                        Optional(rq, "previous-key"), Required(rq, "out"));
+                    PublisherRequests.ReportCreated(made, Required(rq, "out"), Optional(rq, "new-key"));
+                    return 0;
+
+                case "verify-request":
+                    // Keyless, and hostile input: #5323's Action runs it on a request pasted into an issue, and #5322 runs it
+                    // again where the intermediate key is. 2 means refused; 3 means a rotation nobody checked against the ledger.
+                    var vq = Options(args, ["request"], ["ledger", "github"]);
+                    return PublisherRequests.Report(PublisherRequests.Verify(Required(vq, "request"), Optional(vq, "ledger"),
+                        Optional(vq, "github")));
+
                 case "pack":
                     var o = ParseOptions(args.AsSpan(1));
                     PackageSigner.Pack(new PackRequest
@@ -106,6 +127,23 @@ public static class PackerCli
             return 1;
         }
     }
+
+    // Each required option exactly once and each optional one at most once, with nothing else: a repeated or unknown
+    // option is refused rather than silently ignored, as sign-publisher's are.
+    private static Dictionary<string, List<string>> Options(string[] args, string[] required, string[] optional)
+    {
+        var options = ParseOptions(args.AsSpan(1));
+        var known = required.Concat(optional).ToArray();
+        if (options.Count * 2 != args.Length - 1
+            || options.Any(pair => !known.Contains(pair.Key, StringComparer.OrdinalIgnoreCase) || pair.Value.Count != 1)
+            || required.Any(name => !options.ContainsKey(name)))
+            throw new ArgumentException($"{args[0]} requires {string.Join(", ", required.Select(name => "--" + name))} exactly "
+                + $"once, and takes {string.Join(", ", optional.Select(name => "--" + name))} at most once");
+        return options;
+    }
+
+    private static string? Optional(Dictionary<string, List<string>> o, string key) =>
+        o.TryGetValue(key, out var v) && v.Count > 0 ? v[0] : null;
 
     // Collects --key value pairs; repeated keys accumulate (e.g. --include a --include b).
     private static Dictionary<string, List<string>> ParseOptions(ReadOnlySpan<string> a)
