@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -439,9 +440,112 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         var url = _settings.RevocationListUrl;
         if (string.IsNullOrWhiteSpace(url))
             return;
-        if (_revocations.RefreshFromUrl(url, TimeSpan.FromSeconds(3)) == RevocationRefresh.Applied)
-            Dispatcher.UIThread.Post(() => ApplyRevocations());
+        if (_revocations.RefreshFromUrl(url, TimeSpan.FromSeconds(3)) != RevocationRefresh.Applied)
+            return;
+        // Nothing awaits this task, so a failure is logged here, or nobody would know a newer list wasn't applied.
+        _ = Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            try { await ApplyRevocationsAndNotifyAsync(); }
+            catch (Exception ex) { Log.Error(ex, "AddinRegistry: couldn't apply a newer revocation list mid-session"); }
+        });
     }
+
+    // ── The notice, and the state Options shows (#5577) ──────────
+
+    // Titles of revoked add-ins whose code is loaded, waiting for the notice. Only the UI thread touches these.
+    private readonly List<string> _noticePending = [];
+    private bool _noticeOpen;
+
+    /// <summary>Closes HexIDE the way File → Exit does, through the main window's Closing and its prompts to save.</summary>
+    internal Action CloseIde { get; set; } = () =>
+        (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow?.Close();
+
+    /// <summary>
+    /// Applies the active list, then tells the user about every add-in it revoked whose code is loaded, offering to close
+    /// HexIDE. An add-in that never loaded needs no notice: it shows as Revoked in Options and won't load again. Runs on the
+    /// UI thread, after the withdrawal and outside the gate.
+    /// </summary>
+    internal async Task ApplyRevocationsAndNotifyAsync()
+    {
+        var revoked = ApplyRevocations();
+        if (revoked.Count == 0)
+            return;
+        List<string> loaded;
+        lock (_serverTrustGate)
+            loaded = [.. _contexts
+                .Where(ctx => revoked.Contains(ctx.Info) && (ctx.Instance is not null || ctx.LoadContext is not null))
+                .Select(ctx => string.IsNullOrWhiteSpace(ctx.Info.Title) ? ctx.Info.Id ?? ctx.PackageDirectory : ctx.Info.Title)];
+        _noticePending.AddRange(loaded);
+        await ShowRevokedNoticeAsync();
+    }
+
+    // One notice at a time. Add-ins revoked while one is open are named in the next. If the notice can't be shown, the names
+    // stay pending, for the next revocation to show.
+    private async Task ShowRevokedNoticeAsync()
+    {
+        if (_noticeOpen)
+            return;
+        _noticeOpen = true;
+        try
+        {
+            while (_noticePending.Count > 0 && !_disposed)
+            {
+                var titles = _noticePending.ToList();
+                bool close;
+                try
+                {
+                    close = await _windowManager.ShowDialog(new AddinRevokedNoticeViewModel(titles, _localization));
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "AddinRegistry: couldn't show the notice for revoked add-ins");
+                    return;
+                }
+                _noticePending.RemoveRange(0, titles.Count);
+                if (close && !_disposed)
+                {
+                    CloseIde();
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _noticeOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// The line Options → Add-Ins shows about the revocation checks: off, not yet checked, when last checked, or that the last
+    /// check failed. Null when no add-in package is installed, since nothing is then checked.
+    /// </summary>
+    internal string? RevocationStatusLine()
+    {
+        if (!_hasPackages)
+            return null;
+        if (string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
+            return _localization.GetString("Str.Options.Addins.Revocation.Off");
+        var checks = _revocations.Checks;
+        var issued = DateTimeOffset.TryParse(_revocations.ActiveIssuedUtc, CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal, out var time) ? Display(time) : "—";
+        return checks switch
+        {
+            { LastAttemptFailed: true, LastFailed: { } failed, LastSucceeded: { } worked } =>
+                Format("Str.Options.Addins.Revocation.Failed", Display(failed), Display(worked), issued),
+            { LastAttemptFailed: true, LastFailed: { } failed } =>
+                Format("Str.Options.Addins.Revocation.FailedNever", Display(failed), issued),
+            { LastSucceeded: { } worked } => Format("Str.Options.Addins.Revocation.Checked", Display(worked), issued),
+            _ => Format("Str.Options.Addins.Revocation.NotChecked", issued),
+        };
+
+        static string Display(DateTimeOffset time) => time.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+        string Format(string key, params object[] args) => string.Format(CultureInfo.CurrentCulture, _localization.GetString(key), args);
+    }
+
+    /// <summary>Raised on the UI thread after a newer list has revoked add-ins mid-session, so an open Options page can show
+    /// it (#5577).</summary>
+    internal event Action? RevocationsApplied;
 
     /// <summary>
     /// Re-checks every add-in against the active list, by the identity verified when it loaded, never re-read from disk.
@@ -493,6 +597,12 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             }
             Log.Warning("AddinRegistry: {Title} REVOKED mid-session ({Reason}) — its contributions are withdrawn; its code stays "
                 + "loaded until HexIDE restarts", ctx.Info.Title, ctx.ErrorMessage);
+        }
+        // An open page's failure to follow must not keep the notice from showing.
+        if (revoked.Count > 0)
+        {
+            try { RevocationsApplied?.Invoke(); }
+            catch (Exception ex) { Log.Warning(ex, "AddinRegistry: an open page couldn't show a mid-session revocation"); }
         }
         return [.. revoked.Select(ctx => ctx.Info)];
     }
