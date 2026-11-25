@@ -1,7 +1,7 @@
 using System.Runtime.ExceptionServices;
 using System.Threading;
 
-namespace HexIDE.Runtime;
+namespace HexIDE.IDE;
 
 /// <summary>
 /// Starts the UI on a thread of its own, with a stack sized for the VB code that runs on it (#3228).
