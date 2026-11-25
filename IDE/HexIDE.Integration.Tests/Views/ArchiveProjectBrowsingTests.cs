@@ -492,10 +492,12 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         const string source = "#If TWINBASIC_BUILD_TYPE = \"Standard EXE\" Then\r\nExeBranch\r\n#Else\r\nOtherBranch\r\n#End If\r\n";
         await archives.Open(Write("one.twinproj", source));
         var entry = archives.Projects[0].Root.Children[0];
+        // As the archive service opens and updates it, with the entry's language: its #If reader is twinbasic's (#5403).
+        var language = archives.Projects[0].LanguageOf(entry);
         var tab = new ArchiveDocumentViewModel(entry, localization,
             InBoxRegistry.LanguageEditing(),
-            updated ? "ActiveX DLL" : "Standard EXE");
-        if (updated) tab.Update(entry, "Standard EXE");
+            updated ? "ActiveX DLL" : "Standard EXE", languageId: language);
+        if (updated) tab.Update(entry, "Standard EXE", language);
         tab.InactiveLines.Should().NotBeEmpty();
 
         var reopened = tab.Reopen();
