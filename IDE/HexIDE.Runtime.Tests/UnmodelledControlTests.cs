@@ -126,7 +126,24 @@ public class UnmodelledControlTests
     [InlineData("   Begin MSComctlLib.ListView lvwItems \r\n      Left            =   0\r\n   End", false)]
     public void A_control_HexIDE_runs_is_view_only_and_any_other_is_not(string block, bool viewOnly)
     {
-        UnmodelledControl.Read(block)!.ViewOnly.Should().Be(viewOnly);
-        UnmodelledControl.Read(Toolbar)!.ViewOnly.Should().BeTrue("Web Browser.frm's toolbar is a top-level bar");
+        // What the block records is what the interpreter's engine is asked (#5633); the designer's end of it is in
+        // UnmodelledControlPlaceholderTests.
+        static bool Runs(UnmodelledControl control) =>
+            Serialization.FormDeserializer.RunsWhenCarried(control.TypeName, control.HoldsControls, control.InArray);
+
+        Runs(UnmodelledControl.Read(block)!).Should().Be(viewOnly);
+        Runs(UnmodelledControl.Read(Toolbar)!).Should().BeTrue("Web Browser.frm's toolbar is a top-level bar");
+    }
+
+    [Theory]
+    [InlineData("   Begin MSComctlLib.Toolbar Bar \r\n      Left            =   0\r\n   End", false, false)]
+    [InlineData("   Begin MSComctlLib.Toolbar Bars \r\n      Index           =   0\r\n   End", false, true)]
+    [InlineData("   Begin MSComctlLib.Toolbar Bar \r\n      Begin VB.CommandButton Command1 \r\n      End\r\n   End", true, false)]
+    [InlineData("   Begin MSComctlLib.Toolbar Bar \r\n      BeginProperty Font \r\n         Index = 3\r\n      EndProperty\r\n   End", false, false)]
+    public void The_block_records_whether_it_holds_controls_and_is_in_an_array(string block, bool holds, bool inArray)
+    {
+        var control = UnmodelledControl.Read(block)!;
+        control.HoldsControls.Should().Be(holds);
+        control.InArray.Should().Be(inArray, "an Index inside a property block is the property's, not the control's");
     }
 }

@@ -23,7 +23,7 @@ namespace HexIDE.Runtime.Running;
 /// Runs a project with HexIDE's own interpreter and its run-time forms, in the IDE's process. The Basic provider registers it
 /// through the host (#5616), with a debugger of its own that is both the IDE's controller and the interpreter's gate.
 /// </summary>
-public sealed class InterpreterRunEngine : IRunEngine, IDisposable
+public sealed class InterpreterRunEngine : IRunEngine, IDesignerRunEngine, IDisposable
 {
     internal OSPlatform? Host { get; init; }
     private readonly RunEngineServices services;
@@ -37,6 +37,8 @@ public sealed class InterpreterRunEngine : IRunEngine, IDisposable
     private readonly Func<VbFontChoice, Task<VbFontChoice?>> fontDialog;
     private readonly Action<VBWindowContext, VBRunTimeException> runTimeError;
     private readonly Action<VBWindowContext, VBCompileErrorException> compileError;
+    // The designer's previews still open, closed when the engine is withdrawn (#5633). Only the UI thread touches it.
+    private readonly System.Collections.Generic.List<Window> previews = [];
 
     /// <summary>Makes the engine the provider registers: <paramref name="debugController"/> when a test brings its own.</summary>
     public InterpreterRunEngine(RunEngineServices services, IDebugGate? debugController = null)
@@ -77,7 +79,57 @@ public sealed class InterpreterRunEngine : IRunEngine, IDisposable
         if (ReferenceEquals(HostDialogs.BoxWindows, services.Dialogs)) HostDialogs.BoxWindows = null;
         VBWindowContext.RunTimeError -= runTimeError;
         VBWindowContext.CompileError -= compileError;
+        // Its previews are its windows, so none outlives it. Withdrawal disposes it on the UI thread.
+        foreach (var preview in previews.ToArray())
+            preview.Close();
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The runtime's window and controls, spawned as a run spawns them but with no code set, prepared or started, so events
+    /// have no interpreter to dispatch to (#2003). It's shown over the window the IDE's window-maker names, as a running
+    /// program's box is. Content the runtime can't build yet is refused with its reason, and the half-built window closed.
+    /// </remarks>
+    public string? Preview(FormDefinition form)
+    {
+        var root = System.Linq.Enumerable.FirstOrDefault(form.Components, c => c.BaseClass.Role == ComponentRole.Form)
+            ?? throw new ArgumentException("The form has no window to preview.", nameof(form));
+        VBFormRuntime? preview = null;
+        try
+        {
+            preview = FormComponentClass.Instance.InstantiateWindow(root, VBLoader.HasMenuBar(form));
+            preview.Content = VBLoader.SpawnComponents(form, preview.Context.ExecutionContext,
+                preview.Context.RootEnv, new StandaloneStandardLib(preview, UntitledBoxTitle(form)));
+            if (services.Dialogs.Owner is Window owner)
+                preview.Show(owner);
+            else
+                preview.Show();
+        }
+        catch (NotImplementedException e)
+        {
+            preview?.Close();
+            return e.Message;
+        }
+        catch
+        {
+            preview?.Close();
+            throw;
+        }
+        var shown = preview;
+        previews.Add(shown);
+        shown.Closed += (_, _) => previews.Remove(shown);
+        return null;
+    }
+
+    /// <summary>
+    /// What a box the preview raises with no title is captioned (#5633): the program's name, as <c>App.Title</c> gives it
+    /// under F5, and never the IDE's, so stock and branded builds preview alike (#3411).
+    /// </summary>
+    internal static string UntitledBoxTitle(FormDefinition form) => AppInfo.FromProject(form.Owner).Title;
+
+    /// <inheritdoc />
+    public bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
+        FormDeserializer.RunsWhenCarried(type, holdsControls, inArray);
 
     /// <inheritdoc />
     public event Action<RunFailure>? ErrorMet;

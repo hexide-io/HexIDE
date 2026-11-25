@@ -178,6 +178,25 @@ engine. The engine SHALL stay registered.
 - **WHEN** the engine throws as a project starts
 - **THEN** the throw is logged, and the IDE is not left in Run mode
 
+### Requirement: The designer asks only the registered run engine
+The form designer SHALL preview a form, and SHALL learn which carried controls run, only by asking the registered run
+engine through the IDE's forwarder, with its containment. With no engine, one being withdrawn, or one that doesn't
+answer, it SHALL preview nothing and SHALL show every carried control as unsupported. A throw SHALL be logged naming the
+engine's owner, and a preview's throw SHALL be shown in the box a refused preview is shown in (#5633).
+
+#### Scenario: The engine throws as a form is previewed
+- **WHEN** the engine throws as the designer asks it to preview a form
+- **THEN** no window opens, the throw is logged naming the engine's owner, and its message is shown
+
+### Requirement: The designer's previews and labels follow the engine
+An engine SHALL close the previews it opened when it's withdrawn, and the designer SHALL ask again which carried
+controls run once an engine comes or goes (#5633).
+
+#### Scenario: The engine is withdrawn while a preview is open
+- **WHEN** the engine is withdrawn with one of its previews open
+- **THEN** the preview closes
+- **AND** each carried control the engine ran is shown as unsupported
+
 ### Requirement: Withdrawing the run engine doesn't wait on the UI thread
 Withdrawing the engine SHALL NOT wait on the UI thread, since the add-in registry withdraws it under its lock. A program
 the engine is running SHALL be ended as End ends it, on the UI thread, after the withdrawal returns.
