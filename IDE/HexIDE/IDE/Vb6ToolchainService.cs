@@ -543,8 +543,8 @@ public class Vb6ToolchainService : IVb6ToolchainService
     internal static int EditorLineOf(DocumentIdentity document, int printedLine)
     {
         var code = document.Module?.Code ?? document.Form?.Code;
-        var header = document.Module is { } module ? FormCodeText.Prefix(module)
-            : document.Form is { } form ? FormCodeText.Prefix(form) : "";
+        var header = document.Module is { } module ? ProjectFormats.Of(document.Project).CodePrefix(module)
+            : document.Form is { } form ? ProjectFormats.Of(document.Project).CodePrefix(form) : "";
         var headerLines = header.Count(c => c == '\n');
         if (string.IsNullOrEmpty(code)) return headerLines + Math.Max(printedLine, 0);
 

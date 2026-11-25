@@ -113,6 +113,15 @@ public sealed class Vb6ProjectFileFormat : IProjectFileFormat
     public (string Header, string Body) SplitModule(string text, ModuleKind kind) => ModuleFileFormat.SplitHeader(text, kind);
 
     /// <inheritdoc/>
+    public string AttributeBlock(string code) => FormCodeText.AttributeBlock(code);
+
+    /// <inheritdoc/>
+    public string ModuleNameFor(string fallbackName, string? header) => ModuleFileFormat.ModuleNameFor(fallbackName, header);
+
+    /// <inheritdoc/>
+    public bool IsDesignerFile(string text) => ModuleFileFormat.IsDesignerFile(text);
+
+    /// <inheritdoc/>
     public string CodePrefix(FormDefinition form) => FormCodeText.Prefix(form);
 
     /// <inheritdoc/>

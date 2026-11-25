@@ -245,7 +245,7 @@ public static class FormCodeText
     /// (hexide-io/HexIDE#1020).
     /// </para>
     /// </remarks>
-    public static int LineBreaks(string text) => SourceLines.Count(text);
+    public static int LineBreaks(string text) => CodeBufferText.LineBreaks(text);
 
     /// <summary>
     /// The body of a composed buffer: everything after the prefix it was composed with.
@@ -258,7 +258,7 @@ public static class FormCodeText
     /// own prefix is authoritative until something refreshes both together.
     /// </remarks>
     public static string BodyOf(string buffer, string prefix) =>
-        prefix.Length > 0 && buffer.Length >= prefix.Length ? buffer[prefix.Length..] : buffer;
+        CodeBufferText.BodyOf(buffer, prefix);
 
     /// <summary>
     /// The designer half of a rendered form file: everything <c>FormSerializer</c> wrote before the code it
@@ -272,7 +272,7 @@ public static class FormCodeText
     /// later would move this split silently and put a stray line into the code window on every save.
     /// </remarks>
     public static string DesignerHalfOf(string rendered, string code) =>
-        code.Length > 0 && rendered.Length >= code.Length ? rendered[..^code.Length] : rendered;
+        CodeBufferText.DesignerHalfOf(rendered, code);
 
     /// <summary>
     /// The file name a form's designer half is rendered against: the name of its file, or — for a form that
@@ -308,13 +308,7 @@ public static class FormCodeText
     /// is not a state anything here produces, and if one ever arrives it gets no render at all.
     /// </para>
     /// </remarks>
-    public static string? RenderFileNameFor(FormDefinition form)
-    {
-        var identity = DocumentIdentity.For(form);
-        if (identity.AbsolutePath is { } path)
-            return System.IO.Path.GetFileName(path);
-        return identity.Name.Length == 0 ? null : identity.Name + identity.Extension;
-    }
+    public static string? RenderFileNameFor(FormDefinition form) => CodeBufferText.RenderFileNameFor(form);
 
     /// <summary>
     /// The whole file this module represents, whichever kind it is.

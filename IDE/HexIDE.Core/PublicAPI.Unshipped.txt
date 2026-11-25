@@ -159,3 +159,6 @@ override HexIDE.Runtime.Components.DesignerCaption.GetHashCode() -> int
 override HexIDE.Runtime.Components.DesignerCaption.ToString() -> string!
 static HexIDE.Runtime.Components.DesignerCaption.operator !=(HexIDE.Runtime.Components.DesignerCaption? left, HexIDE.Runtime.Components.DesignerCaption? right) -> bool
 static HexIDE.Runtime.Components.DesignerCaption.operator ==(HexIDE.Runtime.Components.DesignerCaption? left, HexIDE.Runtime.Components.DesignerCaption? right) -> bool
+HexIDE.IDE.IProjectFileFormat.AttributeBlock(string! code) -> string!
+HexIDE.IDE.IProjectFileFormat.IsDesignerFile(string! text) -> bool
+HexIDE.IDE.IProjectFileFormat.ModuleNameFor(string! fallbackName, string? header) -> string!

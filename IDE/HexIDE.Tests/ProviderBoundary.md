@@ -41,11 +41,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Interpreter.IBasicStandardLibrary |
 | type | HexIDE | HexIDE.Runtime.Interpreter.ModuleExecutionContext |
 | type | HexIDE | HexIDE.Runtime.Interpreter.VbObject |
-| type | HexIDE | HexIDE.Runtime.Serialization.CodeWindowText |
-| type | HexIDE | HexIDE.Runtime.Serialization.FormCodeText |
-| type | HexIDE | HexIDE.Runtime.Serialization.LineEdits |
-| type | HexIDE | HexIDE.Runtime.Serialization.ModuleFileFormat |
-| type | HexIDE | HexIDE.Runtime.Serialization.Reduction |
 | type | HexIDE | HexIDE.Runtime.Serialization.UnmodelledControl |
 | type | HexIDE | HexIDE.Runtime.StandaloneStandardLib |
 | type | HexIDE | HexIDE.Runtime.VBFormRuntime |
@@ -57,5 +52,4 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.FormComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.InBox.SSTabComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.MenuComponentClass |
-| type | HexIDE.Desktop | HexIDE.Runtime.Serialization.CodeWindowText |
 | type | HexIDE.Desktop | HexIDE.Runtime.Serialization.UnmodelledControl |

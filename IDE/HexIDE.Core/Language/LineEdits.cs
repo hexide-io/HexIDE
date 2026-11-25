@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using HexIDE.Language;
 
-namespace HexIDE.Runtime.Serialization;
+namespace HexIDE.Language;
 
 /// <summary>What a reduction kept and what it had to leave out.</summary>
 /// <param name="Changes">The changes to apply, in ascending order of offset and not overlapping.</param>
@@ -11,7 +10,7 @@ namespace HexIDE.Runtime.Serialization;
 /// How many lines of the original text a dropped change would have rewritten. Zero when nothing touched a
 /// read-only region.
 /// </param>
-public readonly record struct Reduction(IReadOnlyList<TextChange> Changes, int DroppedLines);
+internal readonly record struct Reduction(IReadOnlyList<TextChange> Changes, int DroppedLines);
 
 /// <summary>
 /// Turns a rewrite of a buffer into the changes to the lines it actually alters, less any that would change a
@@ -32,7 +31,7 @@ public readonly record struct Reduction(IReadOnlyList<TextChange> Changes, int D
 /// document, and the header with it. The text written back uses the buffer's own terminator.
 /// </para>
 /// </remarks>
-public static class LineEdits
+internal static class LineEdits
 {
     /// <summary>
     /// Trim protected lines first, then take a described run with a whole-line deletion of its logical
