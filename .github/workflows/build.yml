@@ -822,6 +822,9 @@ jobs:
       - name: Self-test the hygiene guard
         run: bash scripts/check-tree-hygiene.selftest.sh
 
+      - name: Self-test the published-release guard
+        run: bash scripts/check-release-unpublished.selftest.sh
+
       - name: Guard tree hygiene (keys, artefacts, links, paths, naming)
         env:
           # Supplied from a repository secret so the pattern itself is never committed —
