@@ -80,9 +80,9 @@ public sealed class ProjectWriteSafetyTests
         finally { Directory.Delete(directory, recursive: true); }
     }
 
-    public static bool CanCreateSymbolicLinks => !OperatingSystem.IsWindows();
+    public static bool CanCreateSymbolicLinks => SymbolicLinks.RunTests;
 
-    [Fact(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [Fact(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     public void A_link_above_the_project_folder_is_not_refused_but_one_inside_it_is()
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-2504-" + Guid.NewGuid().ToString("N"));
@@ -105,7 +105,7 @@ public sealed class ProjectWriteSafetyTests
         finally { Directory.Delete(directory, recursive: true); }
     }
 
-    [Theory(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [Theory(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     [InlineData(false)]
     [InlineData(true)]
     public void Refuses_a_linked_companion_before_creating_any_recovery_file(bool dangling)

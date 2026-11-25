@@ -34,7 +34,7 @@ public class ResolvedTempTests
         ResolvedTemp.Resolve(path).Should().Be(path);
     }
 
-    [Fact(Skip = "Windows symbolic links may require privileges.", SkipWhen = nameof(OnWindows))]
+    [Fact(Skip = "On Windows Resolve returns the path as given, so there is no link to follow.", SkipWhen = nameof(OnWindows))]
     public void Resolve_follows_links_inside_a_link_target()
     {
         var root = ResolvedTemp.CreateDirectory("hexide-resolved-temp-");

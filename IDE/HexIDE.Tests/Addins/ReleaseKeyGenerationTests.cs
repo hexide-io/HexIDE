@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using HexIDE.AddinPacker;
 using HexIDE.Addins;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Addins;
 
@@ -165,9 +166,9 @@ public sealed class ReleaseKeyGenerationTests : IDisposable
         Directory.GetFiles(_root, "*", SearchOption.AllDirectories).Should().BeEmpty();
     }
 
-    public static bool CanCreateSymbolicLinks => !OperatingSystem.IsWindows();
+    public static bool CanCreateSymbolicLinks => SymbolicLinks.RunTests;
 
-    [Fact(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [Fact(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     public async Task Linked_output_folders_cannot_alias_private_and_public_outputs()
     {
         Directory.CreateDirectory(RootKeys);
@@ -178,7 +179,7 @@ public sealed class ReleaseKeyGenerationTests : IDisposable
         Directory.GetFiles(_root, "*", SearchOption.AllDirectories).Should().BeEmpty();
     }
 
-    [Fact(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [Fact(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     public async Task Distinct_outputs_through_a_linked_parent_are_accepted()
     {
         var alias = Path.Combine(_root, "alias");

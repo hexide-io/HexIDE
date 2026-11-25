@@ -238,9 +238,9 @@ public class WorkingCopyReplyTests
     public async Task Write_refuses_external_and_linked_targets_before_editing(string operation, string attack)
         => await CheckRefusal(operation, attack);
 
-    public static bool CanCreateSymbolicLinks => !OperatingSystem.IsWindows();
+    public static bool CanCreateSymbolicLinks => SymbolicLinks.RunTests;
 
-    [AvaloniaTheory(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [AvaloniaTheory(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     [InlineData("source")]
     [InlineData("property")]
     [InlineData("control")]
