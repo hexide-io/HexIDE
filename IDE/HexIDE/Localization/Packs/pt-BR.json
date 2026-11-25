@@ -198,6 +198,7 @@
     "Str.ProjectLocalState.SidecarUnavailableFormat": "Os marcadores, os pontos de interrupção e as outras configurações por usuário de {0} não serão carregados nem salvos nesta sessão.\n\n{1}",
     "Str.MDIForm.DesignerNotImplemented": "O designer de formulários MDI não está implementado (#5313).",
     "Str.Naming.Msg.CreateControlArray": "Já existe um controle chamado '{0}'.  Deseja criar uma matriz de controles?",
+    "Str.Naming.Msg.NotAFileName": "O programa de {0} não foi criado: {1} é '{2}', que não é um nome de arquivo, portanto um arquivo seria gravado fora da respectiva pasta.",
     "Str.Options.Environment.ErrorTrapping.Header": "Interceptação de erros",
     "Str.Tool.LanguageServers.Trial.Testing": "Testando…",
     "Str.Tool.LanguageServers.Trial.Result": "Resultado do teste de conexão",

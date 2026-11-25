@@ -1125,6 +1125,7 @@
     "Str.Naming.Msg.EmptyName": "Tên không được để trống",
     "Str.Naming.Msg.NameNotUniqueInForm": "Tên phải là duy nhất trong biểu mẫu",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' không phải là tên hợp lệ. Tên bắt đầu bằng một chữ cái, sau đó là các chữ cái, chữ số và dấu gạch dưới.",
+    "Str.Naming.Msg.NotAFileName": "Chương trình cho {0} không được tạo: {1} là '{2}', không phải tên tệp, nên một tệp sẽ bị ghi ra ngoài thư mục của nó.",
     "Str.Naming.Msg.ReservedWord": "'{0}' không thể là tên, vì đây là từ dành riêng của VB6.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' đã là tên của một biểu mẫu, mô-đun hoặc lớp trong dự án này. VB6 xếp chúng vào cùng một không gian tên, nên hai mục không thể trùng tên.",
     "Str.Naming.Msg.ProjectNameTaken": "Một dự án có tên '{0}' đã được nạp. Hai dự án trong cùng một nhóm không thể trùng tên.",

@@ -104,6 +104,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/KeptLinesAfterSaveAsTests.cs` | split |
 | `Projects/LoneCrModuleSaveTests.cs` | split |
 | `Projects/MDIFormFileTests.cs` | split |
+| `Projects/MadeNamesStayInsideTests.cs` | split |
 | `Projects/MadeProgramTests.cs` | split |
 | `Projects/MakeOutcomesTests.cs` | split |
 | `Projects/MakeProjectGroupTests.cs` | split |

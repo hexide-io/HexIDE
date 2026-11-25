@@ -1164,6 +1164,7 @@
     "Str.Naming.Msg.EmptyName": "Nama tidak boleh kosong",
     "Str.Naming.Msg.NameNotUniqueInForm": "Nama harus unik dalam formulir",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' bukan nama yang valid. Nama diawali dengan huruf dan dilanjutkan dengan huruf, angka, dan garis bawah.",
+    "Str.Naming.Msg.NotAFileName": "Program untuk {0} tidak dibuat: {1} adalah '{2}', yang bukan nama file, sehingga sebuah file akan ditulis di luar foldernya.",
     "Str.Naming.Msg.ReservedWord": "'{0}' tidak dapat menjadi nama, karena kata ini dicadangkan oleh VB6.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' sudah menjadi nama sebuah form, modul, atau kelas di proyek ini. VB6 menempatkan semuanya dalam satu ruang nama, sehingga dua di antaranya tidak boleh bernama sama.",
     "Str.Naming.Msg.ProjectNameTaken": "Sebuah proyek bernama '{0}' sudah dimuat. Dua proyek dalam satu grup tidak boleh bernama sama.",

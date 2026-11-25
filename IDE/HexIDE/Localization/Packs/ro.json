@@ -1125,6 +1125,7 @@
     "Str.Naming.Msg.EmptyName": "Numele nu poate fi gol",
     "Str.Naming.Msg.NameNotUniqueInForm": "Numele trebuie să fie unic în formular",
     "Str.Naming.Msg.NotAVb6Name": "„{0}” nu este un nume valid. Un nume începe cu o literă și continuă cu litere, cifre și caractere de subliniere.",
+    "Str.Naming.Msg.NotAFileName": "Programul pentru {0} nu a fost creat: {1} este '{2}', care nu este un nume de fișier, așa că un fișier ar fi scris în afara folderului său.",
     "Str.Naming.Msg.ReservedWord": "„{0}” nu poate fi un nume, deoarece VB6 rezervă acest cuvânt.",
     "Str.Naming.Msg.DocumentNameTaken": "„{0}” este deja numele unui formular, modul sau al unei clase din acest proiect. VB6 le atribuie un singur spațiu de nume, așa că două nu pot avea același nume.",
     "Str.Naming.Msg.ProjectNameTaken": "Un proiect numit „{0}” este deja încărcat. Două proiecte dintr-un grup nu pot avea același nume.",

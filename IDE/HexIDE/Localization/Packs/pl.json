@@ -1164,6 +1164,7 @@
     "Str.Naming.Msg.EmptyName": "Nazwa nie może być pusta",
     "Str.Naming.Msg.NameNotUniqueInForm": "Nazwa musi być unikatowa w formularzu",
     "Str.Naming.Msg.NotAVb6Name": "„{0}” nie jest prawidłową nazwą. Nazwa zaczyna się od litery, a dalej składa się z liter, cyfr i znaków podkreślenia.",
+    "Str.Naming.Msg.NotAFileName": "Nie utworzono programu dla {0}: {1} to '{2}', co nie jest nazwą pliku, więc plik zostałby zapisany poza swoim folderem.",
     "Str.Naming.Msg.ReservedWord": "„{0}” nie może być nazwą, ponieważ VB6 zastrzega to słowo.",
     "Str.Naming.Msg.DocumentNameTaken": "„{0}” jest już nazwą formularza, modułu lub klasy w tym projekcie. VB6 umieszcza je w jednej przestrzeni nazw, więc dwa elementy nie mogą nosić tej samej nazwy.",
     "Str.Naming.Msg.ProjectNameTaken": "Projekt o nazwie „{0}” jest już wczytany. Dwa projekty w jednej grupie nie mogą nosić tej samej nazwy.",

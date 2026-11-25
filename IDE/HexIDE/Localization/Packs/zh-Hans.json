@@ -1158,6 +1158,7 @@
     "Str.Naming.Msg.EmptyName": "名称不能为空",
     "Str.Naming.Msg.NameNotUniqueInForm": "名称在窗体中必须唯一",
     "Str.Naming.Msg.NotAVb6Name": "“{0}”不是有效的名称。名称以字母开头，其后只能包含字母、数字和下划线。",
+    "Str.Naming.Msg.NotAFileName": "未生成 {0} 的程序：{1} 为“{2}”，不是文件名，因此会有文件写到其文件夹之外。",
     "Str.Naming.Msg.ReservedWord": "“{0}”不能用作名称，因为它是 VB6 的保留字。",
     "Str.Naming.Msg.DocumentNameTaken": "“{0}”已经是此工程中某个窗体、模块或类的名称。VB6 让它们共用一个命名空间，因此不允许重名。",
     "Str.Naming.Msg.ProjectNameTaken": "名为“{0}”的工程已加载。同一个工程组中的两个工程不能同名。",
