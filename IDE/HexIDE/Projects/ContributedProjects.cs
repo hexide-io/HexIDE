@@ -606,8 +606,9 @@ public sealed partial class ContributedProjects
             throw new MemberNameTakenException(string.Format(localization.GetString("Str.ContributedProject.NameTaken"),
                 Path.GetFileName(member.Path), name, project.Name));
         fileRead?.Invoke(member.Path, bytes);
-        var designerAsModule = ModuleFileFormat.IsDesignerFile(read.Text);
-        var (header, body) = designerAsModule ? ("", read.Text) : ModuleFileFormat.SplitHeader(read.Text, kind);
+        var format = FormatForMembers(project);
+        var designerAsModule = format?.IsDesignerFile(read.Text) ?? false;
+        var (header, body) = designerAsModule || format is null ? ("", read.Text) : format.SplitModule(read.Text, kind);
         var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = member.Path,

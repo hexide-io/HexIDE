@@ -147,7 +147,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/LanguageServersAccessKeyTests.cs` | split |
 | `Views/LastPositionTests.cs` | split |
 | `Views/LineControlTests.cs` | split |
-| `Views/LineNumbersFromTheTopOfTheFileTests.cs` | split |
 | `Views/LoadedFormMenuTests.cs` | split |
 | `Views/LockControlsSaveTests.cs` | split |
 | `Views/MDIFormLoadingTests.cs` | split |
@@ -206,7 +205,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ToolbarDesignerPersistenceTests.cs` | split |
 | `Views/ToolboxFromRegistryTests.cs` | split |
 | `Views/TypeHierarchyTests.cs` | split |
-| `Views/TypedMemberAttributeTests.cs` | split |
 | `Views/UncreatableControlTests.cs` | split |
 | `Views/UnloadTests.cs` | split |
 | `Views/UnmodelledControlPlaceholderTests.cs` | split |

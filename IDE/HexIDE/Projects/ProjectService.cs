@@ -279,10 +279,10 @@ public partial class ProjectService : IProjectService
         if (project.FormFormat is not null)
             return;
         foreach (var form in project.Forms)
-            form.RecordDesignerText(FormCodeText.DesignerHalfOf(
+            form.RecordDesignerText(CodeBufferText.DesignerHalfOf(
                 RenderForm(form, form.Name + "." + ProjectFormats.Of(form.Owner).FormExtension).Text, form.Code));
         foreach (var module in project.Modules)
-            DesignerPartOf(module)?.RecordDesignerText(FormCodeText.DesignerHalfOf(
+            DesignerPartOf(module)?.RecordDesignerText(CodeBufferText.DesignerHalfOf(
                 RenderModule(module, module.Name + "." + ProjectFormats.Of(module.Owner).MemberExtension(module.Kind)).Text, module.Code));
     }
 
@@ -2402,7 +2402,7 @@ public partial class ProjectService : IProjectService
             // No file until the project is saved, as in VB6 (#489, #500). The header its first save will write is
             // rendered now and held, so the code window shows what the file will say, and the next refresh has the
             // header it replaces to compare against, as the project template does (#885).
-            form.RecordDesignerText(FormCodeText.DesignerHalfOf(RenderForm(form, name + "." + ProjectFormats.Of(project).FormExtension).Text, form.Code));
+            form.RecordDesignerText(CodeBufferText.DesignerHalfOf(RenderForm(form, name + "." + ProjectFormats.Of(project).FormExtension).Text, form.Code));
             project.AddForm(form);
             return Task.FromResult(form);
         }, interactive);
@@ -2451,7 +2451,7 @@ public partial class ProjectService : IProjectService
         // new form's and a template member's are (#885). Without it a brand-new UserControl or PropertyPage opens
         // with no designer block.
         DesignerPartOf(module)?.RecordDesignerText(
-            FormCodeText.DesignerHalfOf(RenderModule(module, fileName).Text, module.Code));
+            CodeBufferText.DesignerHalfOf(RenderModule(module, fileName).Text, module.Code));
         project.AddModule(module);
         return module;
     }
@@ -2525,7 +2525,7 @@ public partial class ProjectService : IProjectService
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
         var (preservedHeader, body) = FormatOf(project).SplitModule(source, kind);
-        var name = ModuleFileFormat.ModuleNameFor(Path.GetFileNameWithoutExtension(absolutePath), preservedHeader);
+        var name = FormatOf(project).ModuleNameFor(Path.GetFileNameWithoutExtension(absolutePath), preservedHeader);
 
         // Before the baseline is recorded, so a refused file leaves no trace: a baseline for a module the
         // project does not carry would have the dirty check answering about a stranger.
@@ -2852,7 +2852,7 @@ public partial class ProjectService : IProjectService
         // a server reading the buffer and a server reading the file agree about what line one is -- the
         // announcement flushes a pending didChange before its didSave, so the order holds on the wire too.
         if (adoptHeader)
-            headerRefresher.Saved(DocumentIdentity.For(form), FormCodeText.DesignerHalfOf(frmText, form.Code));
+            headerRefresher.Saved(DocumentIdentity.For(form), CodeBufferText.DesignerHalfOf(frmText, form.Code));
         return true;
     }
 
@@ -3058,7 +3058,7 @@ public partial class ProjectService : IProjectService
         // Change the model before rendering, leaving absent attributes and all other header text alone.
         if (adoptHeader && module.Kind == ModuleKind.PropertyPage && module.Owner.ProjectType == VBProjectType.Control)
         {
-            var exposure = System.Text.RegularExpressions.Regex.Match(FormCodeText.AttributeBlock(module.Code),
+            var exposure = System.Text.RegularExpressions.Regex.Match(ProjectFormats.Of(module.Owner).AttributeBlock(module.Code),
                 @"(?:\A|(?<=[\r\n]))Attribute VB_Exposed = False(?=[\r\n]|\z)");
             if (exposure.Success)
                 module.UpdateCode(module.Code.Remove(exposure.Index, exposure.Length)
@@ -3096,7 +3096,7 @@ public partial class ProjectService : IProjectService
         // or .cls adopts the header the save put before its body as well.
         if (adoptHeader)
             headerRefresher.Saved(DocumentIdentity.For(module),
-                DesignerPartOf(module) is not null ? FormCodeText.DesignerHalfOf(text, module.Code)
+                DesignerPartOf(module) is not null ? CodeBufferText.DesignerHalfOf(text, module.Code)
                     : text.EndsWith(module.Code, StringComparison.Ordinal) ? text[..(text.Length - module.Code.Length)] : null);
     }
 
