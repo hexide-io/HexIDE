@@ -17,6 +17,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/LanguageEditingCompositionTests.cs` | split |
 | `Addins/RegisterDesignerPicturesTests.cs` | split |
 | `Addins/RegisterResourcesTests.cs` | split |
+| `Addins/RunEngineWithdrawalTests.cs` | split |
 | `Automation/ActiveDocumentDumpTests.cs` | split |
 | `Automation/AddWatchAccessorContextTests.cs` | split |
 | `Automation/AutomationNameGuardTests.cs` | split |
@@ -75,6 +76,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ArchiveProjectStructureTests.cs` | split |
 | `Views/BattleshipFormsDemoTests.cs` | split |
 | `Views/BeginOrderTests.cs` | split |
+| `Views/BoxKeyUpTests.cs` | split |
 | `Views/BrandWindowIconTests.cs` | split |
 | `Views/CallHierarchyTests.cs` | split |
 | `Views/CarriedBoxStackingTests.cs` | split |

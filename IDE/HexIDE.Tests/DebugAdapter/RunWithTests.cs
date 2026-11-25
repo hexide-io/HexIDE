@@ -72,7 +72,7 @@ public class RunWithTests : IAsyncDisposable
         var project = new ProjectDefinition(VBProjectType.EXE, "Invoices") { AbsolutePath = Path.Combine(Path.GetTempPath(), "Invoices.vbp") };
         var windows = Substitute.For<IWindowManager>();
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(),
-            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(answer);
+            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(answer);
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var trust = new CodeTrust(windows, strings, path => path == project.AbsolutePath);
@@ -86,7 +86,7 @@ public class RunWithTests : IAsyncDisposable
         runner.StartDefaultProject();
 
         await windows.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(),
-            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt);
+            Arg.Any<Avalonia.Controls.Window?>(), MessageBoxLayout.SecondButtonDefault | MessageBoxLayout.SecurityPrompt);
         if (starts)
             (await _asked.Task.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken)).ProjectName.Should().Be("Invoices");
         else

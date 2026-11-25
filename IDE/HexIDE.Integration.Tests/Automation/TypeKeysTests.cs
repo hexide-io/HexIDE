@@ -1192,7 +1192,9 @@ public class TypeKeysTests : IDisposable
         box.TextChanged += (_, _) =>
         {
             if (shown is not null) return;
-            shown = new Window { Title = "Project1", Content = new HexIDE.Runtime.Dialogs.MessageBox() };
+            // Made as the engine makes it, through the window-maker the IDE gives it (#5616).
+            shown = (Window)((IProgramDialogWindows)new WindowManager(Substitute.For<HexIDE.Localization.ILocalizationService>()))
+                .MakeWindow("Project1", new HexIDE.Runtime.Dialogs.MessageBox(), ProgramBox.Message);
             shown.Show();
         };
         try

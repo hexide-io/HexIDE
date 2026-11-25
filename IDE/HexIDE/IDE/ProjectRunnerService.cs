@@ -108,11 +108,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         }
     }
 
-    private void ApplyErrorTrapping()
-    {
-        if (debugController is IDebugGate gate)
-            gate.ErrorTrapping = errorTrapping;
-    }
+    // The engine sets its own debugger's trapping (#5616): the IDE's controller is a forwarder.
+    private void ApplyErrorTrapping() => runEngine.ErrorTrapping = errorTrapping;
 
     // Raises a failure event, with where its error was raised readable while the handlers run (#955).
     private void Report(Action<string>? failed, RunFailure failure)

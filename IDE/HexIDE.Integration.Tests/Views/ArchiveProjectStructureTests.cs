@@ -74,7 +74,7 @@ public sealed class ArchiveProjectStructureTests : IDisposable
             model.OpenSelected();
             var tab = tabs.OfType<ArchiveDocumentViewModel>().Single();
             tab.CaretOffset = 3;
-            windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), "Main", false).Returns("Helpers");
+            windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), "Main").Returns("Helpers");
             menu.ShowAt(tree);
             Dispatcher.UIThread.RunJobs();
             Item(menu, "Rename").Command!.Execute(null);
@@ -158,7 +158,7 @@ public sealed class ArchiveProjectStructureTests : IDisposable
         var before = File.ReadAllBytes(path);
         var name = new TaskCompletionSource<string?>();
         var answer = new TaskCompletionSource<MessageBoxResult>();
-        windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(), false).Returns(name.Task);
+        windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>()).Returns(name.Task);
         windows.MessageBox(Arg.Any<string>(), "Str.Archive.Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning).Returns(answer.Task);
         if (operation == "folder") model.SelectedItem = Node("Sources");
         var pending = Command(operation);
@@ -180,12 +180,12 @@ public sealed class ArchiveProjectStructureTests : IDisposable
         var path = Write();
         await archives.Open(path);
         model.SelectedItem = Node("Sources");
-        windows.InputBox(Arg.Any<string>(), "Str.Archive.NewFolder", "", false).Returns("Fresh");
+        windows.InputBox(Arg.Any<string>(), "Str.Archive.NewFolder", "").Returns("Fresh");
         await model.NewArchiveFolder();
         Node("Fresh").Entry.Archive!.Source.Category.Should().Be(0);
         model.SelectedItem.Should().BeOfType<ArchiveTreeNode>().Which.Name.Should().Be("Fresh");
         Node("Sources").IsExpanded.Should().BeTrue();
-        windows.InputBox(Arg.Any<string>(), "Str.Archive.NewFolder", "", false).Returns("Child");
+        windows.InputBox(Arg.Any<string>(), "Str.Archive.NewFolder", "").Returns("Child");
         await model.NewArchiveFolder();
         using var input = File.OpenRead(path);
         var sources = TwinBasicContainerReader.Read(input).Root.Children.OfType<TwinBasicDirectory>().Single();
@@ -233,13 +233,13 @@ public sealed class ArchiveProjectStructureTests : IDisposable
             await service.Open(Write());
             ArchiveTreeNode Find(string name) => explorer.RootItems.OfType<ArchiveTreeNode>().SelectMany(Walk).Single(n => n.Name == name);
             explorer.SelectedItem = Find("Sources");
-            windows.InputBox(Arg.Any<string>(), "Str.Archive.NewFolder", "", false).Returns("Fresh");
+            windows.InputBox(Arg.Any<string>(), "Str.Archive.NewFolder", "").Returns("Fresh");
             await explorer.NewArchiveFolder();
             Find("Fresh").Should().NotBeNull();
             explorer.SelectedItem = Find("Main.twin");
             explorer.OpenSelected();
             var tab = c.DocumentDockService.OpenDocuments.OfType<ArchiveDocumentViewModel>().Single();
-            windows.InputBox(Arg.Any<string>(), "Str.Archive.Rename", "Main", false).Returns("Helpers");
+            windows.InputBox(Arg.Any<string>(), "Str.Archive.Rename", "Main").Returns("Helpers");
             await explorer.RenameArchive();
             tab.Title.Should().Be("Helpers.twin");
             explorer.SelectedItem = Find("Helpers.twin");

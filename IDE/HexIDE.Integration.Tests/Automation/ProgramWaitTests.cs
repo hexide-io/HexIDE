@@ -17,6 +17,7 @@ using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Runtime.Running;
 
 namespace HexIDE.Integration.Tests.Automation;
 
@@ -162,7 +163,7 @@ public class ProgramWaitTests
     }
 
     // The time slice is -1 by default, so every statement yields and is held; null leaves DoEvents a loop's only yield.
-    private static Run Start(string code, string? form2Code = null, int? timeSliceMs = -1, DISetup? composition = null)
+    private static Run Start(string code, string? form2Code = null, int? timeSliceMs = -1, RealComposition? owned = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         // The code follows the header in one file, so a breakpoint's line counts the header, as the code window does.
@@ -175,9 +176,10 @@ public class ProgramWaitTests
 
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + ": {0}");
-        var controller = composition is null ? new DebugController() : (DebugController)composition.DebugController;
+        // The composition's controller forwards to the registered engine's own debugger (#5616).
+        var controller = owned is null ? new DebugController() : (DebugController)owned.Engine.Debugger;
         controller.TimeSliceMs = timeSliceMs;
-        var runner = composition?.ProjectRunnerService as ProjectRunnerService ?? TestRunners.WithInterpreter(
+        var runner = owned?.Composition.ProjectRunnerService as ProjectRunnerService ?? TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 
@@ -455,7 +457,7 @@ public class ProgramWaitTests
                         DoEvents
                     Loop
                 End Sub
-                """, composition: composition);
+                """, owned: owned);
             var button = shell.GetVisualDescendants().OfType<Button>().Single(b =>
                 Avalonia.Automation.AutomationProperties.GetAutomationId(b) == id);
             var command = run.Named("Command1");
@@ -518,7 +520,7 @@ public class ProgramWaitTests
                         DoEvents
                     Loop
                 End Sub
-                """, timeSliceMs: null, composition: composition);
+                """, timeSliceMs: null, owned: owned);
             UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null).Success.Should().BeTrue();
             await Task.Delay(100);
             run.Controller.State.Should().Be(DebugState.Running);

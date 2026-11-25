@@ -26,7 +26,7 @@ public static class OpenDialogs
 
     internal static bool IsBox(object? content) =>
         content is HexIDE.Dialogs.MessageBox or HexIDE.Dialogs.InputBox
-        || HexIDE.IDE.ProgramDialogs.IsRuntimeBox(content);
+        || HexIDE.IDE.ProgramBoxes.IsProgramBox(content);
 
     // The watch of the call under way, for the wait for a program to record the dialog it named.
     private static readonly AsyncLocal<DialogWatch?> Current = new();
@@ -107,7 +107,7 @@ public static class OpenDialogs
         var kind = content switch
         {
             HexIDE.Dialogs.MessageBox => "a message box",
-            _ when HexIDE.IDE.ProgramDialogs.IsRuntimeMessageBox(content) => "a message box",
+            _ when HexIDE.IDE.ProgramBoxes.IsMessageBox(content) => "a message box",
             HexIDE.Forms.Views.RuntimeErrorView => "the run-time error dialog",
             Control { DataContext: HexIDE.Forms.ViewModels.RuntimeErrorViewModel } => "the run-time error dialog",
             HexIDE.Forms.ViewModels.RuntimeErrorViewModel => "the run-time error dialog",

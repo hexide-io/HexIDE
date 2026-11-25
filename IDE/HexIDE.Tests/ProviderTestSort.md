@@ -22,9 +22,11 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/RegisterComponentTests.cs` | split |
 | `Addins/RegisterControlLibraryTests.cs` | split |
 | `Addins/RegisterLanguageEditingTests.cs` | split |
+| `Addins/RunEngineRegistrationTests.cs` | split |
 | `Components/FlexGridModelTests.cs` | provider |
 | `Components/FlexGridSortTests.cs` | provider |
 | `Components/PropertyTextTests.cs` | split |
+| `CompositionTestBase.cs` | split |
 | `Controls/Vb6FoldingAdapterTests.cs` | split |
 | `Converters/VBColorBrushesTests.cs` | split |
 | `Corpus/AddinRouteCorpusTests.cs` | split |
@@ -39,8 +41,9 @@ A test that reaches the provider only at run time, through the application's com
 | `DebugAdapter/DebuggerCompositionTests.cs` | split |
 | `DebugAdapter/RunEngineSeamTests.cs` | split |
 | `DebugAdapter/RunFormIconTests.cs` | split |
+| `DebugAdapter/RunWithMenuTests.cs` | split |
 | `DebugAdapter/RunWithTests.cs` | split |
-| `DebugAdapter/VbaBitnessEngineTests.cs` | split |
+| `DebugAdapter/VbaBitnessEngineTests.cs` | provider |
 | `Debugging/BreakpointServiceTests.cs` | split |
 | `Debugging/MarkLinesTests.cs` | split |
 | `IDE/CodePrefixEquivalenceTests.cs` | split |
@@ -53,6 +56,7 @@ A test that reaches the provider only at run time, through the application's com
 | `IDE/MarkLineRulesTests.cs` | split |
 | `IDE/NamedDocumentsTests.cs` | split |
 | `IDE/RecentlyClosedDocumentsTests.cs` | split |
+| `IDE/ToolDocumentAreaTests.cs` | split |
 | `IDE/UserFileWriteFailureTests.cs` | split |
 | `IDE/Vb6CompileLogTests.cs` | split |
 | `IDE/Vb6ToolchainDiagnosticsTests.cs` | split |
@@ -64,11 +68,15 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/ControlArrayIndexTests.cs` | split |
 | `Infrastructure/DesignerSizeTests.cs` | split |
 | `Infrastructure/DocumentTabsModifiedTests.cs` | split |
+| `Infrastructure/ExternalInspectionToolTests.cs` | split |
+| `Infrastructure/ExternalRunControlTests.cs` | split |
 | `Infrastructure/FormControlsSummaryTests.cs` | split |
 | `Infrastructure/FormatSelectionTests.cs` | split |
 | `Infrastructure/ImplicitDocumentNamingTests.cs` | split |
 | `Infrastructure/InterpreterSeamTests.cs` | split |
 | `Infrastructure/NoProjectTypeLaunchTests.cs` | split |
+| `Infrastructure/NoRunEngineReplyTests.cs` | split |
+| `Infrastructure/NoVb6LaunchTests.cs` | split |
 | `Infrastructure/ProjectWriteSafetyTests.cs` | split |
 | `Infrastructure/SetLockKeyTests.cs` | split |
 | `Infrastructure/ShutdownIdeTests.cs` | split |
@@ -80,6 +88,7 @@ A test that reaches the provider only at run time, through the application's com
 | `LspClient/DocumentVersionOnTheWireTests.cs` | split |
 | `LspClient/DocumentWireNameTests.cs` | split |
 | `LspClient/FileOperationWireTests.cs` | split |
+| `LspClient/LspWorkspaceWiringTests.cs` | split |
 | `LspClient/WorkspaceAndPriorityTests.cs` | split |
 | `LspClient/WorkspaceArtifactProjectTests.cs` | split |
 | `Profiles/ProfileRecoveryTests.cs` | split |
@@ -159,6 +168,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Sidecar/UserSidecarBreakpointTests.cs` | split |
 | `Sidecar/UserSidecarSaveTests.cs` | split |
 | `StartupCompositionTests.cs` | split |
+| `TestApp.cs` | split |
 | `TestHelpers.cs` | provider |
 | `TestRunners.cs` | split |
 | `Tools/PreservedItemTreeTests.cs` | split |
@@ -174,6 +184,7 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/ComponentsViewModelTests.cs` | split |
 | `ViewModels/DialogChromeLocalizationTests.cs` | split |
 | `ViewModels/DockFactoryTests.cs` | split |
+| `ViewModels/DockFactoryWiringTests.cs` | split |
 | `ViewModels/DocumentModifiedMarkerTests.cs` | split |
 | `ViewModels/DocumentSessionTests.cs` | split |
 | `ViewModels/EventStubTests.cs` | split |
@@ -182,6 +193,7 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/FindReplaceViewModelTests.cs` | split |
 | `ViewModels/GuardedFormattingTests.cs` | split |
 | `ViewModels/GuardedWritersTests.cs` | split |
+| `ViewModels/LastPositionTests.cs` | split |
 | `ViewModels/MainViewViewModelTests.cs` | split |
 | `ViewModels/MarkOnReadOnlyLineTests.cs` | split |
 | `ViewModels/MemberAttributesFollowARenameTests.cs` | split |

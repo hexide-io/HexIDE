@@ -154,7 +154,7 @@ public sealed class ExternalProjectChangeTests : IDisposable
         File.ReadAllBytes(ProjectFile).Should().Equal(before);
         _loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
         await _windows.Received().MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
-            MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>());
+            MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>());
     }
 
     [AvaloniaFact]

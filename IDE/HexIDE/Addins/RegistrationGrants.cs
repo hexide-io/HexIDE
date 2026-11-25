@@ -54,6 +54,12 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     public bool LanguageEditing { get; init; }
 
     /// <summary>
+    /// Whether it may register the engine that runs projects in the IDE (#5616), which runs the developer's code in the IDE's
+    /// process and reaches the debugger.
+    /// </summary>
+    public bool RunEngine { get; init; }
+
+    /// <summary>
     /// Whether it may register a component beyond a plain control (#5594): one whose role isn't
     /// <see cref="HexIDE.Runtime.Components.ComponentRole.Control"/>, such as a form, or that's a container. The designer
     /// gives such a class a place no plain control has, as a form's root or as other controls' parent.
@@ -107,6 +113,8 @@ internal static class RegistrationGrants
             DesignerPictures = true,
             // The VB family's editing helpers: its interpreter's #If reader and lexer (#5403).
             LanguageEditing = true,
+            // Its interpreter runs projects in the IDE (#5616).
+            RunEngine = true,
             // Its Form, and its Frame and PictureBox, which hold other controls (#5594).
             Components = true,
             // VB6's own type names, and its control libraries', the in-box OCXs it implements (#5599).

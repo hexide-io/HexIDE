@@ -19,7 +19,7 @@ using HexIDE.Utils;
 
 namespace HexIDE.IDE;
 
-public class WindowManager : IWindowManager
+public class WindowManager : IWindowManager, IProgramDialogWindows
 {
     private readonly ILocalizationService _localization;
     private int _nativeDialogs;
@@ -61,6 +61,25 @@ public class WindowManager : IWindowManager
         }
 
         return lifetime.MainWindow ?? throw new Exception("No main window and trying to open a window, fatal error");
+    }
+
+    // A running program's MsgBox and InputBox (#5616): the engine shows its own boxes in windows made here, recorded as the
+    // program's before they're made, so they're laid out left to right without the IDE's chrome.
+    object IProgramDialogWindows.MakeWindow(string caption, object content, ProgramBox kind)
+    {
+        ProgramBoxes.Record(content, kind);
+        return MakeDialogWindow(caption, (Control)content);
+    }
+
+    object? IProgramDialogWindows.Owner =>
+        Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? GetTopWindow(desktop) : null;
+
+    Task IProgramDialogWindows.ShowInView(string caption, object content, ProgramBox kind, out Action close)
+    {
+        ProgramBoxes.Record(content, kind);
+        var task = ShowManagedWindow(out var window, caption, content, false);
+        close = () => window.CloseCommand.Execute(window.CloseCommandParameter);
+        return task;
     }
 
     // The active IDE dialog owns what it raises, so a window manager stacks it above that dialog (#5003). A running
@@ -114,7 +133,7 @@ public class WindowManager : IWindowManager
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        if (!ProgramDialogs.IsProgramBox(content))
+        if (!ProgramBoxes.IsProgramBox(content))
             window.Classes.Add("ideDialog");
         return ShowManagedWindow(window);
     }
@@ -159,10 +178,8 @@ public class WindowManager : IWindowManager
             throw new NotImplementedException();
     }
 
-    public async Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false)
+    public async Task<string?> InputBox(string prompt, string? caption, string defaultText)
     {
-        if (isProgramDialog)
-            return await ProgramDialogs.ShowInputBox(this, prompt, caption, defaultText);
         caption ??= Distribution.DisplayName;
         if (Static.SingleView)
         {
@@ -254,10 +271,8 @@ public class WindowManager : IWindowManager
         return messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
     }
 
-    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false, MessageBoxLayout layout = MessageBoxLayout.None)
+    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, MessageBoxLayout layout = MessageBoxLayout.None)
     {
-        if (isProgramDialog)
-            return await ProgramDialogs.ShowMessageBox(this, text, caption, buttons, icon, owner, layout);
         caption ??= Distribution.DisplayName;
         if (Static.SingleView)
         {
@@ -520,7 +535,7 @@ public class WindowManager : IWindowManager
         {
             Title = title,
             Content = content,
-            FlowDirection = ProgramDialogs.IsProgramBox(content)
+            FlowDirection = ProgramBoxes.IsProgramBox(content)
                 ? FlowDirection.LeftToRight
                 : _localization.FlowDirection,
             SizeToContent = SizeToContent.WidthAndHeight,
@@ -528,7 +543,7 @@ public class WindowManager : IWindowManager
             CanResize = false,
             ShowActivated = true
         };
-        if (!ProgramDialogs.IsProgramBox(content))
+        if (!ProgramBoxes.IsProgramBox(content))
             IdeDialogChrome.Apply(window);
         return window;
     }

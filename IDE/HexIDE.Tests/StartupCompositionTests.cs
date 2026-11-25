@@ -14,7 +14,8 @@ public class StartupCompositionTests : CompositionTestBase
             Composition.ProjectRunnerService.ErrorTrapping.Should().Be(settings.ErrorTrapping);
             settings.ErrorTrapping = HexIDE.Runtime.Debugging.ErrorTrapping.BreakOnAllErrors;
             Composition.ProjectRunnerService.ErrorTrapping.Should().Be(settings.ErrorTrapping);
-            ((HexIDE.Runtime.Debugging.IDebugGate)Composition.DebugController).ErrorTrapping.Should().Be(settings.ErrorTrapping);
+            // The engine's own debugger, which the IDE's controller forwards to (#5616).
+            ((HexIDE.Runtime.Debugging.IDebugGate)Engine!.Debugger).ErrorTrapping.Should().Be(settings.ErrorTrapping);
         }
         finally { settings.ErrorTrapping = saved; }
     }
@@ -54,7 +55,6 @@ public class StartupCompositionTests : CompositionTestBase
     public void ResolvesEveryStartupRootInApplicationOrder()
     {
         // Keep the order in App.OnFrameworkInitializationCompleted: a different first root can hide a cycle.
-        Composition.RunningProgram.Should().NotBeNull();
         Composition.ThemeService.Should().NotBeNull();
         Composition.SettingsService.Should().NotBeNull();
         Composition.KeymapService.Should().NotBeNull();

@@ -5,6 +5,7 @@ using Avalonia.Media;
 using HexIDE.IDE;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.Running;
 
 namespace HexIDE.Integration.Tests.Automation;
 

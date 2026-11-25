@@ -77,7 +77,7 @@ public class DesignerRenameTests
         var windows = Substitute.For<IWindowManager>();
         var pending = new TaskCompletionSource<MessageBoxResult>();
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(),
-            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(pending.Task);
+            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(pending.Task);
         var loc = new LocalizationService();
         var dock = Substitute.For<IDocumentDockService>();
         var properties = new PropertiesToolViewModel(dock, new EventBus(), windows, loc);
@@ -91,7 +91,7 @@ public class DesignerRenameTests
         new FormSerializer().Serialize(form, "Form1.frm").frmText.Should().Be(before, "the question precedes all changes");
         windows.Received(1).MessageBox(
             "You already have a control named 'Command1'.  Do you want to create a control array?",
-            null, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, false, MessageBoxLayout.None);
+            null, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, MessageBoxLayout.None);
         pending.SetResult(answer);
         var context = System.Threading.ExecutionContext.Capture();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();

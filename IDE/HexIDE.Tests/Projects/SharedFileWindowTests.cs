@@ -31,7 +31,7 @@ public sealed class SharedFileWindowTests : IDisposable
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString(Arg.Any<string>()).Returns(c => c.Arg<string>() + " {0} {1}");
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
-            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(c =>
+            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(c =>
         {
             questions.Add(c.ArgAt<string>(0));
             questionButtons.Add(c.Arg<MessageBoxButtons>());
