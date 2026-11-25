@@ -240,7 +240,7 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
         session.Registry.ApplyRevocations();
 
         session.Probe.Host.RegisterDebugLaunch(Launch("Probe after revocation"));
-        session.Probe.Host.RegisterCommand("probe.late", "Late", () => session.Probe.Ran++);
+        session.Probe.Host.RegisterCommand("probe.late", "Late", () => session.Probe.Ran++, canExecute: () => true);
         session.Probe.Host.Events.RunStarted += () => session.Probe.Ran++;
 
         session.Launches.Launches.Should().BeEmpty("a tracked contribution registered after the revocation is refused");

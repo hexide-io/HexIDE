@@ -29,10 +29,11 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
             ? concrete.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn), origin)
             : host.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn));
 
-    // A withdrawn add-in's command or menu item neither runs nor offers itself, if anything of it outlives the withdrawal.
+    // A withdrawn add-in's command or menu item never runs, if anything of it outlives the withdrawal, and one that says when it
+    // can run says no. One with no such check is left without one, as registered: running it does nothing.
     private static Action Guard(Action onInvoke, Func<bool> withdrawn) => () => { if (!withdrawn()) onInvoke(); };
-    private static Func<bool> Guard(Func<bool>? canExecute, Func<bool> withdrawn) =>
-        () => !withdrawn() && (canExecute?.Invoke() ?? true);
+    private static Func<bool>? Guard(Func<bool>? canExecute, Func<bool> withdrawn) =>
+        canExecute is null ? null : () => !withdrawn() && canExecute();
 
     private sealed class OwnedMenus(IMenuContributor menus, AddinOrigin owner, Func<bool> withdrawn) : IMenuContributor
     {
