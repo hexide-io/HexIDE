@@ -37,7 +37,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.Components.InBox.StatusBarComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.LineComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.MenuComponentClass |
-| type | HexIDE | HexIDE.Runtime.VBLoader |
 | type | HexIDE.Desktop | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
 | type | HexIDE.Desktop | HexIDE.Runtime.BasicProvider |
 | type | HexIDE.Desktop | HexIDE.Runtime.Components.FormComponentClass |
