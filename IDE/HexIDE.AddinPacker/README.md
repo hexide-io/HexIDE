@@ -49,9 +49,10 @@ HexIDE.AddinPacker.exe genkeys-release --root-out signing/root --intermediate-ou
 
 The three private directories contain only `root.key`, `intermediate.key` and `firstparty.key`,
 respectively. `--public-out` contains `hexide-root.pub`, `hexide-firstparty.pub`,
-`intermediate.json/.sig` and `publisher.json/.sig`. To pack with them, give `pack --trust` a folder holding the
-four JSON/signature records and `pack --key` the `firstparty.key` file, or copy the records beside `firstparty.key`
-and leave out `--key`. Root and intermediate private keys are not inputs to `pack`.
+`intermediate.json/.sig` and `publisher.json/.sig`. To pack with them, give `pack --trust` a folder holding
+`hexide-root.pub` and the four JSON/signature records, and `pack --key` the `firstparty.key` file, or copy those five
+beside `firstparty.key` and leave out `--key`. `pack` writes `hexide-root.pub` into each package as `root.pub`, and
+refuses one that didn't sign the intermediate (#5316). Root and intermediate private keys are not inputs to `pack`.
 
 Ids follow the grammar in [TRUST.md](../../TRUST.md). Display names must be non-empty, already
 trimmed, at most 128 characters, and contain no control, Unicode format, line-separator or

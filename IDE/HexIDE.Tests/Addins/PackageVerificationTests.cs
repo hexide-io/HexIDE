@@ -368,6 +368,20 @@ public sealed class PackageVerificationTests : IDisposable
         var r = PackageVerification.Verify(_pkg, otherRootPub);
 
         r.IsVerified.Should().BeFalse();
+        r.Error.Should().Contain("a root this HexIDE doesn't carry");
+        r.UnrecognisedRootFingerprint.Should().Be(PackageCrypto.KeyFingerprint(_rootPub),
+            "the packer put the chain's own root in the package, and the chain verifies under it");
+    }
+
+    [Fact]
+    public void A_package_from_before_root_keys_reads_as_an_invalid_signature()
+    {
+        var otherTrust = Path.Combine(_root, "other");
+        PackageSigner.GenerateDevTrust(otherTrust);
+        File.Delete(Path.Combine(_pkg, PackageVerification.PackageRootFile));
+
+        var r = PackageVerification.Verify(_pkg, File.ReadAllText(Path.Combine(otherTrust, "hexide-root.pub")).Trim());
+
         r.Error.Should().Contain("intermediate signature invalid");
         r.UnrecognisedRootFingerprint.Should().BeNull("the package carries no root key to name");
     }
