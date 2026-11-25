@@ -6,7 +6,7 @@ using HexIDE.Controls;
 
 namespace HexIDE.IDE;
 
-public interface IWindowManager
+public interface IWindowManager : IProgramDialogWindows
 {
     bool IsNativeDialogOpen { get; }
     Task<bool> ShowDialog(IDialog dialog);
@@ -20,13 +20,13 @@ public interface IWindowManager
     Task ShowManagedWindow(MDIWindow window, bool blockBehind);
     /// <summary>
     /// Show a message box over <paramref name="owner"/> when given, else the visible, non-minimized IDE main window,
-    /// falling back to the active window. Program boxes follow the runtime's ownership rules. A box asking about one
+    /// falling back to the active window. A box asking about one
     /// window's content is shown over that window, which it then holds.
     /// </summary>
-    Task<MessageBoxResult> MessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null, bool isProgramDialog = false, MessageBoxLayout layout = MessageBoxLayout.None);
+    Task<MessageBoxResult> MessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null, MessageBoxLayout layout = MessageBoxLayout.None);
     /// <summary>Show a message box holding every desktop window until it is answered.</summary>
     Task<MessageBoxResult> TaskModalMessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null);
-    Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false);
+    Task<string?> InputBox(string prompt, string? caption, string defaultText);
     Task<IReadOnlyList<string>?> OpenFilePickerAsync(FilePickerOpenOptions options);
     Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options, string? directory = null);
     Task ShowAbout(AboutDialogOptions options);

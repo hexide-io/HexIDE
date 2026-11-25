@@ -6,7 +6,7 @@ namespace HexIDE.Addins;
 
 // The facade retains its owner even when an add-in registers a window after Initialize returns.
 internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor tools, AddinOrigin origin) : IHexIdeHost,
-    HexIDE.Language.ILanguageEditingRegistration
+    HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration
 {
     public IToolWindowContributor ToolWindows => tools;
     public IMenuContributor Menus { get; } = new OwnedMenus(host.Menus, origin);
@@ -71,6 +71,11 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
     public IDisposable RegisterLanguageEditing(HexIDE.Language.LanguageEditing editing) =>
         host is HexIdeHost concrete ? concrete.RegisterLanguageEditing(editing, origin)
             : throw new InvalidOperationException("A language's editing helpers are registered only through the host an add-in is given.");
+
+    // Internal while the Basic provider is the only engine (#5616); checked against the owner's grant where it's registered.
+    public IDisposable RegisterRunEngine(Func<RunEngineServices, IRunEngine> engine) =>
+        host is HexIdeHost concrete ? concrete.RegisterRunEngine(engine, origin)
+            : throw new InvalidOperationException("The run engine is registered only through the host an add-in is given.");
     public bool RunProject() => host.RunProject();
     public bool StopProject() => host.StopProject();
 }

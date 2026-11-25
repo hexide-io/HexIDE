@@ -24,7 +24,7 @@ public class RunningFormShortcutTests
         Static.MainView.DataContext = owned.Composition.Root;
         var input = new TextBox();
         var form = new VBFormRuntime { Content = input };
-        var debug = (IDebugGate)owned.Composition.DebugController;
+        var debug = (IDebugGate)owned.Engine.Debugger;
         var main = Static.MainView;
         CommandManager.GetCommandBindings(main)!.Clear();
         CommandManager.GetCommandBindings(main)!.Add(new CommandBinding

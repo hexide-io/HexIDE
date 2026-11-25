@@ -200,7 +200,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         await windows.Received(1).MessageBox(
             "Bookmarks, breakpoints and other per-user settings for Q.vbp won't be loaded or saved in this session.\n\n"
             + state + " is a link or junction, or is no longer where it was found, so nothing is read from it or written to it.",
-            Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning, null, false, MessageBoxLayout.None);
+            Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning, null, MessageBoxLayout.None);
     }
 
     private readonly string _root = Path.Combine(

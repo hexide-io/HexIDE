@@ -36,7 +36,20 @@ internal sealed class RealComposition : IAsyncDisposable
         foreach (var library in HexIDE.Runtime.BasicProvider.Libraries)
             host.RegisterControlLibrary(library, () => HexIDE.Runtime.BasicProvider.ControlsOf(library));
         host.RegisterLanguageEditing(HexIDE.Runtime.BasicProvider.LanguageEditing);
+        // And its interpreter, through the same host (#5616): with none, the composition runs nothing.
+        engineRegistration = host.RegisterRunEngine(services => Engine = new HexIDE.Runtime.Running.InterpreterRunEngine(services));
     }
 
-    public ValueTask DisposeAsync() => Composition.LspClient.DisposeAsync();
+    private readonly IDisposable engineRegistration;
+    private readonly HexIDE.IDE.IRunningProgram programBefore = HexIDE.IDE.RunningProgram.Current;
+
+    /// <summary>The interpreter the provider registered, whose debugger the composition's controller forwards to.</summary>
+    public HexIDE.Runtime.Running.InterpreterRunEngine Engine { get; private set; } = null!;
+
+    public ValueTask DisposeAsync()
+    {
+        engineRegistration.Dispose();
+        HexIDE.IDE.RunningProgram.Current = programBefore;
+        return Composition.LspClient.DisposeAsync();
+    }
 }

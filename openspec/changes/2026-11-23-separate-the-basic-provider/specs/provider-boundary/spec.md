@@ -56,8 +56,9 @@ Nothing a provider registers SHALL replace a resource that the add-in consent an
 ### Requirement: A bundled provider registers as any add-in does
 A provider's registrations SHALL go through the same host interface that an add-in receives once it has passed
 consent. No registration point SHALL exist outside that interface. A first-party or bundled provider SHALL use the
-same calls, and meet the same checks, as a third-party one. The language editing registration is the one exception,
-while only the composed provider registers a language's editing helpers (#5403).
+same calls, and meet the same checks, as a third-party one. The language editing registration and the run
+engine's internal registration are the two exceptions, while only the composed provider registers a language's
+editing helpers or an engine (#5403, #5616).
 
 #### Scenario: The bundled Basic provider starts
 - **WHEN** the IDE starts the bundled Basic provider
@@ -143,3 +144,30 @@ withdrawal returns.
 - **WHEN** the helpers' owner is withdrawn from a thread other than the UI thread, with a code window open
 - **THEN** the withdrawal returns without waiting on the UI thread
 - **AND** the posted refresh then draws the window's brackets uncoloured and its branches ungreyed
+
+### Requirement: The run engine registers only through the owned host
+The engine that runs projects SHALL be registered only through the host an add-in receives, by an owner the grant names
+for it. The IDE's own host SHALL refuse it, and a second engine SHALL be refused while one is registered, logged naming
+both owners. While only the composed provider registers an engine, the registration MAY be internal to HexIDE's
+assemblies instead of a member of the host interface, and it SHALL then meet the same checks (#5616, #5619).
+
+#### Scenario: An owner the grant doesn't name registers an engine
+- **WHEN** an add-in the grant doesn't name registers a run engine, through the internal registration
+- **THEN** the registration is refused and logged, and the add-in's factory never runs
+
+### Requirement: A run engine's throw answers as no engine
+A throw from the run engine SHALL be logged, naming its owner, and that call SHALL answer as the IDE answers with no
+engine. The engine SHALL stay registered.
+
+#### Scenario: A start the engine throws on
+- **WHEN** the engine throws as a project starts
+- **THEN** the throw is logged, and the IDE is not left in Run mode
+
+### Requirement: Withdrawing the run engine doesn't wait on the UI thread
+Withdrawing the engine SHALL NOT wait on the UI thread, since the add-in registry withdraws it under its lock. A program
+the engine is running SHALL be ended as End ends it, on the UI thread, after the withdrawal returns.
+
+#### Scenario: The owner is disabled while its program is paused at a breakpoint
+- **WHEN** the engine's owner is disabled from another thread while a program is paused at a breakpoint
+- **THEN** the disable returns without waiting on the UI thread
+- **AND** the program then ends, and the IDE leaves Run mode

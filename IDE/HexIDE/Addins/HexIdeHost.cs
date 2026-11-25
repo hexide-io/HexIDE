@@ -23,7 +23,8 @@ internal sealed class HexIdeHost(
     HexIDE.Projects.ContributedProjects contributedProjects,
     AddinResourceService resources,
     AddinLanguagePackService languagePacks,
-    AddinLanguageEditingService languageEditing) : IHexIdeHost, HexIDE.Language.ILanguageEditingRegistration
+    AddinLanguageEditingService languageEditing, AddinRunEngineService? runEngines = null) : IHexIdeHost,
+    HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration
 {
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void ReportFailure(string message, Exception? exception = null) =>
@@ -218,6 +219,22 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterLanguageEditing(HexIDE.Language.LanguageEditing editing, AddinOrigin origin)
     {
         var handle = languageEditing.Register(editing, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    // As the drawer: only an add-in's own host registers the run engine, with the add-in as its owner (#5616).
+    public IDisposable RegisterRunEngine(Func<RunEngineServices, IRunEngine> engine) =>
+        throw new InvalidOperationException("The run engine is registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked: the handle posts
+    // the withdrawal, so the registry's lock is never held while a program ends.
+    internal IDisposable RegisterRunEngine(Func<RunEngineServices, IRunEngine> engine, AddinOrigin origin)
+    {
+        var engines = runEngines
+            ?? throw new InvalidOperationException("This host has no run engines to register with.");
+        var handle = engines.Register(engine, origin);
         if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         AddinInitializationScope.Record(handle.Dispose);
         return handle;

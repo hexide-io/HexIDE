@@ -49,7 +49,7 @@ public class TestApp : Application
     {
         // Seed a pending requery before headless replaces the dispatcher (#2921). A pool thread can
         // carry CommandManager state from an earlier plain test into this session's first test.
-        HexIDE.IDE.RunningProgram.Current = new HexIDE.IDE.InterpreterRunningProgram();
+        HexIDE.IDE.RunningProgram.Current = new HexIDE.Runtime.Running.InterpreterRunningProgram();
         CommandManager.InvalidateRequerySuggested();
         return AppBuilder.Configure<TestApp>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
     }

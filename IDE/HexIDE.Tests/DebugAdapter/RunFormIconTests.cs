@@ -6,6 +6,7 @@ using HexIDE.Runtime;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Running;
 
 namespace HexIDE.Tests.DebugAdapter;
 
@@ -20,7 +21,7 @@ public class RunFormIconTests
         try
         {
             VBLoader.DefaultFormIcon = null;
-            var engine = new InterpreterRunEngine(Substitute.For<IProgramHost>(), new DebugController(), Substitute.For<ISettingsService>());
+            var engine = new InterpreterRunEngine(TestRunners.Services(Substitute.For<IProgramHost>()), new DebugController());
             var project = new ProjectDefinition(VBProjectType.EXE, "P") { StartsAtSubMain = true };
             engine.Prepare(project).Failure.Should().NotBeNull();
 
@@ -61,7 +62,7 @@ public class RunFormIconTests
         var source = File.ReadAllText(Path.Combine(runner, "App.axaml.cs"));
         source.Should().Contain("avares://HexIDE.Runtime/form.ico");
         source.Should().NotContain("avares://HexIDE.Standalone/form.ico");
-        var engine = File.ReadAllText(Path.Combine(root.FullName, "IDE", "HexIDE", "IDE", "InterpreterRunEngine.cs"));
+        var engine = File.ReadAllText(Path.Combine(root.FullName, "IDE", "HexIDE.Runtime", "Running", "InterpreterRunEngine.cs"));
         engine.Should().Contain("avares://HexIDE.Runtime/form.ico");
         engine.Should().NotContain("Distribution", "stock and brands with or without logos share the same run path");
         using var stream = AssetLoader.Open(new Uri("avares://HexIDE.Runtime/form.ico"));
