@@ -5,11 +5,15 @@ script="$(cd "$(dirname "$0")" && pwd)/check-release-unpublished.sh"
 bin="$(mktemp -d)"
 trap 'rm -rf "$bin"' EXIT
 
-# The stand-in prints FAKE_RELEASES as gh api --jq would, or fails when FAKE_GH_FAILS is set.
+# The stand-in prints FAKE_RELEASES as gh api --jq would, or fails when FAKE_GH_FAILS is set. Without --paginate it
+# prints only the first release, as the API's first page holds only some of them.
 cat > "$bin/gh" <<'GH'
 #!/usr/bin/env bash
 [ -n "${FAKE_GH_FAILS:-}" ] && { echo "HTTP 502" >&2; exit 1; }
-printf '%b' "${FAKE_RELEASES:-}"
+case " $* " in
+    *" --paginate "*) printf '%b' "${FAKE_RELEASES:-}" ;;
+    *) printf '%b' "${FAKE_RELEASES:-}" | head -n 1 ;;
+esac
 GH
 chmod +x "$bin/gh"
 export PATH="$bin:$PATH" GITHUB_REPOSITORY=hexide-io/HexIDE GITHUB_SHA=0000000
@@ -37,5 +41,6 @@ refuses v0.8.0 '' failing                              # can't read the releases
 refuses v0.7.0 'v0.7.0\tfalse\r\n'                     # a carriage return doesn't hide a published release
 refuses v0.7.0 'v0.7.0\tnull\n'                        # a draft field that isn't exactly true counts as published
 refuses v0.7.0 'v0.7.0\n'                              # so does a row with no draft field
+refuses v0.1.0 'v0.8.0\ttrue\nv0.7.0\tfalse\nv0.1.0\tfalse\n'  # a published tag past the first page
 allows v0.8.0 'v0.8.0\ttrue\r\n'                       # a draft with a carriage return is still a draft
 echo "check-release-unpublished self-test: OK"
