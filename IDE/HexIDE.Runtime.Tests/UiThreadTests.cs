@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;

@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
