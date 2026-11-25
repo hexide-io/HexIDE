@@ -134,4 +134,66 @@ public class ReleaseBuildTests
         check.Should().BeGreaterThan(build);
         Job.Should().NotContain("continue-on-error: true\n        run: bash ../scripts/check-release-output.sh");
     }
+
+    // ── A published release is never replaced (#5424) ────────────────────────────────────────────────────────
+    // Dispatching publish.yml again for a published tag would replace its downloads with a build of another commit under
+    // the old tag. A draft stays re-runnable: the maintainer checks a draft's assets, and re-runs it, before publishing.
+
+    private const string UnpublishedGuard = "run: bash scripts/check-release-unpublished.sh \"$TAG\"";
+
+    // The guard's steps run unconditionally and take the tag through the environment, never pasted into the script.
+    private static void ShouldGuard(string job)
+    {
+        var step = Regex.Match(job, @"(?ms)^      - name: Refuse [^\n]*\n(?:        [^\n]*\n)+").Value;
+        step.Should().Contain(UnpublishedGuard).And.Contain("TAG: ${{ inputs.tag }}").And.Contain("GH_TOKEN: ${{ github.token }}")
+            .And.NotContain("if:", "nothing may switch the guard off");
+    }
+
+    [Fact]
+    public void Every_job_waits_for_the_preflight_that_refuses_a_published_release()
+    {
+        ShouldGuard(PublishJob("preflight"));
+
+        var jobs = Regex.Matches(Publish[Publish.IndexOf("\njobs:\n", StringComparison.Ordinal)..], @"(?m)^  ([a-z][\w-]*):\n")
+            .Select(m => m.Groups[1].Value).ToList();
+        var needs = jobs.ToDictionary(job => job, job =>
+            Regex.Match(PublishJob(job), @"(?m)^    needs: \[?([^\]\n]*)\]?$").Groups[1].Value
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+        bool Reaches(string job) => needs[job].Any(need => need == "preflight" || Reaches(need));
+
+        jobs.Should().Contain(["preflight", "build", "sign-addins", "release"]);
+        jobs.Where(job => job != "preflight" && !Reaches(job)).Should().BeEmpty(
+            "no job may build, sign or upload before preflight has refused a published release");
+    }
+
+    [Fact]
+    public void The_release_job_checks_again_just_before_uploading()
+    {
+        var release = PublishJob("release");
+        ShouldGuard(release);
+
+        var steps = Regex.Matches(release, @"(?m)^      - (?:name: |uses: )([^\n]*)$").Select(m => m.Groups[1].Value).ToList();
+        steps.FindIndex(step => step.StartsWith("actions/checkout@", StringComparison.Ordinal)).Should()
+            .BeLessThan(steps.FindIndex(step => step.StartsWith("actions/download-artifact@", StringComparison.Ordinal)),
+                "a checkout empties the workspace, so it must come before the artifacts arrive");
+        var upload = steps.FindIndex(step => step.StartsWith("softprops/action-gh-release@", StringComparison.Ordinal));
+        steps[upload - 1].Should().Be("Refuse a release published while this run built",
+            "the draft may have been published while the run built");
+    }
+
+    [Fact(Skip = "The CI shell guard runs on Linux", SkipUnless = nameof(IsLinux))]
+    public void UnpublishedGuardRefusesAPublishedReleaseAndAllowsADraft()
+    {
+        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "bash",
+            ArgumentList = { Path.Combine(RepoTree.Root(), "scripts", "check-release-unpublished.selftest.sh") },
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        })!;
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        process.ExitCode.Should().Be(0, output + error);
+    }
 }
