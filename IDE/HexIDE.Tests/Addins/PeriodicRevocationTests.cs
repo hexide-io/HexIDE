@@ -275,4 +275,71 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
         StartRun(session.Runner);
         session.Probe.Ran.Should().Be(1);
     }
+
+    // The supervisor's review of #5660: revocation is a marker nothing clears before restart. Options offers Disable and
+    // Enable on a revoked row, and Enable used to set it back to Loaded, which un-withdrew it while its code was loaded.
+    [Fact]
+    public void Toggling_a_revoked_add_in_off_and_on_does_not_bring_it_back()
+    {
+        var session = Load(firstParty: false);
+        session.Probe.Host.Events.RunStarted += () => session.Probe.Ran++;   // after Initialize: only the owned host's guard stops it
+        Publish(session.Store, List("2099-01-01T00:00:00Z", ["probe-hash"]));
+        session.Registry.ApplyRevocations();
+
+        session.Registry.SetEnabled(session.Context.PackageDirectory, false);
+        session.Registry.SetEnabled(session.Context.PackageDirectory, true);
+
+        session.Registry.GetStatus(session.Context.PackageDirectory).Should().Be(AddinStatus.Revoked);
+        session.Probe.Host.RegisterDebugLaunch(Launch("Probe after toggling"));
+        session.Launches.Launches.Should().BeEmpty();
+        StartRun(session.Runner);
+        session.Probe.Ran.Should().Be(0);
+    }
+
+    // The supervisor's review of #5660: the hourly check's job runs in the consent modal's frame, so a revocation can land
+    // while a prompt is open. Neither that add-in nor a later one in the same pass may load. Without the job having run yet,
+    // the active list alone must stop it.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_revocation_landing_while_a_consent_prompt_is_open_loads_nothing(bool jobRanDuringThePrompt)
+    {
+        var store = new RevocationStore(RootPub, Path.Combine(_root, "cache"), (_, _) => throw new IOException("unused"));
+        var windows = Substitute.For<IWindowManager>();
+        var consent = new ConsentStore(Path.Combine(_root, "consent.json"));
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        var registry = new AddinRegistry(Substitute.For<IPackageVerifier>(), Substitute.For<ISettingsService>(),
+            Substitute.For<IDeveloperModeService>(), windows, localization, consent, store, Path.Combine(_root, "state.json"), _root);
+        var contexts = (List<AddinContext>)typeof(AddinRegistry).GetField("_contexts",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(registry)!;
+        foreach (var id in new[] { "first", "second" })
+        {
+            var manifest = new AddinManifest { Id = id, Title = id, Entry = "missing.dll" };
+            contexts.Add(new AddinContext(new AddinInfo(Path.Combine(_root, id), id, "", "1", "", Id: id, ManifestHash: id + "-hash"))
+            {
+                Status = AddinStatus.AwaitingConsent, Manifest = manifest,
+                PendingResult = new PackageVerificationResult(PackageVerdict.Verified, manifest, "Publisher", "acme", null)
+                    { ManifestHash = id + "-hash", IntermediateId = "marketplace" },
+            });
+        }
+        typeof(AddinRegistry).GetField("_host", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(registry, Substitute.For<IHexIdeHost>());
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(_ =>
+        {
+            Publish(store, List("2099-01-01T00:00:00Z", ["first-hash", "second-hash"]));
+            if (jobRanDuringThePrompt) registry.ApplyRevocations();
+            return Task.FromResult(true);
+        });
+
+        await registry.PromptPendingConsentAsync();
+
+        await windows.Received(1).ShowDialog(Arg.Any<IDialog>());
+        foreach (var ctx in contexts)
+        {
+            ctx.Status.Should().Be(AddinStatus.Revoked, ctx.Info.Id);
+            ctx.Instance.Should().BeNull(ctx.Info.Id);
+            consent.GetDecision(ctx.Info.ManifestHash).Should().BeNull("nothing is recorded for a refused build");
+        }
+    }
 }

@@ -8,6 +8,17 @@ internal sealed class AddinContext(AddinInfo info)
     public IAddin? Instance { get; set; }
     public AddinStatus Status { get; set; }
 
+    private int _revokedMidSession;
+
+    /// <summary>
+    /// Set once when a newer revocation list revokes this add-in while HexIDE runs, and never cleared before restart, whatever
+    /// later rewrites <see cref="Status"/> (#5577). Read without a lock, since every guarded command, menu item and event
+    /// handler asks it.
+    /// </summary>
+    public bool RevokedMidSession => Volatile.Read(ref _revokedMidSession) == 1;
+
+    public void MarkRevokedMidSession() => Volatile.Write(ref _revokedMidSession, 1);
+
     /// <summary>What Initialize registered, kept to take out if the add-in is revoked mid-session (#5577): its commands,
     /// menus, tool windows, options pages, templates and event subscriptions among them.</summary>
     public IReadOnlyList<Action> InitializationWithdrawals { get; set; } = [];

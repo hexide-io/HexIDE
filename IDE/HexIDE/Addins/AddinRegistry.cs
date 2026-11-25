@@ -323,7 +323,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             var origin = new AddinOrigin(ctx.Info.Id, ctx.Info.Title, ctx.Info.Chain?.IsFirstParty == true,
                 status == AddinStatus.DeveloperUnsigned) { PublisherNamespaces = ctx.Info.PublisherNamespaces };
             addin.Initialize(host.ToolWindows is AddinToolWindowService tools
-                ? new AddinOwnedHost(host, tools.ForOwner(origin), origin, () => IsWithdrawn(origin))
+                ? new AddinOwnedHost(host, tools.ForOwner(origin), origin, () => ctx.RevokedMidSession)
                 : host);
             ctx.InitializationWithdrawals = contributions.Complete();
             ctx.Status = status;
@@ -361,6 +361,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             var result = ctx.PendingResult!;
             ctx.PendingResult = null;   // clear up-front so an exception can't leave it pending/re-promptable
+            // A revocation can land while an earlier prompt is open: never ask about, or load, a build it refuses (#5577).
+            if (ctx.Status != AddinStatus.AwaitingConsent || RefuseIfRevoked(ctx, result))
+                continue;
             var vm = new AddinConsentDialogViewModel(
                 ctx.Info.Title, ctx.Info.Version, ctx.Info.Author,
                 result.IsVerified ? result.PublisherDisplayName : null,
@@ -381,6 +384,14 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             if (_disposed)
                 return;   // the IDE was shut down while the consent dialog was open — do not load anything
 
+            // Checked again: the hourly check can revoke it while the dialog is open, and its posted job runs in the modal's
+            // frame. Neither answer then changes anything, and nothing is recorded for a refused build.
+            if (ctx.Status != AddinStatus.AwaitingConsent || RefuseIfRevoked(ctx, result))
+            {
+                Log.Warning("AddinRegistry: {Title} was revoked while its consent prompt was open — not loaded", ctx.Info.Title);
+                continue;
+            }
+
             lock (_serverTrustGate)
                 _consent.Record(ctx.Info.Id, result.PublisherId ?? "", result.ManifestHash ?? "",
                     allowed ? ConsentDecisions.Allow : ConsentDecisions.Block);
@@ -394,6 +405,17 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
             LoadEntry(ctx, result, result.IsVerified ? AddinStatus.Loaded : AddinStatus.DeveloperUnsigned, host);
         }
+    }
+
+    // Marks a pending add-in Revoked when the active list now refuses it, by the identity verified at load. Says whether it did.
+    private bool RefuseIfRevoked(AddinContext ctx, PackageVerificationResult result)
+    {
+        if (_revocations.IsRevoked(result.ManifestHash, result.PublisherId, result.IntermediateId, result.IsFirstParty) is not { } reason)
+            return false;
+        ctx.MarkRevokedMidSession();
+        ctx.Status = AddinStatus.Revoked;
+        ctx.ErrorMessage = reason;
+        return true;
     }
 
     // ── Hourly revocation check (#5577) ──────────────────────────
@@ -436,12 +458,13 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 return [];
             foreach (var ctx in _contexts)
             {
-                if (ctx.RefusedAtLoad || ctx.Status == AddinStatus.Revoked)
+                if (ctx.RefusedAtLoad || ctx.RevokedMidSession || ctx.Status == AddinStatus.Revoked)
                     continue;
                 var chain = ctx.Info.Chain;
                 if (_revocations.IsRevoked(ctx.Info.ManifestHash, chain?.Publisher.Id, chain?.Intermediate.Id,
                         chain?.IsFirstParty == true) is not { } reason)
                     continue;
+                ctx.MarkRevokedMidSession();
                 ctx.Status = AddinStatus.Revoked;
                 ctx.ErrorMessage = reason;
                 revoked.Add(ctx);
@@ -472,14 +495,6 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 + "loaded until HexIDE restarts", ctx.Info.Title, ctx.ErrorMessage);
         }
         return [.. revoked.Select(ctx => ctx.Info)];
-    }
-
-    // True once the package the owner is has been revoked mid-session: its owned host then refuses what it registers and
-    // runs none of its commands, menu items or event handlers. A composed owner is never a package (#5597).
-    internal bool IsWithdrawn(AddinOrigin owner)
-    {
-        lock (_serverTrustGate)
-            return PackageContext(owner)?.Status == AddinStatus.Revoked;
     }
 
     public void Dispose()
@@ -532,7 +547,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
             var ctx = _contexts.FirstOrDefault(c =>
                 string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase));
-            if (ctx is not null)
+            // A revoked add-in stays Revoked, whether revoked at load or mid-session: toggling it records the choice for the
+            // next start and changes nothing now (#5577).
+            if (ctx is not null && ctx.Status != AddinStatus.Revoked && !ctx.RevokedMidSession)
                 ctx.Status = !enabled ? AddinStatus.Disabled
                     : ctx.Info.CompatibilityError is not null ? AddinStatus.Incompatible
                     : ctx.Info.LoadError is not null ? AddinStatus.Error : AddinStatus.Loaded;
@@ -610,7 +627,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             var ctx = PackageContext(owner);
             if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
-                || _revokedConsent.Contains(ctx.Info.ManifestHash) || ctx.Status == AddinStatus.Revoked))
+                || _revokedConsent.Contains(ctx.Info.ManifestHash) || ctx.RevokedMidSession))
             {
                 contribution.Dispose();
                 return;
