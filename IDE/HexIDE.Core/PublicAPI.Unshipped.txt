@@ -139,3 +139,23 @@ HexIDE.Runtime.Components.LibraryType.DeclaredMembers.init -> void
 HexIDE.Runtime.Components.LibraryType.LibraryType(string! Name, HexIDE.Runtime.Components.IComponentClass? Component, System.Collections.Generic.IReadOnlyList<string!>! DeclaredMembers) -> void
 HexIDE.Runtime.Components.LibraryType.Name.get -> string!
 HexIDE.Runtime.Components.LibraryType.Name.init -> void
+HexIDE.Runtime.Components.DesignerCaption
+HexIDE.Runtime.Components.DesignerCaption.<Clone>$() -> HexIDE.Runtime.Components.DesignerCaption!
+HexIDE.Runtime.Components.DesignerCaption.Deconstruct(out byte[]? Image, out bool UseFormGlyph, out bool Visible) -> void
+HexIDE.Runtime.Components.DesignerCaption.DesignerCaption(byte[]? Image, bool UseFormGlyph, bool Visible) -> void
+HexIDE.Runtime.Components.DesignerCaption.Equals(HexIDE.Runtime.Components.DesignerCaption? other) -> bool
+HexIDE.Runtime.Components.DesignerCaption.Image.get -> byte[]?
+HexIDE.Runtime.Components.DesignerCaption.Image.init -> void
+HexIDE.Runtime.Components.DesignerCaption.UseFormGlyph.get -> bool
+HexIDE.Runtime.Components.DesignerCaption.UseFormGlyph.init -> void
+HexIDE.Runtime.Components.DesignerCaption.Visible.get -> bool
+HexIDE.Runtime.Components.DesignerCaption.Visible.init -> void
+HexIDE.Runtime.Components.IDesignerCaption
+HexIDE.Runtime.Components.IDesignerCaption.CaptionOf(HexIDE.Runtime.Components.ComponentInstance! instance) -> HexIDE.Runtime.Components.DesignerCaption!
+HexIDE.Runtime.Components.IDesignerDrawnDefaults
+HexIDE.Runtime.Components.IDesignerDrawnDefaults.Drawn(HexIDE.Runtime.Components.ComponentInstance! instance, string! name) -> void
+override HexIDE.Runtime.Components.DesignerCaption.Equals(object? obj) -> bool
+override HexIDE.Runtime.Components.DesignerCaption.GetHashCode() -> int
+override HexIDE.Runtime.Components.DesignerCaption.ToString() -> string!
+static HexIDE.Runtime.Components.DesignerCaption.operator !=(HexIDE.Runtime.Components.DesignerCaption? left, HexIDE.Runtime.Components.DesignerCaption? right) -> bool
+static HexIDE.Runtime.Components.DesignerCaption.operator ==(HexIDE.Runtime.Components.DesignerCaption? left, HexIDE.Runtime.Components.DesignerCaption? right) -> bool
