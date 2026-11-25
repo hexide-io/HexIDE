@@ -186,6 +186,15 @@ public interface IProjectService
     Task MakeProject();
     Task MakeProject(ProjectDefinition project, string? exePath = null, string? startIn = null);
     Task MakeProjectGroup();
+
+    /// <summary>
+    /// Whether a maker is registered for <paramref name="project"/>'s type (#5621). File > Make and Make Project Group are
+    /// offered only for a project that has one, so with no provider installed neither is.
+    /// </summary>
+    bool CanMake(ProjectDefinition? project);
+
+    /// <summary>Raised, on the UI thread, when a maker is registered or withdrawn, so what's offered can be asked again.</summary>
+    event Action? MakersChanged;
     Task EditProjectProperties(ProjectDefinition project);
     Task EditProjectReferences(ProjectDefinition project);
     Task EditProjectComponents(ProjectDefinition project);

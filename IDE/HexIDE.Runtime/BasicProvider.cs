@@ -19,8 +19,9 @@ namespace HexIDE.Runtime;
 /// </para>
 /// <para>
 /// It registers its controls' resources, its language packs, its Form and controls with their toolbox items (#5594), its
-/// control libraries (#5599), what draws the designer's controls (#5591), the VB family's editing helpers (#5403),
-/// and the engine that runs projects, with its debugger (#5616). The project type joins it as its slice lands.
+/// control libraries (#5599), what draws the designer's controls (#5591), the VB family's editing helpers (#5403), VB6's
+/// project type (#5625), what makes VB6's projects into programs (#5621), and the engine that runs projects, with its
+/// debugger (#5616).
 /// </para>
 /// </remarks>
 public sealed class BasicProvider : IAddin
@@ -129,8 +130,12 @@ public sealed class BasicProvider : IAddin
             registrations.Add(editing.RegisterLanguageEditing(LanguageEditing));
         // VB6's projects, through the call any add-in uses; the grant gives the type VB6's identity (#5625).
         registrations.Add(host.RegisterProjectType(Serialization.Vb6ProjectFileFormat.ProjectType()));
-        // Last: a refusal here leaves the themes, text, controls, editing helpers and VB6's projects already
-        // registered.
+        // File > Make, and Make with VB6, for VB6's projects (#5621). Internal for phase 2, so only a host HexIDE gives an
+        // add-in takes it; any other host, such as a test's, gets none and offers no Make.
+        if (host is IProjectMakerRegistration makers)
+            registrations.Add(makers.RegisterProjectMaker(new Making.Vb6ProjectMaker()));
+        // A refusal throws out of Initialize, so one here leaves the themes, text, controls, editing helpers, VB6's projects
+        // and maker registered, and the run engine below unregistered (#5642).
         registrations.Add(host.RegisterDesignerPictures(surface => new InProcessDesignerPictures(surface)));
         // Internal until a second engine registers (#5616): only the host HexIDE composes the provider with can take it.
         if (host is IRunEngineRegistration engines)

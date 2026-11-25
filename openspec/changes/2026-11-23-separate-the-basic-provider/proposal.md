@@ -112,6 +112,13 @@ it, it's public and unbaselined, so 2.12's list doesn't grow. The forwarder call
 engine closes its previews when it's withdrawn. `UnmodelledControl` moves to Core with it, recording only what its block
 holds, and the designer asks the engine whether it runs the control (supervisor, 2026-11-25).
 
+**A third exception: what makes a project type's programs registers internally in phase 2 (#5621).** It's
+`IProjectMakerRegistration` in Core, the same shape as the run engine's: implemented by the owned host an add-in
+receives, refused by the IDE's own, checked against the owner's grant where it's implemented, one maker per project
+type, contained, and withdrawn without waiting. On `IHexIdeHost` it would add 6 types and 31 baseline lines, measured at
+`fe98ad6d3`, and 14 of those are VB6's toolchain. Task 3.1 moves it onto the project type's registration,
+`AddinProjectType`, which the provider registers VB6's type with (#5625), with that baseline (supervisor, 2026-11-25).
+
 **Slice 2.7 builds it,** with resources as the first registration (`App.axaml`'s merge of the provider's dictionaries), and the other slices add theirs. That adds an `IHexIdeHost` member on the add-in trust boundary, so it's security work: built by a Claude session and reviewed by the supervisor before merge.
 
 **The provider's strings register the same way** (slice 2.9). Its language packs are embedded in its own assembly, and the IDE reaches them through a pack area the entry type registers, which is no `TypeRef`. So the guard can't see that dependency, but the entry type's own row covers it, and phase 3 removes that row.

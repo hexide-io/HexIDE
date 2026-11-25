@@ -24,7 +24,7 @@ internal sealed class HexIdeHost(
     AddinResourceService resources,
     AddinLanguagePackService languagePacks,
     AddinLanguageEditingService languageEditing, AddinRunEngineService? runEngines = null) : IHexIdeHost,
-    HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration
+    HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration, IProjectMakerRegistration
 {
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void ReportFailure(string message, Exception? exception = null) =>
@@ -243,6 +243,20 @@ internal sealed class HexIdeHost(
         var engines = runEngines
             ?? throw new InvalidOperationException("This host has no run engines to register with.");
         var handle = engines.Register(engine, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    // As resources: only an add-in's own host registers a project maker, with the add-in as its owner (#5621).
+    public IDisposable RegisterProjectMaker(IProjectMaker maker) =>
+        throw new InvalidOperationException("A project maker is registered only through the host HexIDE gives an add-in.");
+
+    // The grant, one maker per type and the logging are the registry's own, so a caller reaching this by reflection gains
+    // nothing. Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked.
+    internal IDisposable RegisterProjectMaker(IProjectMaker maker, AddinOrigin origin)
+    {
+        var handle = contributedProjects.Makers.Register(maker, origin);
         if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         AddinInitializationScope.Record(handle.Dispose);
         return handle;

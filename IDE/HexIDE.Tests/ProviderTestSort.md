@@ -20,6 +20,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Addins/AddinWholeFileTests.cs` | split |
 | `Addins/ComponentWithdrawalTests.cs` | split |
 | `Addins/PeriodicRevocationTests.cs` | split |
+| `Addins/ProjectMakerRegistrationTests.cs` | split |
 | `Addins/RegisterComponentTests.cs` | split |
 | `Addins/RegisterControlLibraryTests.cs` | split |
 | `Addins/RegisterLanguageEditingTests.cs` | split |
@@ -56,7 +57,7 @@ A test that reaches the provider only at run time, through the application's com
 | `IDE/RecentlyClosedDocumentsTests.cs` | split |
 | `IDE/ToolDocumentAreaTests.cs` | split |
 | `IDE/UserFileWriteFailureTests.cs` | split |
-| `IDE/Vb6CompileLogTests.cs` | split |
+| `IDE/Vb6CompileLogTests.cs` | provider |
 | `IDE/Vb6ToolchainDiagnosticsTests.cs` | split |
 | `IDE/Vb6ToolchainReplacementTests.cs` | split |
 | `InBoxRegistry.cs` | split |
@@ -127,7 +128,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/NewFormFileTests.cs` | split |
 | `Projects/NewMemberFileInTheWayTests.cs` | split |
 | `Projects/OfficeProjectBrowsingTests.cs` | split |
-| `Projects/PackageEncodingTests.cs` | split |
+| `Projects/PackageEncodingTests.cs` | provider |
 | `Projects/ProjectFileClassifierFormatTests.cs` | provider |
 | `Projects/ProjectFileEditingTests.cs` | split |
 | `Projects/ProjectFileFormatSeamTests.cs` | split |
@@ -142,6 +143,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/SharedFileWindowTests.cs` | split |
 | `Projects/SourceEncodingPersistenceTests.cs` | split |
 | `Projects/SubMainStartupObjectTests.cs` | split |
+| `Projects/TestMakers.cs` | split |
 | `Projects/UnfaithfulSaveGateTests.cs` | split |
 | `Projects/UnsavedChangesPromptTests.cs` | split |
 | `Projects/UnsavedMemberRefusalTests.cs` | split |

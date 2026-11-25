@@ -3,6 +3,8 @@ using HexIDE.IDE;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
 using HexIDE.Lsp.Messages;
+using HexIDE.Runtime.Making;
+using HexIDE.Tests.Projects;
 using Microsoft.Extensions.Logging;
 
 using LspRange = HexIDE.Lsp.Messages.Range;
@@ -66,21 +68,40 @@ public class Vb6ToolchainDiagnosticsTests
 
     /// <summary>
     /// A build whose compiler invocation is replaced by a canned answer. The exe path only has to exist —
-    /// <see cref="Vb6ToolchainService.IsAvailable"/> tests for a file, and nothing here starts it.
+    /// <see cref="Vb6Toolchain.IsInstalled"/> tests for a file, and nothing here starts it.
     /// </summary>
-    private sealed class StubbedBuild(
-        ILspClient lsp, IWindowManager windows, ILocalizationService localization,
-        Vb6ToolchainService.Vb6BuildOutcome? outcome, CodeTrust? trust = null)
-        : Vb6ToolchainService(lsp, Substitute.For<IEventBus>(), windows, localization, trust ?? new CodeTrust(windows, localization, _ => false), Substitute.For<HexIDE.Sidecar.IUserSidecarService>())
+    // VB6's real toolchain, the Basic provider's (#5621), with only the compiler run stubbed.
+    private sealed class StubbedCompiler(ToolchainBuild? outcome) : Vb6Toolchain
     {
         /// <summary>How many times vb6.exe would have been started.</summary>
         public int Builds { get; private set; }
 
-        internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath, string? outputDirectory)
+        internal override Task<ToolchainBuild?> RunVb6Async(string projectPath, string? outputDirectory)
         {
             Builds++;
             return Task.FromResult(outcome);
         }
+    }
+
+    // The IDE's flow over that toolchain, registered as the provider's maker registers it.
+    private sealed class StubbedBuild : Vb6ToolchainService
+    {
+        private readonly StubbedCompiler compiler;
+
+        public StubbedBuild(ILspClient lsp, IWindowManager windows, ILocalizationService localization, ToolchainBuild? outcome,
+            CodeTrust? trust = null)
+            : this(lsp, windows, localization, new StubbedCompiler(outcome), trust)
+        {
+        }
+
+        private StubbedBuild(ILspClient lsp, IWindowManager windows, ILocalizationService localization, StubbedCompiler compiler,
+            CodeTrust? trust)
+            : base(lsp, Substitute.For<IEventBus>(), windows, localization, trust ?? new CodeTrust(windows, localization, _ => false),
+                Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), TestMakers.Vb6WithMaker(Path.GetTempPath(), compiler)) =>
+            this.compiler = compiler;
+
+        /// <summary>How many times vb6.exe would have been started.</summary>
+        public int Builds => compiler.Builds;
     }
 
     // --- Run with VB6 runs the program it makes, so code from outside this computer is asked about first (#1121) ---
@@ -92,7 +113,7 @@ public class Vb6ToolchainDiagnosticsTests
         var strings = Localization();
         var trust = new CodeTrust(_windows, strings, path => string.Equals(path, Form1Path, StringComparison.OrdinalIgnoreCase));
         return (StubbedBuild)WithVb6ExePath(() => new StubbedBuild(
-            _lsp, _windows, strings, new Vb6ToolchainService.Vb6BuildOutcome(0, ""), trust));
+            _lsp, _windows, strings, new ToolchainBuild(0, ""), trust));
     }
 
     [Fact]
@@ -119,7 +140,7 @@ public class Vb6ToolchainDiagnosticsTests
 
     private Vb6ToolchainService Build(int exitCode, string output = "") =>
         WithVb6ExePath(() => new StubbedBuild(
-            _lsp, _windows, Localization(), new Vb6ToolchainService.Vb6BuildOutcome(exitCode, output)));
+            _lsp, _windows, Localization(), new ToolchainBuild(exitCode, output)));
 
     private Vb6ToolchainService BuildThatTimesOut() =>
         WithVb6ExePath(() => new StubbedBuild(_lsp, _windows, Localization(), outcome: null));

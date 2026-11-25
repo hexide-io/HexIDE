@@ -13,6 +13,8 @@ using HexIDE.Tools.ProtocolInspector;
 using HexIDE.Conversations;
 using HexIDE.Redaction;
 using HexIDE.VisualDesigner;
+using HexIDE.Runtime.Making;
+using HexIDE.Tests.Projects;
 
 namespace HexIDE.Tests.IDE;
 
@@ -197,7 +199,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var target = Target(name);
         Fail(target);
 
-        var convert = () => ProjectService.EncodePackageSources(project);
+        var convert = () => Vb6ProjectMaker.EncodePackageSources(project, project.AbsolutePath!);
         convert.Should().Throw<IOException>().WithMessage("Disk full");
         Preserved(target);
     }
@@ -235,9 +237,9 @@ public sealed class UserFileWriteFailureTests : IDisposable
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
             Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
-        service.RuntimeDirectory = root;
+        service.WithMaker(root);
         Directory.CreateDirectory(Target("standalone"));
-        File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
+        File.WriteAllText(Path.Combine(Target("standalone"), Vb6ProjectMaker.StandaloneRunnerName()!), "runner");
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Target("Made.exe"));
         Func<Task> make = () => service.MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
         await make.Should().ThrowAsync<IOException>();
@@ -260,9 +262,9 @@ public sealed class UserFileWriteFailureTests : IDisposable
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
             localization, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
-        service.RuntimeDirectory = root;
+        service.WithMaker(root);
         Directory.CreateDirectory(Target("standalone"));
-        File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
+        File.WriteAllText(Path.Combine(Target("standalone"), Vb6ProjectMaker.StandaloneRunnerName()!), "runner");
         File.WriteAllText(Target("Made.dll"), "user archive");
         File.WriteAllText(Target("Made.exe"), "user executable");
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Target("Made.exe"));
@@ -294,9 +296,9 @@ public sealed class UserFileWriteFailureTests : IDisposable
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
             Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
-        service.RuntimeDirectory = root;
+        service.WithMaker(root);
         Directory.CreateDirectory(Target("standalone"));
-        var runner = Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!);
+        var runner = Path.Combine(Target("standalone"), Vb6ProjectMaker.StandaloneRunnerName()!);
         File.WriteAllText(runner, "runner");
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(runner, UnixFileMode.UserRead | UnixFileMode.UserExecute | UnixFileMode.GroupExecute);

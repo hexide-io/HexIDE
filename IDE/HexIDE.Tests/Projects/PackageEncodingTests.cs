@@ -5,6 +5,7 @@ using System.Reflection;
 using HexIDE.IDE;
 using HexIDE.Projects;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Projects;
 
@@ -40,7 +41,7 @@ public sealed class PackageEncodingTests : IDisposable
         var companion = Path.Join(dir, "Form1.frx");
         File.WriteAllBytes(companion, [0xE9, 0xFF, 0x00]);
 
-        ProjectService.EncodePackageSources(project);
+        Vb6ProjectMaker.EncodePackageSources(project, project.AbsolutePath!);
 
         foreach (var path in originals)
         {

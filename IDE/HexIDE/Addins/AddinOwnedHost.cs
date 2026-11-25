@@ -7,9 +7,15 @@ namespace HexIDE.Addins;
 // The facade retains its owner even when an add-in registers a window after Initialize returns. Once the add-in is revoked
 // mid-session (withdrawn), none of its commands, menu items or event handlers run, whenever they were registered (#5577).
 internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor tools, AddinOrigin origin, Func<bool>? withdrawn = null)
-    : IHexIdeHost, HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration
+    : IHexIdeHost, HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration, HexIDE.IDE.IProjectMakerRegistration
 {
     private readonly Func<bool> _withdrawn = withdrawn ?? (() => false);
+
+    // Internal for phase 2 (#5621): only HexIDE's own host can check the owner's grant, so any other is refused.
+    public IDisposable RegisterProjectMaker(HexIDE.IDE.IProjectMaker maker) =>
+        host is HexIdeHost concrete ? concrete.RegisterProjectMaker(maker, origin)
+            : throw new InvalidOperationException("A project maker is registered only through the host HexIDE gives an add-in.");
+
     public IToolWindowContributor ToolWindows => tools;
     public IMenuContributor Menus { get; } = new OwnedMenus(host.Menus, origin, withdrawn ?? (() => false));
     public IAddinEvents Events { get; } = new OwnedEvents(host.Events, withdrawn ?? (() => false));

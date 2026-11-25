@@ -2,6 +2,7 @@ using HexIDE.Addins;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Tests.Addins;
 
@@ -101,6 +102,58 @@ public sealed class ComponentWithdrawalTests : IDisposable
         editing.BracketsFor("acme").Brackets("()").Should().BeEmpty();
         editing.BracketsFor("vb6").Brackets("()").Should().HaveCount(2);
         changes.Should().Be(1);
+    }
+
+    // No real grant lets a package make a project type's programs yet, so the probe stands in for phase 3's first-party
+    // provider package, signed first-party, with a test grant for a type of its own (#5621). The registry withdraws the maker under its lock, from
+    // the thread that disabled the add-in, so this runs the disable off the UI thread, which is held in Wait meanwhile.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Disabling_or_revoking_an_add_in_takes_out_its_project_maker_and_leaves_the_provider_s(bool revoke)
+    {
+        var (addins, package) = await Loaded();
+        using var _ = addins;
+        var makers = new HexIDE.Projects.ProjectMakers
+        {
+            Grants = [.. RegistrationGrants.All, new(Own.Id, Composed: false) { MakesProjectTypes = ["acme.project"] }],
+        };
+        var ide = new HexIdeHost(null!, null!, null!, addins, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+            new HexIDE.Projects.ContributedProjects { Makers = makers }, new AddinResourceService(), new AddinLanguagePackService(),
+            new AddinLanguageEditingService());
+        new AddinOwnedHost(ide, null!, Own with { IsFirstParty = true }).RegisterProjectMaker(new AcmeMaker(new HexIDE.Runtime.Making.Vb6ProjectMaker()));
+        new AddinOwnedHost(ide, null!, Provider).RegisterProjectMaker(new HexIDE.Runtime.Making.Vb6ProjectMaker());
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var acme = new ProjectDefinition(VBProjectType.EXE, "A") { ContributedBy = "acme.project" };
+        var vb6Project = new ProjectDefinition(VBProjectType.EXE, "V");
+        makers.Makes(acme).Should().BeTrue();
+        var changes = 0;
+        makers.Changed += () => Interlocked.Increment(ref changes);
+
+        Task.Run(() =>
+        {
+            if (revoke) addins.RevokeConsent("hash-own");
+            else addins.SetEnabled(package, false);
+        }).Wait(TimeSpan.FromSeconds(10)).Should().BeTrue("the registry disposes under its lock, and the withdrawal only posts");
+
+        makers.Makes(acme).Should().BeFalse("a withdrawn maker is asked nothing from the moment it's disposed");
+        changes.Should().Be(0, "what's offered is asked again on the UI thread, not under the registry's lock");
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        changes.Should().Be(1);
+        makers.Makes(vb6Project).Should().BeTrue("the provider's maker stays");
+    }
+
+    // A maker for a type of the probe's own, which the test grant names.
+    private sealed class AcmeMaker(HexIDE.IDE.IProjectMaker inner) : HexIDE.IDE.IProjectMaker
+    {
+        public string ProjectTypeId => "acme.project";
+        public (string Field, string Value)? RefusedProgramName(ProjectDefinition project) => inner.RefusedProgramName(project);
+        public string ProgramPath(ProjectDefinition project) => inner.ProgramPath(project);
+        public HexIDE.IDE.MakeRefusal? Unavailable(string program) => inner.Unavailable(program);
+        public IReadOnlyList<string> WrittenBeside(string program) => inner.WrittenBeside(program);
+        public void Make(ProjectDefinition project, string sources, string projectFile, string program) =>
+            inner.Make(project, sources, projectFile, program);
+        public HexIDE.IDE.IProjectToolchain? Toolchain => null;
     }
 
     [AvaloniaTheory]

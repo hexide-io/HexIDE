@@ -7,6 +7,7 @@ using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Sidecar;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Projects;
 
@@ -36,7 +37,7 @@ public class MakeProjectMessageTests
         localization.GetString("Str.MakeProject.Failed").Returns("localized not made: {0}");
         events.When(x => x.Publish(Arg.Any<HexIDE.Events.ApplyAllUnsavedChangesEvent>()))
             .Do(_ => throw new IOException("failure detail"));
-        Func<Task> make = () => Service().MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
+        Func<Task> make = () => Service().WithMaker(Path.GetTempPath()).MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
         await make.Should().ThrowAsync<IOException>();
         await windows.Received().MessageBox("localized not made: failure detail", icon: MessageBoxIcon.Error);
     }
@@ -51,14 +52,14 @@ public class MakeProjectMessageTests
             localization.GetString("Str.MakeProject.RuntimeNotFound").Returns("{0} | {1}");
             windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>()).Returns(Path.Join(ide, "Made.exe"));
             var service = Service();
-            service.RuntimeDirectory = ide;
+            service.WithMaker(ide);
             // The runner beside the IDE is not the runtime: only standalone/ holds that.
-            File.WriteAllText(Path.Join(ide, ProjectService.StandaloneRunnerName()!), "not the runtime");
+            File.WriteAllText(Path.Join(ide, Vb6ProjectMaker.StandaloneRunnerName()!), "not the runtime");
 
             Func<Task> make = () => service.MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
 
             await make.Should().ThrowAsync<OperationCanceledException>();
-            await windows.Received().MessageBox($"{Path.Join(ide, "standalone")} | {ProjectService.StandaloneRunnerName()}",
+            await windows.Received().MessageBox($"{Path.Join(ide, "standalone")} | {Vb6ProjectMaker.StandaloneRunnerName()}",
                 icon: MessageBoxIcon.Information);
         }
         finally { Directory.Delete(ide, true); }

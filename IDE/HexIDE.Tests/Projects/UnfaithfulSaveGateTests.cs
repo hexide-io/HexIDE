@@ -557,7 +557,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         File.WriteAllText(Path.Join(dir, "UserControl1.ctl"), NestedContainerUserControl);
         var vbp = Path.Join(dir, "Test.vbp");
         File.WriteAllText(vbp, "Type=Exe\r\nForm=Form1.frm\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n");
-        var svc = MakeService();
+        var svc = MakeService().WithMaker(dir);
         await svc.OpenProject(vbp);
 
         var make = async () => await svc.MakeProject(loaded.Single());

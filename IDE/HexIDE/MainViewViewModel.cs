@@ -2042,22 +2042,32 @@ public partial class MainViewViewModel : ObservableObject
                 if (FocusedProjectUtil.FocusedOrStartupProject is { } project)
                     projectService.MakeProject(project).ListenErrors();
             },
-            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true });
+            // Offered only while the project's type has a maker, which its provider registers (#5621).
+            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } project && projectService.CanMake(project));
         RemoveProjectCommand = new DelegateCommand(() => projectService.UnloadProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
         // Offered only with a group open, as VB6 offers it (measured, #746). Two projects loaded are a group, even before
         // HexIDE has made its Group1.
         MakeProjectGroupCommand = new DelegateCommand(MakeProjectGroup,
-            () => projectManager.CurrentGroup != null || projectManager.LoadedProjects.Count > 1);
+            () => (projectManager.CurrentGroup != null || projectManager.LoadedProjects.Count > 1)
+                  && projectManager.LoadedProjects.Any(projectService.CanMake));
         projectManager.ProjectLoaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
         projectManager.ProjectUnloaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
-        // Both hand vb6.exe the project's file, so they ask what Make asks.
+        // Both hand the type's toolchain the project's file, so they ask what Make asks, and that the toolchain is installed.
         RunWithVb6Command = new DelegateCommand(
             () => vb6Toolchain.RunWithVb6Async(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } && vb6Toolchain.IsAvailable);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } project && vb6Toolchain.IsAvailableFor(project));
         MakeWithVb6Command = new DelegateCommand(
             () => vb6Toolchain.MakeWithVb6Async(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } && vb6Toolchain.IsAvailable);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } project && vb6Toolchain.IsAvailableFor(project));
+        // A maker comes and goes with its provider (#5621), so what Make offers is asked again when one does.
+        projectService.MakersChanged += () =>
+        {
+            MakeProjectCommand.RaiseCanExecutedChanged();
+            MakeProjectGroupCommand.RaiseCanExecutedChanged();
+            RunWithVb6Command.RaiseCanExecutedChanged();
+            MakeWithVb6Command.RaiseCanExecutedChanged();
+        };
 
         AddFormCommand = new DelegateCommand(
             () => AddFormAsync().ListenErrors(),

@@ -3,8 +3,8 @@ namespace HexIDE.Addins;
 /// <summary>
 /// What one owner may register through the host's add-in registrations that change what the IDE shows: its resources
 /// (#5396), its language packs (#5394), what draws the designer's controls (#5591), components beyond a plain control
-/// (#5594), and the type-name namespaces and control libraries it keeps (#5599). Kept in HexIDE's own source, so a package
-/// can't grant itself anything.
+/// (#5594), the type-name namespaces and control libraries it keeps (#5599), and the project types it makes programs of
+/// (#5621). Kept in HexIDE's own source, so a package can't grant itself anything.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -84,6 +84,15 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     /// <summary>Whether <paramref name="ns"/> is a type-name namespace this grant keeps, compared without regard to case.</summary>
     public bool KeepsTypeNamespace(string ns) => TypeNamespaces.Contains(ns, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The project types it may register a maker for (#5621): what File > Make, Make Project Group and the type's own
+    /// toolchain run for a project of that type. Each is a type id, as a project's <c>ContributedBy</c> names it.
+    /// </summary>
+    public IReadOnlyList<string> MakesProjectTypes { get; init; } = [];
+
+    /// <summary>Whether it may register a maker for projects of <paramref name="type"/>.</summary>
+    public bool MakesProjectType(string type) => MakesProjectTypes.Contains(type, StringComparer.Ordinal);
+
     /// <summary>Whether a type declared in <paramref name="assembly"/> may key one of its resources.</summary>
     public bool CoversResourceType(string? assembly) =>
         assembly is not null && ResourceTypeAssemblies.Contains(assembly, StringComparer.Ordinal);
@@ -128,6 +137,8 @@ internal static class RegistrationGrants
             // VB6's own type names, and its control libraries', the in-box OCXs it implements (#5599).
             TypeNamespaces =
                 ["VB", "MSComctlLib", "ComctlLib", "MSFlexGridLib", "TabDlg", "MSComDlg", "MSComCtl2", "MSMask", "RichTextLib"],
+            // File > Make and VB6's own toolchain, for VB6's projects (#5621).
+            MakesProjectTypes = [HexIDE.Projects.Vb6ProjectType.Id],
         },
     ];
 

@@ -20,7 +20,7 @@ date functions; graphics) should extend it the same way.
 
 ## The oracle
 
-- **Binary:** `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (the `Vb6ToolchainService`
+- **Binary:** `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (the Basic provider's `Vb6Toolchain`
   auto-discovers it; the `VB6_EXE` env var overrides). Windows + a VB6 install required — this is a dev-time
   fidelity check, not part of the shipped product. The install does **not** have to be on your own machine:
   see [the scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), which drives a copy in a Hyper-V
