@@ -1,3 +1,4 @@
+using HexIDE.Tests.Infrastructure;
 using System.IO;
 using Avalonia.Headless.XUnit;
 using HexIDE.Localization;
@@ -43,7 +44,7 @@ public sealed class NamedFormFormatTests : IDisposable
         using var registration = types.Register(Type("vb6"), Origin);
         var type = types.Find("Project.probe")!;
         type.Offers.WritesForms.Should().BeFalse();
-        using var vb6 = Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+        using var vb6 = Vb6Types.Register(types, new Vb6ProjectFileFormat());
         type.Offers.WritesForms.Should().BeTrue();
         var text = $"VERSION 5.00\r\nBegin VB.{root} Test\r\n   Caption = \"Test\"\r\nEnd\r\nAttribute VB_Name = \"Test\"\r\n";
         var (project, problems) = await Build(new("Test") { Members = [Member("Test." + extension, kind, text)] });
@@ -63,7 +64,7 @@ public sealed class NamedFormFormatTests : IDisposable
     public async Task An_unknown_id_names_every_omitted_form_and_keeps_modules()
     {
         using var registration = types.Register(Type("absent"), Origin);
-        using var vb6 = Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+        using var vb6 = Vb6Types.Register(types, new Vb6ProjectFileFormat());
         var (project, problems) = await Build(new("Test")
         {
             Members = [Member("First.frm", AddinMemberKind.Form, "unread"),
@@ -88,7 +89,7 @@ public sealed class NamedFormFormatTests : IDisposable
     [AvaloniaFact]
     public async Task A_form_loads_without_project_components_but_its_library_is_absent_from_the_toolbox()
     {
-        using var vb6 = Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+        using var vb6 = Vb6Types.Register(types, new Vb6ProjectFileFormat());
         using var registration = types.Register(new AddinProjectType("Probe")
         {
             FileNames = ["*.probe"], Forms = new Vb6ProjectFileFormat(),
@@ -106,7 +107,7 @@ public sealed class NamedFormFormatTests : IDisposable
     [AvaloniaFact]
     public async Task Listed_components_reach_the_project_and_its_toolbox()
     {
-        using var vb6 = Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+        using var vb6 = Vb6Types.Register(types, new Vb6ProjectFileFormat());
         using var registration = types.Register(new AddinProjectType("Probe")
         {
             FileNames = ["*.probe"], OpenAsync = (_, _, _) => throw new NotSupportedException(),

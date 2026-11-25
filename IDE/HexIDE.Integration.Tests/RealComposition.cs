@@ -38,6 +38,8 @@ internal sealed class RealComposition : IAsyncDisposable
         host.RegisterLanguageEditing(HexIDE.Runtime.BasicProvider.LanguageEditing);
         // And its interpreter, through the same host (#5616): with none, the composition runs nothing.
         engineRegistration = host.RegisterRunEngine(services => Engine = new HexIDE.Runtime.Running.InterpreterRunEngine(services));
+        // VB6's projects, as the provider registers them (#5625).
+        host.RegisterProjectType(HexIDE.Runtime.Serialization.Vb6ProjectFileFormat.ProjectType());
     }
 
     private readonly IDisposable engineRegistration;

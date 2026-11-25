@@ -1,3 +1,5 @@
+using HexIDE.Runtime.Serialization;
+using HexIDE.Tests.Infrastructure;
 using System.IO;
 using Avalonia.Platform.Storage;
 using HexIDE.Addins;
@@ -95,7 +97,7 @@ public sealed class Vb6ProjectTemplatesTests
     private static ContributedProjects Types(bool withAddin)
     {
         var types = new ContributedProjects();
-        Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+        Vb6Types.Register(types, new Vb6ProjectFileFormat());
         if (withAddin)
             types.Register(new AddinProjectType("RDCore projects")
             {

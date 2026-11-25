@@ -60,6 +60,12 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     public bool RunEngine { get; init; }
 
     /// <summary>
+    /// The project types it reserves (#5625): an identity, the project files only it may register, and the member formats
+    /// its type carries. Whoever else registers those files is refused, whether it registers before this owner or after.
+    /// </summary>
+    public IReadOnlyList<ReservedProjectType> ProjectTypes { get; init; } = [];
+
+    /// <summary>
     /// Whether it may register a component beyond a plain control (#5594): one whose role isn't
     /// <see cref="HexIDE.Runtime.Components.ComponentRole.Control"/>, such as a form, or that's a container. The designer
     /// gives such a class a place no plain control has, as a form's root or as other controls' parent.
@@ -115,6 +121,8 @@ internal static class RegistrationGrants
             LanguageEditing = true,
             // Its interpreter runs projects in the IDE (#5616).
             RunEngine = true,
+            // VB6's own project type, under VB6's identity, its files reserved to it (#5625).
+            ProjectTypes = [HexIDE.Projects.Vb6ProjectType.Reserved],
             // Its Form, and its Frame and PictureBox, which hold other controls (#5594).
             Components = true,
             // VB6's own type names, and its control libraries', the in-box OCXs it implements (#5599).
@@ -135,4 +143,24 @@ internal static class RegistrationGrants
         grants.FirstOrDefault(grant => (grant.Composed ? origin.IsComposed : origin.IsFirstParty && !origin.IsComposed)
             && !origin.IsDeveloperUnsigned
             && string.Equals(grant.OwnerId, origin.Id, StringComparison.Ordinal));
+}
+
+/// <summary>
+/// A project type a grant reserves to its owner (#5625). The owner's type takes this identity, <see cref="Id"/> and
+/// <see cref="Title"/>, only when it registers exactly these files; the alias is identity only, and who is trusted stays the
+/// owner. It carries the formats of the members its projects hold, which an add-in's own project type may borrow.
+/// </summary>
+/// <param name="Id">What its projects carry as their contributor, whoever registers it.</param>
+/// <param name="Title">What its projects and refusals call it.</param>
+/// <param name="FileNames">Its project files.</param>
+/// <param name="GroupFileNames">Its group files.</param>
+/// <param name="MemberKinds">The kinds of module its format reads for another type's projects.</param>
+/// <param name="Forms">Whether its format reads their forms too.</param>
+/// <param name="FormFormat">The id another type names to read its forms with this format.</param>
+internal sealed record ReservedProjectType(string Id, string Title, IReadOnlyList<string> FileNames,
+    IReadOnlyList<string> GroupFileNames, IReadOnlySet<HexIDE.Runtime.ProjectElements.ModuleKind> MemberKinds, bool Forms,
+    string? FormFormat)
+{
+    /// <summary>Every project and group file it reserves.</summary>
+    internal IEnumerable<string> Patterns => FileNames.Concat(GroupFileNames);
 }

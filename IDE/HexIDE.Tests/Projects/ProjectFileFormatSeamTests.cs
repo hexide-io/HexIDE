@@ -85,7 +85,7 @@ public class ProjectFileFormatSeamTests : CompositionTestBase
         _format.Regions = _format.Regions! with { Writer = writer ?? new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionWriter() };
         // VB6's type, registered with the stand-in format, as the composition registers it with its own.
         var types = new ContributedProjects();
-        Vb6ProjectType.Register(types, _format);
+        Vb6Types.Register(types, _format);
         return new ProjectService(() => throw new InvalidOperationException("no new-project dialog here"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, localization,

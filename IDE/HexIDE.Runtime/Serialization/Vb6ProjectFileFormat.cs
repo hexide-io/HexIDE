@@ -1,16 +1,27 @@
 using HexIDE.IDE;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Projects;
+namespace HexIDE.Runtime.Serialization;
 
 /// <summary>
 /// VB6's files: <c>.vbp</c>, <c>.vbg</c>, <c>.frm</c>, <c>.ctl</c>, <c>.pag</c>, <c>.bas</c> and <c>.cls</c>, and the
-/// companion binaries that go with the designer files. The one place in the IDE that names the readers and writers (#3564).
+/// companion binaries that go with the designer files: the one place that names the readers and writers (#3564). The Basic
+/// provider registers it with VB6's project type (#5625).
 /// </summary>
 public sealed class Vb6ProjectFileFormat : IProjectFileFormat
 {
+    /// <summary>
+    /// VB6's project type: <c>.vbp</c> projects and <c>.vbg</c> groups, exactly the files the Basic provider's grant reserves
+    /// to it (#5625), read and rendered through <paramref name="format"/>, or through this format when it's null.
+    /// </summary>
+    public static HexIDE.Addins.AddinProjectType ProjectType(IProjectFileFormat? format = null) => new("Visual Basic 6.0 projects")
+    {
+        FileNames = ["*.vbp"],
+        GroupFileNames = ["*.vbg"],
+        Format = format ?? new Vb6ProjectFileFormat(),
+    };
+
     public string FormExtension => "frm";
 
     /// <summary>The file extension VB6 gives a module of this kind.</summary>

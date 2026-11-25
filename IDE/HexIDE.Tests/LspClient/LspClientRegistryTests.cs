@@ -780,6 +780,32 @@ public class LspClientRegistryTests
         await contributed.Received(contributedCount).CloseDocumentAsync(uri, Arg.Any<CancellationToken>());
     }
 
+    // VB6's projects carry VB6's identity whoever registers their type, and that identity is the bundled server's id: so a
+    // member goes to the bundled server even beside a server of the provider's own. Under the provider's own id, the owner
+    // route would hand it to that server alone (#5625).
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_member_of_a_VB6_project_the_provider_registered_reaches_the_bundled_server(bool identityFromTheRegistration)
+    {
+        var owner = identityFromTheRegistration
+            ? HexIDE.Tests.Infrastructure.Vb6Types.Alone().Find("Project1.vbp")!.AddinId
+            : HexIDE.Addins.RegistrationGrants.BasicProvider;
+        var bundled = FakeServer();
+        var providers = FakeServer();
+        await using var sut = Registry(
+            Registration(LanguageServerDefaults.BundledVb6Id, bundled, priority: 100),
+            Registration("provider", providers) with { AddinId = HexIDE.Addins.RegistrationGrants.BasicProvider });
+        var uri = "untitled:Project1/Module1.bas";
+        var token = TestContext.Current.CancellationToken;
+
+        await sut.OpenDocumentAsync(uri, "code", true, token, owner);
+
+        await bundled.Received(identityFromTheRegistration ? 1 : 0).OpenDocumentAsync(uri, "code", Arg.Any<CancellationToken>());
+        await providers.Received(1).OpenDocumentAsync(uri, "code", Arg.Any<CancellationToken>());
+        if (identityFromTheRegistration) owner.Should().Be(LanguageServerDefaults.BundledVb6Id);
+    }
+
     [Theory]
     [InlineData(".bas", true, 0, null, "vba", false, true)]
     [InlineData(".cls", true, 0, null, "vba", false, true)]

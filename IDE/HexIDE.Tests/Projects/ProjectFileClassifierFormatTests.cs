@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using HexIDE.IDE;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
