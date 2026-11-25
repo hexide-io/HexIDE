@@ -50,12 +50,36 @@ revocations is signed by the HexIDE root, and HexIDE checks that signature befor
 
 ## For third-party publishers
 
-Request a publisher record from the HexIDE maintainer through the repository's issue tracker. Send
-only your **public key** (base64 ECDSA P-256 SubjectPublicKeyInfo), your publisher id and display name.
-Never send your private key. Publisher and intermediate ids are 3–64 characters matching
-`^[a-z0-9]+([.-][a-z0-9]+)*$`: lowercase letters and digits in parts joined by single dots or hyphens.
-Display names must be trimmed, non-empty, at most 128 characters, and contain no control characters or
-invisible format characters (such as a right-to-left override), which could make one name read as another.
+To get a publisher record, make a signed request with the add-in packer:
+
+```sh
+request-publisher --publisher-id <id> --display-name <name> --github <handle> --fingerprint-url <https url>
+                  --new-key <dir> --out <dir> [--namespaces <a.,b.>]
+```
+
+- **`--new-key <dir>`** makes your private key, as `<id>.key` in that folder, readable only by you where the system
+  supports it. Keep it out of anything you publish or commit, and keep a backup: nobody can recover it. To use a key you
+  already have, give `--key <file>` instead.
+- **The request is `request.json` and `request.sig`,** written to `--out`. The request holds your public key, and the
+  signature proves you hold the private key that goes with it. The command prints the key's fingerprint and the
+  request's SHA-256.
+- **Publish the fingerprint at `--fingerprint-url`,** an https address on your own site. That shows the request comes
+  from whoever controls that site.
+- **Check a request** with `verify-request --request <dir>`. It needs no private key, and it is the same check the
+  maintainer runs.
+- **Submit** `request.json` and `request.sig` through the HexIDE repository's issue tracker, from the GitHub account the
+  request names. A request form in `hexide-io/HexIDE.Publishers` will replace this (#5323). Everything you submit is
+  public. Never send your private key.
+- **To replace your key** under an id you already hold, add `--previous-key <file>` with the key it replaces. The request
+  is then signed with both keys.
+
+**The rules each field must meet:**
+- **Ids** are 3–64 characters matching `^[a-z0-9]+([.-][a-z0-9]+)*$`: lowercase letters and digits in parts joined by
+  single dots or hyphens.
+- **Display names** must be trimmed, non-empty, at most 128 characters, and contain no control characters or invisible
+  format characters (such as a right-to-left override), which could make one name read as another.
+- **Namespaces** are names followed by `.`, such as `acme.`. They are the prefixes your add-ins' commands and messages
+  may use. No two publishers hold overlapping namespaces, and `hexide.` is HexIDE's own.
 
 The maintainer issues the record offline with the add-in packer:
 

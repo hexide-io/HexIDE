@@ -268,7 +268,7 @@ public sealed class HexidePack(IAnsiConsole console, TextWriter output, TextWrit
 
     private static string Placeholder(OptionKind kind) => kind switch
     {
-        OptionKind.ExistingFile or OptionKind.SigningKey => "file",
+        OptionKind.ExistingFile or OptionKind.SigningKey or OptionKind.PublisherKey => "file",
         OptionKind.ExistingFolder or OptionKind.TrustFolder or OptionKind.OutputFolder or OptionKind.KeyFolder => "folder",
         OptionKind.FileInSource => "file in --src",
         OptionKind.PublisherId => "id",
