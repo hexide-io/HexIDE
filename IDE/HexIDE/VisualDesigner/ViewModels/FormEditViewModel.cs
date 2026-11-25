@@ -79,24 +79,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     [Notify]
     private bool hasCaptionGlyph;
 
-    // Designer measurements and the two stand-ins: #2716. The runtime and designer share the file-state reader.
+    // Designer measurements and the two stand-ins: #2716. The root's class says what its title bar shows (#5633),
+    // and the icon is decoded as a form's own pictures are, through the .frx decoder; one it can't read is left out.
     internal void RefreshCaptionIcon()
     {
         var previous = CaptionIcon;
-        Bitmap? image = null;
-        var icon = VBLoader.ReadDesignerCaptionIcon(Form.Instance);
-        try
-        {
-            if (icon.Image is { } bytes)
-            {
-                using var stream = new MemoryStream(bytes, writable: false);
-                image = new Bitmap(stream);
-            }
-        }
-        catch (Exception)
-        {
-            // An unreadable picture must not prevent the form from opening.
-        }
+        var icon = DesignerClassCalls.CaptionOf(Form.Instance);
+        var image = icon.Image is { } bytes ? HexIDE.Imaging.FrxImageHelper.TryDecodeToAvaloniaBitmap(bytes, png: true) : null;
         CaptionIcon = image;
         HasCaptionIcon = icon.Visible;
         HasCaptionGlyph = icon.UseFormGlyph;
@@ -997,8 +986,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // TextBox and Text = "Combo1" for a ComboBox (measured, #926). Only where the class has the property.
         if (baseClass.Properties.Contains(VBProperties.CaptionProperty))
             instance.SetProperty(VBProperties.CaptionProperty, newName);
-        if (baseClass is RichTextBoxComponentClass)
-            RichTextBoxPersistence.Seed(instance, newName);
+        DesignerClassCalls.Drawn(instance, newName);
         if (baseClass.Properties.Contains(VBProperties.TextProperty))
             instance.SetProperty(VBProperties.TextProperty, newName);
         var newComponent = new ComponentInstanceViewModel(this, instance)

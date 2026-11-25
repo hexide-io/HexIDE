@@ -333,4 +333,120 @@ public class DesignerRootPropertiesTests
         finally { System.IO.File.Delete(path); }
     }
 
+    // ── The root's class gives the caption (#5633) ──────────────────────────────────────────────────
+
+    // A Form whose class answers the caption contract its own way, for the containment tests: the rest is the Form's.
+    private sealed class OwnCaptionForm(Func<ComponentInstance, DesignerCaption?> caption) : FormComponentClass, IDesignerCaption
+    {
+        public int Asked { get; private set; }
+        DesignerCaption IDesignerCaption.CaptionOf(ComponentInstance instance)
+        {
+            Asked++;
+            return caption(instance)!;
+        }
+    }
+
+    // A plain control that also answers the caption contract: only a designer's root is ever asked.
+    private sealed class CaptionedControl : IComponentClass, IDesignerCaption
+    {
+        public int Asked { get; private set; }
+        public string Name => "Gauge";
+        public string VBTypeName => "Acme.Gauge";
+        public string ClassName => "Gauge";
+        public bool IsVisual => true;
+        public IReadOnlyList<PropertyClass> Properties => [VBProperties.NameProperty];
+        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName => new Dictionary<string, PropertyClass>();
+        public IReadOnlyList<EventClass> Events => [];
+        public IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
+        public DesignerCaption CaptionOf(ComponentInstance instance)
+        {
+            Asked++;
+            return new DesignerCaption(null, UseFormGlyph: false, Visible: false);
+        }
+    }
+
+    private sealed class Captured : Serilog.Core.ILogEventSink, IDisposable
+    {
+        private readonly Serilog.ILogger previous = Serilog.Log.Logger;
+        public List<Serilog.Events.LogEvent> Events { get; } = [];
+        public Captured() => Serilog.Log.Logger = new Serilog.LoggerConfiguration().MinimumLevel.Verbose().WriteTo.Sink(this).CreateLogger();
+        public void Emit(Serilog.Events.LogEvent logEvent) { lock (Events) Events.Add(logEvent); }
+        public void Dispose() => Serilog.Log.Logger = previous;
+    }
+
+    private static FormEditViewModel Designer(FormDefinition form)
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        return new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
+            null!, null!, Substitute.For<ISettingsService>(), localization).Initialize(form);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_root_class_that_throws_or_answers_null_shows_the_form_glyph_and_is_logged_once(bool throws)
+    {
+        DesignerClassCalls.ForgetReported();
+        using var log = new Captured();
+        var root = new OwnCaptionForm(_ => throws ? throw new InvalidOperationException("caption broke") : null);
+        var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), root, "Form1");
+        var designer = Designer(form);
+        using (designer)
+        {
+            designer.RefreshCaptionIcon();
+            root.Asked.Should().Be(2, "the designer asked as it opened, and again here");
+            Caption(designer, caption =>
+            {
+                CaptionImages(caption).Should().BeEmpty();
+                CaptionGlyphs(caption).Should().ContainSingle();
+            });
+        }
+        var reports = log.Events.Where(e => e.RenderMessage().Contains("IDesignerCaption", StringComparison.Ordinal)).ToList();
+        reports.Select(e => e.Level).Should().StartWith(Serilog.Events.LogEventLevel.Warning)
+            .And.HaveCountGreaterThanOrEqualTo(2);
+        reports.Skip(1).Should().OnlyContain(e => e.Level == Serilog.Events.LogEventLevel.Debug);
+        if (throws) reports[0].Exception!.Message.Should().Be("caption broke");
+    }
+
+    [AvaloniaFact]
+    public void A_control_on_the_form_is_never_asked_for_a_caption_whatever_its_class_implements()
+    {
+        var root = new OwnCaptionForm(_ => new DesignerCaption(null, UseFormGlyph: true, Visible: true));
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var shell = new FormDefinition(project, root, "Form1");
+        var control = new CaptionedControl();
+        var gauge = new ComponentInstance(control, "Gauge1")
+            .SetProperty(VBProperties.WidthProperty, 100d).SetProperty(VBProperties.HeightProperty, 50d);
+        gauge.SetContainer(shell.Components[0]);
+        var form = new FormDefinition(project, [shell.Components[0], gauge], "");
+        var designer = Designer(form);
+        using (designer)
+        {
+            designer.RefreshCaptionIcon();
+
+            designer.AllComponents.Select(c => c.Instance).Should().Contain(gauge);
+            root.Asked.Should().Be(2);
+            control.Asked.Should().Be(0);
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_class_whose_drawn_defaults_throw_is_logged_and_the_control_keeps_its_name()
+    {
+        DesignerClassCalls.ForgetReported();
+        using var log = new Captured();
+        var throwing = Substitute.For<IComponentClass, IDesignerDrawnDefaults>();
+        ((IDesignerDrawnDefaults)throwing).When(d => d.Drawn(Arg.Any<ComponentInstance>(), Arg.Any<string>()))
+            .Do(_ => throw new InvalidOperationException("drawn broke"));
+        throwing.VBTypeName.Returns("Acme.Dial");
+        var dial = new ComponentInstance(throwing, "Dial1");
+
+        DesignerClassCalls.Drawn(dial, "Dial1");
+        DesignerClassCalls.Drawn(dial, "Dial1");
+
+        dial.GetPropertyOrDefault(VBProperties.NameProperty).Should().Be("Dial1");
+        log.Events.Where(e => e.Exception?.Message == "drawn broke").Select(e => e.Level)
+            .Should().Equal(Serilog.Events.LogEventLevel.Warning, Serilog.Events.LogEventLevel.Debug);
+    }
 }
