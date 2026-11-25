@@ -40,7 +40,7 @@ public sealed class ArchiveProjectStructureTests : IDisposable
             call.Arg<BaseEditorWindowViewModel>().Dispose();
         });
         archives = new(dock, Substitute.For<IRecentProjectsService>(), localization, windows,
-            new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
+            InBoxRegistry.LanguageEditing());
         model = new(Substitute.For<IProjectManager>(), Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
             Substitute.For<IEditorService>(), localization, archives);
     }
@@ -225,7 +225,7 @@ public sealed class ArchiveProjectStructureTests : IDisposable
         var startup = c.ProjectManager.StartupProject;
         var title = c.Root.ProjectExplorer.Title;
         var service = new ArchiveProjectService(c.DocumentDockService, Substitute.For<IRecentProjectsService>(), localization,
-            windows, new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode());
+            windows, InBoxRegistry.LanguageEditing());
         var explorer = new ProjectToolViewModel(c.ProjectManager, Substitute.For<IEventBus>(), c.ProjectService,
             Substitute.For<IEditorService>(), localization, service);
         try

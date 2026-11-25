@@ -30,7 +30,7 @@ public sealed class ArchiveProjectService
     private readonly IRecentProjectsService recent;
     private readonly ILocalizationService localization;
     private readonly IWindowManager windows;
-    private readonly IConditionalCodeReader conditionalCode;
+    private readonly ILanguageEditing languageEditing;
     private readonly Func<ILspClient>? lspClient;
     private bool treeSelected;
     private readonly Dictionary<string, string> folderChoices = new(ArchiveEntryIdentity.ContainerPathComparer);
@@ -40,14 +40,14 @@ public sealed class ArchiveProjectService
     public bool IsActive => treeSelected || dock.ActiveDocument is ArchiveDocumentViewModel;
 
     public ArchiveProjectService(IDocumentDockService dock, IRecentProjectsService recent,
-        ILocalizationService localization, IWindowManager windows, IConditionalCodeReader conditionalCode, Func<ILspClient>? lspClient = null)
+        ILocalizationService localization, IWindowManager windows, ILanguageEditing languageEditing, Func<ILspClient>? lspClient = null)
     {
         this.lspClient = lspClient;
         this.dock = dock;
         this.recent = recent;
         this.localization = localization;
         this.windows = windows;
-        this.conditionalCode = conditionalCode;
+        this.languageEditing = languageEditing;
         dock.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(dock.ActiveDocument)) return;
@@ -179,7 +179,7 @@ public sealed class ArchiveProjectService
         if (current.Archive == null && !current.IsDocument) return;
         if (!dock.TryActivate<ArchiveDocumentViewModel>(vm => vm.Entry.Identity.Equals(current.Identity)))
         {
-            var tab = new ArchiveDocumentViewModel(current, localization, conditionalCode, project.BuildType,
+            var tab = new ArchiveDocumentViewModel(current, localization, languageEditing, project.BuildType,
                 project.SupportsLanguageServers ? lspClient?.Invoke() : null, project.LanguageOf(current));
             if (project is TwinBasicBrowserProject) tab.EnableSaving(this);
             dock.OpenDocument(tab);

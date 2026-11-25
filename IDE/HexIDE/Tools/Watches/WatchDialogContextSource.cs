@@ -4,11 +4,14 @@ using System.Threading.Tasks;
 using HexIDE.Debugging;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Language;
+using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Tools;
 
-public sealed class WatchDialogContextSource(IDocumentDockService dock, IProjectManager projects)
+// A module no open code window has a server's outline for lists the declarations the helpers registered for vb6 find, the
+// language of every VB-family project's members (#5403); with none registered, it lists none.
+public sealed class WatchDialogContextSource(IDocumentDockService dock, IProjectManager projects, ILanguageEditing languageEditing)
 {
     public Task<(WatchContextModule[] Modules, string Context)> ReadAsync(string pausedContext)
     {
@@ -29,7 +32,8 @@ public sealed class WatchDialogContextSource(IDocumentDockService dock, IProject
             var open = dock.OpenDocuments.OfType<CodeEditorViewModel>()
                 .FirstOrDefault(e => document.Equals(e.OpenDocument));
             var symbols = open is not null && open.OutlineSymbols.Count > 0 ? open.OutlineSymbols.ToArray()
-                : VbFamilyDeclarationCollector.Collect(open?.Document.Text ?? document.Module?.Code ?? document.Form!.Code);
+                : languageEditing.DeclarationsFor(DocumentLanguage.Vb6)
+                    .Declarations(open?.Document.Text ?? document.Module?.Code ?? document.Form!.Code).ToArray();
             var procedures = symbols.SelectMany(s => s.Flatten())
                 .Where(s => s.Kind is SymbolKind.Method or SymbolKind.Function or SymbolKind.Property).ToArray();
             // VB6 lists them sorted, not in source order: a Sub declared last came before `X(Get)` (measured, #4401). How

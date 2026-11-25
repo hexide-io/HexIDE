@@ -65,9 +65,43 @@ public sealed class ComponentWithdrawalTests : IDisposable
         return (addins, package);
     }
 
-    private static HexIdeHost Ide(IAddinRegistry addins, ComponentRegistry components) =>
+    private static HexIdeHost Ide(IAddinRegistry addins, ComponentRegistry components, AddinLanguageEditingService? editing = null) =>
         new(null!, null!, null!, addins, null!, null!, null!, null!, null!, null!, components, null!, null!, null!, null!,
-            new AddinResourceService(), new AddinLanguagePackService());
+            new AddinResourceService(), new AddinLanguagePackService(), editing ?? new AddinLanguageEditingService());
+
+    // No real grant lets a package register a language's editing helpers yet, so the probe stands in for phase 3's first-party
+    // provider package, signed first-party, with a test grant (#5403). The add-in registry withdraws them under its lock, from
+    // the thread that disabled the add-in, so this runs the disable off the UI thread too.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Disabling_or_revoking_an_add_in_takes_out_its_language_editing_and_leaves_the_provider_s(bool revoke)
+    {
+        var (addins, package) = await Loaded();
+        using var _ = addins;
+        var editing = new AddinLanguageEditingService
+        {
+            Grants = [.. RegistrationGrants.All, new(Own.Id, Composed: false) { LanguageEditing = true }],
+        };
+        var ide = Ide(addins, new ComponentRegistry(), editing);
+        var brackets = Substitute.For<HexIDE.Language.IBracketReader>();
+        brackets.Brackets(default!).ReturnsForAnyArgs([new HexIDE.Language.BracketMark(0, 0)]);
+        new AddinOwnedHost(ide, null!, Own with { IsFirstParty = true })
+            .RegisterLanguageEditing(new HexIDE.Language.LanguageEditing(["acme"]) { Brackets = brackets });
+        new AddinOwnedHost(ide, null!, Provider).RegisterLanguageEditing(HexIDE.Runtime.BasicProvider.LanguageEditing);
+        var changes = 0;
+        editing.Changed += () => Interlocked.Increment(ref changes);
+
+        await Task.Run(() =>
+        {
+            if (revoke) addins.RevokeConsent("hash-own");
+            else addins.SetEnabled(package, false);
+        }, TestContext.Current.CancellationToken);
+
+        editing.BracketsFor("acme").Brackets("()").Should().BeEmpty();
+        editing.BracketsFor("vb6").Brackets("()").Should().HaveCount(2);
+        changes.Should().Be(1);
+    }
 
     [AvaloniaTheory]
     [InlineData(false)]

@@ -24,7 +24,7 @@ public sealed class AddinLanguagePackServiceTests
     private static IHexIdeHost Owned(AddinLanguagePackService service, AddinOrigin origin, out IHexIdeHost ide)
     {
         ide = new HexIdeHost(null!, null!, null!, Substitute.For<IAddinRegistry>(), null!, null!, null!, null!, null!, null!, null!,
-            null!, null!, null!, null!, new AddinResourceService(), service);
+            null!, null!, null!, null!, new AddinResourceService(), service, new AddinLanguageEditingService());
         return new AddinOwnedHost(ide, null!, origin);
     }
 

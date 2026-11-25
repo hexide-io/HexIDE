@@ -35,6 +35,7 @@ internal sealed class RealComposition : IAsyncDisposable
             host.RegisterToolboxItem(component, iconKey);
         foreach (var library in HexIDE.Runtime.BasicProvider.Libraries)
             host.RegisterControlLibrary(library, () => HexIDE.Runtime.BasicProvider.ControlsOf(library));
+        host.RegisterLanguageEditing(HexIDE.Runtime.BasicProvider.LanguageEditing);
     }
 
     public ValueTask DisposeAsync() => Composition.LspClient.DisposeAsync();

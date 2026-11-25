@@ -15,6 +15,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Folding;
 using AvaloniaEdit.Rendering;
+using HexIDE.Addins;
 using HexIDE.Bookmarks;
 using HexIDE.Controls;
 using HexIDE.Debugging;
@@ -196,7 +197,7 @@ public class ReadOnlyGreyingTests : IDisposable
         public void Dispose() => undo();
     }
 
-    private CodeEditorViewModel MakeViewModel()
+    private CodeEditorViewModel MakeViewModel(ILanguageEditing? editing = null, bool colourBrackets = false)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -206,12 +207,13 @@ public class ReadOnlyGreyingTests : IDisposable
 
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
+        settings.ColorBracketsByDepth.Returns(colourBrackets);
 
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
             Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
-            conditionalCode: new InterpreterConditionalCode());
+            languageEditing: editing ?? InBoxRegistry.LanguageEditing());
         made.Add(vm);
         return vm;
     }
@@ -222,12 +224,12 @@ public class ReadOnlyGreyingTests : IDisposable
         return MakeViewModel().Initialize(new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!);
     }
 
-    private CodeEditorViewModel OpenModule(ModuleKind kind, string name, string code)
+    private CodeEditorViewModel OpenModule(ModuleKind kind, string name, string code, ILanguageEditing? editing = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, name, kind);
         module.UpdateCode(code);
-        return MakeViewModel().Initialize(module);
+        return MakeViewModel(editing, colourBrackets: editing is not null).Initialize(module);
     }
 
     private TextEditor Show(CodeEditorViewModel vm)
@@ -307,6 +309,81 @@ public class ReadOnlyGreyingTests : IDisposable
             LinkColour().Should().Be(((ISolidColorBrush)editor.FindResource("LinkTextBrush")!).Color);
             if (pack == "Abyss") LinkColour().Should().NotBe(dark);
         }
+    }
+
+    // #5403: a code window asks for the helpers registered for vb6 whichever VB-family project its module is in. VBA's and
+    // RDCore's members carry no language id of their own, and shared one set of helpers with VB6's before they were registered.
+    [AvaloniaTheory]
+    [InlineData(VbaBitness.None, false)]
+    [InlineData(VbaBitness.Bit32, false)]
+    [InlineData(VbaBitness.Bit64, false)]
+    [InlineData(VbaBitness.None, true)]
+    public async Task Every_VB_family_project_s_members_are_greyed_and_coloured_by_the_helpers_registered_for_vb6(
+        VbaBitness bitness, bool rdcore)
+    {
+        var themes = new ThemeService();
+        using var scope = TheIdesThemes(themes);
+        var conditional = Substitute.For<IConditionalCodeReader>();
+        // The line it greys is the one the window has "x = (1)" on, below the module's header.
+        conditional.InactiveLines(default!, default!).ReturnsForAnyArgs(call =>
+        {
+            var source = call.Arg<string>();
+            var line = source[..source.IndexOf("x = (1)", StringComparison.Ordinal)].Count(c => c == '\n') + 1;
+            return new[] { new LineRange(line, line) };
+        });
+        var brackets = Substitute.For<IBracketReader>();
+        brackets.Brackets(default!).ReturnsForAnyArgs([]);
+        var probe = new AddinOrigin("tests.vb6", "VB6 probe") { IsComposed = true };
+        var editing = new AddinLanguageEditingService { Grants = [new(probe.Id, Composed: true) { LanguageEditing = true }] };
+        editing.Register(new LanguageEditing([DocumentLanguage.Vb6]) { ConditionalCode = conditional, Brackets = brackets }, probe);
+        var project = new ProjectDefinition(VBProjectType.EXE, "P")
+        {
+            VbaBitness = bitness,
+            Target = rdcore ? ProjectTarget.RDCore : ProjectTarget.None,
+        };
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("#If Probe Then\nx = (1)\n#End If\n");
+        var vm = MakeViewModel(editing, colourBrackets: true).Initialize(module);
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        await WaitForConditionalEvaluation(view);
+
+        conditional.ReceivedWithAnyArgs().InactiveLines(default!, default!);
+        brackets.ReceivedWithAnyArgs().Brackets(default!);
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, "x = (1)")).Should().OnlyContain(c => c == grey);
+    }
+
+    // #5403: the add-in registry withdraws a disabled owner's helpers under its lock, on whichever thread disabled the owner.
+    // So the withdrawal returns without waiting on the UI thread, and the window reads its brackets and greying again in the
+    // job the withdrawal posts.
+    [AvaloniaFact]
+    public async Task Helpers_withdrawn_off_the_UI_thread_leave_at_once_and_the_posted_refresh_clears_brackets_and_greying()
+    {
+        var themes = new ThemeService();
+        using var scope = TheIdesThemes(themes);
+        var editing = new AddinLanguageEditingService();
+        var registration = editing.Register(HexIDE.Runtime.BasicProvider.LanguageEditing, HexIDE.Desktop.BasicProviderComposition.Origin);
+        var vm = OpenModule(ModuleKind.StandardModule, "Withdrawn", "#If False Then\nDebug.Print 1\n#End If\nx = (y)\n", editing);
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        await WaitForConditionalEvaluation(view);
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        var depth = ((ISolidColorBrush)view.FindResource("BracketDepth1Brush")!).Color;
+        var greyed = LineOf(editor, "Debug.Print 1");
+        var paired = LineOf(editor, "x = (y)");
+        ColoursOn(editor, greyed).Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, paired).Should().Contain(depth);
+
+        // Blocking is the point: this thread is the UI thread, so a withdrawal that waited on it would never return.
+#pragma warning disable xUnit1031
+        Task.Run(registration.Dispose).Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken)
+            .Should().BeTrue("the withdrawal mustn't wait on the UI thread");
+#pragma warning restore xUnit1031
+        RunJobsKeepingContext();
+
+        ColoursOn(editor, greyed).Should().Contain(c => c != grey);
+        ColoursOn(editor, paired).Should().NotContain(depth);
     }
 
     // #5036: a live settings notification must reach the real dispatcher debounce.

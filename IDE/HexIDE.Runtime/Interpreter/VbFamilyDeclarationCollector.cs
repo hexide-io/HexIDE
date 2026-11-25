@@ -1,15 +1,21 @@
 using System.Collections.Generic;
 using System.Linq;
 using Antlr4.Runtime;
+using HexIDE.Language;
 using HexIDE.Lsp.Messages;
 using LspRange = HexIDE.Lsp.Messages.Range;
 
-namespace HexIDE.Language;
+namespace HexIDE.Runtime.Interpreter;
 
-/// <summary>Collects declaration headers only; no names are bound (#4401).</summary>
-internal static class VbFamilyDeclarationCollector
+/// <summary>
+/// Collects declaration headers only; no names are bound (#4401). The Basic provider registers it for the Object Browser and
+/// the Watch dialog (#5403), which ask it when no language server answers.
+/// </summary>
+internal sealed class VbFamilyDeclarationCollector : IDeclarationReader
 {
-    public static DocumentSymbol[] Collect(string text)
+    public IReadOnlyList<DocumentSymbol> Declarations(string source) => Collect(source);
+
+    internal static DocumentSymbol[] Collect(string text)
     {
         // Use the existing lexer for comments, strings and continuations without parsing bodies or
         // choosing a conditional-compilation branch. Both branches' declarations remain visible.

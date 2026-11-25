@@ -22,7 +22,8 @@ internal sealed class HexIdeHost(
     HexIDE.Debugging.DebugLaunchService debugLaunches,
     HexIDE.Projects.ContributedProjects contributedProjects,
     AddinResourceService resources,
-    AddinLanguagePackService languagePacks) : IHexIdeHost
+    AddinLanguagePackService languagePacks,
+    AddinLanguageEditingService languageEditing) : IHexIdeHost, HexIDE.Language.ILanguageEditingRegistration
 {
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void ReportFailure(string message, Exception? exception = null) =>
@@ -202,6 +203,21 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures, AddinOrigin origin)
     {
         var handle = DesignerPictures.Register(pictures, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    // As the drawer: only an add-in's own host registers a language's editing helpers, with the add-in as their owner (#5403).
+    public IDisposable RegisterLanguageEditing(HexIDE.Language.LanguageEditing editing) =>
+        throw new InvalidOperationException("A language's editing helpers are registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked. The withdrawal only
+    // takes them out of the table and tells the open code windows, which post their refresh, so it never waits on the UI
+    // thread while the add-in registry holds its lock.
+    internal IDisposable RegisterLanguageEditing(HexIDE.Language.LanguageEditing editing, AddinOrigin origin)
+    {
+        var handle = languageEditing.Register(editing, origin);
         if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         AddinInitializationScope.Record(handle.Dispose);
         return handle;
