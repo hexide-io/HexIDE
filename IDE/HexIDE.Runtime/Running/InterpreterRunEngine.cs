@@ -98,7 +98,8 @@ public sealed class InterpreterRunEngine : IRunEngine, IDesignerRunEngine, IDisp
         try
         {
             preview = FormComponentClass.Instance.InstantiateWindow(root, VBLoader.HasMenuBar(form));
-            preview.Content = FormPreview.Spawn(form, preview);
+            preview.Content = VBLoader.SpawnComponents(form, preview.Context.ExecutionContext,
+                preview.Context.RootEnv, new StandaloneStandardLib(preview, UntitledBoxTitle(form)));
             if (services.Dialogs.Owner is Window owner)
                 preview.Show(owner);
             else
@@ -119,6 +120,12 @@ public sealed class InterpreterRunEngine : IRunEngine, IDesignerRunEngine, IDisp
         shown.Closed += (_, _) => previews.Remove(shown);
         return null;
     }
+
+    /// <summary>
+    /// What a box the preview raises with no title is captioned (#5633): the program's name, as <c>App.Title</c> gives it
+    /// under F5, and never the IDE's, so stock and branded builds preview alike (#3411).
+    /// </summary>
+    internal static string UntitledBoxTitle(FormDefinition form) => AppInfo.FromProject(form.Owner).Title;
 
     /// <inheritdoc />
     public bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
