@@ -10,40 +10,33 @@ namespace HexIDE.Tests.Projects;
 /// registers none of its own, <c>--no-vb6</c> turns the provider's registration into nothing, and only the provider's grant
 /// gives the type VB6's identity.
 /// </summary>
-public sealed class Vb6ProjectTypeRegistrationTests : IAsyncDisposable
+public sealed class Vb6ProjectTypeRegistrationTests : CompositionTestBase
 {
     private readonly string vbp = Path.Join(Path.GetTempPath(), "Project1.vbp");
-    private DISetup? setup;
 
-    public async ValueTask DisposeAsync()
-    {
-        if (setup is not null) await setup.LspClient.DisposeAsync();
-    }
+    // These tests make the provider's registration themselves, or not at all.
+    protected override bool RegistersVb6 => false;
 
-    private AddinOwnedHost Provider(DISetup composition) => new(composition.HexIdeHost, null!, BasicProviderComposition.Origin);
+    private AddinOwnedHost Provider() => new(Composition.HexIdeHost, null!, BasicProviderComposition.Origin);
 
     [AvaloniaFact]
     public void The_composition_registers_no_VB6_type_of_its_own()
     {
-        setup = new DISetup();
-
-        setup.ContributedProjects.Types.Should().BeEmpty("the Basic provider registers VB6's type");
+        Composition.ContributedProjects.Types.Should().BeEmpty("the Basic provider registers VB6's type");
     }
 
     [AvaloniaFact]
     public void The_provider_registers_VB6_s_type_under_VB6_s_identity_and_stays_its_owner()
     {
-        setup = new DISetup();
+        var registration = Provider().RegisterProjectType(Vb6ProjectFileFormat.ProjectType());
 
-        var registration = Provider(setup).RegisterProjectType(Vb6ProjectFileFormat.ProjectType());
-
-        var type = setup.ContributedProjects.Find(vbp)!;
+        var type = Composition.ContributedProjects.Find(vbp)!;
         type.AddinId.Should().Be(Vb6ProjectType.Id);
         type.Origin.Should().Be(Vb6ProjectType.Title);
         type.OwnerId.Should().Be(RegistrationGrants.BasicProvider);
         type.Offers.Should().Be(ProjectOffers.Everything, "VB6's projects run, make and debug as they did");
         registration.Dispose();
-        setup.ContributedProjects.Find(vbp).Should().BeNull("taking the registration out takes the type out");
+        Composition.ContributedProjects.Find(vbp).Should().BeNull("taking the registration out takes the type out");
     }
 
     [AvaloniaFact]
@@ -53,8 +46,7 @@ public sealed class Vb6ProjectTypeRegistrationTests : IAsyncDisposable
         Static.WithoutVb6 = true;
         try
         {
-            setup = new DISetup();
-            var provider = Provider(setup);
+            var provider = Provider();
 
             using var registration = provider.RegisterProjectType(Vb6ProjectFileFormat.ProjectType());
             using var other = provider.RegisterProjectType(new AddinProjectType("Other")
@@ -64,8 +56,8 @@ public sealed class Vb6ProjectTypeRegistrationTests : IAsyncDisposable
             });
 
             registration.Should().NotBeNull();
-            setup.ContributedProjects.Find(vbp).Should().BeNull();
-            setup.ContributedProjects.Types.Should().ContainSingle().Which.Type.Title.Should().Be("Other");
+            Composition.ContributedProjects.Find(vbp).Should().BeNull();
+            Composition.ContributedProjects.Types.Should().ContainSingle().Which.Type.Title.Should().Be("Other");
         }
         finally { Static.WithoutVb6 = saved; }
     }
@@ -73,11 +65,9 @@ public sealed class Vb6ProjectTypeRegistrationTests : IAsyncDisposable
     [AvaloniaFact]
     public void The_IDE_s_own_host_can_t_register_VB6_s_type()
     {
-        var composition = setup = new DISetup();
-
-        var register = () => composition.HexIdeHost.RegisterProjectType(Vb6ProjectFileFormat.ProjectType());
+        var register = () => Composition.HexIdeHost.RegisterProjectType(Vb6ProjectFileFormat.ProjectType());
 
         register.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Visual Basic 6.0");
-        composition.ContributedProjects.Types.Should().BeEmpty();
+        Composition.ContributedProjects.Types.Should().BeEmpty();
     }
 }
