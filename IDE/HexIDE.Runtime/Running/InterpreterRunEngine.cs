@@ -98,8 +98,7 @@ public sealed class InterpreterRunEngine : IRunEngine, IDesignerRunEngine, IDisp
         try
         {
             preview = FormComponentClass.Instance.InstantiateWindow(root, VBLoader.HasMenuBar(form));
-            preview.Content = VBLoader.SpawnComponents(form, preview.Context.ExecutionContext,
-                preview.Context.RootEnv, new StandaloneStandardLib(preview, Distribution.DisplayName));
+            preview.Content = FormPreview.Spawn(form, preview);
             if (services.Dialogs.Owner is Window owner)
                 preview.Show(owner);
             else
