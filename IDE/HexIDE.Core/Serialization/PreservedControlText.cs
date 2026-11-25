@@ -5,7 +5,8 @@ namespace HexIDE.Runtime.Serialization;
 
 /// <summary>
 /// What the designer needs to know of a control HexIDE does not model, read from the text it is carried as
-/// (<c>ComponentInstance.PreservedChildSubtrees</c>).
+/// (<c>ComponentInstance.PreservedChildSubtrees</c>). In Core (#5633), since the designer and the VB6 form
+/// reader both read it, and it reads only the text.
 /// </summary>
 public static class PreservedControlText
 {
@@ -23,7 +24,11 @@ public static class PreservedControlText
             yield return int.Parse(text.AsSpan(number.Start, number.Length), System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    internal static string WithTabIndex(string text, int ordinal, int value)
+    /// <summary>
+    /// <paramref name="text"/> with the TabIndex of its <paramref name="ordinal"/>th control, in the order
+    /// <see cref="TabIndexes"/> reads them, set to <paramref name="value"/>, and nothing else changed.
+    /// </summary>
+    public static string WithTabIndex(string text, int ordinal, int value)
     {
         var number = TabIndexNumbers(text).ElementAt(ordinal);
         return text.Remove(number.Start, number.Length).Insert(number.Start,
