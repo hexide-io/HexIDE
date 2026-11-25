@@ -56,7 +56,11 @@ public partial class DISetup
                 ctx.Inject<IWindowManager>(out var windows);
                 ctx.Inject<ISettingsService>(out var settings);
                 ctx.Inject<ILocalizationService>(out var localization);
-                return new FormEditViewModel(toolbox, events, projects, editors, windows, settings, localization);
+                ctx.Inject<RunEngineForwarder>(out var runEngine);
+                return new FormEditViewModel(toolbox, events, projects, editors, windows, settings, localization)
+                {
+                    RunEngine = runEngine,
+                };
             })
             .Bind().As(Singleton).To<PropertiesToolViewModel>()
             .Bind().As(Singleton).To(ctx =>
@@ -217,7 +221,7 @@ public partial class DISetup
                 ctx.Inject<ISettingsService>(out var settings);
                 return new AddinRunEngineService(programHost, windows, settings);
             })
-            .Bind<IRunEngine>().As(Singleton).To<RunEngineForwarder>()
+            .Bind<IRunEngine>().Bind().As(Singleton).To<RunEngineForwarder>()
             // Each language's editing helpers, which its owner registers through the host (#5403): the Basic provider's for vb6.
             .Bind<HexIDE.Language.ILanguageEditing>().Bind().As(Singleton).To<HexIDE.Addins.AddinLanguageEditingService>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()

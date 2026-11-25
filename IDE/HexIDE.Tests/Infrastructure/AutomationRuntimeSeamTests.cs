@@ -25,7 +25,6 @@ public class AutomationRuntimeSeamTests
         ("HexIDE.Runtime.Components.FormComponentClass", Components, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.Components.MenuComponentClass", Components, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.Components.InBox.SSTabComponentClass", Components, [Server + "HexIdeTools.cs"]),
-        ("HexIDE.Runtime.Serialization.UnmodelledControl", Components, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.AvaloniaInterop.DesignPositions", Components, [Server + "HexIdeTools.cs"])
     ];
 

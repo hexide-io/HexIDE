@@ -23,7 +23,7 @@ namespace HexIDE.IDE;
 /// <b>An engine's throws are contained:</b> logged, and the call answers as with no engine.
 /// </para>
 /// </remarks>
-internal sealed class RunEngineForwarder : IRunEngine
+internal sealed class RunEngineForwarder : IRunEngine, IDesignerRunEngine
 {
     private readonly AddinRunEngineService engines;
     private readonly IDebugController debugger;
@@ -103,6 +103,42 @@ internal sealed class RunEngineForwarder : IRunEngine
         return RunStart.Started(tracked);
     }
 
+    /// <summary>
+    /// Raised once an engine is registered or let go (#5633), on the registering thread or the UI thread: what the designer
+    /// asked the engine may answer differently now. Handlers only post.
+    /// </summary>
+    internal event Action? DesignerChanged;
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// With no engine, one being withdrawn, or one that doesn't preview, nothing is shown, and that's logged. A throw is logged
+    /// as the engine's other throws are, and its message is answered, so the designer shows it in the box a refused preview
+    /// is shown in.
+    /// </remarks>
+    public string? Preview(FormDefinition form)
+    {
+        if (Starting() is not { Engine: IDesignerRunEngine designer } registered)
+        {
+            Serilog.Log.Information("Run engine: no engine previews forms, so {Form} isn't previewed", form.Name);
+            return null;
+        }
+        try
+        {
+            return designer.Preview(form);
+        }
+        catch (Exception ex)
+        {
+            Contained(registered, ex, nameof(Preview));
+            return string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>False with no engine, one being withdrawn, or one that doesn't say, and when it throws.</remarks>
+    public bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
+        Starting() is { Engine: IDesignerRunEngine designer } registered
+        && Call(registered, () => designer.RunsWhenCarried(type, holdsControls, inArray), false, nameof(RunsWhenCarried));
+
     // The registration that may start a run: none once its handle is disposed, though it's still let go only later.
     private AddinRunEngineService.Registration? Starting() =>
         engines.Current is { Withdrawing: false } registered ? registered : null;
@@ -112,12 +148,14 @@ internal sealed class RunEngineForwarder : IRunEngine
         Call(registered, () => registered.Engine.ErrorMet += Relay, nameof(ErrorMet));
         Call(registered, () => registered.Engine.HaltHost = haltHost, nameof(HaltHost));
         Call(registered, () => registered.Engine.ErrorTrapping = errorTrapping, nameof(ErrorTrapping));
+        DesignerChanged?.Invoke();
     }
 
     private void Detach(AddinRunEngineService.Registration registered)
     {
         Call(registered, () => registered.Engine.ErrorMet -= Relay, nameof(ErrorMet));
         Call(registered, () => registered.Engine.HaltHost = null, nameof(HaltHost));
+        DesignerChanged?.Invoke();
     }
 
     private void Relay(RunFailure failure) => ErrorMet?.Invoke(failure);

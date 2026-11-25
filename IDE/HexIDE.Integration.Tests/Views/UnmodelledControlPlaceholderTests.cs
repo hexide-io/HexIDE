@@ -73,13 +73,16 @@ public class UnmodelledControlPlaceholderTests
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
 
-    private static FormEditViewModel Designer(out FormDefinition form, string source = Form)
+    private static FormEditViewModel Designer(out FormDefinition form, string source = Form, RunEngineForwarder? engine = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         form = new FormDeserializer().Deserialize(project, source, new NullSink())!;
         project.AddForm(form);
         return new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>())
+        {
+            RunEngine = engine,
+        }.Initialize(form);
     }
 
     [AvaloniaFact]
@@ -270,7 +273,9 @@ public class UnmodelledControlPlaceholderTests
     [AvaloniaFact]
     public void A_control_HexIDE_runs_says_view_only_and_any_other_says_not_supported()
     {
-        var vm = Designer(out _, RunningForm);
+        // The provider's interpreter says which it runs (#5633), registered as the IDE registers it.
+        using var engine = new DesignerRunEngine();
+        var vm = Designer(out _, RunningForm, engine.Forwarder);
         vm.UnmodelledControls.ToDictionary(c => c.Name, c => c.ViewOnly).Should().BeEquivalentTo(new Dictionary<string, bool>
         {
             ["Toolbar1"] = true, ["Bars"] = false, ["Gauge1"] = false,
