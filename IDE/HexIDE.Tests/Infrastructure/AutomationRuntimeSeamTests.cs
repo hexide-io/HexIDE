@@ -20,10 +20,8 @@ public class AutomationRuntimeSeamTests
     private const string Automation = "HexIDE/Automation/";
 
     // Inventory: https://github.com/hexide-io/HexIDE/issues/3411#issuecomment-6904319880
-    private static readonly (string Type, string Group, string[] Files)[] Allowed =
-    [
-        ("HexIDE.Runtime.AvaloniaInterop.DesignPositions", Components, [Server + "HexIdeTools.cs"])
-    ];
+    // Empty since #5758 moved the last, DesignPositions, behind the positions service: automation names no runtime type.
+    private static readonly (string Type, string Group, string[] Files)[] Allowed = [];
 
     [Fact]
     public void Automation_names_only_the_listed_runtime_types_in_the_listed_files()

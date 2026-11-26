@@ -2,7 +2,6 @@ using System;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
 using PropertyChanged.SourceGenerator;
@@ -86,22 +85,28 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
         var left = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
             .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeLeft)
-                .Select(pixels => DesignPositions.Shown(formEditor.FormDefinition!, x!.Instance, VBProperties.LeftProperty, pixels)));
+                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.LeftProperty, pixels)));
         var top = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
             .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeTop)
-                .Select(pixels => DesignPositions.Shown(formEditor.FormDefinition!, x!.Instance, VBProperties.TopProperty, pixels)));
+                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.TopProperty, pixels)));
         var width = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
             .SelectMany(x => x!.ObservePropertyChanged(y => y.Width)
-                .Select(pixels => DesignPositions.Shown(formEditor.FormDefinition!, x!.Instance, VBProperties.WidthProperty, pixels)));
+                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.WidthProperty, pixels)));
         var height = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
             .SelectMany(x => x!.ObservePropertyChanged(y => y.Height)
-                .Select(pixels => DesignPositions.Shown(formEditor.FormDefinition!, x!.Instance, VBProperties.HeightProperty, pixels)));
+                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.HeightProperty, pixels)));
 
         activeWindowDisposable = new CompositeDisposable(left.CombineLatest(top, (a, b) => $"{a}, {b}")
             .Subscribe(position => FocusedComponentPosition = position), width.CombineLatest(height, (a, b) => $"{a} x {b}")
             .Subscribe(size => FocusedComponentSize = size));
     }
+
+    // As the Properties window shows it, or the model's pixels where the positions service can't say (#5758).
+    private static double Shown(FormEditViewModel editor, ComponentInstance instance, PropertyClass property, double pixels) =>
+        editor.FormDefinition is { } form && DesignerClassCalls.ShownPosition(form, instance, property, pixels) is { } shown
+            ? shown.Value
+            : pixels;
 }

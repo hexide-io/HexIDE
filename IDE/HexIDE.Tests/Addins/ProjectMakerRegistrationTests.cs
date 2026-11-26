@@ -285,6 +285,7 @@ public sealed class ProjectMakerRegistrationTests : CompositionTestBase
         public IDisposable RegisterLanguagePacks(Uri folder) => inner.RegisterLanguagePacks(folder);
         public IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures) =>
             inner.RegisterDesignerPictures(pictures);
+        public IDisposable RegisterDesignPositions(IDesignPositions positions) => inner.RegisterDesignPositions(positions);
         public IDisposable RegisterProjectMaker(IProjectMaker maker) => makers.RegisterProjectMaker(maker);
     }
 

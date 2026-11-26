@@ -11,7 +11,6 @@ removals; Release checks additions only because Desktop's automation server is D
 
 | kind | from | to |
 |---|---|---|
-| assembly | HexIDE | HexIDE.Runtime |
 | assembly | HexIDE.Desktop | HexIDE.Runtime |
 | internals | HexIDE.Core | HexIDE.Runtime |
 | internals | HexIDE.Core | HexIDE.Runtime.Integration.Tests |
@@ -25,7 +24,4 @@ removals; Release checks additions only because Desktop's automation server is D
 | project | HexIDE.Integration.Tests | HexIDE.Standalone |
 | project | HexIDE.Tests | HexIDE.Runtime |
 | project | HexIDE.Tests | HexIDE.Standalone |
-| type | HexIDE | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
-| type | HexIDE | HexIDE.Runtime.Components.LineComponentClass |
-| type | HexIDE.Desktop | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
 | type | HexIDE.Desktop | HexIDE.Runtime.BasicProvider |

@@ -196,6 +196,11 @@ HexIDE.Runtime.Components.IDesignerPages.SynchronizePages(HexIDE.Runtime.Compone
 HexIDE.Runtime.Components.IDesignerLibraryControl
 HexIDE.Runtime.Components.IDesignerLibraryControl.LibraryOf(HexIDE.Runtime.Components.ComponentInstance! instance) -> HexIDE.Runtime.Components.IControlLibrary?
 HexIDE.Runtime.Components.IDesignerLibraryControl.PlacedFrom(HexIDE.Runtime.Components.ComponentInstance! instance, HexIDE.Runtime.Components.IControlLibrary! library) -> void
+HexIDE.Addins.IHexIdeHost.RegisterDesignPositions(HexIDE.Runtime.Components.IDesignPositions! positions) -> System.IDisposable!
+HexIDE.Runtime.Components.IDesignPositions
+HexIDE.Runtime.Components.IDesignPositions.LineTwipsPerUnit(HexIDE.Runtime.ProjectElements.FormDefinition! form, HexIDE.Runtime.Components.ComponentInstance! line) -> (double X, double Y)?
+HexIDE.Runtime.Components.IDesignPositions.Shown(HexIDE.Runtime.ProjectElements.FormDefinition! form, HexIDE.Runtime.Components.ComponentInstance! component, HexIDE.Runtime.Components.PropertyClass! property, double pixels) -> (double Value, string! Unit)
+HexIDE.Runtime.Components.IDesignPositions.ToPixels(HexIDE.Runtime.ProjectElements.FormDefinition! form, HexIDE.Runtime.Components.ComponentInstance! component, HexIDE.Runtime.Components.PropertyClass! property, double value) -> double?
 override HexIDE.Runtime.Components.DesignerBounds.GetHashCode() -> int
 static HexIDE.Runtime.Components.DesignerBounds.operator !=(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool
 static HexIDE.Runtime.Components.DesignerBounds.operator ==(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool

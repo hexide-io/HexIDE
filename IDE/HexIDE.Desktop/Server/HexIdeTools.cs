@@ -13,7 +13,6 @@ using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.ViewModels.Options;
 using HexIDE.IDE;
-using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
@@ -676,8 +675,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     : $"'{controlName}' names a control array of {matches.Count}; this is its first, Index "
                       + $"{PropertyText.ArrayIndexOf(control)?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"}. "
                       + $"Name one as {controlName}(n) for another.";
-                var properties = PropertyText.Rows(control, (property, pixels) => DesignPositions.IsPosition(property)
-                    ? (DesignPositions.Shown(form, control, property, pixels), DesignPositions.Unit(form, control, property))
+                // A position's row is in the unit the Properties window shows, from the positions service (#5758), or the
+                // model's pixels with no unit where it can't say.
+                var properties = PropertyText.Rows(control, (property, pixels) => DesignerClassCalls.IsPosition(property)
+                    ? DesignerClassCalls.ShownPosition(form, control, property, pixels)
                     : null);
                 // A container with pages shows the page the designer shows, and how many there are (#5742).
                 if (DesignerClassCalls.ShownPage(control) is { } shownPage && DesignerClassCalls.PageCount(control) is { } pageCount)
@@ -767,8 +768,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 if (!DesignerClassCalls.PageSwitchRefusal(control, out var pageRefusal))
                     return (null, null, $"{PropertyText.AddressedName(control)}'s class failed checking whether its page "
                         + "can be switched, so it isn't switched here. Nothing was changed.");
+                // The class's own words, quoted and attributed, so a reply never passes them off as the IDE's (#5747 review).
                 if (pageRefusal is not null)
-                    return (null, null, pageRefusal);
+                    return (null, null, $"{PropertyText.AddressedName(control)}'s class refuses to switch its page. "
+                        + $"Nothing was changed. It says: \"{pageRefusal}\"");
                 if (DesignerClassCalls.PageCount(control) is not { } pageCount)
                     return (null, null, $"{PropertyText.AddressedName(control)}'s class failed giving its page count, so "
                         + "its page isn't switched here. Nothing was changed.");
@@ -821,9 +824,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return (null, null, NegativeDesignerSizeRefusal(control));
 
             // A position is in the units its row shows: its container's ScaleMode, and a form's own size with its frame, in
-            // twips (#1636). The model holds pixels.
-            if (DesignPositions.IsPosition(propClass) && parsed is double shownPosition)
-                parsed = DesignPositions.ToPixels(form, control, propClass, shownPosition);
+            // twips (#1636). The model holds pixels, and the positions service converts (#5758).
+            if (DesignerClassCalls.IsPosition(propClass) && parsed is double shownPosition)
+            {
+                if (DesignerClassCalls.PositionPixels(form, control, propClass, shownPosition, out var conversionFailed)
+                    is not { } positionPixels)
+                    return (null, null, conversionFailed
+                        ? $"Cannot set '{propClass.Name}' to '{value}': its units couldn't be worked out, so nothing was "
+                          + "changed. If the designer's scale rules failed, the IDE's log has the reason."
+                        : $"Cannot set '{propClass.Name}' to '{value}': no position can hold it. Nothing was changed.");
+                parsed = positionPixels;
+            }
 
             // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)
             if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(ownerModule is not null ? ownerModule.AbsolutePath : form.AbsolutePath))
@@ -885,9 +896,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // as it stood a notification ago -- a rename in particular is only visible once the model has
             // raised it.
             stored = $"{PropertyText.AddressedName(control)}.{propClass.Name.Trim('(', ')')} is now "
-                     + (DesignPositions.IsPosition(propClass) && control.GetBoxedPropertyOrDefault(propClass) is double now
-                         ? PropertyText.Display(DesignPositions.Shown(form, control, propClass, now)) + " "
-                           + DesignPositions.Unit(form, control, propClass)
+                     + (DesignerClassCalls.IsPosition(propClass) && control.GetBoxedPropertyOrDefault(propClass) is double now
+                        && DesignerClassCalls.ShownPosition(form, control, propClass, now) is { } shownNow
+                         ? PropertyText.Display(shownNow.Value) + " " + shownNow.Unit
                          : PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)))
                      + ".";
             if (propClass == VBProperties.DesignIndexProperty)
