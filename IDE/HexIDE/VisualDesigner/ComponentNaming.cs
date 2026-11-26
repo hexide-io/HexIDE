@@ -117,7 +117,7 @@ public static class ComponentNaming
         IEnumerable<ComponentInstance> formComponents)
     {
         if (string.IsNullOrEmpty(proposed) || !ProjectNaming.IsValidName(proposed)
-            || target.BaseClass is FormComponentClass || !HasNoIndex(target)
+            || target.BaseClass.Role == ComponentRole.Form || !HasNoIndex(target)
             || string.Equals(target.GetPropertyOrDefault(VBProperties.NameProperty), proposed, StringComparison.OrdinalIgnoreCase)
             || PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
             return null;
@@ -128,7 +128,7 @@ public static class ComponentNaming
 
     internal static int? JoiningIndex(ComponentInstance target, string proposed, IEnumerable<ComponentInstance> formComponents)
     {
-        if (target.BaseClass is FormComponentClass || !HasNoIndex(target)
+        if (target.BaseClass.Role == ComponentRole.Form || !HasNoIndex(target)
             || PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
             return null;
         var holders = Holders(target, proposed, formComponents);
