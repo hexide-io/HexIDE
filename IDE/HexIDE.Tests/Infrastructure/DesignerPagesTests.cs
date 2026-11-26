@@ -23,6 +23,8 @@ public class DesignerPagesTests : IDisposable
         public int Shown { get; set; } = 1;
         public string? Refusal { get; set; }
         public bool TabUnderClick { get; set; } = true;
+        public bool Container { get; set; } = true;
+        public override bool IsContainer => Container;
 
         private void Ask(string call)
         {
@@ -194,6 +196,28 @@ public class DesignerPagesTests : IDisposable
         vm.FlushComponentsToModel();
         vm.SwitchDesignerPage(new Avalonia.Point(60, 30)).Should().BeFalse();
         paged.Calls.Should().BeEmpty();
+    }
+
+    // Registering a container needs the provider's grant and a plain control doesn't, so a class that isn't a container
+    // is never asked for pages, whatever it implements.
+    [AvaloniaFact]
+    public async Task A_class_that_isnt_a_container_is_never_asked_for_pages()
+    {
+        paged.Container = false;
+        var vm = Open();
+        vm.FlushComponentsToModel();
+        vm.SwitchDesignerPage(new Avalonia.Point(60, 30)).Should().BeFalse();
+        var tools = Tools();
+
+        var button = (await tools.GetFormControlsAsync("Form1")).Controls.Single(c => c.Name == "Command1");
+        var properties = (await tools.GetFormControlsAsync("Form1", controlName: "Frame1")).Properties!;
+        var reply = await tools.SetControlPropertyAsync("Form1", "Frame1", "Tab", "3");
+
+        paged.Calls.Should().BeEmpty();
+        button.Tab.Should().BeNull();
+        properties.Should().NotContain(p => p.Name == "Tab" || p.Name == "Tabs");
+        reply.Success.Should().BeFalse();
+        reply.Error.Should().StartWith("Property 'Tab' not found");
     }
 
     // Each call is contained on its own: the designer opens, flushes and takes a click whichever one throws, and only a

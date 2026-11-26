@@ -761,7 +761,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             // A container with pages switches the page the designer shows (#5742). Its class is asked first whether it
             // can, and a class that can't answer is refused rather than switched without its check.
-            if (control.BaseClass is IDesignerPages
+            if (DesignerClassCalls.HasPages(control.BaseClass)
                 && property.Equals("Tab", StringComparison.OrdinalIgnoreCase))
             {
                 if (!DesignerClassCalls.PageSwitchRefusal(control, out var pageRefusal))

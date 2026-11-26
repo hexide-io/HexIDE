@@ -97,6 +97,14 @@ internal static class DesignerClassCalls
         }
     }
 
+    /// <summary>
+    /// Whether the designer and automation ask <paramref name="componentClass"/> for pages: only through
+    /// <see cref="IDesignerPages"/>, and only of a container's class, since registering a container needs the provider's
+    /// grant and a plain control doesn't (#5742).
+    /// </summary>
+    internal static bool HasPages(IComponentClass componentClass) =>
+        componentClass is IDesignerPages && componentClass.IsContainer;
+
     /// <summary>Lets <paramref name="instance"/>'s class read its pages, for a container on a form the designer opens.</summary>
     internal static void LoadPages(ComponentInstance instance) =>
         AskPages(instance, pages => { pages.LoadPages(instance); return true; }, out _);
@@ -142,7 +150,7 @@ internal static class DesignerClassCalls
     private static bool AskPages<T>(ComponentInstance instance, Func<IDesignerPages, T> question, out T answer)
     {
         answer = default!;
-        if (instance.BaseClass is not IDesignerPages pages)
+        if (!HasPages(instance.BaseClass) || instance.BaseClass is not IDesignerPages pages)
             return false;
         try
         {

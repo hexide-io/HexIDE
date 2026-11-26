@@ -669,7 +669,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         RebuildContainmentOrder(positionInList);
         foreach (var (container, ordinals) in CarriedPlacement(orderedComponents).ToList())
             container.SetPreservedChildOrdinals(ordinals);
-        foreach (var instance in orderedComponents.Where(c => !IsReadOnly && c.BaseClass is IDesignerPages))
+        foreach (var instance in orderedComponents.Where(c => !IsReadOnly && DesignerClassCalls.HasPages(c.BaseClass)))
             DesignerClassCalls.SynchronizePages(instance,
                 orderedComponents.Where(c => ReferenceEquals(c.Container, instance)).ToList());
         formDefinition?.UpdateComponents(orderedComponents);
@@ -765,7 +765,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             AllComponents.Add(vm);
         }
 
-        foreach (var instance in fileOrder.Where(c => !IsReadOnly && c.BaseClass is IDesignerPages))
+        foreach (var instance in fileOrder.Where(c => !IsReadOnly && DesignerClassCalls.HasPages(c.BaseClass)))
             DesignerClassCalls.LoadPages(instance);
 
         foreach (var comp in DrawOrder(fileOrder))
@@ -858,7 +858,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     /// <summary>
     /// Shows the page whose tab is under a click at <paramref name="point"/>, in canvas space, on the topmost container
-    /// there whose class has pages (<see cref="IDesignerPages"/>, #5742).
+    /// there whose class has pages (<see cref="DesignerClassCalls.HasPages"/>, #5742).
     /// </summary>
     /// <returns>Whether a page was shown. A click on no tab, or a class that throws, shows none.</returns>
     internal bool SwitchDesignerPage(Point point)
@@ -868,7 +868,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         for (var i = Components.Count - 1; i >= 0; i--)
         {
             var vm = Components[i];
-            if (vm.Instance.BaseClass is not IDesignerPages
+            if (!DesignerClassCalls.HasPages(vm.Instance.BaseClass)
                 || !new Rect(vm.Left, vm.Top, vm.Width, vm.Height).Contains(point))
                 continue;
             var children = AllComponents.Where(c => ReferenceEquals(c.Instance.Container, vm.Instance))

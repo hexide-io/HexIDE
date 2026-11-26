@@ -8,6 +8,10 @@ namespace HexIDE.Runtime.Components;
 /// </summary>
 /// <remarks>
 /// <para>
+/// Only a class whose <see cref="IComponentClass.IsContainer"/> is true is asked. A plain control's class that implements
+/// this is never asked for pages.
+/// </para>
+/// <para>
 /// The designer asks only while the form can be saved faithfully: a form it opens read-only is shown as it was read, and
 /// its pages are neither loaded nor recorded.
 /// </para>
