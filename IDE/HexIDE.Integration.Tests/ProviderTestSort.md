@@ -33,7 +33,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Automation/InspectItemCountTests.cs` | split |
 | `Automation/InspectPointerTests.cs` | split |
 | `Automation/InteractClickTests.cs` | split |
-| `Automation/InterpreterRunningProgramTests.cs` | provider |
 | `Automation/OpenDialogsTests.cs` | split |
 | `Automation/PopupPlacementReadinessTests.cs` | split |
 | `Automation/PressKeyWindowInputTests.cs` | split |
