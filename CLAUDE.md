@@ -1159,10 +1159,13 @@ widening visibility to `public` just for a test. When a new test project needs r
 ## Git Workflow
 
 **Before merging, including a session merging its own pull request, wait until every job on the head
-commit has finished and none is red. Do not merge while main's latest run is red.** This includes the
-advisory macOS job: `build-ide (windows)` is required by branch protection, while `build-ide (macos)`
-remains advisory because there is no local macOS to reproduce a failure on. For a known flake, post the
-failing run on its issue and re-run it green before merging (#1331).
+commit has finished and none is red, apart from the advisory ones. Do not merge while main's latest run
+is red, apart from those.** `build-ide (windows)` is required by branch protection. The jobs named
+advisory, Windows on Arm and macOS, don't hold a merge: while HexIDE is in alpha, win-x64 is the one
+essential build, and macOS runs only on pushes to main (#5674; the maintainer, 2026-11-26). Linux isn't
+advisory and still blocks, while it stays solid. Follow up a red advisory job on its own issue. Once
+post-v1 releases ship, macOS red counts again. For a known flake, post the failing run on its issue and
+re-run it green before merging (#1331).
 
 **Claim the issue before starting non-trivial work.** Find or open it, then take it: with maintainer
 access, `gh issue edit N --repo hexide-io/HexIDE --add-assignee @me`; without it, comment asking to be

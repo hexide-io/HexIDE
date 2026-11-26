@@ -71,24 +71,29 @@ public class WorkflowActionTests
         docs.Should().Contain("if: ${{ !cancelled() && needs.changes.outputs.skip == 'true' }}");
         builds.Should().Contain("if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}");
         docs.Should().Contain("name: build-ide (${{ matrix.name }}${{ matrix.name == 'windows-arm' && ', advisory' || '' }})");
-        // The build names macOS on Intel advisory as well (#5564). It isn't a required check and runs only for a release
-        // branch push, never a pull request, so the docs-only job has no stand-in for it and keeps the shorter name.
-        builds.Should().Contain("name: build-ide (${{ matrix.name }}${{ (matrix.name == 'windows-arm' || matrix.name == 'macos-intel') && ', advisory' || '' }})");
+        // The build names macOS on Apple silicon and on Intel advisory as well (#5564, #5674). Neither is a required check
+        // or runs for a pull request, so the docs-only job has no stand-in for them and keeps the shorter name.
+        builds.Should().Contain("name: build-ide (${{ matrix.name }}${{ (matrix.name == 'windows-arm' || matrix.name == 'macos' || matrix.name == 'macos-intel') && ', advisory' || '' }})");
+        builds.Should().Contain("continue-on-error: ${{ matrix.name == 'windows-arm' || matrix.name == 'macos' || matrix.name == 'macos-intel' }}");
         docs.Should().Contain("runs-on: ubuntu-latest");
         builds.Should().Contain("runs-on: ${{ matrix.runner }}");
 
-        // The matrix is a JSON list chosen by event (#4218): all three platforms for a push or a merge batch, Windows alone
-        // for a pull request's own run. The docs-only job stands in for every platform of the full list. A release branch
-        // push adds macOS on Intel to the full list (#5564).
+        // The matrix is a JSON list chosen by event (#4218): for a release branch push, a push to main, any other push or a
+        // merge batch, and a pull request's own run, in that order. macOS runs only for the first two (#5674), and macOS on
+        // Intel only for a release branch (#5564). The docs-only job stands in for every platform of a merge batch's list.
         builds.Should().Contain("startsWith(github.ref, 'refs/heads/release/')");
+        builds.Should().Contain("github.ref == 'refs/heads/main'");
         builds.Should().Contain("(github.event_name != 'pull_request' || startsWith(github.head_ref, 'batch/'))");
         var lists = Regex.Matches(builds, @"'(\[\{""name"".*?\}\])'").Select(match => match.Groups[1].Value).ToArray();
-        lists.Should().HaveCount(3, "the release list, the full list and the pull request's own list");
+        lists.Should().HaveCount(4, "the release list, main's list, a batch's list and the pull request's own list");
         lists[0].Should().Be(lists[1].TrimEnd(']') + @",{""name"":""macos-intel"",""runner"":""macos-15-intel""}]",
-            "a release runs every leg a push runs, and macOS on Intel");
-        Regex.Matches(lists[2], @"""name"":""([\w-]+)""").Select(match => match.Groups[1].Value).Should().Equal("windows");
-        var names = Regex.Matches(lists[1], @"\{""name"":""([\w-]+)"",""runner"":""([\w-]+)""\}");
-        names.Select(match => match.Groups[1].Value).Should().BeEquivalentTo(new[] { "windows", "macos", "windows-arm" });
+            "a release runs every leg main runs, and macOS on Intel");
+        lists[1].Should().Be(lists[2].TrimEnd(']') + @",{""name"":""macos"",""runner"":""macos-latest""}]",
+            "main runs every leg a batch runs, and macOS");
+        Regex.Matches(lists[3], @"""name"":""([\w-]+)""").Select(match => match.Groups[1].Value).Should().Equal("windows");
+        docs.Should().NotContain("name: macos");
+        var names = Regex.Matches(lists[2], @"\{""name"":""([\w-]+)"",""runner"":""([\w-]+)""\}");
+        names.Select(match => match.Groups[1].Value).Should().BeEquivalentTo(new[] { "windows", "windows-arm" });
         foreach (Match name in names)
         {
             docs.Should().MatchRegex(@"(?m)^          - \{ name: " + name.Groups[1].Value + @" \}$");
@@ -108,7 +113,9 @@ public class WorkflowActionTests
             .ReplaceLineEndings("\n");
         var build = Regex.Match(workflow, @"(?ms)^  build-ide-desktop:\n(.*?)(?=^  [\w-]+:|\z)").Value;
 
-        build.Should().Contain("continue-on-error: ${{ matrix.name == 'windows-arm' || matrix.name == 'macos-intel' }}");
+        // Windows itself stays out of the advisory set: it's the one required leg (#1331, #5674).
+        build.Should().Contain("continue-on-error: ${{ matrix.name == 'windows-arm' || matrix.name == 'macos' || matrix.name == 'macos-intel' }}");
+        build.Should().NotContain("matrix.name == 'windows' ||");
         build.Should().Contain("fail-fast: false");
         build.Should().Contain("{\"name\":\"windows-arm\",\"runner\":\"windows-11-arm\"}");
         build.Should().Contain("name: Publish the standalone runner (for the made-program test)\n        if: runner.os == 'Windows'");
