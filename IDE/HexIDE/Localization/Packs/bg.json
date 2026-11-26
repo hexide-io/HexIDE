@@ -1299,6 +1299,7 @@
     "Str.Options.Formatting.Token.Identifier": "Идентификатор",
     "Str.Options.Formatting.Token.MetadataKeyword": "Ключова дума за метаданни",
     "Str.Project.AlreadyOpen": "Проектът {0} вече е отворен.",
+    "Str.Project.Msg.FormatCannotMake": "Файловият формат на {0} не може да създаде нов {1}, затова нищо не е променено.",
     "Str.Options.Addins.Overview": "Добавките разширяват HexIDE с инструменти и настройки. За инсталиране разархивирайте подписан пакет в отделна папка в директорията по-долу и рестартирайте HexIDE. Изберете добавка в дървото, за да я управлявате.",
     "Str.Options.Addins.Revocation.Off": "Проверките за оттегляне са изключени: revocationListUrl е празен в settings.json. HexIDE знае само списъка, вграден в тази версия, и списъците, изтеглени преди това.",
     "Str.Options.Addins.Revocation.NotChecked": "Списъкът с оттегляния още не е проверен в тази сесия. Използва се списъкът, издаден на {0}.",

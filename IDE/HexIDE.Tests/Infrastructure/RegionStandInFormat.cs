@@ -64,4 +64,14 @@ internal sealed class RegionStandInFormat(IReadOnlyRegionReader? reader = null, 
         Inner.ReadForm(project, text, companion, problems);
     public FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems) =>
         Inner.ReadDesignerPart(project, text, companion, problems);
+
+    /// <summary>The class of a new root, by type name: the inner format's, unless a test gives its own answer.</summary>
+    public Func<string, IComponentClass?>? RootClassAnswer { get; set; }
+
+    /// <summary>The class of a new menu item: the inner format's, unless a test gives its own answer.</summary>
+    public Func<IComponentClass?>? MenuClassAnswer { get; set; }
+
+    public IComponentClass? NewRootClass(string typeName) =>
+        RootClassAnswer is { } answer ? answer(typeName) : Inner.NewRootClass(typeName);
+    public IComponentClass? NewMenuClass => MenuClassAnswer is { } answer ? answer() : Inner.NewMenuClass;
 }

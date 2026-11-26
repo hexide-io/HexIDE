@@ -20,7 +20,12 @@ public interface IProjectManager : INotifyPropertyChanged
     public ProjectDefinition? StartupProject { get; set; }
     public ProjectGroupDefinition? CurrentGroup { get; set; }
 
-    public ProjectDefinition NewProject(IAddinProjectTemplate projectTemplate, string name, Action<ProjectDefinition>? beforeAdd = null);
+    /// <summary>
+    /// Makes a project from <paramref name="projectTemplate"/> and adds it. With a <paramref name="format"/>, the template
+    /// makes it for that format (#3411 slice 2.4f-2); <paramref name="beforeAdd"/> runs between the two.
+    /// </summary>
+    public ProjectDefinition NewProject(IAddinProjectTemplate projectTemplate, string name, Action<ProjectDefinition>? beforeAdd = null,
+        IProjectFileFormat? format = null);
     void AddProject(ProjectDefinition project);
     void UnloadAllProjects();
     void UnloadProject(ProjectDefinition projectManager);

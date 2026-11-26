@@ -209,6 +209,14 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
   `IDesignerAddedPlacement`, gives the bounds a double-clicked control takes and whether Align to Grid moves it, as add-in
   API. The Basic provider's StatusBar, FlatScrollBar and ImageList answer through it. The designer contains it as it does
   2.4e-1's contracts, and bounds it can't place and save answer as a class without the contract.
+- **New forms, designer roots and menu items (2.4f-2, #5723).** `IProjectFileFormat` gains two add-in members, both
+  null by default: the class of a new root for a type name, and the class of a new menu item. Null means the format
+  can't make one, and the IDE refuses the add, as it does for a class in another role. VB6's format answers for its
+  three roots and the menu. The XAML previewer keeps a stub form class of its own.
+  - **Templates.** Agreed with the supervisor on 2026-11-26: `IAddinProjectTemplate.Create(name, format)` is one more
+    add-in member, defaulting to `Create(name)`. On main at `3c13eac72`, `ProjectManager.NewProject` calls the template
+    (`ProjectManager.cs:131`) before `RecordTemplateHeaders` gives the project its format (`ProjectService.cs:272-276`).
+    So the Standard EXE template is told the format and doesn't ask the project.
 - **The picture decoders get a product assembly of their own (2.5b, #5474),** which the IDE, the provider and
   `HexIDE.Standalone` reference.
   - After phase 4 it stays in HexIDE and is consumed by HexIDE.Basic as Core is, so a decoder fix ships in HexIDE's

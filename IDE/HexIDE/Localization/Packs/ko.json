@@ -1300,6 +1300,7 @@
     "Str.Options.Formatting.Token.Identifier": "식별자",
     "Str.Options.Formatting.Token.MetadataKeyword": "메타데이터 키워드",
     "Str.Project.AlreadyOpen": "프로젝트 {0}이(가) 이미 열려 있습니다.",
+    "Str.Project.Msg.FormatCannotMake": "{0}의 파일 형식으로는 새 {1}을(를) 만들 수 없으므로 아무것도 변경되지 않았습니다.",
     "Str.Options.Addins.Overview": "추가 기능은 HexIDE에 도구와 설정을 추가합니다. 설치하려면 서명된 추가 기능 패키지를 아래 디렉터리의 별도 폴더에 압축 해제한 다음 HexIDE를 다시 시작하세요. 트리에서 추가 기능을 선택하여 관리하세요.",
     "Str.Options.Addins.Revocation.Off": "철회 확인이 꺼져 있습니다. settings.json의 revocationListUrl이 비어 있습니다. HexIDE는 이 버전에 포함된 목록과 이전에 가져온 목록만 알고 있습니다.",
     "Str.Options.Addins.Revocation.NotChecked": "이 세션에서는 아직 철회 목록을 확인하지 않았습니다. 사용 중: {0}에 발행된 목록.",

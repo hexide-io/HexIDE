@@ -77,7 +77,9 @@ public sealed class Vb6ProjectTemplatesTests
 
         await Service(projects, registered).CreateDefaultProject();
 
-        projects.Received(1).NewProject(first, Arg.Any<string>(), Arg.Any<Action<ProjectDefinition>>());
+        // Made for VB6's format, which the project is given after the template returns it (#3411 slice 2.4f-2).
+        projects.Received(1).NewProject(first, Arg.Any<string>(), Arg.Any<Action<ProjectDefinition>>(),
+            Arg.Is<HexIDE.IDE.IProjectFileFormat?>(format => format is Vb6ProjectFileFormat));
     }
 
     [Fact]

@@ -1261,6 +1261,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikátor",
     "Str.Options.Formatting.Token.MetadataKeyword": "Kľúčové slovo metaúdajov",
     "Str.Project.AlreadyOpen": "Projekt {0} je už otvorený.",
+    "Str.Project.Msg.FormatCannotMake": "Formát súborov projektu {0} nemôže vytvoriť nový {1}, preto sa nič nezmenilo.",
     "Str.Options.Addins.Overview": "Doplnky rozširujú HexIDE o nástroje a nastavenia. Ak chcete doplnok nainštalovať, rozbaľte podpísaný balík do vlastného priečinka v nižšie uvedenom adresári a reštartujte HexIDE. Doplnok môžete spravovať výberom v strome.",
     "Str.Options.Addins.Revocation.Off": "Kontroly odvolania sú vypnuté: revocationListUrl je v settings.json prázdne. HexIDE pozná iba zoznam zabudovaný v tejto verzii a zoznamy, ktoré stiahol predtým.",
     "Str.Options.Addins.Revocation.NotChecked": "Zoznam odvolaní ešte nebol v tejto relácii skontrolovaný. Používa sa zoznam vydaný {0}.",

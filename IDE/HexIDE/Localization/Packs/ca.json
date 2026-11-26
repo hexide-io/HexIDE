@@ -1299,6 +1299,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identificador",
     "Str.Options.Formatting.Token.MetadataKeyword": "Paraula clau de metadades",
     "Str.Project.AlreadyOpen": "El projecte {0} ja està obert.",
+    "Str.Project.Msg.FormatCannotMake": "El format de fitxer de {0} no pot crear un {1} nou, de manera que no s'ha canviat res.",
     "Str.Options.Addins.Overview": "Els complements amplien HexIDE amb eines i opcions. Per instal·lar-ne un, extraieu un paquet signat a la seva pròpia carpeta dins del directori indicat a sota i reinicieu HexIDE. Seleccioneu un complement a l’arbre per gestionar-lo.",
     "Str.Options.Addins.Revocation.Off": "Les comprovacions de revocació estan desactivades: revocationListUrl és buit a settings.json. HexIDE només coneix la llista integrada en aquesta versió i les llistes que hagi obtingut abans.",
     "Str.Options.Addins.Revocation.NotChecked": "La llista de revocacions encara no s'ha comprovat en aquesta sessió. En ús: la llista emesa el {0}.",

@@ -34,11 +34,20 @@ public static class Vb6ProjectType
         HexIDE.Lsp.DocumentLanguage.UnambiguousVb6Extensions.Select(extension => "*" + extension).ToArray());
 
 
-    public static readonly IProjectTemplate StandardExe = new ProjectTemplate("Standard EXE", "standard_exe", true, name =>
+    /// <summary>
+    /// A project holding Form1. Its form's class comes from the format the project is made for (#3411 slice 2.4f-2), so
+    /// it's made through <see cref="HexIDE.Addins.IAddinProjectTemplate.Create(string, IProjectFileFormat)"/>, and
+    /// <c>Create(name)</c> alone, which names no format, throws.
+    /// </summary>
+    public static readonly IProjectTemplate StandardExe = new ProjectTemplate("Standard EXE", "standard_exe", true, (name, format) =>
     {
         var project = new ProjectDefinition(VBProjectType.EXE, name);
 
-        var form = FormDefinition.NewForm(project, FormComponentClass.Instance, "Form1");
+        if (format?.NewRootClass("VB.Form") is not { Role: ComponentRole.Form } formClass)
+            throw new InvalidOperationException(format is null
+                ? "The Standard EXE template makes its form in the format it's given, and was given none."
+                : $"The format {format.GetType().FullName} gives no form class for a Standard EXE project's Form1.");
+        var form = FormDefinition.NewForm(project, formClass, "Form1");
         project.AddForm(form);
 
         // OLE Automation — always present in a new VB6 Standard EXE

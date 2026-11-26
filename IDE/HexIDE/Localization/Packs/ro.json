@@ -1261,6 +1261,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identificator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Cuvânt-cheie de metadate",
     "Str.Project.AlreadyOpen": "Proiectul {0} este deja deschis.",
+    "Str.Project.Msg.FormatCannotMake": "Formatul de fișiere al proiectului {0} nu poate crea un nou {1}, așa că nu s-a modificat nimic.",
     "Str.Options.Addins.Overview": "Programele de completare extind HexIDE cu instrumente și setări. Pentru instalare, extrageți un pachet semnat într-un folder propriu din directorul de mai jos și reporniți HexIDE. Selectați un program de completare în arbore pentru a-l gestiona.",
     "Str.Options.Addins.Revocation.Off": "Verificările de revocare sunt dezactivate: revocationListUrl este gol în settings.json. HexIDE cunoaște doar lista inclusă în această versiune și listele obținute anterior.",
     "Str.Options.Addins.Revocation.NotChecked": "Lista de revocări nu a fost încă verificată în această sesiune. În uz: lista emisă la {0}.",
