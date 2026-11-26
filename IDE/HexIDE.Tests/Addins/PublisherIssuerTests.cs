@@ -287,6 +287,63 @@ public sealed class PublisherIssuerTests : IDisposable
         outcome.Reasons.Should().ContainSingle().Which.Should().Contain("revoked publisher");
     }
 
+    // ── What is written, and in what order (#5678) ───────────────
+
+    // The ledger is written before --out, so a record that reached the publisher is always one whose id and key are held.
+    [Fact]
+    public void When_out_can_t_be_written_the_ledger_already_holds_the_record()
+    {
+        Request("request");
+        // A folder where publisher.json would go: --out passes every check, then can't be written.
+        Directory.CreateDirectory(In("out", "publisher.json"));
+
+        var failure = FluentActions.Invoking(() => Issue("request")).Should().Throw<IOException>().Which;
+
+        failure.Message.Should().Contain("added to the ledger as acme.tools").And.Contain(In("ledger", "acme.tools"));
+        File.Exists(In("out", "publisher.sig")).Should().BeFalse("nothing else is left in --out");
+        Request("again");
+        PublisherRequests.Verify(In("again"), new RequestCheckContext
+        {
+            LedgerDir = In("ledger"), RootPublicKey = File.ReadAllText(In("chain", "hexide-root.pub")).Trim(),
+        }).Refusals.Should().ContainSingle().Which.Should().Contain("already has a publisher with this id");
+    }
+
+    // The ledger is committed and --out goes to the publisher: a folder in the ledger would read as an entry of its own.
+    [Theory]
+    [InlineData("ledger")]
+    [InlineData("ledger/handover")]
+    [InlineData("ledger/acme.tools")]
+    public void An_out_folder_in_the_ledger_is_refused_before_anything_is_signed(string outName)
+    {
+        Request("request");
+
+        var outcome = Issue("request", outName: Path.Combine(outName.Split('/')));
+
+        outcome.ExitCode.Should().Be(2);
+        outcome.Reasons.Should().ContainSingle().Which.Should().Contain("inside --ledger");
+        Directory.EnumerateFileSystemEntries(In("ledger")).Should().BeEmpty("nothing is written to the ledger or to --out");
+    }
+
+    // A revocation list that can't be checked refuses, as verify-request's does, rather than throwing. These refused before
+    // #5678 too, because PackageCrypto.Verify answers false for them; the theory pins the outcome, not the catch.
+    [Theory]
+    [InlineData("not base64!")]
+    [InlineData("")]
+    [InlineData("AQID")]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")]
+    public void A_revocation_list_whose_signature_is_malformed_is_refused(string signature)
+    {
+        Request("request");
+        var list = Revocations();
+        File.WriteAllText(Path.Combine(list, "revocations.sig"), signature);
+
+        var outcome = Issue("request", revocations: list);
+
+        outcome.ExitCode.Should().Be(2);
+        outcome.Reasons.Should().ContainSingle().Which.Should().Contain("revocation list doesn't verify");
+        NothingWritten();
+    }
+
     // ── The receipt ──────────────────────────────────────────────
 
     [Fact]
