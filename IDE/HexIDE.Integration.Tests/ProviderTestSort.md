@@ -88,7 +88,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/CodeEditorSplitTests.cs` | split |
 | `Views/CodeLensTests.cs` | split |
 | `Views/CodeWindowCompositionTests.cs` | split |
-| `Views/ColorDialogTests.cs` | split |
 | `Views/ComboBoxTextTests.cs` | split |
 | `Views/ComboStyleDesignerTests.cs` | split |
 | `Views/CommonDialogTests.cs` | split |
