@@ -9,8 +9,9 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Integration.Tests.Views;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class SliderInputTests
 {

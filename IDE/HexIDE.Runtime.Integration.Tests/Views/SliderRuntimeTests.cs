@@ -3,11 +3,12 @@ using System.Globalization;
 using System.Collections.Generic;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Integration.Tests.Views;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 
-namespace HexIDE.Integration.Tests.Views;
+namespace HexIDE.Runtime.Integration.Tests.Views;
 
 public class SliderRuntimeTests
 {
