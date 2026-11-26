@@ -8,7 +8,7 @@ Each slice removes its rows from the guard's list. Sizes and owners are in the p
 
 - [x] 2.1 The guard: a test fails on a product reference into a provider assembly that its list doesn't name, and on a listed one that has gone (#5388).
 - [x] 2.2 The run engine behind an interface that `ProjectRunnerService` calls, with `DISetup`'s debugger wiring (slice 2 folded in: its other uses already go through Core's interface).
-- [ ] 2.3 The running controls: the eight files that use them.
+- [x] 2.3 The running controls: the eight files that use them.
 - [ ] 2.4 A provider-fed designer: the component registry and Toolbox, "is this a form" checks, the designer's preview, and the Object Browser's in-box members.
 - [ ] 2.5 The VB6 file formats and code-window text: the text policy, path helpers, the project file format, and the designer's `.frx` helpers.
 - [x] 2.6 Language helpers through the language registration.

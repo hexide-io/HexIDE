@@ -22,8 +22,6 @@ public class AutomationRuntimeSeamTests
     // Inventory: https://github.com/hexide-io/HexIDE/issues/3411#issuecomment-6904319880
     private static readonly (string Type, string Group, string[] Files)[] Allowed =
     [
-        ("HexIDE.Runtime.Components.FormComponentClass", Components, [Server + "HexIdeTools.cs"]),
-        ("HexIDE.Runtime.Components.MenuComponentClass", Components, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.Components.InBox.SSTabComponentClass", Components, [Server + "HexIdeTools.cs"]),
         ("HexIDE.Runtime.AvaloniaInterop.DesignPositions", Components, [Server + "HexIdeTools.cs"])
     ];
