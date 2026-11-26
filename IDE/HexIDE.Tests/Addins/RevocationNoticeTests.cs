@@ -111,6 +111,34 @@ public sealed class RevocationNoticeTests : IDisposable
         _closes.Should().Be(closes, "only the notice's close button closes HexIDE, through the main window's own close");
     }
 
+    // A revoked add-in's title comes from its own manifest, and that add-in is the one most likely to be hostile.
+    [Theory]
+    [InlineData("Probe\r\nHexIDE is safe", "Probe??HexIDE is safe")]
+    [InlineData("Probe\u202Eexe.txt", "Probe?exe.txt")]
+    [InlineData("Probe\u2028line", "Probe?line")]
+    [InlineData("Probe\u200D\u200C", "Probe\u200D\u200C")]
+    public void The_notice_shows_a_title_s_control_and_format_characters_as_question_marks(string title, string shown)
+    {
+        new AddinRevokedNoticeViewModel([title], _localization).AddinTitles.Should().Equal(shown);
+    }
+
+    [Fact]
+    public void The_notice_shows_broken_UTF_16_in_a_title_as_a_question_mark()
+    {
+        new AddinRevokedNoticeViewModel(["Probe" + '\uD800' + "x"], _localization).AddinTitles.Should().Equal("Probe?x");
+    }
+
+    [Fact]
+    public void The_notice_cuts_a_long_title_at_80_characters()
+    {
+        var notice = new AddinRevokedNoticeViewModel(
+            [new string('x', 80), new string('y', 81), string.Concat(Enumerable.Repeat("😀", 81))], _localization);
+
+        notice.AddinTitles[0].Should().Be(new string('x', 80), "a title of exactly 80 characters is shown whole");
+        notice.AddinTitles[1].Should().Be(new string('y', 80) + "…");
+        notice.AddinTitles[2].Should().Be(string.Concat(Enumerable.Repeat("😀", 80)) + "…", "a character outside the BMP counts once, and isn't split");
+    }
+
     [Fact]
     public async Task An_add_in_whose_code_never_loaded_is_revoked_without_a_notice()
     {

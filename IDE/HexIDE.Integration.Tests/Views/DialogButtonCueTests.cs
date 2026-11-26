@@ -246,6 +246,8 @@ public class DialogButtonCueTests
             ("AddProcedureView", null, "text"),
             ("LanguageRevertGateView", null, "first"),
             ("AddinConsentDialog", null, "first"),
+            // Opens unprompted, maybe mid-typing: Enter must answer Later, never Close HexIDE (#5577).
+            ("AddinRevokedNotice", "Str.Dialog.AddinRevoked.Later", "default"),
             ("WorkspaceArtifactConsentView", null, "first"),
             ("ExportPreviewDialog", null, "first"),
             ("TrustChainView", null, "first"),

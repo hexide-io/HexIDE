@@ -12,11 +12,12 @@
 
         <TextBlock TextWrapping="Wrap" Text="{CompiledBinding Message}" />
 
+        <!-- The notice opens unprompted, maybe while the user is typing, so Later is the default and the cancel, and a key meant
+             for the editor never starts closing HexIDE (#5577). -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Content="{DynamicResource Str.Dialog.AddinRevoked.Later}" Command="{CompiledBinding LaterCommand}" MinWidth="84"
-                    IsCancel="True" />
-            <Button Content="{DynamicResource Str.Dialog.AddinRevoked.Close}" Command="{CompiledBinding CloseIdeCommand}" MinWidth="84"
-                    IsDefault="True" />
+                    IsDefault="True" IsCancel="True" />
+            <Button Content="{DynamicResource Str.Dialog.AddinRevoked.Close}" Command="{CompiledBinding CloseIdeCommand}" MinWidth="84" />
         </StackPanel>
     </StackPanel>
 </UserControl>
