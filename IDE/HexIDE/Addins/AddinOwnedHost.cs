@@ -147,6 +147,8 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
             : host.RegisterLanguagePacks(folder);
     public IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures) =>
         host is HexIdeHost concrete ? concrete.RegisterDesignerPictures(pictures, origin) : host.RegisterDesignerPictures(pictures);
+    public IDisposable RegisterDesignPositions(IDesignPositions positions) =>
+        host is HexIdeHost concrete ? concrete.RegisterDesignPositions(positions, origin) : host.RegisterDesignPositions(positions);
     // Internal while the Basic provider is the only owner (#5403); checked against the owner's grant where it's registered.
     public IDisposable RegisterLanguageEditing(HexIDE.Language.LanguageEditing editing) =>
         host is HexIdeHost concrete ? concrete.RegisterLanguageEditing(editing, origin)

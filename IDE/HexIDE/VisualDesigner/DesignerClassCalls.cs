@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.ProjectElements;
 using Serilog;
 
 namespace HexIDE.VisualDesigner;
@@ -11,7 +12,9 @@ namespace HexIDE.VisualDesigner;
 /// the starting values of a control it draws, where a control added by double-clicking its tool goes (#5681), a
 /// container's pages (#5742), which automation asks through here too, and the library a control is in (#5749). A
 /// class's code is the provider's or an add-in's, so a throw, or a null where an answer is needed, answers as though
-/// the class didn't have the contract, and the designer stays usable.
+/// the class didn't have the contract, and the designer stays usable. VB6's scale rules come the same way from the
+/// positions service its provider registered (#5758), which the Properties window, the toolbar's readout and automation
+/// ask through here too.
 /// </summary>
 /// <remarks>
 /// The first failure from each class and contract is logged as a warning, and later ones at debug: the caption is asked
@@ -211,6 +214,112 @@ internal static class DesignerClassCalls
     private static bool Usable(DesignerBounds bounds) =>
         Within(bounds.Left) && Within(bounds.Top) && Within(bounds.Width) && Within(bounds.Height)
         && bounds.Width >= 0 && bounds.Height >= 0;
+
+    /// <summary>
+    /// The units VB6's Properties window shows a position in, as a reply names them (#1636). An answer naming any other unit
+    /// isn't used, because the unit goes into automation's replies as the IDE's own text.
+    /// </summary>
+    internal static readonly IReadOnlyList<string> PositionUnits =
+        ["twips", "points", "pixels", "characters", "inches", "millimetres", "centimetres", "user units"];
+
+    /// <summary>
+    /// Whether <paramref name="property"/> is a control's Left, Top, Width or Height, which the Properties window shows in
+    /// VB6's units rather than the model's pixels.
+    /// </summary>
+    internal static bool IsPosition(PropertyClass property) =>
+        ReferenceEquals(property, VBProperties.LeftProperty) || ReferenceEquals(property, VBProperties.TopProperty)
+        || IsSize(property);
+
+    /// <summary>
+    /// <paramref name="property"/>'s value and unit as the Properties window shows them, from the model's
+    /// <paramref name="pixels"/>. Null with no positions registered, after a throw, or for an answer that isn't a finite value
+    /// in one of <see cref="PositionUnits"/>: the caller then shows the model's value, as with no form.
+    /// </summary>
+    internal static (double Value, string Unit)? ShownPosition(FormDefinition form, ComponentInstance component,
+        PropertyClass property, double pixels)
+    {
+        if (Positions is not { } positions)
+            return null;
+        try
+        {
+            var shown = positions.Shown(form, component, property, pixels);
+            if (double.IsFinite(shown.Value) && PositionUnits.Contains(shown.Unit, StringComparer.Ordinal))
+                return shown;
+            Failed(positions, nameof(IDesignPositions), null);
+        }
+        catch (Exception ex)
+        {
+            Failed(positions, nameof(IDesignPositions), ex);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The model's pixels for <paramref name="value"/>, typed in the unit <paramref name="property"/> is shown in. Null for
+    /// a value no position can hold, and null with <paramref name="failed"/> set with no positions registered, after a throw,
+    /// or for an answer that isn't finite or is a Width or Height below zero. Either way the caller changes nothing.
+    /// </summary>
+    internal static double? PositionPixels(FormDefinition form, ComponentInstance component, PropertyClass property,
+        double value, out bool failed)
+    {
+        failed = true;
+        if (Positions is not { } positions)
+            return null;
+        try
+        {
+            if (positions.ToPixels(form, component, property, value) is not { } pixels)
+            {
+                failed = false;
+                return null;
+            }
+            if (double.IsFinite(pixels) && !(IsSize(property) && pixels < 0))
+            {
+                failed = false;
+                return pixels;
+            }
+            Failed(positions, nameof(IDesignPositions), null);
+        }
+        catch (Exception ex)
+        {
+            Failed(positions, nameof(IDesignPositions), ex);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// How many twips one unit of <paramref name="line"/>'s container is, across and down, in <paramref name="units"/>.
+    /// True with the provider's answer, or with twips for a scale it can't run, which the designer moves in twips as it
+    /// always has (#5759). False with twips when no positions are registered, after a throw, or for an answer that isn't
+    /// finite and above zero: the designer lays the Line out and draws it in twips then, but doesn't move it, since a move
+    /// written in twips would be wrong in any other scale.
+    /// </summary>
+    internal static bool LineTwipsPerUnit(FormDefinition form, ComponentInstance line, out (double X, double Y) units)
+    {
+        units = (1, 1);
+        if (Positions is not { } positions)
+            return false;
+        try
+        {
+            if (positions.LineTwipsPerUnit(form, line) is not { } answer)
+                return true;
+            if (double.IsFinite(answer.X) && double.IsFinite(answer.Y) && answer.X > 0 && answer.Y > 0)
+            {
+                units = answer;
+                return true;
+            }
+            Failed(positions, nameof(IDesignPositions), null);
+        }
+        catch (Exception ex)
+        {
+            Failed(positions, nameof(IDesignPositions), ex);
+        }
+        return false;
+    }
+
+    private static IDesignPositions? Positions => Addins.AddinDesignPositionService.For(Avalonia.Application.Current);
+
+    private static bool IsSize(PropertyClass property) =>
+        ReferenceEquals(property, VBProperties.WidthProperty) || ReferenceEquals(property, VBProperties.HeightProperty);
 
     private static bool Within(double pixels) =>
         double.IsFinite(pixels) && Math.Abs(pixels * VBScaleModeExtensions.PixelToTwips) <= int.MaxValue;

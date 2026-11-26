@@ -245,4 +245,33 @@ public interface IHexIdeHost
     /// host that isn't an add-in's own: the drawer is registered only through the host an add-in is given.
     /// </exception>
     IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures);
+
+    /// <summary>
+    /// Makes <paramref name="positions"/> what gives VB6's scale rules at design time (#5758): the units the Properties
+    /// window, the toolbar's readout and automation show a control's Left, Top, Width and Height in, and the units the
+    /// designer moves a Line's endpoints in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the owners HexIDE grants it may call it.</b> The grants are in HexIDE's own source, keyed by owner. Any other
+    /// add-in is refused, whatever its signature, because its answers decide the positions written into the user's forms.
+    /// Today the only grant is the Basic provider's, which HexIDE composes itself.
+    /// </para>
+    /// <para>
+    /// <b>One at a time.</b> While one registration holds, another is refused, so nothing can replace the rules silently.
+    /// </para>
+    /// <para>
+    /// The capability design will need a name for this member; none is checked today, as that design's host checks are not
+    /// built.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// What takes the rules out again: until another registers, positions are shown as the model holds them, in pixels, and
+    /// none can be typed in. Turning the add-in off or revoking its consent takes it out too.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// The add-in holds no grant, or another owner's rules are registered; the message names both owners. Also thrown by a
+    /// host that isn't an add-in's own: the rules are registered only through the host an add-in is given.
+    /// </exception>
+    IDisposable RegisterDesignPositions(IDesignPositions positions);
 }

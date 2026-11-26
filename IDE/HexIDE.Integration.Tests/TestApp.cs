@@ -114,6 +114,10 @@ public class TestApp : Application
         // What draws the designer's controls (#5591): through the real service, so every designer here draws as the IDE's do.
         host.RegisterDesignerPictures(Arg.Any<Func<IDesignerDrawingSurface, IDesignerPictures>>()).Returns(call =>
             new HexIDE.Addins.AddinDesignerPictureService().Register(call.Arg<Func<IDesignerDrawingSurface, IDesignerPictures>>(), origin));
+        // VB6's scale rules (#5758), through the real service, so every designer and Properties window here shows and moves
+        // positions as the IDE's do.
+        host.RegisterDesignPositions(Arg.Any<IDesignPositions>()).Returns(call =>
+            new HexIDE.Addins.AddinDesignPositionService().Register(call.Arg<IDesignPositions>(), origin));
         new HexIDE.Runtime.BasicProvider().Initialize(host);
     }
 

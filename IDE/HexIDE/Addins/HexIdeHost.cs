@@ -217,6 +217,22 @@ internal sealed class HexIdeHost(
         return handle;
     }
 
+    /// <summary>What gives VB6's scale rules at design time (#5758). Its registrations are held per application.</summary>
+    internal AddinDesignPositionService DesignPositions { get; init; } = new();
+
+    // As the drawer: only an add-in's own host registers the scale rules, with the add-in as their owner.
+    public IDisposable RegisterDesignPositions(IDesignPositions positions) =>
+        throw new InvalidOperationException("The designer's scale rules are registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked.
+    internal IDisposable RegisterDesignPositions(IDesignPositions positions, AddinOrigin origin)
+    {
+        var handle = DesignPositions.Register(positions, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
     // As the drawer: only an add-in's own host registers a language's editing helpers, with the add-in as their owner (#5403).
     public IDisposable RegisterLanguageEditing(HexIDE.Language.LanguageEditing editing) =>
         throw new InvalidOperationException("A language's editing helpers are registered only through the host an add-in is given.");

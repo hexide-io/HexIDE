@@ -48,8 +48,8 @@ public interface IDesignerPages
     int? PageOf(ComponentInstance instance, string childName);
 
     /// <summary>
-    /// Why <paramref name="instance"/>'s page can't be switched in the designer, for a caller to show as it is, or null
-    /// when it can.
+    /// Why <paramref name="instance"/>'s page can't be switched in the designer, in a sentence, or null when it can.
+    /// Automation quotes it in its reply, saying that the class refused and that nothing was changed.
     /// </summary>
     string? PageSwitchRefusal(ComponentInstance instance);
 

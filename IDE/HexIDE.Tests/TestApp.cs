@@ -45,6 +45,24 @@ namespace HexIDE.Tests;
 /// </summary>
 public class TestApp : Application
 {
+    /// <summary>
+    /// Registers the provider's scale rules (#5758) through the real service, so every Properties window, readout and
+    /// designer here shows and moves positions as the IDE's do. Each test's application registers them afresh.
+    /// </summary>
+    public override void Initialize()
+    {
+        base.Initialize();
+        RegisterProviderPositions();
+    }
+
+    /// <summary>The provider's scale rules' registration here, which a test takes out to register rules of its own.</summary>
+    internal IDisposable? ProviderPositions { get; private set; }
+
+    /// <summary>Registers the provider's scale rules in this application.</summary>
+    internal void RegisterProviderPositions() =>
+        ProviderPositions = new HexIDE.Addins.AddinDesignPositionService { Scope = this }
+            .Register(new HexIDE.Runtime.AvaloniaInterop.ProviderDesignPositions(), InBoxRegistry.Provider);
+
     public static AppBuilder BuildAvaloniaApp()
     {
         // Seed a pending requery before headless replaces the dispatcher (#2921). A pool thread can

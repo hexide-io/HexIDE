@@ -137,6 +137,8 @@ public sealed class BasicProvider : IAddin
         // A refusal throws out of Initialize, so one here leaves the themes, text, controls, editing helpers, VB6's projects
         // and maker registered, and the run engine below unregistered (#5642).
         registrations.Add(host.RegisterDesignerPictures(surface => new InProcessDesignerPictures(surface)));
+        // VB6's scale rules for its forms' positions and its Lines' units (#5758).
+        registrations.Add(host.RegisterDesignPositions(new AvaloniaInterop.ProviderDesignPositions()));
         // Internal until a second engine registers (#5616): only the host HexIDE composes the provider with can take it.
         if (host is IRunEngineRegistration engines)
             registrations.Add(engines.RegisterRunEngine(services => new Running.InterpreterRunEngine(services)));

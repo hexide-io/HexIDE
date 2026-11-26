@@ -233,6 +233,16 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
   API. The library's header line goes into the user's form, so the designer declares only a library the registry lists
   as offering the control's class, which a library's owner registers under its grant. The designer contains each call as
   it does 2.4e-1's contracts.
+- **VB6's scale rules come from a registered positions service (2.4f-6, #5758).** Agreed with the supervisor on
+  2026-11-26. `IHexIdeHost.RegisterDesignPositions` is public and baselined, as `RegisterDesignerPictures` is, so 2.12's
+  list of Core internals doesn't grow. It's grant-gated by `RegistrationGrant.DesignPositions`, which only the provider
+  holds, and one at a time per application.
+  - **Each call is contained, and each answer is checked.** A value or pixels that aren't finite, a Width or Height below
+    zero, a unit outside the eight VB6 shows, and a Line unit that isn't finite and above zero all count as no answer.
+  - **Without an answer, nothing is written.** A position is shown as the model holds it, and a typed one is refused.
+    A Line is laid out in twips but isn't moved, because a move written in twips would be wrong in any other scale.
+  - **A scale the provider can't run is an answer.** A Line in one is still laid out and moved in twips, as before.
+    That move is its own bug (#5759), left as it is because this slice changes no behaviour.
 - **Text and editing helpers go where 11-16's rule puts them:**
   - `ReadOnlyRegions` and `SourceLines` go to Core (2.5a, #5440), and so do the project file's keys and path helpers (2.5c, #5521);
   - keyword casing and block auto-close go to the IDE (2.6, #5405);
