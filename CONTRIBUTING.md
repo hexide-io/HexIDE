@@ -168,9 +168,11 @@ requested). `RevocationListUrl` overrides that address; an empty value disables 
 commit has finished and none is red, apart from the advisory ones. Do not merge while main's latest run
 is red, apart from those.** `build-ide (windows)` is required by branch protection. The jobs named
 advisory, Windows on Arm and macOS, don't hold a merge: while HexIDE is in alpha, win-x64 is the one
-essential build, and macOS runs only on pushes to main (#5674). Follow up a red advisory job on its own
-issue. Once post-v1 releases ship, macOS red counts again. For a known flake, post the failing run on its
-issue and re-run it green before merging (#1331).
+essential build, and macOS runs only on pushes to main and to `release/` branches (#5674). Any other
+platform that keeps pace with Windows, in time and without flaking, stays a gate on every build, as Linux
+does today. One that starts holding merges goes advisory and is checked when it's released. Follow up a
+red advisory job on its own issue. Once post-v1 releases ship, macOS red counts again. For a known flake,
+post the failing run on its issue and re-run it green before merging (#1331).
 
 ## AI-assisted contributions
 

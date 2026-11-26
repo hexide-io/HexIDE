@@ -391,7 +391,9 @@ jobs:
   # build-ide (windows) is required by branch protection (#1331). macOS is advisory while HexIDE is in alpha
   # (#5674): the maintainer decided on 2026-11-26 that win-x64 is the one essential build, and that macOS runs
   # only on main, as optional, until real post-v1 releases ship, when its red counts again. Three merge batches
-  # stopped on macOS-only flakes the night before. The merge rule in CONTRIBUTING.md and CLAUDE.md requires
+  # stopped on macOS-only flakes the night before. Her rule for the rest: pace and efficiency come first, so a
+  # platform that keeps pace with Windows, in time and without flaking, stays a gate (Linux, the build-ide job
+  # above), and one that starts holding merges goes advisory and is checked at release. The merge rule in CONTRIBUTING.md and CLAUDE.md requires
   # waiting for every head-commit job except the advisory ones to finish without red, and main's latest run
   # not to be red; a known flake gets its run posted on its issue and re-run green before merging.
   build-ide-desktop:
