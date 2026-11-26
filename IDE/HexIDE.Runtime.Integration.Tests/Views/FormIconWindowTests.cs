@@ -83,8 +83,19 @@ public class FormIconWindowTests
     }
 
     [AvaloniaFact]
-    public void Without_a_runners_default_a_form_with_no_Icon_line_keeps_Avalonias() =>
-        Window(null).Icon.Should().BeNull("Avalonia then gives it the executable's icon, the IDE's on F5");
+    public void Without_a_runners_default_a_form_with_no_Icon_line_keeps_Avalonias()
+    {
+        var previous = VBLoader.DefaultFormIcon;
+        try
+        {
+            VBLoader.DefaultFormIcon = null;
+            Window(null).Icon.Should().BeNull("Avalonia then gives it the executable's icon, the IDE's on F5");
+        }
+        finally
+        {
+            VBLoader.DefaultFormIcon = previous;
+        }
+    }
 
     // VB6 SP6, native and p-code: https://github.com/hexide-io/HexIDE/issues/4603 (latest measuring comment; PR #4613).
     [AvaloniaTheory]
