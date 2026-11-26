@@ -807,10 +807,15 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         public ComponentRole Role => ComponentRole.Form;
         public bool IsContainer => true;
         public bool IsVisual => true;
-        public IReadOnlyList<PropertyClass> Properties { get; } =
-            [VBProperties.WidthProperty, VBProperties.HeightProperty, VBProperties.CaptionProperty];
-        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName =>
-            Properties.ToDictionary(property => property.Name, StringComparer.OrdinalIgnoreCase);
+        public IReadOnlyList<PropertyClass> Properties { get; }
+        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName { get; }
+
+        // Built once, as a ComponentBaseClass builds its own, not on every read.
+        private PreviewFormClass()
+        {
+            Properties = [VBProperties.WidthProperty, VBProperties.HeightProperty, VBProperties.CaptionProperty];
+            PropertiesByName = Properties.ToDictionary(property => property.Name, StringComparer.OrdinalIgnoreCase);
+        }
         public IReadOnlyList<EventClass> Events => [];
         public IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
     }
