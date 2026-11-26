@@ -643,7 +643,7 @@ public static partial class PublisherRequests
         && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
         && string.IsNullOrEmpty(uri.UserInfo) && !string.IsNullOrEmpty(uri.Host);
 
-    private static bool IsSameOrUnder(string path, string root)
+    internal static bool IsSameOrUnder(string path, string root)
     {
         var relative = Path.GetRelativePath(root, path);
         return relative == "." || !(relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative));
