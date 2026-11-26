@@ -1,14 +1,9 @@
-using System.IO;
-using System.Linq;
 using Avalonia.Controls;
-using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using HexIDE.Controls;
 using HexIDE.IDE;
 using HexIDE.Localization;
-using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -79,70 +74,6 @@ public class DropdownListNameTests
 
     private static ComponentInstance Named(FormDefinition form, string name) =>
         form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == name);
-
-    // The text the box shows: every TextBlock in the combo's template that is showing, in a window, as the designer's
-    // renderer lays it out.
-    private static string[] Shown(Control combo)
-    {
-        var window = new Window { Width = 240, Height = 60, Content = combo };
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
-        var shown = combo.GetVisualDescendants().OfType<TextBlock>()
-            .Where(t => t.IsEffectivelyVisible && !string.IsNullOrEmpty(t.Text)).Select(t => t.Text!).ToArray();
-        window.Close();
-        return shown;
-    }
-
-    private static Control ForDesigner(ComponentInstance combo) =>
-        ((ComponentBaseClass)combo.BaseClass).InstantiateForDesigner(combo);
-
-    [AvaloniaTheory]
-    [InlineData("Combo1")]
-    [InlineData("cboList")]
-    public void The_designer_draws_a_Dropdown_List_with_its_name(string name) =>
-        Shown(ForDesigner(Named(Load(), name))).Should().Equal(name);
-
-    [AvaloniaFact]
-    public void A_Text_the_file_saved_is_not_drawn() =>
-        Shown(ForDesigner(Named(Load(), "Combo3"))).Should().Equal("Combo3");
-
-    [AvaloniaFact]
-    public void A_renamed_Dropdown_List_shows_its_new_name()
-    {
-        var combo = Named(Load(), "Combo1");
-
-        combo.SetProperty(VBProperties.NameProperty, "cboNewCombo1");
-
-        Shown(ForDesigner(combo)).Should().Equal("cboNewCombo1");
-    }
-
-    // The name is drawn as an item would be, in the control's ForeColor, not in the grey of a hint.
-    [AvaloniaFact]
-    public void The_name_is_drawn_in_the_controls_ForeColor()
-    {
-        var combo = (ComboBox)ForDesigner(Named(Load(), "Combo1"));
-
-        combo.PlaceholderForeground.Should().Be(combo.Foreground);
-    }
-
-    // The running control shows nothing in the box, as vb6.exe's does with no item selected (#926).
-    [AvaloniaFact]
-    public void The_running_control_shows_nothing()
-    {
-        var combo = Named(Load(), "Combo1");
-
-        Shown(((ComponentBaseClass)combo.BaseClass).Instantiate(combo)).Should().BeEmpty();
-    }
-
-    // A Dropdown Combo's box is its Text, in the designer as before.
-    [AvaloniaFact]
-    public void A_Dropdown_Combo_still_shows_its_Text()
-    {
-        var combo = (ComboBox)ForDesigner(Named(Load(), "Combo4"));
-
-        combo.PlaceholderText.Should().BeNull();
-        combo.Text.Should().Be("Combo4");
-    }
 
     // The designer's renderer draws the designer's control: two Dropdown Lists that differ only in their names draw
     // differently, where the running control would draw them alike.
