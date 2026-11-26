@@ -768,8 +768,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 if (!DesignerClassCalls.PageSwitchRefusal(control, out var pageRefusal))
                     return (null, null, $"{PropertyText.AddressedName(control)}'s class failed checking whether its page "
                         + "can be switched, so it isn't switched here. Nothing was changed.");
+                // The class's own words, quoted and attributed, so a reply never passes them off as the IDE's (#5747 review).
                 if (pageRefusal is not null)
-                    return (null, null, pageRefusal);
+                    return (null, null, $"{PropertyText.AddressedName(control)}'s class refuses to switch its page. "
+                        + $"Nothing was changed. It says: \"{pageRefusal}\"");
                 if (DesignerClassCalls.PageCount(control) is not { } pageCount)
                     return (null, null, $"{PropertyText.AddressedName(control)}'s class failed giving its page count, so "
                         + "its page isn't switched here. Nothing was changed.");

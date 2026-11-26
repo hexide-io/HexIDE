@@ -90,7 +90,7 @@ public sealed class SSTabComponentClass : InBoxComponentClass, IDesignerPages
                             : "a saved control reference HexIDE cannot resolve to one modelled child"
                         : null;
                 if (reason is not null)
-                    return $"{instance.GetPropertyOrDefault(NameProperty)}'s page {page} names {name ?? "(unnamed entry)"}, {reason}, so its pages can't be switched here. Nothing was changed.";
+                    return $"{instance.GetPropertyOrDefault(NameProperty)}'s page {page} names {name ?? "(unnamed entry)"}, {reason}, so its pages can't be switched here.";
             }
         return null;
     }

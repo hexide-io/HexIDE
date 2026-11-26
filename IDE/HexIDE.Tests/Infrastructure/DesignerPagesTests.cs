@@ -300,7 +300,8 @@ public class DesignerPagesTests : IDisposable
         var reply = await Tools().SetControlPropertyAsync("Form1", "Frame1", "Tab", "3");
 
         reply.Success.Should().BeFalse();
-        reply.Error.Should().Be("Frame1's pages are its own.");
+        reply.Error.Should().Be("Frame1's class refuses to switch its page. Nothing was changed. It says: "
+            + "\"Frame1's pages are its own.\"");
         paged.Calls.Should().NotContain(call => call.StartsWith("Show", StringComparison.Ordinal));
         await writer.DidNotReceive().SaveForm(form, false, interactive: false, rewrites: Arg.Any<HexIDE.Projects.SaveRewriteReport>());
     }
