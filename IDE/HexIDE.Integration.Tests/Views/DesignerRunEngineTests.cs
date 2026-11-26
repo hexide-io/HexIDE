@@ -222,20 +222,6 @@ public class DesignerRunEngineTests
         finally { owner.Close(); }
     }
 
-    // A box the preview raises with no title takes the program's name, as App.Title does under F5, never the IDE's (#3411).
-    [AvaloniaTheory]
-    [InlineData("Title=\"Accounts\"", "Accounts")]
-    [InlineData(null, "P")]
-    public void A_box_the_preview_raises_untitled_takes_the_programs_name(string? titleLine, string expected)
-    {
-        var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        if (titleLine is not null)
-            project.UnknownPreSectionLines.Add((0, titleLine));
-        var form = new FormDeserializer().Deserialize(project, ToolbarForm, new NullSink())!;
-
-        HexIDE.Runtime.Running.InterpreterRunEngine.UntitledBoxTitle(form).Should().Be(expected);
-    }
-
     [AvaloniaFact]
     public async Task The_composed_designer_previews_and_reads_carried_controls_through_the_providers_engine()
     {

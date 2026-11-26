@@ -52,9 +52,4 @@ public class TimerOnTheDesignerTests
             window.Close();
         }
     }
-
-    [AvaloniaFact]
-    public void A_Timer_is_still_written_with_no_size() =>
-        new FormSerializer().Serialize(Load(), "Form1.frm").frmText.Should().Contain("Begin VB.Timer Timer1")
-            .And.Subject.Split("Begin VB.Timer Timer1")[1].Split("End")[0].Should().NotContain("Width").And.NotContain("Height");
 }

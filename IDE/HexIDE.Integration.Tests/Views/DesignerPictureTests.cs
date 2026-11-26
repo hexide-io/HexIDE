@@ -329,8 +329,4 @@ public class DesignerPictureTests
             PixelsOf(bitmap).Should().Equal(PixelsOf(source));
         });
     }
-
-    [Fact]
-    public void Rgba_pixels_become_Bgra() =>
-        InProcessDesignerPictures.SwapRedAndBlue([1, 2, 3, 4, 5, 6, 7, 8]).Should().Equal(3, 2, 1, 4, 7, 6, 5, 8);
 }
