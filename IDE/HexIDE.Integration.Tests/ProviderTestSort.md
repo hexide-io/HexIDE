@@ -54,7 +54,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/DockOpacityTests.cs` | split |
 | `Controls/DropdownListNameTests.cs` | split |
 | `Controls/FloatingLifecycleTests.cs` | split |
-| `Controls/MousePointerValuesTests.cs` | split |
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
 | `Controls/ProjectFileNodeTests.cs` | split |
 | `Controls/ProjectGroupExpansionTests.cs` | split |
@@ -89,7 +88,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/CodeEditorSplitTests.cs` | split |
 | `Views/CodeLensTests.cs` | split |
 | `Views/CodeWindowCompositionTests.cs` | split |
-| `Views/ColorDialogTests.cs` | split |
 | `Views/ComboBoxTextTests.cs` | split |
 | `Views/ComboStyleDesignerTests.cs` | split |
 | `Views/CommonDialogTests.cs` | split |
@@ -206,4 +204,3 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/UnmodelledControlPlaceholderTests.cs` | split |
 | `Views/WaylandToolTipTests.cs` | split |
 | `Views/WindowShortcutFocusTests.cs` | split |
-| `WindowLifetimeTests.cs` | split |

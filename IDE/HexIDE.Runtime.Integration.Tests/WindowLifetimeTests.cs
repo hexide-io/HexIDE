@@ -15,6 +15,7 @@ public class WindowLifetimeTests
     [InlineData(typeof(LineControlTests), nameof(LineControlTests.A_line_takes_no_clicks))]
     [InlineData(typeof(ListBoxClickTests), nameof(ListBoxClickTests.A_ListIndex_out_of_range_raises_380_and_no_Click))]
     [InlineData(typeof(ListBoxSelectedTests), nameof(ListBoxSelectedTests.MultiSelect_reads_as_an_Integer_and_cannot_be_assigned))]
+    [InlineData(typeof(MenuMembersTests), nameof(MenuMembersTests.Choosing_an_element_of_a_menu_array_passes_its_Index))]
     [InlineData(typeof(OptionButtonValueTests), nameof(OptionButtonValueTests.AnUnparseableStringIntoABoolean_IsATrappableTypeMismatch))]
     [InlineData(typeof(PictureBoxContainerRuntimeTests), nameof(PictureBoxContainerRuntimeTests.AContainedControl_IsDrawnInsideTheBorder))]
     [InlineData(typeof(RuntimeMenuTests), nameof(RuntimeMenuTests.ASeparator_HasAVisibleLineToDraw))]
