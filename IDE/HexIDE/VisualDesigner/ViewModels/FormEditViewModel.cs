@@ -820,27 +820,21 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// nearest grid line when Align to Grid is on, as VB6 puts it (measured, #929: a 1215 x 495 button on a 6000 x 4500
     /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines goes to the
     /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
-    /// <see cref="IDesignerComponent.AddedSize"/>, the one VB6 gives it (measured, #1473).
+    /// <see cref="IDesignerComponent.AddedSize"/>, the one VB6 gives it (measured, #1473). A class whose control VB6 places
+    /// another way says where, through <see cref="IDesignerAddedPlacement"/>, as the StatusBar, FlatScrollBar and ImageList
+    /// do (#5681).
     /// </summary>
     public void SpawnControlCenter(IDesignerComponent componentClass, IControlLibrary? library = null)
     {
-        if (componentClass is StatusBarComponentClass)
+        if (DesignerClassCalls.AddedBounds(componentClass, Form.Width, Form.Height) is { } placed)
         {
-            // VB6's toolbox double-click: full form width, 25 px high, centred on a whole pixel (#1087).
-            SpawnControlAt(componentClass, new Rect(0, Math.Floor((Form.Height - 25) / 2), Form.Width, 25), library: library);
-            return;
-        }
-        if (componentClass is FlatScrollBarComponentClass)
-        {
-            // VB6 centres the 1500 × 255 control as if it were 750 twips high (#1097).
-            SpawnControlAt(componentClass, new Rect(Pixels(Twips(Form.Width) / 2 - 750),
-                Pixels(Twips(Form.Height) / 2 - 375), 100, 17), library: library);
+            SpawnControlAt(componentClass, new Rect(placed.Left, placed.Top, placed.Width, placed.Height), library: library);
             return;
         }
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
         var top = Twips(Form.Height) / 2 - height / 2;
-        if (settingsService.AlignToGrid && componentClass is not ImageListComponentClass)
+        if (settingsService.AlignToGrid && DesignerClassCalls.AddedOnGrid(componentClass))
         {
             left = OnGrid(left, settingsService.GridWidth);
             top = OnGrid(top, settingsService.GridHeight);

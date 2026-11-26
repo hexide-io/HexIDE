@@ -99,6 +99,17 @@ contract SHALL be logged and SHALL answer as a class without the contract does, 
 - **WHEN** a control on the form has a class that answers the caption contract
 - **THEN** the designer never asks it
 
+### Requirement: A double-clicked control goes only where the designer can place and save it
+Where a component class gives the bounds its control takes when its tool is double-clicked, the form designer SHALL
+place the control there only if the bounds are finite, have no negative width or height, and each fit a whole number
+of twips. Otherwise, or when the class throws, the designer SHALL log it and SHALL centre the control at its added
+size, as it does for a class without the contract (#5681).
+
+#### Scenario: A double-clicked control's class gives bounds the designer can't use
+- **WHEN** a control's tool is double-clicked and its class gives bounds with a negative width
+- **THEN** the control is centred on the form at its added size, as a class without the contract's is
+- **AND** the class's failure is logged as a warning the first time and at debug after that
+
 ### Requirement: A granted registration still only adds
 A registration from an owner the grant names SHALL still only add: it SHALL be refused, and logged naming both
 owners, where any key or component it carries is already held by the IDE or another owner, and no grant SHALL
