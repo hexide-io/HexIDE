@@ -15,7 +15,7 @@ Note the spaces either side of the colon. The path is **absolute** even where th
 relatively. Exit code 1, and no executable. Success is `<CRLF>Build of 'h0.exe' succeeded.<CRLF>`, exit 0.
 For a group it names the group, not each executable.
 
-**HexIDE expects `path(N) : error …` and so matches none of this** (`Vb6ToolchainService.ErrorRegex`), which
+**HexIDE expects `path(N) : error …` and so matches none of this** (`Vb6Toolchain.ErrorRegex`), which
 is filed separately.
 
 **`N` is a 0-based index into the CODE VIEW, not into the file.** The code view is the file minus the

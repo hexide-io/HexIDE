@@ -10,6 +10,7 @@ using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Sidecar;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Projects;
 
@@ -55,9 +56,9 @@ public class MadeNamesStayInsideTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, Substitute.For<IEventBus>(), manager,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(), localization,
-            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create()) { RuntimeDirectory = root };
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create()).WithMaker(root);
         var standalone = Directory.CreateDirectory(Path.Join(root, "standalone")).FullName;
-        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runner");
+        File.WriteAllText(Path.Join(standalone, Vb6ProjectMaker.StandaloneRunnerName()!), "runner");
         return service;
     }
 
@@ -215,29 +216,41 @@ public class MadeNamesStayInsideTests : IDisposable
 
     // --- Make with VB6 and Start with VB6: VB6 writes the program where a path there points, and Start with VB6 starts it ---
 
-    private sealed class StubbedVb6(IWindowManager windows, ILocalizationService localization)
-        : Vb6ToolchainService(Substitute.For<ILspClient>(), Substitute.For<IEventBus>(), windows, localization,
-            new CodeTrust(windows, localization, _ => false), Substitute.For<IUserSidecarService>())
+    // VB6's toolchain, the Basic provider's (#5621), with only the compiler run stubbed.
+    private sealed class StubbedCompiler : Vb6Toolchain
     {
         public int Builds { get; private set; }
-        public int Starts { get; private set; }
 
-        internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath, string? outputDirectory)
+        internal override Task<ToolchainBuild?> RunVb6Async(string projectPath, string? outputDirectory)
         {
             Builds++;
-            return Task.FromResult<Vb6BuildOutcome?>(new Vb6BuildOutcome(0, ""));
+            return Task.FromResult<ToolchainBuild?>(new ToolchainBuild(0, ""));
         }
+    }
+
+    private sealed class StubbedVb6 : Vb6ToolchainService
+    {
+        private readonly StubbedCompiler compiler;
+
+        public StubbedVb6(IWindowManager windows, ILocalizationService localization, StubbedCompiler compiler)
+            : base(Substitute.For<ILspClient>(), Substitute.For<IEventBus>(), windows, localization,
+                new CodeTrust(windows, localization, _ => false), Substitute.For<IUserSidecarService>(),
+                TestMakers.Vb6WithMaker(Path.GetTempPath(), compiler)) =>
+            this.compiler = compiler;
+
+        public int Builds => compiler.Builds;
+        public int Starts { get; private set; }
 
         internal override void StartExe(string exePath) => Starts++;
     }
 
-    // The constructor reads VB6_EXE, so the path is supplied there and put back straight away. The test assembly's own
-    // executable is a file that exists on every platform this runs on.
+    // The toolchain's constructor reads VB6_EXE, so the path is supplied there and put back straight away. The test
+    // assembly's own executable is a file that exists on every platform this runs on.
     private StubbedVb6 Vb6()
     {
         var previous = Environment.GetEnvironmentVariable("VB6_EXE");
         Environment.SetEnvironmentVariable("VB6_EXE", Environment.ProcessPath);
-        try { return new StubbedVb6(windows, localization); }
+        try { return new StubbedVb6(windows, localization, new StubbedCompiler()); }
         finally { Environment.SetEnvironmentVariable("VB6_EXE", previous); }
     }
 

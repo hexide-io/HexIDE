@@ -10,6 +10,7 @@ using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 using HexIDE.Forms.ViewModels;
 using HexIDE.VisualDesigner;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Projects;
 
@@ -62,9 +63,9 @@ public sealed class SaveReplacementTests : IDisposable
                 manager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
                 return () => service.SaveAllProjects(saveAs: true);
             case "make":
-                service.RuntimeDirectory = root;
+                service.WithMaker(root);
                 Directory.CreateDirectory(Target("standalone"));
-                File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
+                File.WriteAllText(Path.Combine(Target("standalone"), Vb6ProjectMaker.StandaloneRunnerName()!), "runner");
                 return () => service.MakeProject(project);
             default: throw new ArgumentException(kind);
         }

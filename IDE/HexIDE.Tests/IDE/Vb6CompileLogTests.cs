@@ -1,6 +1,7 @@
 using HexIDE.IDE;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Making;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -46,7 +47,7 @@ public class Vb6CompileLogTests
         var log = "\r\nCompile Error in File '" + module.AbsolutePath
                 + "', Line 1 : Variable not defined\r\nBuild of 'P.exe' failed.\r\n";
 
-        var found = Vb6ToolchainService.ParseForTests(log, project);
+        var found = Vb6Toolchain.ParseForTests(log, project);
 
         found.Should().ContainSingle();
         found[0].diagnostic.Message.Should().Be("Variable not defined");
@@ -58,7 +59,7 @@ public class Vb6CompileLogTests
     {
         var (project, _) = AModuleWith("Sub Main()\r\nEnd Sub\r\n");
 
-        Vb6ToolchainService.ParseForTests("\r\nBuild of 'P.exe' succeeded.\r\n", project)
+        Vb6Toolchain.ParseForTests("\r\nBuild of 'P.exe' succeeded.\r\n", project)
             .Should().BeEmpty();
     }
 
@@ -70,7 +71,7 @@ public class Vb6CompileLogTests
         var (project, module) = AModuleWith("Dim\r\n");
         var log = $"\r\nCompile Error in File '{module.AbsolutePath}', Line 0 : Expected: expression\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Message
+        Vb6Toolchain.ParseForTests(log, project)[0].diagnostic.Message
             .Should().Be("Expected: expression");
     }
 
@@ -90,7 +91,7 @@ public class Vb6CompileLogTests
 
         var log = $"\r\nCompile Error in File '{awkward}', Line 0 : Syntax error\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project).Should().ContainSingle()
+        Vb6Toolchain.ParseForTests(log, project).Should().ContainSingle()
             .Which.uri.Should().Be(LspDocumentUri.ForFile(awkward));
     }
 
@@ -101,7 +102,7 @@ public class Vb6CompileLogTests
         var log = $"\r\nCompile Error in File '{Path.Combine(Dir, "Somewhere", "Else.bas")}', "
                 + "Line 0 : Syntax error\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project).Should().BeEmpty();
+        Vb6Toolchain.ParseForTests(log, project).Should().BeEmpty();
     }
 
     // ── Which document it belongs to ──────────────────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ public class Vb6CompileLogTests
         var (project, module) = AModuleWith("x\r\n", kind, extension);
         var log = $"\r\nCompile Error in File '{module.AbsolutePath}', Line 0 : Syntax error\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project).Should().ContainSingle()
+        Vb6Toolchain.ParseForTests(log, project).Should().ContainSingle()
             .Which.uri.Should().Be(LspDocumentUri.ForFile(module.AbsolutePath!));
     }
 
@@ -137,7 +138,7 @@ public class Vb6CompileLogTests
 
         var log = $"\r\nCompile Error in File '{form.AbsolutePath}', Line 0 : Syntax error\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project).Should().ContainSingle()
+        Vb6Toolchain.ParseForTests(log, project).Should().ContainSingle()
             .Which.uri.Should().Be(LspDocumentUri.ForFile(form.AbsolutePath!));
     }
 
@@ -152,7 +153,7 @@ public class Vb6CompileLogTests
         var (project, module) = AModuleWith("Dim\r\nSub Main()\r\nEnd Sub\r\n");
         var log = $"\r\nCompile Error in File '{module.AbsolutePath}', Line 0 : Expected: expression\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line.Should().Be(1);
+        Vb6Toolchain.ParseForTests(log, project)[0].diagnostic.Range.Start.Line.Should().Be(1);
     }
 
     [Fact]
@@ -181,7 +182,7 @@ public class Vb6CompileLogTests
         project.AddForm(form);
         var log = $"\r\nCompile Error in File '{path}', Line 1 : Expected: expression\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line.Should().Be(8);
+        Vb6Toolchain.ParseForTests(log, project)[0].diagnostic.Range.Start.Line.Should().Be(8);
     }
 
     [Fact]
@@ -200,7 +201,7 @@ public class Vb6CompileLogTests
         // VB6 counts: 0 = "Sub Main()", 1 = "  x = 1" (the Attribute line is not counted).
         var log = $"\r\nCompile Error in File '{module.AbsolutePath}', Line 1 : Variable not defined\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
+        Vb6Toolchain.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
             .Should().Be(3, "buffer line 3 is `  x = 1`, below the module's Attribute VB_Name and the "
                             + "procedure's attribute, neither of which VB6 counted");
     }
@@ -217,7 +218,7 @@ public class Vb6CompileLogTests
         var (project, module) = AModuleWith(code);
         var log = $"Compile Error in File '{module.AbsolutePath}', Line {printedLine} : Variable not defined\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
+        Vb6Toolchain.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
             .Should().Be(9);
     }
 
@@ -228,7 +229,7 @@ public class Vb6CompileLogTests
             + "Attribute Foo.VB_Description = \"p07\"\r\nByVal b As Long)\r\nEnd Sub\r\n");
         var log = $"Compile Error in File '{module.AbsolutePath}', Line 2 : Expected: identifier\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
+        Vb6Toolchain.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
             .Should().Be(3);
     }
 
@@ -240,7 +241,7 @@ public class Vb6CompileLogTests
         var (project, module) = AModuleWith("Sub Main()\r\nEnd Sub\r\n");
         var log = $"\r\nCompile Error in File '{module.AbsolutePath}', Line 99 : Syntax error\r\n";
 
-        var found = Vb6ToolchainService.ParseForTests(log, project);
+        var found = Vb6Toolchain.ParseForTests(log, project);
 
         found.Should().ContainSingle();
         found[0].diagnostic.Range.Start.Line.Should().BeLessThan(99);

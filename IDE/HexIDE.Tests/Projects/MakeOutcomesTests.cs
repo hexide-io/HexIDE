@@ -10,6 +10,7 @@ using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Sidecar;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Projects;
 
@@ -38,16 +39,16 @@ public class MakeOutcomesTests : IDisposable
 
     public void Dispose() => Directory.Delete(ide, true);
 
-    private ProjectService Service() => new(
+    private ProjectService Service() => new ProjectService(
         () => throw new InvalidOperationException(), windows, events, Substitute.For<IProjectManager>(),
         Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
         Substitute.For<IUserSidecarService>(), new FileBaselineStore(), localization,
-        Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create()) { RuntimeDirectory = ide };
+        Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create()).WithMaker(ide);
 
     private void Runner(string content = "the runner")
     {
         Directory.CreateDirectory(Path.Join(ide, "standalone"));
-        File.WriteAllText(Path.Join(ide, "standalone", ProjectService.StandaloneRunnerName()!), content);
+        File.WriteAllText(Path.Join(ide, "standalone", Vb6ProjectMaker.StandaloneRunnerName()!), content);
     }
 
     private static Task Make(ProjectService service) =>
@@ -137,7 +138,7 @@ public class MakeOutcomesTests : IDisposable
         _ = Make(Service());
         var outcome = await Ended(MakeOutcomes.Latest!);
 
-        outcome.WhyNot.Should().Be($"the standalone runner, {ProjectService.StandaloneRunnerName()}, isn't in "
+        outcome.WhyNot.Should().Be($"the standalone runner, {Vb6ProjectMaker.StandaloneRunnerName()}, isn't in "
                                    + $"{Path.Join(ide, "standalone")}, so nothing was written to "
                                    + $"{Path.Join(ide, "Made.exe")}, which the save dialog gave");
         outcome.BoxOpen.Should().BeTrue();

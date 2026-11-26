@@ -298,6 +298,12 @@ public sealed partial class ContributedProjects
     private readonly object _gate = new();
     private readonly List<ContributedProjectType> _types = [];
 
+    /// <summary>
+    /// What makes programs of each type (#5621): File > Make, Make Project Group and the type's own toolchain are offered
+    /// for a project only while a maker for its type is registered here.
+    /// </summary>
+    internal ProjectMakers Makers { get; init; } = new();
+
     /// <summary>Raised when a type is contributed or taken out.</summary>
     public event Action? TypesChanged;
 

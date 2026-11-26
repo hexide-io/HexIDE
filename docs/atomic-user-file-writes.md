@@ -20,9 +20,9 @@ power-loss guarantee for directory metadata on every filesystem.
 | Project saves | `ProjectService.AtomicWriteText`: designer sources (`.frm`, `.ctl`, `.pag`), modules (`.bas`, `.cls`), `.vbp`, `.vbg`; Save As and temporary Make source copies share these paths | Shared flushed writer; baseline recorded only after replacement |
 | twinBASIC source saves | `ArchiveProjectSave.Save`: edited `.twin` sources in a `.twinproj` | Verified in memory and checked against the snapshot's disk bytes before recoverable atomic replacement (#5143); see [editing twinBASIC projects](twinbasic-projects.md) |
 | Companion saves | `ProjectService.AtomicWriteBytes`: `.frx`, `.ctx`, `.pgx` | Shared flushed writer |
-| Package source encoding | `ProjectService.EncodePackageSources`: disposable source copies converted to UTF-8 | Shared flushed writer |
+| Package source encoding | `Vb6ProjectMaker.EncodePackageSources`, the Basic provider's: disposable source copies converted to UTF-8 | Shared flushed writer |
 | Carried-document saves | `RelatedDocumentEditorViewModel.SaveAsync`: arbitrary user-owned text files | Shared flushed writer; dirty state cleared only after replacement |
-| Make archive | `ProjectService.MakeProject`: zipped project beside executable | Shared flushed writer; zip is completed before flushing |
+| Make archive | `Vb6ProjectMaker.Make`, the Basic provider's, called from `ProjectService.MakeProject`: zipped project beside executable | Shared flushed writer; zip is completed before flushing |
 | Make runner | `ProjectService.MakeProject`: standalone executable copied beside archive | Shared flushed writer; copies Unix permissions before replacement |
 | Resource export | `PropertiesToolViewModel`: selected binary property payload | Shared flushed writer |
 | Protocol export | `ProtocolInspectorToolViewModel`: conversation and manifest | Shared flushed writer, separately for each file |
@@ -40,7 +40,7 @@ user-file audit. Compiler workspaces and extracted archives are disposable stagi
 and interpreter `Open`/`Put`/`Print`/`FileCopy` operations retain their language semantics;
 this change makes no claim about them.
 
-`Vb6ToolchainService` stages Standard EXEs without `AutoIncrementVer=1` in a unique
+`Vb6Toolchain`, the Basic provider's, stages Standard EXEs without `AutoIncrementVer=1` in a unique
 child of the existing destination folder, using `/outdir`. A successful build flushes
 the staged exe and renames it over the destination; failures and timeouts discard the
 staging folder. Compiler-written `Path32` is restored through the shared atomic writer,
