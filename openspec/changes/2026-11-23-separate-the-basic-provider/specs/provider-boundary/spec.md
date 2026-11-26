@@ -148,6 +148,30 @@ without the contract (#5749).
 - **WHEN** a control is placed and its class throws saying which library the control is in
 - **THEN** the control is placed and the form's header gains no line
 
+### Requirement: Design positions come only from a granted owner's rules
+The IDE SHALL take the units a control's position is shown and typed in, and the units a Line's endpoints are held in,
+only from the positions service that an owner granted it registered, one at a time, and SHALL contain each call (#5758).
+
+#### Scenario: An owner without the grant registers positions
+- **WHEN** an owner whose grant doesn't cover design positions registers a positions service
+- **THEN** the registration is refused, and positions keep coming from the provider's rules
+
+### Requirement: An unusable answer about positions writes nothing
+A throw from the positions service, or an answer that isn't finite, is a Width or Height below zero, names a unit VB6's
+Properties window doesn't show, or gives a Line unit that isn't above zero, SHALL be logged and SHALL count as no answer.
+Without an answer, a position SHALL be shown as the model holds it, a typed position SHALL be refused with nothing
+changed, and a Line SHALL NOT be moved (#5758).
+
+#### Scenario: The positions service throws
+- **WHEN** the positions service throws while a position is shown, typed in, or a Line is moved
+- **THEN** the position is shown as the model holds it, the typed value is refused and the control keeps its position,
+  and the Line stays where it is
+- **AND** the throw is logged as a warning the first time and at debug after that
+
+#### Scenario: The positions service gives an unusable answer
+- **WHEN** the service answers a typed position with pixels that aren't finite
+- **THEN** the value is refused, the control keeps its position, and the answer is logged
+
 ### Requirement: A granted registration still only adds
 A registration from an owner the grant names SHALL still only add: it SHALL be refused, and logged naming both
 owners, where any key or component it carries is already held by the IDE or another owner, and no grant SHALL
