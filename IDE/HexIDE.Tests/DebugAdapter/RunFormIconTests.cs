@@ -64,7 +64,14 @@ public class RunFormIconTests
         source.Should().NotContain("avares://HexIDE.Standalone/form.ico");
         var engine = File.ReadAllText(Path.Combine(root.FullName, "IDE", "HexIDE.Runtime", "Running", "InterpreterRunEngine.cs"));
         engine.Should().Contain("avares://HexIDE.Runtime/form.ico");
-        engine.Should().NotContain("Distribution", "stock and brands with or without logos share the same run path");
+        // Provider boundary policy, not a VB6 measurement (#5646).
+        foreach (var directory in new[] { "HexIDE.Runtime", "HexIDE.Standalone" })
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(root.FullName, "IDE", directory), "*.cs", SearchOption.AllDirectories))
+        {
+            if (Path.GetRelativePath(root.FullName, file).Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"))
+                continue;
+            File.ReadAllText(file).Should().NotContain("Distribution", $"{file} belongs to the provider, independent of the IDE's brand");
+        }
         using var stream = AssetLoader.Open(new Uri("avares://HexIDE.Runtime/form.ico"));
         new WindowIcon(stream).Should().NotBeNull();
         using var bytes = AssetLoader.Open(new Uri("avares://HexIDE.Runtime/form.ico"));

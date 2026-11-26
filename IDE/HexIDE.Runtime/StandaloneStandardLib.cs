@@ -25,8 +25,8 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     /// </summary>
     /// <remarks>
     /// <c>App.Title</c> is substituted upstream now that the App object exists (#136), so a null reaching
-    /// here means there was no project behind the program at all — a bare interpreter or the headless
-    /// runner. This is the last resort for that case, not the application-name default.
+    /// here means App.Title is empty or absent, including a run with no project behind it.
+    /// The provider passes an empty last resort for that case, as App.Title then is (#5646).
     /// </remarks>
     private readonly string OmittedTitleStandIn;
 
