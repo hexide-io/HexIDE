@@ -35,6 +35,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Corpus/ProjectSmokeHarnessTests.cs` | provider |
 | `Corpus/ProjectSmokeMakeTests.cs` | split |
 | `Corpus/ProjectSmokeResultTests.cs` | provider |
+| `Corpus/ProjectSmokeRunner.cs` | provider |
 | `Corpus/ProjectSmokeRunnerTests.cs` | provider |
 | `Corpus/ProjectSmokeService.cs` | split |
 | `Corpus/ProjectSmokeServiceTests.cs` | split |
