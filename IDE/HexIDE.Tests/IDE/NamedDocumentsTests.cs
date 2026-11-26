@@ -10,7 +10,7 @@ namespace HexIDE.Tests.IDE;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="HexIDE.Tests.ProjectElements.DocumentLookupTests"/> covers the search. These cover what used to live only in the tool bodies, which
+/// <c>DocumentLookupTests</c>, in <c>HexIDE.Runtime.Tests</c>, covers the search. These cover what used to live only in the tool bodies, which
 /// nothing could test: the refusals a caller reads, the carried-file fallback, the designer refusals, and the reverse
 /// lookup that names a server's document for <c>get_diagnostics</c>. Every tool that takes a document's name goes
 /// through this, including the three that did not until this change: <c>set_control_property</c> searched the

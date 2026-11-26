@@ -7,7 +7,7 @@ using HexIDE.Projects;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Runtime.Making;
 
-namespace HexIDE.Tests.Projects;
+namespace HexIDE.Runtime.Integration.Tests;
 
 public sealed class PackageEncodingTests : IDisposable
 {
