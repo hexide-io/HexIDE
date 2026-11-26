@@ -205,6 +205,34 @@ public static class PackageSigner
     public static void SignPublisher(string rootPublicKeyPath, string intermediateKeyPath, string intermediateDir,
         string publisherId, string displayName, string publicKeyPath, string outDir, IReadOnlyList<string>? namespaces = null)
     {
+        var signed = SignRecord(rootPublicKeyPath, intermediateKeyPath, intermediateDir, publisherId, displayName,
+            () =>
+            {
+                using var publisher = ReadKey(publicKeyPath, privateKey: false, "publisher public key");
+                return PackageCrypto.ExportPublicKey(publisher);
+            }, namespaces);
+        Directory.CreateDirectory(outDir);
+        WriteNewFiles(outDir, new Dictionary<string, byte[]>
+        {
+            ["publisher.json"] = signed.Record,
+            ["publisher.sig"] = Encoding.UTF8.GetBytes(signed.Signature),
+        });
+        VerifyWrittenChain(signed, intermediateDir, outDir);
+        Console.WriteLine("Verified publisher record against the intermediate and supplied root public key");
+    }
+
+    /// <summary>A publisher record signed by the intermediate, with the chain it was checked against.</summary>
+    internal sealed record SignedRecord(byte[] Record, string Signature, byte[] Intermediate, string IntermediateSignature,
+        IntermediateRecord IntermediateRecord, string RootPublicKey);
+
+    /// <summary>
+    /// What sign-publisher and issue-publisher share (#5322): every input checked, the intermediate verified against the
+    /// root and matched to its private key, then the record built and signed. Nothing is written. The publisher's public
+    /// key is read last, after the other checks, as sign-publisher always has.
+    /// </summary>
+    internal static SignedRecord SignRecord(string rootPublicKeyPath, string intermediateKeyPath, string intermediateDir,
+        string publisherId, string displayName, Func<string> publisherPublicKey, IReadOnlyList<string>? namespaces)
+    {
         // Issued namespaces bind an add-in's protocol prefixes (#4258): never one core keeps, never one of the wrong shape.
         if (namespaces?.FirstOrDefault(ns => !PublisherNamespaces.IsUsable(ns)) is { } bad)
             throw new ArgumentException($"'{bad}' is not a namespace that can be issued: one is a name followed by '.', "
@@ -227,29 +255,29 @@ public static class PackageSigner
         using var key = ReadKey(intermediateKeyPath, privateKey: true, "intermediate private key");
         if (PackageCrypto.ExportPublicKey(key) != PackageCrypto.ExportPublicKey(interPublic))
             throw new ArgumentException("intermediate private key does not match the intermediate record");
-        using var publisher = ReadKey(publicKeyPath, privateKey: false, "publisher public key");
         var record = new PublisherRecord
         {
             PublisherId = publisherId,
             DisplayName = displayName,
-            PublicKey = PackageCrypto.ExportPublicKey(publisher),
+            PublicKey = publisherPublicKey(),
             IntermediateId = inter.IntermediateId,
             Namespaces = namespaces?.Distinct(StringComparer.Ordinal).ToArray(),
         };
         var bytes = JsonSerializer.SerializeToUtf8Bytes(record, AddinJsonContext.Default.PublisherRecord);
-        var signature = PackageCrypto.Sign(key, bytes);
-        Directory.CreateDirectory(outDir);
-        WriteNewFiles(outDir, new Dictionary<string, byte[]>
-        {
-            ["publisher.json"] = bytes,
-            ["publisher.sig"] = Encoding.UTF8.GetBytes(signature),
-        });
+        return new SignedRecord(bytes, PackageCrypto.Sign(key, bytes), interBytes, interSig, inter,
+            PackageCrypto.ExportPublicKey(root));
+    }
+
+    // Reads back what was written and checks the chain again, so a write that went wrong can't pass for an issued record.
+    internal static void VerifyWrittenChain(SignedRecord signed, string intermediateDir, string outDir)
+    {
+        using var root = PackageCrypto.ImportPublicKey(signed.RootPublicKey);
+        using var interPublic = PackageCrypto.ImportPublicKey(signed.IntermediateRecord.PublicKey);
         if (!PackageCrypto.Verify(root, File.ReadAllBytes(Path.Combine(intermediateDir, "intermediate.json")),
                 File.ReadAllText(Path.Combine(intermediateDir, "intermediate.sig")).Trim())
             || !PackageCrypto.Verify(interPublic, File.ReadAllBytes(Path.Combine(outDir, "publisher.json")),
                 File.ReadAllText(Path.Combine(outDir, "publisher.sig")).Trim()))
             throw new InvalidOperationException("written publisher chain verification failed");
-        Console.WriteLine("Verified publisher record against the intermediate and supplied root public key");
     }
 
     private static void ValidateDisplayName(string displayName)

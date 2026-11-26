@@ -39,16 +39,41 @@ public sealed record PublisherRequest
 [JsonSerializable(typeof(PublisherRequest))]
 internal partial class PublisherRequestJsonContext : JsonSerializerContext;
 
-/// <summary>What <see cref="PublisherRequests.Verify"/> found. A request passes only with no refusals; one checked without a
-/// ledger also lists what that left unchecked.</summary>
+/// <summary>What <see cref="PublisherRequests.Verify(string, RequestCheckContext)"/> found. A request passes only with no
+/// refusals and nothing left unchecked.</summary>
 public sealed record PublisherRequestCheck(IReadOnlyList<string> Refusals, IReadOnlyList<string> NotChecked,
     PublisherRequest? Request, string? Sha256)
 {
     public bool Verified => Refusals.Count == 0;
 
-    /// <summary>A rotation whose previous key nobody compared with the ledger: only its own word says the id is its to
-    /// rotate. Automation must treat this as a failure (exit 3).</summary>
-    public bool RotationUnchecked => Verified && NotChecked.Count > 0;
+    /// <summary>Nothing refused, but something only a person can settle: a rotation checked without the ledger or the
+    /// revocation list, one whose ledger entry has no stored request or a changed handle or address, or a revocation list
+    /// over a week old. Automation must treat this as a failure (exit 3), and issue-publisher signs nothing.</summary>
+    public bool NeedsManualCheck => Verified && NotChecked.Count > 0;
+
+    /// <summary>The verified request's exact bytes and signatures, for issue-publisher to store beside the record without
+    /// reading the files again.</summary>
+    internal byte[]? RequestBytes { get; init; }
+    internal byte[]? Signature { get; init; }
+    internal byte[]? PreviousSignature { get; init; }
+}
+
+/// <summary>What a request is checked against, beyond itself.</summary>
+public sealed record RequestCheckContext
+{
+    /// <summary>The issued records, <c>&lt;id&gt;/</c> each, with <c>retired/&lt;n&gt;/</c> for rotated-out ones.</summary>
+    public string? LedgerDir { get; init; }
+
+    /// <summary>The account that submitted the request, compared with its own ignoring case.</summary>
+    public string? ExpectedGitHub { get; init; }
+
+    /// <summary>The root's public key, as base64 SPKI. With it, every ledger record's chain and stored request is verified.</summary>
+    public string? RootPublicKey { get; init; }
+
+    /// <summary>A revocation list already verified against <see cref="RootPublicKey"/>.</summary>
+    public RevocationList? Revocations { get; init; }
+
+    public DateTimeOffset Now { get; init; } = DateTimeOffset.UtcNow;
 }
 
 public static partial class PublisherRequests
@@ -144,7 +169,17 @@ public static partial class PublisherRequests
     /// <paramref name="ledgerDir"/> (a folder of issued records, <c>&lt;id&gt;/publisher.json</c>), that no other publisher
     /// holds its id, key or namespaces. Never throws for anything the request holds; what is wrong comes back as refusals.
     /// </summary>
-    public static PublisherRequestCheck Verify(string requestDir, string? ledgerDir, string? expectedGitHub)
+    public static PublisherRequestCheck Verify(string requestDir, string? ledgerDir, string? expectedGitHub) =>
+        Verify(requestDir, new RequestCheckContext { LedgerDir = ledgerDir, ExpectedGitHub = expectedGitHub });
+
+    /// <summary>
+    /// Checks a request folder as hostile input, against what <paramref name="context"/> supplies: the ledger (that no
+    /// other publisher holds its id, key or namespaces, and that a rotation replaces the ledger's key for its id and comes
+    /// from whoever asked for it), the root (that every ledger record is genuine) and the revocation list. Never throws for
+    /// anything the request or the ledger holds; what is wrong comes back as refusals, and what only a person can settle
+    /// as <see cref="PublisherRequestCheck.NotChecked"/>.
+    /// </summary>
+    public static PublisherRequestCheck Verify(string requestDir, RequestCheckContext context)
     {
         var refusals = new List<string>();
         var notChecked = new List<string>();
@@ -199,10 +234,10 @@ public static partial class PublisherRequests
             refusals.Add($"a new publisher's request has no {PreviousSignatureFile}");
         }
 
-        if (expectedGitHub is not null && !string.Equals(expectedGitHub, request.GitHub, StringComparison.OrdinalIgnoreCase))
+        if (context.ExpectedGitHub is { } expected && !string.Equals(expected, request.GitHub, StringComparison.OrdinalIgnoreCase))
             refusals.Add("the request's github handle is not the account that submitted it");
 
-        if (ledgerDir is null)
+        if (context.LedgerDir is null)
         {
             if (request.Kind == RotationKind)
                 notChecked.Add("whether previousPublicKey is the key the ledger holds for this id: no --ledger was given, so "
@@ -210,15 +245,63 @@ public static partial class PublisherRequests
         }
         else
         {
-            refusals.AddRange(LedgerRefusals(request, ledgerDir));
+            refusals.AddRange(LedgerRefusals(request, context, notChecked));
         }
+        if (context.Revocations is { } list)
+            RevocationRefusals(request, list, context.Now, refusals, notChecked);
+        else if (request.Kind == RotationKind)
+            notChecked.Add("whether this publisher id is revoked: no revocation list was given");
 
-        return new PublisherRequestCheck(refusals, notChecked, refusals.Count == 0 ? request : null,
-            refusals.Count == 0 ? PackageCrypto.Sha256Hex(bytes) : null);
+        var verified = refusals.Count == 0;
+        return new PublisherRequestCheck(refusals, verified ? notChecked : [], verified ? request : null,
+            verified ? PackageCrypto.Sha256Hex(bytes) : null)
+        {
+            RequestBytes = verified ? bytes : null,
+            Signature = verified ? signatureBytes : null,
+            PreviousSignature = verified ? previousSignatureBytes : null,
+        };
     }
 
-    /// <summary>Prints what verify-request found and returns its exit code: 0 verified, 2 refused, 3 a rotation not
-    /// checked against a ledger. Every line starts with the packer's own words, never with text from the request.</summary>
+    /// <summary>verify-request from its command line: the root and the revocation list read and verified here, so a bad one
+    /// is a refusal (2) like anything else the check finds.</summary>
+    public static int VerifyCommand(string requestDir, string? ledgerDir, string? gitHub, string? rootPath,
+        string? revocationsJson, string? revocationsSig)
+    {
+        if ((revocationsJson is null) != (revocationsSig is null) || (revocationsJson is not null && rootPath is null))
+            throw new ArgumentException("--revocations and --revocations-sig go together, and need --root to verify them");
+        string? root = null;
+        RevocationList? revocations = null;
+        try
+        {
+            if (rootPath is not null)
+            {
+                using var key = PackageCrypto.ImportPublicKey(File.ReadAllText(rootPath).Trim());
+                root = PackageCrypto.ExportPublicKey(key);
+            }
+            if (revocationsJson is not null)
+            {
+                var bytes = File.ReadAllBytes(revocationsJson);
+                using var key = PackageCrypto.ImportPublicKey(root!);
+                revocations = PackageCrypto.Verify(key, bytes, File.ReadAllText(revocationsSig!).Trim())
+                    ? JsonSerializer.Deserialize(bytes, RevocationJsonContext.Default.RevocationList) : null;
+                if (revocations is null)
+                    return Report(new PublisherRequestCheck(["the revocation list doesn't verify against the root, or doesn't parse"],
+                        [], null, null));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException
+            or CryptographicException or JsonException)
+        {
+            return Report(new PublisherRequestCheck(["the root or the revocation list can't be read"], [], null, null));
+        }
+        return Report(Verify(requestDir, new RequestCheckContext
+        {
+            LedgerDir = ledgerDir, ExpectedGitHub = gitHub, RootPublicKey = root, Revocations = revocations,
+        }));
+    }
+
+    /// <summary>Prints what verify-request found and returns its exit code: 0 verified, 2 refused, 3 verified but needing a
+    /// person's check (<see cref="PublisherRequestCheck.NeedsManualCheck"/>). Every line starts with the packer's own words, never with text from the request.</summary>
     public static int Report(PublisherRequestCheck check)
     {
         if (!check.Verified)
@@ -240,7 +323,7 @@ public static partial class PublisherRequests
         Console.WriteLine("  Request SHA-256: " + check.Sha256);
         foreach (var gap in check.NotChecked)
             Console.WriteLine("Not checked: " + gap);
-        return check.RotationUnchecked ? 3 : 0;
+        return check.NeedsManualCheck ? 3 : 0;
     }
 
     /// <summary>Tells the publisher what request-publisher wrote and what to do with it.</summary>
@@ -298,38 +381,28 @@ public static partial class PublisherRequests
         return refusals;
     }
 
+    // ── The ledger ───────────────────────────────────────────────
+    // publishers/<id>/ holds the live record (four chain files, the request it was issued from, a receipt), and retired/<n>/
+    // the records a rotation replaced, n = 1, 2, 3 and so on. Every key and id in it is held forever (#5322).
+
+    private sealed record LedgerRecord(PublisherRecord Record, string Key, PublisherRequest? Request);
+
+    private sealed record LedgerEntry(string Id, LedgerRecord Live, IReadOnlyList<LedgerRecord> Retired)
+    {
+        public IEnumerable<LedgerRecord> All => [Live, .. Retired];
+    }
+
     // Uniqueness against the issued records. A request never names a path here: every entry is enumerated, and one that
-    // can't be read refuses, since what it holds can't be ruled out.
-    private static List<string> LedgerRefusals(PublisherRequest r, string ledgerDir)
+    // can't be read, or with a root, doesn't verify, refuses, since what it holds can't be ruled out.
+    private static List<string> LedgerRefusals(PublisherRequest r, RequestCheckContext context, List<string> notChecked)
     {
         var refusals = new List<string>();
-        var records = new List<(PublisherRecord Record, string Key)>();
+        var entries = new List<LedgerEntry>();
         try
         {
-            foreach (var entry in Directory.EnumerateDirectories(ledgerDir))
-            {
-                var name = Path.GetFileName(entry);
-                var path = Path.Combine(entry, "publisher.json");
-                if (new DirectoryInfo(entry).LinkTarget is not null || !File.Exists(path) || new FileInfo(path).LinkTarget is not null)
-                {
-                    refusals.Add($"the ledger entry '{Printable(name)}' has no publisher.json of its own");
-                    continue;
-                }
-                PublisherRecord? record = null;
-                string? key = null;
-                try
-                {
-                    record = JsonSerializer.Deserialize(File.ReadAllBytes(path), AddinJsonContext.Default.PublisherRecord);
-                    key = record is null ? null : CanonicalKey(record.PublicKey);
-                }
-                catch (Exception ex) when (ex is JsonException or FormatException or CryptographicException)
-                {
-                }
-                if (record is null || key is null)
-                    refusals.Add($"the ledger entry '{Printable(name)}' doesn't parse as a publisher record");
-                else
-                    records.Add((record, key));
-            }
+            foreach (var folder in Directory.EnumerateDirectories(context.LedgerDir!))
+                if (ReadEntry(folder, context.RootPublicKey, refusals) is { } entry)
+                    entries.Add(entry);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -338,25 +411,178 @@ public static partial class PublisherRequests
         }
         if (refusals.Count > 0)
             return refusals;
+        if (entries.GroupBy(e => e.Id, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() > 1))
+            return ["the ledger has two entries for one publisher id"];
 
-        var same = records.Where(e => string.Equals(e.Record.PublisherId, r.PublisherId, StringComparison.OrdinalIgnoreCase)).ToList();
+        var same = entries.Where(e => string.Equals(e.Id, r.PublisherId, StringComparison.OrdinalIgnoreCase)).ToList();
         if (r.Kind == NewKind && same.Count > 0)
-            refusals.Add("the ledger already has a publisher with this id; a new key for it is a rotation");
+            refusals.Add("the ledger already has a publisher with this id; an id is never issued twice, and a new key for "
+                + "it is a rotation");
         if (r.Kind == RotationKind)
         {
             if (same.Count != 1)
-                refusals.Add("a rotation needs exactly one ledger record for this id");
-            else if (same[0].Key != r.PreviousPublicKey)
+                refusals.Add("a rotation needs a ledger entry for this id");
+            else if (same[0].Live.Key != r.PreviousPublicKey)
                 refusals.Add("previousPublicKey is not the key the ledger holds for this id");
+            else if (same[0].Live.Request is not { } issuedFrom)
+                notChecked.Add("who asked for this id: its ledger entry has no stored request, so the rotation must be "
+                    + "checked by hand");
+            else if (!string.Equals(issuedFrom.GitHub, r.GitHub, StringComparison.OrdinalIgnoreCase)
+                     || !string.Equals(issuedFrom.FingerprintUrl, r.FingerprintUrl, StringComparison.Ordinal))
+                notChecked.Add("whether the same publisher is asking: the github handle or fingerprintUrl differs from the "
+                    + "request this id was issued from, so the rotation must be checked by hand");
         }
-        if (records.Any(e => e.Key == r.PublicKey))
-            refusals.Add("the ledger already has a publisher with this key; one key can't serve two records, because "
+        if (entries.SelectMany(e => e.All).Any(record => record.Key == r.PublicKey))
+            refusals.Add("the ledger already holds this key, now or retired; one key never serves two records, because "
                 + "revoking one id couldn't separate them");
-        foreach (var other in records.Where(e => !same.Contains(e)))
-            foreach (var held in other.Record.Namespaces ?? [])
+        foreach (var other in entries.Where(e => !same.Contains(e)))
+            foreach (var held in other.All.SelectMany(record => record.Record.Namespaces ?? []))
                 if (r.Namespaces.FirstOrDefault(ns => Overlaps(ns, held)) is { } clash)
                     refusals.Add($"the namespace '{clash}' overlaps one another publisher holds");
-        return refusals;
+        return [.. refusals.Distinct(StringComparer.Ordinal)];
+    }
+
+    private static LedgerEntry? ReadEntry(string folder, string? rootPublicKey, List<string> refusals)
+    {
+        var name = Printable(Path.GetFileName(folder));
+        if (new DirectoryInfo(folder).LinkTarget is not null)
+        {
+            refusals.Add($"the ledger entry '{name}' is a link");
+            return null;
+        }
+        if (ReadRecord(folder, rootPublicKey, $"the ledger entry '{name}'", refusals) is not { } live)
+            return null;
+
+        var retired = new List<LedgerRecord>();
+        var retiredDir = Path.Combine(folder, "retired");
+        if (Directory.Exists(retiredDir) || File.Exists(retiredDir))
+        {
+            if (new DirectoryInfo(retiredDir).LinkTarget is not null || File.Exists(retiredDir))
+            {
+                refusals.Add($"the ledger entry '{name}' has a retired that isn't a folder of its own");
+                return null;
+            }
+            // retired/1, retired/2 and so on, with no gap, no duplicate and nothing else.
+            var numbered = Directory.EnumerateFileSystemEntries(retiredDir).Select(Path.GetFileName).ToList();
+            var expected = Enumerable.Range(1, numbered.Count).Select(n => n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (!numbered.Order(StringComparer.Ordinal).SequenceEqual(expected.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+            {
+                refusals.Add($"the ledger entry '{name}' has retired records that aren't numbered 1, 2, 3 and so on");
+                return null;
+            }
+            for (var n = 1; n <= numbered.Count; n++)
+            {
+                var path = Path.Combine(retiredDir, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                if (!Directory.Exists(path) || new DirectoryInfo(path).LinkTarget is not null)
+                {
+                    refusals.Add($"the ledger entry '{name}' has a retired record {n} that isn't a folder of its own");
+                    return null;
+                }
+                if (ReadRecord(path, rootPublicKey, $"retired record {n} of the ledger entry '{name}'", refusals) is not { } old)
+                    return null;
+                if (!string.Equals(old.Record.PublisherId, live.Record.PublisherId, StringComparison.Ordinal))
+                {
+                    refusals.Add($"retired record {n} of the ledger entry '{name}' is for another publisher id");
+                    return null;
+                }
+                retired.Add(old);
+            }
+        }
+        return new LedgerEntry(live.Record.PublisherId, live, retired);
+    }
+
+    // One issued record: publisher.json, and with a root its whole chain, and the request it was issued from when stored.
+    // A stored request counts only if it is the very request: canonical, signed under the record's key, with the record's
+    // id and, byte for byte, the record's key.
+    private static LedgerRecord? ReadRecord(string folder, string? rootPublicKey, string label, List<string> refusals)
+    {
+        LedgerRecord? Refuse(string reason)
+        {
+            refusals.Add($"{label} {reason}");
+            return null;
+        }
+        if (ReadBounded(folder, "publisher.json", MaxRequestBytes, out var recordBytes) is not null)
+            return Refuse("has no readable publisher.json of its own");
+        PublisherRecord? record;
+        try { record = JsonSerializer.Deserialize(recordBytes, AddinJsonContext.Default.PublisherRecord); }
+        catch (JsonException) { record = null; }
+        if (record is null || CanonicalKey(record.PublicKey) is not { } key || !Addins.PublisherId.IsValid(record.PublisherId))
+            return Refuse("doesn't parse as a publisher record");
+
+        if (rootPublicKey is not null && ChainRefusal(folder, rootPublicKey, record, recordBytes) is { } broken)
+            return Refuse(broken);
+
+        PublisherRequest? issuedFrom = null;
+        if (File.Exists(Path.Combine(folder, RequestFile)) || File.Exists(Path.Combine(folder, SignatureFile)))
+        {
+            if (ReadBounded(folder, RequestFile, MaxRequestBytes, out var requestBytes) is { } noRequest)
+                return Refuse("has a stored request that can't be read: " + noRequest);
+            if (ReadBounded(folder, SignatureFile, MaxSignatureBytes, out var signature) is { } noSignature)
+                return Refuse("has a stored request that can't be read: " + noSignature);
+            try { issuedFrom = JsonSerializer.Deserialize(requestBytes, PublisherRequestJsonContext.Default.PublisherRequest); }
+            catch (JsonException) { issuedFrom = null; }
+            using var recordKey = PackageCrypto.ImportPublicKey(key);
+            if (issuedFrom is null || FieldRefusals(issuedFrom).Count > 0
+                || !requestBytes.AsSpan().SequenceEqual(Canonical(issuedFrom))
+                || !string.Equals(issuedFrom.PublisherId, record.PublisherId, StringComparison.Ordinal)
+                || !string.Equals(issuedFrom.PublicKey, record.PublicKey, StringComparison.Ordinal)
+                || !PackageCrypto.Verify(recordKey, SignedBytes(requestBytes), Encoding.ASCII.GetString(signature).Trim()))
+                return Refuse("has a stored request that isn't the one its record was issued from");
+        }
+        return new LedgerRecord(record, key, issuedFrom);
+    }
+
+    // The record's chain under the root: intermediate.json signed by the root, publisher.json by that intermediate, naming it.
+    private static string? ChainRefusal(string folder, string rootPublicKey, PublisherRecord record, byte[] recordBytes)
+    {
+        if (ReadBounded(folder, "publisher.sig", MaxSignatureBytes, out var recordSignature) is not null
+            || ReadBounded(folder, "intermediate.json", MaxRequestBytes, out var interBytes) is not null
+            || ReadBounded(folder, "intermediate.sig", MaxSignatureBytes, out var interSignature) is not null)
+            return "is missing a chain file (publisher.sig, intermediate.json or intermediate.sig)";
+        try
+        {
+            using var root = PackageCrypto.ImportPublicKey(rootPublicKey);
+            if (!PackageCrypto.Verify(root, interBytes, Encoding.ASCII.GetString(interSignature).Trim()))
+                return "has an intermediate the root didn't sign";
+            var inter = JsonSerializer.Deserialize(interBytes, AddinJsonContext.Default.IntermediateRecord);
+            if (inter is null || CanonicalKey(inter.PublicKey) is null)
+                return "has an intermediate.json that doesn't parse";
+            using var interKey = PackageCrypto.ImportPublicKey(inter.PublicKey);
+            if (!PackageCrypto.Verify(interKey, recordBytes, Encoding.ASCII.GetString(recordSignature).Trim()))
+                return "has a publisher record its intermediate didn't sign";
+            if (!string.Equals(record.IntermediateId, inter.IntermediateId, StringComparison.Ordinal))
+                return "has a publisher record that names another intermediate";
+            return null;
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException or CryptographicException)
+        {
+            return "has a chain that doesn't parse";
+        }
+    }
+
+    // ── The revocation list ──────────────────────────────────────
+
+    /// <summary>A revocation list issued longer ago than this may miss a recent revocation, so a check that relies on it
+    /// is left to a person (#5322).</summary>
+    public static readonly TimeSpan RevocationListMaxAge = TimeSpan.FromDays(7);
+
+    private static void RevocationRefusals(PublisherRequest r, RevocationList list, DateTimeOffset now,
+        List<string> refusals, List<string> notChecked)
+    {
+        if (!DateTimeOffset.TryParse(list.IssuedUtc, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var issued))
+        {
+            refusals.Add("the revocation list has no issue time it can be judged by");
+            return;
+        }
+        if (now - issued > RevocationListMaxAge)
+            notChecked.Add($"whether a revocation since {issued.UtcDateTime:yyyy-MM-dd} applies: the revocation list is more "
+                + $"than {RevocationListMaxAge.TotalDays:0} days old, so confirm by hand that it is the current one");
+        // A rotation away from a revoked publisher is never automatic. The list can't name a key yet, so a request whose new
+        // key is revoked can't be caught here until #5315 adds key fingerprints to it.
+        if (r.Kind == RotationKind && list.Revoked.PublisherIds.Contains(r.PublisherId, StringComparer.OrdinalIgnoreCase))
+            refusals.Add("the revocation list names this publisher id; a rotation away from a revoked publisher is "
+                + "handled by hand");
     }
 
     // One namespace inside another, ignoring case: either publisher's add-ins could then claim the deeper prefix.

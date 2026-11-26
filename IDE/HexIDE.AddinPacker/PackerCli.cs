@@ -18,7 +18,9 @@ public static class PackerCli
             Console.Error.WriteLine("       sign-revocations --in .. --root-key .. --out .. | verify-revocations --json .. --sig .. --root ..");
             Console.Error.WriteLine("       request-publisher --publisher-id .. --display-name .. --github .. --fingerprint-url .. (--new-key .. | --key ..)");
             Console.Error.WriteLine("         --out .. [--namespaces acme.,..] [--previous-key ..]");
-            Console.Error.WriteLine("       verify-request --request .. [--ledger ..] [--github ..]");
+            Console.Error.WriteLine("       verify-request --request .. [--ledger ..] [--github ..] [--root ..] [--revocations .. --revocations-sig ..]");
+            Console.Error.WriteLine("       issue-publisher --request .. --approved-sha256 .. --root-public-key .. --intermediate-key ..");
+            Console.Error.WriteLine("         --intermediate .. --ledger .. --out .. [--revocations .. --revocations-sig ..]");
             return 1;
         }
 
@@ -91,9 +93,36 @@ public static class PackerCli
                 case "verify-request":
                     // Keyless, and hostile input: #5323's Action runs it on a request pasted into an issue, and #5322 runs it
                     // again where the intermediate key is. 2 means refused; 3 means a rotation nobody checked against the ledger.
-                    var vq = Options(args, ["request"], ["ledger", "github"]);
-                    return PublisherRequests.Report(PublisherRequests.Verify(Required(vq, "request"), Optional(vq, "ledger"),
-                        Optional(vq, "github")));
+                    var vq = Options(args, ["request"], ["ledger", "github", "root", "revocations", "revocations-sig"]);
+                    return PublisherRequests.VerifyCommand(Required(vq, "request"), Optional(vq, "ledger"), Optional(vq, "github"),
+                        Optional(vq, "root"), Optional(vq, "revocations"), Optional(vq, "revocations-sig"));
+
+                case "issue-publisher":
+                    // Offline, where the intermediate key is. It asks for the publisher id to be typed back, so piped input
+                    // is refused: nothing may answer for the maintainer (#5322).
+                    var iq = Options(args, ["request", "approved-sha256", "root-public-key", "intermediate-key", "intermediate",
+                        "ledger", "out"], ["revocations", "revocations-sig"]);
+                    if (Console.IsInputRedirected)
+                    {
+                        Console.Error.WriteLine("Refused: issue-publisher asks for the publisher id to be typed back, and its "
+                            + "input isn't a terminal");
+                        return 2;
+                    }
+                    var issued = PublisherIssuer.Issue(new IssueRequest
+                    {
+                        RequestDir = Required(iq, "request"),
+                        ApprovedSha256 = Required(iq, "approved-sha256"),
+                        RootPublicKeyPath = Required(iq, "root-public-key"),
+                        IntermediateKeyPath = Required(iq, "intermediate-key"),
+                        IntermediateDir = Required(iq, "intermediate"),
+                        LedgerDir = Required(iq, "ledger"),
+                        OutDir = Required(iq, "out"),
+                        RevocationsJson = Optional(iq, "revocations"),
+                        RevocationsSig = Optional(iq, "revocations-sig"),
+                    }, Console.ReadLine, Console.Out);
+                    foreach (var reason in issued.Reasons)
+                        Console.Error.WriteLine((issued.ExitCode == 3 ? "Check by hand: " : "Refused: ") + reason);
+                    return issued.ExitCode;
 
                 case "pack":
                     var o = ParseOptions(args.AsSpan(1));

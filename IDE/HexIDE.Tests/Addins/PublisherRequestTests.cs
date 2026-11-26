@@ -81,7 +81,7 @@ public sealed class PublisherRequestTests : IDisposable
 
         var check = Verify(In("request"));
         check.Verified.Should().BeTrue();
-        check.RotationUnchecked.Should().BeFalse();
+        check.NeedsManualCheck.Should().BeFalse();
     }
 
     [Fact]
@@ -284,8 +284,9 @@ public sealed class PublisherRequestTests : IDisposable
         var check = Verify(In("request"));
 
         check.Verified.Should().BeTrue();
-        check.RotationUnchecked.Should().BeTrue();
-        check.NotChecked.Should().ContainSingle().Which.Should().Contain("previousPublicKey");
+        check.NeedsManualCheck.Should().BeTrue();
+        check.NotChecked.Should().Contain(gap => gap.Contains("previousPublicKey"))
+            .And.Contain(gap => gap.Contains("revocation list"), "nor was the revocation list given (#5322)");
         File.Exists(In("request", "request.prev.sig")).Should().BeTrue();
     }
 
@@ -301,7 +302,8 @@ public sealed class PublisherRequestTests : IDisposable
         var check = Verify(In("request"), In("ledger"));
 
         check.Verified.Should().Be(accepted);
-        check.RotationUnchecked.Should().BeFalse();
+        check.NeedsManualCheck.Should().Be(accepted,
+            "the entry has no stored request and no revocation list was given, so only a person can settle the rotation");
     }
 
     [Fact]
