@@ -27,7 +27,7 @@ public class ProjectFileClassifierFormatTests
     public void Classification_uses_the_formats_extensions(bool custom, string path, ProjectFileKind expected)
     {
         var format = custom
-            ? (IProjectFileFormat)new ProjectFileFormatSeamTests.StandInFormat { FormExtension = "xfrm", ClassExtension = "xcls" }
+            ? (IProjectFileFormat)new StandInFormat { FormExtension = "xfrm", ClassExtension = "xcls" }
             : new Vb6ProjectFileFormat();
 
         ProjectFileClassifier.Classify(path, format).Should().Be(expected);
