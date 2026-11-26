@@ -193,6 +193,10 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     the VB6 form reader both read it.
   - **The second puts the preview and the carried-controls rule on the run engine,** as an optional
     `IDesignerRunEngine`, public and unbaselined as `IRunEngine` is, forwarded with the engine's containment (#5645).
+- **Where a double-clicked control goes (2.4f-3, #5681).** An optional component-class contract,
+  `IDesignerAddedPlacement`, gives the bounds a double-clicked control takes and whether Align to Grid moves it, as add-in
+  API. The Basic provider's StatusBar, FlatScrollBar and ImageList answer through it. The designer contains it as it does
+  2.4e-1's contracts, and bounds it can't place and save answer as a class without the contract.
 - **The picture decoders get a product assembly of their own (2.5b, #5474),** which the IDE, the provider and
   `HexIDE.Standalone` reference.
   - After phase 4 it stays in HexIDE and is consumed by HexIDE.Basic as Core is, so a decoder fix ships in HexIDE's

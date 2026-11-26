@@ -1,12 +1,13 @@
 using Avalonia.Controls;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Serialization;
 using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components.InBox;
 
 // Saved own properties stay verbatim, as for RichTextBox (#1097).
-public sealed class FlatScrollBarComponentClass : InBoxComponentClass
+public sealed class FlatScrollBarComponentClass : InBoxComponentClass, IDesignerAddedPlacement
 {
     private FlatScrollBarComponentClass() : base([TabIndexProperty, ToolTipTextProperty], [],
         [ScrollBarComponentClass.ChangeEvent, ScrollEvent]) { }
@@ -17,6 +18,17 @@ public sealed class FlatScrollBarComponentClass : InBoxComponentClass
     public override string ControlClassName => "FlatScrollBar";
     public override RuntimeLibrary Library => ControlLibraries.MSComCtl2;
     public override (int Width, int Height) AddedSize => (1500, 255);
+
+    /// <summary>
+    /// VB6 centres the 1500 x 255 control as if it were 750 twips high (#1097). It's worked in whole twips, the form's
+    /// half-width and half-height truncated, as the designer worked it before this moved here (#5681).
+    /// </summary>
+    public DesignerBounds? AddedBounds(double formWidth, double formHeight) =>
+        new DesignerBounds(Pixels(Twips(formWidth) / 2 - 750), Pixels(Twips(formHeight) / 2 - 375), 100, 17);
+
+    private static long Twips(double pixels) => (long)Math.Round(pixels * VBScaleModeExtensions.PixelToTwips);
+
+    private static double Pixels(long twips) => twips / (double)VBScaleModeExtensions.PixelToTwips;
     public override (int X, int Y) DefaultExtent => (2646, 450);
     public override IReadOnlyList<InBoxMember> Members { get; } =
     [
