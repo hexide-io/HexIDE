@@ -179,9 +179,13 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
     // one carries none, so we show why; a revoked one keeps its (still-valid) chain plus a revoked banner.
     private TrustChainViewModel BuildTrustChain(AddinInfo info, AddinStatus status)
     {
+        // A chain that verifies only under the root the package carries says which root, whatever developer mode did
+        // with it: the package is still unverified (#5316).
         var unavailable = info.Chain is null
             ? status switch
             {
+                AddinStatus.DeveloperUnsigned or AddinStatus.Untrusted when info.UnrecognisedRootFingerprint is { } root =>
+                    string.Format(Text("TrustUnrecognisedRoot"), root),
                 AddinStatus.DeveloperUnsigned => Text("TrustUnsigned"),
                 AddinStatus.Untrusted => Text("TrustUnverified"),
                 _ => null,

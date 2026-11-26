@@ -50,12 +50,36 @@ revocations is signed by the HexIDE root, and HexIDE checks that signature befor
 
 ## For third-party publishers
 
-Request a publisher record from the HexIDE maintainer through the repository's issue tracker. Send
-only your **public key** (base64 ECDSA P-256 SubjectPublicKeyInfo), your publisher id and display name.
-Never send your private key. Publisher and intermediate ids are 3–64 characters matching
-`^[a-z0-9]+([.-][a-z0-9]+)*$`: lowercase letters and digits in parts joined by single dots or hyphens.
-Display names must be trimmed, non-empty, at most 128 characters, and contain no control characters or
-invisible format characters (such as a right-to-left override), which could make one name read as another.
+To get a publisher record, make a signed request with the add-in packer:
+
+```sh
+request-publisher --publisher-id <id> --display-name <name> --github <handle> --fingerprint-url <https url>
+                  --new-key <dir> --out <dir> [--namespaces <a.,b.>]
+```
+
+- **`--new-key <dir>`** makes your private key, as `<id>.key` in that folder, readable only by you where the system
+  supports it. Keep it out of anything you publish or commit, and keep a backup: nobody can recover it. To use a key you
+  already have, give `--key <file>` instead.
+- **The request is `request.json` and `request.sig`,** written to `--out`. The request holds your public key, and the
+  signature proves you hold the private key that goes with it. The command prints the key's fingerprint and the
+  request's SHA-256.
+- **Publish the fingerprint at `--fingerprint-url`,** an https address on your own site. That shows the request comes
+  from whoever controls that site.
+- **Check a request** with `verify-request --request <dir>`. It needs no private key, and it is the same check the
+  maintainer runs.
+- **Submit** `request.json` and `request.sig` through the HexIDE repository's issue tracker, from the GitHub account the
+  request names. A request form in `hexide-io/HexIDE.Publishers` will replace this (#5323). Everything you submit is
+  public. Never send your private key.
+- **To replace your key** under an id you already hold, add `--previous-key <file>` with the key it replaces. The request
+  is then signed with both keys.
+
+**The rules each field must meet:**
+- **Ids** are 3–64 characters matching `^[a-z0-9]+([.-][a-z0-9]+)*$`: lowercase letters and digits in parts joined by
+  single dots or hyphens.
+- **Display names** must be trimmed, non-empty, at most 128 characters, and contain no control characters or invisible
+  format characters (such as a right-to-left override), which could make one name read as another.
+- **Namespaces** are names followed by `.`, such as `acme.`. They are the prefixes your add-ins' commands and messages
+  may use. No two publishers hold overlapping namespaces, and `hexide.` is HexIDE's own.
 
 The maintainer issues the record offline with the add-in packer:
 
@@ -65,17 +89,24 @@ sign-publisher --root-public-key <file> --intermediate-key <file> --intermediate
 
 The command verifies the intermediate against the supplied root and refuses a mismatched intermediate
 private key or existing output files. It writes `publisher.json` and `publisher.sig`, then verifies the
-written chain. The maintainer returns these two files and the public `intermediate.json` and
-`intermediate.sig` chain files. Issuance requires maintainer review; no marketplace service is implied.
+written chain. The maintainer returns these two files, the public `intermediate.json` and `intermediate.sig` chain
+files, and `hexide-root.pub`, the root they chain to. Issuance requires maintainer review; no marketplace service is
+implied.
 The root supplied during issuance must be the root trusted by the intended HexIDE build.
 
 `hexide-pack`, built from `IDE/HexIDE.AddinPacker.Interactive`, runs every packer command and asks for any option
 you leave out, so `hexide-pack pack` walks you through signing an add-in.
 
-Put those four public chain files in your `pack --trust <dir>` directory, and give your private signing key with
+Put those five public files in your `pack --trust <dir>` directory, and give your private signing key with
 `pack --key <file>`, wherever you keep it. Keep the key out of any folder you publish or commit. `pack` refuses a key
 that isn't the one your `publisher.json` names, and a key named among the files to bundle. Without `--key`, `pack`
 reads `firstparty.key` from the trust folder; that filename does not grant first-party status.
+
+Every package carries its root's public key as `root.pub`, and `pack` refuses a `hexide-root.pub` that didn't sign the
+intermediate. A HexIDE that doesn't trust that root still refuses the add-in, as before. It now says the add-in was
+signed under a root it doesn't carry, and shows that root's fingerprint, so a user can compare it with the
+[canonical fingerprints](#canonical-fingerprints) a newer release publishes. HexIDE shows the fingerprint only when the
+add-in's chain really verifies under that key, and never trusts it.
 
 Publish your add-in signing key's fingerprint somewhere users already trust you (your website, repo, or
 release notes). A user can then compare it against the **Publisher** row in HexIDE's trust inspector.

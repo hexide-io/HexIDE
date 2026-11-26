@@ -30,6 +30,10 @@ public enum OptionKind
     KeyFolder,
     /// <summary>One of <see cref="PackerCommands.Capabilities"/>.</summary>
     Capability,
+    /// <summary>A publisher's existing private key file, checked for existence only and never opened here. It is the
+    /// other choice to <c>--new-key</c>: it can be skipped only when that was answered, and refused when it was
+    /// (<see cref="AnswerChecks.NeededWhenSkipped"/>).</summary>
+    PublisherKey,
 }
 
 /// <summary>One option of a packer command. <see cref="Positional"/> marks <c>genkeys</c>' bare folder argument.</summary>
@@ -56,7 +60,7 @@ public static class PackerCommands
     /// <summary>The public chain files <c>pack --trust</c> reads, by name. Its key is <c>firstparty.key</c> there too,
     /// unless <c>--key</c> names one elsewhere (#5318).</summary>
     public static readonly IReadOnlyList<string> TrustFiles =
-        ["publisher.json", "publisher.sig", "intermediate.json", "intermediate.sig"];
+        ["hexide-root.pub", "publisher.json", "publisher.sig", "intermediate.json", "intermediate.sig"];
 
     public static readonly IReadOnlyList<PackerCommand> All =
     [
@@ -69,7 +73,7 @@ public static class PackerCommands
             new("title", OptionKind.Text, "the add-in's name, as users see it", Required: true),
             new("version", OptionKind.Text, "the add-in's version, such as 1.0.0", Required: true),
             new("trust", OptionKind.TrustFolder,
-                "your trust folder: publisher.json/.sig and intermediate.json/.sig", Required: true),
+                "your trust folder: hexide-root.pub, publisher.json/.sig and intermediate.json/.sig", Required: true),
             new("key", OptionKind.SigningKey,
                 "your private publisher key; Enter uses firstparty.key in the trust folder"),
             new("out", OptionKind.OutputFolder, "where to write the signed package", Required: true),
@@ -80,6 +84,26 @@ public static class PackerCommands
                 Repeatable: true),
             new("logo", OptionKind.FileInSource, "a PNG logo inside --src"),
             new("min-hexide-version", OptionKind.HexideVersion, "the oldest HexIDE the add-in runs on, such as 0.7.0"),
+        ]),
+        new("request-publisher", "Ask for a publisher record: make or use your key, and write a request signed with it.",
+        [
+            new("publisher-id", OptionKind.PublisherId, "the id you're asking for, such as acme.tools", Required: true),
+            new("display-name", OptionKind.DisplayName, "your name, as users will see it", Required: true),
+            new("github", OptionKind.Text, "your GitHub handle, the account that will submit the request", Required: true),
+            new("fingerprint-url", OptionKind.Text,
+                "an https address on your own site where you'll publish the key's fingerprint", Required: true),
+            new("new-key", OptionKind.KeyFolder, "where to write a new private key; Enter to use a key you already have"),
+            new("key", OptionKind.PublisherKey, "your existing private key file, when you didn't ask for a new one"),
+            new("out", OptionKind.OutputFolder, "where to write request.json and request.sig", Required: true),
+            new("namespaces", OptionKind.Namespaces, "the namespaces you're asking for, comma-separated, such as acme."),
+            new("previous-key", OptionKind.ExistingFile,
+                "for a new key under an id you already hold: the private key it replaces"),
+        ]),
+        new("verify-request", "Check a publisher request: its form, its signatures and, with a ledger, that it's unique.",
+        [
+            new("request", OptionKind.ExistingFolder, "the folder holding request.json and request.sig", Required: true),
+            new("ledger", OptionKind.ExistingFolder, "the issued records, one folder per publisher id"),
+            new("github", OptionKind.Text, "the GitHub handle that submitted the request, to compare with its own"),
         ]),
         new("sign-publisher", "Issue a publisher record: sign a publisher's public key with the intermediate key.",
         [

@@ -27,6 +27,34 @@ dotnet run --project IDE/HexIDE.AddinPacker.Interactive/ -- pack
 Spectre.Console, which draws the prompts, is a package of `hexide-pack` only. This project takes no packages, because
 the release's signing job runs it next to the first-party key.
 
+## Requesting a publisher record
+
+`request-publisher` makes a publisher's signed request for a record (#5321), and `verify-request` checks one. TRUST.md
+says how a publisher uses them.
+
+```sh
+request-publisher --publisher-id <id> --display-name <name> --github <handle> --fingerprint-url <https url>
+                  (--new-key <dir> | --key <file>) --out <dir> [--namespaces <a.,b.>] [--previous-key <file>]
+verify-request --request <dir> [--ledger <dir>] [--github <handle>]
+```
+
+- **The request is `request.json`, one canonical line of ASCII.** The maintainer approves its SHA-256, so
+  `verify-request` refuses any other form of the same content: whitespace, reordered or repeated fields, a byte-order
+  mark, or an unknown field.
+- **Every signature covers `hexide-publisher-request-v1` and a newline, then the request's bytes.** So a request signature
+  can never pass for a manifest's or a record's, nor theirs for a request's.
+- **A rotation is signed twice,** with the new key in `request.sig` and the key it replaces in `request.prev.sig`. Both
+  sign the same bytes, which hold the id and both keys, so the old key's signature can't be lifted onto another request.
+- **`--ledger <dir>`** is a folder of issued records, `<id>/publisher.json` each. With it, `verify-request` refuses an id,
+  key or namespace another publisher already holds. Namespaces count as held when one is inside the other, ignoring
+  case. A rotation must replace the key the ledger holds for its id. An entry that doesn't parse refuses.
+- **`--github <handle>`** is the account that submitted the request. It must match the request's own, ignoring case.
+- **Exit codes:** 0 verified; 2 refused; 3 verified, but a rotation's previous key wasn't checked, because no
+  `--ledger` was given; 1 a usage or I/O error. Only 0 is a pass. Issuance (#5322) and the request repository's
+  check (#5323) always give `--ledger`.
+- **It treats a request as hostile.** It refuses a request file over 16 KiB, or a link, before reading it. Every line it
+  prints starts with its own words, so a request can't forge a line of a workflow's log.
+
 ## Release key generation
 
 `genkeys-release` is separate from `genkeys <outDir>`, which retains its development defaults.
@@ -49,9 +77,10 @@ HexIDE.AddinPacker.exe genkeys-release --root-out signing/root --intermediate-ou
 
 The three private directories contain only `root.key`, `intermediate.key` and `firstparty.key`,
 respectively. `--public-out` contains `hexide-root.pub`, `hexide-firstparty.pub`,
-`intermediate.json/.sig` and `publisher.json/.sig`. To pack with them, give `pack --trust` a folder holding the
-four JSON/signature records and `pack --key` the `firstparty.key` file, or copy the records beside `firstparty.key`
-and leave out `--key`. Root and intermediate private keys are not inputs to `pack`.
+`intermediate.json/.sig` and `publisher.json/.sig`. To pack with them, give `pack --trust` a folder holding
+`hexide-root.pub` and the four JSON/signature records, and `pack --key` the `firstparty.key` file, or copy those five
+beside `firstparty.key` and leave out `--key`. `pack` writes `hexide-root.pub` into each package as `root.pub`, and
+refuses one that didn't sign the intermediate (#5316). Root and intermediate private keys are not inputs to `pack`.
 
 Ids follow the grammar in [TRUST.md](../../TRUST.md). Display names must be non-empty, already
 trimmed, at most 128 characters, and contain no control, Unicode format, line-separator or

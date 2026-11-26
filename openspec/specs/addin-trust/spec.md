@@ -391,3 +391,63 @@ retain their separate roles as chrome text and signed package metadata respectiv
 #### Scenario: A package supplies a translated chrome title
 - **WHEN** an add-in registers a translated menu, tool window or command label and the language changes
 - **THEN** the consent prompt and Options → Add-Ins retain its signed manifest title
+
+### Requirement: A refusal SHALL name a root the chain verifies under that this build doesn't carry
+A package MAY carry its root's public key as `root.pub`. When the intermediate's signature fails under the embedded
+root, the verifier SHALL check the chain under that key, and SHALL name the key's SHA-256 fingerprint only when the
+whole chain verifies under it. Such a package SHALL be refused like any other unverified package.
+
+#### Scenario: A package signed under a newer root
+- **WHEN** a package's whole chain verifies under the root it carries, and that root isn't this build's
+- **THEN** the package is refused, and Options → Add-Ins names that root's fingerprint and asks the user to compare it
+  with a newer release's TRUST.md
+
+#### Scenario: A real root's key copied into a forged package
+- **WHEN** a package carries a genuine root's public key, but its chain wasn't signed under it
+- **THEN** the package is refused as an invalid signature, and no fingerprint is named
+
+#### Scenario: A broken package under its own root
+- **WHEN** a package's chain leads to the root it carries, but a file's hash doesn't match
+- **THEN** the refusal names the hash mismatch, not the root
+
+### Requirement: A root key a package carries SHALL never be trusted
+The verifier SHALL NOT trust, remember or decide anything by a root key a package carries. Nothing SHALL offer to trust
+it, and no message SHALL say such an add-in is genuine, because a newer HexIDE's root and a forger's look alike.
+
+#### Scenario: A package signed under a root this build doesn't carry
+- **WHEN** such a package is installed
+- **THEN** it is never shown as verified, and no control offers to trust its root
+
+### Requirement: The packer SHALL write the chain's root into each package
+`pack` SHALL write the trust folder's `hexide-root.pub` into each package as `root.pub`. It SHALL refuse, before
+writing anything, a trust folder without `hexide-root.pub` or one whose root didn't sign its intermediate.
+
+#### Scenario: A trust folder whose root is from another chain
+- **WHEN** the trust folder's `hexide-root.pub` didn't sign its `intermediate.json`
+- **THEN** `pack` refuses and writes nothing
+
+### Requirement: A publisher request SHALL be signed by the key it asks to certify
+The packer's `request-publisher` command SHALL write `request.json` in one canonical ASCII form and sign it with the
+publisher's key, and a rotation also with the key it replaces. Every signature SHALL cover a fixed domain prefix
+followed by the request's bytes, so that it can't pass for any other signature HexIDE checks.
+
+#### Scenario: Making a request
+- **WHEN** a publisher runs `request-publisher` with a new key
+- **THEN** the key is written on its own, never into the request folder, and the request verifies
+
+#### Scenario: A signature over the bare bytes
+- **WHEN** a request's signature covers its bytes without the prefix
+- **THEN** `verify-request` refuses it
+
+### Requirement: verify-request SHALL treat a request as hostile input
+`verify-request` SHALL refuse a request that is oversized, a link, not in canonical form, has an unknown or invalid
+field, or whose signatures don't verify. With a ledger it SHALL refuse an id, key or overlapping namespace another
+publisher holds. It SHALL exit 0 only when every check passed, and 3 for a rotation it couldn't check against a ledger.
+
+#### Scenario: A request for a held id
+- **WHEN** the ledger already holds the request's id, key or an overlapping namespace
+- **THEN** the request is refused
+
+#### Scenario: A rotation checked without a ledger
+- **WHEN** a rotation is checked with no ledger
+- **THEN** it exits 3 and says its previous key was not checked

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using HexIDE.AddinPacker;
 using HexIDE.Addins;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Addins;
 
@@ -225,9 +226,9 @@ public sealed class PackerKeyOfTheRecordTests : IDisposable
         Directory.Exists(Output).Should().BeFalse();
     }
 
-    public static bool CanCreateSymbolicLinks => !OperatingSystem.IsWindows();
+    public static bool CanCreateSymbolicLinks => SymbolicLinks.RunTests;
 
-    [Fact(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [Fact(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     public void A_bundled_symlink_to_the_key_is_refused()
     {
         var key = MoveTheKeyOutOfTheTrustFolder();
@@ -269,5 +270,58 @@ public sealed class PackerKeyOfTheRecordTests : IDisposable
         process.ExitCode.Should().Be(0, await stderr);
         (await stdout).Should().Contain("Packed 'com.test.probe'");
         SignedByTheRecordsKey().Should().BeTrue();
+    }
+
+    // #5316: every package carries the root its chain was signed under, so a HexIDE that doesn't carry that root can name it.
+    // The trust folder's root has to be the one that signed its intermediate.
+    [Fact]
+    public void Pack_writes_the_trust_folders_root_into_the_package()
+    {
+        Pack();
+
+        File.ReadAllBytes(Path.Combine(Output, PackageVerification.PackageRootFile))
+            .Should().Equal(File.ReadAllBytes(Path.Combine(Trust, "hexide-root.pub")));
+        PackageVerification.Verify(Output, File.ReadAllText(Path.Combine(Trust, "hexide-root.pub")).Trim())
+            .IsVerified.Should().BeTrue("a package may carry the root it verifies under");
+    }
+
+    [Fact]
+    public void A_trust_folder_without_a_root_key_is_refused_before_anything_is_written()
+    {
+        File.Delete(Path.Combine(Trust, "hexide-root.pub"));
+
+        FluentActions.Invoking(Pack).Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().Contain("There's no hexide-root.pub").And.Contain("Nothing was packed");
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_root_key_that_did_not_sign_the_intermediate_is_refused_before_anything_is_written()
+    {
+        File.Copy(Path.Combine(Other, "hexide-root.pub"), Path.Combine(Trust, "hexide-root.pub"), overwrite: true);
+
+        FluentActions.Invoking(Pack).Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().Contain("isn't signed by").And.Contain("Nothing was packed");
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_package_from_before_root_keys_is_still_this_tools_output_to_replace()
+    {
+        Pack();
+        File.Delete(Path.Combine(Output, PackageVerification.PackageRootFile));
+
+        Pack();
+
+        File.Exists(Path.Combine(Output, PackageVerification.PackageRootFile)).Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_changed_root_key_in_an_earlier_package_makes_it_not_this_tools_output()
+    {
+        Pack();
+        File.Copy(Path.Combine(Other, "hexide-root.pub"), Path.Combine(Output, PackageVerification.PackageRootFile), overwrite: true);
+
+        FluentActions.Invoking(Pack).Should().Throw<IOException>().Which.Message.Should().Contain("is not unchanged output");
     }
 }

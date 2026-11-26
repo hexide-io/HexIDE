@@ -21,7 +21,9 @@ public class FormPreviewTests
 {
     private sealed class Sink : IDeserializeErrorSink { public void LogError(string message) { } }
 
-    private static (FormEditViewModel Vm, FormDefinition Form) Designer(IWindowManager? windows = null)
+    // The designer previews through the run engine it's given (#5633): the provider's interpreter, registered as the IDE
+    // registers it, where a test previews.
+    private static (FormEditViewModel Vm, FormDefinition Form) Designer(IWindowManager? windows = null, RunEngineForwarder? engine = null)
     {
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), """
             VERSION 5.00
@@ -60,7 +62,10 @@ public class FormPreviewTests
             End Sub
             """, new Sink())!;
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, windows ?? Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            null!, windows ?? Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>())
+        {
+            RunEngine = engine,
+        }.Initialize(form);
         return (vm, form);
     }
 
@@ -77,7 +82,8 @@ public class FormPreviewTests
     public async Task Unsupported_runtime_content_is_reported_without_opening_a_preview()
     {
         var windows = Substitute.For<IWindowManager>();
-        var (vm, _) = Designer(windows);
+        using var engine = new DesignerRunEngine();
+        var (vm, _) = Designer(windows, engine.Forwarder);
         vm.Form.Instance.UnknownRawProperties.Add(new("DataSource", ["DataSource = \"Data1\""]));
         VBFormRuntime? preview = null;
         using var opened = Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) => preview = w);
@@ -105,7 +111,8 @@ public class FormPreviewTests
     [AvaloniaFact]
     public async Task Preview_uses_live_controls_with_runtime_layout_menus_and_tab_settings()
     {
-        var (vm, form) = Designer();
+        using var engine = new DesignerRunEngine();
+        var (vm, form) = Designer(engine: engine.Forwarder);
         vm.Form.Instance.SetProperty(VBProperties.CaptionProperty, "Unsaved title");
         var preview = await Preview(vm);
         try
@@ -132,7 +139,8 @@ public class FormPreviewTests
     [AvaloniaFact]
     public async Task Interaction_resize_and_close_run_no_code_and_leave_designer_unchanged()
     {
-        var (vm, form) = Designer();
+        using var engine = new DesignerRunEngine();
+        var (vm, form) = Designer(engine: engine.Forwarder);
         vm.ToggleLockControls();
         var undo = vm.UndoStack.UndoDescription;
         var components = form.Components.ToArray();

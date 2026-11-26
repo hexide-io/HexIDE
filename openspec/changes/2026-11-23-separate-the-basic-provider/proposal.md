@@ -106,6 +106,12 @@ owner's grant where it's implemented, so reflection gains nothing. It's one at a
 owner's engine is withdrawn. Its code is contained. Task 3.1 moves it onto `IHexIdeHost` with that baseline, and #5619
 publishes the contract once a second engine, RDCore's, registers (supervisor, 2026-11-24).
 
+**The designer asks the engine too (2.4e-2, #5633).** Previewing a form and saying which carried controls run are facts
+about the engine, so an engine answers them through `IDesignerRunEngine`, an optional contract beside `IRunEngine`. Like
+it, it's public and unbaselined, so 2.12's list doesn't grow. The forwarder calls it with the engine's containment, and the
+engine closes its previews when it's withdrawn. `UnmodelledControl` moves to Core with it, recording only what its block
+holds, and the designer asks the engine whether it runs the control (supervisor, 2026-11-25).
+
 **Slice 2.7 builds it,** with resources as the first registration (`App.axaml`'s merge of the provider's dictionaries), and the other slices add theirs. That adds an `IHexIdeHost` member on the add-in trust boundary, so it's security work: built by a Claude session and reviewed by the supervisor before merge.
 
 **The provider's strings register the same way** (slice 2.9). Its language packs are embedded in its own assembly, and the IDE reaches them through a pack area the entry type registers, which is no `TypeRef`. So the guard can't see that dependency, but the entry type's own row covers it, and phase 3 removes that row.

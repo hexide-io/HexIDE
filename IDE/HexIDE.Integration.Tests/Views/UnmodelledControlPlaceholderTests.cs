@@ -73,13 +73,16 @@ public class UnmodelledControlPlaceholderTests
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
 
-    private static FormEditViewModel Designer(out FormDefinition form, string source = Form)
+    private static FormEditViewModel Designer(out FormDefinition form, string source = Form, RunEngineForwarder? engine = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         form = new FormDeserializer().Deserialize(project, source, new NullSink())!;
         project.AddForm(form);
         return new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>())
+        {
+            RunEngine = engine,
+        }.Initialize(form);
     }
 
     [AvaloniaFact]
@@ -257,6 +260,23 @@ public class UnmodelledControlPlaceholderTests
         "      _ExtentY        =   847\r\n" +
         "      _Version        =   393216\r\n" +
         "   End\r\n" +
+        // A Toolbar holding a control of its own: the interpreter refuses it, so the designer says it's unsupported.
+        "   Begin MSComctlLib.Toolbar Holder \r\n" +
+        "      Height          =   660\r\n" +
+        "      Left            =   0\r\n" +
+        "      TabIndex        =   3\r\n" +
+        "      Top             =   3000\r\n" +
+        "      Width           =   6000\r\n" +
+        "      _Version        =   393216\r\n" +
+        "      Begin VB.CommandButton Inside \r\n" +
+        "         Caption         =   \"Inside\"\r\n" +
+        "         Height          =   375\r\n" +
+        "         Left            =   120\r\n" +
+        "         TabIndex        =   4\r\n" +
+        "         Top             =   120\r\n" +
+        "         Width           =   1215\r\n" +
+        "      End\r\n" +
+        "   End\r\n" +
         "   Begin NoSuchLib.Gauge Gauge1 \r\n" +
         "      Height          =   300\r\n" +
         "      Left            =   2400\r\n" +
@@ -270,10 +290,12 @@ public class UnmodelledControlPlaceholderTests
     [AvaloniaFact]
     public void A_control_HexIDE_runs_says_view_only_and_any_other_says_not_supported()
     {
-        var vm = Designer(out _, RunningForm);
+        // The provider's interpreter says which it runs (#5633), registered as the IDE registers it.
+        using var engine = new DesignerRunEngine();
+        var vm = Designer(out _, RunningForm, engine.Forwarder);
         vm.UnmodelledControls.ToDictionary(c => c.Name, c => c.ViewOnly).Should().BeEquivalentTo(new Dictionary<string, bool>
         {
-            ["Toolbar1"] = true, ["Bars"] = false, ["Gauge1"] = false,
+            ["Toolbar1"] = true, ["Bars"] = false, ["Holder"] = false, ["Gauge1"] = false,
         });
 
         var view = new FormEditView { DataContext = vm };
@@ -292,7 +314,7 @@ public class UnmodelledControlPlaceholderTests
                     .Where(text => text.IsEffectivelyVisible).Select(text => text.Text).Last());
             says.Should().BeEquivalentTo(new Dictionary<string, string?>
             {
-                ["Toolbar1"] = "View-only", ["Bars"] = "Not supported", ["Gauge1"] = "Not supported",
+                ["Toolbar1"] = "View-only", ["Bars"] = "Not supported", ["Holder"] = "Not supported", ["Gauge1"] = "Not supported",
             });
         }
         finally { window.Close(); }

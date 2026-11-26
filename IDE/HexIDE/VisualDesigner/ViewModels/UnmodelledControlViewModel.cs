@@ -28,11 +28,14 @@ public sealed partial class UnmodelledControlViewModel : ObservableObject, IDisp
 
     /// <param name="container">The modelled container it sits in, or null for the form itself.</param>
     /// <param name="depth">How many of the container's carried controls are under this one: those written after it.</param>
-    public UnmodelledControlViewModel(UnmodelledControl control, ComponentInstanceViewModel? container, int depth = 0)
+    /// <param name="viewOnly">Whether the run engine runs the control, so the box says view-only (#2327, #5633).</param>
+    public UnmodelledControlViewModel(UnmodelledControl control, ComponentInstanceViewModel? container, int depth = 0,
+        bool viewOnly = false)
     {
         this.control = control;
         this.container = container;
         Depth = depth;
+        ViewOnly = viewOnly;
         if (container is not null)
             container.PropertyChanged += OnContainerChanged;
     }
@@ -63,8 +66,11 @@ public sealed partial class UnmodelledControlViewModel : ObservableObject, IDisp
 
     public string Name => control.Name;
 
-    /// <summary>Whether HexIDE runs the control and the designer only carries it, so the box says view-only (#2327).</summary>
-    public bool ViewOnly => control.ViewOnly;
+    /// <summary>
+    /// Whether the run engine runs the control and the designer only carries it, so the box says view-only (#2327): what the
+    /// engine said when the box was built, which is built again when an engine comes or goes (#5633).
+    /// </summary>
+    public bool ViewOnly { get; }
 
     public double Left => Origin.X + Pixels(control.Left);
 
