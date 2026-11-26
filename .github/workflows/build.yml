@@ -388,15 +388,19 @@ jobs:
   # has no VB6, so every test gated on the VB98 Template tree returns early here exactly as it does on
   # ubuntu. Those stay unproven until they run somewhere with the toolchain installed.
   #
-  # build-ide (windows) is now required by branch protection (#1331). macOS remains advisory because
-  # there is no local macOS to reproduce a failure on. The merge rule in CONTRIBUTING.md and CLAUDE.md
-  # still requires waiting for every head-commit job to finish without red and for main's latest run
+  # build-ide (windows) is required by branch protection (#1331). macOS is advisory while HexIDE is in alpha
+  # (#5674): the maintainer decided on 2026-11-26 that win-x64 is the one essential build, and that macOS runs
+  # only on main, as optional, until real post-v1 releases ship, when its red counts again. Three merge batches
+  # stopped on macOS-only flakes the night before. Her rule for the rest: pace and efficiency come first, so a
+  # platform that keeps pace with Windows, in time and without flaking, stays a gate (Linux, the build-ide job
+  # above), and one that starts holding merges goes advisory and is checked at release. The merge rule in CONTRIBUTING.md and CLAUDE.md requires
+  # waiting for every head-commit job except the advisory ones to finish without red, and main's latest run
   # not to be red; a known flake gets its run posted on its issue and re-run green before merging.
   build-ide-desktop:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
-    name: build-ide (${{ matrix.name }}${{ (matrix.name == 'windows-arm' || matrix.name == 'macos-intel') && ', advisory' || '' }})
-    continue-on-error: ${{ matrix.name == 'windows-arm' || matrix.name == 'macos-intel' }}
+    name: build-ide (${{ matrix.name }}${{ (matrix.name == 'windows-arm' || matrix.name == 'macos' || matrix.name == 'macos-intel') && ', advisory' || '' }})
+    continue-on-error: ${{ matrix.name == 'windows-arm' || matrix.name == 'macos' || matrix.name == 'macos-intel' }}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -404,11 +408,11 @@ jobs:
     strategy:
       # One platform's failure must not hide the other platforms' results.
       fail-fast: false
-      # A pull request's own run builds Windows only here; macOS and Windows on Arm run for merge batches (their
-      # `batch/` branches) and for every push. Every change still meets macOS before it reaches main, in its batch. At full
-      # speed on 2026-11-16, 28 PR runs were queued and each wanted one of the few macOS runners the account shares, so
-      # batch 355's macOS job waited about 90 minutes to start. A batch that fails on macOS stops the merge chain, as any
-      # batch failure does, and the failing PR is found and left out.
+      # A pull request's own run builds Windows only here. Windows on Arm joins it for merge batches (their `batch/`
+      # branches) and for every push. macOS runs only for a push to main and to a `release/` branch (#5674), so a change
+      # meets macOS after it has merged, not before: while in alpha, macOS failures are followed up on main, not held
+      # against a batch. Before that, batches ran macOS too, and at full speed on 2026-11-16, 28 PR runs each wanted one of
+      # the few macOS runners the account shares, so batch 355's macOS job waited about 90 minutes to start.
       #
       # macOS on Intel runs only for a push to a `release/` branch (#5564). publish.yml ships an osx-x64 build from
       # macos-15-intel, while macos-latest and every Mac here are Apple silicon, so before this nothing tested the build
@@ -416,7 +420,7 @@ jobs:
       # otherwise queue for one. Push the release commit to `release/v<version>` while the release is still a draft,
       # and read this leg before publishing. It is advisory, like Windows on Arm.
       matrix:
-        include: ${{ fromJSON(startsWith(github.ref, 'refs/heads/release/') && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"},{"name":"macos","runner":"macos-latest"},{"name":"macos-intel","runner":"macos-15-intel"}]' || ((github.event_name != 'pull_request' || startsWith(github.head_ref, 'batch/')) && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"},{"name":"macos","runner":"macos-latest"}]' || '[{"name":"windows","runner":"windows-latest"}]')) }}
+        include: ${{ fromJSON(startsWith(github.ref, 'refs/heads/release/') && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"},{"name":"macos","runner":"macos-latest"},{"name":"macos-intel","runner":"macos-15-intel"}]' || (github.ref == 'refs/heads/main' && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"},{"name":"macos","runner":"macos-latest"}]' || ((github.event_name != 'pull_request' || startsWith(github.head_ref, 'batch/')) && '[{"name":"windows","runner":"windows-latest"},{"name":"windows-arm","runner":"windows-11-arm"}]' || '[{"name":"windows","runner":"windows-latest"}]'))) }}
 
     steps:
       - name: Checkout code
@@ -684,7 +688,8 @@ jobs:
           retention-days: 7
 
   # A job skipped before matrix expansion reports its literal matrix expression, not the required
-  # platform check names (#2382). Expand those names on Ubuntu when the real builds are skipped.
+  # platform check names (#2382). Expand those names on Ubuntu when the real builds are skipped. It stands in for a
+  # merge batch's platforms; macOS runs on no pull request (#5674), so it has no stand-in here.
   build-ide-desktop-docs:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.skip == 'true' }}
@@ -695,7 +700,6 @@ jobs:
         include:
           - { name: windows }
           - { name: windows-arm }
-          - { name: macos }
     steps:
       - name: Report the skipped build
         run: echo 'Build skipped for a docs-only change.'

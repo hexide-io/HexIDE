@@ -165,10 +165,14 @@ first-party ones included: at every startup, then hourly while it runs
    the issue, not in `CHANGELOG.md`: two pull requests then never edit the same lines.
 
 **Before merging, including a session merging its own pull request, wait until every job on the head
-commit has finished and none is red. Do not merge while main's latest run is red.** This includes the
-advisory macOS job: `build-ide (windows)` is required by branch protection, while `build-ide (macos)`
-remains advisory because there is no local macOS to reproduce a failure on. For a known flake, post the
-failing run on its issue and re-run it green before merging (#1331).
+commit has finished and none is red, apart from the advisory ones. Do not merge while main's latest run
+is red, apart from those.** `build-ide (windows)` is required by branch protection. The jobs named
+advisory, Windows on Arm and macOS, don't hold a merge: while HexIDE is in alpha, win-x64 is the one
+essential build, and macOS runs only on pushes to main and to `release/` branches (#5674). Any other
+platform that keeps pace with Windows, in time and without flaking, stays a gate on every build, as Linux
+does today. One that starts holding merges goes advisory and is checked when it's released. Follow up a
+red advisory job on its own issue. Once post-v1 releases ship, macOS red counts again. For a known flake,
+post the failing run on its issue and re-run it green before merging (#1331).
 
 ## AI-assisted contributions
 

@@ -49,9 +49,39 @@ verify-request --request <dir> [--ledger <dir>] [--github <handle>]
   key or namespace another publisher already holds. Namespaces count as held when one is inside the other, ignoring
   case. A rotation must replace the key the ledger holds for its id. An entry that doesn't parse refuses.
 - **`--github <handle>`** is the account that submitted the request. It must match the request's own, ignoring case.
-- **Exit codes:** 0 verified; 2 refused; 3 verified, but a rotation's previous key wasn't checked, because no
-  `--ledger` was given; 1 a usage or I/O error. Only 0 is a pass. Issuance (#5322) and the request repository's
-  check (#5323) always give `--ledger`.
+- **`--root <file>`** chain-verifies every ledger record, live and retired. It also checks each record's stored request:
+  it must be signed under the record's key, with the record's id and, byte for byte, the record's key. An entry that
+  doesn't verify refuses.
+- **`--revocations <json> --revocations-sig <sig>`** is the signed revocation list, verified against `--root`. A rotation
+  of a revoked publisher id is refused.
+- **Exit codes:**
+  - **0:** verified.
+  - **2:** refused.
+  - **3:** verified, but something only a person can settle:
+    - a rotation checked without the ledger or the revocation list;
+    - a rotation whose ledger entry has no stored request, or a different handle or `fingerprintUrl`;
+    - a revocation list more than 7 days old.
+  - **1:** a usage or I/O error.
+
+  Only 0 is a pass.
+
+## Issuing a publisher record
+
+`issue-publisher` turns an approved request into a signed record (#5322), offline, on the machine with the intermediate
+key. It treats the request as hostile there too.
+
+- **It runs every `verify-request` check again,** with the ledger, the root and the revocation list. A rotation needs the
+  list. It signs only a request whose check exits 0, and whose SHA-256 equals `--approved-sha256`.
+- **It shows the record and asks for the publisher id to be typed back,** compared ordinally. Input that isn't a
+  terminal is refused, with no way around it.
+- **It writes `--out`:** the four chain files, `hexide-root.pub`, the request with its signatures, and `receipt.md`. Then
+  it writes the same, without the root key, to `<ledger>/<id>/`. A rotation first moves the live files to
+  `<ledger>/<id>/retired/<n>/`, where `<n>` is 1, 2, 3 and so on with no gaps.
+- **It verifies both written chains** against the root.
+- **`receipt.md`** gives the fingerprints, and puts what the request said in a fenced block, so GitHub can't render it as
+  links or HTML.
+
+The ledger is `HexIDE.Publishers`' `publishers/` folder; committing it publishes the record.
 - **It treats a request as hostile.** It refuses a request file over 16 KiB, or a link, before reading it. Every line it
   prints starts with its own words, so a request can't forge a line of a workflow's log.
 

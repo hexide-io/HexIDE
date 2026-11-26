@@ -17,7 +17,7 @@ internal static class ProgramDialogs
     internal static async Task<string?> ShowInputBox(IProgramDialogWindows windows, bool singleView, string prompt, string? caption,
         string defaultText)
     {
-        caption ??= Distribution.DisplayName;
+        caption ??= "";
         if (singleView)
         {
             var inputBox = new InputBox
@@ -54,7 +54,7 @@ internal static class ProgramDialogs
     internal static async Task<MessageBoxResult> ShowMessageBox(IProgramDialogWindows windows, bool singleView, string text,
         string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxLayout layout)
     {
-        caption ??= Distribution.DisplayName;
+        caption ??= "";
         if (singleView)
         {
             var messageBox = new MessageBox
