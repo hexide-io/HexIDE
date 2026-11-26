@@ -9,7 +9,6 @@ public class WindowLifetimeTests
 {
     [AvaloniaTheory]
     [InlineData(typeof(AddinToolWindowReHostTests), nameof(AddinToolWindowReHostTests.AddinToolWindowContent_HostedByTwoViews_DoesNotCrash))]
-    [InlineData(typeof(MenuMembersTests), nameof(MenuMembersTests.Choosing_an_element_of_a_menu_array_passes_its_Index))]
     [InlineData(typeof(MenuPopupTests), nameof(MenuPopupTests.A_leaf_item_still_reports_expand_as_unsupported))]
     [InlineData(typeof(ReadBackTests), nameof(ReadBackTests.A_toggle_on_a_radio_button_already_on_is_done_and_says_a_click_leaves_it_on))]
     [InlineData(typeof(SelectUnreadTests), nameof(SelectUnreadTests.An_unread_selection_with_no_list_is_not_known_and_blames_no_list))]

@@ -204,4 +204,3 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/UnmodelledControlPlaceholderTests.cs` | split |
 | `Views/WaylandToolTipTests.cs` | split |
 | `Views/WindowShortcutFocusTests.cs` | split |
-| `WindowLifetimeTests.cs` | split |
