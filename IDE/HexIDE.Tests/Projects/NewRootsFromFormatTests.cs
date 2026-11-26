@@ -275,4 +275,18 @@ public class NewRootsFromFormatTests : IDisposable
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information, Arg.Any<Avalonia.Controls.Window?>(),
             Arg.Any<MessageBoxLayout>());
     }
+
+    // ── The XAML previewer ───────────────────────────────────────────────────────────────────────────────────────
+
+    // Its stub form class names no provider class, and builds its property table once, as a ComponentBaseClass does.
+    [AvaloniaFact]
+    public void The_previewers_form_class_is_a_form_with_one_property_table()
+    {
+        var formClass = new FormEditViewModel().Form.Instance.BaseClass;
+
+        formClass.Role.Should().Be(ComponentRole.Form);
+        formClass.PropertiesByName.Should().BeSameAs(formClass.PropertiesByName);
+        formClass.PropertiesByName.Keys.Should().BeEquivalentTo("Width", "Height", "Caption");
+        formClass.PropertiesByName["caption"].Should().BeSameAs(VBProperties.CaptionProperty);
+    }
 }

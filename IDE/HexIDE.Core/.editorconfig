@@ -38,6 +38,9 @@ dotnet_diagnostic.RS0016.severity = error
 [Components/IDesignerPages.cs]
 dotnet_diagnostic.RS0016.severity = error
 
+[Components/IDesignerLibraryControl.cs]
+dotnet_diagnostic.RS0016.severity = error
+
 [Components/IDesignerDrawingSurface.cs]
 dotnet_diagnostic.RS0016.severity = error
 

@@ -137,6 +137,11 @@ public partial class ToolBoxToolViewModel : Tool
             component.RaiseIsSelected();
     }
 
+    /// <summary>Whether the registry lists <paramref name="library"/> as offering <paramref name="component"/> (#5749).</summary>
+    internal bool Offers(IComponentClass component, IControlLibrary library) =>
+        componentRegistry.LibraryControls.Any(control =>
+            ReferenceEquals(control.Class, component) && ReferenceEquals(control.Library, library));
+
     public void SpawnControl(ComponentToolViewModel tool)
     {
         if (tool.BaseClass is { } baseClass && documentDockService.ActiveDocument is FormEditViewModel formEditViewModel)

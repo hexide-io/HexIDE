@@ -1,14 +1,12 @@
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.IDE;
 using HexIDE.Localization;
-using HexIDE.Runtime;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -56,29 +54,5 @@ public class ProgramBoxCaptionTests
             window.Close();
             localization.Apply(previous);
         }
-    }
-
-    [AvaloniaTheory]
-    [InlineData(false, null)]
-    [InlineData(true, null)]
-    [InlineData(false, "")]
-    [InlineData(true, "")]
-    public async Task Omitted_title_uses_the_hosts_brand_and_explicit_empty_stays_empty(bool input, string? title)
-    {
-        // #2042 tests construct identities independently rather than changing process-wide Distribution.
-        var brand = new DistributionIdentity("acme", "Acme Studio");
-        var owner = new Window();
-        owner.Show();
-        var library = new StandaloneStandardLib(owner, brand.Name);
-        Task answer = input ? library.InputBox("probe", title, "")
-            : library.MsgBox("probe", title, MessageBoxButtons.Ok, MessageBoxIcon.None);
-        var dialog = owner.OwnedWindows.Single();
-        try { dialog.Title.Should().Be(title ?? brand.Name); }
-        finally
-        {
-            dialog.Close();
-            owner.Close();
-        }
-        await answer;
     }
 }

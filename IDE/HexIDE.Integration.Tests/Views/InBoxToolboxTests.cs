@@ -255,4 +255,22 @@ public class InBoxToolboxTests
         ProgressBarComponentClass.Instance.LibraryOf(bar).Should().BeSameAs(ControlLibraries.ComctlLib);
         new FormSerializer().Serialize(form, "Form1.frm").frmText.Should().Contain("Begin ComctlLib.ProgressBar ProgressBar1");
     }
+
+    // The designer declares only a library the registry lists as offering the control's class (#5749), so each in-box
+    // control, placed from any library the provider registers it under, has to name that library.
+    [AvaloniaFact]
+    public void Each_in_box_control_placed_from_each_of_its_libraries_declares_that_library()
+    {
+        var placements = InBoxRegistry.Create().LibraryControls.Where(control => control.Class is InBoxComponentClass).ToList();
+        placements.Select(control => control.Class.ClassName).Distinct()
+            .Should().BeEquivalentTo(InBoxComponentClass.Implemented.Select(control => control.ClassName));
+
+        foreach (var placement in placements)
+        {
+            var (_, _, vm, form) = Designer((RuntimeLibrary)placement.Library);
+            vm.SpawnControlCenter((ComponentBaseClass)placement.Class, placement.Library);
+            form.HeaderLines.Should().Equal([placement.Library.FormLine], "{0} is placed from {1}'s entry",
+                placement.TypeName, placement.Library.Name);
+        }
+    }
 }
