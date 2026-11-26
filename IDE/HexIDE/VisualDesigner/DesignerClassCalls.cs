@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Concurrent;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using Serilog;
 
 namespace HexIDE.VisualDesigner;
 
 /// <summary>
-/// The designer's calls into a registered component class's optional contracts (#5633): its title-bar caption
-/// and the starting values of a control it draws. A class's code is the provider's or an add-in's, so a throw, or a null
+/// The designer's calls into a registered component class's optional contracts (#5633): its title-bar caption,
+/// the starting values of a control it draws, and where a control added by double-clicking its tool goes (#5681). A class's code is the provider's or an add-in's, so a throw, or a null
 /// where an answer is needed, answers as though the class didn't have the contract, and the designer stays usable.
 /// </summary>
 /// <remarks>
@@ -54,6 +55,54 @@ internal static class DesignerClassCalls
             Failed(defaults, nameof(IDesignerDrawnDefaults), ex);
         }
     }
+
+    /// <summary>
+    /// The bounds <paramref name="componentClass"/> gives a control added by double-clicking its tool on a form of the
+    /// given size, in pixels, or null to centre it at its added size as any other class's (#5681).
+    /// </summary>
+    internal static DesignerBounds? AddedBounds(IComponentClass componentClass, double formWidth, double formHeight)
+    {
+        if (componentClass is not IDesignerAddedPlacement placement)
+            return null;
+        try
+        {
+            if (placement.AddedBounds(formWidth, formHeight) is not { } bounds)
+                return null;
+            if (Usable(bounds))
+                return bounds;
+            Failed(placement, nameof(IDesignerAddedPlacement), null);
+        }
+        catch (Exception ex)
+        {
+            Failed(placement, nameof(IDesignerAddedPlacement), ex);
+        }
+        return null;
+    }
+
+    /// <summary>Whether Align to Grid moves a control of <paramref name="componentClass"/> added by double-clicking its tool.</summary>
+    internal static bool AddedOnGrid(IComponentClass componentClass)
+    {
+        if (componentClass is not IDesignerAddedPlacement placement)
+            return true;
+        try
+        {
+            return placement.AddedOnGrid;
+        }
+        catch (Exception ex)
+        {
+            Failed(placement, nameof(IDesignerAddedPlacement), ex);
+            return true;
+        }
+    }
+
+    // What the designer can place and save: finite, no negative size, and each within a whole number of twips, as a
+    // class's added size is (IDesignerComponent.AddedSize).
+    private static bool Usable(DesignerBounds bounds) =>
+        Within(bounds.Left) && Within(bounds.Top) && Within(bounds.Width) && Within(bounds.Height)
+        && bounds.Width >= 0 && bounds.Height >= 0;
+
+    private static bool Within(double pixels) =>
+        double.IsFinite(pixels) && Math.Abs(pixels * VBScaleModeExtensions.PixelToTwips) <= int.MaxValue;
 
     private static void Failed(object component, string contract, Exception? ex)
     {

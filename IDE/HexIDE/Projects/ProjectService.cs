@@ -1916,7 +1916,8 @@ public partial class ProjectService : IProjectService
 
     public async Task MakeProjectGroup()
     {
-        var dialog = new MakeProjectGroupViewModel(projectManager.LoadedProjects);
+        // Only what something loaded can make is offered, as File > Make is offered only for such a project (#5621).
+        var dialog = new MakeProjectGroupViewModel([.. projectManager.LoadedProjects.Where(contributed.Makers.Makes)]);
         if (!await windowManager.ShowDialog(dialog))
             return;
 
@@ -1926,18 +1927,38 @@ public partial class ProjectService : IProjectService
             var directory = string.IsNullOrEmpty(project.AbsolutePath) ? null : Path.GetDirectoryName(project.AbsolutePath);
             // VB6's unsaved-project case is unmeasured; keep HexIDE's picker when there is no project folder.
             var useDefault = dialog.UseDefaultBuildOptions && directory is not null;
-            // The program's name comes from the project, and no picker shows where it would go, so one that isn't a plain
-            // file name ends the group as a failure does (#5622).
-            if (useDefault && ProjectOutputPath.RefusedName(project) is { } refused)
+            string? exePath = null;
+            // Where the program goes with no picker is the type's to say, so its maker's (#5621). One withdrawn since the
+            // dialog opened reaches Make, which refuses it.
+            if (useDefault && contributed.Makers.For(project) is { } maker)
             {
-                MakeOutcomes.Begin().NotMade(
-                    $"{project.Name}'s program would be written outside its folder: {refused.Field} is '{refused.Value}', "
-                    + "which isn't a file name, so nothing was written", true);
-                await windowManager.MessageBox(string.Format(localization.GetString("Str.Naming.Msg.NotAFileName"),
-                    project.Name, refused.Field, refused.Value), icon: MessageBoxIcon.Information);
-                return;
+                (string Field, string Value)? refused;
+                try
+                {
+                    refused = maker.RefusedProgramName(project);
+                    exePath = refused is null ? maker.ProgramPath(project) : null;
+                }
+                catch (Exception e)
+                {
+                    // A maker that throws is a failed Make, and ends the group as one does.
+                    Log.Warning(e, "The maker for {Type} projects threw while naming {Project}'s program", project.ContributedBy, project.Name);
+                    MakeOutcomes.Begin().NotMade($"Make failed: {e.Message}", true);
+                    await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.Failed"), e.Message),
+                        icon: MessageBoxIcon.Error);
+                    return;
+                }
+                // The program's name comes from the project, and no picker shows where it would go, so one that isn't a
+                // plain file name ends the group as a failure does (#5622).
+                if (refused is { } name)
+                {
+                    MakeOutcomes.Begin().NotMade(
+                        $"{project.Name}'s program would be written outside its folder: {name.Field} is '{name.Value}', "
+                        + "which isn't a file name, so nothing was written", true);
+                    await windowManager.MessageBox(string.Format(localization.GetString("Str.Naming.Msg.NotAFileName"),
+                        project.Name, name.Field, name.Value), icon: MessageBoxIcon.Information);
+                    return;
+                }
             }
-            var exePath = useDefault ? ProjectOutputPath.OutputExePath(project) : null;
             try
             {
                 await MakeProject(project, exePath, directory);
@@ -1984,6 +2005,16 @@ public partial class ProjectService : IProjectService
             make.NotMade($"{projectDefinition.Name} is opened by the {projectDefinition.ContributedBy} add-in, so {HexIDE.IDE.Distribution.DisplayName} doesn't make it", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.ContributedProject.NotMade"),
                 projectDefinition.Name, projectDefinition.ContributorTitle), icon: MessageBoxIcon.Information);
+            throw new OperationCanceledException();
+        }
+
+        // What makes the program is the type's maker, registered by its provider (#5621). With none, File > Make is greyed,
+        // as F5 is with no run engine, so only a direct call reaches this, and it's logged as F5's is.
+        if (contributed.Makers.For(projectDefinition) is not { } maker)
+        {
+            var type = projectDefinition.ContributedBy ?? Vb6ProjectType.Id;
+            Serilog.Log.Warning("{Project} was not made: nothing loaded makes {Type} projects", projectDefinition.Name, type);
+            make.NotMade($"nothing loaded makes {type} projects, so {projectDefinition.Name} wasn't made", false);
             throw new OperationCanceledException();
         }
 
@@ -2051,37 +2082,37 @@ public partial class ProjectService : IProjectService
             throw new OperationCanceledException();
 
         make.Reached(MakeOutcomes.Stage.Writing);
-        if (StandaloneRunnerName() is not { } runnerName)
+        // The maker says why this machine can't make the program, as one of the reasons the IDE words itself: for VB6's,
+        // that there's no standalone runner for the platform, or none beside the IDE.
+        if (maker.Unavailable(exePath) is { } unavailable)
         {
-            make.NotMade(HexIDE.IDE.Distribution.DisplayName + " has no standalone runner for this platform, so nothing was written", true);
-            await windowManager.MessageBox(localization.GetString("Str.MakeProject.UnsupportedPlatform"), icon: MessageBoxIcon.Information);
+            var (whyNot, text) = unavailable.Reason switch
+            {
+                MakeRefusalReason.RuntimeNotFound => (
+                    $"the standalone runner, {unavailable.Runner}, isn't in {unavailable.Folder}, so nothing was written to {exePath}, "
+                    + "which the save dialog gave",
+                    string.Format(localization.GetString("Str.MakeProject.RuntimeNotFound"), unavailable.Folder, unavailable.Runner)),
+                _ => (HexIDE.IDE.Distribution.DisplayName + " has no standalone runner for this platform, so nothing was written",
+                    localization.GetString("Str.MakeProject.UnsupportedPlatform")),
+            };
+            make.NotMade(whyNot, true);
+            await windowManager.MessageBox(text, icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
-        var standaloneFolder = Path.Join(RuntimeDirectory, "standalone");
-        var runner = new FileInfo(Path.Join(standaloneFolder, runnerName));
-        if (!runner.Exists)
-        {
-            // A Debug build has none until HexIDE.Standalone is published into it.
-            make.NotMade($"the standalone runner, {runnerName}, isn't in {standaloneFolder}, so nothing was written to "
-                         + $"{exePath}, which the save dialog gave", true);
-            await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.RuntimeNotFound"),
-                standaloneFolder, runnerName), icon: MessageBoxIcon.Information);
-            throw new OperationCanceledException();
-        }
-
-        // The picker only confirms the executable; the interpreter's archive is a separate output (#2504).
-        var archivePath = Path.ChangeExtension(exePath, "dll")!;
-        if (File.Exists(archivePath))
+        // The picker only confirms the program; what the maker writes beside it is asked about here (#2504), such as VB6's
+        // archive of the project.
+        var beside = maker.WrittenBeside(exePath);
+        foreach (var other in beside.Where(File.Exists))
         {
             // Make waits on the question, and an automation caller is told so (#2718). A No used to leave through the
             // cancelled-picker arm, and was reported as a save dialog cancelled.
-            make.Asking(archivePath);
+            make.Asking(other);
             if (await windowManager.MessageBox(
-                    string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"), archivePath),
+                    string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"), other),
                     buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
             {
-                make.NotMade($"replacing {archivePath}, which was already there, was declined, so nothing was written", false);
+                make.NotMade($"replacing {other}, which was already there, was declined, so nothing was written", false);
                 throw new OperationCanceledException();
             }
             make.Reached(MakeOutcomes.Stage.Writing);
@@ -2105,6 +2136,7 @@ public partial class ProjectService : IProjectService
         // leaves the whole project pointing at %TEMP%, and the next ordinary Ctrl+S writes there. That was
         // survivable while this block could not fail; a refused form makes it an early exit. (#148)
         var refused = new List<string>();
+        var replaced = false;
         try
         {
             foreach (var form in projectDefinition.Forms)
@@ -2141,13 +2173,13 @@ public partial class ProjectService : IProjectService
                 throw new OperationCanceledException();
             }
 
-            SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")),
-                includeRelatedDocuments: false);
+            var projectFile = Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp"));
+            SerializeOnlyProjectToFile(projectDefinition, projectFile, includeRelatedDocuments: false);
 
-            EncodePackageSources(projectDefinition);
-
-            // This is not a .dll file, but it will look better :wink: :wink:
-            AtomicFileWriter.Write(archivePath, stream => ZipFile.CreateFromDirectory(tempPath, stream));
+            // The maker makes the program from the written sources while the members still point at them, which the
+            // finally below undoes. A maker that throws fails the Make, which is never reported as made (#5621).
+            replaced = File.Exists(exePath);
+            maker.Make(projectDefinition, tempPath, projectFile, exePath);
         }
         finally
         {
@@ -2161,13 +2193,7 @@ public partial class ProjectService : IProjectService
             try { Directory.Delete(tempPath, true); } catch { /* best effort — the temp dir is disposable */ }
         }
 
-        // The program is the runner, renamed, beside its project archive. The runner is one self-contained file holding .NET,
-        // its own assemblies and the native libraries, so nothing else goes with it (#1971). It used to be the runner's
-        // apphost and three native libraries, which ran only while the runner was compiled AOT; since #30 the apphost has
-        // needed HexIDE.Standalone.dll beside it, and no made program started.
-        var replaced = File.Exists(exePath);
-        AtomicFileWriter.Copy(runner.FullName, exePath);
-        make.Made(exePath, Path.ChangeExtension(exePath, "dll"), replaced);
+        make.Made(exePath, beside.Count > 0 ? beside[0] : exePath, replaced);
     }
 
     /// <summary>
@@ -2194,33 +2220,18 @@ public partial class ProjectService : IProjectService
     private string Unfaithful() =>
         $"{HexIDE.IDE.Distribution.DisplayName} can't write {string.Join(", ", refusedThisSave)} as they were read, so nothing was written";
 
-    /// <summary>The folder Make finds the standalone runtime in: the IDE's own, whatever the current directory is (#1947).</summary>
-    internal string RuntimeDirectory { get; set; } = AppContext.BaseDirectory;
+    /// <summary>Whether a maker is registered for <paramref name="project"/>'s type, so File > Make offers it (#5621).</summary>
+    public bool CanMake(ProjectDefinition? project) => contributed.Makers.Makes(project);
 
-    /// <summary>
-    /// The runner a made program is, in <c>standalone/</c> beside the IDE: one self-contained single-file executable per
-    /// platform (#1971). Null where none is built.
-    /// </summary>
-    internal static string? StandaloneRunnerName() =>
-        OperatingSystem.IsWindows() ? "HexIDE.Standalone.exe"
-        : OperatingSystem.IsMacOS() || OperatingSystem.IsLinux() ? "HexIDE.Standalone"
-        : null;
-
-    // Only the disposable copies: a made program must read the same text on any host code page (#731).
-    internal static void EncodePackageSources(ProjectDefinition project)
+    /// <summary>Raised, on the UI thread, when a maker is registered or withdrawn (#5621).</summary>
+    public event Action? MakersChanged
     {
-        foreach (var form in project.Forms)
-            Convert(form.AbsolutePath!, form.TextEncoding);
-        foreach (var module in project.Modules)
-            Convert(module.AbsolutePath!, module.TextEncoding);
-        Convert(project.AbsolutePath!, project.TextEncoding);
-
-        static void Convert(string path, Vb6TextEncoding encoding)
-        {
-            var text = Vb6TextFile.Decode(File.ReadAllBytes(path), encoding);
-            AtomicFileWriter.WriteAllBytes(path, Vb6TextFile.Encode(text, Vb6TextEncoding.Utf8WithBom));
-        }
+        add => contributed.Makers.Changed += value;
+        remove => contributed.Makers.Changed -= value;
     }
+
+    /// <summary>The makers registered for each project type (#5621), which the IDE's toolchain flow asks too.</summary>
+    internal ProjectMakers Makers => contributed.Makers;
 
     public async Task SaveProject(ProjectDefinition project, bool saveAs)
     {

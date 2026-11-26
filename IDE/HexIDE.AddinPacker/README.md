@@ -35,7 +35,8 @@ says how a publisher uses them.
 ```sh
 request-publisher --publisher-id <id> --display-name <name> --github <handle> --fingerprint-url <https url>
                   (--new-key <dir> | --key <file>) --out <dir> [--namespaces <a.,b.>] [--previous-key <file>]
-verify-request --request <dir> [--ledger <dir>] [--github <handle>]
+verify-request --request <dir> [--ledger <dir>] [--github <handle>] [--root <file>]
+               [--revocations <json> --revocations-sig <sig>]
 ```
 
 - **The request is `request.json`, one canonical line of ASCII.** The maintainer approves its SHA-256, so
@@ -54,6 +55,8 @@ verify-request --request <dir> [--ledger <dir>] [--github <handle>]
   doesn't verify refuses.
 - **`--revocations <json> --revocations-sig <sig>`** is the signed revocation list, verified against `--root`. A rotation
   of a revoked publisher id is refused.
+- **It treats a request as hostile.** It refuses a request file over 16 KiB, or a link, before reading it. Every line it
+  prints starts with its own words, so a request can't forge a line of a workflow's log.
 - **Exit codes:**
   - **0:** verified.
   - **2:** refused.
@@ -74,16 +77,21 @@ key. It treats the request as hostile there too.
   list. It signs only a request whose check exits 0, and whose SHA-256 equals `--approved-sha256`.
 - **It shows the record and asks for the publisher id to be typed back,** compared ordinally. Input that isn't a
   terminal is refused, with no way around it.
-- **It writes `--out`:** the four chain files, `hexide-root.pub`, the request with its signatures, and `receipt.md`. Then
-  it writes the same, without the root key, to `<ledger>/<id>/`. A rotation first moves the live files to
-  `<ledger>/<id>/retired/<n>/`, where `<n>` is 1, 2, 3 and so on with no gaps.
+- **It writes the ledger entry first,** `<ledger>/<id>/`: the four chain files, the request with its signatures, and
+  `receipt.md`. A rotation first moves the live files to `<ledger>/<id>/retired/<n>/`, where `<n>` is 1, 2, 3 and so on
+  with no gaps. So a record that was signed is always one the ledger holds.
+- **Then it writes `--out`,** the same files and `hexide-root.pub`. `--out` can't be inside `--ledger`. If `--out` can't
+  be written, the record is still in the ledger, and the error says where to copy it from.
 - **It verifies both written chains** against the root.
 - **`receipt.md`** gives the fingerprints, and puts what the request said in a fenced block, so GitHub can't render it as
   links or HTML.
 
 The ledger is `HexIDE.Publishers`' `publishers/` folder; committing it publishes the record.
-- **It treats a request as hostile.** It refuses a request file over 16 KiB, or a link, before reading it. Every line it
-  prints starts with its own words, so a request can't forge a line of a workflow's log.
+
+**After exit 3, a person decides.** There is no flag that skips the check. If you're satisfied, issue the record by
+hand with `sign-publisher`, then add its ledger entry by hand in the same layout: the four chain files, and the request
+with its signatures, `request.json`, `request.sig` and, for a rotation, `request.prev.sig`. For a rotation, move the
+live files to `retired/<n>/` first. Without the stored request, the next rotation for that id is exit 3 again.
 
 ## Release key generation
 

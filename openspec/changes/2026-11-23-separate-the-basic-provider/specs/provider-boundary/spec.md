@@ -99,6 +99,17 @@ contract SHALL be logged and SHALL answer as a class without the contract does, 
 - **WHEN** a control on the form has a class that answers the caption contract
 - **THEN** the designer never asks it
 
+### Requirement: A double-clicked control goes only where the designer can place and save it
+Where a component class gives the bounds its control takes when its tool is double-clicked, the form designer SHALL
+place the control there only if the bounds are finite, have no negative width or height, and each fit a whole number
+of twips. Otherwise, or when the class throws, the designer SHALL log it and SHALL centre the control at its added
+size, as it does for a class without the contract (#5681).
+
+#### Scenario: A double-clicked control's class gives bounds the designer can't use
+- **WHEN** a control's tool is double-clicked and its class gives bounds with a negative width
+- **THEN** the control is centred on the form at its added size, as a class without the contract's is
+- **AND** the class's failure is logged as a warning the first time and at debug after that
+
 ### Requirement: A granted registration still only adds
 A registration from an owner the grant names SHALL still only add: it SHALL be refused, and logged naming both
 owners, where any key or component it carries is already held by the IDE or another owner, and no grant SHALL
@@ -228,3 +239,43 @@ SHALL NOT change who is trusted: disabling, consent and launches SHALL go by the
 #### Scenario: The IDE starts without VB6
 - **WHEN** the IDE starts with `--no-vb6`
 - **THEN** the provider's registration of VB6's type registers nothing, and its other registrations go ahead
+
+### Requirement: A project type's maker registers only through the owned host
+What makes a project type's programs, File > Make's and Make with VB6's, SHALL be registered only through the host an
+add-in receives, and only for a project type the owner's grant names. The IDE's own host SHALL refuse it, and a second
+maker for a type one already serves SHALL be refused, logged naming both owners. While only the composed provider
+registers a maker, the registration MAY be internal to HexIDE's assemblies, and it SHALL then meet the same checks
+(#5621).
+
+#### Scenario: A second maker for VB6's projects
+- **WHEN** an owner whose grant names VB6's type registers a maker while another owner's maker serves it
+- **THEN** the registration is refused and logged, naming both owners, and the first maker stands
+
+#### Scenario: No maker for a project's type
+- **WHEN** no maker is registered for the focused project's type
+- **THEN** File > Make, Make Project Group, Make with VB6 and Start with VB6 are unavailable
+
+### Requirement: A maker's throw fails the make
+A throw from a maker or its toolchain SHALL be logged, naming its owner. A make it throws in SHALL be reported as failed,
+and no program SHALL be reported as made. A question the IDE asks it, such as whether its toolchain is installed, SHALL
+answer as with no maker. The IDE SHALL stay usable, and the maker SHALL stay registered.
+
+#### Scenario: A maker throws while writing the program
+- **WHEN** the maker throws while File > Make writes the program
+- **THEN** Make reports that it failed, the files it repointed are put back, and nothing is reported as made
+
+### Requirement: Withdrawing a maker doesn't wait on the UI thread
+Withdrawing a maker SHALL NOT wait on the UI thread. From the moment its handle is disposed it SHALL be asked nothing
+more, and the commands that make a program SHALL be asked again on the UI thread.
+
+#### Scenario: The provider is disabled from another thread
+- **WHEN** the add-in registry withdraws the provider's maker under its lock, from a thread other than the UI thread
+- **THEN** the withdrawal returns at once, and File > Make is unavailable once the UI thread has run
+
+### Requirement: The compiler Make with VB6 starts comes from the user's machine
+The executable Make with VB6 and Start with VB6 start SHALL come from the user's own setting, `VB6_EXE`, or else VB6's
+install folders, and never from anything a project names.
+
+#### Scenario: A project names another program
+- **WHEN** a project's file names another program in any line
+- **THEN** Make with VB6 starts the compiler the user's machine names, and nothing the project named

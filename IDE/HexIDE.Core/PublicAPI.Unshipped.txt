@@ -168,3 +168,24 @@ HexIDE.Addins.AddinInfo.UnrecognisedRootFingerprint.init -> void
 HexIDE.Addins.PackageVerificationResult.UnrecognisedRootFingerprint.get -> string?
 HexIDE.Addins.PackageVerificationResult.UnrecognisedRootFingerprint.init -> void
 HexIDE.Addins.IAddinLoader.StartRevocationChecks() -> void
+HexIDE.Runtime.Components.DesignerBounds
+HexIDE.Runtime.Components.DesignerBounds.Deconstruct(out double Left, out double Top, out double Width, out double Height) -> void
+HexIDE.Runtime.Components.DesignerBounds.DesignerBounds() -> void
+HexIDE.Runtime.Components.DesignerBounds.DesignerBounds(double Left, double Top, double Width, double Height) -> void
+HexIDE.Runtime.Components.DesignerBounds.Equals(HexIDE.Runtime.Components.DesignerBounds other) -> bool
+HexIDE.Runtime.Components.DesignerBounds.Height.get -> double
+HexIDE.Runtime.Components.DesignerBounds.Height.init -> void
+HexIDE.Runtime.Components.DesignerBounds.Left.get -> double
+HexIDE.Runtime.Components.DesignerBounds.Left.init -> void
+HexIDE.Runtime.Components.DesignerBounds.Top.get -> double
+HexIDE.Runtime.Components.DesignerBounds.Top.init -> void
+HexIDE.Runtime.Components.DesignerBounds.Width.get -> double
+HexIDE.Runtime.Components.DesignerBounds.Width.init -> void
+HexIDE.Runtime.Components.IDesignerAddedPlacement
+HexIDE.Runtime.Components.IDesignerAddedPlacement.AddedBounds(double formWidth, double formHeight) -> HexIDE.Runtime.Components.DesignerBounds?
+HexIDE.Runtime.Components.IDesignerAddedPlacement.AddedOnGrid.get -> bool
+override HexIDE.Runtime.Components.DesignerBounds.GetHashCode() -> int
+static HexIDE.Runtime.Components.DesignerBounds.operator !=(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool
+static HexIDE.Runtime.Components.DesignerBounds.operator ==(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool
+~override HexIDE.Runtime.Components.DesignerBounds.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.DesignerBounds.ToString() -> string

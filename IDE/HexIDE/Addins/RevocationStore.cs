@@ -34,6 +34,17 @@ internal sealed class RevocationStore
     // The ETag of the last list whose signature verified, in memory only. Kept from a pair that failed verification, it
     // would answer every later check with 304 and the valid pair would never arrive (#5577).
     private string? _validator;
+    // What the checks found, for Options. One value swapped whole, since the hourly check writes it off the UI thread.
+    private RevocationCheckState _checks = new(null, null, false);
+
+    /// <summary>When a check last reached a list that verified, or was told the list hadn't changed, and when one last
+    /// failed (#5577). Both are null until the first check of this session.</summary>
+    internal RevocationCheckState Checks => Volatile.Read(ref _checks);
+
+    /// <summary>When the list in use was issued, as it says, or empty for a list that names no time.</summary>
+    internal string ActiveIssuedUtc => _active.IssuedUtc;
+
+    internal Func<DateTimeOffset> Clock { get; init; } = () => DateTimeOffset.UtcNow;
 
     public RevocationStore() : this(ReadEmbeddedText("hexide-root.pub"), DefaultCacheDir()) { }
 
@@ -66,6 +77,17 @@ internal sealed class RevocationStore
     /// current (cached/bundled) list. A valid, newer list updates the cache and becomes active, and the result says
     /// so, so the hourly check knows to look at what is already loaded (#5577).</summary>
     public RevocationRefresh RefreshFromUrl(string url, TimeSpan timeout)
+    {
+        var result = Refresh(url, timeout);
+        var now = Clock();
+        var last = Volatile.Read(ref _checks);
+        Volatile.Write(ref _checks, result == RevocationRefresh.Failed
+            ? last with { LastFailed = now, LastAttemptFailed = true }
+            : last with { LastSucceeded = now, LastAttemptFailed = false });
+        return result;
+    }
+
+    private RevocationRefresh Refresh(string url, TimeSpan timeout)
     {
         if (_rootPub is null)
             return RevocationRefresh.Failed;
@@ -253,3 +275,7 @@ internal enum RevocationRefresh
 
 /// <summary>A fetched list, its signature, and the validator (an ETag) to send next time.</summary>
 internal sealed record FetchedList(byte[] Json, string Signature, string? Validator);
+
+/// <summary>When a revocation check last worked and last failed, and whether the latest attempt failed (#5577). A check
+/// works when it reaches a list that verifies, or hears the list hasn't changed since the last one that did.</summary>
+internal sealed record RevocationCheckState(DateTimeOffset? LastSucceeded, DateTimeOffset? LastFailed, bool LastAttemptFailed);

@@ -3,9 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using HexIDE.IO;
+using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 
-namespace HexIDE.Projects;
+namespace HexIDE.Runtime.Making;
 
 internal static class ProjectOutputPath
 {

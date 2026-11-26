@@ -12,6 +12,7 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Projects;
 
@@ -173,9 +174,9 @@ public class SourceEncodingPersistenceTests : IDisposable
         var standalone = Path.Join(dir, "standalone");
         Directory.CreateDirectory(standalone);
         // Copied, never executed: MadeProgramTests is the one that runs a real runner.
-        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runtime fixture");
+        File.WriteAllText(Path.Join(standalone, Vb6ProjectMaker.StandaloneRunnerName()!), "runtime fixture");
 
-        svc.RuntimeDirectory = dir;
+        svc.WithMaker(dir);
         await svc.MakeProject(project);
         using (var archive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll")))
         using (var reader = new StreamReader(archive.GetEntry("Module1.bas")!.Open()))
@@ -214,8 +215,8 @@ public class SourceEncodingPersistenceTests : IDisposable
         windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(exePath);
         var standalone = Path.Join(dir, "standalone");
         Directory.CreateDirectory(standalone);
-        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runtime fixture");
-        svc.RuntimeDirectory = dir;
+        File.WriteAllText(Path.Join(standalone, Vb6ProjectMaker.StandaloneRunnerName()!), "runtime fixture");
+        svc.WithMaker(dir);
 
         await svc.MakeProject(project);
 
@@ -905,6 +906,7 @@ public class SourceEncodingPersistenceTests : IDisposable
     public async Task Make_refuses_a_document_its_code_page_cannot_hold_before_asking_where_to_put_the_program(string where)
     {
         var (svc, project) = await OpenInWestern(WriteFormAndModulesProject());
+        svc.WithMaker(Path.GetTempPath());
         var form = project.Forms.Single();
         var (expected, character) = where switch
         {

@@ -26,8 +26,8 @@ public sealed record IssueOutcome(int ExitCode, IReadOnlyList<string> Reasons);
 /// Turns an approved publisher request into a signed record (#5322), on the machine that holds the intermediate key. The
 /// request is hostile input there, so every check verify-request makes runs again, against the ledger, the root and the
 /// revocation list, and only a check with nothing refused and nothing left unchecked is signed. The SHA-256 the
-/// maintainer approved must be the request's, the publisher id must be typed back, and the record goes to the publisher
-/// and into the ledger together.
+/// maintainer approved must be the request's, the publisher id must be typed back, and the record goes into the ledger
+/// first, then to the publisher, so a record that was signed is always one whose id and key the ledger holds.
 /// </summary>
 public static class PublisherIssuer
 {
@@ -102,6 +102,9 @@ public static class PublisherIssuer
         if (rotation ? Directory.Exists(retiredSlot) : Directory.Exists(entry) || File.Exists(entry))
             return Refused("the ledger already has what this would write");
         var outFolder = PackageSigner.ResolveOutputDirectory(r.OutDir);
+        // The ledger is committed and --out goes to the publisher: a folder in the ledger would read as an entry (#5678).
+        if (PublisherRequests.IsSameOrUnder(outFolder, PackageSigner.ResolveOutputDirectory(ledger)))
+            return Refused("--out is inside --ledger; the publisher's folder goes to them, not into the ledger");
 
         var receipt = Receipt(request, check.Sha256!, signed, DateTimeOffset.UtcNow);
         var files = new Dictionary<string, byte[]>
@@ -137,13 +140,8 @@ public static class PublisherIssuer
         if (!string.Equals(typed, request.PublisherId, StringComparison.Ordinal))
             return Refused("the id typed wasn't the publisher id; nothing was signed or written");
 
-        Directory.CreateDirectory(outFolder);
-        PackageSigner.WriteNewFiles(outFolder, new Dictionary<string, byte[]>(files)
-        {
-            ["hexide-root.pub"] = Encoding.ASCII.GetBytes(rootPublicKey),
-        });
-        PackageSigner.VerifyWrittenChain(signed, r.IntermediateDir, outFolder);
-
+        // The ledger first (#5678). If --out then can't be written, the record is still one whose id and key are held, and
+        // the ledger entry holds everything the publisher is sent except the root's public key.
         if (rotation)
             Retire(entry, retiredSlot!, files);
         else
@@ -153,7 +151,22 @@ public static class PublisherIssuer
         }
         PackageSigner.VerifyWrittenChain(signed, r.IntermediateDir, entry);
 
-        output.WriteLine($"Issued: wrote the record to {outFolder} and added it to the ledger as {request.PublisherId}.");
+        try
+        {
+            Directory.CreateDirectory(outFolder);
+            PackageSigner.WriteNewFiles(outFolder, new Dictionary<string, byte[]>(files)
+            {
+                ["hexide-root.pub"] = Encoding.ASCII.GetBytes(rootPublicKey),
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new IOException($"the record was added to the ledger as {request.PublisherId}, but --out couldn't be "
+                + $"written ({ex.Message}). Send the publisher the files in {entry} and the root's public key.", ex);
+        }
+        PackageSigner.VerifyWrittenChain(signed, r.IntermediateDir, outFolder);
+
+        output.WriteLine($"Issued: added the record to the ledger as {request.PublisherId} and wrote it to {outFolder}.");
         output.WriteLine("Send the publisher the four chain files and hexide-root.pub, and commit the ledger.");
         return new IssueOutcome(0, []);
     }
@@ -168,7 +181,10 @@ public static class PublisherIssuer
                 return null;
             return JsonSerializer.Deserialize(bytes, RevocationJsonContext.Default.RevocationList);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        // The same exceptions as verify-request's VerifyCommand (#5678). PackageCrypto.Verify already answers false for a
+        // signature that isn't base64, so none of these is reachable today; a refusal must not depend on that staying so.
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException
+            or CryptographicException or JsonException)
         {
             return null;
         }

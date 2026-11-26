@@ -57,6 +57,7 @@ public class ViewLocator : IDataTemplate
         Register<AddinOptionsPageViewModel, AddinOptionsPageView>();
         Register<AddinsOverviewPageViewModel, AddinsOverviewPageView>();
         Register<AddinConsentDialogViewModel, AddinConsentDialog>();
+        Register<AddinRevokedNoticeViewModel, AddinRevokedNotice>();
         Register<LanguageServerLaunchViewModel, LanguageServerLaunchView>();
         Register<WorkspaceArtifactConsentViewModel, WorkspaceArtifactConsentView>();
         Register<WorkspaceArtifactPageViewModel, WorkspaceArtifactPageView>();

@@ -75,6 +75,23 @@ public class InBoxToolboxTests
         form.HeaderLines.Should().Contain(l => l.Contains("MSCOMCT2.OCX"));
     }
 
+    // #1087: VB6's toolbox double-click gives a StatusBar the form's full width, 25 pixels high, centred on a whole pixel.
+    // The class says so through IDesignerAddedPlacement (#5681).
+    [AvaloniaTheory]
+    [InlineData(400, 300, 137)]
+    [InlineData(400, 301, 138)]
+    public void StatusBar_toolbox_default_takes_the_form_width_and_25_pixels_centred_on_a_whole_pixel(
+        double formWidth, double formHeight, double top)
+    {
+        var (_, toolbox, vm, _) = Designer(ControlLibraries.MSComctlLib);
+        var tool = toolbox.Components.Single(c => c.VBTypeName == "MSComctlLib.StatusBar");
+        vm.Form.Width = formWidth;
+        vm.Form.Height = formHeight;
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, ControlLibraries.MSComctlLib);
+        var bar = vm.Components.Single(c => c.Instance.BaseClass.VBTypeName == "MSComctlLib.StatusBar");
+        (bar.Left, bar.Top, bar.Width, bar.Height).Should().Be((0, top, formWidth, 25));
+    }
+
     private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(
         params RuntimeLibrary[] referenced) => Designer(true, referenced);
 

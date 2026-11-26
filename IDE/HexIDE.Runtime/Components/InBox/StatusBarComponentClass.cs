@@ -5,7 +5,7 @@ using static HexIDE.Runtime.Components.VBProperties;
 namespace HexIDE.Runtime.Components.InBox;
 
 // Measured on vb6.exe SP6: #1087, issuecomment-6427372779. Drawing and pointer events follow the same console measurements.
-public sealed class StatusBarComponentClass : InBoxComponentClass
+public sealed class StatusBarComponentClass : InBoxComponentClass, IDesignerAddedPlacement
 {
     private StatusBarComponentClass() : base(
         [AlignProperty, TabIndexProperty, ToolTipTextProperty],
@@ -38,6 +38,10 @@ public sealed class StatusBarComponentClass : InBoxComponentClass
     // Only 6.0 was measured for this control.
     public override IEnumerable<RuntimeLibrary> Libraries => [ControlLibraries.MSComctlLib];
     public override (int Width, int Height) AddedSize => (1215, 375);
+
+    /// <summary>VB6's toolbox double-click: the form's full width, 25 pixels high, centred on a whole pixel (#1087).</summary>
+    public DesignerBounds? AddedBounds(double formWidth, double formHeight) =>
+        new DesignerBounds(0, Math.Floor((formHeight - 25) / 2), formWidth, 25);
     public override (int X, int Y) DefaultExtent => throw new NotImplementedException("StatusBar file persistence is deferred to #1087 part C");
 
     public override IReadOnlyList<InBoxMember> Members { get; } =

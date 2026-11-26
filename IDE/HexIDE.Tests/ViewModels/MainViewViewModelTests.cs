@@ -47,6 +47,8 @@ public class MainViewViewModelTests
         _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         _settingsService.IsStandardToolbarVisible.Returns(true);
         _settingsService.ActiveLanguage.Returns("en");
+        // The Basic provider registers a maker for VB6's projects (#5621); a test of what happens with none says so.
+        _projectService.CanMake(Arg.Any<ProjectDefinition?>()).Returns(true);
 
         _sut = Build(_runnerService);
     }
@@ -1448,7 +1450,7 @@ public class MainViewViewModelTests
     [InlineData(true)]
     public void What_a_project_is_offered_follows_its_type_whoever_opened_it(bool offersEverything)
     {
-        _vb6Toolchain.IsAvailable.Returns(true);
+        _vb6Toolchain.IsAvailableFor(Arg.Any<ProjectDefinition?>()).Returns(true);
         _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "Ledger")
         {
             ContributedBy = offersEverything ? "RDCore projects" : null,
@@ -1466,7 +1468,7 @@ public class MainViewViewModelTests
     [InlineData(nameof(ProjectOffers.SetsComponents))]
     public void A_project_short_of_one_thing_loses_only_what_needs_it(string denied)
     {
-        _vb6Toolchain.IsAvailable.Returns(true);
+        _vb6Toolchain.IsAvailableFor(Arg.Any<ProjectDefinition?>()).Returns(true);
         _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "Ledger")
         {
             Offers = HexIDE.Tests.Projects.ProjectOffersTests.Without(denied),
@@ -1690,6 +1692,37 @@ public class MainViewViewModelTests
         _sut.MakeProjectCommand.CanExecute(null).Should().BeFalse();
     }
 
+    // Decision 2 on #3411 (11-22): File > Make, Make Project Group, Make with VB6 and Start with VB6 come from the project
+    // type's maker, which its provider registers (#5621). With none, all four are greyed, as F5 is with no run engine.
+    [AvaloniaFact]
+    public void Nothing_that_makes_a_program_is_offered_for_a_project_whose_type_has_no_maker()
+    {
+        var project = TestHelpers.CreateProject();
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+        _projectManager.LoadedProjects.Returns([project, TestHelpers.CreateProject()]);
+        _projectService.CanMake(Arg.Any<ProjectDefinition?>()).Returns(false);
+        _vb6Toolchain.IsAvailableFor(Arg.Any<ProjectDefinition?>()).Returns(false);
+
+        _sut.MakeProjectCommand.CanExecute(null).Should().BeFalse();
+        _sut.MakeProjectGroupCommand.CanExecute(null).Should().BeFalse();
+        _sut.MakeWithVb6Command.CanExecute(null).Should().BeFalse();
+        _sut.RunWithVb6Command.CanExecute(null).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Every_command_that_makes_a_program_is_asked_again_when_a_maker_comes_or_goes()
+    {
+        var asked = new List<string>();
+        _sut.MakeProjectCommand.CanExecuteChanged += (_, _) => asked.Add("Make");
+        _sut.MakeProjectGroupCommand.CanExecuteChanged += (_, _) => asked.Add("Make Project Group");
+        _sut.MakeWithVb6Command.CanExecuteChanged += (_, _) => asked.Add("Make with VB6");
+        _sut.RunWithVb6Command.CanExecuteChanged += (_, _) => asked.Add("Start with VB6");
+
+        _projectService.MakersChanged += Raise.Event<System.Action>();
+
+        asked.Should().BeEquivalentTo(["Make", "Make Project Group", "Make with VB6", "Start with VB6"]);
+    }
+
     // --- RemoveProjectCommand ---
 
     [AvaloniaFact]
@@ -1714,7 +1747,7 @@ public class MainViewViewModelTests
     public void RunWithVb6Command_CanExecute_WhenProjectAndToolchainAvailable()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
-        _vb6Toolchain.IsAvailable.Returns(true);
+        _vb6Toolchain.IsAvailableFor(Arg.Any<ProjectDefinition?>()).Returns(true);
 
         _sut.RunWithVb6Command.CanExecute(null).Should().BeTrue();
     }
@@ -1723,7 +1756,7 @@ public class MainViewViewModelTests
     public void RunWithVb6Command_CannotExecute_WhenToolchainUnavailable()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
-        _vb6Toolchain.IsAvailable.Returns(false);
+        _vb6Toolchain.IsAvailableFor(Arg.Any<ProjectDefinition?>()).Returns(false);
 
         _sut.RunWithVb6Command.CanExecute(null).Should().BeFalse();
     }
@@ -1732,7 +1765,7 @@ public class MainViewViewModelTests
     public void RunWithVb6Command_CannotExecute_WhenNoProject()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
-        _vb6Toolchain.IsAvailable.Returns(true);
+        _vb6Toolchain.IsAvailableFor(Arg.Any<ProjectDefinition?>()).Returns(true);
 
         _sut.RunWithVb6Command.CanExecute(null).Should().BeFalse();
     }
@@ -1743,7 +1776,7 @@ public class MainViewViewModelTests
     public void MakeWithVb6Command_CanExecute_WhenProjectAndToolchainAvailable()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
-        _vb6Toolchain.IsAvailable.Returns(true);
+        _vb6Toolchain.IsAvailableFor(Arg.Any<ProjectDefinition?>()).Returns(true);
 
         _sut.MakeWithVb6Command.CanExecute(null).Should().BeTrue();
     }
@@ -1752,7 +1785,7 @@ public class MainViewViewModelTests
     public void MakeWithVb6Command_CannotExecute_WhenToolchainUnavailable()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
-        _vb6Toolchain.IsAvailable.Returns(false);
+        _vb6Toolchain.IsAvailableFor(Arg.Any<ProjectDefinition?>()).Returns(false);
 
         _sut.MakeWithVb6Command.CanExecute(null).Should().BeFalse();
     }

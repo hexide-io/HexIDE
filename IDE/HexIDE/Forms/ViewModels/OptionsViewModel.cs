@@ -147,7 +147,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     {
         var addins = _addinRegistry.GetAll();
 
-        var overview = new AddinsOverviewPageViewModel(addins);
+        var overview = new AddinsOverviewPageViewModel(addins, (_addinRegistry as AddinRegistry)?.RevocationStatusLine());
         var group = Group("Str.Options.Node.AddIns", overview);
         if (addins.Count == 0)
             group.Add(Group("Str.Options.Node.NoAddins", overview));

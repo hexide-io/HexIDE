@@ -54,6 +54,7 @@
         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
             <Button Command="{CompiledBinding ToggleEnabledCommand}"
                     Content="{CompiledBinding ToggleLabel}"
+                    IsVisible="{CompiledBinding CanToggle}"
                     Width="100" />
             <Button Command="{CompiledBinding RevokeConsentCommand}"
                     Content="{DynamicResource Str.Options.Addin.RevokeConsent}"
