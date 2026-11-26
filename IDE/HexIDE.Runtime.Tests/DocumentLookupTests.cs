@@ -1,7 +1,8 @@
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Tests;
 
-namespace HexIDE.Tests.ProjectElements;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Finding a document by a name that came from outside the IDE — an automation client, an add-in. One

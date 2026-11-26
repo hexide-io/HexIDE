@@ -1,7 +1,9 @@
+using HexIDE.IDE;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Tests;
 
-namespace HexIDE.Tests.ProjectElements;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A <c>.ctl</c> or <c>.pag</c> is one file in one encoding, and its module holds it. The designer half reads

@@ -44,6 +44,11 @@
         <Compile Include="..\HexIDE.Tests\Infrastructure\RunnerLoad.cs" Link="Infrastructure\RunnerLoad.cs" />
     </ItemGroup>
 
+    <!-- Share project and document factories with the IDE tests. -->
+    <ItemGroup>
+        <Compile Include="..\HexIDE.Tests\TestHelpers.cs" Link="Infrastructure\TestHelpers.cs" />
+    </ItemGroup>
+
   <ItemGroup>
     <!-- One cleanup per test class: xunit v3 never calls Dispose beside DisposeAsync (#3411 slice 10b-3). -->
     <Compile Include="..\HexIDE.Tests\Infrastructure\TestClassCleanupTests.cs" Link="Infrastructure\TestClassCleanupTests.cs" />
