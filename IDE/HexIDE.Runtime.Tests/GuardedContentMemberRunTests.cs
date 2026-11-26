@@ -1,7 +1,7 @@
 using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A whole replacement and a member's attribute run (hexide-io/HexIDE#273 task 4.5b; design.md, "Whole

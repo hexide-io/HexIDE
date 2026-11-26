@@ -1,7 +1,7 @@
 using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Tests.Components;
+namespace HexIDE.Runtime.Tests;
 
 public class FlexGridModelTests
 {

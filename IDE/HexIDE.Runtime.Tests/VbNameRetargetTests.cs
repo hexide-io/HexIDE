@@ -1,6 +1,6 @@
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Finding and rewriting the <c>Attribute VB_Name</c> line at the head of a code section
