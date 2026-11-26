@@ -1,7 +1,8 @@
 using System.IO;
+using HexIDE.IDE;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Projects;
+namespace HexIDE.Runtime.Tests;
 
 public sealed class ProjectTextReadTests : IDisposable
 {

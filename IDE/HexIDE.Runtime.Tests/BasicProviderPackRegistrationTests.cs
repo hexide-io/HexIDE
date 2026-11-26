@@ -1,7 +1,7 @@
 using HexIDE.Addins;
 using HexIDE.Runtime;
 
-namespace HexIDE.Tests.Localization;
+namespace HexIDE.Runtime.Tests;
 
 public class BasicProviderPackRegistrationTests
 {

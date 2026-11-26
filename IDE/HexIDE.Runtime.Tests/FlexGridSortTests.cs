@@ -1,6 +1,6 @@
 using HexIDE.Runtime.Components.InBox;
 
-namespace HexIDE.Tests.Components;
+namespace HexIDE.Runtime.Tests;
 
 public class FlexGridSortTests
 {

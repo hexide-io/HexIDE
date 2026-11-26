@@ -1,7 +1,7 @@
 using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// The qualifiers a save writes into members' attribute runs (hexide-io/HexIDE#273 task 4.4; design.md, "Renames

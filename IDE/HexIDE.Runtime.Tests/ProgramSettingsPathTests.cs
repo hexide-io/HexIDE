@@ -1,7 +1,7 @@
 using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.Tests;
+namespace HexIDE.Runtime.Tests;
 
 // #4070, measured with vb6.exe SP6 in oracle PR #4072: IDE, native and p-code EXEs share settings.
 public sealed class ProgramSettingsPathTests : IDisposable

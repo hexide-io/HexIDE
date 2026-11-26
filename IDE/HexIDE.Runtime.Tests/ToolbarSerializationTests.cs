@@ -1,9 +1,11 @@
 using System.IO;
 using System.Text;
+using HexIDE.IDE;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 // VB6's save in #1088, issuecomment-6428845889. These exercise preservation, not configured runtime loading.
 public class ToolbarSerializationTests

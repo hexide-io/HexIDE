@@ -1,7 +1,7 @@
 using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Reducing a server's rewrite of a buffer to the lines it changes, less those in a read-only region

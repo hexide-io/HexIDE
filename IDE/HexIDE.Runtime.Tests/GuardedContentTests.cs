@@ -1,6 +1,6 @@
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Replacing a document's content without changing its header (hexide-io/HexIDE#273 task 3.9: the add-in

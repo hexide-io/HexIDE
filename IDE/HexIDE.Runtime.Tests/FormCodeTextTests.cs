@@ -1,6 +1,6 @@
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// `VB_Name` is a form's identity and it lives at the top of the code section, in the leading run of `Attribute`
