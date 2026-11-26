@@ -8,8 +8,10 @@ namespace HexIDE.VisualDesigner;
 
 /// <summary>
 /// The designer's calls into a registered component class's optional contracts (#5633): its title-bar caption,
-/// the starting values of a control it draws, and where a control added by double-clicking its tool goes (#5681). A class's code is the provider's or an add-in's, so a throw, or a null
-/// where an answer is needed, answers as though the class didn't have the contract, and the designer stays usable.
+/// the starting values of a control it draws, where a control added by double-clicking its tool goes (#5681), and a
+/// container's pages (#5742), which automation asks through here too. A class's code is the provider's or an add-in's,
+/// so a throw, or a null where an answer is needed, answers as though the class didn't have the contract, and the
+/// designer stays usable.
 /// </summary>
 /// <remarks>
 /// The first failure from each class and contract is logged as a warning, and later ones at debug: the caption is asked
@@ -92,6 +94,66 @@ internal static class DesignerClassCalls
         {
             Failed(placement, nameof(IDesignerAddedPlacement), ex);
             return true;
+        }
+    }
+
+    /// <summary>Lets <paramref name="instance"/>'s class read its pages, for a container on a form the designer opens.</summary>
+    internal static void LoadPages(ComponentInstance instance) =>
+        AskPages(instance, pages => { pages.LoadPages(instance); return true; }, out _);
+
+    /// <summary>Lets <paramref name="instance"/>'s class record which page each of <paramref name="children"/> is on.</summary>
+    internal static void SynchronizePages(ComponentInstance instance, IReadOnlyList<ComponentInstance> children) =>
+        AskPages(instance, pages => { pages.SynchronizePages(instance, children); return true; }, out _);
+
+    /// <summary>
+    /// Whether <paramref name="instance"/>'s class showed the page whose tab is under a click at (x, y), in pixels from
+    /// its top-left corner: false for a class without pages, a click on no tab, or a throw.
+    /// </summary>
+    internal static bool ShowPageAt(ComponentInstance instance, double x, double y, double width, double height,
+        IReadOnlyList<ComponentInstance> children) =>
+        AskPages(instance, pages => pages.ShowPageAt(instance, x, y, width, height, children), out var shown) && shown;
+
+    /// <summary>Whether <paramref name="instance"/>'s class showed <paramref name="page"/>: false for a class without pages, or a throw.</summary>
+    internal static bool ShowPage(ComponentInstance instance, int page, IReadOnlyList<ComponentInstance> children) =>
+        AskPages(instance, pages => { pages.ShowPage(instance, page, children); return true; }, out _);
+
+    /// <summary>The page <paramref name="instance"/> shows, or null for a class without pages, or a throw.</summary>
+    internal static int? ShownPage(ComponentInstance instance) =>
+        AskPages(instance, pages => pages.ShownPage(instance), out var page) ? page : null;
+
+    /// <summary>How many pages <paramref name="instance"/> has, or null for a class without pages, or a throw.</summary>
+    internal static int? PageCount(ComponentInstance instance) =>
+        AskPages(instance, pages => pages.PageCount(instance), out var count) ? count : null;
+
+    /// <summary>
+    /// The page of <paramref name="container"/>'s child named <paramref name="childName"/>, or null when no page names
+    /// it, the class has no pages, or it throws.
+    /// </summary>
+    internal static int? PageOf(ComponentInstance container, string childName) =>
+        AskPages(container, pages => pages.PageOf(container, childName), out var page) ? page : null;
+
+    /// <summary>
+    /// Whether <paramref name="instance"/>'s class answered whether its page can be switched: false for a class without
+    /// pages, or a throw, so a caller can refuse rather than switch without the class's check.
+    /// </summary>
+    internal static bool PageSwitchRefusal(ComponentInstance instance, out string? refusal) =>
+        AskPages(instance, pages => pages.PageSwitchRefusal(instance), out refusal);
+
+    private static bool AskPages<T>(ComponentInstance instance, Func<IDesignerPages, T> question, out T answer)
+    {
+        answer = default!;
+        if (instance.BaseClass is not IDesignerPages pages)
+            return false;
+        try
+        {
+            answer = question(pages);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Failed(pages, nameof(IDesignerPages), ex);
+            answer = default!;
+            return false;
         }
     }
 
