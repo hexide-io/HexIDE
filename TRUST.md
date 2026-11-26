@@ -44,7 +44,10 @@ revocations is signed by the HexIDE root, and HexIDE checks that signature befor
   on with the list built into your version and the last list it fetched.
 - **When a loaded add-in is revoked:** HexIDE marks it Revoked and takes out its menus, commands, tool windows,
   language servers and the rest of what it contributed, and it hears no more events. Its code stays loaded until
-  HexIDE restarts, and the next start refuses it.
+  HexIDE closes, so a notice names the add-in and offers to close HexIDE, through the usual prompts to save. The next
+  start refuses it.
+- **Seeing it work:** Options → Add-Ins says when the list was last checked and which list is in use, that the last
+  check failed and when one last worked, or that checking is off.
 - **Turning it off:** set `revocationListUrl` to `""` in `settings.json`, in HexIDE's settings directory (see
   [`--user-data-dir`](docs/command-line.md)). Removing the line, or setting it to `null`, restores the default. Another
   address works too, for a mirror, but the list must still be signed by the HexIDE root. A profile can't change this

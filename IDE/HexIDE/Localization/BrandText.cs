@@ -78,6 +78,15 @@ internal static partial class BrandText
         "Str.Options.Addin.Status.ConsentDenied",
         "Str.Options.Addin.Status.Revoked",
         "Str.Options.Addin.RevokeConsent",
+        "Str.Options.Addins.Revocation.Off",
+        "Str.Options.Addins.Revocation.NotChecked",
+        "Str.Options.Addins.Revocation.Checked",
+        "Str.Options.Addins.Revocation.Failed",
+        "Str.Options.Addins.Revocation.FailedNever",
+        "Str.Dialog.AddinRevoked.Title",
+        "Str.Dialog.AddinRevoked.Body",
+        "Str.Dialog.AddinRevoked.Close",
+        "Str.Dialog.AddinRevoked.Later",
     };
 
     /// <summary>Every key that always shows the shipped pack's text: HexIDE's credits (#2746) and its trust labels.</summary>
