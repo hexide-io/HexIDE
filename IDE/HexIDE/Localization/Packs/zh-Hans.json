@@ -1294,6 +1294,7 @@
     "Str.Options.Formatting.Token.Identifier": "标识符",
     "Str.Options.Formatting.Token.MetadataKeyword": "元数据关键字",
     "Str.Project.AlreadyOpen": "项目 {0} 已打开。",
+    "Str.Project.Msg.FormatCannotMake": "{0} 的文件格式无法创建新的 {1}，因此未做任何更改。",
     "Str.Options.Addins.Overview": "加载项为 HexIDE 添加工具和设置。要安装加载项，请将已签名的加载项包解压到下方目录中的独立文件夹，然后重启 HexIDE。在树中选择加载项即可管理。",
     "Str.Options.Addins.Revocation.Off": "吊销检查已关闭：settings.json 中的 revocationListUrl 为空。HexIDE 只知道此版本内置的列表，以及之前获取过的列表。",
     "Str.Options.Addins.Revocation.NotChecked": "本次会话中尚未检查吊销列表。正在使用：{0} 发布的列表。",

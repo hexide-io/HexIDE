@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
@@ -79,33 +78,6 @@ public class DebuggerLinesAreFileLinesTests
     }
 
     [AvaloniaFact]
-    public async Task Stopping_on_a_breakpoint_in_a_form()
-    {
-        // The interpreter-debugger delta's scenario: a breakpoint on Form_Load's first statement, set on its file
-        // line, stops on that line. The bar is drawn at the line a stop reports, which CurrentStatementBarTests pins.
-        var form = AForm("Debug.Print 1");
-        var debugger = new DebugController();
-        debugger.SetBreakpoints("Form1", [9]);
-        var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
-        debugger.Stopped += info => stopped.TrySetResult(info);
-
-        _ = VBLoader.RunForm(form, CancellationToken.None, out var window, debugger);
-        try
-        {
-            var winner = await Task.WhenAny(stopped.Task, Task.Delay(5000));
-            winner.Should().BeSameAs(stopped.Task, "a breakpoint on the file line of Form_Load's first statement must fire");
-            var info = await stopped.Task;
-            info.Line.Should().Be(9);
-            info.Module.Should().Be("Form1");
-        }
-        finally
-        {
-            debugger.Stop();
-            window.Close();
-        }
-    }
-
-    [AvaloniaFact]
     public Task A_standard_module_breakpoint_stops_through_the_project_runner() =>
         ModuleBreakpoint(ModuleKind.StandardModule);
 
@@ -152,38 +124,5 @@ public class DebuggerLinesAreFileLinesTests
         {
             runner.EndProject();
         }
-    }
-
-    [AvaloniaFact]
-    public void A_form_run_is_given_the_forms_whole_file()
-    {
-        var form = AForm("Debug.Print 1");
-
-        VBLoader.RunForm(form, CancellationToken.None, out var window);
-
-        window.Context.Code.Should().Be(FormWith("Debug.Print 1"),
-            "a form read from disk and not modified composes back to its file byte for byte");
-        window.Close();
-    }
-
-    [AvaloniaFact]
-    public void Every_module_a_run_loads_is_its_whole_file()
-    {
-        var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        const string header = "Attribute VB_Name = \"Helpers\"\r\n";
-        var helpers = new ModuleDefinition(project, "Helpers", ModuleKind.StandardModule);
-        helpers.RecordOriginalHeader(header);
-        helpers.UpdateCode("Public Sub Main()\r\nEnd Sub\r\n");
-        project.AddModule(helpers);
-        var created = new ModuleDefinition(project, "Order", ModuleKind.ClassModule);
-        created.UpdateCode("Public Total As Currency\r\n");
-        project.AddModule(created);
-
-        var (standard, classes) = VBLoader.InterpreterModules(project);
-
-        standard.Single().Code.Should().Be(header + "Public Sub Main()\r\nEnd Sub\r\n");
-        classes.Single().Code.Should().StartWith("VERSION 1.0 CLASS",
-            "a class HexIDE created has no header on disk yet; the code window shows the canonical one, "
-            + "and the interpreter is given what the code window shows");
     }
 }

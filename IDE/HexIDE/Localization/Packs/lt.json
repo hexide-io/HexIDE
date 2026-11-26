@@ -1300,6 +1300,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikatorius",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metaduomenų raktažodis",
     "Str.Project.AlreadyOpen": "Projektas {0} jau atidarytas.",
+    "Str.Project.Msg.FormatCannotMake": "Projekto {0} failų formatas negali sukurti naujo objekto {1}, todėl niekas nepakeista.",
     "Str.Options.Addins.Overview": "Priedai papildo HexIDE įrankiais ir nuostatomis. Norėdami įdiegti, išskleiskite pasirašytą priedo paketą į atskirą aplanką toliau nurodytame kataloge ir paleiskite HexIDE iš naujo. Pasirinkite priedą medyje, kad jį tvarkytumėte.",
     "Str.Options.Addins.Revocation.Off": "Atšaukimų tikrinimas išjungtas: settings.json faile revocationListUrl tuščias. HexIDE žino tik į šią versiją įtrauktą sąrašą ir anksčiau gautus sąrašus.",
     "Str.Options.Addins.Revocation.NotChecked": "Atšaukimų sąrašas šioje sesijoje dar nepatikrintas. Naudojamas sąrašas, išleistas {0}.",

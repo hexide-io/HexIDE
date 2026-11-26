@@ -191,6 +191,10 @@ public partial class ProjectService : IProjectService
 
     private ContributedProjectType? Vb6Type => contributed.Types.FirstOrDefault(t => t.AddinId == Vb6ProjectType.Id);
 
+    // The format a template makes its project for: VB6's, which RecordTemplateHeaders gives the project. A template is told
+    // it up front, because RecordTemplateHeaders runs only once the template has returned it (#3411 slice 2.4f-2).
+    private IProjectFileFormat? TemplateFormat => Vb6Type?.Type.Format;
+
     // A project read or made by a type with a format of its own: that format reads and writes it from here on, and the type
     // is who it belongs to (#3411 slice 10b).
     private static void Adopt(ProjectDefinition project, ContributedProjectType? type, IProjectFileFormat own)
@@ -237,7 +241,7 @@ public partial class ProjectService : IProjectService
 
         var name = ProjectNaming.NextFreeProjectName(projectManager.LoadedProjects);
         Log.Debug("ProjectService: Creating project '{ProjectName}' from template {Template}", name, template.Name);
-        projectManager.NewProject(template, name, RecordTemplateHeaders);
+        projectManager.NewProject(template, name, RecordTemplateHeaders, TemplateFormat);
         EnsureGroupIfMultiple();
     }
 
@@ -265,7 +269,7 @@ public partial class ProjectService : IProjectService
 
         var name = ProjectNaming.NextFreeProjectName(projectManager.LoadedProjects);
 
-        projectManager.NewProject(template, name, RecordTemplateHeaders);
+        projectManager.NewProject(template, name, RecordTemplateHeaders, TemplateFormat);
         EnsureGroupIfMultiple();
     }
 
@@ -2401,13 +2405,32 @@ public partial class ProjectService : IProjectService
     public async Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true)
     {
         await RefuseMembershipChange(project, interactive);
-        return await AddNewFormCore(project, name, interactive);
+        var rootClass = await NewRootClass(project, "VB.Form", interactive);
+        return await AddNewFormCore(project, name, rootClass, interactive);
     }
 
-    private Task<FormDefinition> AddNewFormCore(ProjectDefinition project, string name, bool interactive) =>
+    // The class the project's format gives a new root of this type (#3411 slice 2.4f-2). A format that can't make one, or
+    // that answers with a class that isn't a root, refuses the add, before anything changes. A caller with someone to tell
+    // is told why; an automation caller is given the reason in the exception.
+    private async Task<IComponentClass> NewRootClass(ProjectDefinition project, string typeName, bool interactive)
+    {
+        var rootClass = ProjectFormats.Of(project).NewRootClass(typeName);
+        if (rootClass is { Role: ComponentRole.Form })
+            return rootClass;
+        Log.Warning("Not adding a {TypeName} to {Project}: its format gives {Class} as the class of a new one", typeName,
+            project.Name, rootClass?.GetType().FullName ?? "none");
+        var reason = string.Format(localization.GetString("Str.Project.Msg.FormatCannotMake"), project.Name, typeName);
+        if (!interactive)
+            throw new InvalidOperationException(reason);
+        await windowManager.MessageBox(reason, icon: MessageBoxIcon.Information);
+        throw new OperationCanceledException();
+    }
+
+    private Task<FormDefinition> AddNewFormCore(ProjectDefinition project, string name, IComponentClass rootClass,
+        bool interactive) =>
         WithSaveRefusals(() =>
         {
-            var form = FormDefinition.NewForm(project, FormComponentClass.Instance, name);
+            var form = FormDefinition.NewForm(project, rootClass, name);
             form.TextEncoding = HostAnsi;
             EnsureNewMemberEncodable(project, form, name + "." + ProjectFormats.Of(project).FormExtension);
             // No file until the project is saved, as in VB6 (#489, #500). The header its first save will write is
@@ -2436,16 +2459,17 @@ public partial class ProjectService : IProjectService
         ProjectDefinition project, string name, ModuleKind kind, bool interactive)
     {
         await RefuseMembershipChange(project, interactive);
-        return await AddNewDesignerModuleCore(project, name, kind, interactive);
+        var rootClass = await NewRootClass(project, kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage",
+            interactive);
+        return await AddNewDesignerModuleCore(project, name, kind, rootClass, interactive);
     }
 
     private Task<ModuleDefinition> AddNewDesignerModuleCore(
-        ProjectDefinition project, string name, ModuleKind kind, bool interactive) =>
+        ProjectDefinition project, string name, ModuleKind kind, IComponentClass rootClass, bool interactive) =>
         WithSaveRefusals(() =>
         {
             // As VB6 makes one, designer half and Attribute lines alike (#1538).
-            var module = ModuleDefinition.NewDesigner(project, name, kind,
-                FormComponentClass.ForRoot(kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage"));
+            var module = ModuleDefinition.NewDesigner(project, name, kind, rootClass);
             module.TextEncoding = HostAnsi;
             return Task.FromResult(AddNewModuleToProject(project, module));
         }, interactive);

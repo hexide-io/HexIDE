@@ -65,4 +65,6 @@ internal sealed class RegionStandInFormat(IReadOnlyRegionReader? reader = null, 
         Inner.ReadForm(project, text, companion, problems);
     public FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems) =>
         Inner.ReadDesignerPart(project, text, companion, problems);
+    public IComponentClass? NewRootClass(string typeName) => Inner.NewRootClass(typeName);
+    public IComponentClass? NewMenuClass => Inner.NewMenuClass;
 }

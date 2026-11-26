@@ -1333,6 +1333,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Ključna riječ metapodataka",
     "Str.Project.AlreadyOpen": "Projekt {0} već je otvoren.",
+    "Str.Project.Msg.FormatCannotMake": "Format datoteka projekta {0} ne može stvoriti novi {1}, pa ništa nije promijenjeno.",
     "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatima i postavkama. Za instalaciju raspakirajte potpisani paket u zasebnu mapu unutar donjeg direktorija i ponovno pokrenite HexIDE. Odaberite dodatak u stablu da biste njime upravljali.",
     "Str.Options.Addins.Revocation.Off": "Provjere opoziva su isključene: revocationListUrl je prazan u settings.json. HexIDE poznaje samo popis ugrađen u ovu verziju i popise koje je ranije dohvatio.",
     "Str.Options.Addins.Revocation.NotChecked": "Popis opoziva još nije provjeren u ovoj sesiji. U upotrebi: popis izdan {0}.",

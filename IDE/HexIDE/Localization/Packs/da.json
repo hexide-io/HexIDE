@@ -1266,6 +1266,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanøgleord",
     "Str.Project.AlreadyOpen": "Projektet {0} er allerede åbent.",
+    "Str.Project.Msg.FormatCannotMake": "Filformatet for {0} kan ikke oprette en ny {1}, så intet blev ændret.",
     "Str.Options.Addins.Overview": "Tilføjelsesprogrammer udvider HexIDE med værktøjer og indstillinger. Installér ved at udpakke en signeret pakke i sin egen mappe i nedenstående mappe, og genstart HexIDE. Vælg et tilføjelsesprogram i træet for at administrere det.",
     "Str.Options.Addins.Revocation.Off": "Tjek af tilbagekaldelser er slået fra: revocationListUrl er tom i settings.json. HexIDE kender kun den liste, der er indbygget i denne version, og de lister, den har hentet før.",
     "Str.Options.Addins.Revocation.NotChecked": "Listen over tilbagekaldelser er endnu ikke tjekket i denne session. I brug: listen udstedt {0}.",

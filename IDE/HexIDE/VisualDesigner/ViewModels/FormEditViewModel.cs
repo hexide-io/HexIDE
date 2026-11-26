@@ -795,13 +795,33 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         }
     }
 
+    // The previewer's form: a class of its own, because the previewer has no project whose format could give one (#3411
+    // slice 2.4f-2). It declares only the three properties the previewer's form sets.
+    private sealed class PreviewFormClass : IComponentClass
+    {
+        public static readonly PreviewFormClass Instance = new();
+
+        public string Name => "Form";
+        public string VBTypeName => "VB.Form";
+        public string ClassName => "Form";
+        public ComponentRole Role => ComponentRole.Form;
+        public bool IsContainer => true;
+        public bool IsVisual => true;
+        public IReadOnlyList<PropertyClass> Properties { get; } =
+            [VBProperties.WidthProperty, VBProperties.HeightProperty, VBProperties.CaptionProperty];
+        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName =>
+            Properties.ToDictionary(property => property.Name, StringComparer.OrdinalIgnoreCase);
+        public IReadOnlyList<EventClass> Events => [];
+        public IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
+    }
+
     /* ctr only for the previewer! */
     public FormEditViewModel()
     {
         CanFloat = false;
         AllComponents.CollectionChanged += OnAllComponentsChanged;
         Components.CollectionChanged += OnComponentsChanged;
-        Form = new ComponentInstanceViewModel(this, new ComponentInstance(FormComponentClass.Instance, "Form1")
+        Form = new ComponentInstanceViewModel(this, new ComponentInstance(PreviewFormClass.Instance, "Form1")
             .SetProperty(VBProperties.WidthProperty, 400)
             .SetProperty(VBProperties.HeightProperty, 300)
             .SetProperty(VBProperties.CaptionProperty, "Form1"));
@@ -1812,6 +1832,22 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             return;
         }
 
+        // A new item's class comes from the form's format (#3411 slice 2.4f-2), asked before anything changes. A format
+        // that makes no menus, or answers with a class that isn't a menu, refuses the whole edit.
+        IComponentClass? menuClass = null;
+        if (vm.ItemsToApply.Any(item => item.Menu == null))
+        {
+            menuClass = formDefinition is null ? null : ProjectFormats.Of(formDefinition.Owner).NewMenuClass;
+            if (menuClass is not { Role: ComponentRole.Menu })
+            {
+                Log.Warning("Not applying the Menu Editor's changes to {Form}: its format gives {Class} as the class of a new menu",
+                    formDefinition?.Name, menuClass?.GetType().FullName ?? "none");
+                await windowManager.MessageBox(string.Format(localization.GetString("Str.Project.Msg.FormatCannotMake"),
+                    formDefinition?.Owner.Name, "VB.Menu"), icon: MessageBoxIcon.Information);
+                return;
+            }
+        }
+
         foreach (var deleted in vm.Deleted)
         {
             if (deleted.Menu != null)
@@ -1833,7 +1869,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         {
             var menu = menuViewModel.Menu;
             if (menu == null)
-                menu = new ComponentInstance(MenuComponentClass.Instance, menuViewModel.Name);
+                menu = new ComponentInstance(menuClass!, menuViewModel.Name);
             menuViewModel.Apply(menu);
             if (menuViewModel.Menu == null)
                 AllComponents.Add(new ComponentInstanceViewModel(this, menu));

@@ -1261,6 +1261,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Ključna beseda metapodatkov",
     "Str.Project.AlreadyOpen": "Projekt {0} je že odprt.",
+    "Str.Project.Msg.FormatCannotMake": "Oblika datotek projekta {0} ne more ustvariti novega predmeta {1}, zato se ni nič spremenilo.",
     "Str.Options.Addins.Overview": "Dodatki razširjajo HexIDE z orodji in nastavitvami. Za namestitev razširite podpisan paket v lastno mapo v spodnjem imeniku in znova zaženite HexIDE. Za upravljanje izberite dodatek v drevesu.",
     "Str.Options.Addins.Revocation.Off": "Preverjanje preklicev je izklopljeno: revocationListUrl je v settings.json prazen. HexIDE pozna samo seznam, vgrajen v to različico, in sezname, ki jih je pridobil prej.",
     "Str.Options.Addins.Revocation.NotChecked": "Seznam preklicev v tej seji še ni bil preverjen. V uporabi: seznam, izdan {0}.",

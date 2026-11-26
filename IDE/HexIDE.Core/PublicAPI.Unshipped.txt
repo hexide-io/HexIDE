@@ -189,3 +189,6 @@ static HexIDE.Runtime.Components.DesignerBounds.operator !=(HexIDE.Runtime.Compo
 static HexIDE.Runtime.Components.DesignerBounds.operator ==(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool
 ~override HexIDE.Runtime.Components.DesignerBounds.Equals(object obj) -> bool
 ~override HexIDE.Runtime.Components.DesignerBounds.ToString() -> string
+HexIDE.Addins.IAddinProjectTemplate.Create(string! name, HexIDE.IDE.IProjectFileFormat! format) -> HexIDE.Runtime.ProjectElements.ProjectDefinition!
+HexIDE.IDE.IProjectFileFormat.NewMenuClass.get -> HexIDE.Runtime.Components.IComponentClass?
+HexIDE.IDE.IProjectFileFormat.NewRootClass(string! typeName) -> HexIDE.Runtime.Components.IComponentClass?

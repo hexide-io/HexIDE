@@ -1266,6 +1266,7 @@
     "Str.Options.Formatting.Token.Identifier": "Tunniste",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metatietojen avainsana",
     "Str.Project.AlreadyOpen": "Projekti {0} on jo avoinna.",
+    "Str.Project.Msg.FormatCannotMake": "Projektin {0} tiedostomuoto ei voi luoda uutta kohdetta {1}, joten mitään ei muutettu.",
     "Str.Options.Addins.Overview": "Lisäosat laajentavat HexIDEä työkaluilla ja asetuksilla. Asenna purkamalla allekirjoitettu lisäosapaketti omaan kansioonsa alla olevassa hakemistossa ja käynnistä HexIDE uudelleen. Hallitse lisäosaa valitsemalla se puusta.",
     "Str.Options.Addins.Revocation.Off": "Peruutusten tarkistus on poissa käytöstä: revocationListUrl on tyhjä tiedostossa settings.json. HexIDE tuntee vain tähän versioon sisältyvän luettelon ja aiemmin hakemansa luettelot.",
     "Str.Options.Addins.Revocation.NotChecked": "Peruutusluetteloa ei ole vielä tarkistettu tässä istunnossa. Käytössä: luettelo, joka on julkaistu {0}.",

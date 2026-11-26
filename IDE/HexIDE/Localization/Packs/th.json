@@ -1261,6 +1261,7 @@
     "Str.Options.Formatting.Token.Identifier": "ตัวระบุ",
     "Str.Options.Formatting.Token.MetadataKeyword": "คำสำคัญเมทาดาทา",
     "Str.Project.AlreadyOpen": "โครงการ {0} เปิดอยู่แล้ว",
+    "Str.Project.Msg.FormatCannotMake": "รูปแบบไฟล์ของ {0} ไม่สามารถสร้าง {1} ใหม่ได้ จึงไม่มีการเปลี่ยนแปลงใดๆ",
     "Str.Options.Addins.Overview": "ส่วนเสริมเพิ่มเครื่องมือและการตั้งค่าให้ HexIDE หากต้องการติดตั้ง ให้แตกแพ็กเกจส่วนเสริมที่ลงลายเซ็นแล้วลงในโฟลเดอร์ของตัวเองภายในไดเรกทอรีด้านล่าง แล้วเริ่ม HexIDE ใหม่ เลือกส่วนเสริมในแผนผังเพื่อจัดการ",
     "Str.Options.Addins.Revocation.Off": "การตรวจสอบการเพิกถอนปิดอยู่: revocationListUrl ว่างใน settings.json HexIDE รู้จักเฉพาะรายการที่ติดมากับเวอร์ชันนี้และรายการที่เคยดึงมาก่อนหน้า",
     "Str.Options.Addins.Revocation.NotChecked": "ยังไม่ได้ตรวจสอบรายการเพิกถอนในเซสชันนี้ ที่ใช้อยู่: รายการที่ออกเมื่อ {0}",
