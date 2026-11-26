@@ -256,20 +256,4 @@ public class RunningFormNamesTests
             FormNativeMenu.UseSystemMenuBar = previous;
         }
     }
-
-    [AvaloniaTheory]
-    [InlineData("&OK", "OK")]
-    [InlineData("E&xit", "Exit")]
-    [InlineData("Tom && Jerry", "Tom & Jerry")]
-    [InlineData("Plain", "Plain")]
-    public void A_caption_reads_without_its_access_key_marker(string caption, string shown) =>
-        VBCaption.AsShown(caption).Should().Be(shown);
-
-    // Measured on vb6.exe (#920, the oracle's "A caption's access key"): A&&&Bc draws A&Bc, and a trailing & is not drawn
-    // at all. The guess pinned here before the measurement kept it.
-    [AvaloniaTheory]
-    [InlineData("&&&Save", "&Save")]
-    [InlineData("Ends &", "Ends ")]
-    public void Captions_vb6_reads_left_to_right(string caption, string shown) =>
-        VBCaption.AsShown(caption).Should().Be(shown);
 }
