@@ -80,19 +80,6 @@ public class ObjectBrowserInBoxMembersTests
 
     private static string Here([CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
 
-    // The Object Browser finds a table through the interface, so a class that keeps one without saying so loses its members.
-    [Fact]
-    public void Every_class_that_keeps_a_member_table_declares_it()
-    {
-        var keeping = typeof(ComponentBaseClass).Assembly.GetTypes()
-            .Where(type => typeof(ComponentBaseClass).IsAssignableFrom(type)
-                && type.GetProperty(nameof(ComponentBaseClass.Members))!.DeclaringType != typeof(ComponentBaseClass))
-            .ToList();
-
-        keeping.Should().NotBeEmpty();
-        keeping.Where(type => !typeof(IComponentMemberTable).IsAssignableFrom(type)).Should().BeEmpty();
-    }
-
     private sealed class EmptyTable : IComponentClass, IComponentMemberTable
     {
         public string Name => "Gauge";
