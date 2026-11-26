@@ -167,3 +167,4 @@ HexIDE.Addins.AddinInfo.UnrecognisedRootFingerprint.get -> string?
 HexIDE.Addins.AddinInfo.UnrecognisedRootFingerprint.init -> void
 HexIDE.Addins.PackageVerificationResult.UnrecognisedRootFingerprint.get -> string?
 HexIDE.Addins.PackageVerificationResult.UnrecognisedRootFingerprint.init -> void
+HexIDE.Addins.IAddinLoader.StartRevocationChecks() -> void

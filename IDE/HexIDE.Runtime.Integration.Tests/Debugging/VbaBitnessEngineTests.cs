@@ -1,11 +1,10 @@
 using HexIDE.Addins;
 using HexIDE.IDE;
-using HexIDE.Localization;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Running;
 
-namespace HexIDE.Tests.DebugAdapter;
+namespace HexIDE.Runtime.Integration.Tests.Debugging;
 
 // #4245: go through the engine's real VBProgram construction, before the first statement runs.
 public class VbaBitnessEngineTests

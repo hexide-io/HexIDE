@@ -14,7 +14,13 @@ internal sealed class AddinInitializationScope : IDisposable
 
     public static void Record(Action undo) => _current?._undo.Add(undo);
 
-    public void Complete() => _undo.Clear();
+    /// <summary>Keeps what Initialize registered, and returns it: a revocation mid-session takes it out again (#5577).</summary>
+    public IReadOnlyList<Action> Complete()
+    {
+        var kept = _undo.ToArray();
+        _undo.Clear();
+        return kept;
+    }
 
     public void Dispose()
     {

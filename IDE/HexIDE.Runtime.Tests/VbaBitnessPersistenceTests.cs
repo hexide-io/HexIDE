@@ -1,10 +1,11 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 // HexIDE's project metadata contract, #4245; this is not a VBA file-format claim.
 public class VbaBitnessPersistenceTests : IDisposable

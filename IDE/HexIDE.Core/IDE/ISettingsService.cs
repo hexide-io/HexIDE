@@ -188,7 +188,7 @@ public interface ISettingsService : INotifyPropertyChanged
 
     /// <summary>
     /// URL of a HexIDE-root-signed add-in revocation list. With any add-in package installed, first-party included
-    /// (#5572), it is fetched at startup
+    /// (#5572), it is fetched at startup and then hourly while HexIDE runs, read afresh each time (#5577)
     /// (the list at <c>&lt;url&gt;</c>, its signature at <c>&lt;url&gt;.sig</c>) with a short timeout and
     /// merged by freshest-validly-signed-wins. Defaults to https://hexide.io/revocations.json;
     /// null resets to that default; empty = bundled floor + cache only, no fetch.

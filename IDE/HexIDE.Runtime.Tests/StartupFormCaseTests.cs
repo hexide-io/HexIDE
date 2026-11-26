@@ -3,7 +3,7 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Projects;
+namespace HexIDE.Runtime.Tests;
 
 public class StartupFormCaseTests : IDisposable
 {

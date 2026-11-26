@@ -1,8 +1,9 @@
 using HexIDE.IDE;
 using HexIDE.Language;
+using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
-namespace HexIDE.Tests.Serialization;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A lone CR ends a line for every reader of a module's or a form's lines, as it does for the code window, the
