@@ -54,7 +54,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Controls/DockOpacityTests.cs` | split |
 | `Controls/DropdownListNameTests.cs` | split |
 | `Controls/FloatingLifecycleTests.cs` | split |
-| `Controls/MousePointerValuesTests.cs` | split |
 | `Controls/OptionButtonPropertyEditorTests.cs` | split |
 | `Controls/ProjectFileNodeTests.cs` | split |
 | `Controls/ProjectGroupExpansionTests.cs` | split |
