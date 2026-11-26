@@ -10,12 +10,12 @@ Each slice removes its rows from the guard's list. Sizes and owners are in the p
 - [x] 2.2 The run engine behind an interface that `ProjectRunnerService` calls, with `DISetup`'s debugger wiring (slice 2 folded in: its other uses already go through Core's interface).
 - [x] 2.3 The running controls: the eight files that use them.
 - [ ] 2.4 A provider-fed designer: the component registry and Toolbox, "is this a form" checks, the designer's preview, and the Object Browser's in-box members.
-- [ ] 2.5 The VB6 file formats and code-window text: the text policy, path helpers, the project file format, and the designer's `.frx` helpers.
+- [x] 2.5 The VB6 file formats and code-window text: the text policy, path helpers, the project file format, and the designer's `.frx` helpers.
 - [x] 2.6 Language helpers through the language registration.
 - [ ] 2.7 VB6 value types and the provider's resources in the IDE.
 - [x] 2.8 Make and Make with VB6 as the VB6 project type's offer: the provider registers VB6's maker, with Start with VB6 (#5621).
-- [ ] 2.9 The provider's strings into a pack area of its own, under the parity guard.
-- [ ] 2.10 A neutral default profile.
+- [x] 2.9 The provider's strings into a pack area of its own, under the parity guard.
+- [x] 2.10 A neutral default profile.
 - [ ] 2.11 #3663: move the provider's test files, and split the test files that test both sides.
 - [ ] 2.12 Core's internals: the four members the provider uses, and `ControlLibraryReferences`, which the runtime's
   library order calls since #5610.
