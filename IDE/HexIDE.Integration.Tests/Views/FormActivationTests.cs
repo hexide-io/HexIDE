@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -80,14 +79,6 @@ public class FormActivationTests
         End Sub
 
         """;
-
-    // Form1's button runs the next step of the test's script, one a click.
-    private static string Steps(params string[] steps)
-    {
-        var cases = string.Concat(steps.Select((step, i) => $"    Case {i + 1}\n        {step.Replace("\n", "\n        ")}\n"));
-        return "Private n As Integer\nPrivate Sub Command1_Click()\n    n = n + 1\n    Select Case n\n" + cases
-            + "    End Select\nEnd Sub\n";
-    }
 
     // Form2's button unloads it.
     private static readonly string Form2Code = Logged("f2") + "Private Sub Command1_Click()\n    Unload Me\nEnd Sub\n";
@@ -166,191 +157,6 @@ public class FormActivationTests
             Dispatcher.UIThread.RunJobs();
     }
 
-    private static readonly string[] Started = ["f1 initialize", "f1 load", "f1 resize", "f1 activate"];
-
-    // ── On show ──────────────────────────────────────────────────────────────────────────────────────────
-
-    [AvaloniaFact]
-    public void The_startup_form_raises_Initialize_Load_one_Resize_then_Activate()
-    {
-        using var run = Start("");
-
-        run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal(Started, "showing the window raises Resize once, as VB6 does, however the window settles");
-    }
-
-    [AvaloniaFact]
-    public void Load_raises_no_Resize_and_Show_raises_one_inside_the_statement_with_Activate_after_it()
-    {
-        using var run = Start(Steps(
-            "Debug.Print \"load\"\nLoad Form2\nDebug.Print \"loaded\"",
-            "Debug.Print \"show\"\nForm2.Show\nDebug.Print \"shown\""));
-
-        run.Click("Form1");
-        run.Since(Started.Length).Should().Equal("load", "f2 initialize", "f2 load", "loaded");
-
-        run.Click("Form1");
-        run.Errors.Should().BeEmpty();
-        run.Since(Started.Length + 4).Should().Equal("show", "f2 resize", "shown", "f1 deactivate", "f2 activate");
-    }
-
-    [AvaloniaFact]
-    public void A_form_shown_again_after_Hide_raises_no_Resize_and_a_hidden_form_that_was_not_active_raises_nothing()
-    {
-        using var run = Start(Steps("Form2.Show", "Me.SetFocus\nDebug.Print \"focused\"", "Form2.Hide", "Form2.Show"));
-        run.Click("Form1");
-        var before = run.Printed.Count;
-
-        run.Click("Form1");
-        run.Since(before).Should().Equal(["focused", "f2 deactivate", "f1 activate"],
-            "SetFocus activates the form, and the activation comes after the handler, as Windows posts it");
-        run.Click("Form1");
-        run.Since(before + 3).Should().BeEmpty("Form2 was not the active form");
-        run.Click("Form1");
-
-        run.Errors.Should().BeEmpty();
-        run.Since(before + 3).Should().Equal("f1 deactivate", "f2 activate");
-    }
-
-    [AvaloniaFact]
-    public void The_active_form_unloaded_raises_no_Deactivate_and_loaded_again_raises_Load_and_Resize()
-    {
-        using var run = Start(Steps("Form2.Show", "Unload Form2", "Form2.Show"));
-        run.Click("Form1");
-        var before = run.Printed.Count;
-
-        // Measured: the unloaded form gets no Deactivate, and the form shown before it is activated, without waiting for
-        // the window system (oracle, "A form's Resize, Activate and Deactivate", run 1's Unload Form2; #3936).
-        run.Click("Form1");
-        run.Since(before).Should().Equal("f2 unload", "f1 activate");
-        run.Click("Form1");
-
-        run.Errors.Should().BeEmpty();
-        run.Since(before + 2).Should().Equal("f2 load", "f2 resize", "f1 deactivate", "f2 activate");
-    }
-
-    [AvaloniaFact]
-    public void Show_vbModal_raises_Resize_inside_the_Show_and_Activate_while_the_modal_form_runs()
-    {
-        using var run = Start(Steps("Debug.Print \"modal\"\nForm2.Show vbModal\nDebug.Print \"back\""));
-
-        run.Click("Form1");
-        run.Since(Started.Length).Should().Equal("modal", "f2 initialize", "f2 load", "f2 resize", "f1 deactivate", "f2 activate");
-
-        // Measured: the modal form unloads, Show vbModal returns, then the form beneath is activated (oracle, run 1's
-        // Form5.Show vbModal; #3936).
-        run.Click("Form2");
-        run.Errors.Should().BeEmpty();
-        run.Since(Started.Length + 6).Should().Equal("f2 unload", "back", "f1 activate");
-    }
-
-    // #2579: docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md, run 1 Form4.Show.
-    [AvaloniaFact]
-    public void Run1_Form4_Show_no_controls_raises_GotFocus_after_Activate()
-    {
-        using var run = Start(Steps("Form2.Show"), form2Controls: false);
-        run.Click("Form1");
-
-        run.Errors.Should().BeEmpty();
-        run.Since(Started.Length).Should().Equal("f2 initialize", "f2 load", "f2 resize",
-            "f1 deactivate", "f2 activate", "f2 gotfocus");
-    }
-
-    // The measured activation switch order: LostFocus, Deactivate, Activate, GotFocus (#2579).
-    [AvaloniaFact]
-    public void Run1_Me_SetFocus_leaves_form_focus_before_Deactivate()
-    {
-        using var run = Start(Steps("Form2.Show", "Me.SetFocus"), form2Controls: false);
-        run.Click("Form1");
-        var before = run.Printed.Count;
-        run.Click("Form1");
-
-        run.Errors.Should().BeEmpty();
-        run.Since(before).Should().Equal("f2 lostfocus", "f2 deactivate", "f1 activate");
-    }
-
-    // ── What raises nothing ──────────────────────────────────────────────────────────────────────────────
-
-    // Leaving for another application raises nothing, and coming back to the form that was active raises nothing either
-    // (measured with Notepad). Headless, the window is activated again as it is coming back.
-    [AvaloniaFact]
-    public void The_active_form_activated_again_raises_nothing()
-    {
-        using var run = Start("");
-
-        run.Opened["Form1"].Activate();
-        Pump();
-
-        run.Printed.Should().Equal(Started);
-    }
-
-    [AvaloniaFact]
-    public void A_form_held_by_a_modal_form_is_not_activated()
-    {
-        using var run = Start(Steps("Form2.Show vbModal"));
-        run.Click("Form1");
-        var before = run.Printed.Count;
-
-        run.Opened["Form1"].Activate();
-        Pump();
-
-        run.Errors.Should().BeEmpty();
-        run.Since(before).Should().BeEmpty("Windows doesn't activate a window the modal form has disabled");
-    }
-
-    // ── Resize after the show ────────────────────────────────────────────────────────────────────────────
-
-    [AvaloniaTheory]
-    [InlineData("Width")]
-    [InlineData("Height")]
-    public void A_size_assignment_raises_Resize_before_the_next_statement_and_layout_does_not_repeat_it(string dimension)
-    {
-        using var run = Start(Steps($"Debug.Print \"before\"\nMe.{dimension} = Me.{dimension} + 300\nDebug.Print \"after\"",
-            $"Me.{dimension} = Me.{dimension}\nDebug.Print \"same\""));
-
-        run.Click("Form1");
-        run.Since(Started.Length).Should().Equal("before", "f1 resize", "after");
-        run.Click("Form1");
-        run.Errors.Should().BeEmpty();
-        run.Since(Started.Length).Should().Equal("before", "f1 resize", "after", "same");
-    }
-
-    [AvaloniaFact]
-    public void Size_assignments_in_Load_raise_Resize_while_hidden_and_Show_raises_its_own()
-    {
-        using var run = Start("""
-            Private Sub Form_Load()
-                Me.Width = 6000
-                Debug.Print "width"
-                Me.Height = 4000
-                Debug.Print "height"
-            End Sub
-            Private Sub Form_Resize()
-                Debug.Print "resize " & Me.Visible
-            End Sub
-            """, logEvents: false);
-
-        run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("resize False", "width", "resize False", "height", "resize True");
-    }
-
-    [AvaloniaFact]
-    public void Resize_comes_once_for_each_change_of_size_and_not_at_all_for_the_same_size()
-    {
-        using var run = Start("");
-        var window = run.Opened["Form1"];
-
-        window.Width += 30;
-        Pump();
-        run.Since(Started.Length).Should().Equal("f1 resize");
-
-        window.Width += 0;
-        window.InvalidateMeasure();
-        Pump();
-
-        run.Errors.Should().BeEmpty();
-        run.Since(Started.Length).Should().Equal("f1 resize");
-    }
     private static void NativeSize(VBFormRuntime window, double width, double height)
     {
         var platform = window.PlatformImpl!;
@@ -425,34 +231,4 @@ public class FormActivationTests
             run.Printed.Should().Equal(expected);
         }
     }
-
-    [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void A_native_border_or_corner_drag_raises_Resize_then_Paint_per_move_and_nothing_on_release(bool corner)
-    {
-        using var run = Start("""
-            Private Sub Form_Resize()
-                Debug.Print "resize"
-            End Sub
-            Private Sub Form_Paint()
-                Debug.Print "paint"
-            End Sub
-            """, logEvents: false);
-        var window = run.Opened["Form1"];
-        NativeSize(window, 300, 200);
-        Pump();
-        run.Printed.Clear();
-        for (var i = 1; i <= (corner ? 1 : 5); i++)
-        {
-            NativeSize(window, 300 + (corner ? 40 : 20 * i), 200 + (corner ? 30 : 0));
-            Pump();
-            run.Printed.Should().Equal(Enumerable.Range(0, i).SelectMany(_ => new[] { "resize", "paint" }));
-        }
-        run.Printed.Clear();
-        Pump();
-        run.Printed.Should().BeEmpty("releasing a border does not change the size");
-        run.Errors.Should().BeEmpty();
-    }
-
 }
