@@ -127,7 +127,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/FlatScrollBarFileTests.cs` | split |
 | `Views/FontDialogEffectsTests.cs` | split |
 | `Views/FontDialogSizeTests.cs` | split |
-| `Views/FontSizeInPointsTests.cs` | split |
 | `Views/ForegroundWindowLifetimeTests.cs` | split |
 | `Views/ForegroundWindowTests.cs` | split |
 | `Views/FormActivationTests.cs` | split |
