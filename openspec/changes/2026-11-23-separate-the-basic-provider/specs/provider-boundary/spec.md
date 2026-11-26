@@ -133,6 +133,21 @@ the form when the switch itself throws (#5742).
 - **WHEN** a form holds a control whose class implements the contract but isn't a container
 - **THEN** neither the designer nor automation asks it for pages
 
+### Requirement: A form declares only a library registered as offering the control's class
+Where a control's class says which control library the control is in, the form designer SHALL write that library's
+header line into the form only when the registry lists the library as offering the class. Any other answer SHALL be
+logged and SHALL declare nothing. A throw from the class SHALL be logged, and the control SHALL be placed as for a class
+without the contract (#5749).
+
+#### Scenario: A class names a library that doesn't offer it
+- **WHEN** a control is placed and its class names a library the registry doesn't list as offering that class
+- **THEN** the control is placed and the form's header gains no line
+- **AND** the answer is logged as a warning the first time and at debug after that
+
+#### Scenario: A class throws saying which library its control is in
+- **WHEN** a control is placed and its class throws saying which library the control is in
+- **THEN** the control is placed and the form's header gains no line
+
 ### Requirement: A granted registration still only adds
 A registration from an owner the grant names SHALL still only add: it SHALL be refused, and logged naming both
 owners, where any key or component it carries is already held by the IDE or another owner, and no grant SHALL

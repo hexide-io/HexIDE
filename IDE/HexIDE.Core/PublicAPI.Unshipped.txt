@@ -193,6 +193,9 @@ HexIDE.Runtime.Components.IDesignerPages.ShowPage(HexIDE.Runtime.Components.Comp
 HexIDE.Runtime.Components.IDesignerPages.ShowPageAt(HexIDE.Runtime.Components.ComponentInstance! instance, double x, double y, double width, double height, System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>! children) -> bool
 HexIDE.Runtime.Components.IDesignerPages.ShownPage(HexIDE.Runtime.Components.ComponentInstance! instance) -> int
 HexIDE.Runtime.Components.IDesignerPages.SynchronizePages(HexIDE.Runtime.Components.ComponentInstance! instance, System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>! children) -> void
+HexIDE.Runtime.Components.IDesignerLibraryControl
+HexIDE.Runtime.Components.IDesignerLibraryControl.LibraryOf(HexIDE.Runtime.Components.ComponentInstance! instance) -> HexIDE.Runtime.Components.IControlLibrary?
+HexIDE.Runtime.Components.IDesignerLibraryControl.PlacedFrom(HexIDE.Runtime.Components.ComponentInstance! instance, HexIDE.Runtime.Components.IControlLibrary! library) -> void
 override HexIDE.Runtime.Components.DesignerBounds.GetHashCode() -> int
 static HexIDE.Runtime.Components.DesignerBounds.operator !=(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool
 static HexIDE.Runtime.Components.DesignerBounds.operator ==(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool

@@ -8,10 +8,10 @@ namespace HexIDE.VisualDesigner;
 
 /// <summary>
 /// The designer's calls into a registered component class's optional contracts (#5633): its title-bar caption,
-/// the starting values of a control it draws, where a control added by double-clicking its tool goes (#5681), and a
-/// container's pages (#5742), which automation asks through here too. A class's code is the provider's or an add-in's,
-/// so a throw, or a null where an answer is needed, answers as though the class didn't have the contract, and the
-/// designer stays usable.
+/// the starting values of a control it draws, where a control added by double-clicking its tool goes (#5681), a
+/// container's pages (#5742), which automation asks through here too, and the library a control is in (#5749). A
+/// class's code is the provider's or an add-in's, so a throw, or a null where an answer is needed, answers as though
+/// the class didn't have the contract, and the designer stays usable.
 /// </summary>
 /// <remarks>
 /// The first failure from each class and contract is logged as a warning, and later ones at debug: the caption is asked
@@ -164,6 +164,47 @@ internal static class DesignerClassCalls
             return false;
         }
     }
+
+    /// <summary>
+    /// The library <paramref name="instance"/>'s class says it's in, or null for a class without the contract, one in no
+    /// library, or a throw. The caller still checks that the registry lists the library as offering the class.
+    /// </summary>
+    internal static IControlLibrary? LibraryOf(ComponentInstance instance)
+    {
+        if (instance.BaseClass is not IDesignerLibraryControl control)
+            return null;
+        try
+        {
+            return control.LibraryOf(instance);
+        }
+        catch (Exception ex)
+        {
+            Failed(control, nameof(IDesignerLibraryControl), ex);
+            return null;
+        }
+    }
+
+    /// <summary>Tells <paramref name="instance"/>'s class which library's toolbox entry it was placed from.</summary>
+    internal static void PlacedFrom(ComponentInstance instance, IControlLibrary library)
+    {
+        if (instance.BaseClass is not IDesignerLibraryControl control)
+            return;
+        try
+        {
+            control.PlacedFrom(instance, library);
+        }
+        catch (Exception ex)
+        {
+            Failed(control, nameof(IDesignerLibraryControl), ex);
+        }
+    }
+
+    /// <summary>
+    /// Logs that <paramref name="component"/> named a library the registry doesn't list as offering it, which declares
+    /// nothing. The library isn't asked its name: it may be the class's own object.
+    /// </summary>
+    internal static void UnofferedLibrary(IComponentClass component) =>
+        Failed(component, nameof(IDesignerLibraryControl), null);
 
     // What the designer can place and save: finite, no negative size, and each within a whole number of twips, as a
     // class's added size is (IDesignerComponent.AddedSize).

@@ -23,7 +23,6 @@ using HexIDE.Projects;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
@@ -807,10 +806,15 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         public ComponentRole Role => ComponentRole.Form;
         public bool IsContainer => true;
         public bool IsVisual => true;
-        public IReadOnlyList<PropertyClass> Properties { get; } =
-            [VBProperties.WidthProperty, VBProperties.HeightProperty, VBProperties.CaptionProperty];
-        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName =>
-            Properties.ToDictionary(property => property.Name, StringComparer.OrdinalIgnoreCase);
+        public IReadOnlyList<PropertyClass> Properties { get; }
+        public IReadOnlyDictionary<string, PropertyClass> PropertiesByName { get; }
+
+        // Built once, as a ComponentBaseClass builds its own, not on every read.
+        private PreviewFormClass()
+        {
+            Properties = [VBProperties.WidthProperty, VBProperties.HeightProperty, VBProperties.CaptionProperty];
+            PropertiesByName = Properties.ToDictionary(property => property.Name, StringComparer.OrdinalIgnoreCase);
+        }
         public IReadOnlyList<EventClass> Events => [];
         public IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
     }
@@ -1025,8 +1029,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var instance = new ComponentInstance(baseClass, newName);
         if (container is not null)
             instance.SetContainer(container.Instance);
-        if (baseClass is InBoxComponentClass inBox && library is not null && !ReferenceEquals(library, inBox.Library))
-            instance.SetProperty(InBoxComponentClass.LoadedTypeNameProperty, library.TypeName(inBox.ControlClassName));
+        if (library is not null)
+            DesignerClassCalls.PlacedFrom(instance, library);
         DeclareLibraryOf(instance);
         if (HasTabIndex(baseClass))
             instance.SetProperty(VBProperties.TabIndexProperty, NextTabIndex());
@@ -1059,14 +1063,22 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     }
 
     /// <summary>
-    /// An in-box control's form names its library in its header, as VB6's designer writes it once one is placed (#1103). A
+    /// A library control's form names its library in its header, as VB6's designer writes it once one is placed (#1103). A
     /// form holding none of a library's controls has no line for it, though its project references it (measured).
     /// </summary>
+    /// <remarks>
+    /// The class says which library (<see cref="IDesignerLibraryControl"/>, #5749), and only a library the registry lists
+    /// as offering the class is declared: its line goes into the user's form.
+    /// </remarks>
     private void DeclareLibraryOf(ComponentInstance instance)
     {
-        if (formDefinition is null || instance.BaseClass is not InBoxComponentClass inBox)
+        if (formDefinition is null || DesignerClassCalls.LibraryOf(instance) is not { } library)
             return;
-        var library = inBox.LibraryOf(instance);
+        if (!ToolsBoxToolViewModel.Offers(instance.BaseClass, library))
+        {
+            DesignerClassCalls.UnofferedLibrary(instance.BaseClass);
+            return;
+        }
         if (!formDefinition.ObjectReferences.Any(library.IsNamedBy))
             formDefinition.HeaderLines.Add(library.FormLine);
     }

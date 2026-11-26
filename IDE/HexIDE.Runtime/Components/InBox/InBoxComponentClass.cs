@@ -12,7 +12,7 @@ namespace HexIDE.Runtime.Components.InBox;
 /// are, then <c>_ExtentX</c>, <c>_ExtentY</c> and <c>_Version</c>, then the control's own properties in the control's own
 /// fixed order, each only where it differs from the control's default, and with a comment only on a Boolean.
 /// </remarks>
-public abstract class InBoxComponentClass : ComponentBaseClass, IComponentMemberTable
+public abstract class InBoxComponentClass : ComponentBaseClass, IComponentMemberTable, IDesignerLibraryControl
 {
     /// <param name="extender">The extender's properties beyond the base's Name, Left, Top, Width, Height, Visible and Tag.</param>
     /// <param name="own">The control's own persisted properties, in the order it writes them.</param>
@@ -82,6 +82,20 @@ public abstract class InBoxComponentClass : ComponentBaseClass, IComponentMember
     /// <summary>The library <paramref name="instance"/> is in, by the type name it is written under.</summary>
     public RuntimeLibrary LibraryOf(ComponentInstance instance) =>
         ControlLibraries.ForTypeName(TypeNameOf(instance)) ?? Library;
+
+    /// <inheritdoc/>
+    IControlLibrary? IDesignerLibraryControl.LibraryOf(ComponentInstance instance) => LibraryOf(instance);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// A control placed from the class's newest library takes the class's own type name, so only one from an older library
+    /// records the name it's written under (#1103).
+    /// </remarks>
+    public void PlacedFrom(ComponentInstance instance, IControlLibrary library)
+    {
+        if (!ReferenceEquals(library, Library))
+            instance.SetProperty(LoadedTypeNameProperty, library.TypeName(ControlClassName));
+    }
 
     /// <summary>The type name the instance was read under, where it was read: <c>ComctlLib.ProgressBar</c>.</summary>
     public static readonly PropertyClass<string?> LoadedTypeNameProperty =

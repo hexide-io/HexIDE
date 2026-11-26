@@ -228,6 +228,11 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     release.
   - A program built with File > Make carries the decoder in its runner, so a decoder security fix reaches it only when
     the program is made again. A changelog entry for such a fix says so.
+- **A library control's library (2.4f-5, #5749).** An optional component-class contract, `IDesignerLibraryControl`,
+  typed on `IControlLibrary`, gives the library a control is in and records the library it was placed from, as add-in
+  API. The library's header line goes into the user's form, so the designer declares only a library the registry lists
+  as offering the control's class, which a library's owner registers under its grant. The designer contains each call as
+  it does 2.4e-1's contracts.
 - **Text and editing helpers go where 11-16's rule puts them:**
   - `ReadOnlyRegions` and `SourceLines` go to Core (2.5a, #5440), and so do the project file's keys and path helpers (2.5c, #5521);
   - keyword casing and block auto-close go to the IDE (2.6, #5405);
