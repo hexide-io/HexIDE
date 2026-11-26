@@ -34,16 +34,22 @@ HexIDE refuses an add-in build, a publisher or a marketplace intermediate that h
 revocations is signed by the HexIDE root, and HexIDE checks that signature before using it.
 
 - **What is requested:** `https://hexide.io/revocations.json` and its signature,
-  `https://hexide.io/revocations.json.sig`. They are two plain downloads with no data from HexIDE added: no
-  identifier, settings or project information. hexide.io sees the requests' address and time, as any website
-  does.
-- **When:** at every start with at least one add-in installed, before any add-in loads. A default install counts,
-  because HexIDE ships with the AI Chat add-in. HexIDE waits at most three seconds. If hexide.io can't be reached,
-  it starts anyway with the list built into your version and the last list it fetched.
+  `https://hexide.io/revocations.json.sig`. They are plain downloads with no identifier, settings or project
+  information. After the first, the list is asked for with an `If-None-Match` header carrying the tag hexide.io gave
+  for the last list that verified, so an unchanged list isn't downloaded again. HexIDE keeps that tag in memory only.
+  hexide.io sees the requests' address and time, as any website does.
+- **When:** at every start with at least one add-in installed, before any add-in loads, and then about every hour
+  while HexIDE runs. A default install counts, because HexIDE ships with the AI Chat add-in. At startup HexIDE
+  waits at most three seconds; the hourly check runs in the background. If hexide.io can't be reached, HexIDE goes
+  on with the list built into your version and the last list it fetched.
+- **When a loaded add-in is revoked:** HexIDE marks it Revoked and takes out its menus, commands, tool windows,
+  language servers and the rest of what it contributed, and it hears no more events. Its code stays loaded until
+  HexIDE restarts, and the next start refuses it.
 - **Turning it off:** set `revocationListUrl` to `""` in `settings.json`, in HexIDE's settings directory (see
   [`--user-data-dir`](docs/command-line.md)). Removing the line, or setting it to `null`, restores the default. Another
   address works too, for a mirror, but the list must still be signed by the HexIDE root. A profile can't change this
-  setting.
+  setting. The hourly check reads the setting each time, so turning it off needs no restart. The interval itself
+  has no setting.
 - **What turning it off costs:** HexIDE then knows only the list built into your version, and any list it fetched
   before. An add-in build revoked after your version was released, a first-party one included, keeps loading until
   you update HexIDE.

@@ -3,7 +3,9 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -26,16 +28,31 @@ internal sealed class RevocationStore
     private readonly string _cacheJsonPath;
     private readonly string _cacheSigPath;
     private readonly string _cachePath;
-    private readonly Func<string, TimeSpan, (byte[] Json, string Signature)> _fetch;
-    private RevocationList _active;
+    private readonly Func<string, TimeSpan, string?, FetchedList?> _fetch;
+    // Read on the UI thread and by language-server launches while the hourly check swaps it from the background (#5577).
+    private volatile RevocationList _active;
+    // The ETag of the last list whose signature verified, in memory only. Kept from a pair that failed verification, it
+    // would answer every later check with 304 and the valid pair would never arrive (#5577).
+    private string? _validator;
 
     public RevocationStore() : this(ReadEmbeddedText("hexide-root.pub"), DefaultCacheDir()) { }
 
     public RevocationStore(string? rootPub, string cacheDir,
         Func<string, TimeSpan, (byte[] Json, string Signature)>? fetch = null)
+        : this(rootPub, cacheDir, fetch is null ? null : (url, timeout, _) =>
+        {
+            var (json, signature) = fetch(url, timeout);
+            return new FetchedList(json, signature, null);
+        })
+    {
+    }
+
+    /// <summary>For a fetch that can answer "not modified": it is given the validator of the last list that verified, and
+    /// returns null when the list hasn't changed since.</summary>
+    internal RevocationStore(string? rootPub, string cacheDir, Func<string, TimeSpan, string?, FetchedList?>? conditionalFetch)
     {
         _rootPub = rootPub;
-        _fetch = fetch ?? Fetch;
+        _fetch = conditionalFetch ?? Fetch;
         _cachePath = Path.Combine(cacheDir, "revocations-cache.signed");
         _cacheJsonPath = Path.Combine(cacheDir, "revocations-cache.json");
         _cacheSigPath = Path.Combine(cacheDir, "revocations-cache.sig");
@@ -46,25 +63,32 @@ internal sealed class RevocationStore
         RevocationCheck.Reason(_active, manifestHash, publisherId, intermediateId, isFirstParty);
 
     /// <summary>Blocking fetch (off the UI thread) with a timeout. Fail-open: any failure keeps the
-    /// current (cached/bundled) list. A valid, newer list updates the cache and becomes active.</summary>
-    public void RefreshFromUrl(string url, TimeSpan timeout)
+    /// current (cached/bundled) list. A valid, newer list updates the cache and becomes active, and the result says
+    /// so, so the hourly check knows to look at what is already loaded (#5577).</summary>
+    public RevocationRefresh RefreshFromUrl(string url, TimeSpan timeout)
     {
         if (_rootPub is null)
-            return;
+            return RevocationRefresh.Failed;
         try
         {
-            var (jsonBytes, sig) = _fetch(url, timeout);
+            if (_fetch(url, timeout, _validator) is not { } response)
+            {
+                Log.Debug("RevocationStore: revocation list not modified since the last check");
+                return RevocationRefresh.Unchanged;
+            }
+            var (jsonBytes, sig, validator) = response;
 
             var fetched = ParseIfValid(jsonBytes, sig);
             if (fetched is null)
             {
                 Log.Warning("RevocationStore: fetched list failed root verification — ignored");
-                return;
+                return RevocationRefresh.Failed;
             }
+            _validator = validator;
             if (!IsNewer(fetched, _active))
             {
                 Log.Debug("RevocationStore: fetched list is not newer than the active one — ignored");
-                return;
+                return RevocationRefresh.Unchanged;
             }
 
             try
@@ -82,22 +106,33 @@ internal sealed class RevocationStore
 
             _active = fetched;
             Log.Information("RevocationStore: applied fetched revocation list (issued {Issued})", fetched.IssuedUtc);
+            return RevocationRefresh.Applied;
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "RevocationStore: fetch from {Url} failed — using cached/bundled list", url);
+            return RevocationRefresh.Failed;
         }
     }
 
-    private static (byte[] Json, string Signature) Fetch(string url, TimeSpan timeout)
+    // The list is asked for conditionally, with the validator of the last list that verified; its signature always in full,
+    // since a signature on its own says nothing about which list it signs.
+    private static FetchedList? Fetch(string url, TimeSpan timeout, string? validator)
     {
         using var cts = new CancellationTokenSource(timeout);
         return Task.Run(async () =>
         {
             using var http = new HttpClient { Timeout = timeout };
-            var json = await http.GetByteArrayAsync(url, cts.Token);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (validator is not null && EntityTagHeaderValue.TryParse(validator, out var tag))
+                request.Headers.IfNoneMatch.Add(tag);
+            using var response = await http.SendAsync(request, cts.Token);
+            if (response.StatusCode == HttpStatusCode.NotModified)
+                return null;
+            response.EnsureSuccessStatusCode();
+            var json = await response.Content.ReadAsByteArrayAsync(cts.Token);
             var sig = (await http.GetStringAsync(url + ".sig", cts.Token)).Trim();
-            return (json, sig);
+            return new FetchedList(json, sig, response.Headers.ETag?.ToString());
         }, cts.Token).GetAwaiter().GetResult();
     }
 
@@ -204,3 +239,17 @@ internal sealed class RevocationStore
         return dir;
     }
 }
+
+/// <summary>What a revocation fetch did (#5577).</summary>
+internal enum RevocationRefresh
+{
+    /// <summary>A valid list newer than the active one arrived and is now active.</summary>
+    Applied,
+    /// <summary>The list was reached and is no newer than the active one, or wasn't modified since the last check.</summary>
+    Unchanged,
+    /// <summary>The list couldn't be fetched or didn't verify; the active list stays.</summary>
+    Failed,
+}
+
+/// <summary>A fetched list, its signature, and the validator (an ETag) to send next time.</summary>
+internal sealed record FetchedList(byte[] Json, string Signature, string? Validator);

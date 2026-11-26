@@ -77,6 +77,7 @@ internal static class DesktopStartup
             // The registry also guards loading in recovery sessions.
             var loader = setup.AddinLoader;
             loader.LoadAll(setup.HexIdeHost);
+            loader.StartRevocationChecks();
             DisposeOnShutdown(desktop, loader);
 
             startupProject.Attach(desktop.MainWindow!, setup.ContributedProjects, loader.PromptPendingConsentAsync);

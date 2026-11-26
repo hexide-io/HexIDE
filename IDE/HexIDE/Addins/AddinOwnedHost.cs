@@ -4,13 +4,15 @@ using HexIDE.Runtime.Components;
 
 namespace HexIDE.Addins;
 
-// The facade retains its owner even when an add-in registers a window after Initialize returns.
-internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor tools, AddinOrigin origin) : IHexIdeHost,
-    HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration
+// The facade retains its owner even when an add-in registers a window after Initialize returns. Once the add-in is revoked
+// mid-session (withdrawn), none of its commands, menu items or event handlers run, whenever they were registered (#5577).
+internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor tools, AddinOrigin origin, Func<bool>? withdrawn = null)
+    : IHexIdeHost, HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration
 {
+    private readonly Func<bool> _withdrawn = withdrawn ?? (() => false);
     public IToolWindowContributor ToolWindows => tools;
-    public IMenuContributor Menus { get; } = new OwnedMenus(host.Menus, origin);
-    public IAddinEvents Events => host.Events;
+    public IMenuContributor Menus { get; } = new OwnedMenus(host.Menus, origin, withdrawn ?? (() => false));
+    public IAddinEvents Events { get; } = new OwnedEvents(host.Events, withdrawn ?? (() => false));
     public IAddinRegistry Registry => host.Registry;
     public IEditorAccess Editor => host.Editor;
     public IProjectAccess Project => host.Project;
@@ -21,21 +23,93 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
     public IServerChatTools ServerChatTools =>
         origin.IsFirstParty || origin.IsDeveloperUnsigned ? host.ServerChatTools : ServerChatToolsUnavailable.Instance;
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
-        host.RegisterCommand(id, label, onInvoke, gesture, canExecute);
+        host.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn));
     public IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
-        host is HexIdeHost concrete ? concrete.RegisterCommand(id, label, onInvoke, gesture, canExecute, origin)
-            : host.RegisterCommand(id, label, onInvoke, gesture, canExecute);
+        host is HexIdeHost concrete
+            ? concrete.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn), origin)
+            : host.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn));
 
-    private sealed class OwnedMenus(IMenuContributor menus, AddinOrigin owner) : IMenuContributor
+    // A withdrawn add-in's command or menu item never runs, if anything of it outlives the withdrawal, and one that says when it
+    // can run says no. One with no such check is left without one, as registered: running it does nothing.
+    private static Action Guard(Action onInvoke, Func<bool> withdrawn) => () => { if (!withdrawn()) onInvoke(); };
+    private static Func<bool>? Guard(Func<bool>? canExecute, Func<bool> withdrawn) =>
+        canExecute is null ? null : () => !withdrawn() && canExecute();
+
+    private sealed class OwnedMenus(IMenuContributor menus, AddinOrigin owner, Func<bool> withdrawn) : IMenuContributor
     {
         [MethodImpl(MethodImplOptions.NoInlining)]
         public IDisposable Add(string parentPath, string label, object? icon, Action onInvoke, Func<bool>? canExecute = null) =>
-            menus is AddinMenuService service ? service.AddOwned(owner, parentPath, new AddinTitle(label), icon, onInvoke, canExecute, Assembly.GetCallingAssembly())
-                : menus.Add(parentPath, label, icon, onInvoke, canExecute);
+            menus is AddinMenuService service
+                ? service.AddOwned(owner, parentPath, new AddinTitle(label), icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn),
+                    Assembly.GetCallingAssembly())
+                : menus.Add(parentPath, label, icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn));
         [MethodImpl(MethodImplOptions.NoInlining)]
         public IDisposable Add(string parentPath, AddinTitle label, object? icon, Action onInvoke, Func<bool>? canExecute = null) =>
-            menus is AddinMenuService service ? service.AddOwned(owner, parentPath, label, icon, onInvoke, canExecute, Assembly.GetCallingAssembly())
-                : menus.Add(parentPath, label, icon, onInvoke, canExecute);
+            menus is AddinMenuService service
+                ? service.AddOwned(owner, parentPath, label, icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn),
+                    Assembly.GetCallingAssembly())
+                : menus.Add(parentPath, label, icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn));
+    }
+
+    // Each handler is wrapped so a withdrawn add-in stops hearing events, including ones it subscribed after Initialize, which
+    // nothing recorded to take out. Unsubscribing finds the wrapper the handler was given.
+    private sealed class OwnedEvents(IAddinEvents events, Func<bool> withdrawn) : IAddinEvents
+    {
+        private readonly Dictionary<Delegate, List<Delegate>> _wrappers = [];
+
+        private T Wrap<T>(T handler, T wrapper) where T : Delegate
+        {
+            lock (_wrappers)
+            {
+                if (!_wrappers.TryGetValue(handler, out var list)) _wrappers[handler] = list = [];
+                list.Add(wrapper);
+            }
+            return wrapper;
+        }
+
+        private T? Unwrap<T>(T? handler) where T : Delegate
+        {
+            if (handler is null) return null;
+            lock (_wrappers)
+            {
+                if (!_wrappers.TryGetValue(handler, out var list) || list.Count == 0) return null;
+                var wrapper = list[^1];
+                list.RemoveAt(list.Count - 1);
+                if (list.Count == 0) _wrappers.Remove(handler);
+                return (T)wrapper;
+            }
+        }
+
+        public event Action<AddinProjectEventArgs>? ProjectLoaded
+        {
+            add { if (value is not null) events.ProjectLoaded += Wrap(value, args => { if (!withdrawn()) value(args); }); }
+            remove => events.ProjectLoaded -= Unwrap(value);
+        }
+        public event Action<AddinProjectEventArgs>? ProjectUnloaded
+        {
+            add { if (value is not null) events.ProjectUnloaded += Wrap(value, args => { if (!withdrawn()) value(args); }); }
+            remove => events.ProjectUnloaded -= Unwrap(value);
+        }
+        public event Action<AddinFileEventArgs>? FileOpened
+        {
+            add { if (value is not null) events.FileOpened += Wrap(value, args => { if (!withdrawn()) value(args); }); }
+            remove => events.FileOpened -= Unwrap(value);
+        }
+        public event Action<AddinFileEventArgs>? FileClosed
+        {
+            add { if (value is not null) events.FileClosed += Wrap(value, args => { if (!withdrawn()) value(args); }); }
+            remove => events.FileClosed -= Unwrap(value);
+        }
+        public event Action? RunStarted
+        {
+            add { if (value is not null) events.RunStarted += Wrap(value, () => { if (!withdrawn()) value(); }); }
+            remove => events.RunStarted -= Unwrap(value);
+        }
+        public event Action? RunStopped
+        {
+            add { if (value is not null) events.RunStopped += Wrap(value, () => { if (!withdrawn()) value(); }); }
+            remove => events.RunStopped -= Unwrap(value);
+        }
     }
     public IDisposable RegisterComponent(IComponentClass component) =>
         host is HexIdeHost concrete ? concrete.RegisterComponent(component, origin) : host.RegisterComponent(component);
