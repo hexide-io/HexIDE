@@ -28,8 +28,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | type | HexIDE | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.InBoxComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.RuntimeLibrary |
-| type | HexIDE | HexIDE.Runtime.Components.InBox.SSTabComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.LineComponentClass |
 | type | HexIDE.Desktop | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
 | type | HexIDE.Desktop | HexIDE.Runtime.BasicProvider |
-| type | HexIDE.Desktop | HexIDE.Runtime.Components.InBox.SSTabComponentClass |

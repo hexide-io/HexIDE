@@ -110,6 +110,29 @@ size, as it does for a class without the contract (#5681).
 - **THEN** the control is centred on the form at its added size, as a class without the contract's is
 - **AND** the class's failure is logged as a warning the first time and at debug after that
 
+### Requirement: A container's pages are switched only with its class's check
+The form designer and automation SHALL ask for pages only through the paged-container contract and only of a
+container's class, and SHALL contain each call: a throw SHALL be logged and SHALL answer as a container without
+pages does. Automation SHALL refuse a page switch whose check or page count throws, changing nothing, and SHALL NOT save
+the form when the switch itself throws (#5742).
+
+#### Scenario: A container's class throws checking a page switch
+- **WHEN** automation is asked to switch a container's page and its class throws saying whether the page can be switched
+- **THEN** the switch is refused and nothing is changed
+- **AND** the throw is logged as a warning the first time and at debug after that
+
+#### Scenario: A container's class throws while switching the page
+- **WHEN** the class throws while switching the page automation asked for
+- **THEN** the reply says the switch failed, and the form isn't saved
+
+#### Scenario: A container's class throws loading its pages
+- **WHEN** the designer opens a form and a container's class throws loading its pages
+- **THEN** the form opens, and a click on the container still asks the class for the page under it
+
+#### Scenario: A plain control's class implements the paged-container contract
+- **WHEN** a form holds a control whose class implements the contract but isn't a container
+- **THEN** neither the designer nor automation asks it for pages
+
 ### Requirement: A granted registration still only adds
 A registration from an owner the grant names SHALL still only add: it SHALL be refused, and logged naming both
 owners, where any key or component it carries is already held by the IDE or another owner, and no grant SHALL
