@@ -122,10 +122,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/FileWatcherReloadTests.cs` | split |
 | `Views/FindReferencesTests.cs` | split |
 | `Views/FlatScrollBarFileTests.cs` | split |
-| `Views/FlexGridDrawingTests.cs` | provider |
-| `Views/FlexGridKeyboardTests.cs` | provider |
-| `Views/FlexGridMouseTests.cs` | provider |
-| `Views/FlexGridRuntimeTests.cs` | provider |
 | `Views/FontDialogEffectsTests.cs` | split |
 | `Views/FontDialogSizeTests.cs` | split |
 | `Views/FontSizeInPointsTests.cs` | split |
@@ -190,9 +186,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/ServerApplyEditFocusTests.cs` | split |
 | `Views/ServerApplyEditModifiedTests.cs` | split |
 | `Views/SingleViewFormsTests.cs` | split |
-| `Views/SliderFileTests.cs` | provider |
-| `Views/SliderInputTests.cs` | provider |
-| `Views/SliderRuntimeTests.cs` | provider |
 | `Views/StartupFormFailsToLoadTests.cs` | split |
 | `Views/SubMainFormsTests.cs` | split |
 | `Views/SymbolRefreshWireTests.cs` | split |
