@@ -168,7 +168,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Views/PictureBoxAutoSizeTests.cs` | split |
 | `Views/PictureLoadTests.cs` | split |
 | `Views/PositionRowsTests.cs` | split |
-| `Views/PrintDialogTests.cs` | split |
 | `Views/ProfileProjectOfferingsTests.cs` | split |
 | `Views/ProgramBoxCaptionTests.cs` | split |
 | `Views/ProjectPropertiesViewIntegrationTests.cs` | split |
