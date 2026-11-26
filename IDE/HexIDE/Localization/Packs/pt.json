@@ -1266,6 +1266,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identificador",
     "Str.Options.Formatting.Token.MetadataKeyword": "Palavra-chave de metadados",
     "Str.Project.AlreadyOpen": "O projeto {0} já está aberto.",
+    "Str.Project.Msg.FormatCannotMake": "O formato de ficheiro de {0} não pode criar um novo {1}, por isso nada foi alterado.",
     "Str.Options.Addins.Overview": "Os suplementos ampliam o HexIDE com ferramentas e configurações. Para instalar um, extraia um pacote assinado para uma pasta própria no diretório abaixo e reinicie o HexIDE. Selecione um suplemento na árvore para gerenciá-lo.",
     "Str.Options.Addins.Revocation.Off": "As verificações de revogação estão desativadas: revocationListUrl está vazio em settings.json. O HexIDE só conhece a lista incorporada nesta versão e as listas que tenha obtido antes.",
     "Str.Options.Addins.Revocation.NotChecked": "A lista de revogações ainda não foi verificada nesta sessão. Em uso: a lista emitida em {0}.",

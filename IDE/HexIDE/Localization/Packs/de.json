@@ -1299,6 +1299,7 @@
     "Str.Options.Formatting.Token.Identifier": "Bezeichner",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatenschlüsselwort",
     "Str.Project.AlreadyOpen": "Das Projekt {0} ist bereits geöffnet.",
+    "Str.Project.Msg.FormatCannotMake": "Das Dateiformat von {0} kann kein neues {1} erstellen, daher wurde nichts geändert.",
     "Str.Options.Addins.Overview": "Add-Ins erweitern HexIDE um Werkzeuge und Einstellungen. Zum Installieren entpacken Sie ein signiertes Add-In-Paket in einen eigenen Ordner im unten angegebenen Verzeichnis und starten HexIDE neu. Wählen Sie ein Add-In im Baum aus, um es zu verwalten.",
     "Str.Options.Addins.Revocation.Off": "Die Widerrufsprüfung ist ausgeschaltet: revocationListUrl ist in settings.json leer. HexIDE kennt nur die in diese Version eingebaute Liste und zuvor abgerufene Listen.",
     "Str.Options.Addins.Revocation.NotChecked": "Die Widerrufsliste wurde in dieser Sitzung noch nicht geprüft. Verwendet wird die Liste vom {0}.",

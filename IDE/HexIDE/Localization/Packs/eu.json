@@ -1266,6 +1266,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikatzailea",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatuen gako-hitza",
     "Str.Project.AlreadyOpen": "{0} proiektua irekita dago jada.",
+    "Str.Project.Msg.FormatCannotMake": "{0} proiektuaren fitxategi-formatuak ezin du {1} berririk sortu; beraz, ez da ezer aldatu.",
     "Str.Options.Addins.Overview": "Gehigarriek tresnak eta ezarpenak gehitzen dizkiote HexIDEri. Instalatzeko, deskonprimitu sinatutako gehigarri-paketea beheko direktorioko bere karpetan eta berrabiarazi HexIDE. Hautatu gehigarri bat zuhaitzean hura kudeatzeko.",
     "Str.Options.Addins.Revocation.Off": "Ezeztapen-egiaztapenak desaktibatuta daude: revocationListUrl hutsik dago settings.json fitxategian. HexIDEk bertsio honetan txertatutako zerrenda eta lehenago eskuratutako zerrendak baino ez ditu ezagutzen.",
     "Str.Options.Addins.Revocation.NotChecked": "Ezeztapen-zerrenda ez da oraindik egiaztatu saio honetan. Erabiltzen: {0} datan emandako zerrenda.",

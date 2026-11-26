@@ -37,6 +37,21 @@ public sealed class Vb6ProjectFileFormat : IProjectFileFormat
     public FormatRegions Regions { get; } =
         new(new Vb6ReadOnlyRegionReader(), new Vb6ReadOnlyRegionWriter(), new Vb6ReadOnlyRegionRules());
 
+    /// <summary>
+    /// VB6's three designer roots, by the type name a designer file gives each, and null for any other name. Not
+    /// <see cref="FormComponentClass.ForRoot"/>, which reads any other name as a form.
+    /// </summary>
+    public IComponentClass? NewRootClass(string typeName) => typeName switch
+    {
+        "VB.Form" => FormComponentClass.Instance,
+        "VB.UserControl" => UserControlRootClass.Instance,
+        "VB.PropertyPage" => PropertyPageRootClass.Instance,
+        _ => null,
+    };
+
+    /// <inheritdoc/>
+    public IComponentClass NewMenuClass => MenuComponentClass.Instance;
+
     /// <inheritdoc/>
     public RenderedFile RenderForm(FormDefinition form, string fileName)
     {

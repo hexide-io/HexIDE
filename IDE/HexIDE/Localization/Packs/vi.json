@@ -1261,6 +1261,7 @@
     "Str.Options.Formatting.Token.Identifier": "Định danh",
     "Str.Options.Formatting.Token.MetadataKeyword": "Từ khóa siêu dữ liệu",
     "Str.Project.AlreadyOpen": "Dự án {0} đã được mở.",
+    "Str.Project.Msg.FormatCannotMake": "Định dạng tệp của {0} không thể tạo {1} mới, nên không có gì thay đổi.",
     "Str.Options.Addins.Overview": "Phần bổ trợ mở rộng HexIDE với các công cụ và thiết lập. Để cài đặt, giải nén gói phần bổ trợ đã ký vào thư mục riêng trong thư mục bên dưới, rồi khởi động lại HexIDE. Chọn phần bổ trợ trong cây để quản lý.",
     "Str.Options.Addins.Revocation.Off": "Tính năng kiểm tra thu hồi đang tắt: revocationListUrl trống trong settings.json. HexIDE chỉ biết danh sách tích hợp trong phiên bản này và các danh sách đã tải về trước đó.",
     "Str.Options.Addins.Revocation.NotChecked": "Danh sách thu hồi chưa được kiểm tra trong phiên này. Đang dùng: danh sách phát hành lúc {0}.",

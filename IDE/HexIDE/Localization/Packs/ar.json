@@ -1299,6 +1299,7 @@
     "Str.Options.Formatting.Token.Identifier": "معرّف",
     "Str.Options.Formatting.Token.MetadataKeyword": "كلمة بيانات وصفية",
     "Str.Project.AlreadyOpen": "المشروع {0} مفتوح بالفعل.",
+    "Str.Project.Msg.FormatCannotMake": "لا يستطيع تنسيق ملفات {0} إنشاء {1} جديد، لذا لم يتغير شيء.",
     "Str.Options.Addins.Overview": "تضيف الوظائف الإضافية أدوات وإعدادات إلى HexIDE. لتثبيت إحداها، استخرج حزمة موقعة في مجلد خاص بها داخل الدليل أدناه، ثم أعد تشغيل HexIDE. حدد وظيفة إضافية في الشجرة لإدارتها.",
     "Str.Options.Addins.Revocation.Off": "عمليات التحقق من الإبطال متوقفة: قيمة revocationListUrl فارغة في settings.json. لا يعرف HexIDE إلا القائمة المضمنة في هذا الإصدار وأي قائمة جلبها من قبل.",
     "Str.Options.Addins.Revocation.NotChecked": "لم يتم التحقق من قائمة الإبطال بعد في هذه الجلسة. القائمة المستخدمة: الصادرة في {0}.",

@@ -1300,6 +1300,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikators",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatu atslēgvārds",
     "Str.Project.AlreadyOpen": "Projekts {0} jau ir atvērts.",
+    "Str.Project.Msg.FormatCannotMake": "Projekta {0} failu formāts nevar izveidot jaunu objektu {1}, tāpēc nekas netika mainīts.",
     "Str.Options.Addins.Overview": "Pievienojumprogrammas papildina HexIDE ar rīkiem un iestatījumiem. Lai instalētu, izpakojiet parakstītu pakotni atsevišķā mapē tālāk norādītajā direktorijā un restartējiet HexIDE. Atlasiet pievienojumprogrammu kokā, lai to pārvaldītu.",
     "Str.Options.Addins.Revocation.Off": "Atsaukumu pārbaude ir izslēgta: settings.json failā revocationListUrl ir tukšs. HexIDE zina tikai šajā versijā iebūvēto sarakstu un iepriekš iegūtos sarakstus.",
     "Str.Options.Addins.Revocation.NotChecked": "Atsaukumu saraksts šajā sesijā vēl nav pārbaudīts. Lietošanā: saraksts, kas izdots {0}.",

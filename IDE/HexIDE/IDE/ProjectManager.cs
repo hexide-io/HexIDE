@@ -128,9 +128,10 @@ public partial class ProjectManager : IProjectManager
         });
     }
 
-    public ProjectDefinition NewProject(IAddinProjectTemplate projectTemplate, string name, Action<ProjectDefinition>? beforeAdd = null)
+    public ProjectDefinition NewProject(IAddinProjectTemplate projectTemplate, string name, Action<ProjectDefinition>? beforeAdd = null,
+        IProjectFileFormat? format = null)
     {
-        var definition = projectTemplate.Create(name);
+        var definition = format is null ? projectTemplate.Create(name) : projectTemplate.Create(name, format);
         beforeAdd?.Invoke(definition);
         AddProject(definition);
         if (definition.Forms.Count > 0)

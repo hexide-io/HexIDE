@@ -1333,6 +1333,7 @@
     "Str.Options.Formatting.Token.Identifier": "識別子",
     "Str.Options.Formatting.Token.MetadataKeyword": "メタデータキーワード",
     "Str.Project.AlreadyOpen": "プロジェクト {0} は既に開いています。",
+    "Str.Project.Msg.FormatCannotMake": "{0} のファイル形式では新しい {1} を作成できないため、何も変更されませんでした。",
     "Str.Options.Addins.Overview": "アドインは HexIDE にツールや設定を追加します。インストールするには、署名済みのアドインパッケージを以下のディレクトリ内の専用フォルダーに展開し、HexIDE を再起動してください。管理するアドインをツリーで選択してください。",
     "Str.Options.Addins.Revocation.Off": "取り消しの確認はオフです: settings.json の revocationListUrl が空です。HexIDE が把握しているのは、このバージョンに組み込まれたリストと、以前に取得したリストだけです。",
     "Str.Options.Addins.Revocation.NotChecked": "このセッションでは、取り消しリストはまだ確認されていません。使用中: {0} 発行のリスト。",

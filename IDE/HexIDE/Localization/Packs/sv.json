@@ -1261,6 +1261,7 @@
     "Str.Options.Formatting.Token.Identifier": "Identifierare",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanyckelord",
     "Str.Project.AlreadyOpen": "Projektet {0} är redan öppet.",
+    "Str.Project.Msg.FormatCannotMake": "Filformatet för {0} kan inte skapa en ny {1}, så inget ändrades.",
     "Str.Options.Addins.Overview": "Tillägg utökar HexIDE med verktyg och inställningar. Installera genom att packa upp ett signerat tilläggspaket i en egen mapp i katalogen nedan och starta om HexIDE. Välj ett tillägg i trädet för att hantera det.",
     "Str.Options.Addins.Revocation.Off": "Kontroll av återkallanden är avstängd: revocationListUrl är tom i settings.json. HexIDE känner bara till listan som är inbyggd i den här versionen och listor som hämtats tidigare.",
     "Str.Options.Addins.Revocation.NotChecked": "Listan över återkallanden har inte kontrollerats ännu i den här sessionen. Används: listan utfärdad {0}.",

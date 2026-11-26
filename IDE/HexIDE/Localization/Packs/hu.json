@@ -1300,6 +1300,7 @@
     "Str.Options.Formatting.Token.Identifier": "Azonosító",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metaadat-kulcsszó",
     "Str.Project.AlreadyOpen": "A(z) {0} projekt már meg van nyitva.",
+    "Str.Project.Msg.FormatCannotMake": "A(z) {0} fájlformátuma nem tud új {1} elemet létrehozni, ezért semmi sem változott.",
     "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában.",
     "Str.Options.Addins.Revocation.Off": "A visszavonások ellenőrzése ki van kapcsolva: a revocationListUrl üres a settings.json fájlban. A HexIDE csak az ebbe a verzióba beépített listát és a korábban letöltött listákat ismeri.",
     "Str.Options.Addins.Revocation.NotChecked": "A visszavonási listát ebben a munkamenetben még nem ellenőrizték. Használatban: a(z) {0} időpontban kiadott lista.",

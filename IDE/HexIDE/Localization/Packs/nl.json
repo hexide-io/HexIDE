@@ -1300,6 +1300,7 @@
     "Str.Options.Formatting.Token.Identifier": "Id",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metagegevenstrefwoord",
     "Str.Project.AlreadyOpen": "Project {0} is al geopend.",
+    "Str.Project.Msg.FormatCannotMake": "De bestandsindeling van {0} kan geen nieuwe {1} maken, dus er is niets gewijzigd.",
     "Str.Options.Addins.Overview": "Invoegtoepassingen breiden HexIDE uit met hulpmiddelen en instellingen. Pak voor installatie een ondertekend pakket uit in een eigen map in de onderstaande directory en start HexIDE opnieuw. Selecteer een invoegtoepassing in de boom om deze te beheren.",
     "Str.Options.Addins.Revocation.Off": "Controles op intrekking zijn uitgeschakeld: revocationListUrl is leeg in settings.json. HexIDE kent alleen de lijst die in deze versie is ingebouwd en eerder opgehaalde lijsten.",
     "Str.Options.Addins.Revocation.NotChecked": "De intrekkingslijst is in deze sessie nog niet gecontroleerd. In gebruik: de lijst uitgegeven op {0}.",

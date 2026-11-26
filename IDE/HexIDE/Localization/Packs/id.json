@@ -1300,6 +1300,7 @@
     "Str.Options.Formatting.Token.Identifier": "Pengenal",
     "Str.Options.Formatting.Token.MetadataKeyword": "Kata kunci metadata",
     "Str.Project.AlreadyOpen": "Proyek {0} sudah terbuka.",
+    "Str.Project.Msg.FormatCannotMake": "Format file {0} tidak dapat membuat {1} baru, jadi tidak ada yang diubah.",
     "Str.Options.Addins.Overview": "Add-in memperluas HexIDE dengan alat dan pengaturan tambahan. Untuk memasangnya, ekstrak paket add-in bertanda tangan ke folder tersendiri di direktori di bawah, lalu mulai ulang HexIDE. Pilih add-in di pohon untuk mengelolanya.",
     "Str.Options.Addins.Revocation.Off": "Pemeriksaan pencabutan nonaktif: revocationListUrl kosong di settings.json. HexIDE hanya mengetahui daftar bawaan versi ini dan daftar yang pernah diambilnya.",
     "Str.Options.Addins.Revocation.NotChecked": "Daftar pencabutan belum diperiksa dalam sesi ini. Digunakan: daftar yang diterbitkan {0}.",

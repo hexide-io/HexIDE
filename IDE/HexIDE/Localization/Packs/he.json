@@ -1333,6 +1333,7 @@
     "Str.Options.Formatting.Token.Identifier": "מזהה",
     "Str.Options.Formatting.Token.MetadataKeyword": "מילת מפתח למטא-נתונים",
     "Str.Project.AlreadyOpen": "הפרויקט {0} כבר פתוח.",
+    "Str.Project.Msg.FormatCannotMake": "תבנית הקבצים של {0} אינה יכולה ליצור {1} חדש, ולכן דבר לא שונה.",
     "Str.Options.Addins.Overview": "תוספים מרחיבים את HexIDE עם כלים והגדרות נוספים. להתקנה, יש לחלץ חבילת תוסף חתומה לתיקייה משלה בספרייה שלהלן ולהפעיל מחדש את HexIDE. יש לבחור תוסף בעץ כדי לנהל אותו.",
     "Str.Options.Addins.Revocation.Off": "בדיקות הביטול כבויות: revocationListUrl ריק בקובץ settings.json. HexIDE מכיר רק את הרשימה המובנית בגרסה זו ורשימות שהביא בעבר.",
     "Str.Options.Addins.Revocation.NotChecked": "רשימת הביטולים עדיין לא נבדקה בהפעלה זו. בשימוש: הרשימה שהונפקה ב-{0}.",
