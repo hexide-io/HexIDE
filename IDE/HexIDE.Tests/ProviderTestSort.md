@@ -57,7 +57,6 @@ A test that reaches the provider only at run time, through the application's com
 | `IDE/RecentlyClosedDocumentsTests.cs` | split |
 | `IDE/ToolDocumentAreaTests.cs` | split |
 | `IDE/UserFileWriteFailureTests.cs` | split |
-| `IDE/Vb6CompileLogTests.cs` | provider |
 | `IDE/Vb6ToolchainDiagnosticsTests.cs` | split |
 | `IDE/Vb6ToolchainReplacementTests.cs` | split |
 | `InBoxRegistry.cs` | split |
@@ -94,10 +93,6 @@ A test that reaches the provider only at run time, through the application's com
 | `LspClient/WorkspaceAndPriorityTests.cs` | split |
 | `LspClient/WorkspaceArtifactProjectTests.cs` | split |
 | `Profiles/ProfileRecoveryTests.cs` | split |
-| `ProjectElements/DesignerHalfEncodingTests.cs` | provider |
-| `ProjectElements/DocumentIdentityTests.cs` | provider |
-| `ProjectElements/DocumentLookupTests.cs` | provider |
-| `ProjectElements/ProjectNamingTests.cs` | provider |
 | `Projects/AddExistingFileTests.cs` | split |
 | `Projects/AddProjectGroupTests.cs` | split |
 | `Projects/ArchiveProjectOpenTests.cs` | split |
@@ -129,7 +124,6 @@ A test that reaches the provider only at run time, through the application's com
 | `Projects/NewMemberFileInTheWayTests.cs` | split |
 | `Projects/NewRootsFromFormatTests.cs` | split |
 | `Projects/OfficeProjectBrowsingTests.cs` | split |
-| `Projects/PackageEncodingTests.cs` | provider |
 | `Projects/ProjectFileClassifierFormatTests.cs` | provider |
 | `Projects/ProjectFileEditingTests.cs` | split |
 | `Projects/ProjectFileFormatSeamTests.cs` | split |

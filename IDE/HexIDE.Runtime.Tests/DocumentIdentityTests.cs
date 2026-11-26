@@ -1,7 +1,8 @@
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Tests;
 
-namespace HexIDE.Tests.ProjectElements;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A document's identity is the definition, compared by reference, carrying its project — so it survives

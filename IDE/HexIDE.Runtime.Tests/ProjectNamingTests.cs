@@ -1,7 +1,8 @@
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Tests;
 
-namespace HexIDE.Tests.ProjectElements;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// VB6's own naming rules, measured against the real compiler and recorded in

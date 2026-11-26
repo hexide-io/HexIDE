@@ -4,8 +4,9 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Making;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Tests;
 
-namespace HexIDE.Tests.IDE;
+namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Reading what <c>vb6.exe</c> actually writes to <c>/out</c>, and turning its line number into one the
