@@ -279,7 +279,7 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         var (session, document) = await Opened(client, server, "before");
         var identity = ProjectDocument();
         var events = new EventBus();
-        var format = new HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat();
+        var format = new HexIDE.Tests.Projects.StandInFormat();
         identity.Module!.UpdateCode("plain");
         identity.Project.Format = format;
         document.Text = "after";

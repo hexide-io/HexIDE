@@ -12,7 +12,6 @@ using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
-using StandInFormat = HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat;
 
 namespace HexIDE.Tests.Projects;
 

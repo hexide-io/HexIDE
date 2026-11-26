@@ -23,7 +23,7 @@ public sealed class ProjectFilePickerTests
     [InlineData(true, "ExistingGroupPath", "vbg", false)]
     public async Task Picker_uses_the_owning_type_and_format(bool custom, string method, string? extension, bool wholeName)
     {
-        var format = custom ? (IProjectFileFormat)new ProjectFileFormatSeamTests.StandInFormat { FormExtension = "xfrm", ClassExtension = "xcls" } : new Vb6ProjectFileFormat();
+        var format = custom ? (IProjectFileFormat)new StandInFormat { FormExtension = "xfrm", ClassExtension = "xcls" } : new Vb6ProjectFileFormat();
         var types = new ContributedProjects();
         Vb6Types.Register(types, custom ? new Vb6ProjectFileFormat() : format);
         types.Register(new AddinProjectType("Other custom") { FileNames = ["*.wrong"], Format = new Vb6ProjectFileFormat() },

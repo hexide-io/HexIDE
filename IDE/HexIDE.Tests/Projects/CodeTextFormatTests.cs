@@ -9,7 +9,7 @@ public class CodeTextFormatTests
     [Fact]
     public void FormatWithoutVbHeadersAnswersNeutralDefaults()
     {
-        IProjectFileFormat format = new ProjectFileFormatSeamTests.StandInFormat();
+        IProjectFileFormat format = new StandInFormat();
         format.AttributeBlock("Attribute VB_Name = \"Other\"\r\n").Should().BeEmpty();
         format.ModuleNameFor("Fallback", "Attribute VB_Name = \"Other\"\r\n").Should().Be("Fallback");
         format.IsDesignerFile("VERSION 5.00\r\nBegin VB.Form Form1\r\nEnd\r\n").Should().BeFalse();
