@@ -669,8 +669,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         RebuildContainmentOrder(positionInList);
         foreach (var (container, ordinals) in CarriedPlacement(orderedComponents).ToList())
             container.SetPreservedChildOrdinals(ordinals);
-        foreach (var instance in orderedComponents.Where(c => !IsReadOnly && c.BaseClass is SSTabComponentClass))
-            SSTabComponentClass.Instance.SynchronizeDesignerPages(instance,
+        foreach (var instance in orderedComponents.Where(c => !IsReadOnly && DesignerClassCalls.HasPages(c.BaseClass)))
+            DesignerClassCalls.SynchronizePages(instance,
                 orderedComponents.Where(c => ReferenceEquals(c.Container, instance)).ToList());
         formDefinition?.UpdateComponents(orderedComponents);
     }
@@ -765,8 +765,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             AllComponents.Add(vm);
         }
 
-        foreach (var instance in fileOrder.Where(c => !IsReadOnly && c.BaseClass is SSTabComponentClass))
-            SSTabComponentClass.Instance.InitializeDesignerPages(instance);
+        foreach (var instance in fileOrder.Where(c => !IsReadOnly && DesignerClassCalls.HasPages(c.BaseClass)))
+            DesignerClassCalls.LoadPages(instance);
 
         foreach (var comp in DrawOrder(fileOrder))
             Components.Add(viewModels[comp]);
@@ -876,20 +876,25 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     private static double Pixels(long twips) => twips / (double)VBScaleModeExtensions.PixelToTwips;
 
-    internal bool SwitchSSTabPage(Point point)
+    /// <summary>
+    /// Shows the page whose tab is under a click at <paramref name="point"/>, in canvas space, on the topmost container
+    /// there whose class has pages (<see cref="DesignerClassCalls.HasPages"/>, #5742).
+    /// </summary>
+    /// <returns>Whether a page was shown. A click on no tab, or a class that throws, shows none.</returns>
+    internal bool SwitchDesignerPage(Point point)
     {
         if (IsReadOnly)
             return false;
         for (var i = Components.Count - 1; i >= 0; i--)
         {
             var vm = Components[i];
-            if (vm.Instance.BaseClass is not SSTabComponentClass tab
+            if (!DesignerClassCalls.HasPages(vm.Instance.BaseClass)
                 || !new Rect(vm.Left, vm.Top, vm.Width, vm.Height).Contains(point))
                 continue;
             var children = AllComponents.Where(c => ReferenceEquals(c.Instance.Container, vm.Instance))
                 .Select(c => c.Instance).ToList();
-            if (!tab.SelectDesignerPage(vm.Instance, point - new Vector(vm.Left, vm.Top),
-                    new Size(vm.Width, vm.Height), children))
+            if (!DesignerClassCalls.ShowPageAt(vm.Instance, point.X - vm.Left, point.Y - vm.Top, vm.Width, vm.Height,
+                    children))
                 return false;
             SelectedComponent = vm;
             CommitLayout();

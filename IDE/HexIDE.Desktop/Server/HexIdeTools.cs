@@ -1,4 +1,5 @@
 using NativeMenuBar = HexIDE.Automation.NativeMenuBar;
+using DesignerClassCalls = HexIDE.VisualDesigner.DesignerClassCalls;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
@@ -14,7 +15,6 @@ using HexIDE.Forms.ViewModels.Options;
 using HexIDE.IDE;
 using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.TwinBasic;
@@ -569,8 +569,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     caption, text,
                     container,
                     PropertyText.ArrayIndexOf(c),
-                    Tab: c.Container?.BaseClass is SSTabComponentClass tabs
-                        ? tabs.DesignerTabOf(c.Container, name) : null);
+                    Tab: c.Container is { } paged ? DesignerClassCalls.PageOf(paged, name) : null);
             }
 
             var root = components.Single(c => c.BaseClass.Role == ComponentRole.Form);
@@ -616,8 +615,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         null, null, null, null,
                         parent == root ? null : parent.GetPropertyOrDefault(VBProperties.NameProperty),
                         Carried: true, Note: carriedNote,
-                        Tab: parent.BaseClass is SSTabComponentClass tabs
-                            ? tabs.DesignerTabOf(parent, control.Name) : null);
+                        Tab: DesignerClassCalls.PageOf(parent, control.Name));
                     var order = boxes is null ? -(before[i] + i) : boxes[boxIndex++].DrawIndex;
                     siblings.Add((null, row, order));
                 }
@@ -681,12 +679,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var properties = PropertyText.Rows(control, (property, pixels) => DesignPositions.IsPosition(property)
                     ? (DesignPositions.Shown(form, control, property, pixels), DesignPositions.Unit(form, control, property))
                     : null);
-                if (control.BaseClass is SSTabComponentClass tabs)
+                // A container with pages shows the page the designer shows, and how many there are (#5742).
+                if (DesignerClassCalls.ShownPage(control) is { } shownPage && DesignerClassCalls.PageCount(control) is { } pageCount)
                 {
                     properties = [.. properties.Where(p => p.Name is not ("Tab" or "Tabs")),
-                        new("Tab", PropertyText.Display(tabs.DesignerTab(control)), true,
+                        new("Tab", PropertyText.Display(shownPage), true,
                             "Selected designer page; set_control_property switches it without an undo entry."),
-                        new("Tabs", PropertyText.Display(tabs.DesignerTabs(control)), false, "Saved page count.")];
+                        new("Tabs", PropertyText.Display(pageCount), false, "Saved page count.")];
                     properties = [.. properties.OrderBy(p => p.Name)];
                 }
                 return new FormControlsResult(null, [summaries.TryGetValue(control, out var summary) ? summary : Info(control)], document.Project.Name, document.Name,
@@ -760,15 +759,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (control is null)
                 return (null, null, $"No control named '{controlName}' on {document.Display}");
 
-            if (control.BaseClass is SSTabComponentClass pageTabs
-                && property.Equals("Tab", StringComparison.OrdinalIgnoreCase)
-                && pageTabs.DesignerPageSwitchRefusal(control) is { } pageRefusal)
-                return (null, null, pageRefusal);
-
-            if (control.BaseClass is SSTabComponentClass tabs
+            // A container with pages switches the page the designer shows (#5742). Its class is asked first whether it
+            // can, and a class that can't answer is refused rather than switched without its check.
+            if (DesignerClassCalls.HasPages(control.BaseClass)
                 && property.Equals("Tab", StringComparison.OrdinalIgnoreCase))
             {
-                var last = tabs.DesignerTabs(control) - 1;
+                if (!DesignerClassCalls.PageSwitchRefusal(control, out var pageRefusal))
+                    return (null, null, $"{PropertyText.AddressedName(control)}'s class failed checking whether its page "
+                        + "can be switched, so it isn't switched here. Nothing was changed.");
+                if (pageRefusal is not null)
+                    return (null, null, pageRefusal);
+                if (DesignerClassCalls.PageCount(control) is not { } pageCount)
+                    return (null, null, $"{PropertyText.AddressedName(control)}'s class failed giving its page count, so "
+                        + "its page isn't switched here. Nothing was changed.");
+                var last = pageCount - 1;
                 if (!int.TryParse(value, System.Globalization.NumberStyles.Integer,
                         System.Globalization.CultureInfo.InvariantCulture, out var page) || page < 0 || page > last)
                     return (null, null, $"Tab takes a whole-number page index from 0 to {last}. Nothing was changed.");
@@ -776,8 +780,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     return (null, null, $"{document.Display} {ProjectWriteSafety.PickerRefusal(document)}");
                 if (ProjectWriteSafety.Prepare(document, out recoveryNote, writeAttempt) is { } tabSafetyRefusal)
                     return (null, null, tabSafetyRefusal);
-                tabs.SelectDesignerPage(control, page,
-                    components.Where(c => ReferenceEquals(c.Container, control)).ToList());
+                if (!DesignerClassCalls.ShowPage(control, page,
+                        components.Where(c => ReferenceEquals(c.Container, control)).ToList()))
+                    return (null, null, $"{PropertyText.AddressedName(control)}'s class failed switching its page, so "
+                        + "the form wasn't saved. The IDE's log has the reason.");
                 if (designerVm is not null)
                     designerVm.CommitLayout();
                 else

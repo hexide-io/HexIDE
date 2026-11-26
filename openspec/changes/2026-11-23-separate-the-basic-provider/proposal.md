@@ -205,6 +205,11 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     the VB6 form reader both read it.
   - **The second puts the preview and the carried-controls rule on the run engine,** as an optional
     `IDesignerRunEngine`, public and unbaselined as `IRunEngine` is, forwarded with the engine's containment (#5645).
+- **A container's pages (2.4f-4, #5742).** An optional component-class contract, `IDesignerPages`, carries SSTab's eight
+  designer members as add-in API, with numbers where SSTab took Avalonia's `Point` and `Size`. Only a container's class
+  is asked, since a container needs the provider's grant to register and a plain control doesn't. The designer and
+  automation contain each call as the designer does 2.4e-1's contracts. Automation refuses a page switch the class
+  throws checking or counting, and doesn't save one it throws making.
 - **Where a double-clicked control goes (2.4f-3, #5681).** An optional component-class contract,
   `IDesignerAddedPlacement`, gives the bounds a double-clicked control takes and whether Align to Grid moves it, as add-in
   API. The Basic provider's StatusBar, FlatScrollBar and ImageList answer through it. The designer contains it as it does
