@@ -4,7 +4,6 @@ using System.Linq;
 using Avalonia.Data;
 using Avalonia.Media;
 using HexIDE.Converters;
-using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
@@ -364,11 +363,12 @@ public partial class ComponentInstanceViewModel : ObservableObject
         get
         {
             var (x, y) = LineTwipsPerUnit;
-            return VBLine.BoundsFor(instance.GetPropertyOrDefault(VBProperties.X1Property) * x,
+            var bounds = LineControlBounds.BoundsFor(instance.GetPropertyOrDefault(VBProperties.X1Property) * x,
                 instance.GetPropertyOrDefault(VBProperties.Y1Property) * y,
                 instance.GetPropertyOrDefault(VBProperties.X2Property) * x,
                 instance.GetPropertyOrDefault(VBProperties.Y2Property) * y,
                 (int)instance.GetPropertyOrDefault(VBProperties.BorderWidthProperty));
+            return new Rect(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
         }
     }
 

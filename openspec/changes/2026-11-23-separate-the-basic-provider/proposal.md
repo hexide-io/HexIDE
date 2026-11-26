@@ -177,8 +177,13 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
 - **Designer pictures (2.4b).** This was agreed with hexide-frm, and the supervisor reviews the draft.
   - `RegisterDesignerPictures` is one service per host and is grant-gated, since it draws every form's controls. A
     third-party component is drawn by that service through its own `IComponentClass`.
-  - A Line's units stay with the provider, and the picture reply carries the control's bounds. The designer contract
-    gains no unit member.
+  - **A Line's bounds come from a Core helper, and its units from a registered positions service** (supervisor,
+    2026-11-26, on #3411). This first said that the picture reply carries a Line's bounds and that the designer
+    contract gains no unit member. But the designer lays a Line out from its bounds before any picture exists
+    (`ComponentInstanceViewModel.cs:281` to `:300`), the picture request is sized from that layout
+    (`ControlRenderer.cs:171`), and `MoveLine` (`ComponentInstanceViewModel.cs:376`) writes a move back in the
+    container's scale. So the bounds are worked out in Core (2.3b, #5680), and the designer asks the provider for
+    the units (2.4f-6).
   - **The precondition:** each in-box control renders byte-identically under the provider's host and under
     `ControlRenderer`, with Skia at scaling 1 and 1.5.
   - **Its second part (#5591) registers the drawer and keeps where it draws.** The designer lends the drawer its
