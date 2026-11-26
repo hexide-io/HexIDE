@@ -12,6 +12,7 @@ public class WindowLifetimeTests
     [InlineData(typeof(FrameContainerRuntimeTests), nameof(FrameContainerRuntimeTests.AClickOnAFramesOwnSurface_BelongsToTheFrame))]
     [InlineData(typeof(LabelBorderTests), nameof(LabelBorderTests.A_3D_Fixed_Single_label_draws_a_sunken_edge_two_pixels_deep))]
     [InlineData(typeof(LabelColourTests), nameof(LabelColourTests.A_BackColor_set_at_run_time_paints_and_reads_back))]
+    [InlineData(typeof(LineControlTests), nameof(LineControlTests.A_line_takes_no_clicks))]
     [InlineData(typeof(ListBoxClickTests), nameof(ListBoxClickTests.A_ListIndex_out_of_range_raises_380_and_no_Click))]
     [InlineData(typeof(ListBoxSelectedTests), nameof(ListBoxSelectedTests.MultiSelect_reads_as_an_Integer_and_cannot_be_assigned))]
     [InlineData(typeof(OptionButtonValueTests), nameof(OptionButtonValueTests.AnUnparseableStringIntoABoolean_IsATrappableTypeMismatch))]
