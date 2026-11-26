@@ -553,11 +553,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 string? text = c.BaseClass.PropertiesByName.ContainsKey("Text")
                     ? c.GetPropertyOrDefault(VBProperties.TextProperty) : null;
 
-                var typeName = c.BaseClass is FormComponentClass
+                var typeName = c.BaseClass.Role == ComponentRole.Form
                     ? form.RootVBTypeName
                     : c.BaseClass.VBTypeName;
 
-                var container = c.Container is { } parent && parent.BaseClass is not FormComponentClass
+                var container = c.Container is { } parent && parent.BaseClass.Role != ComponentRole.Form
                     ? parent.GetPropertyOrDefault(VBProperties.NameProperty)
                     : null;
 
@@ -573,7 +573,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         ? tabs.DesignerTabOf(c.Container, name) : null);
             }
 
-            var root = components.Single(c => c.BaseClass is FormComponentClass);
+            var root = components.Single(c => c.BaseClass.Role == ComponentRole.Form);
             ComponentInstance Parent(ComponentInstance c) => c.Container ?? root;
             var summaries = components.ToDictionary(c => c, Info);
             var rows = new List<ControlInfo> { summaries[root] };
@@ -581,7 +581,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var visited = new HashSet<ComponentInstance> { root };
             void ListChildren(ComponentInstance parent)
             {
-                var children = components.Where(c => c != root && c.BaseClass is not MenuComponentClass
+                var children = components.Where(c => c != root && c.BaseClass.Role != ComponentRole.Menu
                     && ReferenceEquals(Parent(c), parent)).ToList();
                 var blocks = parent.PreservedChildSubtrees;
                 var written = (parent == root
@@ -644,7 +644,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     return;
                 if (summaries.TryGetValue(menu, out var row))
                     rows.Add(row);
-                if (menu.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } items)
+                if (menu.GetPropertyOrDefault(HexIDE.VisualDesigner.MenuPropertyNames.SubItemsProperty) is { } items)
                     foreach (var item in items)
                         ListMenu(item);
             }
@@ -839,7 +839,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // enforces them as the value is set, and throws; without it nothing would, so they are asked here.
             if (propClass == VBProperties.NameProperty && designerVm is null
                 && HexIDE.VisualDesigner.ComponentNaming.RefusalFor(control, before as string, parsed as string,
-                       form.Components, form, control.BaseClass is FormComponentClass, ctx.Localization) is { } refusal)
+                       form.Components, form, control.BaseClass.Role == ComponentRole.Form, ctx.Localization) is { } refusal)
                 return (null, null, $"'{controlName}' was not renamed: {refusal}");
             if (ProjectWriteSafety.Prepare(document, out recoveryNote, writeAttempt) is { } safetyRefusal)
                 return (null, null, safetyRefusal);
@@ -1921,7 +1921,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 ? null
                 : $"{placed.Name} is at Left {PropertyText.Display(placed.RelativeLeft)}, Top {PropertyText.Display(placed.RelativeTop)}, "
                   + $"Width {PropertyText.Display(placed.Width)}, Height {PropertyText.Display(placed.Height)}, in pixels"
-                  + (placed.Instance.Container is null or { BaseClass: FormComponentClass }
+                  + (placed.Instance.Container is null or { BaseClass.Role: ComponentRole.Form }
                       ? "."
                       : $". It is inside {placed.ContainerName}, as a control drawn there is, so Left and Top are measured from {placed.ContainerName}.")
                   + OutsideContainerNote(placed);
