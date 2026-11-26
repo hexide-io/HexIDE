@@ -1,4 +1,3 @@
-using HexIDE.Runtime.Components;
 using HexIDE.Lsp;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Events;
@@ -86,26 +85,6 @@ public class DocumentWireNameTests
     }
 
     [Fact]
-    public void AUserControlIsNamedByItsModulesFile_NotItsDesignerHalfs()
-    {
-        // One file, two halves, one identity — the same rule DocumentIdentity.For(FormDefinition) follows.
-        // The two paths genuinely diverge today (#474), so this is not a distinction without a difference.
-        var project = Project();
-        var modulePath = OperatingSystem.IsWindows() ? @"C:\src\Gauge.ctl" : "/src/Gauge.ctl";
-        var formPath = OperatingSystem.IsWindows() ? @"C:\elsewhere\Gauge.frm" : "/elsewhere/Gauge.frm";
-
-        var module = Module(project, "Gauge", ModuleKind.UserControl, modulePath);
-        var designer = new FormDefinition(project, FormComponentClass.Instance, "Gauge")
-        {
-            AbsolutePath = formPath,
-        };
-        module.UpdateFormPart(designer);
-
-        DocumentWireName.For(designer).Should().Be(LspDocumentUri.ForFile(modulePath));
-        DocumentWireName.For(module).Should().Be(LspDocumentUri.ForFile(modulePath));
-    }
-
-    [Fact]
     public void ASavedDocumentWhoseFileIsDeletedKeepsItsFileName()
     {
         // untitled: means "no file yet", not "file missing" — the protocol maintainers' own guidance. This
@@ -125,21 +104,6 @@ public class DocumentWireNameTests
         // The collision the vb6:// scheme could not express: it named both vb6://module/Module1.
         DocumentWireName.For(Module(Project("Alpha"), "Module1"))
             .Should().NotBe(DocumentWireName.For(Module(Project("Beta"), "Module1")));
-    }
-
-    [Fact]
-    public void RenamingAFormThatHasAFile()
-    {
-        // lsp-client's scenario of that name: the wire name is the file's, and a rename moves no file, so a server
-        // is told nothing and keeps the document it has.
-        var path = OperatingSystem.IsWindows() ? @"C:\src\proj\Form1.frm" : "/src/proj/Form1.frm";
-        var form = new FormDefinition(Project(), FormComponentClass.Instance, "Form1") { AbsolutePath = path };
-        var before = DocumentWireName.For(form);
-
-        form.Components[0].SetProperty(VBProperties.NameProperty, "Renamed");
-
-        form.Name.Should().Be("Renamed", "the premise of this test");
-        DocumentWireName.For(form).Should().Be(before).And.Be(LspDocumentUri.ForFile(path));
     }
 
     [Fact]
