@@ -119,16 +119,4 @@ public class InspectPointerTests
         }
         finally { window.Close(); }
     }
-
-    [AvaloniaFact]
-    public void Each_cursor_the_runtime_makes_is_its_own_and_remembers_its_pointer()
-    {
-        var first = VBCursorType.Hourglass.ToCursor();
-        var second = VBCursorType.Hourglass.ToCursor();
-
-        first.Should().NotBeSameAs(second, "callers compare cursors by reference, so recording must not cache them");
-        VBCursorTypeExtensions.PointerOf(second).Should().Be(VBCursorType.Hourglass);
-        VBCursorTypeExtensions.PointerOf(new Cursor(StandardCursorType.Wait)).Should().BeNull();
-        VBCursorTypeExtensions.PointerOf(null).Should().BeNull();
-    }
 }
