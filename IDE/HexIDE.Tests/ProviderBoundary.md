@@ -26,7 +26,6 @@ removals; Release checks additions only because Desktop's automation server is D
 | project | HexIDE.Tests | HexIDE.Runtime |
 | project | HexIDE.Tests | HexIDE.Standalone |
 | type | HexIDE | HexIDE.Runtime.AvaloniaInterop.DesignPositions |
-| type | HexIDE | HexIDE.Runtime.BuiltinControls.VBLine |
 | type | HexIDE | HexIDE.Runtime.Components.ComponentBaseClass |
 | type | HexIDE | HexIDE.Runtime.Components.FormComponentClass |
 | type | HexIDE | HexIDE.Runtime.Components.InBox.FlatScrollBarComponentClass |

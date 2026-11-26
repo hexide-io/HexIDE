@@ -16,7 +16,6 @@ using HexIDE.Events;
 using HexIDE.Localization;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Debugging;
-using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
