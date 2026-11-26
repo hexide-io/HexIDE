@@ -342,19 +342,18 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     private int drawIndex;
 
-    /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
+    /// <summary>
+    /// How many twips one of a Line's container's units is, from the positions service the provider registered (#5758), or
+    /// twips where HexIDE can't run that scale or the service can't say.
+    /// </summary>
     public (double X, double Y) LineTwipsPerUnit
     {
         get
         {
-            try
-            {
-                return parentViewModel.FormDefinition is { } form ? LineComponentClass.TwipsPerUnit(instance, form) : (1, 1);
-            }
-            catch (NotImplementedException)
-            {
+            if (parentViewModel.FormDefinition is not { } form)
                 return (1, 1);
-            }
+            DesignerClassCalls.LineTwipsPerUnit(form, instance, out var units);
+            return units;
         }
     }
 
@@ -372,12 +371,19 @@ public partial class ComponentInstanceViewModel : ObservableObject
         }
     }
 
-    // Both endpoints by the same distance, in pixels, written back in the container's scale.
+    // Both endpoints by the same distance, in pixels, written back in the container's scale. Where the positions service
+    // can't say what that scale is, the Line stays where it is: a move written in twips would be wrong in any other (#5758).
     private void MoveLine(double dxPixels, double dyPixels)
     {
-        var (x, y) = LineTwipsPerUnit;
-        var dx = dxPixels * VBScaleModeExtensions.PixelToTwips / x;
-        var dy = dyPixels * VBScaleModeExtensions.PixelToTwips / y;
+        (double X, double Y) units = (1, 1);
+        if (parentViewModel.FormDefinition is { } form && !DesignerClassCalls.LineTwipsPerUnit(form, instance, out units))
+        {
+            OnPropertyChanged(nameof(Left));
+            OnPropertyChanged(nameof(Top));
+            return;
+        }
+        var dx = dxPixels * VBScaleModeExtensions.PixelToTwips / units.X;
+        var dy = dyPixels * VBScaleModeExtensions.PixelToTwips / units.Y;
         if (dx != 0)
         {
             instance.SetProperty(VBProperties.X1Property, instance.GetPropertyOrDefault(VBProperties.X1Property) + dx);

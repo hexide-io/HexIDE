@@ -364,6 +364,7 @@ public sealed class RegisterLanguageEditingTests
         public IDisposable RegisterLanguagePacks(Uri folder) => host.RegisterLanguagePacks(folder);
         public IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures) =>
             host.RegisterDesignerPictures(pictures);
+        public IDisposable RegisterDesignPositions(IDesignPositions positions) => host.RegisterDesignPositions(positions);
     }
 
     // As VB6 lists them in the Watch dialog when no code window has a server's outline: with nothing registered for vb6, none.

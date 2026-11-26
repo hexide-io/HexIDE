@@ -48,6 +48,12 @@ internal sealed record RegistrationGrant(string OwnerId, bool Composed)
     public bool DesignerPictures { get; init; }
 
     /// <summary>
+    /// Whether it may register VB6's scale rules at design time (#5758), whose answers decide the positions the Properties
+    /// window and automation write into a form, and the units the designer moves a Line in.
+    /// </summary>
+    public bool DesignPositions { get; init; }
+
+    /// <summary>
     /// Whether it may register a language's editing helpers (#5403), which the code window calls on every edit: which lines an
     /// <c>#If</c> leaves out, where the parentheses are, and what a module declares.
     /// </summary>
@@ -126,6 +132,8 @@ internal static class RegistrationGrants
             ],
             // Its controls draw themselves in the designer (#5591).
             DesignerPictures = true,
+            // VB6's scale rules for its forms' positions and its Lines' units (#5758).
+            DesignPositions = true,
             // The VB family's editing helpers: its interpreter's #If reader and lexer (#5403).
             LanguageEditing = true,
             // Its interpreter runs projects in the IDE (#5616).
