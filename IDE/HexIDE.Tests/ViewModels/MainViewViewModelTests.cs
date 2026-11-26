@@ -963,7 +963,7 @@ public class MainViewViewModelTests
     public void Add_File_offers_the_focused_projects_extensions(bool custom)
     {
         var format = custom
-            ? (IProjectFileFormat)new HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat
+            ? (IProjectFileFormat)new HexIDE.Tests.Projects.StandInFormat
                 { FormExtension = "xfrm", ClassExtension = "xcls" }
             : new Vb6ProjectFileFormat();
         var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { Format = format };
@@ -1004,7 +1004,7 @@ public class MainViewViewModelTests
     public void Add_File_classifies_with_the_focused_projects_format(bool custom, string fileName, ProjectFileKind expected)
     {
         var format = custom
-            ? (IProjectFileFormat)new HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat
+            ? (IProjectFileFormat)new HexIDE.Tests.Projects.StandInFormat
                 { FormExtension = "xfrm", ClassExtension = "xcls" }
             : new Vb6ProjectFileFormat();
         var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { Format = format };

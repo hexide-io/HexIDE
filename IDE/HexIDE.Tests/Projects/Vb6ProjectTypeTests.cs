@@ -5,7 +5,6 @@ using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Sidecar;
-using StandInFormat = HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat;
 
 namespace HexIDE.Tests.Projects;
 
