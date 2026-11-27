@@ -2049,8 +2049,12 @@ public static class UiAutomationDriver
         List<Action>? moves = destination is null ? null : MovesBetween(inWindow, releasePoint);
         // Where the second press of a double click went, when not where the first did.
         var secondLanding = "";
+        // FinishAsync returns the second click's outcome, so carry the first release's removal and recipient forward.
+        var firstRemoval = "";
         InteractOutcome Release(bool second)
         {
+            var removed = "";
+            var previousRelease = second ? firstRemoval : "";
             try
             {
                 if (moveFailed is not null)
@@ -2060,18 +2064,17 @@ public static class UiAutomationDriver
                 var whichPress = second ? "second" : "first";
                 if (topLevel.PlatformImpl is null)
                     return new InteractOutcome(true, "pointer",
-                        $"pressed {pressed}; the window '{pressWindowTitle}' closed after the {whichPress} press, "
+                        $"pressed {pressed}{previousRelease}; the window '{pressWindowTitle}' closed after the {whichPress} press, "
                         + "as a double-click on a floating title does when it docks the tool; nothing was released there", null);
                 if (!ReferenceEquals(TopLevel.GetTopLevel(pressTarget), topLevel))
-                    return new InteractOutcome(true, "pointer",
-                        $"pressed {pressed}; the target '{(pressTarget is Control target ? Describe(target) : pressTarget.GetType().Name)}' "
-                        + $"was removed after the {whichPress} press; nothing was released there", null);
+                    removed = $"; the target '{(pressTarget is Control target ? Describe(target) : pressTarget.GetType().Name)}' "
+                        + $"was removed after the {whichPress} press";
                 // A control that captured the pointer on its press takes the release, as it would from a real pointer.
                 var captured = pointer.Captured is not null;
                 var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
                 if (releasedOn is null)
-                    return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
+                    return Fail($"pressed {pressed}{previousRelease}{removed}; nothing takes the pointer at the release point {releaseWhere}");
                 var releaseCode = topLevel.InputHitTest(releasePoint) is Control releaseTarget
                     && topLevel.TranslatePoint(releasePoint, releaseTarget) is { } localRelease
                     ? CodeWindowPointer.Note(releaseTarget, localRelease) : "";
@@ -2080,13 +2083,20 @@ public static class UiAutomationDriver
                     releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, RawPointer.InSurface(topLevel, releasePoint),
                         releaseTime, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 PointerNowAt(topLevel, releasePoint);
-                var recipient = destination is null ? "" : releasedOn is Control releasedControl
+                var reportRecipient = destination is not null || removed.Length > 0;
+                var recipient = !reportRecipient ? "" : releasedOn is Control releasedControl
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
                 var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
-                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}{(second ? secondLanding : "")}"
-                    + (destination is null ? (releaseCode.Length == 0 ? "" : $"; released{releaseCode}") : $"; released at {releaseWhere}{releaseCode}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
+                var release = destination is null ? (releaseCode.Length == 0 ? "" : $"; released{releaseCode}")
+                    : $"; released at {releaseWhere}{releaseCode}";
+                if (reportRecipient)
+                    release += $"; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}";
+                if (!second && removed.Length > 0)
+                    firstRemoval = removed + release;
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}"
+                    + $"{previousRelease}{(second ? secondLanding : "")}{removed}{release}", null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
                 if (startedInactive && topLevel is Window { IsActive: false } clickedWindow)
                 {
@@ -2104,7 +2114,7 @@ public static class UiAutomationDriver
             }
             catch (Exception ex)
             {
-                return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
+                return new InteractOutcome(false, "pointer", null, $"pressed {pressed}{previousRelease}{removed}, and the release threw: {ex.Message}");
             }
             finally { pointer.Capture(null); }
         }
@@ -2126,9 +2136,9 @@ public static class UiAutomationDriver
                 await Task.WhenAny(compositor.RequestCompositionBatchCommitAsync().Processed, Task.Delay(SecondPressFrameWait));
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
             if (!topLevel.IsVisible)
-                return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
+                return Fail($"clicked {pressed}{firstRemoval}; the second click was not sent because the window is hidden or closed");
             if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
-                return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
+                return Fail($"clicked {pressed}{firstRemoval}; the second click was not sent because nothing takes the pointer at that point now");
             pressTarget = again;
             var secondPressTime = ButtonTimestamp();
             if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, secondPressTime))

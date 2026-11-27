@@ -1945,10 +1945,11 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 - **THEN** no move comes before the press, and the reply says the pointer was already there
 
 ### Requirement: A press that closes its window or removes its target SHALL report what happened
-Before hit-testing a click's release, the driver SHALL check whether its window closed or its press
-target left the tree. Either SHALL report success naming the window or target and first or second
-press, say nothing was released there, and send no remaining release or second press. An empty release
-point in an open window with an attached press target SHALL retain its failure.
+If a press closes its window, the driver SHALL report success, name the window and press, and say
+it sent no release. No remaining press is sent. In an open window, it SHALL release to the pointer
+capturer or the control under the release point. If the press target left the tree, the reply SHALL
+name it, the first or second press and any release recipient. If neither a capturer nor a control
+at the release point is available, the driver SHALL report a release failure.
 
 #### Scenario: A floating title docks on its second press
 - **WHEN** a double click's second press closes the floating tool window
@@ -1957,8 +1958,13 @@ point in an open window with an attached press target SHALL retain its failure.
 
 #### Scenario: A first press removes its target
 - **WHEN** the first press removes the element it reached while the window stays open
-- **THEN** the reply reports success naming the removed target and first press
-- **AND** neither its release nor a second press is sent
+- **THEN** the release reaches the capturer or the control under the release point, and the reply names it and the removed target
+- **AND** for a double click the second press follows the normal hit-test at that point
+
+#### Scenario: A Line moves and its pressed image disappears
+- **WHEN** a drag of a Line in the designer removes the image the press reached
+- **THEN** the release reaches the ResizeAdorner that captured the pointer, including when `release` ends a held drag
+- **AND** the reply names the removed image and the adorner that received the release
 
 ### Requirement: A click on a mirrored window SHALL say that it went past Windows' mirroring
 On Windows, when the window `click` presses in has `WS_EX_LAYOUTRTL`, the reply SHALL say that the window is mirrored and that

@@ -46,43 +46,54 @@ public class ClickRemovedTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task A_press_that_removes_its_target_stops_the_click(bool removeOnSecond)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task A_press_that_removes_its_target_releases_to_the_control_under_it(bool twice, bool removeOnSecond)
     {
         var pad = new Border { Name = "Press pad", Background = Brushes.White };
-        var host = new Border { Background = Brushes.Gray, Child = pad };
+        var host = new Border { Name = "Host", Background = Brushes.Gray, Child = pad };
         var window = new Window { Width = 200, Height = 100, Content = host };
         var presses = new List<int>();
-        var releases = 0;
+        var releases = new List<object?>();
         pad.PointerPressed += (_, e) =>
         {
             presses.Add(e.ClickCount);
             if (e.ClickCount == (removeOnSecond ? 2 : 1))
-                Dispatcher.UIThread.Post(() => host.Child = null);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    host.Child = null;
+                    e.Pointer.Capture(null);
+                });
         };
-        window.AddHandler(InputElement.PointerReleasedEvent, (_, _) => releases++, RoutingStrategies.Bubble, handledEventsToo: true);
+        window.AddHandler(InputElement.PointerReleasedEvent, (_, e) => releases.Add(e.Source), RoutingStrategies.Bubble, handledEventsToo: true);
         Show(window);
         try
         {
-            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(host, "click", "10,10 double"));
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(host, "click", twice ? "10,10 double" : "10,10"));
 
             outcome.Success.Should().BeTrue(outcome.Error);
-            outcome.Detail.Should().Contain("target 'Border[Press pad]' was removed after the " + (removeOnSecond ? "second" : "first") + " press")
-                .And.Contain("nothing was released there");
             presses.Should().Equal(removeOnSecond ? new[] { 1, 2 } : new[] { 1 });
-            releases.Should().Be(removeOnSecond ? 1 : 0);
+            releases.Should().Equal(!twice ? new[] { host } : removeOnSecond ? new[] { pad, host } : new[] { host, host });
+            outcome.Detail.Should().Contain("target 'Border[Press pad]' was removed after the " + (removeOnSecond ? "second" : "first") + " press")
+                .And.Contain("release received by 'Border[Host]'").And.Contain("(under the release point, no capture)");
             window.IsVisible.Should().BeTrue();
         }
         finally { window.Close(); }
     }
 
-    [AvaloniaFact]
-    public async Task An_empty_release_point_in_an_open_window_still_fails()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task An_empty_release_point_in_an_open_window_still_fails(bool removeTarget)
     {
         var pad = new Border { Background = Brushes.White };
         var window = new Window { Width = 200, Height = 100, Content = pad };
-        pad.PointerPressed += (_, e) => Dispatcher.UIThread.Post(() => e.Pointer.Capture(null));
+        pad.PointerPressed += (_, e) => Dispatcher.UIThread.Post(() =>
+        {
+            if (removeTarget) window.Content = null;
+            e.Pointer.Capture(null);
+        });
         Show(window);
         try
         {
@@ -90,6 +101,8 @@ public class ClickRemovedTests
 
             outcome.Success.Should().BeFalse();
             outcome.Error.Should().Contain("pressed the left button").And.Contain("nothing takes the pointer at the release point");
+            if (removeTarget)
+                outcome.Error.Should().Contain("the target 'Border' was removed after the first press");
             window.IsVisible.Should().BeTrue();
         }
         finally { window.Close(); }
