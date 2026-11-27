@@ -624,19 +624,21 @@ public class InteractClickTests
             if (hold)
             {
                 outcome.Success.Should().BeTrue(outcome.Error);
-                vm.IsDragging.Should().BeTrue();
-                vm.UndoStack.CanUndo.Should().BeFalse();
+                // Each assertion carries the reply, which names where the press landed: a run that never starts the
+                // drag must say why (#5796's first CI run failed here with nothing to go on).
+                vm.IsDragging.Should().BeTrue(outcome.Detail);
+                vm.UndoStack.CanUndo.Should().BeFalse(outcome.Detail);
                 outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(view, "release", null));
             }
 
             outcome.Success.Should().BeTrue(outcome.Error);
             var after = Endpoints();
-            after.X1.Should().BeGreaterThan(before.X1);
-            after.Y1.Should().BeGreaterThan(before.Y1);
-            after.X2.Should().BeGreaterThan(before.X2);
-            after.Y2.Should().BeGreaterThan(before.Y2);
-            vm.UndoStack.UndoDescription.Should().Be("Move: Line2");
-            vm.IsDragging.Should().BeFalse();
+            after.X1.Should().BeGreaterThan(before.X1, outcome.Detail);
+            after.Y1.Should().BeGreaterThan(before.Y1, outcome.Detail);
+            after.X2.Should().BeGreaterThan(before.X2, outcome.Detail);
+            after.Y2.Should().BeGreaterThan(before.Y2, outcome.Detail);
+            vm.UndoStack.UndoDescription.Should().Be("Move: Line2", outcome.Detail);
+            vm.IsDragging.Should().BeFalse(outcome.Detail);
             outcome.Detail.Should().Contain("the target 'Image' was removed after the first press")
                 .And.Contain("release received by 'ResizeAdorner[ResizeAdorner]'").And.Contain("(pointer capturer)");
 
