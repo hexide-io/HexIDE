@@ -1,5 +1,7 @@
 using HexIDE.Runtime.Serialization;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Linq;
 using AvaloniaEdit.Document;
 using HexIDE.Bookmarks;
 using HexIDE.Forms.ViewModels;
@@ -33,6 +35,11 @@ public partial class FindReplaceViewModelTests
         localization.GetString("Str.FindReplace.Msg.ScopeCurrentModule").Returns("Current Module");
         localization.GetString("Str.FindReplace.Msg.ScopeAllOpenDocuments").Returns("All Open Documents");
         localization.GetString("Str.FindReplace.Msg.NotFound").Returns("The search text '{0}' was not found.");
+        localization.GetString("Str.FindReplace.Msg.WrapDown")
+            .Returns("End of search scope has been reached; do you want to continue from the beginning?");
+        localization.GetString("Str.FindReplace.Msg.WrapUp")
+            .Returns("Beginning of search scope has been reached; do you want to continue from the end?");
+        localization.GetString("Str.FindReplace.Msg.RegionSearched").Returns("The specified region has been searched.");
         localization.GetString("Str.FindReplace.Msg.ReplacementsMade").Returns("{0} replacement(s) made.");
         localization.GetString("Str.FindReplace.Msg.ReadOnlyTextOnly").Returns("Protected only: {0}");
         localization.GetString("Str.FindReplace.Msg.ReplacementsSkippingReadOnlyText").Returns("{0} replaced; {1} skipped.");
@@ -1504,5 +1511,295 @@ public partial class FindReplaceViewModelTests
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc), findReferences: null, callHierarchy: null, typeHierarchy: null,
             externalDebugger: null, recoveryOffers: null, runWith: null, logFolderOpener: null, projectTemplates: new AddinProjectTemplateService());
+    }
+
+    // VB6 IDE SP6 measurements: https://github.com/hexide-io/HexIDE/issues/5307 (rows 1-35).
+    // Selected Text (row 17) belongs to the later scope work on that issue.
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    [InlineData(16)]
+    [InlineData(18)]
+    [InlineData(19)]
+    [InlineData(20)]
+    [InlineData(21)]
+    [InlineData(22)]
+    [InlineData(23)]
+    [InlineData(24)]
+    [InlineData(25)]
+    [InlineData(26)]
+    [InlineData(27)]
+    [InlineData(28)]
+    [InlineData(29)]
+    [InlineData(30)]
+    [InlineData(31)]
+    [InlineData(32)]
+    [InlineData(33)]
+    [InlineData(34)]
+    [InlineData(35)]
+    public async Task FindNext_MeasuredWrapRow(int row)
+    {
+        const string down = "End of search scope has been reached; do you want to continue from the beginning?";
+        const string up = "Beginning of search scope has been reached; do you want to continue from the end?";
+        const string searched = "The specified region has been searched.";
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.FindReplace.Msg.WrapDown").Returns(down);
+        localization.GetString("Str.FindReplace.Msg.WrapUp").Returns(up);
+        localization.GetString("Str.FindReplace.Msg.RegionSearched").Returns(searched);
+        localization.GetString("Str.FindReplace.Msg.TitleFind").Returns("Find");
+        localization.GetString("Str.FindReplace.Msg.NotFound").Returns("The search text '{0}' was not found.");
+        var explorer = new ProjectToolViewModel(_findProjects, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), _findEditors, localization);
+        FindReplaceViewModel? shown = null;
+        _windowManager.ShowWindow(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var dialog = (FindReplaceViewModel)call.Arg<IDialog>();
+            shown = dialog;
+            var closed = new TaskCompletionSource();
+            dialog.CloseRequested += _ => closed.TrySetResult();
+            return closed.Task;
+        });
+        var service = new FindReplaceService(_windowManager, _documentDockService, localization,
+            _findProjects, _findEditors, () => explorer);
+        service.ShowFind();
+        var sut = shown!;
+        sut.Scope = FindScope.CurrentModule;
+        sut.SearchText = "ab";
+        sut.ReplaceText = "X";
+        var document = new SearchRangeDocument("Sub Main\n s = \"abab\"\nEnd Sub\nSub Other\n t = \"ab\"\nEnd Sub");
+        var first = document.Document.Text.IndexOf("abab", StringComparison.Ordinal);
+        var range = new HexIDE.Lsp.Messages.Range(new(0, 0), new(2, 7));
+        document.Symbols = [new("Main", HexIDE.Lsp.Messages.SymbolKind.Method, range, range)];
+        SetActiveEditor(document);
+        document.CaretOffset = first + (row is 1 or 2 or 33 ? 1 : 2);
+        if (row is 3 or 4 or 5 or 34 or 35) sut.Direction = FindDirection.Up;
+        if (row is 16 or 34 or 35) sut.Scope = FindScope.CurrentProcedure;
+        if (row == 14) sut.UsePatternMatching = true;
+        if (row is 15 or 29) service.ShowReplace();
+        // Module rows contain only Main; procedure rows must exclude Other through the wrap.
+        if (row is not (16 or 34 or 35)) document.Document.Text = "Sub Main\n s = \"abab\"\nEnd Sub";
+        var answer = MessageBoxResult.Yes;
+        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question).Returns(_ => answer);
+
+        async Task Press(int offset, string? box = null, bool f3 = true)
+        {
+            _windowManager.ClearReceivedCalls();
+            if (f3) service.FindNext();
+            else sut.FindNextCommand.Execute(null);
+            // The test document supplies completed symbol requests, so command work completes inline.
+            await Task.CompletedTask;
+            document.SelectionStart.Should().Be(first + offset, $"row {row}");
+            document.SelectionLength.Should().Be(sut.SearchText == "b" ? 1 : 2);
+            var calls = _windowManager.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "MessageBox").ToArray();
+            calls.Length.Should().Be(box is null ? 0 : 1, $"row {row}");
+            if (box is not null)
+            {
+                var args = calls[0].GetArguments();
+                args[0].Should().Be(box);
+                args[1].Should().BeNull();
+                args[2].Should().Be(box == searched ? MessageBoxButtons.Ok : MessageBoxButtons.YesNo);
+                args[3].Should().Be(box == searched ? MessageBoxIcon.Warning : MessageBoxIcon.Question);
+            }
+        }
+
+        if (row is >= 18 and <= 24)
+        {
+            document.CaretOffset = first + 5;
+            document.SelectionStart = document.CaretOffset;
+            document.SelectionLength = 0;
+            if (row >= 22) sut.SearchText = "zz";
+            _windowManager.ClearReceivedCalls();
+            answer = MessageBoxResult.No;
+            await sut.FindNextAsync();
+            document.SelectionStart.Should().Be(first + 5);
+            document.SelectionLength.Should().Be(0);
+            await _windowManager.Received(1).MessageBox(down, null, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            _windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "MessageBox").Should().Be(1);
+            if (row is 18 or 22 or 24) return;
+            answer = MessageBoxResult.Yes;
+            if (row == 23)
+            {
+                _windowManager.ClearReceivedCalls();
+                await sut.FindNextAsync();
+                document.SelectionStart.Should().Be(first + 5);
+                document.SelectionLength.Should().Be(0);
+                await _windowManager.Received(1).MessageBox(down, null, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                await _windowManager.Received(1).MessageBox("The search text 'zz' was not found.", "Find", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+                _windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "MessageBox").Should().Be(2);
+                return;
+            }
+            await Press(0, down);
+            if (row >= 20) await Press(2);
+            if (row == 21) await Press(2, searched);
+            return;
+        }
+
+        await Press(row is 3 or 4 or 5 or 34 or 35 ? 0 : 2, f3: false);
+        if (row is >= 1 and <= 8 or 10 or 11 or 12 or 14 or 16 or 28 or 30 or 33 or 34 or 35)
+            sut.CancelCommand.Execute(null); // Esc closes the window, retaining the search for F3.
+        if (row is 6 or 7 or 8)
+        {
+            document.CaretOffset = 0;
+            document.SelectionLength = 0;
+            await Press(0);
+            if (row >= 7) await Press(2);
+            if (row == 8) await Press(0, down);
+            return;
+        }
+        if (row == 29)
+        {
+            answer = MessageBoxResult.No;
+            _windowManager.ClearReceivedCalls();
+            await sut.ReplaceOneAsync();
+            document.Document.Text.Should().Contain("abX");
+            document.SelectionStart.Should().Be(first + 2);
+            document.SelectionLength.Should().Be(0);
+            await _windowManager.Received(1).MessageBox(down, null, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            _windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "MessageBox").Should().Be(1);
+            return;
+        }
+        if (row is 5 or 33) answer = MessageBoxResult.No;
+        var prompt = sut.Direction == FindDirection.Up ? up : down;
+        await Press(row == 5 ? 0 : row == 33 ? 2 : sut.Direction == FindDirection.Up ? 2 : 0, prompt, f3: row is not (9 or 15));
+        if (row is 1 or 3 or 5 or 14 or 15 or 34) return;
+        if (row == 33)
+        {
+            answer = MessageBoxResult.Yes;
+            await Press(0, down);
+            await Press(0, searched);
+            return;
+        }
+        if (row is 2 or 4 or 9 or 16 or 35)
+        {
+            await Press(sut.Direction == FindDirection.Up ? 2 : 0, searched, f3: row != 9);
+            return;
+        }
+        switch (row)
+        {
+            case 10: service.ShowFind(); break;
+            case 11: await Press(0, searched); break;
+            case 12: service.ShowFind(); sut.SearchText = "b"; break;
+            case 13: sut.SearchText = "b"; break;
+            case 25:
+                sut.Direction = FindDirection.Up;
+                answer = MessageBoxResult.No;
+                await Press(0, up);
+                return;
+            case 26: sut.Scope = FindScope.CurrentProcedure; break;
+            case 27: sut.MatchCase = true; break;
+            case 28: service.ShowReplace(); break;
+            case 30:
+                var other = new SearchRangeDocument(document.Document.Text);
+                SetActiveEditor(other);
+                document = other;
+                await Press(0);
+                await Press(2);
+                answer = MessageBoxResult.No;
+                await Press(2, down);
+                return;
+            case 31:
+                sut.WholeWordOnly = true;
+                answer = MessageBoxResult.No;
+                await Press(0, down);
+                return;
+            case 32: sut.UsePatternMatching = true; break;
+        }
+        await Press(row is 12 or 13 ? 3 : 2);
+    }
+
+    // Measured in docs/vb6-fidelity-oracle/find-next-where-the-next-search-starts.md:
+    // the aaa/aa rows for Down and Up both give the prompt, then "searched" after Yes.
+    [AvaloniaTheory]
+    [InlineData(FindDirection.Down, 0, 0)]
+    [InlineData(FindDirection.Up, 3, 1)]
+    public async Task FindNext_OneMatchReportsCompletionAfterConsent(FindDirection direction, int caret, int match)
+    {
+        var editor = CreateMockEditor("aaa");
+        SetActiveEditor(editor);
+        editor.CaretOffset = caret;
+        var sut = CreateSut();
+        sut.Scope = FindScope.CurrentModule;
+        sut.Direction = direction;
+        sut.SearchText = "aa";
+
+        await sut.FindNextAsync();
+
+        editor.SelectionStart.Should().Be(match);
+        editor.SelectionLength.Should().Be(2);
+        _windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "MessageBox").Should().Be(0);
+        _windowManager.ClearReceivedCalls();
+
+        await sut.FindNextAsync();
+
+        editor.SelectionStart.Should().Be(match);
+        editor.SelectionLength.Should().Be(2);
+        await _windowManager.Received(1).MessageBox(direction == FindDirection.Down
+                ? "End of search scope has been reached; do you want to continue from the beginning?"
+                : "Beginning of search scope has been reached; do you want to continue from the end?",
+            null, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        await _windowManager.Received(1).MessageBox("The specified region has been searched.",
+            null, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+        _windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "MessageBox").Should().Be(2);
+    }
+
+    // A malformed pattern is refused once, before a region scope can ask about wrapping (#5312, #5307).
+    [AvaloniaTheory]
+    [InlineData(FindScope.CurrentModule)]
+    [InlineData(FindScope.CurrentProcedure)]
+    public async Task FindNext_LoneBracketInARegionScope_GivesOneBox(FindScope scope)
+    {
+        var editor = CreateMockEditor("s = \"[x\"");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.Scope = scope;
+        sut.SearchText = "[";
+        sut.UsePatternMatching = true;
+
+        await sut.FindNextAsync();
+
+        editor.SelectionLength.Should().Be(0);
+        await _windowManager.Received(1).MessageBox("Unmatched brackets in search string", "Find",
+            MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+        _windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "MessageBox").Should().Be(1);
+    }
+
+    // The region scopes once checked the pattern as a .NET regex, which refuses the measured `*zqx` (oracle,
+    // find-next-where-the-next-search-starts.md), so that search skipped the wrap question. The pattern is now
+    // checked once, as a wildcard, before any scope runs.
+    [AvaloniaFact]
+    public async Task FindNext_WildcardThatIsNoRegex_InCurrentModule_AsksBeforeWrapping()
+    {
+        const string text = "    s = \"zqxzq1\"";
+        var editor = CreateMockEditor(text);
+        SetActiveEditor(editor);
+        editor.CaretOffset = text.Length;
+        var sut = CreateSut();
+        sut.Scope = FindScope.CurrentModule;
+        sut.SearchText = "*zqx";
+        sut.UsePatternMatching = true;
+        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question).Returns(_ => MessageBoxResult.No);
+
+        await sut.FindNextAsync();
+
+        await _windowManager.Received(1).MessageBox(
+            "End of search scope has been reached; do you want to continue from the beginning?",
+            null, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        _windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "MessageBox").Should().Be(1);
+        editor.SelectionLength.Should().Be(0);
     }
 }
