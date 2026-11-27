@@ -16,6 +16,7 @@ using Avalonia.Media.Imaging;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
+using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
@@ -176,9 +177,7 @@ public class ListViewImageListTests
     [InlineData(0, 0)]
     public async Task Designed_bindings_resolve_and_the_form_code_completes(int appearance, int border)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "imagelist", "three", "Form1.frm");
+        var path = Path.Join(RepoTree.Root(), "corpus", "inbox-controls", "saved", "imagelist", "three", "Form1.frm");
         var source = Vb6TextFile.ReadAllText(path).ReplaceLineEndings("\n");
         var start = source.IndexOf("   Begin MSComctlLib.ImageList", StringComparison.Ordinal);
         var end = source.IndexOf("\n   End", start, StringComparison.Ordinal) + "\n   End".Length;
@@ -270,9 +269,7 @@ public class ListViewImageListTests
     [InlineData("listview-columns", 4)]
     public async Task Corpus_forms_run_to_completion(string folder, int columns)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", folder, "Form1.frm");
+        var path = Path.Join(RepoTree.Root(), "corpus", "inbox-controls", "saved", folder, "Form1.frm");
         var source = Vb6TextFile.ReadAllText(path);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, source, new Sink(),

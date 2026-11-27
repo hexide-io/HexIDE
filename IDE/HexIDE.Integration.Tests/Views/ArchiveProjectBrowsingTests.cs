@@ -53,9 +53,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
 
     private static string OfficeFile(string name)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root.Parent != null && !Directory.Exists(Path.Combine(root.FullName, "corpus"))) root = root.Parent;
-        return Path.Combine(root.FullName, "corpus", "office", "m365-x64", name);
+        return Path.Combine(RepoTree.Root(), "corpus", "office", "m365-x64", name);
     }
 
     [AvaloniaFact]

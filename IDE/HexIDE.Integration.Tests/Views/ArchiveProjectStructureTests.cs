@@ -196,9 +196,7 @@ public sealed class ArchiveProjectStructureTests : IDisposable
     [AvaloniaFact]
     public async Task Office_module_has_no_structural_commands()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root.Parent != null && !Directory.Exists(Path.Combine(root.FullName, "corpus"))) root = root.Parent;
-        await archives.Open(Path.Combine(root.FullName, "corpus", "office", "m365-x64", "basic.xlsm"));
+        await archives.Open(Path.Combine(RepoTree.Root(), "corpus", "office", "m365-x64", "basic.xlsm"));
         foreach (var node in model.RootItems.OfType<ArchiveTreeNode>().SelectMany(Walk))
         {
             model.SelectedItem = node;
