@@ -339,7 +339,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public bool CanUndo => UndoStack?.CanUndo ?? false;
     public bool CanRedo => UndoStack?.CanRedo ?? false;
     public bool IsDragging { get; private set; }
-    private Dictionary<ComponentInstanceViewModel, Rect>? _dragStartRects;
+    private Dictionary<ComponentInstanceViewModel, MoveResizeCommand.Geometry>? _dragStartGeometry;
 
     public FormEditViewModel(ToolBoxToolViewModel toolsBoxToolViewModel,
         IEventBus eventBus,
@@ -1767,23 +1767,23 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // A control whose container is also being dragged is moved by that container, not in its own right —
         // recording it here would push a MoveResizeCommand whose before/after are both correct and whose undo
         // would then fight the container's.
-        _dragStartRects = WithoutRedundantDragTargets(targets).ToDictionary(
+        _dragStartGeometry = WithoutRedundantDragTargets(targets).ToDictionary(
             t => t,
-            t => new Rect(t.Left, t.Top, t.Width, t.Height));
+            MoveResizeCommand.Geometry.Capture);
     }
 
     public void EndDrag()
     {
         IsDragging = false;
-        if (_dragStartRects is null) return;
-        var entries = new List<(ComponentInstanceViewModel, Rect, Rect)>();
-        foreach (var (vm, before) in _dragStartRects)
+        if (_dragStartGeometry is null) return;
+        var entries = new List<MoveResizeCommand.Entry>();
+        foreach (var (vm, before) in _dragStartGeometry)
         {
-            var after = new Rect(vm.Left, vm.Top, vm.Width, vm.Height);
+            var after = MoveResizeCommand.Geometry.Capture(vm);
             if (after != before)
-                entries.Add((vm, before, after));
+                entries.Add(new MoveResizeCommand.Entry(vm, before, after));
         }
-        _dragStartRects = null;
+        _dragStartGeometry = null;
         if (entries.Count > 0)
             UndoStack.Push(new Commands.MoveResizeCommand(entries));
     }
@@ -1791,7 +1791,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public void CancelDrag()
     {
         IsDragging = false;
-        _dragStartRects = null;
+        _dragStartGeometry = null;
     }
 
     public void SaveForm() => projectService.SaveForm(formDefinition!, false).ListenErrors();

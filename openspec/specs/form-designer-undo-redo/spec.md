@@ -62,6 +62,12 @@ container and its contents would exist separately in between — briefly incoher
 - **WHEN** a control is dragged to a new position and undo is invoked once
 - **THEN** it returns to where it started, in one step
 
+#### Scenario: Undoing and redoing a Line drag
+- **WHEN** a drag changes any of a Line's endpoints, even if its rounded selection box stays the same
+- **THEN** the step describes the drag as a move
+- **AND** undo restores all four endpoint values exactly in the container's scale
+- **AND** redo restores the four values recorded after the drag
+
 #### Scenario: Undoing an alignment across several controls
 - **WHEN** several controls are aligned and undo is invoked once
 - **THEN** all of them return to their previous positions together

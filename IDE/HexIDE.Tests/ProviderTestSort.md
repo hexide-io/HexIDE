@@ -183,6 +183,7 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/GuardedFormattingTests.cs` | split |
 | `ViewModels/GuardedWritersTests.cs` | split |
 | `ViewModels/LastPositionTests.cs` | split |
+| `ViewModels/LineMoveUndoTests.cs` | split |
 | `ViewModels/MainViewViewModelTests.cs` | split |
 | `ViewModels/MarkOnReadOnlyLineTests.cs` | split |
 | `ViewModels/MemberAttributesFollowARenameTests.cs` | split |
