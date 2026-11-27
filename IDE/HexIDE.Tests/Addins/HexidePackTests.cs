@@ -8,6 +8,9 @@ namespace HexIDE.Tests.Addins;
 /// packer the same argument list it shows.</summary>
 public sealed class HexidePackTests : IDisposable
 {
+    // Leave room for long temporary paths in the prompt output (#5769).
+    private const int TestConsoleWidth = 100_000;
+
     private readonly string _root = Directory.CreateTempSubdirectory("hexide-pack-").FullName;
     private readonly List<string[]> _runs = [];
     private readonly StringWriter _output = new();
@@ -19,8 +22,10 @@ public sealed class HexidePackTests : IDisposable
     private string Trust => Path.Combine(_root, "trust");
     private string Out => Path.Combine(_root, "out");
 
+    private static TestConsole CreateConsole() => new TestConsole().Width(TestConsoleWidth);
+
     private HexidePack Pack(TestConsole? console, string? blocker = null, int exitCode = 0) =>
-        new(console ?? new TestConsole(), _output, _error, args => { _runs.Add(args); return exitCode; }, blocker,
+        new(console ?? CreateConsole(), _output, _error, args => { _runs.Add(args); return exitCode; }, blocker,
             windows: false);
 
     private void MakeAddinFolders(params string[] dlls) => MakeAddinFolders(keyInTrust: true, dlls);
@@ -52,7 +57,7 @@ public sealed class HexidePackTests : IDisposable
     public void A_complete_command_runs_at_once_without_asking()
     {
         MakeAddinFolders("A.dll");
-        var console = new TestConsole().Interactive();
+        var console = CreateConsole().Interactive();
 
         Pack(console, exitCode: 2).Run(Complete).Should().Be(2, "the packer's exit code comes back unchanged");
 
@@ -68,7 +73,7 @@ public sealed class HexidePackTests : IDisposable
         MakeAddinFolders("A.dll");
         string[] args = noInput ? ["pack", "--src", Src, "--no-input"] : ["pack", "--src", Src];
 
-        Pack(new TestConsole().Interactive(), blocker).Run(args).Should().Be(1);
+        Pack(CreateConsole().Interactive(), blocker).Run(args).Should().Be(1);
 
         _runs.Should().BeEmpty();
         _error.ToString().Should().Contain("missing --entry, --id, --title, --version, --trust, --out")
@@ -89,7 +94,7 @@ public sealed class HexidePackTests : IDisposable
     public void On_a_terminal_it_asks_for_each_missing_option_then_shows_the_command_and_asks_to_go_ahead()
     {
         MakeAddinFolders("A.dll");
-        var console = new TestConsole().Interactive();
+        var console = CreateConsole().Interactive();
         console.Input.PushTextWithEnter(Src);
         console.Input.PushKey(ConsoleKey.Enter);          // --entry: the only .dll, offered as the default
         console.Input.PushTextWithEnter("com.acme.a");
@@ -117,7 +122,7 @@ public sealed class HexidePackTests : IDisposable
     [Fact]
     public void A_typed_option_that_fails_its_check_is_asked_for_again()
     {
-        var console = new TestConsole().Interactive();
+        var console = CreateConsole().Interactive();
         console.Input.PushTextWithEnter("BAD");           // the typed id fails again here, and is asked for once more
         console.Input.PushTextWithEnter("hexide-x");
         console.Input.PushKey(ConsoleKey.Enter);
@@ -161,7 +166,7 @@ public sealed class HexidePackTests : IDisposable
     public void With_two_dlls_it_suggests_no_entry()
     {
         MakeAddinFolders("A.dll", "B.dll");
-        var console = new TestConsole().Interactive();
+        var console = CreateConsole().Interactive();
         console.Input.PushKey(ConsoleKey.Enter);          // no default, so an empty --entry is refused
         console.Input.PushTextWithEnter("B.dll");
         for (var skipped = 0; skipped < 6; skipped++)     // the optional ones not typed: --key, then --author to --min-hexide-version
@@ -178,7 +183,7 @@ public sealed class HexidePackTests : IDisposable
     [Fact]
     public void Declining_to_go_ahead_runs_nothing()
     {
-        var console = new TestConsole().Interactive();
+        var console = CreateConsole().Interactive();
         console.Input.PushTextWithEnter(Path.Combine(_root, "keys"));
         console.Input.PushTextWithEnter("n");
 
@@ -191,7 +196,7 @@ public sealed class HexidePackTests : IDisposable
     [Fact]
     public void With_no_command_on_a_terminal_it_offers_the_commands()
     {
-        var console = new TestConsole().Interactive();
+        var console = CreateConsole().Interactive();
         for (var i = 0; i < PackerCommands.All.Count - 1; i++)
             console.Input.PushKey(ConsoleKey.DownArrow);
         console.Input.PushKey(ConsoleKey.Enter);          // the last command, genkeys
@@ -254,7 +259,7 @@ public sealed class HexidePackTests : IDisposable
     {
         MakeAddinFolders(keyInTrust: false, "A.dll");
         var key = KeyElsewhere();
-        var console = new TestConsole().Interactive();
+        var console = CreateConsole().Interactive();
 
         Pack(console).Run([.. Complete, "--key", key]).Should().Be(0);
 
@@ -267,7 +272,7 @@ public sealed class HexidePackTests : IDisposable
     {
         MakeAddinFolders(keyInTrust: false, "A.dll");
         var key = KeyElsewhere();
-        var console = new TestConsole().Interactive();
+        var console = CreateConsole().Interactive();
         console.Input.PushKey(ConsoleKey.Enter);          // --key: refused, the trust folder holds no key
         console.Input.PushTextWithEnter(Path.Combine(_root, "private", "missing.key"));   // refused: no such file
         console.Input.PushTextWithEnter(key);
@@ -277,7 +282,6 @@ public sealed class HexidePackTests : IDisposable
 
         Pack(console).Run(Complete).Should().Be(0);
 
-        // The console wraps at its width, so each check is a part that fits on one line.
         console.Output.Should().Contain("firstparty.key, so give your key's file").And.Contain("there's no file at");
         _runs.Should().ContainSingle().Which.Should().ContainInConsecutiveOrder("--key", key);
     }
