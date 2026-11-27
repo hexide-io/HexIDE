@@ -164,9 +164,9 @@ public class DesignPositionsTests : IDisposable
 
     private ComponentInstance Line => form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Line1");
 
-    private FormEditViewModel Open() =>
+    private FormEditViewModel Open(FormDefinition? definition = null) =>
         designer = new FormEditViewModel(null!, new EventBus(), writer, null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ILocalizationService>()).Initialize(definition ?? form);
 
     private ComponentInstanceViewModel Placed(string name) => designer!.AllComponents.Single(c => c.Name == name);
 
@@ -309,10 +309,10 @@ public class DesignPositionsTests : IDisposable
         Line.GetPropertyOrDefault(VBProperties.Y2Property).Should().Be(201);
     }
 
-    // A scale the rules can't run is an answer, not a failure: the Line is laid out and moved in twips, as it always has
-    // been (#5759 is that move's own bug), and nothing is logged.
+    // A scale the rules can't run is an answer, not a failure: the Line is laid out in twips but isn't moved (#5759),
+    // and nothing is logged.
     [AvaloniaFact]
-    public void A_Line_in_a_scale_the_rules_cant_run_is_moved_in_twips_as_before()
+    public void A_Line_in_a_scale_the_rules_cant_run_is_not_moved()
     {
         positions.LineUnmeasured = true;
         Use(positions);
@@ -321,8 +321,12 @@ public class DesignPositionsTests : IDisposable
 
         line.LineTwipsPerUnit.Should().Be((1, 1));
         line.Left += 3;
+        line.Top += 3;
 
-        Line.GetPropertyOrDefault(VBProperties.X1Property).Should().Be(145);
+        Line.GetPropertyOrDefault(VBProperties.X1Property).Should().Be(100);
+        Line.GetPropertyOrDefault(VBProperties.Y1Property).Should().Be(100);
+        Line.GetPropertyOrDefault(VBProperties.X2Property).Should().Be(200);
+        Line.GetPropertyOrDefault(VBProperties.Y2Property).Should().Be(200);
         log.Reports().Should().BeEmpty();
     }
 
@@ -425,12 +429,8 @@ public class DesignPositionsTests : IDisposable
 
     // ── The provider's rules ─────────────────────────────────────────────────────────────────────────────────────
 
-    // What the provider registers answers as DesignPositions and TwipsPerUnit do, with their refusals as answers.
-    [AvaloniaFact]
-    public void The_providers_rules_answer_as_its_own_types_do()
-    {
-        var rules = new ProviderDesignPositions();
-        var pixelForm = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+    private static FormDefinition PixelForm(ProjectDefinition project) =>
+        new FormDeserializer().Deserialize(project,
             "VERSION 5.00\r\nBegin VB.Form Form2\r\n   ClientHeight = 3090\r\n   ClientWidth = 4680\r\n   ScaleMode = 3\r\n"
             + "   Begin VB.TextBox Text1\r\n      Left = 120\r\n      Top = 120\r\n      Width = 1215\r\n      Height = 495\r\n   End\r\n"
             + "   Begin VB.PictureBox Picture1\r\n      Height = 1500\r\n      Left = 240\r\n      ScaleHeight = 10\r\n"
@@ -439,6 +439,13 @@ public class DesignPositionsTests : IDisposable
             + "   End\r\n"
             + "   Begin VB.Line Line2\r\n      X1 = 10\r\n      X2 = 50\r\n      Y1 = 10\r\n      Y2 = 50\r\n   End\r\n"
             + "End\r\nAttribute VB_Name = \"Form2\"\r\n", new NullSink())!;
+
+    // What the provider registers answers as DesignPositions and TwipsPerUnit do, with their refusals as answers.
+    [AvaloniaFact]
+    public void The_providers_rules_answer_as_its_own_types_do()
+    {
+        var rules = new ProviderDesignPositions();
+        var pixelForm = PixelForm(new ProjectDefinition(VBProjectType.EXE, "P"));
         var text = pixelForm.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Text1");
         ComponentInstance Named(string name) =>
             pixelForm.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == name);
@@ -449,6 +456,35 @@ public class DesignPositionsTests : IDisposable
         rules.LineTwipsPerUnit(pixelForm, Named("Line2")).Should().Be((15d, 15d));
         // A Line in a User-scale PictureBox is a scale HexIDE can't run yet (#4693).
         rules.LineTwipsPerUnit(pixelForm, Named("Line1")).Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void The_registered_provider_refuses_a_Line_move_in_a_User_scale_PictureBox()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P") { WorkingDirectory = Path.GetTempPath() };
+        var pixelForm = PixelForm(project);
+        pixelForm.AbsolutePath = Path.Join(project.WorkingDirectory, "hexide-5759-" + Guid.NewGuid() + ".frm");
+        project.AddForm(pixelForm);
+        Open(pixelForm);
+        var userLine = Placed("Line1");
+        var pixelLine = Placed("Line2");
+
+        userLine.LineTwipsPerUnit.Should().Be((1, 1));
+        userLine.Left += 3;
+        userLine.Top += 3;
+        pixelLine.Left += 3;
+        pixelLine.Top += 3;
+
+        pixelLine.Instance.GetPropertyOrDefault(VBProperties.X1Property).Should().Be(13);
+        pixelLine.Instance.GetPropertyOrDefault(VBProperties.X2Property).Should().Be(53);
+        pixelLine.Instance.GetPropertyOrDefault(VBProperties.Y1Property).Should().Be(13);
+        pixelLine.Instance.GetPropertyOrDefault(VBProperties.Y2Property).Should().Be(53);
+        log.Reports().Should().BeEmpty();
+
+        userLine.Instance.GetPropertyOrDefault(VBProperties.X1Property).Should().Be(1);
+        userLine.Instance.GetPropertyOrDefault(VBProperties.X2Property).Should().Be(5);
+        userLine.Instance.GetPropertyOrDefault(VBProperties.Y1Property).Should().Be(1);
+        userLine.Instance.GetPropertyOrDefault(VBProperties.Y2Property).Should().Be(5);
     }
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string message) { } }

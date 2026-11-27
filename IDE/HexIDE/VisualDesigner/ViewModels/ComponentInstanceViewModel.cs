@@ -371,8 +371,9 @@ public partial class ComponentInstanceViewModel : ObservableObject
         }
     }
 
-    // Both endpoints by the same distance, in pixels, written back in the container's scale. Where the positions service
-    // can't say what that scale is, the Line stays where it is: a move written in twips would be wrong in any other (#5758).
+    // Both endpoints by the same distance, in pixels, written back in the container's scale. The Line stays where it is
+    // when the positions service fails (#5758) or can't run that scale (#5759). Writing a twips delta would be wrong in
+    // any other scale.
     private void MoveLine(double dxPixels, double dyPixels)
     {
         (double X, double Y) units = (1, 1);

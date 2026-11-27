@@ -40,8 +40,8 @@ public interface IDesignPositions
 
     /// <summary>
     /// How many twips one unit of <paramref name="line"/>'s container is, across and down: the scale its X1, Y1, X2 and Y2
-    /// are held in. Null for a scale the provider can't run: the designer then lays the Line out, draws it and moves it as
-    /// though its units were twips, as it always has (#5759).
+    /// are held in. Null for a scale the provider can't run: the designer lays the Line out and draws it as though its
+    /// units were twips, and refuses to move it (#5759).
     /// </summary>
     (double X, double Y)? LineTwipsPerUnit(FormDefinition form, ComponentInstance line);
 }
