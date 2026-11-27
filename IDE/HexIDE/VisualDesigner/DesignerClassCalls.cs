@@ -288,10 +288,9 @@ internal static class DesignerClassCalls
 
     /// <summary>
     /// How many twips one unit of <paramref name="line"/>'s container is, across and down, in <paramref name="units"/>.
-    /// True with the provider's answer, or with twips for a scale it can't run, which the designer moves in twips as it
-    /// always has (#5759). False with twips when no positions are registered, after a throw, or for an answer that isn't
-    /// finite and above zero: the designer lays the Line out and draws it in twips then, but doesn't move it, since a move
-    /// written in twips would be wrong in any other scale.
+    /// True with the provider's usable answer. False with twips for a scale it can't run (#5759), when no positions are
+    /// registered, after a throw, or for an answer that isn't finite and above zero. The designer lays the Line out and
+    /// draws it in twips then and leaves it where it is, since a move written in twips would be wrong in any other scale.
     /// </summary>
     internal static bool LineTwipsPerUnit(FormDefinition form, ComponentInstance line, out (double X, double Y) units)
     {
@@ -301,7 +300,7 @@ internal static class DesignerClassCalls
         try
         {
             if (positions.LineTwipsPerUnit(form, line) is not { } answer)
-                return true;
+                return false;
             if (double.IsFinite(answer.X) && double.IsFinite(answer.Y) && answer.X > 0 && answer.Y > 0)
             {
                 units = answer;

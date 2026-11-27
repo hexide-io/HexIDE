@@ -241,8 +241,8 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     zero, a unit outside the eight VB6 shows, and a Line unit that isn't finite and above zero all count as no answer.
   - **Without an answer, nothing is written.** A position is shown as the model holds it, and a typed one is refused.
     A Line is laid out in twips but isn't moved, because a move written in twips would be wrong in any other scale.
-  - **A scale the provider can't run is an answer.** A Line in one is still laid out and moved in twips, as before.
-    That move is its own bug (#5759), left as it is because this slice changes no behaviour.
+  - **A scale the provider can't run is an answer.** A Line in one is still laid out and drawn in twips. This slice left
+    its move in twips as it was. Since #5759, the designer refuses the move and leaves the endpoints as stored.
 - **Text and editing helpers go where 11-16's rule puts them:**
   - `ReadOnlyRegions` and `SourceLines` go to Core (2.5a, #5440), and so do the project file's keys and path helpers (2.5c, #5521);
   - keyword casing and block auto-close go to the IDE (2.6, #5405);
