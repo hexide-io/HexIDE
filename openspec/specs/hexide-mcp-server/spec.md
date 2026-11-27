@@ -213,6 +213,25 @@ corresponding draw order. Inspecting one control SHALL report the same `zOrder` 
 - **WHEN** an unchanged loaded form is inspected before and after opening its designer
 - **THEN** each container's controls have the same order and `zOrder`
 
+### Requirement: Line inspection and editing use endpoints
+
+`move_control` SHALL refuse a Line before starting a designer drag, including when all position and size
+arguments are omitted. Its error SHALL say nothing moved, explain that a Line has no `Left`, `Top`, `Width`
+or `Height`, give the current `X1`, `Y1`, `X2` and `Y2` in the container's scale, and direct the caller to
+`set_control_property` to edit them. `get_form_controls` SHALL retain the four numeric bounds fields at zero
+for a Line, explain why, and direct the caller to the endpoints via `controlName` in the row note.
+See [the Line measurements](../../../docs/vb6-fidelity-oracle/the-line-control.md) and [#5784](https://github.com/hexide-io/HexIDE/issues/5784).
+
+#### Scenario: A caller tries to move or resize a Line
+- **WHEN** `move_control` resolves a Line in an open designer
+- **THEN** the reply refuses the call and reports its four endpoints and how to edit them
+- **AND** the model, undo history and modified state remain as they were
+
+#### Scenario: A caller inspects a Line
+- **WHEN** `get_form_controls` returns a Line with the designer open or closed
+- **THEN** the row keeps its numeric zero bounds and explains how to read the four endpoints
+- **AND** any note about the designer failing to draw the component is also present
+
 ### Requirement: SSTab pages are addressable without pixels
 
 `get_form_controls` SHALL report a zero-based `tab` for children of an SSTab, from its modelled

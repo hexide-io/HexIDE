@@ -69,6 +69,13 @@ public class ToolDescriptionTextTests
     }
 
     [Fact]
+    public void Move_control_describes_the_Line_refusal_and_how_to_set_its_endpoints()
+    {
+        ToolSource.Tools.Single(t => t.Name == "move_control").Description.Should()
+            .Contain("A Line is refused").And.Contain("set_control_property to set its endpoints");
+    }
+
+    [Fact]
     public void A_description_is_read_past_a_constant_it_appends()
     {
         // interact, type_text and press_key end with + ProgramWaitNote, which was neither measured nor checked.

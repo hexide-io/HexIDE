@@ -63,6 +63,7 @@ A test that reaches the provider only at run time, through the application's com
 | `Infrastructure/BreakpointConditionToolTests.cs` | split |
 | `Infrastructure/ControlArrayIndexTests.cs` | split |
 | `Infrastructure/DesignPositionsTests.cs` | split |
+| `Infrastructure/DesignerLineMoveTests.cs` | split |
 | `Infrastructure/DesignerPagesTests.cs` | split |
 | `Infrastructure/DesignerSizeTests.cs` | split |
 | `Infrastructure/DocumentTabsModifiedTests.cs` | split |
