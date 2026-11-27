@@ -886,8 +886,9 @@ it's a mitigation.**
   may go is her call. The repository is public, and a leak cannot be taken back: GitHub content is cached
   and indexed even after it is deleted.
 - **The Team Desk banner (`board/banner`) sets the week's pace. Read it before starting anything sizeable.**
-  **Yellow** (`warn`) comes in two kinds, and its title says which. **Burning too fast** is the pace alarm: the
-  week's burn projects 100% more than a day before the reset. Prefer Codex for new work, keep runs short, and
+  **Yellow** (`warn`) comes in two kinds, and its title says which. **Burning too fast** is the pace alarm: at the
+  week's fitted pace, the Claude week reaches the 90% pause more than a day before the reset, or before that
+  week's Saturday 12:00Z pause. Prefer Codex for new work, keep runs short, and
   start no more parallel sessions. **Review and polish only** comes from 85% of the Claude week: finish or park
   what's in flight, push it, and start nothing new. **Red** (`pause`, from 90%): the team is paused, and nothing
   new starts. Jen may still contact a session about a specific item. If she does, keep the reply short and
