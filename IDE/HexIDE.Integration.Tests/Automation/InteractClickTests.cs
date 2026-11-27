@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -14,9 +15,11 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Automation;
+using HexIDE.Controls;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.VisualDesigner;
@@ -577,6 +580,75 @@ public class InteractClickTests
                 .And.Contain("(20, 20)").And.Contain("(100, 60)").And.Contain("pointer capturer");
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_line_drag_releases_to_its_adorner_and_records_one_undo_step(bool hold)
+    {
+        var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1")
+        {
+            Scale = new RootScale((int)VBScaleMode.Pixel, null, null),
+        };
+        var line = new ComponentInstance(LineComponentClass.Instance, "Line2")
+            .SetProperty(VBProperties.X1Property, 40.0)
+            .SetProperty(VBProperties.Y1Property, 60.0)
+            .SetProperty(VBProperties.X2Property, 200.0)
+            .SetProperty(VBProperties.Y2Property, 60.0);
+        form.UpdateComponents([.. form.Components, line]);
+        (double X1, double Y1, double X2, double Y2) Endpoints() => (
+            line.GetPropertyOrDefault(VBProperties.X1Property), line.GetPropertyOrDefault(VBProperties.Y1Property),
+            line.GetPropertyOrDefault(VBProperties.X2Property), line.GetPropertyOrDefault(VBProperties.Y2Property));
+        var before = Endpoints();
+        var toolbox = new ToolBoxToolViewModel(
+            Substitute.For<IDocumentDockService>(), InBoxRegistry.Create(),
+            Substitute.For<ILocalizationService>());
+        var settings = Substitute.For<ISettingsService>();
+        settings.AlignToGrid.Returns(SettingsDefaults.AlignToGrid);
+        settings.GridWidth.Returns(SettingsDefaults.GridWidth);
+        using var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), null!, null!, settings,
+            Substitute.For<ILocalizationService>()).Initialize(form);
+        var view = new FormEditView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        try
+        {
+            DesignerOverlayTreeTests.Settle(window);
+            var item = view.GetVisualDescendants().OfType<ControlItem>().Single();
+
+            // The Line's Image goes away after this press, but the ResizeAdorner keeps the capture (#5789).
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(item, "click",
+                hold ? "82.5,2 to 112,26 hold" : "82.5,2 to 112,26"));
+            if (hold)
+            {
+                outcome.Success.Should().BeTrue(outcome.Error);
+                vm.IsDragging.Should().BeTrue();
+                vm.UndoStack.CanUndo.Should().BeFalse();
+                outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(view, "release", null));
+            }
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            var after = Endpoints();
+            after.X1.Should().BeGreaterThan(before.X1);
+            after.Y1.Should().BeGreaterThan(before.Y1);
+            after.X2.Should().BeGreaterThan(before.X2);
+            after.Y2.Should().BeGreaterThan(before.Y2);
+            vm.UndoStack.UndoDescription.Should().Be("Move: Line2");
+            vm.IsDragging.Should().BeFalse();
+            outcome.Detail.Should().Contain("the target 'Image' was removed after the first press")
+                .And.Contain("release received by 'ResizeAdorner[ResizeAdorner]'").And.Contain("(pointer capturer)");
+
+            vm.UndoStack.Undo();
+            Endpoints().Should().Be(before);
+            vm.UndoStack.CanUndo.Should().BeFalse();
+        }
+        finally
+        {
+            window.Close();
+            HeldButton.TakeNote();
+        }
     }
 
     [AvaloniaTheory]
