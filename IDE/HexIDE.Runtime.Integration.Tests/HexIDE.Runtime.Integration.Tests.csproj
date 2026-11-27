@@ -67,4 +67,10 @@
     <Compile Include="..\HexIDE.Tests\Infrastructure\TestClassCleanupTests.cs" Link="Infrastructure\TestClassCleanupTests.cs" />
     <Compile Include="..\HexIDE.Tests\Infrastructure\ResolvedTemp.cs" Link="Infrastructure\ResolvedTemp.cs" />
   </ItemGroup>
+
+    <!-- The corpus smoke harness and runner. Their split users stay in HexIDE.Tests; their own tests run here (#3663). -->
+    <ItemGroup>
+        <Compile Include="..\HexIDE.Tests\Corpus\ProjectSmokeHarness.cs" Link="Corpus\ProjectSmokeHarness.cs" />
+        <Compile Include="..\HexIDE.Tests\Corpus\ProjectSmokeRunner.cs" Link="Corpus\ProjectSmokeRunner.cs" />
+    </ItemGroup>
 </Project>

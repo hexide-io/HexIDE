@@ -1,8 +1,9 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using HexIDE.Tests.Corpus;
 
-namespace HexIDE.Tests.Corpus;
+namespace HexIDE.Runtime.Integration.Tests.Corpus;
 
 public class ProjectSmokeHarnessTests : IDisposable
 {
