@@ -68,9 +68,7 @@
     <Compile Include="..\HexIDE.Tests\Infrastructure\ResolvedTemp.cs" Link="Infrastructure\ResolvedTemp.cs" />
   </ItemGroup>
 
-    <!-- The corpus smoke harness and runner. Their split users stay in HexIDE.Tests; their own tests run here (#3663).
-         Their folder here is ProjectSmoke/, not Corpus/: on Windows a Corpus/ folder stops the walks that look for the
-         repository's corpus/ (#5777). -->
+    <!-- The corpus smoke harness and runner. Their split users stay in HexIDE.Tests; their own tests run here (#3663). -->
     <ItemGroup>
         <Compile Include="..\HexIDE.Tests\Corpus\ProjectSmokeHarness.cs" Link="ProjectSmoke\ProjectSmokeHarness.cs" />
         <Compile Include="..\HexIDE.Tests\Corpus\ProjectSmokeRunner.cs" Link="ProjectSmoke\ProjectSmokeRunner.cs" />

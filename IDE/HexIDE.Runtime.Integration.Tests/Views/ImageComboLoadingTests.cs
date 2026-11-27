@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using Avalonia.Headless.XUnit;
+using HexIDE.Integration.Tests;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -19,10 +20,7 @@ public class ImageComboLoadingTests
 
     private static string Corpus()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "corpus")))
-            directory = directory.Parent;
-        return Path.Combine(directory!.FullName, "corpus/inbox-controls/pending/imagecombo");
+        return Path.Combine(RepoTree.Root(), "corpus/inbox-controls/pending/imagecombo");
     }
 
     [AvaloniaFact]
