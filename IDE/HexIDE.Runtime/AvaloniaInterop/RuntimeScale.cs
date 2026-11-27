@@ -20,6 +20,7 @@ internal sealed class RuntimeScale
     private VBScaleMode mode;
     private DesignPositions.Scale mapping;
     private bool missingMapping;
+    private bool savedMapping = true;
 
     // Issue #990's measured factor and maintainer decision, 2026-11-18. Compute in double, return Single.
     // Known accepted miss: ScaleX(1, vbInches, vbCentimeters) prints 2.540002, where VB6 prints 2.540003.
@@ -70,6 +71,13 @@ internal sealed class RuntimeScale
     }
 
     public static RuntimeScale? Of(Control control) => scales.TryGetValue(control, out var scale) ? scale : null;
+
+    internal static RuntimeScale? OfLineContainer(Control host) =>
+        Of(host) is { owner: Window or VBPictureBox } scale ? scale : null;
+
+    internal VBScaleMode CurrentMode => mode;
+
+    internal bool UsesSavedFormUserScale => savedMapping && owner is Window && mode == VBScaleMode.User;
 
     private static double ClientTwips(Control control, bool vertical) => (control switch
     {
@@ -148,7 +156,10 @@ internal sealed class RuntimeScale
     private void SetMode(VBScaleMode requested)
     {
         if (requested == VBScaleMode.User && mode != VBScaleMode.User)
+        {
             mapping = new DesignPositions.Scale("user units", TwipsPerUnit(false), TwipsPerUnit(true), Origin(false), Origin(true));
+            savedMapping = false;
+        }
         if (requested != VBScaleMode.User || mode != VBScaleMode.User)
             missingMapping = false;
         mode = requested;
@@ -160,6 +171,7 @@ internal sealed class RuntimeScale
         SetMode(VBScaleMode.User);
         missingMapping = false;
         mapping = DesignPositions.Scale.Of(0, left, top, width, height, ClientTwips(owner, false), ClientTwips(owner, true));
+        savedMapping = false;
     }
 
     public static void Statement(Control owner, IReadOnlyList<Vb6Value> points)
