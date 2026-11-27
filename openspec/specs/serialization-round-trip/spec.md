@@ -1268,6 +1268,26 @@ file without a question. An unchanged disk file SHALL save without a conflict qu
 - **WHEN** the user saves the project
 - **THEN** the external project bytes survive without a conflict question
 
+### Requirement: A TabIndex in hex or octal is read, and an unquoted Tag is refused
+
+The .frm reader SHALL read a `TabIndex` written as a short `&H` or `&O` literal as it reads one on an
+enum property, use that value when it normalises tab order, and save it in decimal. It SHALL refuse a
+`Tag` whose value isn't quoted, logging it as invalid. A refused `Tag` with no readable `Tag` line
+before it SHALL keep its default and be saved as written. VB6 measurements:
+[more-texts-a-frm-line-can-hold](../../../docs/vb6-fidelity-oracle/more-texts-a-frm-line-can-hold.md) (#4988).
+
+#### Scenario: Hexadecimal TabIndex in a sequence
+
+- **GIVEN** five controls with saved TabIndexes 0, 1, 2, `&H3` and 4
+- **WHEN** the form is loaded and saved
+- **THEN** the controls retain TabIndexes 0 through 4 and the save writes each in decimal
+
+#### Scenario: An unquoted Tag is refused
+
+- **GIVEN** a control with a single `Tag = abc` line
+- **WHEN** the form is loaded and saved
+- **THEN** the Tag keeps its default, the reader reports an invalid value, and the save preserves the raw line
+
 ### Requirement: Damaged modelled property lines SHALL protect the original
 
 The reader SHALL apply repeated modelled designer properties in file order, comparing names without

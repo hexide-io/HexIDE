@@ -148,14 +148,12 @@ public class DesignerInstantiationFailureTests
     [AvaloniaFact]
     public void Corpus_TabStrip_block_survives_a_form_edit_after_its_preview_refuses()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "corpus")))
-            root = root.Parent;
-        var source = File.ReadAllText(Path.Combine(root!.FullName, "corpus", "inbox-controls", "saved", "tabstrip", "Form1.frm"));
+        var root = RepoTree.Root();
+        var source = File.ReadAllText(Path.Combine(root, "corpus", "inbox-controls", "saved", "tabstrip", "Form1.frm"));
         string? withoutPreview = null;
         foreach (var showPreview in new[] { false, true })
         {
-            var companion = File.ReadAllBytes(Path.Combine(root.FullName, "corpus", "inbox-controls", "saved", "tabstrip", "Form1.frx"));
+            var companion = File.ReadAllBytes(Path.Combine(root, "corpus", "inbox-controls", "saved", "tabstrip", "Form1.frx"));
             var (form, input, view, window) = Open(source, companion: companion, showPreview: showPreview);
             try
             {

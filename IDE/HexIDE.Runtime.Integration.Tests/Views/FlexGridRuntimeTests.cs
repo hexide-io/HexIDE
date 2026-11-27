@@ -9,6 +9,7 @@ using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
@@ -37,10 +38,7 @@ public class FlexGridRuntimeTests
 
     private static FormDefinition ReadCorpus()
     {
-        var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !System.IO.Directory.Exists(System.IO.Path.Join(dir.FullName, "corpus")))
-            dir = dir.Parent;
-        var source = System.IO.File.ReadAllText(System.IO.Path.Join(dir!.FullName,
+        var source = System.IO.File.ReadAllText(System.IO.Path.Join(RepoTree.Root(),
             "corpus", "inbox-controls", "saved", "msflexgrid", "Form1.frm"));
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
             source, Substitute.For<IDeserializeErrorSink>())!;

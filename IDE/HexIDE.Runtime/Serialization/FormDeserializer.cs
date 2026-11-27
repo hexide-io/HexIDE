@@ -555,8 +555,16 @@ public class FormDeserializer
                     // #4988: Integer properties refuse decimal points. Exponents are unmeasured and refused here too.
                     if (val is not int i)
                     {
-                        InvalidValue();
-                        continue;
+                        if (propertyClass != VBProperties.TabIndexProperty || val is not string
+                            || !TryReadShortRadixLiteral(rawText, allowOctal: true, out i))
+                        {
+                            InvalidValue();
+                            continue;
+                        }
+                        // The final-value bag shares the parsed assignment's value. Tab-order normalization
+                        // counts saved integers from that bag, so record the radix value there if it is final.
+                        if (ReferenceEquals(serializedComponent.Properties.GetValueOrDefault(serializedProperty.Key), val))
+                            serializedComponent.Properties[serializedProperty.Key] = i;
                     }
                     instance.SetUntypedProperty(propertyClass, i);
                 }
@@ -642,6 +650,11 @@ public class FormDeserializer
                 }
                 else if (propertyClass.PropertyType == typeof(object))
                 {
+                    if (propertyClass == VBProperties.TagProperty && (string.IsNullOrEmpty(rawText) || rawText[0] != '"'))
+                    {
+                        InvalidValue();
+                        continue;
+                    }
                     // A Variant-typed property — Tag, which ComponentBaseClass puts on EVERY component.
                     // There was no branch for it here, so the value fell through every arm of this switch
                     // and was silently discarded: `Tag = "2407"` in VB6's own Mover ListBox.frm went in and

@@ -1,4 +1,5 @@
 using System.Text;
+using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
@@ -13,10 +14,9 @@ public class FlatScrollBarFileTests
 
     private static string Source()
     {
-        DirectoryInfo? at = new(AppContext.BaseDirectory);
-        while (at is not null && !Directory.Exists(Path.Join(at.FullName, "corpus"))) at = at.Parent;
+        var at = RepoTree.Root();
         at.Should().NotBeNull();
-        var root = Path.Join(at!.FullName, "corpus", "inbox-controls");
+        var root = Path.Join(at, "corpus", "inbox-controls");
         return HexIDE.IDE.Vb6TextFile.ReadAllText(Path.Join(root, "saved", "flatscrollbar", "Form1.frm"));
     }
 

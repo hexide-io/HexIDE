@@ -36,7 +36,11 @@ public class ParseReportTests
     [Fact]
     public void A_parse_records_the_time_it_took()
     {
-        var (_, _, report) = VbDiagnosticsProvider.GetDiagnosticsAndTreeReported("Sub S()\nEnd Sub\n");
+        const string source = "Sub S()\nEnd Sub\n";
+        // The first parse in a process pays for parser startup. Warm up so this test checks that
+        // a parse records its elapsed time.
+        VbDiagnosticsProvider.GetDiagnosticsAndTreeReported(source);
+        var (_, _, report) = VbDiagnosticsProvider.GetDiagnosticsAndTreeReported(source);
 
         // Asserting a bound, not a duration — the parser being fast is not a defect, and pinning a
         // millisecond figure here is how the budget tests became flaky twice over.
