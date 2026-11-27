@@ -60,6 +60,33 @@ public class FormCaptionValueTests
         sink.Errors.Should().BeEmpty();
     }
 
+    // VB6 SP6 measurements: docs/vb6-fidelity-oracle/more-texts-a-frm-line-can-hold.md.
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("5")]
+    [InlineData("(5)")]
+    public void Unquoted_tag_leaves_default_logs_and_saves_raw_line(string value)
+    {
+        var sink = new Sink();
+        var line = $"      Tag = {value}";
+        var form = Load(Source("CommandButton", line + "\r\n"), sink);
+        var absent = Load(Source("CommandButton", ""), new Sink());
+        form.Components[1].GetPropertyOrDefault(VBProperties.TagProperty).Should()
+            .Be(absent.Components[1].GetPropertyOrDefault(VBProperties.TagProperty));
+        sink.Errors.Should().Contain("Property Tag in Command1 had an invalid value.");
+        var saved = new FormSerializer().Serialize(form, "Form1.frm").frmText;
+        saved.ReplaceLineEndings("\n").Split('\n').Should().Contain(line);
+    }
+
+    [Fact]
+    public void Quoted_tag_still_reads()
+    {
+        var sink = new Sink();
+        var form = Load(Source("CommandButton", "Tag = \"q\"\r\n"), sink);
+        form.Components[1].GetPropertyOrDefault(VBProperties.TagProperty).Should().Be("q");
+        sink.Errors.Should().BeEmpty();
+    }
+
     [Fact]
     public void Menu_shortcut_still_reads_unquoted()
     {
