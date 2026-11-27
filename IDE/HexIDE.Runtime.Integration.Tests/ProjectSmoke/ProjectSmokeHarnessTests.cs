@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using HexIDE.Tests.Corpus;
 
-namespace HexIDE.Runtime.Integration.Tests.Corpus;
+namespace HexIDE.Runtime.Integration.Tests.ProjectSmoke;
 
 public class ProjectSmokeHarnessTests : IDisposable
 {

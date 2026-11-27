@@ -1,7 +1,7 @@
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Tests.Corpus;
 
-namespace HexIDE.Runtime.Integration.Tests.Corpus;
+namespace HexIDE.Runtime.Integration.Tests.ProjectSmoke;
 
 public class ProjectSmokeRunnerTests
 {

@@ -7,7 +7,7 @@ using HexIDE.IDE;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Tests.Corpus;
 
-namespace HexIDE.Runtime.Integration.Tests.Corpus;
+namespace HexIDE.Runtime.Integration.Tests.ProjectSmoke;
 
 public class ProjectSmokeResultTests
 {
