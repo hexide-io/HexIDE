@@ -38,7 +38,8 @@
   saved UserControl User scales without origins or extents now use one twip per unit. Scale members through an Object holding Me
   or the extender raise 438; Set of the bare UserControl base-class name raises its
   measured compile error as the statement runs. ScaleX/ScaleY invalid argument counts raise compile errors
-  early-bound and 450 late-bound. Centimetre-loaded PictureBox Line ends follow the current container scale.
+  early-bound and 450 late-bound. Form and PictureBox Line ends follow the current container scale and origin
+  ([#5530](https://github.com/hexide-io/HexIDE/issues/5530)).
   Loading Lines saved in User-scale PictureBoxes or other unmeasured modes, and positions in containers
   without a runtime scale mapping, remain refused. Drawing on a UserControl is [#5515](https://github.com/hexide-io/HexIDE/issues/5515).
 
