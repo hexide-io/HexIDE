@@ -288,3 +288,54 @@ The form's own Line read the same way through `Me.ScaleMode`:
 - **A write in pixels lands in whole twips.** 10 pixels reads back as 150 in twips.
 - **The obvious guess was right this time, but HexIDE's code had made the other one:** only a centimetre-loaded Line
   followed the container's current scale (#5530).
+
+## A Line's ends add its container's origin (2026-11-23, #5530, SP6)
+
+**The question.** The section above moves the container's scale but never its origin. Does a Line's read add the
+container's ScaleLeft and ScaleTop, and does a write take them off? `CoordinateSystemTests` already pins two of these
+rows for a centimetre Line. Those rows cite #5530 and oracle PR #5534, but the rows weren't on the page until now.
+
+**The rig.** The same project, VM and builds as the section above. Native code, p-code and the IDE (`vb6.exe /runexit`)
+each wrote the same 58 lines. `Box` went on after its last line above:
+
+```vb
+    p.Scale (10, 20)-(110, 70)
+    L nm & " origin " & R(ln) & " left" & p.ScaleLeft & " top" & p.ScaleTop
+    ln.Y1 = 30
+    L nm & " origin wroteY1=30 " & R(ln)
+    p.ScaleMode = 1
+    L nm & " origin then twips " & R(ln)
+    p.ScaleMode = 3
+    p.ScaleLeft = -5
+    L nm & " scaleleft-5 mode" & p.ScaleMode & " " & R(ln)
+    p.ScaleTop = 7
+    L nm & " scaletop7 mode" & p.ScaleMode & " " & R(ln)
+End Sub
+```
+
+The form's part ended with `Me.Scale (10, 20)-(110, 70)` after its `Scale (0, 0)-(100, 50)` row, and one more read.
+
+**What came back.** Each row follows the one before it. The first starts where the section above ends: `X1` was
+written as 10 pixels, which reads 150 in twips.
+
+| Statement, then a read | Line loaded in twips | Line loaded in pixels | Line loaded in inches |
+|---|---|---|---|
+| `Scale (10, 20)-(110, 70)` | 15.29101\|25.29101\|62.91005\|46.45502 | the same as twips | 15.29101\|32.69841\|60.79365\|51.74603 |
+| `Y1 = 30` | 15.29101\|30\|62.91005\|46.45502 | the same as twips | 15.29101\|30\|60.79365\|51.74603 |
+| `ScaleMode = 1` | 150\|567\|1500\|1500 | the same as twips | 150\|567\|1440\|1800 |
+| `ScaleMode = 3`, then `ScaleLeft = -5` | 5\|37.8\|95\|100 | the same as twips | 5\|37.8\|91\|120 |
+| `ScaleTop = 7` | 5\|44.8\|95\|107 | the same as twips | 5\|44.8\|91\|127 |
+
+Each box read back ScaleLeft 10 and ScaleTop 20 after the `Scale` statement, and ScaleMode 0 after `ScaleLeft = -5`.
+The form's Line, after `Me.Scale (10, 20)-(110, 70)`, read 13.26264\|53.33333\|23.05057\|61.66667.
+
+**What it shows.**
+- **A read adds the origin.** It's ScaleLeft or ScaleTop plus the twips over the current twips per unit. On the
+  twips box, 28.35 twips per unit across and 56.7 down, 150 twips read 10 + 150 / 28.35 = 15.29101.
+- **A write takes the origin off, then stores whole twips.** `Y1 = 30` stored (30 − 20) × 56.7 = 567 twips, which
+  reads 567 in twips.
+- **Setting ScaleLeft or ScaleTop alone moves the origin and keeps the units.** After `ScaleMode = 3` and
+  `ScaleLeft = -5`, ScaleMode reads 0, and 150 twips read −5 + 150 / 15 = 5. `ScaleTop = 7` then adds 7 to every
+  Y read and leaves X alone.
+- **The unit a Line was loaded in plays no part.** The twips and pixels columns agree in every row, as above. The
+  inches column differs only because that Line's saved ends were different twips.

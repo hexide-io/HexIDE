@@ -679,6 +679,7 @@ added afterwards.
 - [The designer's FileListBox lists files (2026-11-21, #164, SP6)](the-filesystem-controls-in-vb6s-designer.md#the-designers-filelistbox-lists-files-2026-11-21-164-sp6)
 - [What VB6's designer saves for a Line (2026-11-21, #163, SP6)](the-line-control.md#what-vb6s-designer-saves-for-a-line-2026-11-21-163-sp6)
 - [A Line's ends follow its container's current scale, whatever unit it was loaded in (2026-11-23, #5530, SP6)](the-line-control.md#a-lines-ends-follow-its-containers-current-scale-whatever-unit-it-was-loaded-in-2026-11-23-5530-sp6)
+- [A Line's ends add its container's origin (2026-11-23, #5530, SP6)](the-line-control.md#a-lines-ends-add-its-containers-origin-2026-11-23-5530-sp6)
 - [Sequential files (2026-10-17, #1145)](sequential-files.md#sequential-files-2026-10-17-1145)
 - [The CommonDialog control (2026-10-17, #1084)](the-commondialog-control.md#the-commondialog-control-2026-10-17-1084)
 - [A font's size, and the default font (2026-10-22, #910)](a-fonts-size-and-the-default-font.md#a-fonts-size-and-the-default-font-2026-10-22-910)
