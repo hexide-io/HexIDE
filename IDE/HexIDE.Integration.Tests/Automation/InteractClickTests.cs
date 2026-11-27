@@ -617,10 +617,24 @@ public class InteractClickTests
         {
             DesignerOverlayTreeTests.Settle(window);
             var item = view.GetVisualDescendants().OfType<ControlItem>().Single();
+            // The Line's picture is drawn in a Loaded-priority job after layout (ControlRenderer.DrawContent), and laid out
+            // on a later pass. Until then the item is transparent there, and a press falls through to the grid under it, as
+            // a person's would: #5796's first two Windows CI runs pressed 'Border[GridPatternBorder]'. So wait for the
+            // picture, and press its middle rather than a fixed point.
+            Image? Picture() => item.GetVisualDescendants().OfType<Image>()
+                .FirstOrDefault(i => i.Source is not null && i.Bounds.Width >= 1 && i.Bounds.Height >= 1);
+            for (var pass = 0; pass < 20 && Picture() is null; pass++)
+                DesignerOverlayTreeTests.Settle(window);
+            var picture = Picture();
+            picture.Should().NotBeNull("the Line's picture must be drawn before it's pressed; its images: "
+                + string.Join("; ", item.GetVisualDescendants().OfType<Image>().Select(i => $"source {i.Source is not null}, {i.Bounds}")));
+            var middle = picture!.TranslatePoint(new Point(picture.Bounds.Width / 2, picture.Bounds.Height / 2), item)!.Value;
+            string At(double x, double y) => $"{x.ToString(CultureInfo.InvariantCulture)},{y.ToString(CultureInfo.InvariantCulture)}";
+            var drag = $"{At(middle.X, middle.Y)} to {At(middle.X + 29.5, middle.Y + 24)}";
 
             // The Line's Image goes away after this press, but the ResizeAdorner keeps the capture (#5789).
             var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(item, "click",
-                hold ? "82.5,2 to 112,26 hold" : "82.5,2 to 112,26"));
+                hold ? drag + " hold" : drag));
             if (hold)
             {
                 outcome.Success.Should().BeTrue(outcome.Error);
