@@ -32,11 +32,8 @@ A test that reaches the provider only at run time, through the application's com
 | `Corpus/AddinRouteCorpusTests.cs` | split |
 | `Corpus/ProjectCorpusSmokeTests.cs` | split |
 | `Corpus/ProjectSmokeHarness.cs` | provider |
-| `Corpus/ProjectSmokeHarnessTests.cs` | provider |
 | `Corpus/ProjectSmokeMakeTests.cs` | split |
-| `Corpus/ProjectSmokeResultTests.cs` | provider |
 | `Corpus/ProjectSmokeRunner.cs` | provider |
-| `Corpus/ProjectSmokeRunnerTests.cs` | provider |
 | `Corpus/ProjectSmokeService.cs` | split |
 | `Corpus/ProjectSmokeServiceTests.cs` | split |
 | `DebugAdapter/DebuggerCompositionTests.cs` | split |

@@ -3,9 +3,11 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using HexIDE.IDE;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Tests.Corpus;
 
-namespace HexIDE.Tests.Corpus;
+namespace HexIDE.Runtime.Integration.Tests.ProjectSmoke;
 
 public class ProjectSmokeResultTests
 {
