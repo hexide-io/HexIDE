@@ -538,7 +538,7 @@ public partial class CoordinateSystemTests
     private static string LineEnds(string line) =>
         $"CStr({line}.X1) & \"|\" & CStr({line}.Y1) & \"|\" & CStr({line}.X2) & \"|\" & CStr({line}.Y2)";
 
-    // #5530: the-line-control.md records the scale changes; the issue's final comment records the origin rows.
+    // #5530: the-line-control.md records the scale changes, and oracle PR #5781 the origin rows.
     private static readonly (string Statement, string Twips, string Pixels, string Inches)[] PictureBoxLineSteps =
     [
         ("", "300|300|1500|1500", "20|20|100|100", "0.25|0.5|1|1.25"),
