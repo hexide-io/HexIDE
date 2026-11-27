@@ -538,10 +538,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             ControlInfo Info(ComponentInstance c)
             {
                 var name    = c.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
-                var left    = c.GetPropertyOrDefault(VBProperties.LeftProperty);
-                var top     = c.GetPropertyOrDefault(VBProperties.TopProperty);
-                var width   = c.GetPropertyOrDefault(VBProperties.WidthProperty);
-                var height  = c.GetPropertyOrDefault(VBProperties.HeightProperty);
+                var isLine = c.BaseClass.Role == ComponentRole.Line;
+                var (left, top, width, height) = isLine ? (0d, 0d, 0d, 0d) : (
+                    c.GetPropertyOrDefault(VBProperties.LeftProperty), c.GetPropertyOrDefault(VBProperties.TopProperty),
+                    c.GetPropertyOrDefault(VBProperties.WidthProperty), c.GetPropertyOrDefault(VBProperties.HeightProperty));
                 bool? visible = c.BaseClass.PropertiesByName.ContainsKey("Visible")
                     ? c.GetPropertyOrDefault(VBProperties.VisibleProperty) : null;
                 bool? enabled = c.BaseClass.PropertiesByName.ContainsKey("Enabled")
@@ -568,6 +568,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     caption, text,
                     container,
                     PropertyText.ArrayIndexOf(c),
+                    Note: isLine ? "A Line has no Left, Top, Width or Height, so these read 0. "
+                        + "Its position is X1, Y1, X2 and Y2. Pass controlName to get_form_controls to read them." : null,
                     Tab: c.Container is { } paged ? DesignerClassCalls.PageOf(paged, name) : null);
             }
 
@@ -597,7 +599,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         : drawn?.DrawIndex ?? int.MaxValue;
                     var row = summaries[child];
                     if (designerVm is not null && drawn is null)
-                        row = row with { Note = "The designer does not draw this component." };
+                    {
+                        const string undrawnNote = "The designer does not draw this component.";
+                        row = row with { Note = row.Note is null ? undrawnNote : row.Note + " " + undrawnNote };
+                    }
                     siblings.Add((child, row, order));
                 }
                 var boxes = designerVm?.UnmodelledControls
@@ -1783,6 +1788,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         "then calls EndDrag — so the operation lands as a single undo step on the designer undo stack. " +
         "The form must already be open in the visual designer (call view_designer first). " +
         "Use the form's own name as controlName to resize the form itself. " +
+        "A Line is refused, and callers can use set_control_property to set its endpoints. " +
         "Each of `left`, `top`, `width` and `height` is optional; if all are omitted, EndDrag is still called (tests the no-change path). " +
         "All four are in PIXELS, as the designer draws: a .frm and VB6's Properties window use twips, 15 to a pixel, so a VB6 value in twips must be divided by 15 here. " +
         "left/top are CONTAINER-RELATIVE, as get_form_controls and the .frm have them: for a control inside a " +
@@ -1825,6 +1831,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (target is null)
                 return Naming(new MutateResult(false,
                     $"No control named '{controlName}' on {document.Display}"), document);
+
+            if (target.Instance.BaseClass.Role == ComponentRole.Line)
+            {
+                var properties = PropertyText.Rows(target.Instance);
+                var endpoints = string.Join(", ", new[] { "X1", "Y1", "X2", "Y2" }.Select(name =>
+                    $"{name} = {properties.FirstOrDefault(p => p.Name == name)?.Value ?? "(unavailable)"}"));
+                return Naming(new MutateResult(false,
+                    "Nothing was moved. A Line has no Left, Top, Width or Height and is placed by its endpoints. "
+                    + $"{PropertyText.AddressedName(target.Instance)} has {endpoints} in its container's scale, "
+                    + "as get_form_controls with controlName gives them. Use set_control_property to set the endpoints."), document);
+            }
 
             if (DesignerSizeValidation.Refuses(width, height))
                 return Naming(new MutateResult(false, NegativeDesignerSizeRefusal(target.Instance)), document);

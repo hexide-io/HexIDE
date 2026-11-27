@@ -862,6 +862,33 @@ Replace All, including plain text, patterns, either direction and wrapping.
 - **WHEN** Find selects one match inside the original selected text
 - **THEN** the next search still covers the original span rather than only that match
 
+### Requirement: Module and procedure searches SHALL ask before wrapping
+In Current Module and Current Procedure, Find Next and Replace SHALL remember the caret at the first
+press as the search start. Before wrapping, a press with no further match SHALL ask whether to continue
+from the beginning (Down) or end (Up), using Yes/No and the Question icon with the IDE's display name.
+No SHALL preserve the selection and search start. Yes SHALL wrap, accepting matches starting before
+that point Down or ending after it Up. Once those matches are exhausted, Find SHALL report
+"The specified region has been searched." with OK and the Warning icon, then end the search. If there
+are no searchable matches anywhere in scope, it SHALL instead retain the existing not-found or
+read-only-text message. Plain and pattern searches SHALL obey the same wrap rules.
+
+F3, the dialog's Find Next, Replace and caret movement SHALL retain the search start. Opening Find or
+Replace, changing Find What, direction, scope or any search check box, or pressing in another document
+SHALL start a new search. Completion SHALL also end the search so the next press starts anew.
+These rules are measured in [#5307](https://github.com/hexide-io/HexIDE/issues/5307); Selected Text and
+Current Project remain separate work on that issue.
+
+#### Scenario: Continuing from the beginning
+- **GIVEN** a Down module search started at the second `ab` in `abab`
+- **WHEN** the next press reaches the end and the developer answers Yes
+- **THEN** the first `ab` is selected
+- **AND** the following press reports that the specified region has been searched
+
+#### Scenario: Declining to wrap
+- **WHEN** the developer answers No to the wrap prompt
+- **THEN** the selection and original search start remain unchanged
+- **AND** another press at the same place asks again
+
 ### Requirement: Replace All SHALL confirm changes across files
 Before Replace All changes matches in more than one document, it SHALL ask for confirmation.
 Refusal SHALL leave every buffer unchanged and SHALL NOT open closed editors for replacement.

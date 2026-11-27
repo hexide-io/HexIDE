@@ -15,6 +15,8 @@
     "Str.Dialog.MenuEditor.Msg.IndexesAscending": "Os índices da matriz de controles de menu devem estar em ordem crescente",
     "Str.Dialog.MenuEditor.Msg.ControlName": "'{0}' é um nome de controle",
     "Str.FindReplace.Msg.UnmatchedBrackets": "Colchetes sem correspondência na cadeia de pesquisa",
+    "Str.FindReplace.Msg.WrapDown": "O fim do escopo da pesquisa foi atingido; deseja continuar do início?",
+    "Str.FindReplace.Msg.WrapUp": "O início do escopo da pesquisa foi atingido; deseja continuar do fim?",
     "Str.Dialog.MakeProjectGroup.DefaultOptions": "Usar as opções de compilação padrão",
     "Str.Options.EditorGeneral.CodeSettings.LinkedEditing": "Edição vinculada (renomear os outros usos de uma variável ao digitar)",
     "Str.Options.EditorGeneral.CodeSettings.ListMembersAsYouType": "Listar membros ao digitar",

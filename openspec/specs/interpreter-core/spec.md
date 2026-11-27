@@ -3246,9 +3246,11 @@ SHALL raise "Argument not optional" early-bound; four or more on either axis SHA
 arguments or invalid property assignment" as execution reaches the statement. Late-bound invalid counts
 SHALL raise 450, "Wrong number of arguments or invalid property assignment". Centimetre PictureBox Line
 endpoints SHALL load as whole twips using the approved factor, with the one-Single-step X1/Y1 difference the maintainer accepted with #990's factor.
-A centimetre-loaded PictureBox Line SHALL read its ends in the container's current ScaleMode, User included,
-adding the container's ScaleLeft and ScaleTop, and a write SHALL take them off and store whole twips. These final rows are measured in
-[#4693](https://github.com/hexide-io/HexIDE/issues/4693) (oracle PR #5514).
+The centimetre precision and binding rows are measured in [#4693](https://github.com/hexide-io/HexIDE/issues/4693)
+(oracle PR #5514). A Line on a form or in a PictureBox SHALL read its ends as Singles in the container's current
+ScaleMode, User included, adding the container's ScaleLeft and ScaleTop. A write SHALL take the origin off and
+store whole twips. The saved scale SHALL be used to convert the saved ends to twips at load. These rows are
+measured in [#5530](https://github.com/hexide-io/HexIDE/issues/5530).
 Loading Lines saved in User-scale PictureBoxes and other unmeasured Line modes SHALL remain refused naming #4693.
 
 #### Scenario: A pixel-saved UserControl

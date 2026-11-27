@@ -49,7 +49,8 @@ public class FindReplaceService : IFindReplaceService
     {
         Log.Debug("FindReplaceService: ShowFind");
         var reused = EnsureDialog();
-        _viewModel!.ShowReplace = false;
+        _viewModel!.ResetSearch();
+        _viewModel.ShowReplace = false;
         if (reused) _viewModel.RequestFocus();
     }
 
@@ -57,7 +58,8 @@ public class FindReplaceService : IFindReplaceService
     {
         Log.Debug("FindReplaceService: ShowReplace");
         var reused = EnsureDialog();
-        _viewModel!.ShowReplace = true;
+        _viewModel!.ResetSearch();
+        _viewModel.ShowReplace = true;
         if (reused) _viewModel.RequestFocus();
     }
 
