@@ -617,16 +617,26 @@ public class InteractClickTests
         {
             DesignerOverlayTreeTests.Settle(window);
             var item = view.GetVisualDescendants().OfType<ControlItem>().Single();
-            // The Line's picture is drawn in a Loaded-priority job after layout (ControlRenderer.DrawContent), and laid out
-            // on a later pass. Until then the item is transparent there, and a press falls through to the grid under it, as
-            // a person's would: #5796's first two Windows CI runs pressed 'Border[GridPatternBorder]'. So wait for the
-            // picture, and press its middle rather than a fixed point.
+            // The Line's picture is drawn in a Loaded-priority job after layout (ControlRenderer.DrawContent), as a new Image
+            // each time the item's bounds change, and a press hits only what has been rendered: Avalonia hit-tests the
+            // composition visuals (CompositingRenderer.HitTest), which a render tick updates. Until the picture has been
+            // through one, the item is transparent there, and a press falls through to the grid under it, as a person's
+            // would. #5796's Windows CI runs pressed 'Border[GridPatternBorder]' three times, once with the picture laid out
+            // but not yet rendered. So settle until the same picture outlasts a whole pass, render tick included, and press
+            // its middle rather than a fixed point.
             Image? Picture() => item.GetVisualDescendants().OfType<Image>()
                 .FirstOrDefault(i => i.Source is not null && i.Bounds.Width >= 1 && i.Bounds.Height >= 1);
-            for (var pass = 0; pass < 20 && Picture() is null; pass++)
+            Image? picture = null;
+            for (var pass = 0; pass < 20; pass++)
+            {
+                var drawn = Picture();
                 DesignerOverlayTreeTests.Settle(window);
-            var picture = Picture();
-            picture.Should().NotBeNull("the Line's picture must be drawn before it's pressed; its images: "
+                picture = Picture();
+                if (picture is not null && ReferenceEquals(drawn, picture))
+                    break;
+                picture = null;
+            }
+            picture.Should().NotBeNull("the Line's picture must be drawn and rendered before it's pressed; its images: "
                 + string.Join("; ", item.GetVisualDescendants().OfType<Image>().Select(i => $"source {i.Source is not null}, {i.Bounds}")));
             var middle = picture!.TranslatePoint(new Point(picture.Bounds.Width / 2, picture.Bounds.Height / 2), item)!.Value;
             string At(double x, double y) => $"{x.ToString(CultureInfo.InvariantCulture)},{y.ToString(CultureInfo.InvariantCulture)}";
