@@ -42,7 +42,8 @@ public sealed class PackerFileSafetyTests : IDisposable
         var trust = Path.Combine(_root, "trust");
         PackageSigner.GenerateDevTrust(trust);
         var input = Path.Combine(_root, "input.json");
-        File.WriteAllText(input, "{}");
+        // A list HexIDE would apply: sign-revocations refuses one it would ignore before it reaches the output (#5315).
+        File.WriteAllText(input, "{\"schema\":1,\"issuedUtc\":\"2026-02-01T00:00:00Z\",\"revoked\":{\"manifestHashes\":[],\"publisherIds\":[],\"intermediateIds\":[]}}");
         var output = Path.Combine(_root, "output");
         Directory.CreateDirectory(output);
         var existing = Path.Combine(output, name);

@@ -23,6 +23,10 @@ public sealed class AddinServerTrustTests : IDisposable
     private int _launches;
     private string Marker => Path.Combine(_root, "started.txt");
 
+    // Fingerprints as TrustLink carries them: grouped, upper-case (#5315).
+    private static readonly string PublisherKey = string.Join(" ", Enumerable.Repeat("A1B2", 16));
+    private static readonly string IntermediateKey = string.Join(" ", Enumerable.Repeat("C3D4", 16));
+
     public AddinServerTrustTests()
     {
         Directory.CreateDirectory(_root);
@@ -36,8 +40,8 @@ public sealed class AddinServerTrustTests : IDisposable
             _revocations, Path.Combine(_root, "state.json"), _root);
         _info = new AddinInfo(_root, "Probe Add-in", "", "1", "", Id: "probe", ManifestHash: "hash",
             Chain: new TrustChain { BuildVersion = "1", BuildHash = "hash", IsFirstParty = false,
-                Publisher = new TrustLink("Publisher", "publisher", "key"),
-                Intermediate = new TrustLink("Marketplace", "intermediate", "key"),
+                Publisher = new TrustLink("Publisher", "publisher", PublisherKey),
+                Intermediate = new TrustLink("Marketplace", "intermediate", IntermediateKey),
                 Root = new TrustLink("Root", "root", "key") });
         // Seed the state after package verification/initialization; these tests exercise session changes, not loading.
         var contexts = (List<AddinContext>)typeof(AddinRegistry).GetField("_contexts",
@@ -135,6 +139,8 @@ public sealed class AddinServerTrustTests : IDisposable
     [InlineData("publisher")]
     [InlineData("intermediate")]
     [InlineData("build")]
+    [InlineData("publisher key")]
+    [InlineData("intermediate key")]
     public async Task LaunchGate_RefusesCurrentDisabledOrRevokedState(string reason)
     {
         using var connection = Register();
@@ -152,6 +158,7 @@ public sealed class AddinServerTrustTests : IDisposable
                 PublisherIds = reason == "publisher" ? ["publisher"] : [],
                 IntermediateIds = reason == "intermediate" ? ["intermediate"] : [],
                 ManifestHashes = reason == "build" ? ["hash"] : [],
+                KeyFingerprints = reason == "publisher key" ? [PublisherKey] : reason == "intermediate key" ? [IntermediateKey] : [],
             };
             // The store's signature/refresh path has its own tests; replace only the active list here.
             typeof(RevocationStore).GetField("_active",

@@ -90,6 +90,9 @@ public static class PublisherIssuer
         }
         if (revocations?.Revoked.IntermediateIds.Contains(signed.IntermediateRecord.IntermediateId, StringComparer.OrdinalIgnoreCase) == true)
             return Refused("the revocation list names this intermediate; nothing is issued under it");
+        if (revocations is not null
+            && RevocationCheck.IsKeyRevoked(revocations, PackageCrypto.KeyFingerprint(signed.IntermediateRecord.PublicKey)))
+            return Refused("the revocation list names this intermediate's key; nothing is issued under it");
 
         // The one path built from the request's id. The id's own rule allows only letters, digits, dots and hyphens in
         // parts, so it can't climb out, and this checks that it didn't.

@@ -225,8 +225,10 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
         // Revocation outranks everything: a revoked package never loads and is never prompted. Build
         // (hash) revocation hits everyone including first-party; publisher/intermediate revocation exempts
-        // key-pinned first-party (so a marketplace compromise can't disable the bundled add-ins).
-        if (_revocations.IsRevoked(result.ManifestHash, result.PublisherId, result.IntermediateId, result.IsFirstParty) is { } revokeReason)
+        // key-pinned first-party (so a marketplace compromise can't disable the bundled add-ins). A revoked
+        // publisher key reaches first-party too; a revoked intermediate key doesn't (#5315).
+        if (_revocations.IsRevoked(result.ManifestHash, result.PublisherId, result.IntermediateId, result.IsFirstParty,
+                result.Chain?.Publisher.KeyFingerprint, result.Chain?.Intermediate.KeyFingerprint) is { } revokeReason)
         {
             _contexts.Add(new AddinContext(info) { Status = AddinStatus.Revoked, ErrorMessage = revokeReason, PackageDirectory = packageDir, Manifest = manifest });
             Log.Warning("AddinRegistry: {Title} REVOKED ({Reason}) — not loaded", info.Title, revokeReason);
@@ -411,7 +413,8 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     // Marks a pending add-in Revoked when the active list now refuses it, by the identity verified at load. Says whether it did.
     private bool RefuseIfRevoked(AddinContext ctx, PackageVerificationResult result)
     {
-        if (_revocations.IsRevoked(result.ManifestHash, result.PublisherId, result.IntermediateId, result.IsFirstParty) is not { } reason)
+        if (_revocations.IsRevoked(result.ManifestHash, result.PublisherId, result.IntermediateId, result.IsFirstParty,
+                result.Chain?.Publisher.KeyFingerprint, result.Chain?.Intermediate.KeyFingerprint) is not { } reason)
             return false;
         ctx.MarkRevokedMidSession();
         ctx.Status = AddinStatus.Revoked;
@@ -566,7 +569,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                     continue;
                 var chain = ctx.Info.Chain;
                 if (_revocations.IsRevoked(ctx.Info.ManifestHash, chain?.Publisher.Id, chain?.Intermediate.Id,
-                        chain?.IsFirstParty == true) is not { } reason)
+                        chain?.IsFirstParty == true, chain?.Publisher.KeyFingerprint, chain?.Intermediate.KeyFingerprint) is not { } reason)
                     continue;
                 ctx.MarkRevokedMidSession();
                 ctx.Status = AddinStatus.Revoked;
@@ -721,7 +724,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 && !_revokedConsent.Contains(info.ManifestHash)
                 && (chain?.IsFirstParty == true || _consent.GetDecision(info.ManifestHash) == ConsentDecisions.Allow)
                 && _revocations.IsRevoked(info.ManifestHash, chain?.Publisher.Id, chain?.Intermediate.Id,
-                    chain?.IsFirstParty == true) is null)
+                    chain?.IsFirstParty == true, chain?.Publisher.KeyFingerprint, chain?.Intermediate.KeyFingerprint) is null)
                 return;
 
             var title = string.IsNullOrWhiteSpace(info.Title) ? info.Id : info.Title;

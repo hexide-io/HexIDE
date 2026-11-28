@@ -28,7 +28,7 @@ public sealed class RevocationStoreTests : IDisposable
     [Fact]
     public void Default_store_with_the_bundled_empty_floor_revokes_nothing()
     {
-        new RevocationStore().IsRevoked("anyhash", "anypub", "anyinter", isFirstParty: false).Should().BeNull();
+        new RevocationStore().IsRevoked("anyhash", "anypub", "anyinter", isFirstParty: false, null, null).Should().BeNull();
     }
 
     // The pair was signed with a key outside the tree until #4534 re-signed it with the root.
@@ -73,8 +73,24 @@ public sealed class RevocationStoreTests : IDisposable
 
         var store = new RevocationStore(rootPub, _dir);   // bundled floor (dev-root) won't verify under this root
 
-        store.IsRevoked("badhash", "p", "i", isFirstParty: false).Should().Be("build revoked");
-        store.IsRevoked("otherhash", "p", "i", isFirstParty: false).Should().BeNull();
+        store.IsRevoked("badhash", "p", "i", isFirstParty: false, null, null).Should().Be("build revoked");
+        store.IsRevoked("otherhash", "p", "i", isFirstParty: false, null, null).Should().BeNull();
+    }
+
+    // A cached list is parsed exactly as a fetched one is, so this is the whole read of a key revocation (#5315).
+    [Fact]
+    public void A_validly_signed_list_revokes_a_key_by_its_fingerprint()
+    {
+        using var root = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var fingerprint = PackageCrypto.KeyFingerprint(PackageCrypto.ExportPublicKey(publisher));
+        WriteCachedList(root, "2026-02-01T00:00:00Z", hashes: [], keys: [fingerprint.Replace(" ", "").ToLowerInvariant()]);
+
+        var store = new RevocationStore(PackageCrypto.ExportPublicKey(root), _dir);
+
+        store.IsRevoked("hash", "p", "i", isFirstParty: false, fingerprint, null).Should().Be("publisher key revoked");
+        store.IsRevoked("hash", "p", "i", isFirstParty: false, null, fingerprint).Should().Be("intermediate key revoked");
+        store.IsRevoked("hash", "p", "i", isFirstParty: false, null, null).Should().BeNull();
     }
 
     [Fact]
@@ -87,7 +103,7 @@ public sealed class RevocationStoreTests : IDisposable
 
         var store = new RevocationStore(rootPub, _dir);
 
-        store.IsRevoked("badhash", "p", "i", isFirstParty: false).Should().BeNull();
+        store.IsRevoked("badhash", "p", "i", isFirstParty: false, null, null).Should().BeNull();
     }
 
     [Fact]
@@ -102,7 +118,7 @@ public sealed class RevocationStoreTests : IDisposable
         }, RevocationJsonContext.Default.RevocationList);
         var store = new RevocationStore(pub, _dir, (_, _) => (bytes, PackageCrypto.Sign(root, bytes)));
         store.RefreshFromUrl("https://example.invalid/list", TimeSpan.FromSeconds(3));
-        new RevocationStore(pub, _dir).IsRevoked("previous", null, null, false).Should().Be("build revoked");
+        new RevocationStore(pub, _dir).IsRevoked("previous", null, null, false, null, null).Should().Be("build revoked");
 
         // Refuse the old second-file write; the old implementation overwrites its JSON first.
         var sigPath = Path.Combine(_dir, "revocations-cache.sig");
@@ -122,8 +138,8 @@ public sealed class RevocationStoreTests : IDisposable
             File.SetAttributes(sigPath, FileAttributes.Normal);
         }
 
-        store.IsRevoked("next", null, null, false).Should().Be("build revoked", "cache failure remains fail-open in memory");
-        new RevocationStore(pub, _dir).IsRevoked("previous", null, null, false).Should().Be("build revoked");
+        store.IsRevoked("next", null, null, false, null, null).Should().Be("build revoked", "cache failure remains fail-open in memory");
+        new RevocationStore(pub, _dir).IsRevoked("previous", null, null, false, null, null).Should().Be("build revoked");
         interrupted.Should().NotBeNull();
         interrupted!.WasInterrupted.Should().BeTrue();
     }
@@ -161,12 +177,12 @@ public sealed class RevocationStoreTests : IDisposable
         }
     }
 
-    private void WriteCachedList(ECDsa root, string issuedUtc, string[] hashes)
+    private void WriteCachedList(ECDsa root, string issuedUtc, string[] hashes, string[]? keys = null)
     {
         var list = new RevocationList
         {
             IssuedUtc = issuedUtc,
-            Revoked = new RevokedSets { ManifestHashes = hashes },
+            Revoked = new RevokedSets { ManifestHashes = hashes, KeyFingerprints = keys ?? [] },
         };
         var bytes = JsonSerializer.SerializeToUtf8Bytes(list, RevocationJsonContext.Default.RevocationList);
         File.WriteAllBytes(Path.Combine(_dir, "revocations-cache.json"), bytes);

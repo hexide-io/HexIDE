@@ -30,8 +30,15 @@ space-separated groups of four.
 
 ## The revocation list HexIDE fetches
 
-HexIDE refuses an add-in build, a publisher or a marketplace intermediate that has been revoked. The list of
-revocations is signed by the HexIDE root, and HexIDE checks that signature before using it.
+HexIDE refuses an add-in build, a publisher or a marketplace intermediate that has been revoked, and an add-in signed
+with a revoked key. The list of revocations is signed by the HexIDE root, and HexIDE checks that signature before using
+it.
+
+- **A revoked key** is named by the SHA-256 fingerprint that **Trust details** shows. Revoking a publisher's stolen key
+  leaves the record issued for their new key standing. A revoked publisher key refuses every add-in it signed, the
+  first-party key's included. A revoked intermediate key refuses the add-ins under it, except first-party ones, so a
+  stolen marketplace key can't switch off the add-ins HexIDE ships with. HexIDE versions from before key revocation
+  ignore it and still apply the rest of the list, so a malicious publisher's id is revoked as well.
 
 - **What is requested:** `https://hexide.io/revocations.json` and its signature,
   `https://hexide.io/revocations.json.sig`. They are plain downloads with no identifier, settings or project
@@ -80,7 +87,8 @@ request-publisher --publisher-id <id> --display-name <name> --github <handle> --
   request names. A request form in `hexide-io/HexIDE.Publishers` will replace this (#5323). Everything you submit is
   public. Never send your private key.
 - **To replace your key** under an id you already hold, add `--previous-key <file>` with the key it replaces. The request
-  is then signed with both keys.
+  is then signed with both keys. If the old key was stolen and has been revoked, its signature proves nothing, so the
+  maintainer checks the replacement by hand against your GitHub account and the fingerprint on your site.
 
 **The rules each field must meet:**
 - **Ids** are 3–64 characters matching `^[a-z0-9]+([.-][a-z0-9]+)*$`: lowercase letters and digits in parts joined by
