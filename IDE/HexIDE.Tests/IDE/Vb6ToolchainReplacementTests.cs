@@ -6,7 +6,9 @@ using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
+using HexIDE.Runtime.Making;
 using HexIDE.Sidecar;
+using HexIDE.Tests.Projects;
 
 namespace HexIDE.Tests.IDE;
 
@@ -39,7 +41,7 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
     {
         var previous = Environment.GetEnvironmentVariable("VB6_EXE");
         Environment.SetEnvironmentVariable("VB6_EXE", Environment.ProcessPath);
-        try { return new Build(windows, events, strings, store, outputPath ?? ExePath); }
+        try { return new Build(windows, events, strings, store, outputPath ?? ExePath, new Compiler(outputPath ?? ExePath)); }
         finally { Environment.SetEnvironmentVariable("VB6_EXE", previous); }
     }
 
@@ -57,26 +59,24 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
 
     private void Answer(MessageBoxResult answer) => windows.MessageBox(
         Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
-        Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(answer);
+        Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(answer);
 
     private Task Asked(int count) => windows.Received(count).MessageBox(
         "Output.exe already exists. Do you want to replace it?", null,
-        MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, false, MessageBoxLayout.SecondButtonDefault);
+        MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, MessageBoxLayout.SecondButtonDefault);
 
-    private sealed class Build(IWindowManager windows, IEventBus events, ILocalizationService strings,
-        IUserSidecarService sidecar, string exePath)
-        : Vb6ToolchainService(Substitute.For<ILspClient>(), events, windows, strings,
-            new CodeTrust(windows, strings, _ => false), sidecar)
+    // VB6's real toolchain, the Basic provider's (#5621), with only the compiler run stubbed: the staging, the in-place
+    // build and the recovery copy around it are real.
+    private sealed class Compiler(string exePath) : Vb6Toolchain
     {
         public int Builds { get; private set; }
-        public int Starts { get; private set; }
         public int ExitCode { get; set; }
         public bool Timeout { get; set; }
         public bool WriteOnFailure { get; set; }
         public string? OutputDirectory { get; private set; }
         public Action<string>? DuringBuild { get; set; }
         public Action? AfterBuild { get; set; }
-        internal override Task<Vb6BuildOutcome?> RunVb6Async(string projectPath, string? outputDirectory)
+        internal override Task<ToolchainBuild?> RunVb6Async(string projectPath, string? outputDirectory)
         {
             Builds++;
             OutputDirectory = outputDirectory;
@@ -85,9 +85,34 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
                 File.WriteAllText(outputDirectory is null ? exePath : Path.Combine(outputDirectory, Path.GetFileName(exePath)),
                     "built by RunVb6Async " + Builds);
             AfterBuild?.Invoke();
-            if (Timeout) return Task.FromResult<Vb6BuildOutcome?>(null);
-            return Task.FromResult<Vb6BuildOutcome?>(new(ExitCode, ""));
+            if (Timeout) return Task.FromResult<ToolchainBuild?>(null);
+            return Task.FromResult<ToolchainBuild?>(new(ExitCode, ""));
         }
+    }
+
+    // The IDE's flow over that toolchain, registered as the provider's maker registers it.
+    private sealed class Build : Vb6ToolchainService
+    {
+        private readonly Compiler compiler;
+        private readonly string exePath;
+
+        public Build(IWindowManager windows, IEventBus events, ILocalizationService strings, IUserSidecarService sidecar,
+            string exePath, Compiler compiler)
+            : base(Substitute.For<ILspClient>(), events, windows, strings, new CodeTrust(windows, strings, _ => false), sidecar,
+                TestMakers.Vb6WithMaker(Path.GetTempPath(), compiler))
+        {
+            this.compiler = compiler;
+            this.exePath = exePath;
+        }
+
+        public int Builds => compiler.Builds;
+        public int Starts { get; private set; }
+        public int ExitCode { get => compiler.ExitCode; set => compiler.ExitCode = value; }
+        public bool Timeout { get => compiler.Timeout; set => compiler.Timeout = value; }
+        public bool WriteOnFailure { get => compiler.WriteOnFailure; set => compiler.WriteOnFailure = value; }
+        public string? OutputDirectory => compiler.OutputDirectory;
+        public Action<string>? DuringBuild { get => compiler.DuringBuild; set => compiler.DuringBuild = value; }
+        public Action? AfterBuild { get => compiler.AfterBuild; set => compiler.AfterBuild = value; }
         internal override void StartExe(string path)
         {
             path.Should().Be(exePath);
@@ -313,7 +338,7 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
         compiler.Starts.Should().Be(1);
         await windows.Received(2).MessageBox(
             project.Name + ".exe already exists. Do you want to replace it?", null,
-            MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, false, MessageBoxLayout.SecondButtonDefault);
+            MessageBoxButtons.YesNo, MessageBoxIcon.Warning, null, MessageBoxLayout.SecondButtonDefault);
         Directory.Exists(Path.Combine(directory, "out")).Should().BeFalse();
     }
 
@@ -541,14 +566,18 @@ public sealed class Vb6ToolchainReplacementTests : IDisposable
             if (wrote) File.WriteAllText(ExePath, "partial");
             throw new InvalidOperationException("the compiler could not start");
         };
-        Func<Task> make = () => build.MakeWithVb6Async(project);
-        await make.Should().ThrowAsync<InvalidOperationException>();
+        // A toolchain that throws is a failed make, reported, and the IDE goes on (#5621). It used to escape the command.
+        (await build.MakeWithVb6Async(project)).Should().BeFalse();
+        await windows.Received(1).MessageBox("Str.Vb6Toolchain.CompilationFailed", "Str.Vb6Toolchain.BuildFailedTitle",
+            MessageBoxButtons.Ok, MessageBoxIcon.Error, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>());
         var kept = Directory.GetFiles(directory, "*.recovery");
         if (dll && wrote)
         {
             kept.Should().ContainSingle();
             File.ReadAllText(kept[0]).Should().Be("original");
             File.ReadAllText(ExePath).Should().Be("partial");
+            await windows.Received(1).MessageBox(Arg.Is<string>(text => text.Contains(kept[0])), "Str.Vb6Toolchain.BuildFailedTitle",
+                MessageBoxButtons.Ok, MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>());
         }
         else
         {

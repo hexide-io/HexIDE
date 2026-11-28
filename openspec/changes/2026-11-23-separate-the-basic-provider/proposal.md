@@ -89,6 +89,36 @@ seam made public later (supervisor, 2026-11-23):
   dialog's strings. The delta's requirements say so, so phase 3's security review checks them rather than
   discovering them.
 
+**One exception: the language editing registration is internal in phase 2 (#5403).** It's `ILanguageEditingRegistration`
+in Core, implemented by the owned host an add-in receives and refused by the IDE's own. On `IHexIdeHost` it would bring
+about 9 Core types and 125 baseline lines into the SDK, measured on 2026-11-25, which is small. But one of them,
+`ConditionalConstants`, has the VB family's shape: its arguments are VB Integers, its built-ins come from the VB6, VBA,
+RDCore and twinBASIC targets, and two of its flags are twinBASIC's rules. Publishing it would make that every language's
+`#If` contract while one implementation exists. In every other way it's built as add-in API. It's checked against the
+owner's grant where it's implemented, it only adds, it's tracked so a disabled owner's helpers are withdrawn, and a helper
+that throws is contained. Task 3.1 moves it onto `IHexIdeHost` (supervisor, 2026-11-25).
+
+**A second exception: the run engine's registration is internal in phase 2 too (#5616).** It's `IRunEngineRegistration` in Core,
+implemented by the owned host an add-in receives and refused by the IDE's own. On `IHexIdeHost` it would bring the
+whole engine and debugger contract into the SDK: 31 Core types and 418 baseline lines, measured on 2026-11-24, for an
+engine only the composed provider registers. In every other way it's built as add-in API. It's checked against the
+owner's grant where it's implemented, so reflection gains nothing. It's one at a time, and tracked, so a disabled
+owner's engine is withdrawn. Its code is contained. Task 3.1 moves it onto `IHexIdeHost` with that baseline, and #5619
+publishes the contract once a second engine, RDCore's, registers (supervisor, 2026-11-24).
+
+**The designer asks the engine too (2.4e-2, #5633).** Previewing a form and saying which carried controls run are facts
+about the engine, so an engine answers them through `IDesignerRunEngine`, an optional contract beside `IRunEngine`. Like
+it, it's public and unbaselined, so 2.12's list doesn't grow. The forwarder calls it with the engine's containment, and the
+engine closes its previews when it's withdrawn. `UnmodelledControl` moves to Core with it, recording only what its block
+holds, and the designer asks the engine whether it runs the control (supervisor, 2026-11-25).
+
+**A third exception: what makes a project type's programs registers internally in phase 2 (#5621).** It's
+`IProjectMakerRegistration` in Core, the same shape as the run engine's: implemented by the owned host an add-in
+receives, refused by the IDE's own, checked against the owner's grant where it's implemented, one maker per project
+type, contained, and withdrawn without waiting. On `IHexIdeHost` it would add 6 types and 31 baseline lines, measured at
+`fe98ad6d3`, and 14 of those are VB6's toolchain. Task 3.1 moves it onto the project type's registration,
+`AddinProjectType`, which the provider registers VB6's type with (#5625), with that baseline (supervisor, 2026-11-25).
+
 **Slice 2.7 builds it,** with resources as the first registration (`App.axaml`'s merge of the provider's dictionaries), and the other slices add theirs. That adds an `IHexIdeHost` member on the add-in trust boundary, so it's security work: built by a Claude session and reviewed by the supervisor before merge.
 
 **The provider's strings register the same way** (slice 2.9). Its language packs are embedded in its own assembly, and the IDE reaches them through a pack area the entry type registers, which is no `TypeRef`. So the guard can't see that dependency, but the entry type's own row covers it, and phase 3 removes that row.
@@ -133,23 +163,93 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
   - `RegisterComponent` becomes owned, a toolbox item may be registered only by its component's owner, and
     `ComponentRegistry` starts empty.
   - Control libraries are first-party in phase 2, because a library writes `Object=` lines into users' files.
+    **The third part (#5599) registers them.** `IHexIdeHost.RegisterControlLibrary` registers a library and, lazily,
+    what it offers. The grant table names the type-name namespaces each owner keeps, `VB` and the provider's libraries'
+    names, and a namespace a grant keeps is refused to every other owner whoever registers first.
   - `IControlLibrary` is public in Core. Designer-time hooks go on the designer contract, not on `IComponentClass`.
+  - **Its second part (#5594) owns the components and the toolbox.** The provider registers its Form, its controls and
+    their toolbox items through the owned host, with `IHexIdeHost.RegisterToolboxItem` new for the items. The control
+    libraries register the same way in a third part.
+- **The Object Browser's in-box members (2.4d, #5610).** Agreed with the supervisor, as two PRs.
+  - **Its first part reads members through Core.** `IComponentMemberTable.MembersIn(IControlLibrary?)` is optional and
+    library-aware, because Common Controls 5.0 and 6.0 offer the same class with different members. Its
+    `ComponentMemberKind` is named apart from the type library's `MemberKind`. Whether a member is written in a `.frm`,
+    and whether HexIDE implements it, stay with the runtime.
+  - **A listing generated before the change pins it.** Every member the Object Browser lists for an in-box class or
+    library, with its kind and HexIDE-only note, must stay the same through both parts.
+  - **Its second part takes a library's classes and references from the registered libraries.** `IControlLibrary`
+    gains `Version`, because a `Reference=` line names a library by GUID and version both. What a library declares
+    beyond its registered controls is optional, as `IControlLibraryContents`. The order a project's libraries are
+    read in moves to Core over `IControlLibrary`, so the runtime and the Object Browser share it (#2265).
 - **Designer pictures (2.4b).** This was agreed with hexide-frm, and the supervisor reviews the draft.
   - `RegisterDesignerPictures` is one service per host and is grant-gated, since it draws every form's controls. A
     third-party component is drawn by that service through its own `IComponentClass`.
-  - A Line's units stay with the provider, and the picture reply carries the control's bounds. The designer contract
-    gains no unit member.
+  - **A Line's bounds come from a Core helper, and its units from a registered positions service** (supervisor,
+    2026-11-26, on #3411). This first said that the picture reply carries a Line's bounds and that the designer
+    contract gains no unit member. But the designer lays a Line out from its bounds before any picture exists
+    (`ComponentInstanceViewModel.cs:281` to `:300`), the picture request is sized from that layout
+    (`ControlRenderer.cs:171`), and `MoveLine` (`ComponentInstanceViewModel.cs:376`) writes a move back in the
+    container's scale. So the bounds are worked out in Core (2.3b, #5680), and the designer asks the provider for
+    the units (2.4f-6).
   - **The precondition:** each in-box control renders byte-identically under the provider's host and under
     `ControlRenderer`, with Skia at scaling 1 and 1.5.
+  - **Its second part (#5591) registers the drawer and keeps where it draws.** The designer lends the drawer its
+    `ControlRenderer` through Core's `IDesignerDrawingSurface`, so each control is drawn where it always was. A Line's
+    units and a host of the provider's own, with the precondition above, come in a later part.
+- **The designer's preview, caption and carried controls (2.4e, #5633).** Agreed with the supervisor as two PRs, both
+  security drafts.
+  - **The first adds two optional component-class contracts, as add-in API.** `IDesignerCaption` gives a root window's
+    title-bar icon, and `IDesignerDrawnDefaults` a drawn control's starting values. The designer asks only its root for a
+    caption. A throw or a null answers as a class without the contract does, and is logged. The icon is decoded by the
+    `.frx` decoder, as a form's own pictures are. `PreservedControlText` moves to Core as public, since the designer and
+    the VB6 form reader both read it.
+  - **The second puts the preview and the carried-controls rule on the run engine,** as an optional
+    `IDesignerRunEngine`, public and unbaselined as `IRunEngine` is, forwarded with the engine's containment (#5645).
+- **A container's pages (2.4f-4, #5742).** An optional component-class contract, `IDesignerPages`, carries SSTab's eight
+  designer members as add-in API, with numbers where SSTab took Avalonia's `Point` and `Size`. Only a container's class
+  is asked, since a container needs the provider's grant to register and a plain control doesn't. The designer and
+  automation contain each call as the designer does 2.4e-1's contracts. Automation refuses a page switch the class
+  throws checking or counting, and doesn't save one it throws making.
+- **Where a double-clicked control goes (2.4f-3, #5681).** An optional component-class contract,
+  `IDesignerAddedPlacement`, gives the bounds a double-clicked control takes and whether Align to Grid moves it, as add-in
+  API. The Basic provider's StatusBar, FlatScrollBar and ImageList answer through it. The designer contains it as it does
+  2.4e-1's contracts, and bounds it can't place and save answer as a class without the contract.
+- **New forms, designer roots and menu items (2.4f-2, #5723).** `IProjectFileFormat` gains two add-in members, both
+  null by default: the class of a new root for a type name, and the class of a new menu item. Null means the format
+  can't make one, and the IDE refuses the add, as it does for a class in another role. VB6's format answers for its
+  three roots and the menu. The XAML previewer keeps a stub form class of its own.
+  - **Templates.** Agreed with the supervisor on 2026-11-26: `IAddinProjectTemplate.Create(name, format)` is one more
+    add-in member, defaulting to `Create(name)`. On main at `3c13eac72`, `ProjectManager.NewProject` calls the template
+    (`ProjectManager.cs:131`) before `RecordTemplateHeaders` gives the project its format (`ProjectService.cs:272-276`).
+    So the Standard EXE template is told the format and doesn't ask the project.
 - **The picture decoders get a product assembly of their own (2.5b, #5474),** which the IDE, the provider and
   `HexIDE.Standalone` reference.
   - After phase 4 it stays in HexIDE and is consumed by HexIDE.Basic as Core is, so a decoder fix ships in HexIDE's
     release.
   - A program built with File > Make carries the decoder in its runner, so a decoder security fix reaches it only when
     the program is made again. A changelog entry for such a fix says so.
+- **A library control's library (2.4f-5, #5749).** An optional component-class contract, `IDesignerLibraryControl`,
+  typed on `IControlLibrary`, gives the library a control is in and records the library it was placed from, as add-in
+  API. The library's header line goes into the user's form, so the designer declares only a library the registry lists
+  as offering the control's class, which a library's owner registers under its grant. The designer contains each call as
+  it does 2.4e-1's contracts.
+- **VB6's scale rules come from a registered positions service (2.4f-6, #5758).** Agreed with the supervisor on
+  2026-11-26. `IHexIdeHost.RegisterDesignPositions` is public and baselined, as `RegisterDesignerPictures` is, so 2.12's
+  list of Core internals doesn't grow. It's grant-gated by `RegistrationGrant.DesignPositions`, which only the provider
+  holds, and one at a time per application.
+  - **Each call is contained, and each answer is checked.** A value or pixels that aren't finite, a Width or Height below
+    zero, a unit outside the eight VB6 shows, and a Line unit that isn't finite and above zero all count as no answer.
+  - **Without an answer, nothing is written.** A position is shown as the model holds it, and a typed one is refused.
+    A Line is laid out in twips but isn't moved, because a move written in twips would be wrong in any other scale.
+  - **A scale the provider can't run is an answer.** A Line in one is still laid out and drawn in twips. This slice left
+    its move in twips as it was. Since #5759, the designer refuses the move and leaves the endpoints as stored.
 - **Text and editing helpers go where 11-16's rule puts them:**
   - `ReadOnlyRegions` and `SourceLines` go to Core (2.5a, #5440), and so do the project file's keys and path helpers (2.5c, #5521);
-  - keyword casing and block auto-close go to the IDE (2.6, #5405).
+  - keyword casing and block auto-close go to the IDE (2.6, #5405);
+  - the `#If` reader, the bracket reader and the declaration collector stay with the provider and register per language
+    (2.6, #5403). The provider registers them for `vb6`, the code window's id for every VB-family project's members, and
+    for `twinbasic`, which a twinBASIC container's sources have in the archive view. A language with none registered gets
+    no greyed branches, no coloured brackets and no declarations.
 - **Still open: a public shape for a project's targets (2.12, #5404).** The draft is on #5404
   (issuecomment-7092255114). It has `ProjectDefinition.Targets` and `AddinProjectContent.Targets` as lists of engine
   ids, with rules for an empty list, one known id, an unknown id and several ids. Its wording waits on RDCore's

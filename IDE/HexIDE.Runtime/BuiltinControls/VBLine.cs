@@ -2,6 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Interpreter;
 
@@ -30,6 +31,10 @@ namespace HexIDE.Runtime.BuiltinControls;
 /// </remarks>
 public class VBLine : Control
 {
+    // #990's measured ScaleX(1, vbTwips, vbCentimeters). Multiplying by this Single gives #5530's 2.540003
+    // at 1440 twips, where dividing by the twips-per-centimetre factor gives 2.540002.
+    private const float CentimetresPerTwip = 1.76389061380178e-3f;
+
     public static readonly StyledProperty<VBColor> BorderColorProperty = AvaloniaProperty.Register<VBLine, VBColor>(nameof(BorderColor));
 
     public static readonly StyledProperty<BorderStyles> BorderStyleProperty =
@@ -91,7 +96,7 @@ public class VBLine : Control
     {
         TwipsPerUnit = twipsPerUnit;
         for (var i = 0; i < 4; i++)
-            twips[i] = WholeTwips(declared[i] * Factor(i));
+            twips[i] = WholeTwips(declared[i] * SavedFactor(i));
         Place();
     }
 
@@ -99,16 +104,25 @@ public class VBLine : Control
     /// <remarks>
     /// The twips divided by the scale's twips per unit, which on a user scale is a Single (see
     /// <see cref="Components.LineComponentClass.TwipsPerUnit"/>), and the quotient rounded to a Single.
+    /// Centimetre reads use the separately measured inverse factor.
     /// </remarks>
-    public float Read(int coordinate) =>
-        TwipsPerUnit is null ? (float)declared[coordinate] : (float)(twips[coordinate] / Factor(coordinate));
+    public float Read(int coordinate)
+    {
+        if (TwipsPerUnit is null)
+            return (float)declared[coordinate];
+        var scale = ContainerScale;
+        var distance = scale?.CurrentMode == VBScaleMode.Centimiter ? twips[coordinate] * CentimetresPerTwip
+            : twips[coordinate] / Factor(coordinate, scale);
+        return (float)(Origin(coordinate, scale) + distance);
+    }
 
     /// <summary>An endpoint coordinate a program assigns, in the container's scale.</summary>
     public void Write(int coordinate, double value)
     {
         if (TwipsPerUnit is null)
             throw new InvalidOperationException("A Line is written to before it is placed");
-        twips[coordinate] = WholeTwips(value * Factor(coordinate));
+        var scale = ContainerScale;
+        twips[coordinate] = WholeTwips((value - Origin(coordinate, scale)) * Factor(coordinate, scale));
         Place();
     }
 
@@ -123,35 +137,35 @@ public class VBLine : Control
         return Math.Round(value, MidpointRounding.ToEven);
     }
 
-    private double Factor(int coordinate)
+    private RuntimeScale? ContainerScale => Parent is Control host ? RuntimeScale.OfLineContainer(host) : null;
+
+    // A form or PictureBox Line's ends add the current ScaleLeft and ScaleTop, and a write takes them off
+    // (#5530, oracle PR #5781: measured on Lines loaded in twips, pixels and inches, which once loaded are whole twips
+    // as a centimetre Line is).
+    private static double Origin(int coordinate, RuntimeScale? scale) => scale?.Origin(coordinate % 2 != 0) ?? 0;
+
+    private double Factor(int coordinate, RuntimeScale? scale)
     {
-        if (TwipsPerUnit is { X: AvaloniaInterop.RuntimeScale.TwipsPerCentimetre }
-            && Parent is Control host && AvaloniaInterop.RuntimeScale.Of(host) is { } scale)
+        if (scale is { UsesSavedFormUserScale: false })
         {
-            var mode = VBProps.GetScaleMode(host);
-            if (mode is not (VBScaleMode.Twip or VBScaleMode.Centimiter))
-                throw new NotImplementedException($"A Line in a container whose ScaleMode is {mode} is not implemented (#4693)");
-            return scale.TwipsPerUnit(coordinate % 2 != 0);
+            var factor = scale.TwipsPerUnit(coordinate % 2 != 0);
+            // A Line divides by a Single user unit (#4693, oracle PR #5514).
+            return scale.CurrentMode == VBScaleMode.User ? (float)factor : factor;
         }
-        return coordinate % 2 == 0 ? TwipsPerUnit!.Value.X : TwipsPerUnit!.Value.Y;
+        // The saved form User factor was divided in Single precision at load (#163, the About Dialog).
+        return SavedFactor(coordinate);
     }
+
+    private double SavedFactor(int coordinate) => coordinate % 2 == 0 ? TwipsPerUnit!.Value.X : TwipsPerUnit!.Value.Y;
 
     // The pixel nearest a twips position. Twips are whole and a pixel is 15 of them, so no position is halfway.
     private static int Pixel(double twips) => (int)Math.Round(twips / VBScaleModeExtensions.PixelToTwips);
 
-    /// <summary>
-    /// The rectangle a line covers on its container, in pixels: the segment's pixels and the width of its pen, with a
-    /// pixel to spare. The designer selects a line by this rectangle.
-    /// </summary>
-    public static Rect BoundsFor(double x1Twips, double y1Twips, double x2Twips, double y2Twips, int borderWidth)
+    private Rect LineBounds()
     {
-        var pad = Math.Max(1, borderWidth) + 1;
-        int x1 = Pixel(x1Twips), y1 = Pixel(y1Twips), x2 = Pixel(x2Twips), y2 = Pixel(y2Twips);
-        return new Rect(Math.Min(x1, x2) - pad, Math.Min(y1, y2) - pad,
-            Math.Abs(x2 - x1) + 2 * pad + 1, Math.Abs(y2 - y1) + 2 * pad + 1);
+        var bounds = LineControlBounds.BoundsFor(twips[X1], twips[Y1], twips[X2], twips[Y2], BorderWidth);
+        return new Rect(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
     }
-
-    private Rect LineBounds() => BoundsFor(twips[X1], twips[Y1], twips[X2], twips[Y2], BorderWidth);
 
     private void Place()
     {

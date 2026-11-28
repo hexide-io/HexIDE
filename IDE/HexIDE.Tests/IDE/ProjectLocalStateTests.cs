@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using HexIDE.IDE;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.IDE;
 
@@ -10,6 +11,7 @@ public sealed class ProjectLocalStateTests : IDisposable
     private string Project => Path.Combine(directory, "sample.vbp");
     private static DistributionIdentity Brand => new("rdcore", "RDCore") { ProjectFolder = ".rdcore", UserSidecar = ".user.rdproj" };
     public static bool OnWindows => OperatingSystem.IsWindows();
+    public static bool CanCreateSymbolicLinks => SymbolicLinks.RunTests;
 
     public ProjectLocalStateTests() => Directory.CreateDirectory(directory);
     public void Dispose() => Directory.Delete(directory, true);
@@ -104,7 +106,7 @@ public sealed class ProjectLocalStateTests : IDisposable
         ProjectLocalState.Find(Project, false, Brand).Should().Equal(path);
     }
 
-    [Theory(Skip = "Windows symbolic links may require privileges; Linux runs both cases.", SkipWhen = nameof(OnWindows))]
+    [Theory(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     [InlineData(true, ".hexide")]
     [InlineData(true, ".other")]
     [InlineData(false, ".user.hexproj")]

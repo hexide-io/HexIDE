@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Corpus;
 
@@ -18,7 +19,7 @@ public class ProjectSmokeMakeTests
             var project = Path.Join(root, "Test.vbp");
             File.WriteAllText(project, "Type=Exe\r\nName=\"Test\"\r\nRetained=0\r\n");
             var runtime = Path.Join(root, "runtime");
-            var runner = Path.Join(runtime, "standalone", ProjectService.StandaloneRunnerName()!);
+            var runner = Path.Join(runtime, "standalone", Vb6ProjectMaker.StandaloneRunnerName()!);
             if (runtimeAvailable)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(runner)!);

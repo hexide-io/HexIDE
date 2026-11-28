@@ -7,12 +7,25 @@ namespace HexIDE.Projects;
 
 public class ProjectTemplate : IProjectTemplate
 {
-    private readonly Func<string, ProjectDefinition> creator;
+    private readonly Func<string, IProjectFileFormat?, ProjectDefinition> creator;
 
     public ProjectTemplate(string name,
         string iconName,
         bool supported,
         Func<string, ProjectDefinition> creator,
+        string? nameKey = null)
+        : this(name, iconName, supported, (projectName, _) => creator(projectName), nameKey)
+    {
+    }
+
+    /// <summary>
+    /// A template whose project depends on the format it's made for (#3411 slice 2.4f-2): <paramref name="creator"/> is
+    /// given it, or null when <see cref="Create(string)"/> makes the project with no format named.
+    /// </summary>
+    public ProjectTemplate(string name,
+        string iconName,
+        bool supported,
+        Func<string, IProjectFileFormat?, ProjectDefinition> creator,
         string? nameKey = null)
     {
         this.creator = creator;
@@ -40,6 +53,11 @@ public class ProjectTemplate : IProjectTemplate
 
     public ProjectDefinition Create(string name)
     {
-        return creator(name);
+        return creator(name, null);
+    }
+
+    public ProjectDefinition Create(string name, IProjectFileFormat format)
+    {
+        return creator(name, format);
     }
 }

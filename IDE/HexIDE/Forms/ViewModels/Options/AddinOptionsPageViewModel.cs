@@ -11,6 +11,7 @@ using HexIDE.Addins;
 using HexIDE.Localization;
 using HexIDE.Runtime.Serialization;
 using Serilog;
+using HexIDE.Imaging;
 
 namespace HexIDE.Forms.ViewModels.Options;
 
@@ -24,7 +25,8 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
 {
     private readonly ILocalizationService _localization;
     private readonly AddinInfo _info;
-    private readonly AddinStatus _trustStatus;
+    private AddinStatus _trustStatus;
+    private readonly AddinRegistry? _revocations;
     private readonly AddinFailureReport? _reportedFailure;
 
     private readonly IAddinRegistry _registry;
@@ -58,6 +60,21 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
         Servers = settings is null ? [] : (servers ?? []).Select(server =>
             new AddinServerSettingsViewModel(server.Name, server.Connection, settings)).ToList();
         _localization.LanguageChanged += OnLanguageChanged;
+        // A page open when the hourly check revokes its add-in shows that at once, rather than Loaded until reopened (#5577).
+        _revocations = registry as AddinRegistry;
+        if (_revocations is not null)
+            _revocations.RevocationsApplied += OnRevocationsApplied;
+    }
+
+    private void OnRevocationsApplied()
+    {
+        var status = _registry.GetStatus(_assemblyPath);
+        if (status != AddinStatus.Revoked)
+            return;
+        _trustStatus = status;
+        Status = status;
+        OnPropertyChanged(nameof(TrustChain));
+        OnPropertyChanged(nameof(CanRevokeConsent));
     }
 
     public IReadOnlyList<AddinServerSettingsViewModel> Servers { get; }
@@ -65,6 +82,8 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _localization.LanguageChanged -= OnLanguageChanged;
+        if (_revocations is not null)
+            _revocations.RevocationsApplied -= OnRevocationsApplied;
         foreach (var server in Servers) server.Dispose();
     }
 
@@ -111,6 +130,9 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
 
     /// <summary>An add-in is "enabled" unless it has been explicitly disabled.</summary>
     public bool IsAddinEnabled => Status != AddinStatus.Disabled;
+
+    /// <summary>A revoked add-in never loads again, so there is nothing to turn on or off (#5577).</summary>
+    public bool CanToggle => Status != AddinStatus.Revoked;
     public string StatusText => Status switch
     {
         AddinStatus.Incompatible => _info.CompatibilityMessage is { } message ? Format(message) : _info.CompatibilityError ?? Text("Status.Incompatible"),
@@ -144,6 +166,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
     partial void OnStatusChanged(AddinStatus value)
     {
         OnPropertyChanged(nameof(IsAddinEnabled));
+        OnPropertyChanged(nameof(CanToggle));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(ToggleLabel));
         OnPropertyChanged(nameof(ConsentText));
@@ -178,9 +201,13 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
     // one carries none, so we show why; a revoked one keeps its (still-valid) chain plus a revoked banner.
     private TrustChainViewModel BuildTrustChain(AddinInfo info, AddinStatus status)
     {
+        // A chain that verifies only under the root the package carries says which root, whatever developer mode did
+        // with it: the package is still unverified (#5316).
         var unavailable = info.Chain is null
             ? status switch
             {
+                AddinStatus.DeveloperUnsigned or AddinStatus.Untrusted when info.UnrecognisedRootFingerprint is { } root =>
+                    string.Format(Text("TrustUnrecognisedRoot"), root),
                 AddinStatus.DeveloperUnsigned => Text("TrustUnsigned"),
                 AddinStatus.Untrusted => Text("TrustUnverified"),
                 _ => null,

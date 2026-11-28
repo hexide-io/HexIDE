@@ -10,7 +10,7 @@ using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
 
-public class ComboBoxComponentClass : ComponentBaseClass
+public class ComboBoxComponentClass : ComponentBaseClass, IComponentMemberTable
 {
     public ComboBoxComponentClass() : base([TextProperty,
         EnabledProperty,

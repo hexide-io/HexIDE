@@ -95,11 +95,11 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _registry,
             new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
-            new AddinOptionsService(), new ComponentRegistry(), runner,
+            new AddinOptionsService(), InBoxRegistry.Create(), runner,
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
                 NullLogger<LanguageServerContributions>.Instance, null),
-            _launches, _types, new AddinResourceService());
+            _launches, _types, new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService());
     }
 
     public async ValueTask DisposeAsync()
@@ -267,7 +267,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _types.Types.Should().BeEmpty();
         _opens.Should().Be(0, "the add-in is not asked to read it");
         await _windows.Received(1).MessageBox("Str.ContributedProject.NoTypeLoaded .rdproj",
-            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>());
     }
 
     private ProjectService ProjectService()
@@ -286,7 +286,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         return new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry(),
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), InBoxRegistry.Create(),
             contributed: _types);
     }
 }

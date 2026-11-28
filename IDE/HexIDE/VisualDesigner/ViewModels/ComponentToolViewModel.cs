@@ -1,6 +1,5 @@
 using Avalonia.Media;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 using HexIDE.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -10,7 +9,7 @@ public partial class ComponentToolViewModel : ObservableObject
 {
     private readonly ToolBoxToolViewModel parent;
 
-    public ComponentToolViewModel(ToolBoxToolViewModel parent, IDesignerComponentClass baseClass, IImage icon)
+    public ComponentToolViewModel(ToolBoxToolViewModel parent, IDesignerComponent baseClass, IImage icon)
     {
         this.parent = parent;
         BaseClass = baseClass;
@@ -28,15 +27,16 @@ public partial class ComponentToolViewModel : ObservableObject
     public ComponentToolViewModel(ToolBoxToolViewModel parent, IComponentClass component, IImage icon)
     {
         this.parent = parent;
-        BaseClass = component as IDesignerComponentClass;
+        BaseClass = component as IDesignerComponent;
         Icon = icon;
         Name = component.Name;
     }
 
-    public IDesignerComponentClass? BaseClass { get; }
+    /// <summary>The class a control placed from this button has. The designer asks it through Core's contract (#5591).</summary>
+    public IDesignerComponent? BaseClass { get; }
 
     /// <summary>The library an in-box control is placed from, which its type name and its form's header name (#1103).</summary>
-    public RuntimeLibrary? Library { get; init; }
+    public IControlLibrary? Library { get; init; }
 
     /// <summary>The type name a control placed from this button takes: <c>ComctlLib.ProgressBar</c> from COMCTL32.OCX's.</summary>
     public string? VBTypeName => LibraryTypeName ?? BaseClass?.VBTypeName;

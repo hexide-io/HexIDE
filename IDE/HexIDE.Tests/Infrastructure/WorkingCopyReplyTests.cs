@@ -84,13 +84,13 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         try
         {
             var localization = Substitute.For<ILocalizationService>();
-            var toolbox = new ToolBoxToolViewModel(dock, new ComponentRegistry(), localization);
+            var toolbox = new ToolBoxToolViewModel(dock, InBoxRegistry.Create(), localization);
             using var designer = operation == "control"
                 ? new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
                     Substitute.For<ISettingsService>(), localization).Initialize(form)
@@ -180,7 +180,7 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         try
@@ -238,9 +238,9 @@ public class WorkingCopyReplyTests
     public async Task Write_refuses_external_and_linked_targets_before_editing(string operation, string attack)
         => await CheckRefusal(operation, attack);
 
-    public static bool CanCreateSymbolicLinks => !OperatingSystem.IsWindows();
+    public static bool CanCreateSymbolicLinks => SymbolicLinks.RunTests;
 
-    [AvaloniaTheory(Skip = "Creating symbolic links on Windows requires developer mode or elevation", SkipUnless = nameof(CanCreateSymbolicLinks))]
+    [AvaloniaTheory(Skip = SymbolicLinks.SkipReason, SkipUnless = nameof(CanCreateSymbolicLinks))]
     [InlineData("source")]
     [InlineData("property")]
     [InlineData("control")]
@@ -262,7 +262,7 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         var outside = directory + "-outside";
@@ -291,7 +291,7 @@ public class WorkingCopyReplyTests
         try
         {
             var localization = Substitute.For<ILocalizationService>();
-            var toolbox = new ToolBoxToolViewModel(dock, new ComponentRegistry(), localization);
+            var toolbox = new ToolBoxToolViewModel(dock, InBoxRegistry.Create(), localization);
             using var designer = operation == "control"
                 ? new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
                     Substitute.For<ISettingsService>(), localization).Initialize(form)

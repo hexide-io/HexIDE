@@ -28,30 +28,102 @@ space-separated groups of four.
 | **HexIDE root** | `DF36 B067 BF3A C047 CC28 B9E4 D5D4 B323 A491 84D4 C28E B0ED F9E8 9928 89D3 F491` |
 | **First-party publisher** (`com.hexide.firstparty`) | `7929 689A 38A1 DF58 9869 3FD3 2B67 1249 909C 99D5 C7F6 6092 22D4 FB35 7312 B4C8` |
 
+## The revocation list HexIDE fetches
+
+HexIDE refuses an add-in build, a publisher or a marketplace intermediate that has been revoked. The list of
+revocations is signed by the HexIDE root, and HexIDE checks that signature before using it.
+
+- **What is requested:** `https://hexide.io/revocations.json` and its signature,
+  `https://hexide.io/revocations.json.sig`. They are plain downloads with no identifier, settings or project
+  information. After the first, the list is asked for with an `If-None-Match` header carrying the tag hexide.io gave
+  for the last list that verified, so an unchanged list isn't downloaded again. HexIDE keeps that tag in memory only.
+  hexide.io sees the requests' address and time, as any website does.
+- **When:** at every start with at least one add-in installed, before any add-in loads, and then about every hour
+  while HexIDE runs. A default install counts, because HexIDE ships with the AI Chat add-in. At startup HexIDE
+  waits at most three seconds; the hourly check runs in the background. If hexide.io can't be reached, HexIDE goes
+  on with the list built into your version and the last list it fetched.
+- **When a loaded add-in is revoked:** HexIDE marks it Revoked and takes out its menus, commands, tool windows,
+  language servers and the rest of what it contributed, and it hears no more events. Its code stays loaded until
+  HexIDE closes, so a notice names the add-in and offers to close HexIDE, through the usual prompts to save. The next
+  start refuses it.
+- **Seeing it work:** Options → Add-Ins says when the list was last checked and which list is in use, that the last
+  check failed and when one last worked, or that checking is off.
+- **Turning it off:** set `revocationListUrl` to `""` in `settings.json`, in HexIDE's settings directory (see
+  [`--user-data-dir`](docs/command-line.md)). Removing the line, or setting it to `null`, restores the default. Another
+  address works too, for a mirror, but the list must still be signed by the HexIDE root. A profile can't change this
+  setting. The hourly check reads the setting each time, so turning it off needs no restart. The interval itself
+  has no setting.
+- **What turning it off costs:** HexIDE then knows only the list built into your version, and any list it fetched
+  before. An add-in build revoked after your version was released, a first-party one included, keeps loading until
+  you update HexIDE.
+
 ## For third-party publishers
 
-Request a publisher record from the HexIDE maintainer through the repository's issue tracker. Send
-only your **public key** (base64 ECDSA P-256 SubjectPublicKeyInfo), your publisher id and display name.
-Never send your private key. Publisher and intermediate ids are 3–64 characters matching
-`^[a-z0-9]+([.-][a-z0-9]+)*$`: lowercase letters and digits in parts joined by single dots or hyphens.
-Display names must be trimmed, non-empty, at most 128 characters, and contain no control characters or
-invisible format characters (such as a right-to-left override), which could make one name read as another.
-
-The maintainer issues the record offline with the add-in packer:
+To get a publisher record, make a signed request with the add-in packer:
 
 ```sh
-sign-publisher --root-public-key <file> --intermediate-key <file> --intermediate <dir> --publisher-id <id> --display-name <name> --public-key <file> --out <dir>
+request-publisher --publisher-id <id> --display-name <name> --github <handle> --fingerprint-url <https url>
+                  --new-key <dir> --out <dir> [--namespaces <a.,b.>]
 ```
 
-The command verifies the intermediate against the supplied root and refuses a mismatched intermediate
-private key or existing output files. It writes `publisher.json` and `publisher.sig`, then verifies the
-written chain. The maintainer returns these two files and the public `intermediate.json` and
-`intermediate.sig` chain files. Issuance requires maintainer review; no marketplace service is implied.
-The root supplied during issuance must be the root trusted by the intended HexIDE build.
+- **`--new-key <dir>`** makes your private key, as `<id>.key` in that folder, readable only by you where the system
+  supports it. Keep it out of anything you publish or commit, and keep a backup: nobody can recover it. To use a key you
+  already have, give `--key <file>` instead.
+- **The request is `request.json` and `request.sig`,** written to `--out`. The request holds your public key, and the
+  signature proves you hold the private key that goes with it. The command prints the key's fingerprint and the
+  request's SHA-256.
+- **Publish the fingerprint at `--fingerprint-url`,** an https address on your own site. That shows the request comes
+  from whoever controls that site.
+- **Check a request** with `verify-request --request <dir>`. It needs no private key, and it is the same check the
+  maintainer runs.
+- **Submit** `request.json` and `request.sig` through the HexIDE repository's issue tracker, from the GitHub account the
+  request names. A request form in `hexide-io/HexIDE.Publishers` will replace this (#5323). Everything you submit is
+  public. Never send your private key.
+- **To replace your key** under an id you already hold, add `--previous-key <file>` with the key it replaces. The request
+  is then signed with both keys.
 
-Put those four public chain files in your `pack --trust <dir>` directory. The packer currently reads
-your own private signing key from `firstparty.key` in that directory; the filename does not grant
-first-party status. Pack with your own key, and keep it private.
+**The rules each field must meet:**
+- **Ids** are 3–64 characters matching `^[a-z0-9]+([.-][a-z0-9]+)*$`: lowercase letters and digits in parts joined by
+  single dots or hyphens.
+- **Display names** must be trimmed, non-empty, at most 128 characters, and contain no control characters or invisible
+  format characters (such as a right-to-left override), which could make one name read as another.
+- **Namespaces** are names followed by `.`, such as `acme.`. They are the prefixes your add-ins' commands and messages
+  may use. No two publishers hold overlapping namespaces, and `hexide.` is HexIDE's own.
+
+The maintainer issues the record offline from the approved request:
+
+```sh
+issue-publisher --request <dir> --approved-sha256 <hash> --root-public-key <file> --intermediate-key <file>
+                --intermediate <dir> --ledger <dir> --out <dir> [--revocations <json> --revocations-sig <sig>]
+```
+
+- **It signs only what was approved.** The request's SHA-256 must be the one the maintainer approved, and every
+  `verify-request` check runs again against the ledger and the root, and against the revocation list, which a key
+  replacement needs. It refuses anything that needs a person's judgement, rather than signing it.
+- **It asks for your publisher id to be typed back** before it signs.
+- **It writes your trust folder:** `publisher.json` and `.sig`, `intermediate.json` and `.sig`, `hexide-root.pub`, a
+  copy of your request, and `receipt.md` with the fingerprints. It also adds the record to the public ledger,
+  `publishers/<id>/`.
+- **It never issues an id or a key twice.** A key that has been replaced stays held under `retired/`.
+
+`sign-publisher` stays for first-party records, and for a record a person decides to issue by hand. It writes only
+`publisher.json` and `.sig`, so the maintainer returns those with the two intermediate files and `hexide-root.pub`, the
+root they chain to. Issuance requires maintainer review, and no marketplace service is implied. The root supplied
+during issuance must be the root trusted by the intended HexIDE build.
+
+`hexide-pack`, built from `IDE/HexIDE.AddinPacker.Interactive`, runs every packer command and asks for any option
+you leave out, so `hexide-pack pack` walks you through signing an add-in.
+
+Put those five public files in your `pack --trust <dir>` directory, and give your private signing key with
+`pack --key <file>`, wherever you keep it. Keep the key out of any folder you publish or commit. `pack` refuses a key
+that isn't the one your `publisher.json` names, and a key named among the files to bundle. Without `--key`, `pack`
+reads `firstparty.key` from the trust folder; that filename does not grant first-party status.
+
+Every package carries its root's public key as `root.pub`, and `pack` refuses a `hexide-root.pub` that didn't sign the
+intermediate. A HexIDE that doesn't trust that root still refuses the add-in, as before. It now says the add-in was
+signed under a root it doesn't carry, and shows that root's fingerprint, so a user can compare it with the
+[canonical fingerprints](#canonical-fingerprints) a newer release publishes. HexIDE shows the fingerprint only when the
+add-in's chain really verifies under that key, and never trusts it.
 
 Publish your add-in signing key's fingerprint somewhere users already trust you (your website, repo, or
 release notes). A user can then compare it against the **Publisher** row in HexIDE's trust inspector.

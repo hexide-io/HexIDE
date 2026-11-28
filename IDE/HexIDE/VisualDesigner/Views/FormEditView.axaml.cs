@@ -12,7 +12,6 @@ using Avalonia.Media;
 using HexIDE.Controls;
 using HexIDE.Events;
 using HexIDE.IDE;
-using HexIDE.Runtime.Components.InBox;
 using R3;
 using Serilog;
 
@@ -60,9 +59,9 @@ public partial class FormEditView : UserControl
     private void OnDesignerPagePressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is FormEditViewModel vm && vm.ToolsBoxToolViewModel is { IsCursorSelected: true }
-            && e.Source is Control { DataContext: ComponentInstanceViewModel { Instance.BaseClass: SSTabComponentClass } }
+            && e.Source is Control { DataContext: ComponentInstanceViewModel { Instance.BaseClass: IDesignerPages } }
             && e.GetCurrentPoint(ControlsContainer).Properties.IsLeftButtonPressed
-            && vm.SwitchSSTabPage(e.GetPosition(ControlsContainer)))
+            && vm.SwitchDesignerPage(e.GetPosition(ControlsContainer)))
             e.Handled = true;
     }
 
@@ -366,7 +365,7 @@ public partial class FormEditView : UserControl
 
         rootVm.RequestCode(rootVm.RootDoubleClickProcedure,
             rootVm.Form.Instance.BaseClass.Name,
-            ((HexIDE.Runtime.Components.FormComponentClass)rootVm.Form.Instance.BaseClass).DesignerDoubleClickEvent);
+            rootVm.Form.Instance.BaseClass.DesignerDoubleClickEvent);
         e.Handled = true;
     }
 

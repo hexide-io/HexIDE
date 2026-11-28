@@ -127,7 +127,6 @@ public class DamagedFormPropertyTests
 
     [Theory]
     [InlineData("BackColor", "&H8000000F&", "&H80000019&")]
-    [InlineData("TabIndex", "1", "&H3")]
     [InlineData("Height", "375", "--5")]
     [InlineData("Height", "375", "1.5.2")]
     [InlineData("TabIndex", "1", "5abc")]

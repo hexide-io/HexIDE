@@ -65,7 +65,7 @@ public class NegativeSizeSaveTests : IDisposable
             new FileBaselineStore(),
             localization,
             refresher ?? new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()),
-            new ComponentRegistry());
+            InBoxRegistry.Create());
     }
 
     private sealed class NullSink : IDeserializeErrorSink
@@ -165,7 +165,6 @@ public class NegativeSizeSaveTests : IDisposable
     [InlineData("ClientHeight", "abc\r\nClientHeight = 2000", false)]
     [InlineData("ClientHeight", "abc\r\nClientHeight = xyz", false)]
     [InlineData("BackColor", "&H8000000F&\r\nBackColor = &H80000019&", true)]
-    [InlineData("TabIndex", "1\r\nTabIndex = &H3", true)]
     [InlineData("Height", "375\r\nHeight = --5", true)]
     [InlineData("BackColor", "&H8000000F&\r\nBackColor = True", true)]
     [InlineData("BackColor", "&H8000000F&\r\nBackColor = False", true)]

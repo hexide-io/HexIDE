@@ -61,7 +61,7 @@ public sealed class AddinRouteCorpusTests
         {
             var (vbpService, vbpProject) = await OpenThroughVbp(Path.Join(builtIn, Path.GetFileName(vbp)));
             var types = new ContributedProjects { ReadFile = path => File.ReadAllBytesAsync(path) };
-            using var vb6 = Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+            using var vb6 = Vb6Types.Register(types, new Vb6ProjectFileFormat());
             using var type = types.Register(TypeListing(vbpProject, builtIn, addin, named), Route);
             var (addinService, addinProject) = await Open(Path.Join(addin, ProjectFileName), types);
 
@@ -141,6 +141,8 @@ public sealed class AddinRouteCorpusTests
             const string probe = "Private Sub HexIDE_RouteProbe()\r\nEnd Sub\r\n";
             if (Module is { } module) module.UpdateCode(module.Code + probe);
             else Form.UpdateCode(Form.Code + probe);
+            // MDI headers are carried unchanged until their designer is implemented (#5313): code edits only.
+            if (Form.RootVBTypeName == "VB.MDIForm") return;
             var root = Form.Components.First(component => component.BaseClass.VBTypeName is "VB.Form" or "VB.UserControl" or "VB.PropertyPage");
             if (Form.Components.FirstOrDefault(component => component != root) is { } control)
                 control.SetProperty(VBProperties.LeftProperty, control.GetPropertyOrDefault(VBProperties.LeftProperty) + 8);
@@ -200,7 +202,7 @@ public sealed class AddinRouteCorpusTests
         var service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), windows,
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: types);
         await service.OpenProject(path);
         if (loaded.Count != 1)
             throw new InvalidOperationException($"{Path.GetFileName(path)} didn't open: " + string.Join("; ", messages));

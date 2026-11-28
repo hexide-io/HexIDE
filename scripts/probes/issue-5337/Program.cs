@@ -12,6 +12,7 @@ var functions = new (string Name, Func<double, double> Fast, Func<double, double
     ("Atn", X87Math.Atan, X87Math.AtanExact)
 };
 var values = X87MathArguments.Create(count);
+var timed = new List<(string Name, Func<double, double> Fast, Func<double, double> Exact)>();
 foreach (var (name, fast, exact) in functions)
 {
     if (!benchmarkOnly && args.Length > 1 && args[1] != name)
@@ -32,24 +33,39 @@ foreach (var (name, fast, exact) in functions)
     Console.WriteLine($"{name}: {count} comparisons, {mismatches} disagreements");
     if (mismatches != 0)
         Environment.ExitCode = 1;
-    var inputs = Enumerable.Range(1, 10000).Select(i => i / 100.0).ToArray();
-    double sink = 0;
-    for (int i = 0; i < 10000; ++i)
+    timed.Add((name, fast, exact));
+}
+
+// Every function is warmed before any is timed, and each pass times all four in turn, so whichever is listed first
+// can't be timed before the JIT has optimized the code the four share (#5590).
+var inputs = Enumerable.Range(1, 10000).Select(i => i / 100.0).ToArray();
+double sink = 0;
+foreach (var (_, fast, exact) in timed)
+    for (int i = 0; i < inputs.Length; ++i)
         sink += fast(inputs[i]) + exact(inputs[i]);
-    // The fastest of three rounds each, so one preemption on a loaded runner can't decide the ratio.
-    double fastNs = double.MaxValue, exactNs = double.MaxValue;
-    for (int round = 0; round < 3; ++round)
+var fastNs = new double[timed.Count];
+var exactNs = new double[timed.Count];
+Array.Fill(fastNs, double.MaxValue);
+Array.Fill(exactNs, double.MaxValue);
+// The fastest of five passes each, so one preemption on a loaded runner can't decide the ratio.
+for (int pass = 0; pass < 5; ++pass)
+{
+    for (int f = 0; f < timed.Count; ++f)
     {
+        var (_, fast, exact) = timed[f];
         var watch = Stopwatch.StartNew();
         foreach (double x in inputs)
             sink += fast(x);
-        fastNs = Math.Min(fastNs, watch.Elapsed.TotalNanoseconds / inputs.Length);
+        fastNs[f] = Math.Min(fastNs[f], watch.Elapsed.TotalNanoseconds / inputs.Length);
         watch.Restart();
         foreach (double x in inputs)
             sink += exact(x);
-        exactNs = Math.Min(exactNs, watch.Elapsed.TotalNanoseconds / inputs.Length);
+        exactNs[f] = Math.Min(exactNs[f], watch.Elapsed.TotalNanoseconds / inputs.Length);
     }
-    Console.WriteLine($"{name}: fast {fastNs / 1000:F3} us, exact {exactNs / 1000:F3} us; ratio {fastNs / exactNs:F4}; checksum {sink:R}");
-    if (fastNs > exactNs / 10)
+}
+for (int f = 0; f < timed.Count; ++f)
+{
+    Console.WriteLine($"{timed[f].Name}: fast {fastNs[f] / 1000:F3} us, exact {exactNs[f] / 1000:F3} us; ratio {fastNs[f] / exactNs[f]:F4}; checksum {sink:R}");
+    if (fastNs[f] > exactNs[f] / 10)
         Environment.ExitCode = 1;
 }

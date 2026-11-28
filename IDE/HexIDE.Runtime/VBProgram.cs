@@ -132,6 +132,8 @@ public sealed class VBProgram : IFormProgram
     private VBProgram(ProjectDefinition? project, FormDefinition? startup, VBWindowContext rootContext,
         Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm, bool win64OnlySetOnWindows, OSPlatform? host)
     {
+        if (startup is not null)
+            VBLoader.RefuseMDIForm(startup);
         this.openForm = openForm;
         if (project is not null)
             foreach (var form in project.Forms)
@@ -176,6 +178,7 @@ public sealed class VBProgram : IFormProgram
             Events = Events,
             Forms = this,
         };
+        interpreter.BuiltIns.HoldFormsForMessageBox = () => new Dialogs.MessageBoxFormHold(loaded);
         if (project is not null)
         {
             interpreter.SetAppInfo(AppInfo.FromProject(project));
@@ -349,6 +352,7 @@ public sealed class VBProgram : IFormProgram
     {
         if (!definitions.TryGetValue(form.Name, out var definition))
             throw new NotImplementedException($"{form.Name} has no form definition to run (#822).");
+        VBLoader.RefuseMDIForm(definition);
         if (openForm is null)
             throw new NotImplementedException(existing is null
                 ? $"{form.Name} is another form, and this host runs only the startup form so far (#822)."

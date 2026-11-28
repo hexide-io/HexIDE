@@ -420,15 +420,52 @@ public partial class CoordinateSystemTests
             .Which.Message.Should().Contain(expected);
     }
 
+    // Issue #4693's final measured rows, oracle PR #5514 (SP6 native/p-code and IDE).
     [AvaloniaTheory]
-    [InlineData("ScaleY(1, 1, 1, 1, 1)")]
-    [InlineData("ScaleX(1, 1, 1, 1, 1, 1)")]
-    [InlineData("ScaleY(1, 1, 1, 1, 1, 1)")]
-    public void Unmeasured_conversion_argument_counts_still_refuse(string call)
+    [InlineData("Me.ScaleY(1, 1, 1, 1)")]
+    [InlineData("Me.ScaleY(1, 1, 1, 1, 1)")]
+    [InlineData("Me.ScaleY(1, 1, 1, 1, 1, 1)")]
+    [InlineData("Me.ScaleX(1, 1, 1, 1, 1)")]
+    [InlineData("Me.ScaleX(1, 1, 1, 1, 1, 1)")]
+    [InlineData("Picture1.ScaleY(1, 1, 1, 1, 1)")]
+    [InlineData("Picture1.ScaleX(1, 1, 1, 1, 1, 1)")]
+    public void Further_conversion_argument_counts_raise_compile_errors(string call)
     {
         var run = RunLoad(Form, $"Dim v\nv = {call}");
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("argument count").And.Contain("#4693");
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBCompileErrorException>()
+            .Which.Message.Should().Contain("Wrong number of arguments or invalid property assignment");
+    }
+
+    [AvaloniaFact]
+    public void Qualified_ScaleX_without_arguments_is_argument_not_optional()
+    {
+        var run = RunLoad(Form, "Dim v\nv = Me.ScaleX()");
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBCompileErrorException>()
+            .Which.Message.Should().Contain("Argument not optional");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ScaleX(1, 1, 1, 1)")]
+    [InlineData("ScaleX(1, 1, 1, 1, 1)")]
+    [InlineData("ScaleX(1, 1, 1, 1, 1, 1)")]
+    [InlineData("ScaleX()")]
+    [InlineData("ScaleY(1, 1, 1, 1, 1)")]
+    public void Late_bound_conversion_argument_counts_raise_450(string call)
+    {
+        var run = RunLoad(Form, $"Dim o As Object\nSet o = Me\nOn Error Resume Next\nDim v\nv = o.{call}\nDebug.Print Err.Number & \"|\" & Err.Description");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("450|Wrong number of arguments or invalid property assignment");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Call o.ScaleX(1, 1, 1, 1)")]
+    [InlineData("o.ScaleX 1, 1, 1, 1")]
+    public void Late_bound_conversion_statement_argument_counts_raise_450(string statement)
+    {
+        var run = RunLoad(Form, "Dim o As Object\nSet o = Me\nOn Error Resume Next\n"
+            + statement + "\nDebug.Print Err.Number & \"|\" & Err.Description");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("450|Wrong number of arguments or invalid property assignment");
     }
 
     [AvaloniaTheory]
@@ -441,6 +478,136 @@ public partial class CoordinateSystemTests
         var run = RunLoad(Form.Replace("4680", "6000"), $"Dim o {declaration}\nSet o = Me\n{statement}\nDebug.Print " + Snapshot("o."));
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal(expected);
+    }
+
+    private const string LineScaleForm = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           ClientWidth = 9200
+           ClientHeight = 4800
+           Begin VB.PictureBox Picture2
+              Width = 2835
+              Height = 2835
+              BorderStyle = 0
+              Begin VB.Line Line2
+                 X1 = 300
+                 Y1 = 300
+                 X2 = 1500
+                 Y2 = 1500
+              End
+           End
+           Begin VB.PictureBox Picture3
+              Width = 2835
+              Height = 2835
+              BorderStyle = 0
+              ScaleMode = 3
+              ScaleWidth = 189
+              ScaleHeight = 189
+              Begin VB.Line Line3
+                 X1 = 20
+                 Y1 = 20
+                 X2 = 100
+                 Y2 = 100
+              End
+           End
+           Begin VB.PictureBox Picture4
+              Width = 2835
+              Height = 2835
+              BorderStyle = 0
+              ScaleMode = 5
+              ScaleWidth = 1.969
+              ScaleHeight = 1.969
+              Begin VB.Line Line4
+                 X1 = 0.25
+                 Y1 = 0.5
+                 X2 = 1
+                 Y2 = 1.25
+              End
+           End
+           Begin VB.Line Line1
+              X1 = 300
+              Y1 = 3200
+              X2 = 1200
+              Y2 = 4000
+           End
+        End
+        Attribute VB_Name = "Form1"
+
+        """;
+
+    private static string LineEnds(string line) =>
+        $"CStr({line}.X1) & \"|\" & CStr({line}.Y1) & \"|\" & CStr({line}.X2) & \"|\" & CStr({line}.Y2)";
+
+    // #5530: the-line-control.md records the scale changes, and oracle PR #5781 the origin rows.
+    private static readonly (string Statement, string Twips, string Pixels, string Inches)[] PictureBoxLineSteps =
+    [
+        ("", "300|300|1500|1500", "20|20|100|100", "0.25|0.5|1|1.25"),
+        ("p.ScaleMode = 1", "300|300|1500|1500", "300|300|1500|1500", "360|720|1440|1800"),
+        ("p.ScaleMode = 3", "20|20|100|100", "20|20|100|100", "24|48|96|120"),
+        ("p.ScaleMode = 5", "0.2083333|0.2083333|1.041667|1.041667", "0.2083333|0.2083333|1.041667|1.041667", "0.25|0.5|1|1.25"),
+        ("p.ScaleMode = 6", "5.291672|5.291672|26.45836|26.45836", "5.291672|5.291672|26.45836|26.45836", "6.350006|12.70001|25.40002|31.75003"),
+        ("p.ScaleMode = 7", "0.5291672|0.5291672|2.645836|2.645836", "0.5291672|0.5291672|2.645836|2.645836", "0.6350006|1.270001|2.540003|3.175003"),
+        ("p.ScaleMode = 4", "2.5|1.25|12.5|6.25", "2.5|1.25|12.5|6.25", "3|3|12|7.5"),
+        ("p.ScaleMode = 2", "15|15|75|75", "15|15|75|75", "18|36|72|90"),
+        ("p.Scale (0, 0)-(100, 50)", "10.58201|5.291005|52.91005|26.45503", "10.58201|5.291005|52.91005|26.45503", "12.69841|12.69841|50.79365|31.74603"),
+        ("p.ScaleMode = 3\nln.X1 = 10", "10|20|100|100", "10|20|100|100", "10|48|96|120"),
+        ("p.ScaleMode = 1", "150|300|1500|1500", "150|300|1500|1500", "150|720|1440|1800"),
+        ("p.Scale (10, 20)-(110, 70)", "15.29101|25.29101|62.91005|46.45502", "15.29101|25.29101|62.91005|46.45502", "15.29101|32.69841|60.79365|51.74603"),
+        ("ln.Y1 = 30", "15.29101|30|62.91005|46.45502", "15.29101|30|62.91005|46.45502", "15.29101|30|60.79365|51.74603"),
+        ("p.ScaleMode = 1", "150|567|1500|1500", "150|567|1500|1500", "150|567|1440|1800"),
+        ("p.ScaleMode = 3\np.ScaleLeft = -5", "5|37.8|95|100", "5|37.8|95|100", "5|37.8|91|120"),
+        ("p.ScaleTop = 7", "5|44.8|95|107", "5|44.8|95|107", "5|44.8|91|127"),
+    ];
+
+    public static IEnumerable<object[]> PictureBoxLineReads()
+    {
+        for (var step = 0; step < PictureBoxLineSteps.Length; step++)
+        {
+            var (_, twips, pixels, inches) = PictureBoxLineSteps[step];
+            yield return [2, step, twips];
+            yield return [3, step, pixels];
+            yield return [4, step, inches];
+        }
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(PictureBoxLineReads))]
+    public void PictureBox_Line_ends_follow_the_current_scale_and_origin(int box, int step, string expected)
+    {
+        var setup = $"Dim p As PictureBox\nSet p = Picture{box}\nDim ln As Control\nSet ln = Line{box}\n"
+            + string.Join('\n', PictureBoxLineSteps.Take(step + 1).Select(row => row.Statement));
+        var run = RunLoad(LineScaleForm, setup + "\nDebug.Print " + LineEnds("ln")
+            + "\nDebug.Print TypeName(ln.X1)"
+            + (step == 11 ? "\nDebug.Print CStr(p.ScaleLeft) & \"|\" & CStr(p.ScaleTop)" : "")
+            + (step == 14 ? "\nDebug.Print CStr(p.ScaleMode)" : ""));
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(step switch
+        {
+            11 => new[] { expected, "Single", "10|20" },
+            14 => new[] { expected, "Single", "0" },
+            _ => new[] { expected, "Single" },
+        });
+    }
+
+    private static readonly string[] FormLineSteps =
+    [
+        "Me.ScaleMode = 3", "Me.ScaleMode = 5", "Me.ScaleMode = 7", "Me.ScaleMode = 1",
+        "Me.Scale (0, 0)-(100, 50)", "Me.Scale (10, 20)-(110, 70)",
+    ];
+
+    [AvaloniaTheory]
+    [InlineData(0, "20|213.3333|80|266.6667")]
+    [InlineData(1, "0.2083333|2.222222|0.8333333|2.777778")]
+    [InlineData(2, "0.5291672|5.64445|2.116669|7.055562")]
+    [InlineData(3, "300|3200|1200|4000")]
+    [InlineData(4, "3.262643|33.33333|13.05057|41.66667")]
+    [InlineData(5, "13.26264|53.33333|23.05057|61.66667")]
+    public void Form_Line_ends_follow_the_current_scale_and_origin(int step, string expected)
+    {
+        var run = RunLoad(LineScaleForm, string.Join('\n', FormLineSteps.Take(step + 1))
+            + "\nDebug.Print " + LineEnds("Line1") + "\nDebug.Print TypeName(Line1.X1)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected, "Single");
     }
 
     [AvaloniaTheory]

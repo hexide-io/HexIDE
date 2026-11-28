@@ -3,6 +3,7 @@ using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Serialization;
@@ -140,7 +141,7 @@ public class DocumentContentTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), new ComponentRegistry());
+            new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()), InBoxRegistry.Create());
     }
 
     private static string? FindUpwards(string relative)

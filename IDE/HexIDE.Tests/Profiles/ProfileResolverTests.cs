@@ -75,6 +75,18 @@ public sealed class ProfileResolverTests : IDisposable
             profile.ProjectTypes.Value.Should().Equal("standard-exe");
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("neutral")]
+    public void NeutralHasNoOfferingOrVisibilityOverrides(string? selector)
+    {
+        var profile = Resolver.Resolve(selector)!;
+        profile.Id.Should().Be("neutral");
+        profile.Source.Should().Be("embedded:neutral");
+        profile.ProjectTypes.Should().BeNull();
+        profile.MenuVisibility.Should().BeEmpty();
+    }
+
     [Fact]
     public void NoneDoesNotReadAnyBundle() => Resolver.Resolve("none").Should().BeNull();
 

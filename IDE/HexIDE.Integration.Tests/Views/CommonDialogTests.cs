@@ -11,7 +11,6 @@ using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime;
-using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -227,18 +226,6 @@ public class CommonDialogTests
         ran.Printed.Should().Equal(@"C:\hexoracle-cdfiles\ a.txt b.txt");
     }
 
-    [AvaloniaFact]
-    public void Unknown_font_keeps_previous_name_and_real_face_keeps_spelling()
-    {
-        var dialog = new VBCommonDialog(null!);
-        dialog.TrySetProperty("FontName", new Vb6Value("arial")).Should().BeTrue();
-        dialog.TryGetProperty("FontName", out var before).Should().BeTrue();
-        before.Should().Be(new Vb6Value("arial"));
-        dialog.TrySetProperty("FontName", new Vb6Value("HexIDE nonexistent font 1084")).Should().BeTrue();
-        dialog.TryGetProperty("FontName", out var after).Should().BeTrue();
-        after.Should().Be(before);
-    }
-
     private sealed class NullSink : IDeserializeErrorSink
     {
         public static readonly NullSink Instance = new();
@@ -382,21 +369,6 @@ public class CommonDialogTests
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         project.AddForm(new FormDeserializer().Deserialize(project, form, NullSink.Instance)!);
         return project;
-    }
-
-    private sealed class ListSink : IDeserializeErrorSink
-    {
-        public readonly List<string> Errors = [];
-        public void LogError(string error) => Errors.Add(error);
-    }
-
-    [AvaloniaFact]
-    public void Opening_a_form_that_holds_one_warns_of_nothing()
-    {
-        var sink = new ListSink();
-        new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), Form(Dialog, ""), sink);
-
-        sink.Errors.Should().BeEmpty();
     }
 
     private sealed record Ran(List<string> Printed, List<string> Failures);

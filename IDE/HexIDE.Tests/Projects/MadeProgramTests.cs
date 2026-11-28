@@ -10,6 +10,7 @@ using HexIDE.Events;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Sidecar;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Projects;
 
@@ -44,7 +45,7 @@ public class MadeProgramTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(exe)!);
 
         var service = Service();
-        service.RuntimeDirectory = MadeProgramFactAttribute.MakeRuntime;
+        service.WithMaker(MadeProgramFactAttribute.MakeRuntime);
         windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(exe);
         await service.OpenProject(vbp);
         await service.MakeProject(loaded.Single());
@@ -78,7 +79,7 @@ public class MadeProgramTests : IDisposable
         return new ProjectService(            () => throw new InvalidOperationException("new-project dialog must not be reached"), windowManager,
             Substitute.For<IEventBus>(), projectManager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 }
 
@@ -92,7 +93,7 @@ public sealed class MadeProgramFactAttribute : FactAttribute
         ? set
         : Path.Join(RepoRoot(), "artifacts", "make-runtime");
 
-    public static string Runner => Path.Join(MakeRuntime, "standalone", ProjectService.StandaloneRunnerName() ?? "HexIDE.Standalone");
+    public static string Runner => Path.Join(MakeRuntime, "standalone", Vb6ProjectMaker.StandaloneRunnerName() ?? "HexIDE.Standalone");
 
     public MadeProgramFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
         : base(sourceFilePath, sourceLineNumber)

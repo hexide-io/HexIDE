@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Serialization;
 using BrowserFolder = HexIDE.Projects.ContainerFolder;
 using Avalonia.Platform.Storage;
 using HexIDE.Office;
@@ -31,7 +32,7 @@ public sealed class OfficeProjectBrowsingTests : IDisposable
         localization.GetString("Str.Archive.OpenErrorFormat").Returns("Cannot open {0}: {1}");
         dock.OpenDocuments.Returns(tabs);
         dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>())).Do(c => tabs.Add(c.Arg<BaseEditorWindowViewModel>()));
-        archives = new(dock, recent, localization, windows, Substitute.For<HexIDE.Language.IConditionalCodeReader>());
+        archives = new(dock, recent, localization, windows, Substitute.For<HexIDE.Language.ILanguageEditing>());
     }
 
     [Fact]
@@ -197,10 +198,10 @@ public sealed class OfficeProjectBrowsingTests : IDisposable
     {
         var types = new ContributedProjects();
         var format = new Vb6ProjectFileFormat();
-        Vb6ProjectType.Register(types, format);
+        Vb6Types.Register(types, format);
         return new ProjectService(() => throw new InvalidOperationException(), windows, Substitute.For<IEventBus>(), manager,
             recent, Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), archives, contributed: types);
+            localization, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), archives, contributed: types);
     }
 
     public void Dispose()

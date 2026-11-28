@@ -125,6 +125,7 @@ of the model's storage rule, not newly asserted VB6 measurements.
 
 Release, .NET 11, WSL Ubuntu on a shared host. Each timing is 10,000 calls after warm-up, over the same arguments
 for both implementations; absolute costs vary with host load. The full-model column is the unchanged #5259 code.
+These were taken with the probe's first timing order: each function warmed, then timed three times, before the next.
 
 | Function | Full model, µs/call | Fast, µs/call | Fast/full |
 |---|---:|---:|---:|
@@ -137,3 +138,34 @@ for both implementations; absolute costs vary with host load. The full-model col
 same hardware; they don't extend the VB6 oracle.
 
 With the four entry points routed back to the full model, the timing test fails: every ratio exceeds 0.1.
+
+## Timing order (#5590, 2026-11-26)
+
+The probe now warms all four functions before it times any, then times each over five passes in turn, keeping each
+function's fastest. Otherwise the function listed first pays the penalty measured below. Measurements recorded in [#5590](https://github.com/hexide-io/HexIDE/issues/5590), Release, .NET 11.0.100 SDK.
+
+**main's probe on an Apple M4 Mac mini** (arm64, macOS, 10 cores):
+
+| Condition | Runs | Result |
+|---|---:|---|
+| Idle | 5 | Sin 0.0391–0.0405, Cos 0.0381–0.0400, Tan 0.0407–0.0423, Atn 0.0493–0.0524. Exit 0 every time. |
+| Idle, Cos listed first | 5 | The first slot's fast time was 0.470, 0.370, 0.470, 0.473 and 0.370 µs. Sin, second, was 0.349–0.352 µs. |
+| 14 busy loops on the 10 cores | 3 | Sin (first) 0.565–0.694 µs fast, Cos 0.397–0.401 µs. Every ratio was 0.045 or less. |
+| Every method held at tier 0 (`DOTNET_TC_CallCounting=0`) | 3 | Fast 1.50–1.55 µs for Sin and Cos, about 4.3 times the tiered 0.35 µs. Ratios 0.055–0.061. |
+
+So on that machine Sin's fast path costs what Cos's does, and nothing reached 0.1. A per-architecture bound would widen the test with no cause, so it's out.
+
+The function timed first does pay a measured penalty, in 3 of the 5 idle Cos-first runs and all 3 loaded runs: 1.3 to 1.8 times the others' fast time. CI's 4.4 times is close to the tier-0 factor. That this is the CI cause is reasoned, not reproduced: nothing here produced CI's size of effect.
+
+**Updated timing order, in a scratch copy of main's probe:**
+
+| Machine and condition | Runs | Result |
+|---|---:|---|
+| M4, idle | 5 | Sin 0.0388–0.0393, Cos 0.0388–0.0395, Tan 0.0403–0.0418, Atn 0.0219–0.0227 |
+| M4, idle, Cos listed first | 5 | Cos 0.346–0.349 µs fast, Sin 0.346–0.350 µs: no first-slot penalty |
+| M4, 14 busy loops | 3 in each order | Every ratio 0.0102–0.0224. The first slot was 0.391–0.395 µs. |
+| Windows x64 workstation | 3 in each order | Every ratio 0.0197–0.0308 |
+| `X87Math.cs:25-28` routed to the four `*Exact` methods | 1 on each machine | Ratios 0.99–1.02, exit 1 |
+
+The tenth bound is unchanged. CI's 4.4-times excess was not reproduced; its cause is reasoned from these
+measurements. The issue stays open pending sustained green arm64 CI legs.

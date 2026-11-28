@@ -38,11 +38,11 @@ public sealed class AddinLanguageServerTests : IDisposable
         _host = new HexIdeHost(new AddinMenuService(), new AddinToolWindowService(), _events, _addins,
             new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), _projects),
             new AddinProjectService(_projects), _diagnostics, new AddinCommandService(), new AddinProjectTemplateService(),
-            _options, new ComponentRegistry(), _runner,
+            _options, InBoxRegistry.Create(), _runner,
             new LanguageServerContributions(Substitute.For<HexIDE.IDE.ISettingsService>(), _router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance),
                 new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance, null),
-            _launches, _types, new AddinResourceService());
+            _launches, _types, new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService());
     }
 
     public void Dispose()
@@ -82,6 +82,20 @@ public sealed class AddinLanguageServerTests : IDisposable
 
         using var inside = owned.RegisterLanguageServer(Probe() with { MessagePrefix = "rdcore/" });
         _router.Connections.Should().ContainSingle().Which.Origin.Should().Be("Owner Add-in");
+    }
+
+    // The Basic provider's servers belong to no package, so no package's page lists them, whatever id it names (#5597).
+    [Fact]
+    public void A_composed_owner_s_servers_are_listed_on_no_package_s_page()
+    {
+        var tools = new AddinToolWindowService();
+        var provider = new AddinOrigin(RegistrationGrants.BasicProvider, "HexIDE.Basic") { IsComposed = true };
+        var owned = new AddinOwnedHost(_host, tools.ForOwner(provider), provider);
+
+        using var connection = owned.RegisterLanguageServer(Probe());
+
+        _router.Connections.Should().ContainSingle();
+        _options.ServersFor("HexIDE.Basic").Should().BeEmpty();
     }
 
     [Fact]

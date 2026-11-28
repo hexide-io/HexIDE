@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
@@ -50,7 +51,6 @@ public class FormNumericValueTests
     [InlineData("CommandButton", "Left", "&H10")]
     [InlineData("CommandButton", "Left", "&HFF")]
     [InlineData("CommandButton", "MousePointer", "&H8000")]
-    [InlineData("CommandButton", "TabIndex", "&H3")]
     [InlineData("CommandButton", "BackColor", "-1")]
     [InlineData("CommandButton", "BackColor", "16777216")]
     [InlineData("CommandButton", "BackColor", "&O377")]
@@ -89,6 +89,31 @@ public class FormNumericValueTests
         var form = Load(Source("CommandButton", $"MousePointer = {text}\r\n"), sink);
         form.Components[1].GetPropertyOrDefault(VBProperties.MousePointerProperty).Should().Be((VBCursorType)expected);
         sink.Errors.Should().BeEmpty();
+    }
+
+    // VB6 SP6 measured &H3 with four decimal siblings in
+    // docs/vb6-fidelity-oracle/more-texts-a-frm-line-can-hold.md. The other spellings use the same reader as MousePointer.
+    [Theory]
+    [InlineData("&H3")]
+    [InlineData("&H3&")]
+    [InlineData("&O3")]
+    [InlineData("&h3")]
+    public void Short_radix_TabIndex_participates_in_tab_order_and_saves_as_decimal(string text)
+    {
+        string[] indexes = ["0", "1", "2", text, "4"];
+        var controls = string.Concat(indexes.Select((index, i) =>
+            $"   Begin VB.CommandButton K{i}\r\n      TabIndex = {index}\r\n   End\r\n"));
+        var sink = new Sink();
+        var form = Load("VERSION 5.00\r\nBegin VB.Form Form1\r\n" + controls + "End\r\n", sink);
+
+        form.Components.Skip(1).Select(c => c.GetPropertyOrDefault(VBProperties.TabIndexProperty))
+            .Should().Equal(0, 1, 2, 3, 4);
+        sink.Errors.Should().BeEmpty();
+        var saved = new FormSerializer().Serialize(form, "Form1.frm").frmText;
+        saved.ReplaceLineEndings("\n").Split('\n')
+            .Where(line => line.TrimStart().StartsWith("TabIndex ", StringComparison.Ordinal))
+            .Select(line => line.Split('=')[1].Trim())
+            .Should().Equal("0", "1", "2", "3", "4");
     }
 
     [Theory]

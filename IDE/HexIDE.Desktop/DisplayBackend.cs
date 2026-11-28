@@ -20,7 +20,7 @@ internal static class DisplayBackend
     {
         try
         {
-            return HexIDE.Runtime.UiThread.Run(start);
+            return HexIDE.IDE.UiThread.Run(start);
         }
         catch (AvaloniaWaylandException ex) when (OperatingSystem.IsLinux() && selection == "wayland")
         {

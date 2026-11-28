@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <PackageReference Include="AwesomeAssertions" />
+        <PackageReference Include="NSubstitute" />
         <PackageReference Include="xunit.v3.mtp-v2" />
         <PackageReference Include="Microsoft.Testing.Extensions.Telemetry" />
         <PackageReference Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" />
@@ -23,6 +24,7 @@
 
     <ItemGroup>
         <Using Include="AwesomeAssertions" />
+        <Using Include="NSubstitute" />
         <Using Include="Xunit" />
     </ItemGroup>
 
@@ -40,6 +42,11 @@
     <!-- The runner's load, for what DebuggerSignalGuard says when a debugger signal runs out (#4433). -->
     <ItemGroup>
         <Compile Include="..\HexIDE.Tests\Infrastructure\RunnerLoad.cs" Link="Infrastructure\RunnerLoad.cs" />
+    </ItemGroup>
+
+    <!-- Share project and document factories with the IDE tests. -->
+    <ItemGroup>
+        <Compile Include="..\HexIDE.Tests\TestHelpers.cs" Link="Infrastructure\TestHelpers.cs" />
     </ItemGroup>
 
   <ItemGroup>

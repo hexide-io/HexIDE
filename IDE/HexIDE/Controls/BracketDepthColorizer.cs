@@ -41,10 +41,15 @@ internal sealed class BracketDepthColorizer : DocumentColorizingTransformer, IDi
         }
     }
 
-    private void OnTextChanged(object? sender, EventArgs e)
+    private void OnTextChanged(object? sender, EventArgs e) => Invalidate();
+
+    /// <summary>
+    /// Reads the brackets again at the next draw: after an edit, which can change pairing on lines AvaloniaEdit would otherwise
+    /// retain, and after the reader's language gains or loses its registered helper (#5403).
+    /// </summary>
+    internal void Invalidate()
     {
         _marks = null;
-        // An edit can change pairing on lines AvaloniaEdit would otherwise retain.
         _editor.TextArea.TextView.Redraw();
     }
 

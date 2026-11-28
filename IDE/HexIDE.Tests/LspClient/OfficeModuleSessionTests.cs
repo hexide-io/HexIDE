@@ -24,7 +24,7 @@ public class OfficeModuleSessionTests
     {
         var project = OfficeBrowserProject.Read(OfficeProjectBrowsingTests.CorpusFile(file));
         var entry = project.Root.Children.Single(f => f.Name == kind).Children.Single(e => e.Name == name);
-        using var tab = new ArchiveDocumentViewModel(entry, Substitute.For<ILocalizationService>(), Substitute.For<IConditionalCodeReader>());
+        using var tab = new ArchiveDocumentViewModel(entry, Substitute.For<ILocalizationService>(), Substitute.For<ILanguageEditing>());
         tab.DocumentUri.Should().Be(ArchiveEntryUri.ForEntry(project.ContainerPath, [kind, name + extension]));
         entry.Identity.Segments.Should().Equal(kind, name);
         project.SupportsLanguageServers.Should().BeTrue();
@@ -35,7 +35,7 @@ public class OfficeModuleSessionTests
     {
         var path = Path.Combine(Path.GetTempPath(), "Demo.twinproj");
         var entry = new ContainerDocument(new ArchiveEntryIdentity(path, ["Sources", "Module1.twin"]), "Module1.twin");
-        using var tab = new ArchiveDocumentViewModel(entry, Substitute.For<ILocalizationService>(), Substitute.For<IConditionalCodeReader>());
+        using var tab = new ArchiveDocumentViewModel(entry, Substitute.For<ILocalizationService>(), Substitute.For<ILanguageEditing>());
         tab.DocumentUri.Should().Be(ArchiveEntryUri.ForEntry(path, ["Sources", "Module1.twin"]));
     }
 
@@ -75,7 +75,7 @@ public class OfficeModuleSessionTests
             try
             {
                 using (var tab = new ArchiveDocumentViewModel(entry, Substitute.For<ILocalizationService>(),
-                           Substitute.For<IConditionalCodeReader>(), lspClient: registry))
+                           Substitute.For<ILanguageEditing>(), lspClient: registry))
                 {
                     (await published.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken))
                         .Diagnostics.Should().BeEmpty();

@@ -14,13 +14,12 @@ public class ProgramHostSeamTests
     [Fact]
     public void Run_engine_shows_program_dialogs_and_gets_failure_texts_through_Core()
     {
-        // Until step 2b moves the engine out, it is this one file. Finding it is part of the test, so a rename can't leave
-        // the guard passing over nothing.
-        File.Exists(Path.Combine(RepoTree.Root(), "IDE", "HexIDE", "IDE", "InterpreterRunEngine.cs"))
-            .Should().BeTrue("the guard reads the run engine where it stands until step 2b moves it");
-        ProductSource.FilesMatching(Forbidden)
-            .Where(file => Path.GetFileName(file) == "InterpreterRunEngine.cs")
-            .Should().BeEmpty();
+        // The engine is the provider's now (#5616), where the IDE's window types can't even be named. Finding the file is part
+        // of the test, so a rename can't leave the guard passing over nothing.
+        var engine = Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Runtime", "Running", "InterpreterRunEngine.cs");
+        File.Exists(engine).Should().BeTrue("the guard reads the run engine where the provider keeps it");
+        File.Exists(Path.Combine(RepoTree.Root(), "IDE", "HexIDE", "IDE", "InterpreterRunEngine.cs")).Should().BeFalse();
+        Forbidden.IsMatch(File.ReadAllText(engine)).Should().BeFalse();
     }
     [Fact]
     public void Program_host_and_file_picker_mapping_do_not_name_the_runtime()

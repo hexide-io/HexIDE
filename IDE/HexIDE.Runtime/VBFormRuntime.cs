@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Dialogs;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime;
@@ -69,12 +70,13 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     
     public VBFormRuntime()
     {
+        MessageBoxFormHold.HoldInput(this);
         AddHandler(GotFocusEvent, (_, e) =>
         {
             if (e is FocusChangedEventArgs moved && FindControl(this, moved.NewFocusedElement as ILogical) is { } control)
                 ActiveControl = control;
         }, RoutingStrategies.Bubble, handledEventsToo: true);
-        windowContext = new VBWindowContext(new StandaloneStandardLib(this, HexIDE.IDE.Distribution.DisplayName)) { Window = this };
+        windowContext = new VBWindowContext(new StandaloneStandardLib(this, "")) { Window = this };
         // Held by a modal form, the window takes no input of its own (#822): what reaches it is stopped on the way down, and
         // activating it brings the modal form forward instead.
         foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerPressedEvent, PointerReleasedEvent, PointerWheelChangedEvent })
@@ -288,6 +290,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         // Sub Main). Activated posts the events (#994), except Me.Show inside Load's measured exception (#2436).
         if ((windowContext.Loading || !wasShown) && IsEnabled && heldBy is null)
             windowContext.Program?.Activated(windowContext);
+        MessageBoxFormHold.RefreshNative(this);
     }
 
     private void ClearLeavingOwnership()
@@ -303,6 +306,7 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     {
         ClearLeavingOwnership();
         Hide();
+        MessageBoxFormHold.RefreshNative(this);
     }
 
     public bool IsShown => IsVisible;

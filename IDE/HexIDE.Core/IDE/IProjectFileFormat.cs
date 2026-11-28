@@ -89,6 +89,15 @@ public interface IProjectFileFormat : IFormFileFormat
     /// </summary>
     (string Header, string Body) SplitModule(string text, ModuleKind kind);
 
+    /// <summary>The leading Attribute block of VB code; empty by default for a format without VB headers.</summary>
+    string AttributeBlock(string code) => "";
+
+    /// <summary>The VB_Name in a VB header; the fallback name by default for a format without VB headers.</summary>
+    string ModuleNameFor(string fallbackName, string? header) => fallbackName;
+
+    /// <summary>Whether text is a VB designer file; false by default for a format without VB headers.</summary>
+    bool IsDesignerFile(string text) => false;
+
     /// <summary>
     /// The text the code window puts in front of a form's code. Its whole text is <c>CodePrefix(x) + x.Code</c>;
     /// the reader reads its regions with this prefix's length.
@@ -126,6 +135,21 @@ public interface IProjectFileFormat : IFormFileFormat
     /// injected regions then stand in (<see cref="ProjectFormats"/>).
     /// </summary>
     FormatRegions? Regions => null;
+
+    /// <summary>
+    /// The class of a new designer root of this type, such as <c>VB.Form</c>, <c>VB.UserControl</c> or
+    /// <c>VB.PropertyPage</c>: what the IDE gives a form, UserControl or PropertyPage it adds to a project in this format
+    /// (#3411 slice 2.4f-2). Null, the default, for a root this format can't make, and the IDE then refuses the add. The
+    /// IDE refuses a class whose role isn't <see cref="ComponentRole.Form"/> the same way.
+    /// </summary>
+    IComponentClass? NewRootClass(string typeName) => null;
+
+    /// <summary>
+    /// The class of a menu item the Menu Editor adds to a form in this format (#3411 slice 2.4f-2). Null, the default, for
+    /// a format whose forms hold no menus, and the IDE then refuses the new item. The IDE refuses a class whose role isn't
+    /// <see cref="ComponentRole.Menu"/> the same way.
+    /// </summary>
+    IComponentClass? NewMenuClass => null;
 }
 
 /// <summary>A format's read-only regions, found, rewritten and enforced by these three (#4053).</summary>

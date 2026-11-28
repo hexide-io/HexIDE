@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Classic.Avalonia.Theme;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Imaging;
 using HexIDE.Runtime.AvaloniaInterop;
 
 namespace HexIDE.Runtime.BuiltinControls;

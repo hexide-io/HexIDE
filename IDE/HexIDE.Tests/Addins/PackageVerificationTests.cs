@@ -368,7 +368,22 @@ public sealed class PackageVerificationTests : IDisposable
         var r = PackageVerification.Verify(_pkg, otherRootPub);
 
         r.IsVerified.Should().BeFalse();
+        r.Error.Should().Contain("a root this HexIDE doesn't carry");
+        r.UnrecognisedRootFingerprint.Should().Be(PackageCrypto.KeyFingerprint(_rootPub),
+            "the packer put the chain's own root in the package, and the chain verifies under it");
+    }
+
+    [Fact]
+    public void A_package_from_before_root_keys_reads_as_an_invalid_signature()
+    {
+        var otherTrust = Path.Combine(_root, "other");
+        PackageSigner.GenerateDevTrust(otherTrust);
+        File.Delete(Path.Combine(_pkg, PackageVerification.PackageRootFile));
+
+        var r = PackageVerification.Verify(_pkg, File.ReadAllText(Path.Combine(otherTrust, "hexide-root.pub")).Trim());
+
         r.Error.Should().Contain("intermediate signature invalid");
+        r.UnrecognisedRootFingerprint.Should().BeNull("the package carries no root key to name");
     }
 
     [Fact]
@@ -618,5 +633,114 @@ public sealed class PackageVerificationTests : IDisposable
         var keyB64 = File.ReadAllText(Path.Combine(_trust, "firstparty.key")).Trim();
         using var key = PackageCrypto.ImportPrivateKey(keyB64);
         File.WriteAllText(Path.Combine(pkg, "addin.sig"), PackageCrypto.Sign(key, newBytes));
+    }
+
+    // #5316: a package carries the root key its chain was signed under. When that isn't this build's root, the package is
+    // refused as before, and the result names the root only if the chain really verifies under it.
+    private string PackUnder(string trust, string name)
+    {
+        var pkg = Path.Combine(_root, name);
+        PackageSigner.Pack(new PackRequest
+        {
+            SrcDir = Path.Combine(_root, "src"), OutDir = pkg, Id = "com.test.addin", Title = "Test Addin", Version = "1.0.0",
+            Author = "Tester", Entry = "MyAddin.dll", TrustDir = trust,
+        });
+        return pkg;
+    }
+
+    private string NewTrust(string name)
+    {
+        var trust = Path.Combine(_root, name);
+        PackageSigner.GenerateDevTrust(trust);
+        return trust;
+    }
+
+    private static string RootOf(string trust) => File.ReadAllText(Path.Combine(trust, "hexide-root.pub")).Trim();
+
+    private static void CarryRoot(string pkg, string rootPub) =>
+        File.WriteAllText(Path.Combine(pkg, PackageVerification.PackageRootFile), rootPub);
+
+    [Fact]
+    public void A_chain_under_the_root_the_package_carries_is_refused_and_names_that_root()
+    {
+        var foreign = NewTrust("foreign");
+        var pkg = PackUnder(foreign, "foreign-pkg");
+        CarryRoot(pkg, RootOf(foreign));
+
+        var r = PackageVerification.Verify(pkg, _rootPub, _firstPartyPub);
+
+        r.Verdict.Should().Be(PackageVerdict.Untrusted, "the embedded root alone decides");
+        r.UnrecognisedRootFingerprint.Should().Be(PackageCrypto.KeyFingerprint(RootOf(foreign)));
+        r.Error.Should().Contain("a root this HexIDE doesn't carry");
+        r.Chain.Should().BeNull();
+        r.IsFirstParty.Should().BeFalse();
+        r.PublisherDisplayName.Should().BeNull();
+        r.VerifiedDeclaration.Should().BeNull();
+        r.PublisherNamespaces.Should().BeNull();
+    }
+
+    [Fact]
+    public void A_copied_real_root_key_does_not_lend_its_fingerprint_to_another_chain()
+    {
+        var pkg = PackUnder(NewTrust("forger"), "borrowed");
+        CarryRoot(pkg, _rootPub);
+
+        var r = PackageVerification.Verify(pkg, _rootPub);
+
+        r.Verdict.Should().Be(PackageVerdict.Untrusted);
+        r.UnrecognisedRootFingerprint.Should().BeNull("the chain doesn't verify under the root it names");
+        r.Error.Should().Contain("intermediate signature invalid");
+    }
+
+    [Fact]
+    public void A_root_key_that_did_not_sign_the_chain_is_not_named()
+    {
+        var pkg = PackUnder(NewTrust("signer"), "unrelated");
+        CarryRoot(pkg, RootOf(NewTrust("bystander")));
+
+        var r = PackageVerification.Verify(pkg, _rootPub);
+
+        r.UnrecognisedRootFingerprint.Should().BeNull();
+        r.Error.Should().Contain("intermediate signature invalid");
+    }
+
+    [Theory]
+    [InlineData("not a key")]
+    [InlineData("")]
+    public void An_unreadable_root_key_is_ignored(string content)
+    {
+        var pkg = PackUnder(NewTrust("foreign"), "garbled");
+        CarryRoot(pkg, content);
+
+        var r = PackageVerification.Verify(pkg, _rootPub);
+
+        r.UnrecognisedRootFingerprint.Should().BeNull();
+        r.Error.Should().Contain("intermediate signature invalid");
+    }
+
+    [Fact]
+    public void A_broken_package_under_an_unrecognised_root_reports_the_break_not_the_root()
+    {
+        var foreign = NewTrust("foreign");
+        var pkg = PackUnder(foreign, "broken");
+        CarryRoot(pkg, RootOf(foreign));
+        File.WriteAllBytes(Path.Combine(pkg, "MyAddin.dll"), [9, 9, 9]);
+
+        var r = PackageVerification.Verify(pkg, _rootPub);
+
+        r.Verdict.Should().Be(PackageVerdict.Untrusted);
+        r.Error.Should().Contain("hash mismatch");
+        r.UnrecognisedRootFingerprint.Should().BeNull();
+    }
+
+    [Fact]
+    public void A_verified_package_may_carry_its_root_key()
+    {
+        CarryRoot(_pkg, _rootPub);
+
+        var r = PackageVerification.Verify(_pkg, _rootPub);
+
+        r.IsVerified.Should().BeTrue(r.Error ?? "");
+        r.UnrecognisedRootFingerprint.Should().BeNull();
     }
 }

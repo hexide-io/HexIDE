@@ -1,3 +1,5 @@
+using HexIDE.Runtime.Serialization;
+using HexIDE.Tests.Infrastructure;
 using System.IO;
 using Avalonia.Platform.Storage;
 using HexIDE.Addins;
@@ -59,7 +61,7 @@ public sealed class Vb6ProjectTemplatesTests
                 Substitute.For<ISettingsService>(), Substitute.For<IProfileService>(), Substitute.For<ILocalizationService>()),
             Substitute.For<IWindowManager>(), Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), Substitute.For<ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), templates: templates);
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), templates: templates);
     }
 
     [Fact]
@@ -75,7 +77,9 @@ public sealed class Vb6ProjectTemplatesTests
 
         await Service(projects, registered).CreateDefaultProject();
 
-        projects.Received(1).NewProject(first, Arg.Any<string>(), Arg.Any<Action<ProjectDefinition>>());
+        // Made for VB6's format, which the project is given after the template returns it (#3411 slice 2.4f-2).
+        projects.Received(1).NewProject(first, Arg.Any<string>(), Arg.Any<Action<ProjectDefinition>>(),
+            Arg.Is<HexIDE.IDE.IProjectFileFormat?>(format => format is Vb6ProjectFileFormat));
     }
 
     [Fact]
@@ -95,7 +99,7 @@ public sealed class Vb6ProjectTemplatesTests
     private static ContributedProjects Types(bool withAddin)
     {
         var types = new ContributedProjects();
-        Vb6ProjectType.Register(types, new Vb6ProjectFileFormat());
+        Vb6Types.Register(types, new Vb6ProjectFileFormat());
         if (withAddin)
             types.Register(new AddinProjectType("RDCore projects")
             {
@@ -139,7 +143,7 @@ public sealed class Vb6ProjectTemplatesTests
         var sidecar = Substitute.For<IUserSidecarService>();
         var service = new ProjectService(            () => throw new InvalidOperationException("no new-project dialog here"), windows, Substitute.For<IEventBus>(), projects,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(),
-            new LocalizationService(), Substitute.For<IHeaderRefresher>(),             new ComponentRegistry(), contributed: Types(withAddin: true));
+            new LocalizationService(), Substitute.For<IHeaderRefresher>(),             InBoxRegistry.Create(), contributed: Types(withAddin: true));
 
         var open = () => service.OpenProject();
 

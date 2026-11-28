@@ -48,7 +48,7 @@ public class WorkspaceRenameTests : IDisposable
                 active = found;
                 return true;
             });
-        editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
+        editors = new EditorService(Substitute.For<HexIDE.IDE.IWindowManager>(), dock, NewEditor, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
         localization.GetString("Str.CodeEditor.Msg.RenameDocumentRefused").Returns("Rename refused: {0}");
         localization.GetString("Str.CodeEditor.Msg.RenameStaleVersion").Returns("Cannot rename {0}: stale version. Try again.");

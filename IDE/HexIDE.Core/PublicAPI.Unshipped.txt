@@ -23,4 +23,189 @@ HexIDE.Runtime.Components.ComponentInstance.SetPreservedChildText(int index, str
 HexIDE.Addins.IAddinCodeEditorActions.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 HexIDE.Addins.IAddinServerConnection.GoToLocationAsync(string! uri, HexIDE.Lsp.Messages.Range! range, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 HexIDE.Addins.IHexIdeHost.ReportFailure(string! message, System.Exception? exception = null) -> void
+HexIDE.IDE.Vb6TextEncoding.GetEncoding() -> System.Text.Encoding!
 HexIDE.Addins.IHexIdeHost.RegisterResources(System.Uri! dictionary) -> System.IDisposable!
+HexIDE.Runtime.Components.DesignerInset
+HexIDE.Runtime.Components.DesignerInset.Bottom.get -> double
+HexIDE.Runtime.Components.DesignerInset.Bottom.init -> void
+HexIDE.Runtime.Components.DesignerInset.Deconstruct(out double Left, out double Top, out double Right, out double Bottom) -> void
+HexIDE.Runtime.Components.DesignerInset.DesignerInset() -> void
+HexIDE.Runtime.Components.DesignerInset.DesignerInset(double Left, double Top, double Right, double Bottom) -> void
+HexIDE.Runtime.Components.DesignerInset.Equals(HexIDE.Runtime.Components.DesignerInset other) -> bool
+HexIDE.Runtime.Components.DesignerInset.Left.get -> double
+HexIDE.Runtime.Components.DesignerInset.Left.init -> void
+HexIDE.Runtime.Components.DesignerInset.Right.get -> double
+HexIDE.Runtime.Components.DesignerInset.Right.init -> void
+HexIDE.Runtime.Components.DesignerInset.Top.get -> double
+HexIDE.Runtime.Components.DesignerInset.Top.init -> void
+HexIDE.Runtime.Components.IDesignerComponent
+HexIDE.Runtime.Components.IDesignerComponent.AddedSize.get -> (int Width, int Height)
+HexIDE.Runtime.Components.IDesignerComponent.ClientInset(HexIDE.Runtime.Components.ComponentInstance! instance) -> HexIDE.Runtime.Components.DesignerInset
+HexIDE.Runtime.Components.IDesignerComponent.IsWindowless.get -> bool
+override HexIDE.Runtime.Components.DesignerInset.GetHashCode() -> int
+static HexIDE.Runtime.Components.DesignerInset.operator !=(HexIDE.Runtime.Components.DesignerInset left, HexIDE.Runtime.Components.DesignerInset right) -> bool
+static HexIDE.Runtime.Components.DesignerInset.operator ==(HexIDE.Runtime.Components.DesignerInset left, HexIDE.Runtime.Components.DesignerInset right) -> bool
+~override HexIDE.Runtime.Components.DesignerInset.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.DesignerInset.ToString() -> string
+HexIDE.Addins.IHexIdeHost.RegisterLanguagePacks(System.Uri! folder) -> System.IDisposable!
+HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Control = 0 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Form = 1 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Menu = 2 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.ComponentRole.Line = 3 -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.IComponentClass.Role.get -> HexIDE.Runtime.Components.ComponentRole
+HexIDE.Runtime.Components.IComponentClass.IsContainer.get -> bool
+HexIDE.Runtime.Components.IControlLibrary
+HexIDE.Runtime.Components.IControlLibrary.Description.get -> string!
+HexIDE.Runtime.Components.IControlLibrary.File.get -> string!
+HexIDE.Runtime.Components.IControlLibrary.FormLine.get -> string!
+HexIDE.Runtime.Components.IControlLibrary.Guid.get -> string!
+HexIDE.Runtime.Components.IControlLibrary.IsNamedBy(HexIDE.Runtime.ProjectElements.ObjectReference reference) -> bool
+HexIDE.Runtime.Components.IControlLibrary.IsNamedBy(HexIDE.Runtime.ProjectElements.VbReference! reference) -> bool
+HexIDE.Runtime.Components.IControlLibrary.Name.get -> string!
+HexIDE.Runtime.Components.IControlLibrary.ProjectLine.get -> string!
+HexIDE.Runtime.Components.IControlLibrary.TypeName(string! className) -> string!
+HexIDE.Addins.IHexIdeHost.RegisterDesignerPictures(System.Func<HexIDE.Runtime.Components.IDesignerDrawingSurface!, HexIDE.Runtime.Components.IDesignerPictures!>! pictures) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterToolboxItem(HexIDE.Runtime.Components.IComponentClass! component, string? iconKey = null) -> System.IDisposable!
+HexIDE.Addins.IHexIdeHost.RegisterControlLibrary(HexIDE.Runtime.Components.IControlLibrary! library, System.Func<System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.IComponentClass!>!>! controls) -> System.IDisposable!
+HexIDE.Runtime.Components.IDesignerDrawingSurface
+HexIDE.Runtime.Components.IDesignerDrawingSurface.Attach(object! visual) -> void
+HexIDE.Runtime.Components.IDesignerDrawingSurface.Detach(object! visual) -> void
+HexIDE.Runtime.Components.IDesignerDrawingSurface.UpdateLayout() -> void
+HexIDE.Runtime.Components.DesignerDrawRequest
+HexIDE.Runtime.Components.DesignerDrawRequest.Deconstruct(out int PixelWidth, out int PixelHeight, out (double X, double Y) LineTwipsPerUnit) -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.DesignerDrawRequest() -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.DesignerDrawRequest(int PixelWidth, int PixelHeight, (double X, double Y) LineTwipsPerUnit) -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.Equals(HexIDE.Runtime.Components.DesignerDrawRequest other) -> bool
+HexIDE.Runtime.Components.DesignerDrawRequest.LineTwipsPerUnit.get -> (double X, double Y)
+HexIDE.Runtime.Components.DesignerDrawRequest.LineTwipsPerUnit.init -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.PixelHeight.get -> int
+HexIDE.Runtime.Components.DesignerDrawRequest.PixelHeight.init -> void
+HexIDE.Runtime.Components.DesignerDrawRequest.PixelWidth.get -> int
+HexIDE.Runtime.Components.DesignerDrawRequest.PixelWidth.init -> void
+HexIDE.Runtime.Components.DesignerPicture
+HexIDE.Runtime.Components.DesignerPicture.<Clone>$() -> HexIDE.Runtime.Components.DesignerPicture!
+HexIDE.Runtime.Components.DesignerPicture.Deconstruct(out int PixelWidth, out int PixelHeight, out byte[]! Pixels, out double MinWidth, out double MinHeight, out double MaxWidth, out double MaxHeight) -> void
+HexIDE.Runtime.Components.DesignerPicture.DesignerPicture(int PixelWidth, int PixelHeight, byte[]! Pixels, double MinWidth, double MinHeight, double MaxWidth, double MaxHeight) -> void
+HexIDE.Runtime.Components.DesignerPicture.Equals(HexIDE.Runtime.Components.DesignerPicture? other) -> bool
+HexIDE.Runtime.Components.DesignerPicture.MaxHeight.get -> double
+HexIDE.Runtime.Components.DesignerPicture.MaxHeight.init -> void
+HexIDE.Runtime.Components.DesignerPicture.MaxWidth.get -> double
+HexIDE.Runtime.Components.DesignerPicture.MaxWidth.init -> void
+HexIDE.Runtime.Components.DesignerPicture.MinHeight.get -> double
+HexIDE.Runtime.Components.DesignerPicture.MinHeight.init -> void
+HexIDE.Runtime.Components.DesignerPicture.MinWidth.get -> double
+HexIDE.Runtime.Components.DesignerPicture.MinWidth.init -> void
+HexIDE.Runtime.Components.DesignerPicture.PixelHeight.get -> int
+HexIDE.Runtime.Components.DesignerPicture.PixelHeight.init -> void
+HexIDE.Runtime.Components.DesignerPicture.PixelWidth.get -> int
+HexIDE.Runtime.Components.DesignerPicture.PixelWidth.init -> void
+HexIDE.Runtime.Components.DesignerPicture.Pixels.get -> byte[]!
+HexIDE.Runtime.Components.DesignerPicture.Pixels.init -> void
+HexIDE.Runtime.Components.IDesignerPictures
+HexIDE.Runtime.Components.IDesignerPictures.Draw(HexIDE.Runtime.Components.ComponentInstance! instance, HexIDE.Runtime.Components.DesignerDrawRequest request) -> HexIDE.Runtime.Components.DesignerPicture!
+override HexIDE.Runtime.Components.DesignerDrawRequest.GetHashCode() -> int
+override HexIDE.Runtime.Components.DesignerPicture.Equals(object? obj) -> bool
+override HexIDE.Runtime.Components.DesignerPicture.GetHashCode() -> int
+override HexIDE.Runtime.Components.DesignerPicture.ToString() -> string!
+static HexIDE.Runtime.Components.DesignerDrawRequest.operator !=(HexIDE.Runtime.Components.DesignerDrawRequest left, HexIDE.Runtime.Components.DesignerDrawRequest right) -> bool
+static HexIDE.Runtime.Components.DesignerDrawRequest.operator ==(HexIDE.Runtime.Components.DesignerDrawRequest left, HexIDE.Runtime.Components.DesignerDrawRequest right) -> bool
+static HexIDE.Runtime.Components.DesignerPicture.operator !=(HexIDE.Runtime.Components.DesignerPicture? left, HexIDE.Runtime.Components.DesignerPicture? right) -> bool
+static HexIDE.Runtime.Components.DesignerPicture.operator ==(HexIDE.Runtime.Components.DesignerPicture? left, HexIDE.Runtime.Components.DesignerPicture? right) -> bool
+~override HexIDE.Runtime.Components.DesignerDrawRequest.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.DesignerDrawRequest.ToString() -> string
+HexIDE.Runtime.Components.ComponentMember
+HexIDE.Runtime.Components.ComponentMember.ComponentMember(string! Name, HexIDE.Runtime.Components.ComponentMemberKind Kind, bool HexIdeOnly) -> void
+HexIDE.Runtime.Components.ComponentMember.HexIdeOnly.get -> bool
+HexIDE.Runtime.Components.ComponentMember.HexIdeOnly.init -> void
+HexIDE.Runtime.Components.ComponentMember.Kind.get -> HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.ComponentMember.Kind.init -> void
+HexIDE.Runtime.Components.ComponentMember.Name.get -> string!
+HexIDE.Runtime.Components.ComponentMember.Name.init -> void
+HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.ComponentMemberKind.Event = 2 -> HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.ComponentMemberKind.Method = 1 -> HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.ComponentMemberKind.Property = 0 -> HexIDE.Runtime.Components.ComponentMemberKind
+HexIDE.Runtime.Components.IComponentMemberTable
+HexIDE.Runtime.Components.IComponentMemberTable.MembersIn(HexIDE.Runtime.Components.IControlLibrary? library) -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentMember!>!
+HexIDE.Runtime.Components.IControlLibrary.Version.get -> string!
+HexIDE.Runtime.Components.IControlLibraryContents
+HexIDE.Runtime.Components.IControlLibraryContents.Types.get -> System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.LibraryType!>!
+HexIDE.Runtime.Components.LibraryType
+HexIDE.Runtime.Components.LibraryType.Component.get -> HexIDE.Runtime.Components.IComponentClass?
+HexIDE.Runtime.Components.LibraryType.Component.init -> void
+HexIDE.Runtime.Components.LibraryType.DeclaredMembers.get -> System.Collections.Generic.IReadOnlyList<string!>!
+HexIDE.Runtime.Components.LibraryType.DeclaredMembers.init -> void
+HexIDE.Runtime.Components.LibraryType.LibraryType(string! Name, HexIDE.Runtime.Components.IComponentClass? Component, System.Collections.Generic.IReadOnlyList<string!>! DeclaredMembers) -> void
+HexIDE.Runtime.Components.LibraryType.Name.get -> string!
+HexIDE.Runtime.Components.LibraryType.Name.init -> void
+HexIDE.Runtime.Components.DesignerCaption
+HexIDE.Runtime.Components.DesignerCaption.<Clone>$() -> HexIDE.Runtime.Components.DesignerCaption!
+HexIDE.Runtime.Components.DesignerCaption.Deconstruct(out byte[]? Image, out bool UseFormGlyph, out bool Visible) -> void
+HexIDE.Runtime.Components.DesignerCaption.DesignerCaption(byte[]? Image, bool UseFormGlyph, bool Visible) -> void
+HexIDE.Runtime.Components.DesignerCaption.Equals(HexIDE.Runtime.Components.DesignerCaption? other) -> bool
+HexIDE.Runtime.Components.DesignerCaption.Image.get -> byte[]?
+HexIDE.Runtime.Components.DesignerCaption.Image.init -> void
+HexIDE.Runtime.Components.DesignerCaption.UseFormGlyph.get -> bool
+HexIDE.Runtime.Components.DesignerCaption.UseFormGlyph.init -> void
+HexIDE.Runtime.Components.DesignerCaption.Visible.get -> bool
+HexIDE.Runtime.Components.DesignerCaption.Visible.init -> void
+HexIDE.Runtime.Components.IDesignerCaption
+HexIDE.Runtime.Components.IDesignerCaption.CaptionOf(HexIDE.Runtime.Components.ComponentInstance! instance) -> HexIDE.Runtime.Components.DesignerCaption!
+HexIDE.Runtime.Components.IDesignerDrawnDefaults
+HexIDE.Runtime.Components.IDesignerDrawnDefaults.Drawn(HexIDE.Runtime.Components.ComponentInstance! instance, string! name) -> void
+override HexIDE.Runtime.Components.DesignerCaption.Equals(object? obj) -> bool
+override HexIDE.Runtime.Components.DesignerCaption.GetHashCode() -> int
+override HexIDE.Runtime.Components.DesignerCaption.ToString() -> string!
+static HexIDE.Runtime.Components.DesignerCaption.operator !=(HexIDE.Runtime.Components.DesignerCaption? left, HexIDE.Runtime.Components.DesignerCaption? right) -> bool
+static HexIDE.Runtime.Components.DesignerCaption.operator ==(HexIDE.Runtime.Components.DesignerCaption? left, HexIDE.Runtime.Components.DesignerCaption? right) -> bool
+HexIDE.IDE.IProjectFileFormat.AttributeBlock(string! code) -> string!
+HexIDE.IDE.IProjectFileFormat.IsDesignerFile(string! text) -> bool
+HexIDE.IDE.IProjectFileFormat.ModuleNameFor(string! fallbackName, string? header) -> string!
+const HexIDE.Addins.PackageVerification.PackageRootFile = "root.pub" -> string!
+HexIDE.Addins.AddinInfo.UnrecognisedRootFingerprint.get -> string?
+HexIDE.Addins.AddinInfo.UnrecognisedRootFingerprint.init -> void
+HexIDE.Addins.PackageVerificationResult.UnrecognisedRootFingerprint.get -> string?
+HexIDE.Addins.PackageVerificationResult.UnrecognisedRootFingerprint.init -> void
+HexIDE.Addins.IAddinLoader.StartRevocationChecks() -> void
+HexIDE.Runtime.Components.DesignerBounds
+HexIDE.Runtime.Components.DesignerBounds.Deconstruct(out double Left, out double Top, out double Width, out double Height) -> void
+HexIDE.Runtime.Components.DesignerBounds.DesignerBounds() -> void
+HexIDE.Runtime.Components.DesignerBounds.DesignerBounds(double Left, double Top, double Width, double Height) -> void
+HexIDE.Runtime.Components.DesignerBounds.Equals(HexIDE.Runtime.Components.DesignerBounds other) -> bool
+HexIDE.Runtime.Components.DesignerBounds.Height.get -> double
+HexIDE.Runtime.Components.DesignerBounds.Height.init -> void
+HexIDE.Runtime.Components.DesignerBounds.Left.get -> double
+HexIDE.Runtime.Components.DesignerBounds.Left.init -> void
+HexIDE.Runtime.Components.DesignerBounds.Top.get -> double
+HexIDE.Runtime.Components.DesignerBounds.Top.init -> void
+HexIDE.Runtime.Components.DesignerBounds.Width.get -> double
+HexIDE.Runtime.Components.DesignerBounds.Width.init -> void
+HexIDE.Runtime.Components.IDesignerAddedPlacement
+HexIDE.Runtime.Components.IDesignerAddedPlacement.AddedBounds(double formWidth, double formHeight) -> HexIDE.Runtime.Components.DesignerBounds?
+HexIDE.Runtime.Components.IDesignerAddedPlacement.AddedOnGrid.get -> bool
+HexIDE.Runtime.Components.IDesignerPages
+HexIDE.Runtime.Components.IDesignerPages.LoadPages(HexIDE.Runtime.Components.ComponentInstance! instance) -> void
+HexIDE.Runtime.Components.IDesignerPages.PageCount(HexIDE.Runtime.Components.ComponentInstance! instance) -> int
+HexIDE.Runtime.Components.IDesignerPages.PageOf(HexIDE.Runtime.Components.ComponentInstance! instance, string! childName) -> int?
+HexIDE.Runtime.Components.IDesignerPages.PageSwitchRefusal(HexIDE.Runtime.Components.ComponentInstance! instance) -> string?
+HexIDE.Runtime.Components.IDesignerPages.ShowPage(HexIDE.Runtime.Components.ComponentInstance! instance, int page, System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>! children) -> void
+HexIDE.Runtime.Components.IDesignerPages.ShowPageAt(HexIDE.Runtime.Components.ComponentInstance! instance, double x, double y, double width, double height, System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>! children) -> bool
+HexIDE.Runtime.Components.IDesignerPages.ShownPage(HexIDE.Runtime.Components.ComponentInstance! instance) -> int
+HexIDE.Runtime.Components.IDesignerPages.SynchronizePages(HexIDE.Runtime.Components.ComponentInstance! instance, System.Collections.Generic.IReadOnlyList<HexIDE.Runtime.Components.ComponentInstance!>! children) -> void
+HexIDE.Runtime.Components.IDesignerLibraryControl
+HexIDE.Runtime.Components.IDesignerLibraryControl.LibraryOf(HexIDE.Runtime.Components.ComponentInstance! instance) -> HexIDE.Runtime.Components.IControlLibrary?
+HexIDE.Runtime.Components.IDesignerLibraryControl.PlacedFrom(HexIDE.Runtime.Components.ComponentInstance! instance, HexIDE.Runtime.Components.IControlLibrary! library) -> void
+HexIDE.Addins.IHexIdeHost.RegisterDesignPositions(HexIDE.Runtime.Components.IDesignPositions! positions) -> System.IDisposable!
+HexIDE.Runtime.Components.IDesignPositions
+HexIDE.Runtime.Components.IDesignPositions.LineTwipsPerUnit(HexIDE.Runtime.ProjectElements.FormDefinition! form, HexIDE.Runtime.Components.ComponentInstance! line) -> (double X, double Y)?
+HexIDE.Runtime.Components.IDesignPositions.Shown(HexIDE.Runtime.ProjectElements.FormDefinition! form, HexIDE.Runtime.Components.ComponentInstance! component, HexIDE.Runtime.Components.PropertyClass! property, double pixels) -> (double Value, string! Unit)
+HexIDE.Runtime.Components.IDesignPositions.ToPixels(HexIDE.Runtime.ProjectElements.FormDefinition! form, HexIDE.Runtime.Components.ComponentInstance! component, HexIDE.Runtime.Components.PropertyClass! property, double value) -> double?
+override HexIDE.Runtime.Components.DesignerBounds.GetHashCode() -> int
+static HexIDE.Runtime.Components.DesignerBounds.operator !=(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool
+static HexIDE.Runtime.Components.DesignerBounds.operator ==(HexIDE.Runtime.Components.DesignerBounds left, HexIDE.Runtime.Components.DesignerBounds right) -> bool
+~override HexIDE.Runtime.Components.DesignerBounds.Equals(object obj) -> bool
+~override HexIDE.Runtime.Components.DesignerBounds.ToString() -> string
+HexIDE.Addins.IAddinProjectTemplate.Create(string! name, HexIDE.IDE.IProjectFileFormat! format) -> HexIDE.Runtime.ProjectElements.ProjectDefinition!
+HexIDE.IDE.IProjectFileFormat.NewMenuClass.get -> HexIDE.Runtime.Components.IComponentClass?
+HexIDE.IDE.IProjectFileFormat.NewRootClass(string! typeName) -> HexIDE.Runtime.Components.IComponentClass?

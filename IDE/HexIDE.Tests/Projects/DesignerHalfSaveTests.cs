@@ -66,7 +66,7 @@ public class DesignerHalfSaveTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            refresher ?? Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            refresher ?? Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 
     private ProjectDefinition SavedProject()

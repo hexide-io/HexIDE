@@ -11,7 +11,6 @@ using HexIDE.Runtime.Serialization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data;
-using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
 using HexIDE.Utils;
 using HexIDE.VisualDesigner.Commands;
@@ -25,6 +24,7 @@ using Dock.Model.Mvvm.Controls;
 using PropertyChanged.SourceGenerator;
 using R3;
 using Serilog;
+using HexIDE.Imaging;
 
 namespace HexIDE.VisualDesigner;
 
@@ -280,19 +280,21 @@ public partial class PropertiesToolViewModel : Tool
         // A position is shown with what decides its units and the frame round a form, which another property can change.
         foreach (var prop in allProperties.OfType<PropertyViewModel>())
         {
-            if (prop.PropertyClass == property || DesignPositions.IsPosition(prop.PropertyClass))
+            if (prop.PropertyClass == property || DesignerClassCalls.IsPosition(prop.PropertyClass))
                 prop.UpdateValueNoRaise(Displayed(instance, prop.PropertyClass));
         }
     }
 
     /// <summary>
     /// The value a row shows: the object's own, except a position, which is shown as VB6's window shows it, in its
-    /// container's ScaleMode, and a form's own size with its frame, in twips (#1636). The model holds pixels.
+    /// container's ScaleMode, and a form's own size with its frame, in twips (#1636). The model holds pixels. The units come
+    /// from the positions service the provider registered (#5758), and where it can't say, the row shows the model's value.
     /// </summary>
     private object? Displayed(ComponentInstance instance, PropertyClass property) =>
-        DesignPositions.IsPosition(property) && currentDocument?.FormDefinition is { } form
+        DesignerClassCalls.IsPosition(property) && currentDocument?.FormDefinition is { } form
         && instance.GetBoxedPropertyOrDefault(property) is double pixels
-            ? DesignPositions.Shown(form, instance, property, pixels)
+        && DesignerClassCalls.ShownPosition(form, instance, property, pixels) is { } shown
+            ? shown.Value
             : instance.GetBoxedPropertyOrDefault(property);
 
     private void OnSelectedPropertyChanged()
@@ -449,7 +451,7 @@ public partial class PropertiesToolViewModel : Tool
                 throw new DataValidationException(localization.GetString("Str.Tool.Properties.InvalidValue"));
 
             // A position is typed in the units its row shows, and kept in pixels (#1636).
-            if (DesignPositions.IsPosition(propertyClass) && currentDocument.FormDefinition is { } form)
+            if (DesignerClassCalls.IsPosition(propertyClass) && currentDocument.FormDefinition is { } form)
                 value = ModelPosition(form, instance, propertyClass, value);
             if (value is string stringValue)
             {
@@ -510,7 +512,8 @@ public partial class PropertiesToolViewModel : Tool
     }
 
     // The model's pixels for a position typed into its row, or the value as it came when it is not a number, which the
-    // rest of UpdateValue refuses.
+    // rest of UpdateValue refuses. A number with no pixels, or one the positions service can't convert (#5758), is refused
+    // there too, so nothing changes.
     private static object? ModelPosition(FormDefinition form, ComponentInstance instance, PropertyClass property, object? value)
     {
         var units = value switch
@@ -519,7 +522,10 @@ public partial class PropertiesToolViewModel : Tool
             string text when PropertyText.TryParse(property, text.Trim(), out var parsed) && parsed is double d => d,
             _ => null,
         };
-        return units is { } shown ? DesignPositions.ToPixels(form, instance, property, shown) : value;
+        if (units is not { } shown)
+            return value;
+        return DesignerClassCalls.PositionPixels(form, instance, property, shown, out _)
+            ?? throw new ArgumentOutOfRangeException(nameof(value));
     }
 }
 

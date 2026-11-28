@@ -44,11 +44,11 @@ public class DesignerSizeTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(), localization,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         await service.SaveProjectToDirectory(project, project.WorkingDirectory);
         try
         {
-            var toolbox = new ToolBoxToolViewModel(dock, new ComponentRegistry(), localization);
+            var toolbox = new ToolBoxToolViewModel(dock, InBoxRegistry.Create(), localization);
             using var designer = new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
                 Substitute.For<ISettingsService>(), localization).Initialize(form);
             dock.OpenDocuments.Returns([designer]);

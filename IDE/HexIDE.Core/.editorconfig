@@ -20,7 +20,34 @@ dotnet_diagnostic.RS0016.severity = error
 [Components/EventClass.cs]
 dotnet_diagnostic.RS0016.severity = error
 
+[Components/ComponentRole.cs]
+dotnet_diagnostic.RS0016.severity = error
+
 [Components/IComponentClass.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignerCaption.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignerDrawnDefaults.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignerAddedPlacement.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignerPages.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignerLibraryControl.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignPositions.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignerDrawingSurface.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignerPictures.cs]
 dotnet_diagnostic.RS0016.severity = error
 
 [Components/PropertyClass.cs]
@@ -114,4 +141,13 @@ dotnet_diagnostic.RS0016.severity = error
 dotnet_diagnostic.RS0016.severity = error
 
 [Serialization/SerializedProjectGroup.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IDesignerComponent.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/DesignerInset.cs]
+dotnet_diagnostic.RS0016.severity = error
+
+[Components/IControlLibrary.cs]
 dotnet_diagnostic.RS0016.severity = error

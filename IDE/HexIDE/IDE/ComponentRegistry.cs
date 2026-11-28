@@ -1,77 +1,275 @@
 using System.Collections.Generic;
+using HexIDE.Addins;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
+using Serilog;
 
 namespace HexIDE.IDE;
 
+/// <summary>
+/// The component classes the designer knows and what the toolbox offers, each kept with the owner that registered it
+/// (#5594).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It starts empty.</b> The Basic provider registers its Form and controls, and their toolbox items, through the host it's
+/// given, as an add-in registers its own. Nothing here names them.
+/// </para>
+/// <para>
+/// <b>Deny by default beyond a plain control.</b> A class whose role isn't <see cref="ComponentRole.Control"/>, or that's a
+/// container, needs its owner's grant (<see cref="RegistrationGrant.Components"/>): the designer gives such a class a place
+/// no plain control has, as a form's root or as other controls' parent.
+/// </para>
+/// <para>
+/// <b>Namespaces are kept by grant, not by who registers first (#5599).</b> A type name in a namespace any grant names
+/// (<see cref="RegistrationGrant.TypeNamespaces"/>), <c>VB</c> or a control library's, is refused to every other owner,
+/// even before the keeper has registered anything. A control library registers only under a namespace its owner's grant
+/// names, so libraries are first-party in phase 2.
+/// </para>
+/// <para>
+/// <b>Only adds.</b> A class whose type name a registration holds is refused, naming both owners, and so is a library whose
+/// name or GUID one holds. A toolbox item comes only from its class's owner.
+/// </para>
+/// </remarks>
 public class ComponentRegistry : IComponentRegistry
 {
-    private readonly List<IComponentClass> _components =
-    [
-        FormComponentClass.Instance,
-        PictureBoxComponentClass.Instance,
-        LabelComponentClass.Instance,
-        TextBoxComponentClass.Instance,
-        FrameComponentClass.Instance,
-        CommandButtonComponentClass.Instance,
-        CheckBoxComponentClass.Instance,
-        OptionButtonComponentClass.Instance,
-        ComboBoxComponentClass.Instance,
-        ListBoxComponentClass.Instance,
-        HScrollBarComponentClass.Instance,
-        VScrollBarComponentClass.Instance,
-        TimerComponentClass.Instance,
-        ShapeComponentClass.Instance,
-        ImageComponentClass.Instance,
-    ];
+    /// <summary>The icon a toolbox item shows when its owner names none, and a library's control shows.</summary>
+    internal const string GenericIcon = "Geo.Object";
 
-    public IReadOnlyList<IComponentClass> Components => _components;
+    private readonly List<IComponentClass> components = [];
+    private readonly List<LibraryRegistration> libraries = [];
+    private readonly Dictionary<IComponentClass, Registration> owners = new(ReferenceEqualityComparer.Instance);
+    private readonly List<ToolboxEntry> toolbox = [];
 
-    public IReadOnlyList<ToolboxEntry> Toolbox { get; } =
-    [
-        new(PictureBoxComponentClass.Instance, "Geo.Picture"),
-        new(LabelComponentClass.Instance, "Geo.Label"),
-        new(TextBoxComponentClass.Instance, "Geo.Textbox"),
-        new(FrameComponentClass.Instance, "Geo.Groupbox"),
-        new(CommandButtonComponentClass.Instance, "Geo.Button"),
-        new(CheckBoxComponentClass.Instance, "Geo.Checkbox"),
-        new(OptionButtonComponentClass.Instance, "Geo.Radio"),
-        new(ComboBoxComponentClass.Instance, "Geo.Combo"),
-        new(ListBoxComponentClass.Instance, "Geo.Listbox"),
-        new(HScrollBarComponentClass.Instance, "Geo.Hscroll"),
-        new(VScrollBarComponentClass.Instance, "Geo.Vscroll"),
-        new(TimerComponentClass.Instance, "Geo.Timer"),
-        new(ShapeComponentClass.Instance, "Geo.Shape"),
-        new(ImageComponentClass.Instance, "Geo.Image"),
-    ];
+    /// <summary>Who may register what. HexIDE's own table; a test gives its own owners grants here.</summary>
+    internal IReadOnlyList<RegistrationGrant> Grants { get; init; } = RegistrationGrants.All;
 
-    public IReadOnlyList<RuntimeLibrary> Libraries => ControlLibraries.All;
+    public IReadOnlyList<IComponentClass> Components => components;
 
-    // Built on first use, so these classes load only once a project references one of their libraries, as they always did.
+    public IReadOnlyList<ToolboxEntry> Toolbox => toolbox;
+
+    public IReadOnlyList<IControlLibrary> Libraries => [.. libraries.Select(registration => registration.Library)];
+
+    // Built on first use, so a library's classes load only once something asks what it offers, as they always did, and
+    // built again after a library comes or goes.
     private IReadOnlyList<LibraryControl>? libraryControls;
 
     public IReadOnlyList<LibraryControl> LibraryControls => libraryControls ??=
     [
-        .. from library in ControlLibraries.All
-           from control in InBoxComponentClass.Implemented
-           where control.Libraries.Contains(library)
-           select new LibraryControl(control, library, control.ControlClassName, library.TypeName(control.ControlClassName), "Geo.Object"),
+        .. from registration in libraries
+           from control in registration.Controls()
+           select new LibraryControl(control, registration.Library, control.ClassName,
+               registration.Library.TypeName(control.ClassName), GenericIcon),
     ];
+
+    public event Action? LibrariesChanged;
 
     public event Action<IComponentClass>? ComponentRegistered;
 
     public event Action<IComponentClass>? ComponentUnregistered;
 
-    public IDisposable Register(IComponentClass component)
+    public event Action<ToolboxEntry>? ToolboxItemAdded;
+
+    public event Action<ToolboxEntry>? ToolboxItemRemoved;
+
+    /// <summary>
+    /// Registers <paramref name="component"/> for <paramref name="owner"/> until the handle is disposed, which takes out its
+    /// toolbox item too.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The owner may not register it, or its type name is held.</exception>
+    internal IDisposable Register(IComponentClass component, AddinOrigin owner)
     {
-        _components.Add(component);
-        var handle = new HexIDE.Utils.ActionDisposable(() =>
+        ArgumentNullException.ThrowIfNull(component);
+        var name = component.VBTypeName;
+        var grant = RegistrationGrants.For(owner, Grants);
+
+        var what = grant is { Components: true } ? null
+            : component.Role != ComponentRole.Control ? $"a {component.Role.ToString().ToLowerInvariant()} component"
+            : component.IsContainer ? "a container"
+            : null;
+        if (what is not null)
         {
-            _components.RemoveAt(_components.LastIndexOf(component));
-            ComponentUnregistered?.Invoke(component);
-        });
-        HexIDE.Addins.AddinInitializationScope.Record(handle.Dispose);
+            Log.Warning("Components: refused {Addin} ({AddinId}): {Type} is {What}, which it holds no grant to register",
+                owner.Title, owner.Id, name, what);
+            throw new InvalidOperationException($"{owner.Title} isn't one HexIDE lets register {name}, which is {what}.");
+        }
+
+        // Whether or not the namespace's keeper has registered yet: the held check alone would depend on who registers
+        // first, and once the provider is a package among others it may not be first.
+        if (NamespaceOf(name) is { } ns && KeeperOf(ns) is { } keeper && !ReferenceEquals(keeper, grant))
+        {
+            Log.Warning("Components: refused {Addin} ({AddinId}): {Type} is in the {Namespace} namespace, which {Keeper} keeps",
+                owner.Title, owner.Id, name, ns, keeper.OwnerId);
+            throw new InvalidOperationException($"{owner.Title} can't register {name}: the {ns} namespace is kept for {keeper.OwnerId}.");
+        }
+
+        foreach (var held in owners.Values)
+        {
+            if (!string.Equals(held.Class.VBTypeName, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            Log.Warning("Components: refused {Addin} ({AddinId}): {Owner} ({OwnerId}) holds {Type} already",
+                owner.Title, owner.Id, held.Owner.Title, held.Owner.Id, name);
+            throw new InvalidOperationException(
+                $"{owner.Title} can't register {name}: {held.Owner.Title} ({held.Owner.Id}) holds that type name already.");
+        }
+
+        var registration = new Registration(this, component, owner);
+        components.Add(component);
+        owners.Add(component, registration);
+        AddinInitializationScope.Record(registration.Dispose);
         ComponentRegistered?.Invoke(component);
+        return registration;
+    }
+
+    /// <summary>
+    /// Offers <paramref name="component"/> in the toolbox, after the items already there, until the handle is disposed.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The class isn't registered, or <paramref name="owner"/> didn't register it, or the toolbox offers it already.
+    /// </exception>
+    internal IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey, AddinOrigin owner)
+    {
+        ArgumentNullException.ThrowIfNull(component);
+        var name = component.VBTypeName;
+        string? refusal = null;
+        if (!owners.TryGetValue(component, out var registration))
+            refusal = $"{owner.Title} can't put {name} in the toolbox: it isn't registered.";
+        else if (!SameOwner(registration.Owner, owner))
+            refusal = $"{owner.Title} can't put {name} in the toolbox: {registration.Owner.Title} ({registration.Owner.Id}) registered it.";
+        else if (toolbox.Exists(entry => ReferenceEquals(entry.Class, component)))
+            refusal = $"{owner.Title} can't put {name} in the toolbox: it's there already.";
+        if (refusal is not null)
+        {
+            Log.Warning("Components: refused {Addin} ({AddinId}) a toolbox item: {Refusal}", owner.Title, owner.Id, refusal);
+            throw new InvalidOperationException(refusal);
+        }
+
+        var entry = new ToolboxEntry(component, iconKey ?? GenericIcon);
+        toolbox.Add(entry);
+        var handle = new ToolboxItem(this, entry);
+        registration!.Items.Add(handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        ToolboxItemAdded?.Invoke(entry);
         return handle;
+    }
+
+    /// <summary>
+    /// Registers <paramref name="library"/>, which a project can then reference, for <paramref name="owner"/> until the handle
+    /// is disposed (#5599). <paramref name="controls"/> is asked what it offers only when something first needs to know, and
+    /// again after the libraries change.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The owner's grant doesn't keep the library's name as a namespace, or a registered library holds its name or GUID.
+    /// </exception>
+    internal IDisposable RegisterLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls, AddinOrigin owner)
+    {
+        ArgumentNullException.ThrowIfNull(library);
+        ArgumentNullException.ThrowIfNull(controls);
+        if (RegistrationGrants.For(owner, Grants) is not { } grant || !grant.KeepsTypeNamespace(library.Name))
+        {
+            Log.Warning("Components: refused {Addin} ({AddinId}) the {Library} control library: its grant doesn't keep that namespace",
+                owner.Title, owner.Id, library.Name);
+            throw new InvalidOperationException($"{owner.Title} isn't one HexIDE lets register the {library.Name} control library.");
+        }
+
+        foreach (var held in libraries)
+        {
+            if (!string.Equals(held.Library.Name, library.Name, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(held.Library.Guid, library.Guid, StringComparison.OrdinalIgnoreCase))
+                continue;
+            Log.Warning("Components: refused {Addin} ({AddinId}) the {Library} control library: {Owner} ({OwnerId}) holds {Held}",
+                owner.Title, owner.Id, library.Name, held.Owner.Title, held.Owner.Id, held.Library.Name);
+            throw new InvalidOperationException(
+                $"{owner.Title} can't register the {library.Name} control library: {held.Owner.Title} ({held.Owner.Id}) holds {held.Library.Name}, by its name or GUID.");
+        }
+
+        var registration = new LibraryRegistration(this, library, controls, owner);
+        libraries.Add(registration);
+        libraryControls = null;
+        AddinInitializationScope.Record(registration.Dispose);
+        LibrariesChanged?.Invoke();
+        return registration;
+    }
+
+    // The namespace a type name is in: VB in VB.CommandButton. Null when it has none.
+    private static string? NamespaceOf(string typeName) => typeName.IndexOf('.') is var dot and > 0 ? typeName[..dot] : null;
+
+    // The grant that keeps ns, or null when none does.
+    private RegistrationGrant? KeeperOf(string ns) => Grants.FirstOrDefault(grant => grant.KeepsTypeNamespace(ns));
+
+    // An owner is one add-in by its id; a composed owner is never a package that names itself after it.
+    private static bool SameOwner(AddinOrigin a, AddinOrigin b) =>
+        string.Equals(a.Id, b.Id, StringComparison.Ordinal) && a.IsComposed == b.IsComposed;
+
+    private sealed class Registration(ComponentRegistry registry, IComponentClass component, AddinOrigin owner) : IDisposable
+    {
+        private bool disposed;
+
+        internal IComponentClass Class => component;
+
+        internal AddinOrigin Owner => owner;
+
+        internal List<ToolboxItem> Items { get; } = [];
+
+        public void Dispose()
+        {
+            if (disposed)
+                return;
+            disposed = true;
+            for (var i = Items.Count - 1; i >= 0; i--)
+                Items[i].Dispose();
+            registry.owners.Remove(component);
+            registry.components.Remove(component);
+            registry.ComponentUnregistered?.Invoke(component);
+        }
+    }
+
+    private sealed class LibraryRegistration(ComponentRegistry registry, IControlLibrary library,
+        Func<IReadOnlyList<IComponentClass>> controls, AddinOrigin owner) : IDisposable
+    {
+        private bool disposed;
+
+        internal IControlLibrary Library => library;
+
+        internal AddinOrigin Owner => owner;
+
+        // What the library offers. Its owner's code, asked late, from whatever needs it: a throw is logged and offers nothing,
+        // rather than reaching the toolbox, the Components dialog or the Object Browser.
+        internal IReadOnlyList<IComponentClass> Controls()
+        {
+            try
+            {
+                return controls() ?? [];
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Components: the {Library} control library of {Addin} ({AddinId}) couldn't say what it offers",
+                    library.Name, owner.Title, owner.Id);
+                return [];
+            }
+        }
+
+        public void Dispose()
+        {
+            if (disposed)
+                return;
+            disposed = true;
+            registry.libraries.Remove(this);
+            registry.libraryControls = null;
+            registry.LibrariesChanged?.Invoke();
+        }
+    }
+
+    private sealed class ToolboxItem(ComponentRegistry registry, ToolboxEntry entry) : IDisposable
+    {
+        private bool disposed;
+
+        public void Dispose()
+        {
+            if (disposed)
+                return;
+            disposed = true;
+            registry.toolbox.Remove(entry);
+            registry.ToolboxItemRemoved?.Invoke(entry);
+        }
     }
 }

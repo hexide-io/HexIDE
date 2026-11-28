@@ -75,6 +75,23 @@ public class InBoxToolboxTests
         form.HeaderLines.Should().Contain(l => l.Contains("MSCOMCT2.OCX"));
     }
 
+    // #1087: VB6's toolbox double-click gives a StatusBar the form's full width, 25 pixels high, centred on a whole pixel.
+    // The class says so through IDesignerAddedPlacement (#5681).
+    [AvaloniaTheory]
+    [InlineData(400, 300, 137)]
+    [InlineData(400, 301, 138)]
+    public void StatusBar_toolbox_default_takes_the_form_width_and_25_pixels_centred_on_a_whole_pixel(
+        double formWidth, double formHeight, double top)
+    {
+        var (_, toolbox, vm, _) = Designer(ControlLibraries.MSComctlLib);
+        var tool = toolbox.Components.Single(c => c.VBTypeName == "MSComctlLib.StatusBar");
+        vm.Form.Width = formWidth;
+        vm.Form.Height = formHeight;
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, ControlLibraries.MSComctlLib);
+        var bar = vm.Components.Single(c => c.Instance.BaseClass.VBTypeName == "MSComctlLib.StatusBar");
+        (bar.Left, bar.Top, bar.Width, bar.Height).Should().Be((0, top, formWidth, 25));
+    }
+
     private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(
         params RuntimeLibrary[] referenced) => Designer(true, referenced);
 
@@ -88,7 +105,7 @@ public class InBoxToolboxTests
             "VERSION 5.00\r\nBegin VB.Form Form1\r\n   Caption = \"Form1\"\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n", new NullSink())!;
         project.AddForm(form);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         var settings = Substitute.For<ISettingsService>();
         settings.AlignToGrid.Returns(alignToGrid);
         settings.GridWidth.Returns(8);
@@ -99,7 +116,7 @@ public class InBoxToolboxTests
         return (project, toolbox, vm, form);
     }
 
-    private static RuntimeLibrary?[] InBoxLibraries(ToolBoxToolViewModel toolbox) =>
+    private static IControlLibrary?[] InBoxLibraries(ToolBoxToolViewModel toolbox) =>
         toolbox.Components.Where(c => c.BaseClass is InBoxComponentClass).Select(c => c.Library).ToArray();
 
     [AvaloniaFact]
@@ -178,7 +195,7 @@ public class InBoxToolboxTests
     public void The_toolbox_follows_the_Components_dialog()
     {
         var (project, toolbox, _, _) = Designer();
-        var dialog = new ComponentsViewModel(project, new ComponentRegistry());
+        var dialog = new ComponentsViewModel(project, InBoxRegistry.Create());
 
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = true;
         dialog.ApplyCommand.Execute(null);
@@ -237,5 +254,23 @@ public class InBoxToolboxTests
         var bar = form.Components.Single(c => c.BaseClass is ProgressBarComponentClass);
         ProgressBarComponentClass.Instance.LibraryOf(bar).Should().BeSameAs(ControlLibraries.ComctlLib);
         new FormSerializer().Serialize(form, "Form1.frm").frmText.Should().Contain("Begin ComctlLib.ProgressBar ProgressBar1");
+    }
+
+    // The designer declares only a library the registry lists as offering the control's class (#5749), so each in-box
+    // control, placed from any library the provider registers it under, has to name that library.
+    [AvaloniaFact]
+    public void Each_in_box_control_placed_from_each_of_its_libraries_declares_that_library()
+    {
+        var placements = InBoxRegistry.Create().LibraryControls.Where(control => control.Class is InBoxComponentClass).ToList();
+        placements.Select(control => control.Class.ClassName).Distinct()
+            .Should().BeEquivalentTo(InBoxComponentClass.Implemented.Select(control => control.ClassName));
+
+        foreach (var placement in placements)
+        {
+            var (_, _, vm, form) = Designer((RuntimeLibrary)placement.Library);
+            vm.SpawnControlCenter((ComponentBaseClass)placement.Class, placement.Library);
+            form.HeaderLines.Should().Equal([placement.Library.FormLine], "{0} is placed from {1}'s entry",
+                placement.TypeName, placement.Library.Name);
+        }
     }
 }

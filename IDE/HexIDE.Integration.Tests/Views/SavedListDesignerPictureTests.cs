@@ -27,11 +27,11 @@ namespace HexIDE.Integration.Tests.Views;
 // VB6 SP6 designer measurements: #5121's supervisor comment, 2026-11-20 (measuring PR #5131).
 public class SavedListDesignerPictureTests
 {
-    private sealed class Host(ControlRenderer renderer) : IDesignerDrawingHost
+    private sealed class Host(ControlRenderer renderer) : IDesignerDrawingSurface
     {
         internal Control? Visual;
-        public void Attach(Control visual) { Visual = visual; ((IDesignerDrawingHost)renderer).Attach(visual); }
-        public void Detach(Control visual) => ((IDesignerDrawingHost)renderer).Detach(visual);
+        public void Attach(object visual) { Visual = (Control)visual; ((IDesignerDrawingSurface)renderer).Attach(visual); }
+        public void Detach(object visual) => ((IDesignerDrawingSurface)renderer).Detach(visual);
         public void UpdateLayout() => renderer.UpdateLayout();
     }
 

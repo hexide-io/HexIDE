@@ -3,7 +3,7 @@ using Avalonia;
 using System.Linq;
 using Avalonia.Data;
 using Avalonia.Media;
-using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Converters;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
@@ -177,7 +177,7 @@ public partial class ComponentInstanceViewModel : ObservableObject
             if (containerResolved)
                 return containerViewModel;
             containerResolved = true;
-            if (instance.Container is { } container && container.BaseClass is not FormComponentClass &&
+            if (instance.Container is { } container && container.BaseClass.Role != ComponentRole.Form &&
                 parentViewModel.TryGetViewModel(container, out var vm))
                 containerViewModel = vm;
             return containerViewModel;
@@ -234,8 +234,14 @@ public partial class ComponentInstanceViewModel : ObservableObject
     internal Point ClientOrigin => new(Left + ClientInset.Left, Top + ClientInset.Top);
 
     /// <summary>How far inside its own bounds this component measures its contents from.</summary>
-    private Thickness ClientInset =>
-        instance.BaseClass is IDesignerComponentClass baseClass ? baseClass.ClientInset(instance) : default;
+    private Thickness ClientInset
+    {
+        get
+        {
+            var inset = instance.BaseClass is IDesignerComponent baseClass ? baseClass.ClientInset(instance) : default;
+            return new Thickness(inset.Left, inset.Top, inset.Right, inset.Bottom);
+        }
+    }
 
     /// <summary>
     /// The canvas position, which is NOT what the model stores. The model stores the VB6 value — relative to
@@ -304,7 +310,7 @@ public partial class ComponentInstanceViewModel : ObservableObject
     /// A Line has no Left, Top, Width or Height (#163). The designer selects and moves it by the rectangle its endpoints
     /// and pen cover, in pixels, from the endpoints in its container's scale.
     /// </summary>
-    public bool IsLine => instance.BaseClass is LineComponentClass;
+    public bool IsLine => instance.BaseClass.Role == ComponentRole.Line;
 
 
     /// <summary>
@@ -336,19 +342,18 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     private int drawIndex;
 
-    /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
+    /// <summary>
+    /// How many twips one of a Line's container's units is, from the positions service the provider registered (#5758), or
+    /// twips where HexIDE can't run that scale or the service can't say.
+    /// </summary>
     public (double X, double Y) LineTwipsPerUnit
     {
         get
         {
-            try
-            {
-                return parentViewModel.FormDefinition is { } form ? LineComponentClass.TwipsPerUnit(instance, form) : (1, 1);
-            }
-            catch (NotImplementedException)
-            {
+            if (parentViewModel.FormDefinition is not { } form)
                 return (1, 1);
-            }
+            DesignerClassCalls.LineTwipsPerUnit(form, instance, out var units);
+            return units;
         }
     }
 
@@ -357,20 +362,29 @@ public partial class ComponentInstanceViewModel : ObservableObject
         get
         {
             var (x, y) = LineTwipsPerUnit;
-            return VBLine.BoundsFor(instance.GetPropertyOrDefault(VBProperties.X1Property) * x,
+            var bounds = LineControlBounds.BoundsFor(instance.GetPropertyOrDefault(VBProperties.X1Property) * x,
                 instance.GetPropertyOrDefault(VBProperties.Y1Property) * y,
                 instance.GetPropertyOrDefault(VBProperties.X2Property) * x,
                 instance.GetPropertyOrDefault(VBProperties.Y2Property) * y,
                 (int)instance.GetPropertyOrDefault(VBProperties.BorderWidthProperty));
+            return new Rect(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
         }
     }
 
-    // Both endpoints by the same distance, in pixels, written back in the container's scale.
+    // Both endpoints by the same distance, in pixels, written back in the container's scale. The Line stays where it is
+    // when the positions service fails (#5758) or can't run that scale (#5759). Writing a twips delta would be wrong in
+    // any other scale.
     private void MoveLine(double dxPixels, double dyPixels)
     {
-        var (x, y) = LineTwipsPerUnit;
-        var dx = dxPixels * VBScaleModeExtensions.PixelToTwips / x;
-        var dy = dyPixels * VBScaleModeExtensions.PixelToTwips / y;
+        (double X, double Y) units = (1, 1);
+        if (parentViewModel.FormDefinition is { } form && !DesignerClassCalls.LineTwipsPerUnit(form, instance, out units))
+        {
+            OnPropertyChanged(nameof(Left));
+            OnPropertyChanged(nameof(Top));
+            return;
+        }
+        var dx = dxPixels * VBScaleModeExtensions.PixelToTwips / units.X;
+        var dy = dyPixels * VBScaleModeExtensions.PixelToTwips / units.Y;
         if (dx != 0)
         {
             instance.SetProperty(VBProperties.X1Property, instance.GetPropertyOrDefault(VBProperties.X1Property) + dx);
@@ -398,12 +412,14 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     public string? Caption => instance.GetPropertyOrDefault(VBProperties.CaptionProperty);
 
-    public IBrush BackColor => instance.GetPropertyOrDefault(VBProperties.BackColorProperty).ToBrush();
+    public IBrush BackColor =>
+        VBColorBrushes.ToBrush(instance.GetPropertyOrDefault(VBProperties.BackColorProperty));
 
-    public IBrush ForeColor => instance.GetPropertyOrDefault(VBProperties.ForeColorProperty).ToBrush();
+    public IBrush ForeColor =>
+        VBColorBrushes.ToBrush(instance.GetPropertyOrDefault(VBProperties.ForeColorProperty));
 
     // The root's class is the designer's kind, not the form component every root shares (#1544).
-    public string BaseClassName => instance.BaseClass is FormComponentClass ? parentViewModel.RootClassName : instance.BaseClass.ClassName;
+    public string BaseClassName => instance.BaseClass.Role == ComponentRole.Form ? parentViewModel.RootClassName : instance.BaseClass.ClassName;
 
     /// <summary>
     /// The control's name as the automation tools address it: <c>optSize(1)</c> for a control array's element, its bare

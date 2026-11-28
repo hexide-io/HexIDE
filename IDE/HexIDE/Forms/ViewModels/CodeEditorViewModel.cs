@@ -229,11 +229,29 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>Whether this editor's text has diagnostics yet; see <see cref="LspDocumentSession.AwaitingDiagnostics"/>.</summary>
     public bool AwaitingDiagnostics => session?.AwaitingDiagnostics ?? false;
 
-    /// <summary>What says which lines an <c>#If</c> leaves out, or null where nothing does, and then nothing is greyed.</summary>
+    /// <summary>
+    /// The language this code window asks for its editing helpers (#5403): <c>vb6</c>, for every VB-family project's members,
+    /// VBA's and RDCore's included, which carry no id of their own and shared one set of helpers before they were registered.
+    /// </summary>
+    internal const string EditingLanguage = DocumentLanguage.Vb6;
+
+    /// <summary>
+    /// What says which lines an <c>#If</c> leaves out: the helper registered for <see cref="EditingLanguage"/>, asked afresh on
+    /// every call. Null where the window was made without the registry, and then nothing is greyed.
+    /// </summary>
     public HexIDE.Language.IConditionalCodeReader? ConditionalCode { get; }
 
-    /// <summary>What says where this module's parentheses are, or null where nothing does, and then none is coloured.</summary>
+    /// <summary>
+    /// What says where this module's parentheses are: the helper registered for <see cref="EditingLanguage"/>, asked afresh on
+    /// every call. Null where the window was made without the registry, and then none is coloured.
+    /// </summary>
     public HexIDE.Language.IBracketReader? Brackets { get; }
+
+    /// <summary>
+    /// Raised on the UI thread, in a job posted when a language's helpers are registered or withdrawn, so the view reads its
+    /// brackets and greying again (#5403).
+    /// </summary>
+    public event EventHandler? EditingChanged;
 
     // The project this code belongs to, whose format reads and guards it (#4053, #3411 slice 10b). Code no project owns has
     // no format, and nothing guards it.
@@ -263,11 +281,19 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Tools.CallStackToolViewModel? callStack = null,
         HexIDE.Tools.RecentEditHistory? recentEditHistory = null,
-        HexIDE.Language.IConditionalCodeReader? conditionalCode = null,
-        HexIDE.Language.IBracketReader? brackets = null)
+        HexIDE.Language.ILanguageEditing? languageEditing = null)
     {
-        ConditionalCode = conditionalCode;
-        Brackets = brackets;
+        ConditionalCode = languageEditing?.ConditionalCodeFor(EditingLanguage);
+        Brackets = languageEditing?.BracketsFor(EditingLanguage);
+        if (languageEditing is not null)
+        {
+            // Raised where a registration arrives or goes, which can be under the add-in registry's lock on any thread: so
+            // this only posts, and the view reads the helpers again inside the posted job.
+            var uiThread = Avalonia.Threading.Dispatcher.UIThread;
+            Action onEditingChanged = () => uiThread.Post(() => EditingChanged?.Invoke(this, EventArgs.Empty));
+            languageEditing.Changed += onEditingChanged;
+            AutoDispose(new ActionDisposable(() => languageEditing.Changed -= onEditingChanged));
+        }
         this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
@@ -456,8 +482,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             (change.Offset == 0 && change.RemovalLength == Document.TextLength))
             return;
 
-        var removed = FormCodeText.LineBreaks(change.RemovedText.Text);
-        var inserted = FormCodeText.LineBreaks(change.InsertedText.Text);
+        var removed = CodeBufferText.LineBreaks(change.RemovedText.Text);
+        var inserted = CodeBufferText.LineBreaks(change.InsertedText.Text);
         if (ExternalDebugger?.IsActive != true)
             breakpointService.Remap(current, line => line < 1 || line > Document.LineCount ? line :
                 HexIDE.Debugging.MarkLines.Remap(line, change.Offset, change.RemovalLength, removed, inserted, ReadLine));
@@ -620,13 +646,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var text = Document.Text;
         var rewrites = RegionWriter?.SaveRewrites(text, bufferPrefix.Length) ?? [];
-        var attributes = FormCodeText.AttributeBlock(FormCodeText.BodyOf(text, bufferPrefix));
-        var savedAttributes = FormCodeText.AttributeBlock(written);
+        var attributes = Format.AttributeBlock(CodeBufferText.BodyOf(text, bufferPrefix));
+        var savedAttributes = Format.AttributeBlock(written);
         if (!string.Equals(attributes, savedAttributes, StringComparison.Ordinal))
             rewrites = [new TextChange(bufferPrefix.Length, attributes.Length, savedAttributes), .. rewrites];
         if (rewrites.Count == 0)
             return;
-        if (!string.Equals(FormCodeText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
+        if (!string.Equals(CodeBufferText.BodyOf(TextChanges.Apply(text, rewrites), bufferPrefix), written,
                 StringComparison.Ordinal))
         {
             Log.Debug("{Document}: the save did not rewrite the attribute qualifiers this window holds, so they stand",
@@ -672,7 +698,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// destroy the header — the next flush splits at the prefix's length and would take the first lines of
     /// the body with it.
     /// </remarks>
-    public string BufferBody => FormCodeText.BodyOf(Document.Text, bufferPrefix);
+    public string BufferBody => CodeBufferText.BodyOf(Document.Text, bufferPrefix);
 
     /// <summary>Replaces the code, leaving the header the buffer shows in front of it untouched.</summary>
     public void ReplaceBody(string body) => Document.Text = bufferPrefix + body;

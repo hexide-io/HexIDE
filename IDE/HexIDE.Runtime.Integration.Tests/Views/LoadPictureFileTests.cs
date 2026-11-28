@@ -11,6 +11,7 @@ using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Imaging;
 
 namespace HexIDE.Runtime.Integration.Tests.Views;
 

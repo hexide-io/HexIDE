@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Classic.Avalonia.Theme;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Imaging;
 using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
@@ -27,6 +28,8 @@ public class PictureBoxComponentClass : ComponentBaseClass
     }
 
     public override string? DesignerDoubleClickEvent => "Click";
+
+    public override bool IsContainer => true;
 
     public override string Name => "Picture";
     public override string VBTypeName => "VB.PictureBox";
@@ -119,9 +122,12 @@ public class PictureBoxComponentClass : ComponentBaseClass
         return host is not null;
     }
 
-    public override Thickness ClientInset(ComponentInstance instance) =>
-        ClientBorder(instance.GetPropertyOrDefault(BorderStyleProperty),
-                     instance.GetPropertyOrDefault(AppearanceProperty)).Inset;
+    public override DesignerInset ClientInset(ComponentInstance instance)
+    {
+        var inset = ClientBorder(instance.GetPropertyOrDefault(BorderStyleProperty),
+                                 instance.GetPropertyOrDefault(AppearanceProperty)).Inset;
+        return new DesignerInset(inset.Left, inset.Top, inset.Right, inset.Bottom);
+    }
 
     static PictureBoxComponentClass()
     {

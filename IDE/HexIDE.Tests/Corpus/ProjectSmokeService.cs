@@ -49,8 +49,8 @@ internal static class ProjectSmokeService
         var service = new ProjectService(() => throw new InvalidOperationException("Unexpected project dialog"),
             windows, Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), localization,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
-        service.RuntimeDirectory = runtimeDirectory ?? MadeProgramFactAttribute.MakeRuntime;
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
+        service.WithMaker(runtimeDirectory ?? MadeProgramFactAttribute.MakeRuntime);
         var output = Path.Join(Path.GetDirectoryName(path)!, "smoke-output", OperatingSystem.IsWindows() ? "Program.exe" : "Program");
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(output);
         await service.OpenProject(path);

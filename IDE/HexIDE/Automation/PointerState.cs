@@ -3,6 +3,7 @@ using Avalonia.Data;
 using Avalonia.Diagnostics;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using HexIDE.IDE;
 using HexIDE.Runtime.BuiltinTypes;
 
 namespace HexIDE.Automation;
@@ -60,8 +61,8 @@ internal static class PointerReader
             _ => (PointerSource?)null,
         };
         var setOn = at is null ? null : ReferenceEquals(at, control) ? "self" : pathOf(at);
-        return VBCursorTypeExtensions.PointerOf(cursor) is { } pointer
-            ? new PointerState((int)pointer, Vb6EnumNames.For(pointer), pointer.ToStandardCursorType().ToString(), setBy, setOn, null)
+        return RunningProgram.Current.PointerOf(cursor) is { } pointer
+            ? new PointerState((int)pointer.Pointer, Vb6EnumNames.For(pointer.Pointer), pointer.Shows, setBy, setOn, null)
             : new PointerState(null, null, null, setBy, setOn,
                 "A pointer HexIDE's own UI or a control's theme sets, whose kind is not recorded; only a running "
                 + "program's MousePointer is.");

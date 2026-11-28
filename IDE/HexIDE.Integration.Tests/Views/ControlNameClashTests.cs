@@ -53,7 +53,7 @@ public class ControlNameClashTests
         var form = new FormDeserializer().Deserialize(project, DataForm, new NullSink())!;
         project.AddForm(form);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
             Substitute.For<ISettingsService>(), Naming()).Initialize(form);
         return (vm, form);

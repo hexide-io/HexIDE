@@ -6,9 +6,9 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Projects;
 
 /// <summary>
-/// VB6's projects, registered at start-up through the same route as an add-in's project type (#3411 slice 10b). Its type
-/// carries VB6's whole format, which reads a <c>.vbp</c> and a <c>.vbg</c> and everything they list. It's first-party, so it
-/// needs no package, signature or consent, and its files are reserved against every other type.
+/// VB6's projects. The Basic provider registers their type through the host, as any add-in registers one (#5625). Its type
+/// carries VB6's whole format, which reads a <c>.vbp</c> and a <c>.vbg</c> and everything they list. The provider's grant
+/// reserves it (<see cref="Reserved"/>): it takes VB6's identity, and its files are refused to every other type.
 /// </summary>
 public static class Vb6ProjectType
 {
@@ -18,8 +18,13 @@ public static class Vb6ProjectType
     /// <summary>What a refusal or a project's <c>ContributorTitle</c> calls it.</summary>
     public const string Title = "Visual Basic 6.0";
 
-    /// <summary>The files no other type may take.</summary>
-    public static ProjectFileReservation Reservation { get; } = new(Id, Title, ["*.vbp", "*.vbg"]);
+    /// <summary>
+    /// VB6's type as the Basic provider's grant reserves it (#5625): its identity, its files, and the formats of the members
+    /// an add-in's project may borrow, every kind of module and forms, named "vb6".
+    /// </summary>
+    internal static HexIDE.Addins.ReservedProjectType Reserved { get; } =
+        // Its own set: this is initialised before MemberKinds, which is declared below.
+        new(Id, Title, ["*.vbp"], ["*.vbg"], new HashSet<ModuleKind>(Enum.GetValues<ModuleKind>()), Forms: true, FormFormat: "vb6");
 
     /// <summary>
     /// Member files a refusal may call VB6's when VB6's type isn't registered: the unambiguous VB6 source extensions only.
@@ -28,22 +33,21 @@ public static class Vb6ProjectType
     public static ProjectFileReservation Members { get; } = new(Id, Title,
         HexIDE.Lsp.DocumentLanguage.UnambiguousVb6Extensions.Select(extension => "*" + extension).ToArray());
 
-    /// <summary>The type, reading and rendering through <paramref name="format"/>.</summary>
-    public static AddinProjectType For(IProjectFileFormat format) => new("Visual Basic 6.0 projects")
-    {
-        FileNames = ["*.vbp"],
-        GroupFileNames = ["*.vbg"],
-        Format = format,
-    };
 
-    /// <summary>Who registers it: HexIDE itself.</summary>
-    internal static AddinOrigin Origin { get; } = new(Id, Title, IsFirstParty: true);
-
-    public static readonly IProjectTemplate StandardExe = new ProjectTemplate("Standard EXE", "standard_exe", true, name =>
+    /// <summary>
+    /// A project holding Form1. Its form's class comes from the format the project is made for (#3411 slice 2.4f-2), so
+    /// it's made through <see cref="HexIDE.Addins.IAddinProjectTemplate.Create(string, IProjectFileFormat)"/>, and
+    /// <c>Create(name)</c> alone, which names no format, throws.
+    /// </summary>
+    public static readonly IProjectTemplate StandardExe = new ProjectTemplate("Standard EXE", "standard_exe", true, (name, format) =>
     {
         var project = new ProjectDefinition(VBProjectType.EXE, name);
 
-        var form = FormDefinition.NewForm(project, FormComponentClass.Instance, "Form1");
+        if (format?.NewRootClass("VB.Form") is not { Role: ComponentRole.Form } formClass)
+            throw new InvalidOperationException(format is null
+                ? "The Standard EXE template makes its form in the format it's given, and was given none."
+                : $"The format {format.GetType().FullName} gives no form class for a Standard EXE project's Form1.");
+        var form = FormDefinition.NewForm(project, formClass, "Form1");
         project.AddForm(form);
 
         // OLE Automation — always present in a new VB6 Standard EXE
@@ -86,36 +90,4 @@ public static class Vb6ProjectType
     /// and forms. A VBA document module is a class to it.
     /// </summary>
     public static IReadOnlySet<ModuleKind> MemberKinds { get; } = new HashSet<ModuleKind>(Enum.GetValues<ModuleKind>());
-
-    /// <summary>
-    /// Registers it with <paramref name="types"/>, reading through <paramref name="format"/>, and that format for its members'
-    /// kinds, wherever they're held (#3411 slice 10b-3).
-    /// </summary>
-    public static IDisposable Register(ContributedProjects types, IProjectFileFormat format)
-    {
-        var type = types.Register(For(format), Origin);
-        var members = types.RegisterMembers(MemberKinds, forms: true, format, Origin, formFormat: "vb6");
-        return new HexIDE.Utils.ActionDisposable(() =>
-        {
-            members.Dispose();
-            type.Dispose();
-        });
-    }
-
-    /// <summary>
-    /// Registers it with <paramref name="types"/> over VB6's own format, the one place that names it: the composition's
-    /// registration, and <see cref="Alone"/>'s (#3411 slice 10b-3).
-    /// </summary>
-    public static IDisposable RegisterOwn(ContributedProjects types) => Register(types, new Vb6ProjectFileFormat());
-
-    /// <summary>
-    /// A registry holding VB6's type alone, over its own format: what a <c>ProjectService</c> made without the IDE's project
-    /// types reads with, which only a test makes. The composition registers VB6's type the same way.
-    /// </summary>
-    public static ContributedProjects Alone()
-    {
-        var types = new ContributedProjects();
-        RegisterOwn(types);
-        return types;
-    }
 }

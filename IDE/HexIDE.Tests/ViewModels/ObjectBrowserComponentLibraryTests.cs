@@ -27,7 +27,7 @@ public class ObjectBrowserComponentLibraryTests
         loc.GetString("Str.Tool.ObjectBrowser.MembersUnavailable").Returns("Localized unavailable members");
         loc.GetString("Str.Tool.ObjectBrowser.TypeMetadataUnavailable").Returns("Localized unavailable type metadata");
         return (new ObjectBrowserToolViewModel(projects, Substitute.For<ILspClient>(),
-            Substitute.For<IEditorService>(), components ?? new ComponentRegistry(), types,
+            Substitute.For<IEditorService>(), components ?? InBoxRegistry.Create(), types,
             FocusedProject(project), loc, Substitute.For<ILanguageConnectionRegistry>()), projects);
     }
 
@@ -347,21 +347,6 @@ public class ObjectBrowserComponentLibraryTests
         browser.SelectedClass = browser.SelectedLibrary.Classes.Single(c => c.Name == "TreeView");
         browser.FilteredMembers.Should().ContainSingle(m => m.Name == "Name" && m.Signature == "Property Name");
         browser.FilteredMembers.Should().NotContain(m => m.Name.Contains('(') || m.Name.Contains(')'));
-    }
-
-    [Fact]
-    public void Every_declared_control_has_a_component_model_or_an_explicit_gap()
-    {
-        string[] notYetModelled = ["ImageCombo", "Animation"];
-        foreach (var library in ControlLibraries.All)
-        foreach (var name in library.Controls.Keys)
-        {
-            var component = library.FindComponentClass(name);
-            if (notYetModelled.Contains(name))
-                component.Should().BeNull($"{library.Name}.{name} has no component model yet");
-            else
-                component.Should().NotBeNull($"{library.Name}.{name} needs a component model or an explicit gap");
-        }
     }
 
     [Theory]

@@ -232,7 +232,7 @@ public sealed partial class LanguageServerEditorViewModel : ObservableObject
         var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(entry, LanguageServerConfigJsonContext.Default.LanguageServerEntry),
             LanguageServerConfigJsonContext.Default.LanguageServerEntry)!;
         copy.Arguments = resolved;
-        var command = LanguageServerConfigLoader.LaunchedCommandOf(copy) ?? entry.Endpoint ?? entry.PipeName ?? "";
+        var command = LanguageServerConfigLoader.SeenIdentityOf(copy) ?? entry.Endpoint ?? entry.PipeName ?? "";
         return command + (unresolved ? Environment.NewLine + _localization.GetString("Str.Tool.LanguageServers.Editor.NoWorkspace") : "");
     }
 

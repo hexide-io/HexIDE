@@ -28,8 +28,44 @@ public interface IHexIdeHost
 
     IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
     IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
-    /// <summary>Contributes a toolbox control until the returned handle is disposed.</summary>
+    /// <summary>
+    /// Contributes a control class until the returned handle is disposed: forms that name its type name load it, and the
+    /// designer places it. The toolbox offers it once its owner registers a toolbox item for it, with
+    /// <see cref="RegisterToolboxItem"/>.
+    /// </summary>
+    /// <remarks>
+    /// Owned (#5594): only the host an add-in is given takes it, under the add-in's identity. A class whose role isn't
+    /// <see cref="ComponentRole.Control"/>, or that's a container, is refused unless HexIDE grants its owner that.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The owner may not register such a class, or another registration, its own or another owner's, holds the class's
+    /// <see cref="IComponentClass.VBTypeName"/>. The message names both owners.
+    /// </exception>
     IDisposable RegisterComponent(IComponentClass component);
+
+    /// <summary>
+    /// Offers <paramref name="component"/> in the toolbox until the returned handle is disposed, after the items already
+    /// there, with the icon resource <paramref name="iconKey"/> names, or the toolbox's generic control icon when it's null
+    /// (#5594).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The class isn't registered, or this add-in didn't register it, or the toolbox offers it already.
+    /// </exception>
+    IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey = null);
+
+    /// <summary>
+    /// Registers a control library a project can reference until the returned handle is disposed (#5599): the Components
+    /// dialog lists it, and while a project references it the toolbox offers <paramref name="controls"/>.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="controls"/> is asked only when something first needs to know what the library offers, so its classes
+    /// load only then. A library writes <c>Object=</c> lines into the projects that reference it, so it registers only under
+    /// a namespace HexIDE's grant for its owner keeps: first-party only, for now.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The owner may not register this library, or a registered library holds its name or GUID. The message names both owners.
+    /// </exception>
+    IDisposable RegisterControlLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls);
     /// <summary>Contributes a template to subsequently opened New Project dialogs until the returned handle is disposed.</summary>
     IDisposable RegisterProjectTemplate(IAddinProjectTemplate template);
 
@@ -134,4 +170,108 @@ public interface IHexIdeHost
     /// host that isn't an add-in's own: resources are registered only through the host an add-in is given.
     /// </exception>
     IDisposable RegisterResources(Uri dictionary);
+
+    /// <summary>
+    /// Contributes language packs for text the add-in owns (#5394): a folder of <c>{id}.json</c> files in the IDE's own pack
+    /// format, an <c>en.json</c> and one for each language or region it translates. The IDE reads them in every layer it
+    /// reads its own packs, and the user's translations, the Translation Editor and Pseudo cover them too.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the owners HexIDE grants it may call it.</b> The grants are in HexIDE's own source, keyed by owner, and each
+    /// names the <c>Str.*</c> families its owner's packs may supply. Any other add-in is refused, whatever its signature.
+    /// Today the only grant is the Basic provider's, which HexIDE composes itself.
+    /// </para>
+    /// <para>
+    /// <b>It only adds.</b> Every file is read before anything is merged, and the whole folder is refused if any one key is
+    /// refused. A key is refused when:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>it is outside the add-in's grant, or doesn't start <c>Str.</c>;</item>
+    /// <item>the IDE or another add-in already holds it;</item>
+    /// <item>its English is blank;</item>
+    /// <item>a language's file holds it and <c>en.json</c> doesn't;</item>
+    /// <item>a translation's placeholders differ from its English.</item>
+    /// </list>
+    /// <para>
+    /// Each refusal is logged naming the key and both owners. A pack's text direction is ignored: the IDE's own pack for
+    /// that language sets it.
+    /// </para>
+    /// <para>
+    /// The capability design will need a name for this member; none is checked today, as that design's host checks are
+    /// not built.
+    /// </para>
+    /// </remarks>
+    /// <param name="folder">An <c>avares://</c> folder in the calling add-in's own assembly, holding an <c>en.json</c>.</param>
+    /// <returns>
+    /// What takes the packs out again, and the IDE's text with them. Turning the add-in off or revoking its consent takes
+    /// them out too.
+    /// </returns>
+    /// <exception cref="ArgumentException">
+    /// The address isn't an <c>avares://</c> address in the calling assembly, the folder holds no <c>en.json</c>, or a file
+    /// in it isn't a language pack.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The add-in holds no grant, or a key is refused, as above; the message names each key and its owner. Also thrown by
+    /// a host that isn't an add-in's own: language packs are registered only through the host an add-in is given.
+    /// </exception>
+    IDisposable RegisterLanguagePacks(Uri folder);
+
+    /// <summary>
+    /// Makes the add-in what draws the form designer's controls (#5591). For each control the designer draws, it calls
+    /// <paramref name="pictures"/> with the place it lends the control while it's drawn, and asks what it gets back for
+    /// the control's picture.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the owners HexIDE grants it may call it.</b> The grants are in HexIDE's own source, keyed by owner. Any other
+    /// add-in is refused, whatever its signature, because whatever draws is given a place in the designer's tree. Today the
+    /// only grant is the Basic provider's, which HexIDE composes itself.
+    /// </para>
+    /// <para>
+    /// <b>One at a time.</b> While one registration holds, another is refused, so nothing can replace the drawer silently.
+    /// </para>
+    /// <para>
+    /// The capability design will need a name for this member; none is checked today, as that design's host checks are not
+    /// built.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// What takes the drawer out again: until another registers, the designer draws no controls. Turning the add-in off or
+    /// revoking its consent takes it out too.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// The add-in holds no grant, or another owner's drawer is registered; the message names both owners. Also thrown by a
+    /// host that isn't an add-in's own: the drawer is registered only through the host an add-in is given.
+    /// </exception>
+    IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures);
+
+    /// <summary>
+    /// Makes <paramref name="positions"/> what gives VB6's scale rules at design time (#5758): the units the Properties
+    /// window, the toolbar's readout and automation show a control's Left, Top, Width and Height in, and the units the
+    /// designer moves a Line's endpoints in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the owners HexIDE grants it may call it.</b> The grants are in HexIDE's own source, keyed by owner. Any other
+    /// add-in is refused, whatever its signature, because its answers decide the positions written into the user's forms.
+    /// Today the only grant is the Basic provider's, which HexIDE composes itself.
+    /// </para>
+    /// <para>
+    /// <b>One at a time.</b> While one registration holds, another is refused, so nothing can replace the rules silently.
+    /// </para>
+    /// <para>
+    /// The capability design will need a name for this member; none is checked today, as that design's host checks are not
+    /// built.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// What takes the rules out again: until another registers, positions are shown as the model holds them, in pixels, and
+    /// none can be typed in. Turning the add-in off or revoking its consent takes it out too.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// The add-in holds no grant, or another owner's rules are registered; the message names both owners. Also thrown by a
+    /// host that isn't an add-in's own: the rules are registered only through the host an add-in is given.
+    /// </exception>
+    IDisposable RegisterDesignPositions(IDesignPositions positions);
 }

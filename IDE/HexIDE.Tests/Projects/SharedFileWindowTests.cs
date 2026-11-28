@@ -31,7 +31,7 @@ public sealed class SharedFileWindowTests : IDisposable
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString(Arg.Any<string>()).Returns(c => c.Arg<string>() + " {0} {1}");
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
-            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(c =>
+            Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(c =>
         {
             questions.Add(c.ArgAt<string>(0));
             questionButtons.Add(c.Arg<MessageBoxButtons>());
@@ -45,8 +45,8 @@ public sealed class SharedFileWindowTests : IDisposable
         service = new ProjectService(() => throw new InvalidOperationException(), windows, events, manager,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), documents: documents);
-        editors = new EditorService(documents, () => ExternalFormChangeTests.Editor(service, events),
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), documents: documents);
+        editors = new EditorService(windows, documents, () => ExternalFormChangeTests.Editor(service, events),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => manager, strings, events, () => service);
     }

@@ -142,9 +142,9 @@ but nobody will block your PR for omitting it.
 If you do use the tooling: `npm install -g @fission-ai/openspec`, then `openspec validate --specs --strict`.
 Note that it reports anonymous usage stats by default — `openspec config set telemetry.enabled false` turns
 that off. That setting is per-machine, so it does not travel with this repo. HexIDE itself sends no telemetry and
-fetches the signed add-in revocation list from `https://hexide.io/revocations.json` at startup only when
-an enabled package is not key-pinned first-party. `RevocationListUrl` overrides that address; an empty value
-disables fetching. The AI Chat add-in and a remote language server connect only to the address you give them.
+fetches the signed add-in revocation list from `https://hexide.io/revocations.json` while an add-in is installed,
+first-party ones included: at every startup, then hourly while it runs
+([TRUST.md](TRUST.md#the-revocation-list-hexide-fetches) says what is requested). `RevocationListUrl` overrides that address; an empty value disables fetching. The AI Chat add-in and a remote language server connect only to the address you give them.
 
 ## Making a change
 
@@ -165,10 +165,14 @@ disables fetching. The AI Chat add-in and a remote language server connect only 
    the issue, not in `CHANGELOG.md`: two pull requests then never edit the same lines.
 
 **Before merging, including a session merging its own pull request, wait until every job on the head
-commit has finished and none is red. Do not merge while main's latest run is red.** This includes the
-advisory macOS job: `build-ide (windows)` is required by branch protection, while `build-ide (macos)`
-remains advisory because there is no local macOS to reproduce a failure on. For a known flake, post the
-failing run on its issue and re-run it green before merging (#1331).
+commit has finished and none is red, apart from the advisory ones. Do not merge while main's latest run
+is red, apart from those.** `build-ide (windows)` is required by branch protection. The jobs named
+advisory, Windows on Arm and macOS, don't hold a merge: while HexIDE is in alpha, win-x64 is the one
+essential build, and macOS runs only on pushes to main and to `release/` branches (#5674). Any other
+platform that keeps pace with Windows, in time and without flaking, stays a gate on every build, as Linux
+does today. One that starts holding merges goes advisory and is checked when it's released. Follow up a
+red advisory job on its own issue. Once post-v1 releases ship, macOS red counts again. For a known flake,
+post the failing run on its issue and re-run it green before merging (#1331).
 
 ## AI-assisted contributions
 

@@ -67,7 +67,7 @@ filesystem paths or language-server URIs.
 - **THEN** its automation path is `/a%2Fb.twin`, distinct from `b.twin` inside a folder named `a`
 
 ### Requirement: Open archive entries by their listed paths
-`open_file` SHALL open an archive entry by its listed path in the existing read-only inspector, without
+`open_file` SHALL open an archive entry by its listed path in the existing container editor, without
 writing files. Text previews SHALL use their opaque archive-entry URI for language servers. Its reply SHALL name the container path as `project` and
 the entry path as `document`. The optional `project` SHALL select an archive by its container path,
 file name or stored project name. Ambiguous matches SHALL refuse and list the matching containers
@@ -77,7 +77,7 @@ before opening anything.
 - **WHEN** `open_file` names an entry path present in two open archives without `project`
 - **THEN** nothing opens and the reply lists both container paths
 - **AND WHEN** the caller repeats the request with one container path as `project`
-- **THEN** that archive's entry opens read-only and the reply names it
+- **THEN** that archive's entry opens in the container editor and the reply names it
 
 ### Requirement: Carried file tab identities
 `get_document_tabs` SHALL report a carried file tab's owner project name as `project` and its
@@ -90,7 +90,7 @@ carried document name as `document`, matching the identity returned by `open_fil
 ### Requirement: Archive tab identities and type
 `get_document_tabs` SHALL report an archive entry tab with `type: archive`, `project` equal to its
 container path and `document` equal to the entry path returned by `open_file`. It SHALL omit
-`isModified` for these read-only previews. The tab activation and closing tools SHALL accept
+`isModified` for these previews (true only for an edited, writable `.twin` source). The tab activation and closing tools SHALL accept
 `archive` as a type filter.
 
 #### Scenario: Two archive tabs show the same entry path
@@ -212,6 +212,25 @@ corresponding draw order. Inspecting one control SHALL report the same `zOrder` 
 #### Scenario: Inspect a loaded form with and without its designer
 - **WHEN** an unchanged loaded form is inspected before and after opening its designer
 - **THEN** each container's controls have the same order and `zOrder`
+
+### Requirement: Line inspection and editing use endpoints
+
+`move_control` SHALL refuse a Line before starting a designer drag, including when all position and size
+arguments are omitted. Its error SHALL say nothing moved, explain that a Line has no `Left`, `Top`, `Width`
+or `Height`, give the current `X1`, `Y1`, `X2` and `Y2` in the container's scale, and direct the caller to
+`set_control_property` to edit them. `get_form_controls` SHALL retain the four numeric bounds fields at zero
+for a Line, explain why, and direct the caller to the endpoints via `controlName` in the row note.
+See [the Line measurements](../../../docs/vb6-fidelity-oracle/the-line-control.md) and [#5784](https://github.com/hexide-io/HexIDE/issues/5784).
+
+#### Scenario: A caller tries to move or resize a Line
+- **WHEN** `move_control` resolves a Line in an open designer
+- **THEN** the reply refuses the call and reports its four endpoints and how to edit them
+- **AND** the model, undo history and modified state remain as they were
+
+#### Scenario: A caller inspects a Line
+- **WHEN** `get_form_controls` returns a Line with the designer open or closed
+- **THEN** the row keeps its numeric zero bounds and explains how to read the four endpoints
+- **AND** any note about the designer failing to draw the component is also present
 
 ### Requirement: SSTab pages are addressable without pixels
 
@@ -1529,6 +1548,23 @@ searches SHALL include the label, and interaction replies SHALL use the meaningf
 - **AND** a missing typed label with a same-type data-bound text sibling explains that such text changes,
   is addressed by position, and that the caller should dump again for its current path
 
+### Requirement: Settle IDE command invokes before replying
+
+For a successful `interact` invoke on an IDE Button or MenuItem, the reply SHALL wait for an exposed
+running command task to complete or for a new modal dialog to open, up to two seconds. Tasks exposed
+by async DelegateCommand and CommunityToolkit async relay commands SHALL be recognized. With no
+running exposed task, the invoke SHALL allow one Background dispatcher pass, bounded by the same
+limit. Running-program controls SHALL retain their program wait.
+
+#### Scenario: A command opens a modal dialog after awaiting work
+- **WHEN** an IDE button's command awaits work and then opens a modal dialog within two seconds
+- **THEN** the reply's existing modalDialog note names it as opened during this call
+- **AND** the invoke does not wait for the dialog to be answered
+
+#### Scenario: A command outlasts the wait without opening a dialog
+- **WHEN** the exposed task is still running after two seconds and no new modal dialog has opened
+- **THEN** the detail says the reply preceded completion of the work and names the 2000 ms limit
+
 ### Requirement: Attribute window waits when settling running-form actions
 
 An automation reply for a running form SHALL distinguish a handler waiting on a window from one suspended at a
@@ -1909,10 +1945,11 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 - **THEN** no move comes before the press, and the reply says the pointer was already there
 
 ### Requirement: A press that closes its window or removes its target SHALL report what happened
-Before hit-testing a click's release, the driver SHALL check whether its window closed or its press
-target left the tree. Either SHALL report success naming the window or target and first or second
-press, say nothing was released there, and send no remaining release or second press. An empty release
-point in an open window with an attached press target SHALL retain its failure.
+If a press closes its window, the driver SHALL report success, name the window and press, and say
+it sent no release. No remaining press is sent. In an open window, it SHALL release to the pointer
+capturer or the control under the release point. If the press target left the tree, the reply SHALL
+name it, the first or second press and any release recipient. If neither a capturer nor a control
+at the release point is available, the driver SHALL report a release failure.
 
 #### Scenario: A floating title docks on its second press
 - **WHEN** a double click's second press closes the floating tool window
@@ -1921,8 +1958,13 @@ point in an open window with an attached press target SHALL retain its failure.
 
 #### Scenario: A first press removes its target
 - **WHEN** the first press removes the element it reached while the window stays open
-- **THEN** the reply reports success naming the removed target and first press
-- **AND** neither its release nor a second press is sent
+- **THEN** the release reaches the capturer or the control under the release point, and the reply names it and the removed target
+- **AND** for a double click the second press follows the normal hit-test at that point
+
+#### Scenario: A Line moves and its pressed image disappears
+- **WHEN** a drag of a Line in the designer removes the image the press reached
+- **THEN** the release reaches the ResizeAdorner that captured the pointer, including when `release` ends a held drag
+- **AND** the reply names the removed image and the adorner that received the release
 
 ### Requirement: A click on a mirrored window SHALL say that it went past Windows' mirroring
 On Windows, when the window `click` presses in has `WS_EX_LAYOUTRTL`, the reply SHALL say that the window is mirrored and that

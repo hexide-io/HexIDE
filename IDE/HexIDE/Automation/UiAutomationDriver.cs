@@ -17,6 +17,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
+using CommunityToolkit.Mvvm.Input;
 using HexIDE.Utils;
 using HexIDE.VisualDesigner;
 
@@ -763,9 +764,9 @@ public static class UiAutomationDriver
                                            : ""));
                         // A running form's ticks are its program's to set, in a Click that runs later, through the program's
                         // queue, so they are read once the wait for the program finds it idle (#1255).
-                        if (clickItem is HexIDE.Runtime.BuiltinControls.VBMenu programItem)
+                        if (RunningProgram.Current.IsMenuItem(clickItem))
                         {
-                            var moved = TicksMoved(programItem);
+                            var moved = TicksMoved(clickItem);
                             return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}") with { Settled = moved };
                         }
                         return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}");
@@ -779,7 +780,7 @@ public static class UiAutomationDriver
                     // checkable item offers a toggle, but it only sets IsChecked: no Click is raised, so neither the
                     // program's handler nor the command behind an IDE tick runs. So a menu item is refused whatever its
                     // peer offers.
-                    if (control is HexIDE.Runtime.BuiltinControls.VBMenu)
+                    if (RunningProgram.Current.IsMenuItem(control))
                         return Err("a running form's menu item has no toggle of its own: its program sets the tick, in the "
                                    + "item's Click, which 'invoke' runs as a click does. inspect_element reads the tick as "
                                    + "toggleState; nothing was done");
@@ -1780,7 +1781,7 @@ public static class UiAutomationDriver
 
         // A running form's item is put back before its Click, and the program sets its tick when it runs, which the caller
         // reads once it has (#1255): read now, it said the tick stayed where the program was about to move it.
-        var tick = item is HexIDE.Runtime.BuiltinControls.VBMenu || item.ToggleType == MenuItemToggleType.None
+        var tick = RunningProgram.Current.IsMenuItem(item) || item.ToggleType == MenuItemToggleType.None
                    || item.IsChecked == wasChecked ? ""
             : item.IsChecked ? " (now ticked)" : " (now unticked)";
         return tick + (CloseMenu(menu) ? " and closed the menu, as a click does" : "");
@@ -1795,10 +1796,10 @@ public static class UiAutomationDriver
     /// The whole menu, not the item alone: a level menu ticks the chosen item and unticks the others, and naming only the
     /// chosen one left the others' change unsaid (#1255 review).
     /// </remarks>
-    private static Func<string?> TicksMoved(HexIDE.Runtime.BuiltinControls.VBMenu item)
+    private static Func<string?> TicksMoved(MenuItem item)
     {
-        HexIDE.Runtime.BuiltinControls.VBMenu[] items = MenuHolding(item) is { } menu
-            ? [.. menu.GetLogicalDescendants().OfType<HexIDE.Runtime.BuiltinControls.VBMenu>()]
+        MenuItem[] items = MenuHolding(item) is { } menu
+            ? [.. menu.GetLogicalDescendants().OfType<MenuItem>().Where(RunningProgram.Current.IsMenuItem)]
             : [item];
         var was = items.Select(i => i.IsChecked).ToArray();
         return () =>
@@ -2048,8 +2049,12 @@ public static class UiAutomationDriver
         List<Action>? moves = destination is null ? null : MovesBetween(inWindow, releasePoint);
         // Where the second press of a double click went, when not where the first did.
         var secondLanding = "";
+        // FinishAsync returns the second click's outcome, so carry the first release's removal and recipient forward.
+        var firstRemoval = "";
         InteractOutcome Release(bool second)
         {
+            var removed = "";
+            var previousRelease = second ? firstRemoval : "";
             try
             {
                 if (moveFailed is not null)
@@ -2059,18 +2064,17 @@ public static class UiAutomationDriver
                 var whichPress = second ? "second" : "first";
                 if (topLevel.PlatformImpl is null)
                     return new InteractOutcome(true, "pointer",
-                        $"pressed {pressed}; the window '{pressWindowTitle}' closed after the {whichPress} press, "
+                        $"pressed {pressed}{previousRelease}; the window '{pressWindowTitle}' closed after the {whichPress} press, "
                         + "as a double-click on a floating title does when it docks the tool; nothing was released there", null);
                 if (!ReferenceEquals(TopLevel.GetTopLevel(pressTarget), topLevel))
-                    return new InteractOutcome(true, "pointer",
-                        $"pressed {pressed}; the target '{(pressTarget is Control target ? Describe(target) : pressTarget.GetType().Name)}' "
-                        + $"was removed after the {whichPress} press; nothing was released there", null);
+                    removed = $"; the target '{(pressTarget is Control target ? Describe(target) : pressTarget.GetType().Name)}' "
+                        + $"was removed after the {whichPress} press";
                 // A control that captured the pointer on its press takes the release, as it would from a real pointer.
                 var captured = pointer.Captured is not null;
                 var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
                 if (releasedOn is null)
-                    return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
+                    return Fail($"pressed {pressed}{previousRelease}{removed}; nothing takes the pointer at the release point {releaseWhere}");
                 var releaseCode = topLevel.InputHitTest(releasePoint) is Control releaseTarget
                     && topLevel.TranslatePoint(releasePoint, releaseTarget) is { } localRelease
                     ? CodeWindowPointer.Note(releaseTarget, localRelease) : "";
@@ -2079,13 +2083,20 @@ public static class UiAutomationDriver
                     releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, RawPointer.InSurface(topLevel, releasePoint),
                         releaseTime, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 PointerNowAt(topLevel, releasePoint);
-                var recipient = destination is null ? "" : releasedOn is Control releasedControl
+                var reportRecipient = destination is not null || removed.Length > 0;
+                var recipient = !reportRecipient ? "" : releasedOn is Control releasedControl
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
                     : $"'{releasedOn.GetType().Name}'";
                 pointer.Capture(null);
                 var docked = placedBefore is null ? "" : DockMoved(placedBefore, DockPlacement(dockLayout!), pressedDockHandle);
-                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}{(second ? secondLanding : "")}"
-                    + (destination is null ? (releaseCode.Length == 0 ? "" : $"; released{releaseCode}") : $"; released at {releaseWhere}{releaseCode}; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}"), null,
+                var release = destination is null ? (releaseCode.Length == 0 ? "" : $"; released{releaseCode}")
+                    : $"; released at {releaseWhere}{releaseCode}";
+                if (reportRecipient)
+                    release += $"; release received by {recipient} ({(captured ? "pointer capturer" : "under the release point, no capture")}){docked}";
+                if (!second && removed.Length > 0)
+                    firstRemoval = removed + release;
+                var outcome = new InteractOutcome(true, "pointer", $"{(destination is not null ? "dragged" : second ? "double-clicked" : "clicked")} {pressed}{arrival}"
+                    + $"{previousRelease}{(second ? secondLanding : "")}{removed}{release}", null,
                     NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
                 if (startedInactive && topLevel is Window { IsActive: false } clickedWindow)
                 {
@@ -2103,7 +2114,7 @@ public static class UiAutomationDriver
             }
             catch (Exception ex)
             {
-                return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
+                return new InteractOutcome(false, "pointer", null, $"pressed {pressed}{previousRelease}{removed}, and the release threw: {ex.Message}");
             }
             finally { pointer.Capture(null); }
         }
@@ -2125,9 +2136,9 @@ public static class UiAutomationDriver
                 await Task.WhenAny(compositor.RequestCompositionBatchCommitAsync().Processed, Task.Delay(SecondPressFrameWait));
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
             if (!topLevel.IsVisible)
-                return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
+                return Fail($"clicked {pressed}{firstRemoval}; the second click was not sent because the window is hidden or closed");
             if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
-                return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
+                return Fail($"clicked {pressed}{firstRemoval}; the second click was not sent because nothing takes the pointer at that point now");
             pressTarget = again;
             var secondPressTime = ButtonTimestamp();
             if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, secondPressTime))
@@ -2319,7 +2330,8 @@ public static class UiAutomationDriver
     /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
     /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame, after bringing a clipped
     /// press point into view. A <c>toggle</c> reads its
-    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). Every other action is
+    /// state once the work it set off has run (<see cref="ToggleSettledAsync"/>). An IDE button or menu invoke
+    /// waits for its exposed command task or a new modal dialog, bounded by <see cref="ToggleSettleWait"/>. Every other action is
     /// <see cref="Interact"/> as it is.
     /// </summary>
     /// <remarks>
@@ -2341,6 +2353,8 @@ public static class UiAutomationDriver
             var aimed = value;
             if (!CodeWindowPointer.Aim(control, ref aimed, out var aimError)) return Err(aimError!);
         }
+        if (verb == "invoke" && control is Button or MenuItem && !InProgram(control))
+            return await InvokeSettledAsync(control, action, value);
         if (verb is not ("click" or "wheel" or "doubleclick"))
             return Interact(control, action, value);
         var scrollNote = "";
@@ -2380,6 +2394,43 @@ public static class UiAutomationDriver
                         + $"has nothing drawn there yet, since {(verb == "click" ? "a press" : "a wheel")} is hit-tested against what was drawn: try again once it shows",
             };
         return scrollNote.Length == 0 ? outcome : WithClickScroll(outcome, scrollNote);
+    }
+
+    private static async Task<InteractOutcome> InvokeSettledAsync(Control control, string action, string? value)
+    {
+        static object Shown(Window dialog) => dialog.Content ?? dialog;
+        var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
+        var outcome = Interact(control, action, value);
+        if (!outcome.Success)
+            return outcome;
+        var command = control switch { Button button => button.Command, MenuItem item => item.Command, _ => null };
+        var task = command switch
+        {
+            IRunningCommand running => running.ExecutionTask,
+            IAsyncRelayCommand relay => relay.ExecutionTask,
+            _ => null,
+        };
+        var timeout = Task.Delay(ToggleSettleWait);
+        bool OpenedDialog() => OpenDialogs.Among(OpenWindows()).Any(d => !dialogsBefore.Contains(Shown(d)));
+        if (task is { IsCompleted: false })
+        {
+            // A command may await the dialog's answer; naming the new dialog must not wait for that answer.
+            while (!task.IsCompleted && !OpenedDialog() && !timeout.IsCompleted)
+                await Task.WhenAny(task, timeout, Task.Delay(10));
+            if (!task.IsCompleted && !OpenedDialog())
+                return outcome with
+                {
+                    Detail = outcome.Detail + "; replied before the work it set off had finished, which took longer than "
+                             + $"{ToggleSettleWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms",
+                };
+        }
+        else
+        {
+            var settled = Avalonia.Threading.Dispatcher.UIThread
+                .InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background).GetTask();
+            await Task.WhenAny(settled, timeout);
+        }
+        return outcome;
     }
 
     /// <summary>
@@ -5844,8 +5895,8 @@ public static class UiAutomationDriver
     // whose popup is a window of its own, and one on an MDI child hosted in a pane count too. The form designer's
     // controls carry the same names but no running form above them. A Timer and a CommonDialog never show at run time.
     private static bool IsProgramControl(Control control) =>
-        HexIDE.Runtime.BuiltinControls.VBProps.GetName(control) is not null
-        && control is not (HexIDE.Runtime.BuiltinControls.VBTimer or HexIDE.Runtime.BuiltinControls.VBCommonDialog)
+        RunningProgram.Current.ControlName(control) is not null
+        && !RunningProgram.Current.NeverShows(control)
         && control.GetLogicalAncestors().Any(a => RunningProgram.Current.Form(a) is { IsRunning: true });
 
     private static UiNode BareNode(MeaningfulChild node, string path, object? parentContext) =>

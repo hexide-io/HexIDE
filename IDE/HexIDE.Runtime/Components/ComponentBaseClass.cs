@@ -42,6 +42,33 @@ public abstract class ComponentBaseClass : IDesignerComponentClass
     /// <summary>Declared members with origin marks; empty for controls not yet migrated to a member table.</summary>
     public virtual IReadOnlyList<InBox.InBoxMember> Members => [];
 
+    /// <summary>
+    /// <see cref="Members"/> as the IDE reads them (#5610): those a control of <paramref name="library"/> has, or every one
+    /// for null. Whether a member is written in a <c>.frm</c>, and whether HexIDE implements it, stay with the runtime.
+    /// </summary>
+    /// <remarks>
+    /// A class that overrides <see cref="Members"/> declares <see cref="IComponentMemberTable"/>, which this implements, and
+    /// only such a class does: the Object Browser describes a library's class without one by its properties and events, and
+    /// one with one by its table, even an empty one. A test fails on a class that keeps a table and doesn't say so.
+    /// </remarks>
+    public IReadOnlyList<ComponentMember> MembersIn(IControlLibrary? library)
+    {
+        var members = new List<ComponentMember>();
+        foreach (var member in Members)
+        {
+            if (library is not null && !member.IsIn(library))
+                continue;
+            var kind = member.Kind switch
+            {
+                InBox.MemberKind.Property => ComponentMemberKind.Property,
+                InBox.MemberKind.Event => ComponentMemberKind.Event,
+                _ => ComponentMemberKind.Method,
+            };
+            members.Add(new ComponentMember(member.Name, kind, (member.Origin & InBox.MemberOrigin.HexIde) != 0));
+        }
+        return members;
+    }
+
     public IReadOnlyList<PropertyClass> Properties { get; }
 
     public IReadOnlyDictionary<string, PropertyClass> PropertiesByName { get; }
@@ -57,6 +84,9 @@ public abstract class ComponentBaseClass : IDesignerComponentClass
 
     /// <summary>Visible controls (default) have Width/Height/Visible; invisible ones (Timer) override false.</summary>
     public virtual bool IsVisual => true;
+
+    public virtual ComponentRole Role => ComponentRole.Control;
+    public virtual bool IsContainer => false;
 
     /// <summary>
     /// True for a control VB6 draws on its container's own surface rather than in a window of its own: the Label, Shape,
@@ -97,7 +127,7 @@ public abstract class ComponentBaseClass : IDesignerComponentClass
     /// child by what it draws. The designer keeps one flat canvas and has to do the arithmetic, so it needs
     /// the same number as a value; this is the single place it comes from, so the two cannot disagree.
     /// </summary>
-    public virtual Thickness ClientInset(ComponentInstance instance) => default;
+    public virtual DesignerInset ClientInset(ComponentInstance instance) => default;
 
     /// <inheritdoc/>
     public virtual IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];

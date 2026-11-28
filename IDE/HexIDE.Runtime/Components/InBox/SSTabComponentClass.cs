@@ -6,7 +6,7 @@ using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components.InBox;
 
-public sealed class SSTabComponentClass : InBoxComponentClass
+public sealed class SSTabComponentClass : InBoxComponentClass, IDesignerPages
 {
     private SSTabComponentClass() : base(
         [EnabledProperty, TabIndexProperty, TabStopProperty, ToolTipTextProperty], [],
@@ -14,6 +14,8 @@ public sealed class SSTabComponentClass : InBoxComponentClass
             MouseDownEvent, MouseUpEvent, MouseMoveEvent, DblClickEvent, GotFocusEvent, LostFocusEvent]) { }
 
     public static SSTabComponentClass Instance { get; } = new();
+    public override bool IsContainer => true;
+
     public override string Name => "SSTab";
     public override string ControlClassName => "SSTab";
     public override RuntimeLibrary Library => ControlLibraries.TabDlg;
@@ -38,22 +40,29 @@ public sealed class SSTabComponentClass : InBoxComponentClass
         return tab;
     }
 
-    public void InitializeDesignerPages(ComponentInstance instance) => SSTabDesignerPages.For(instance);
+    /// <inheritdoc/>
+    public void LoadPages(ComponentInstance instance) => SSTabDesignerPages.For(instance);
 
-    public bool SelectDesignerPage(ComponentInstance instance, Point point, Size size,
-        IReadOnlyList<ComponentInstance> children) => SSTabDesignerPages.For(instance).Select(point, size, children);
+    /// <inheritdoc/>
+    public bool ShowPageAt(ComponentInstance instance, double x, double y, double width, double height,
+        IReadOnlyList<ComponentInstance> children) =>
+        SSTabDesignerPages.For(instance).Select(new Point(x, y), new Size(width, height), children);
 
-    public void SynchronizeDesignerPages(ComponentInstance instance, IReadOnlyList<ComponentInstance> children) =>
+    /// <inheritdoc/>
+    public void SynchronizePages(ComponentInstance instance, IReadOnlyList<ComponentInstance> children) =>
         SSTabDesignerPages.For(instance).Synchronize(children);
 
-    public int DesignerTab(ComponentInstance instance) => instance.GetPropertyOrDefault(SSTabSavedState.Property)?.Number("Tab", 0) ?? 0;
+    /// <inheritdoc/>
+    public int ShownPage(ComponentInstance instance) => instance.GetPropertyOrDefault(SSTabSavedState.Property)?.Number("Tab", 0) ?? 0;
 
-    public int DesignerTabs(ComponentInstance instance) => instance.GetPropertyOrDefault(SSTabSavedState.Property)?.Number("Tabs", 3) ?? 3;
+    /// <inheritdoc/>
+    public int PageCount(ComponentInstance instance) => instance.GetPropertyOrDefault(SSTabSavedState.Property)?.Number("Tabs", 3) ?? 3;
 
-    public int? DesignerTabOf(ComponentInstance instance, string childName)
+    /// <inheritdoc/>
+    public int? PageOf(ComponentInstance instance, string childName)
     {
         var saved = instance.GetPropertyOrDefault(SSTabSavedState.Property);
-        for (var page = 0; page < DesignerTabs(instance); page++)
+        for (var page = 0; page < PageCount(instance); page++)
             for (var index = 0; index < (saved?.Number($"Tab({page}).ControlCount", 0) ?? 0); index++)
                 if (string.Equals(saved?.Value($"Tab({page}).Control({index})") as string, childName,
                         StringComparison.OrdinalIgnoreCase))
@@ -61,10 +70,11 @@ public sealed class SSTabComponentClass : InBoxComponentClass
         return null;
     }
 
-    public string? DesignerPageSwitchRefusal(ComponentInstance instance)
+    /// <inheritdoc/>
+    public string? PageSwitchRefusal(ComponentInstance instance)
     {
         var saved = instance.GetPropertyOrDefault(SSTabSavedState.Property);
-        for (var page = 0; page < DesignerTabs(instance); page++)
+        for (var page = 0; page < PageCount(instance); page++)
             for (var index = 0; index < (saved?.Number($"Tab({page}).ControlCount", 0) ?? 0); index++)
             {
                 var name = saved?.Value($"Tab({page}).Control({index})") as string;
@@ -80,12 +90,13 @@ public sealed class SSTabComponentClass : InBoxComponentClass
                             : "a saved control reference HexIDE cannot resolve to one modelled child"
                         : null;
                 if (reason is not null)
-                    return $"{instance.GetPropertyOrDefault(NameProperty)}'s page {page} names {name ?? "(unnamed entry)"}, {reason}, so its pages can't be switched here. Nothing was changed.";
+                    return $"{instance.GetPropertyOrDefault(NameProperty)}'s page {page} names {name ?? "(unnamed entry)"}, {reason}, so its pages can't be switched here.";
             }
         return null;
     }
 
-    public void SelectDesignerPage(ComponentInstance instance, int page, IReadOnlyList<ComponentInstance> children) =>
+    /// <inheritdoc/>
+    public void ShowPage(ComponentInstance instance, int page, IReadOnlyList<ComponentInstance> children) =>
         SSTabDesignerPages.For(instance).Select(page, children);
 
     public override Control InstantiateForDesigner(ComponentInstance instance)

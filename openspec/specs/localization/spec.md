@@ -399,3 +399,97 @@ separately. Field names, paths, product names, flag names, sizes and limits SHAL
 #### Scenario: Invalid startup flag on a French operating system
 - **WHEN** the OS UI language is French and a startup flag is refused
 - **THEN** the diagnostic is French and retains the flag spelling, product name and supplied invalid value
+
+### Requirement: Language-pack areas join each layer the IDE reads
+The IDE SHALL read registered language-pack areas beside its own packs. An area is a folder of `{id}.json` files in
+the IDE's pack format. Each area's English SHALL join the canonical fallback. Each area's file for a neutral or a
+region SHALL merge into that layer, after the IDE's own pack and before the profile and user tiers.
+
+#### Scenario: A region over its neutral
+- **WHEN** an area has a French file and a Canadian French file, and the IDE is in Canadian French
+- **THEN** a key in the region's file reads from it, and a key only in the neutral's file reads from that
+
+### Requirement: An area decides neither language nor direction
+An area SHALL NOT make an unknown language resolve, and SHALL NOT set the reading direction, which stays the IDE
+pack's. Pseudo text and the Translation Editor's "secretly English" rule SHALL treat an area's keys as the IDE's own.
+
+#### Scenario: A file declaring right to left
+- **WHEN** an area's German file declares a right-to-left direction
+- **THEN** German still reads left to right
+
+### Requirement: The active language follows areas as they come and go
+When an area is registered or taken out, the IDE SHALL re-apply the active language on the UI thread, so the area's
+text shows or goes without another language change.
+
+#### Scenario: Registering while a language is active
+- **WHEN** an area registers while the IDE is in German
+- **THEN** its German text shows, and goes again when the area is taken out
+
+### Requirement: Only a grant in the IDE's source admits an area
+The add-in host SHALL refuse a language-pack area unless a grant in the IDE's own source names its owner. A manifest
+SHALL NOT grant anything. A grant SHALL name the key families its owner may supply, and SHALL NOT name a family the
+consent or trust dialogs read. An area SHALL be read only from the registering code's own assembly. In #3411's phase
+2 the Basic provider's grant names the Desktop composition's origin; phase 3 switches it to a first-party signature
+with the id `hexide.basic`.
+
+#### Scenario: An owner with no grant
+- **WHEN** an add-in no grant names registers an area
+- **THEN** it is refused, and the IDE's text is unchanged
+
+### Requirement: An area is refused whole
+Before merging anything, the IDE SHALL refuse the whole area for any key outside its grant, not starting `Str.`, held
+by the IDE's canonical pack or by another area, or with blank English. It SHALL also refuse it for a language-file key
+its own `en.json` lacks, and for a translation whose placeholders differ from its English. Each refusal SHALL be logged
+naming both owners.
+
+#### Scenario: An area that names an IDE key
+- **WHEN** an area's English holds `Str.Menu.File` beside keys of its own
+- **THEN** none of its keys is added, and the log names the area's owner and the IDE
+
+### Requirement: The user's translations keep what no area holds now
+The user's translations SHALL keep an override whose key no area holds when they load, and SHALL save it with the rest
+of the language's overrides without applying it. They SHALL place it once an area holding its key registers, and SHALL
+keep an override of an area's key again when its area is taken out.
+
+#### Scenario: Saving while the provider is absent
+- **WHEN** the user's German file translates a provider key, no area holds it, and the user changes another German string
+- **THEN** the saved file still holds the provider key's translation
+
+#### Scenario: The provider registers
+- **WHEN** the area that holds that key registers
+- **THEN** the user's translation shows in place of the area's
+
+### Requirement: Clearing and resetting leave kept translations on disk
+Clearing a language's last applied override SHALL NOT delete a file that still holds kept ones. Resetting a language
+SHALL remove what the Translation Editor shows and SHALL leave the kept overrides, which it does not show.
+
+#### Scenario: Resetting German
+- **WHEN** the user resets German while its file holds a kept translation
+- **THEN** the file holds only that translation afterwards
+
+### Requirement: The Basic provider owns its language-pack area
+The Basic provider SHALL ship and register its own language-pack area through its host, and SHALL dispose that
+registration with its resources. Moving text between areas SHALL preserve its value, including distribution branding.
+
+#### Scenario: Text belongs to the provider
+- **WHEN** the Basic provider initializes
+- **THEN** its area SHALL hold property descriptions, project type names, provider project-load messages, Make and VB6
+  toolchain messages, the not-implemented runner message, and the Standalone Wayland diagnostic
+- **AND** the IDE SHALL retain its startup diagnostic and project-load heading, warning summary and ActiveX-document notice
+
+#### Scenario: Moving provider text preserves the displayed language
+- **WHEN** a user selects German with the Basic provider registered
+- **THEN** VB6 property descriptions SHALL resolve from the provider's German pack
+- **AND** moving the text between areas SHALL preserve its value, including distribution branding
+
+#### Scenario: Standalone has no IDE pack dependency
+- **WHEN** Standalone reads its Wayland diagnostic or not-implemented runner message
+- **THEN** both SHALL resolve from the provider's English pack embedded in Standalone
+
+### Requirement: Shipped pack guards cover every production area
+Every in-tree production area SHALL have every neutral language declared in the manifest. English keys SHALL be disjoint,
+and provider keys SHALL stay inside the provider's grant. Source coverage SHALL resolve keys against the union of areas.
+
+#### Scenario: A provider translation loses a key
+- **WHEN** a provider neutral pack lacks one of its area's canonical English keys
+- **THEN** shipped pack parity SHALL fail, as it does for the shell's area

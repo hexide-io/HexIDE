@@ -12,7 +12,6 @@ using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
-using StandInFormat = HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat;
 
 namespace HexIDE.Tests.Projects;
 
@@ -82,7 +81,7 @@ public sealed class ProjectFormatPerProjectTests : IDisposable
         return new ProjectService(() => throw new InvalidOperationException("no new-project dialog here"),
             _windows, Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), localization,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 
     private HeaderRefresher Refresher(params BaseEditorWindowViewModel[] open)

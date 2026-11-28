@@ -15,17 +15,19 @@ namespace HexIDE.Addins;
 public sealed class AddinOptionsService : IOptionsPageContributor
 {
     private readonly List<Registration> _pages = [];
-    private readonly List<(string Owner, string Name, HexIDE.Lsp.AddinServerConnection Connection)> _servers = [];
+    private readonly List<(string Owner, bool Composed, string Name, HexIDE.Lsp.AddinServerConnection Connection)> _servers = [];
 
-    internal void TrackServer(string owner, string name, HexIDE.Lsp.AddinServerConnection connection)
+    // A composed owner's servers, the Basic provider's, are listed on no package's page, whatever id the package names (#5597).
+    internal void TrackServer(string owner, string name, HexIDE.Lsp.AddinServerConnection connection, bool composed = false)
     {
         // A server taken out (its add-in disabled or its consent revoked) leaves the list, so its page shows only live servers.
         _servers.RemoveAll(server => server.Connection.IsTakenOut);
-        _servers.Add((owner, name, connection));
+        _servers.Add((owner, composed, name, connection));
     }
 
     internal IReadOnlyList<(string Name, HexIDE.Lsp.AddinServerConnection Connection)> ServersFor(string owner) =>
-        _servers.Where(server => !server.Connection.IsTakenOut && string.Equals(server.Owner, owner, StringComparison.OrdinalIgnoreCase))
+        _servers.Where(server => !server.Connection.IsTakenOut && !server.Composed
+            && string.Equals(server.Owner, owner, StringComparison.OrdinalIgnoreCase))
             .Select(server => (server.Name, server.Connection)).ToList();
 
 

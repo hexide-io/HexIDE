@@ -34,7 +34,8 @@ public class PropertyFontBox : TemplatedControl
         openFontWindowButton.Click += OnButtonClick;
     }
 
-    internal FontDialogResult InitialFont => new(new FontFamily(Font.FontFamilyName), Font.ToFontStyle(), Font.ToFontWeight(), Font.Size,
+    internal FontDialogResult InitialFont => new(new FontFamily(Font.FontFamilyName),
+        Font.Italic ? FontStyle.Italic : FontStyle.Normal, Font.Bold ? FontWeight.Bold : FontWeight.Normal, Font.Size,
         Font.Underline, Font.Strikethrough, Font.Charset);
 
     private void OnButtonClick(object? sender, RoutedEventArgs e)

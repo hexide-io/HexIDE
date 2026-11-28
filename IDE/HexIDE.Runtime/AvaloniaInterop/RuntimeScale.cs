@@ -20,6 +20,7 @@ internal sealed class RuntimeScale
     private VBScaleMode mode;
     private DesignPositions.Scale mapping;
     private bool missingMapping;
+    private bool savedMapping = true;
 
     // Issue #990's measured factor and maintainer decision, 2026-11-18. Compute in double, return Single.
     // Known accepted miss: ScaleX(1, vbInches, vbCentimeters) prints 2.540002, where VB6 prints 2.540003.
@@ -34,7 +35,7 @@ internal sealed class RuntimeScale
         this.host = host;
         this.mode = (VBScaleMode)mode;
         missingMapping = mode == 0 && (width is null or 0 || height is null or 0)
-            && !(owner is (Window or VBPictureBox) && width is null && height is null && left == 0 && top == 0);
+            && !(owner is (Window or VBPictureBox or VBUserControl) && width is null && height is null && left == 0 && top == 0);
         mapping = DesignPositions.Scale.Of(mode, left, top, width, height, clientWidth, clientHeight);
         VBProps.SetScaleMode(host, this.mode);
         scales.Add(owner, this);
@@ -70,6 +71,13 @@ internal sealed class RuntimeScale
     }
 
     public static RuntimeScale? Of(Control control) => scales.TryGetValue(control, out var scale) ? scale : null;
+
+    internal static RuntimeScale? OfLineContainer(Control host) =>
+        Of(host) is { owner: Window or VBPictureBox } scale ? scale : null;
+
+    internal VBScaleMode CurrentMode => mode;
+
+    internal bool UsesSavedFormUserScale => savedMapping && owner is Window && mode == VBScaleMode.User;
 
     private static double ClientTwips(Control control, bool vertical) => (control switch
     {
@@ -148,7 +156,10 @@ internal sealed class RuntimeScale
     private void SetMode(VBScaleMode requested)
     {
         if (requested == VBScaleMode.User && mode != VBScaleMode.User)
+        {
             mapping = new DesignPositions.Scale("user units", TwipsPerUnit(false), TwipsPerUnit(true), Origin(false), Origin(true));
+            savedMapping = false;
+        }
         if (requested != VBScaleMode.User || mode != VBScaleMode.User)
             missingMapping = false;
         mode = requested;
@@ -160,6 +171,7 @@ internal sealed class RuntimeScale
         SetMode(VBScaleMode.User);
         missingMapping = false;
         mapping = DesignPositions.Scale.Of(0, left, top, width, height, ClientTwips(owner, false), ClientTwips(owner, true));
+        savedMapping = false;
     }
 
     public static void Statement(Control owner, IReadOnlyList<Vb6Value> points)
@@ -182,15 +194,20 @@ internal sealed class RuntimeScale
     public static bool IsConversion(string name) => name.Equals("ScaleX", StringComparison.OrdinalIgnoreCase)
         || name.Equals("ScaleY", StringComparison.OrdinalIgnoreCase);
 
-    public static Vb6Value ConvertUnits(Control owner, string name, IReadOnlyList<Vb6Value> args)
+    internal static bool IsLateBound(Vb6Value reference) => reference.HeldAsVariant
+        || string.Equals(reference.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase);
+
+    public static Vb6Value ConvertUnits(Control owner, string name, IReadOnlyList<Vb6Value> args, bool lateBound = false)
     {
         var scale = Of(owner) ?? throw new NotImplementedException($"{name} on this object is not implemented (#4693)");
-        if (args.Count == 0)
-            throw new VBCompileErrorException("Argument not optional");
-        if (args.Count == 4 || args.Count == 5 && name.Equals("ScaleX", StringComparison.OrdinalIgnoreCase))
-            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
-        if (args.Count > 3)
-            throw new NotImplementedException($"{name} with this argument count is not implemented (#4693)");
+        // SP6 native/p-code and IDE, issue #4693 (oracle PR #5514).
+        if (args.Count == 0 || args.Count > 3)
+        {
+            if (lateBound)
+                throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+            throw new VBCompileErrorException(args.Count == 0 ? "Argument not optional"
+                : "Wrong number of arguments or invalid property assignment");
+        }
         // #1474: ScaleX on a PictureBox refuses an optional gap, including a positional blank.
         if (owner is VBPictureBox && name.Equals("ScaleX", StringComparison.OrdinalIgnoreCase)
             && args.Count > 2 && args[1].IsMissing)

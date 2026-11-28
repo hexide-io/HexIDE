@@ -195,7 +195,7 @@ public sealed class AddinTitleTests
         var menus = new AddinMenuService();
         var commands = new AddinCommandService();
         IHexIdeHost host = new HexIdeHost(menus, tools, null!, null!, null!, null!, null!, commands,
-            null!, null!, null!, null!, null!, null!, null!, new AddinResourceService());
+            null!, null!, null!, null!, null!, null!, null!, new AddinResourceService(), new AddinLanguagePackService(), new AddinLanguageEditingService());
         var called = false;
         var title = form == "translation"
             ? new AddinTitle("Fallback", new Dictionary<string, string> { ["fr"] = text })

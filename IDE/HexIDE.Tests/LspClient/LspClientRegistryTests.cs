@@ -780,6 +780,113 @@ public class LspClientRegistryTests
         await contributed.Received(contributedCount).CloseDocumentAsync(uri, Arg.Any<CancellationToken>());
     }
 
+    // VB6's projects carry VB6's identity whoever registers their type, and that identity is the bundled server's id: so a
+    // member goes to the bundled server even beside a server of the provider's own. Under the provider's own id, the owner
+    // route would hand it to that server alone (#5625).
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_member_of_a_VB6_project_the_provider_registered_reaches_the_bundled_server(bool identityFromTheRegistration)
+    {
+        var owner = identityFromTheRegistration
+            ? HexIDE.Tests.Infrastructure.Vb6Types.Alone().Find("Project1.vbp")!.AddinId
+            : HexIDE.Addins.RegistrationGrants.BasicProvider;
+        var bundled = FakeServer();
+        var providers = FakeServer();
+        await using var sut = Registry(
+            Registration(LanguageServerDefaults.BundledVb6Id, bundled, priority: 100),
+            Registration("provider", providers) with { AddinId = HexIDE.Addins.RegistrationGrants.BasicProvider });
+        var uri = "untitled:Project1/Module1.bas";
+        var token = TestContext.Current.CancellationToken;
+
+        await sut.OpenDocumentAsync(uri, "code", true, token, owner);
+
+        await bundled.Received(identityFromTheRegistration ? 1 : 0).OpenDocumentAsync(uri, "code", Arg.Any<CancellationToken>());
+        await providers.Received(1).OpenDocumentAsync(uri, "code", Arg.Any<CancellationToken>());
+        if (identityFromTheRegistration) owner.Should().Be(LanguageServerDefaults.BundledVb6Id);
+    }
+
+    [Theory]
+    [InlineData(".bas", true, 0, null, "vba", false, true)]
+    [InlineData(".cls", true, 0, null, "vba", false, true)]
+    [InlineData(".frm", true, 0, null, "vba", false, true)]
+    [InlineData(".ctl", true, 0, null, "vba", true, false)]
+    [InlineData(".pag", true, 0, null, "vba", true, false)]
+    [InlineData(".dob", true, 0, null, "vba", true, false)]
+    [InlineData(".dsr", true, 0, null, "vba", true, false)]
+    [InlineData(".bas", false, 0, null, "vba", false, true)]
+    [InlineData(".bas", true, LanguageServerRegistration.BundledPriority, null, "vba", true, true)]
+    [InlineData(".bas", true, LanguageServerRegistration.BundledPriority - 1, null, "vba", true, true)]
+    [InlineData(".cls", true, 0, null, "latex", true, false)]
+    [InlineData(".bas", true, 0, "owner", "vba", true, true)]
+    public async Task ConfiguredVb6ServerDisplacesBundledOnlyForItsHigherPriorityClaims(
+        string extension, bool member, int priority, string? addinId, string language,
+        bool bundledReceives, bool configuredReceives)
+    {
+        var bundled = FakeServer();
+        var configured = FakeServer();
+        await using var sut = Registry(
+            Registration(LanguageServerDefaults.BundledVb6Id, bundled,
+                priority: LanguageServerRegistration.BundledPriority),
+            Registration("configured", configured, priority: priority) with
+            {
+                Extensions = language == "latex" ? [".cls"] : [".bas", ".cls", ".frm"],
+                LanguageId = language,
+                AddinId = addinId
+            });
+        var uri = "untitled:Project1/Module1" + extension;
+        await sut.OpenDocumentAsync(uri, "code", member, TestContext.Current.CancellationToken);
+
+        await bundled.Received(bundledReceives ? 1 : 0).StartAsync(Arg.Any<CancellationToken>());
+        await bundled.Received(bundledReceives ? 1 : 0).OpenDocumentAsync(uri, "code", Arg.Any<CancellationToken>());
+        await configured.Received(configuredReceives ? 1 : 0).StartAsync(Arg.Any<CancellationToken>());
+        await configured.Received(configuredReceives ? 1 : 0).OpenDocumentAsync(uri, "code", Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("code", 0)]
+    [InlineData("VERSION 1.0 CLASS\n", 1)]
+    public async Task ConfiguredReplacementKeepsCarriedClassContentGate(string code, int count)
+    {
+        var bundled = FakeServer();
+        var configured = FakeServer();
+        await using var sut = Registry(
+            Registration(LanguageServerDefaults.BundledVb6Id, bundled,
+                priority: LanguageServerRegistration.BundledPriority),
+            Registration("configured", configured));
+        const string uri = "untitled:Project1/Class1.cls";
+        await sut.OpenDocumentAsync(uri, code, false, TestContext.Current.CancellationToken);
+
+        await bundled.Received(0).StartAsync(Arg.Any<CancellationToken>());
+        await bundled.Received(0).OpenDocumentAsync(uri, code, Arg.Any<CancellationToken>());
+        await configured.Received(count).StartAsync(Arg.Any<CancellationToken>());
+        await configured.Received(count).OpenDocumentAsync(uri, code, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConfiguredReplacementRespectsProjectOwnerAndBundledPriorityOverride(bool owned)
+    {
+        var bundled = FakeServer();
+        var configured = FakeServer();
+        var contributed = FakeServer();
+        await using var sut = Registry(
+            Registration(LanguageServerDefaults.BundledVb6Id, bundled, priority: 10),
+            Registration("configured", configured),
+            Registration("addin", contributed) with { AddinId = "owner" });
+        await sut.OpenDocumentAsync(Vb6Doc, "code", true, TestContext.Current.CancellationToken,
+            owned ? "owner" : null);
+
+        foreach (var server in new[] { bundled, configured })
+        {
+            await server.Received(owned ? 0 : 1).StartAsync(Arg.Any<CancellationToken>());
+            await server.Received(owned ? 0 : 1).OpenDocumentAsync(Vb6Doc, "code", Arg.Any<CancellationToken>());
+        }
+        await contributed.Received(1).StartAsync(Arg.Any<CancellationToken>());
+        await contributed.Received(1).OpenDocumentAsync(Vb6Doc, "code", Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task StartAsyncOnTheRegistryStartsNothing()
     {

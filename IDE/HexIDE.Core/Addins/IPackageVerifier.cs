@@ -72,4 +72,10 @@ public sealed record PackageVerificationResult(
     /// a <see cref="PackageVerdict.Verified"/> result. Null otherwise. Feeds the read-only trust-chain
     /// inspector; carries only IDE-computed facts, never publisher-asserted decoration.</summary>
     public TrustChain? Chain { get; init; }
+
+    /// <summary>Set only on an <see cref="PackageVerdict.Untrusted"/> result whose whole chain verifies, but under the root
+    /// key the package carries rather than this build's (#5316): that key's SHA-256 fingerprint. Explains the refusal and
+    /// never changes it. A newer HexIDE's root and a forger's both look like this, so it identifies the root, not the
+    /// publisher.</summary>
+    public string? UnrecognisedRootFingerprint { get; init; }
 }

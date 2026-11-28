@@ -1,10 +1,8 @@
 using System;
 using System.Collections.ObjectModel;
-using Avalonia.Media;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -17,8 +15,10 @@ public partial class ToolBoxToolViewModel : Tool
 {
     private readonly IDocumentDockService documentDockService;
     private readonly IComponentRegistry componentRegistry;
-    private readonly Lazy<IImage> _addinComponentIcon;
-    private readonly int _inBoxToolsStart;
+    // The items owners registered (#5594), after the arrow; the referenced libraries' controls start after them. Kept by
+    // entry, since a class that isn't a designer component has no BaseClass to find its button by.
+    private readonly List<(ToolboxEntry Entry, ComponentToolViewModel Tool)> registeredTools = [];
+    private int LibraryToolsStart => 1 + registeredTools.Count;
     [Notify] [AlsoNotify(nameof(IsCursorSelected))] private ComponentToolViewModel? selectedComponent;
     public ObservableCollection<ComponentToolViewModel> Components { get; } = new();
     public bool IsCursorSelected => selectedComponent?.BaseClass is null;
@@ -33,13 +33,10 @@ public partial class ToolBoxToolViewModel : Tool
         CanPin = false;
         CanClose = true;
 
-        _addinComponentIcon = new Lazy<IImage>(() => IconFactory.Themed("Geo.Object"));
-
         Arrow = new ComponentToolViewModel(this, "Mouse", IconFactory.Themed("Geo.Cursor"));
         Components.Add(Arrow);
         foreach (var entry in componentRegistry.Toolbox)
-            Components.Add(new ComponentToolViewModel(this, entry.Class, IconFactory.Themed(entry.IconKey)) { IconKey = entry.IconKey });
-        _inBoxToolsStart = Components.Count;
+            OnToolboxItemAdded(entry);
 
         selectedComponent = Arrow;
 
@@ -50,8 +47,11 @@ public partial class ToolBoxToolViewModel : Tool
                 ShowProject(project);
         };
 
-        componentRegistry.ComponentRegistered += OnComponentRegistered;
-        componentRegistry.ComponentUnregistered += OnComponentUnregistered;
+        // The IDE builds the toolbox before the provider registers, so its items arrive here, as an add-in's do.
+        componentRegistry.ToolboxItemAdded += OnToolboxItemAdded;
+        componentRegistry.ToolboxItemRemoved += OnToolboxItemRemoved;
+        // A library registered or taken out after the project was shown changes what its references offer (#5599).
+        componentRegistry.LibrariesChanged += () => ShowProject(project);
     }
 
     private ProjectDefinition? project;
@@ -86,12 +86,12 @@ public partial class ToolBoxToolViewModel : Tool
 
         var libraries = project.ObjectReferences
             .Select(reference => componentRegistry.Libraries.FirstOrDefault(library => library.IsNamedBy(reference)))
-            .OfType<RuntimeLibrary>().Distinct();
+            .OfType<IControlLibrary>().Distinct();
         foreach (var library in libraries)
         foreach (var control in componentRegistry.LibraryControls.Where(c => ReferenceEquals(c.Library, library)))
             inBoxTools.Add(new ComponentToolViewModel(this, control.Class, IconFactory.Themed(control.IconKey))
                 { Library = library, LibraryTypeName = control.TypeName, IconKey = control.IconKey });
-        var at = _inBoxToolsStart;
+        var at = LibraryToolsStart;
         foreach (var tool in inBoxTools)
             Components.Insert(at++, tool);
     }
@@ -110,15 +110,23 @@ public partial class ToolBoxToolViewModel : Tool
 
     private void OnObjectReferencesChanged(ProjectDefinition changed) => ShowProject(changed);
 
-    private void OnComponentRegistered(IComponentClass component)
+    private ComponentToolViewModel Tool(ToolboxEntry entry) =>
+        new(this, entry.Class, IconFactory.Themed(entry.IconKey)) { IconKey = entry.IconKey };
+
+    private void OnToolboxItemAdded(ToolboxEntry entry)
     {
-        Components.Add(new ComponentToolViewModel(this, component, _addinComponentIcon.Value));
+        var tool = Tool(entry);
+        Components.Insert(LibraryToolsStart, tool);
+        registeredTools.Add((entry, tool));
     }
 
-    private void OnComponentUnregistered(IComponentClass component)
+    private void OnToolboxItemRemoved(ToolboxEntry entry)
     {
-        var tool = Components.LastOrDefault(c => ReferenceEquals(c.BaseClass, component));
-        if (tool is null) return;
+        var at = registeredTools.FindIndex(registered => ReferenceEquals(registered.Entry.Class, entry.Class));
+        if (at < 0)
+            return;
+        var tool = registeredTools[at].Tool;
+        registeredTools.RemoveAt(at);
         if (SelectedComponent == tool) SelectedComponent = Arrow;
         Components.Remove(tool);
     }
@@ -129,13 +137,18 @@ public partial class ToolBoxToolViewModel : Tool
             component.RaiseIsSelected();
     }
 
+    /// <summary>Whether the registry lists <paramref name="library"/> as offering <paramref name="component"/> (#5749).</summary>
+    internal bool Offers(IComponentClass component, IControlLibrary library) =>
+        componentRegistry.LibraryControls.Any(control =>
+            ReferenceEquals(control.Class, component) && ReferenceEquals(control.Library, library));
+
     public void SpawnControl(ComponentToolViewModel tool)
     {
         if (tool.BaseClass is { } baseClass && documentDockService.ActiveDocument is FormEditViewModel formEditViewModel)
             formEditViewModel.SpawnControlCenter(baseClass, tool.Library);
     }
 
-    public void SpawnControl(IDesignerComponentClass baseClass)
+    public void SpawnControl(IDesignerComponent baseClass)
     {
         // that's not the best pattern to check the active window and call the method directly
         // but publishing an event also seems like a poor idea (then all windows need to react and see if they are active or not)

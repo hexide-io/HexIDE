@@ -163,7 +163,7 @@ public sealed class LanguageServerEditorStore(
             encoding = reader.CurrentEncoding;
         }
         AtomicFileWriter.WriteAllBytes(filePath, [.. encoding.GetPreamble(), .. encoding.GetBytes(updated)]);
-        if (entry.Id is { } id && LanguageServerConfigLoader.LaunchedCommandOf(entry) is { } command)
+        if (entry.Id is { } id && LanguageServerConfigLoader.SeenIdentityOf(entry) is { } command)
             seen.Record(id, command);
         Load();
         return true;

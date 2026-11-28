@@ -30,7 +30,7 @@ public sealed class ProjectFileEditingTests : IDisposable
         strings.GetString("Str.ProjectFile.ReplaceModel").Returns("Replace unsaved settings for {0}?");
         service = new ProjectService(() => throw new InvalidOperationException(), windows,
             events, manager, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
-            Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), documents: documents);
+            Substitute.For<IUserSidecarService>(), new FileBaselineStore(), strings, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), documents: documents);
     }
 
     private async Task<ProjectFileDocumentViewModel> Open()
@@ -115,7 +115,7 @@ public sealed class ProjectFileEditingTests : IDisposable
         AnswerChanges(null);
         windows.ShowDialog(Arg.Any<FileConflictViewModel>()).Returns(false);
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning,
-            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(MessageBoxResult.Cancel);
+            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(MessageBoxResult.Cancel);
         var before = File.ReadAllBytes(ProjectPath);
         var member = File.ReadAllBytes(Path.Join(directory, "Code.bas"));
         var save = () => tab.SaveAsync();
@@ -126,7 +126,7 @@ public sealed class ProjectFileEditingTests : IDisposable
         manager.LoadedProjects.Should().Contain(project);
         if (question == "model")
             await windows.Received().MessageBox("Replace unsaved settings for Unsaved?", Arg.Any<string?>(),
-                MessageBoxButtons.OkCancel, MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>());
+                MessageBoxButtons.OkCancel, MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>());
     }
 
     [AvaloniaTheory]
@@ -271,7 +271,7 @@ public sealed class ProjectFileEditingTests : IDisposable
         var asked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var answer = new TaskCompletionSource<MessageBoxResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning,
-            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>()).Returns(_ =>
+            Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>()).Returns(_ =>
         {
             asked.TrySetResult();
             return answer.Task;

@@ -7,8 +7,18 @@ using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
 
-public class FormComponentClass : ComponentBaseClass
+public class FormComponentClass : ComponentBaseClass, IComponentMemberTable, IDesignerCaption
 {
+    /// <summary>
+    /// The designer's title-bar icon (#2716), read as the running form reads its own: the form's Icon, its BorderStyle and
+    /// ControlBox, and VB6's default icon when the form names none (#5633).
+    /// </summary>
+    public DesignerCaption CaptionOf(ComponentInstance instance)
+    {
+        var (image, useFormGlyph, visible) = VBLoader.ReadDesignerCaptionIcon(instance);
+        return new DesignerCaption(image, useFormGlyph, visible);
+    }
+
     public FormComponentClass() : base([CaptionProperty,
     FormBorderStyleProperty,
     BackColorProperty,
@@ -171,6 +181,10 @@ public class FormComponentClass : ComponentBaseClass
     public override string DesignerDoubleClickEvent => "Load";
 
     private static readonly EventClass[] RootEvents = [KeyDownEvent, KeyPressEvent, KeyUpEvent, ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
+
+    public override ComponentRole Role => ComponentRole.Form;
+
+    public override bool IsContainer => true;
 
     public override string Name => "Form";
     public override string VBTypeName => "VB.Form";

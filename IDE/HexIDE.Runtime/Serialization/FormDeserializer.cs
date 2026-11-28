@@ -38,7 +38,7 @@ public class FormDeserializer
 
     private static readonly HashSet<string> VisualRootTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "VB.Form", "VB.UserControl", "VB.PropertyPage"
+        "VB.Form", "VB.UserControl", "VB.PropertyPage", "VB.MDIForm"
     };
 
     // The designer root's client rectangle, as the model keeps it.
@@ -66,6 +66,7 @@ public class FormDeserializer
         // Each its own list, which VB6's Properties window gives it (#1585).
         componentsByTypeNames["VB.UserControl"]  = UserControlRootClass.Instance;
         componentsByTypeNames["VB.PropertyPage"] = PropertyPageRootClass.Instance;
+        componentsByTypeNames["VB.MDIForm"] = MDIFormRootClass.Instance;
         // An in-box control under each library that declares it: MSComctlLib.ProgressBar and ComctlLib.ProgressBar (#1082).
         foreach (var inBox in InBoxComponents)
             foreach (var library in inBox.Libraries)
@@ -324,7 +325,7 @@ public class FormDeserializer
             // permits writing a control nested under a ListBox and VB6 loads it without complaint, so that
             // is corrupt input rather than an exotic container: leaving the link unrecorded is what keeps
             // the depth counter below seeing the nesting, so the refusal gate still fires on it.
-            if (!isMenu && parent is not null && ContainerClasses.IsContainer(parent.BaseClass))
+            if (!isMenu && parent is not null && parent.BaseClass.IsContainer)
                 instance.SetContainer(parent);
 
             // Depth HexIDE cannot reproduce. Two kinds of nesting are now excluded, and both are excluded
@@ -554,8 +555,16 @@ public class FormDeserializer
                     // #4988: Integer properties refuse decimal points. Exponents are unmeasured and refused here too.
                     if (val is not int i)
                     {
-                        InvalidValue();
-                        continue;
+                        if (propertyClass != VBProperties.TabIndexProperty || val is not string
+                            || !TryReadShortRadixLiteral(rawText, allowOctal: true, out i))
+                        {
+                            InvalidValue();
+                            continue;
+                        }
+                        // The final-value bag shares the parsed assignment's value. Tab-order normalization
+                        // counts saved integers from that bag, so record the radix value there if it is final.
+                        if (ReferenceEquals(serializedComponent.Properties.GetValueOrDefault(serializedProperty.Key), val))
+                            serializedComponent.Properties[serializedProperty.Key] = i;
                     }
                     instance.SetUntypedProperty(propertyClass, i);
                 }
@@ -641,6 +650,11 @@ public class FormDeserializer
                 }
                 else if (propertyClass.PropertyType == typeof(object))
                 {
+                    if (propertyClass == VBProperties.TagProperty && (string.IsNullOrEmpty(rawText) || rawText[0] != '"'))
+                    {
+                        InvalidValue();
+                        continue;
+                    }
                     // A Variant-typed property — Tag, which ComponentBaseClass puts on EVERY component.
                     // There was no branch for it here, so the value fell through every arm of this switch
                     // and was silently discarded: `Tag = "2407"` in VB6's own Mover ListBox.frm went in and
@@ -874,6 +888,9 @@ public class FormDeserializer
         }
 
         LoadRecur(rootComponent, null, 1, 0);
+        if (rootComponent.Type == "VB.MDIForm")
+            components[0].SetProperty(MDIFormRootClass.Source,
+                new MDIFormRootClass.SourceText(rootComponent.Name, designerText, frxBlobs));
         if (normalizeTabIndexes)
         {
             var normalized = SavedTabIndexes.Normalize(tabIndexes.Select(entry => entry.Saved).ToArray());

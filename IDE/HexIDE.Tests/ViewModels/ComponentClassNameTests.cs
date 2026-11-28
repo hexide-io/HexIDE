@@ -21,7 +21,7 @@ public class ComponentClassNameTests
         localization.GetString("Str.Tool.ObjectBrowser.MembersOf").Returns("Members of '{0}'");
         localization.GetString("Str.Tool.ObjectBrowser.MemberOf").Returns("Member of {0}.{1}");
         return new ObjectBrowserToolViewModel(projects, client, Substitute.For<IEditorService>(),
-            new ComponentRegistry(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(),
+            InBoxRegistry.Create(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(),
             localization, Substitute.For<ILanguageConnectionRegistry>());
     }
 

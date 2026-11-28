@@ -422,4 +422,54 @@ public class FormControlsSummaryTests
                 json.TryGetProperty("enabled", out _).Should().BeFalse();
         }
     }
+
+    [AvaloniaTheory]
+    [InlineData("closed")]
+    [InlineData("open")]
+    [InlineData("undrawn")]
+    public async Task Line_summary_explains_its_zero_bounds(string state)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        var line = new ComponentInstance(LineComponentClass.Instance, "Line1");
+        line.SetProperty(VBProperties.X1Property, 600d);
+        line.SetProperty(VBProperties.Y1Property, 600d);
+        line.SetProperty(VBProperties.X2Property, 2400d);
+        line.SetProperty(VBProperties.Y2Property, 1200d);
+        var form = new FormDefinition(project,
+            [new ComponentInstance(FormComponentClass.Instance, "Form1"), line], "");
+        project.AddForm(form);
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var dock = Substitute.For<IDocumentDockService>();
+        using var designer = state == "closed" ? null : new HexIDE.VisualDesigner.FormEditViewModel(
+            null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+        if (state == "undrawn")
+            designer!.Components.Remove(designer.AllComponents.Single(c => c.Instance == line));
+        dock.OpenDocuments.Returns(designer is null ? [] : [designer]);
+        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+        var tools = new HexIdeTools(context);
+
+        var list = await tools.GetFormControlsAsync("Form1");
+        var detail = await tools.GetFormControlsAsync("Form1", controlName: "Line1");
+
+        list.Error.Should().BeNull();
+        detail.Error.Should().BeNull();
+        var summary = list.Controls.Single(c => c.Name == "Line1");
+        detail.Controls.Should().ContainSingle().Which.Should().Be(summary);
+        var json = JsonSerializer.SerializeToElement(summary, ReplyJson.Options);
+        foreach (var bound in new[] { "left", "top", "width", "height" })
+            json.GetProperty(bound).GetDouble().Should().Be(0);
+        json.TryGetProperty("note", out var noteElement).Should().BeTrue();
+        var note = noteElement.GetString();
+        note.Should().Contain("A Line has no Left, Top, Width or Height, so these read 0.")
+            .And.Contain("X1, Y1, X2 and Y2").And.Contain("controlName");
+        if (state == "undrawn")
+            note.Should().Contain("The designer does not draw this component.");
+        detail.Properties.Should().Contain(p => p.Name == "X1" && p.Value == "600" && p.Settable)
+            .And.Contain(p => p.Name == "Y1" && p.Value == "600" && p.Settable)
+            .And.Contain(p => p.Name == "X2" && p.Value == "2400" && p.Settable)
+            .And.Contain(p => p.Name == "Y2" && p.Value == "1200" && p.Settable);
+    }
 }

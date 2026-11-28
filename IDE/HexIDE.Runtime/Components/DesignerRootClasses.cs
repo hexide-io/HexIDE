@@ -112,3 +112,21 @@ public sealed class PropertyPageRootClass : FormComponentClass
 
     public static new PropertyPageRootClass Instance { get; } = new();
 }
+
+/// <summary>
+/// An MDI form carried for code editing and lossless saving (#5313). Its designer, runtime and event list are not implemented.
+/// </summary>
+internal sealed class MDIFormRootClass : FormComponentClass
+{
+    internal sealed record SourceText(string Name, string Header, IReadOnlyDictionary<int, byte[]>? Records);
+
+    internal static readonly PropertyClass<SourceText?> Source =
+        new("(MDISource)", "The preserved MDI header and the records its offsets address.", PropertyCategory.Internal);
+
+    private MDIFormRootClass() : base([], []) { }
+
+    public override string Name => "MDIForm";
+    public override string VBTypeName => "VB.MDIForm";
+
+    public static new MDIFormRootClass Instance { get; } = new();
+}

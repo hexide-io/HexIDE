@@ -33,6 +33,20 @@ public class DesignerRootRoundTripTests
         return (file, new FormSerializer().Serialize(file, fileName).Item1, sink);
     }
 
+    // #5478 round 2: SubItems is unknown file text, not the designer's menu tree.
+    [Fact]
+    public void Menu_SubItems_line_survives_a_round_trip_verbatim()
+    {
+        const string line = "      SubItems       =   \"x\"";
+        var source = ("VERSION 5.00\nBegin VB.Form Form1\n   Begin VB.Menu Menu1\n"
+            + line + "\n   End\nEnd\nAttribute VB_Name = \"Form1\"\n").ReplaceLineEndings("\r\n");
+        var (file, saved, sink) = RoundTrip(source, "Form1.frm");
+        sink.Errors.Should().BeEmpty();
+        saved.Should().Contain(line + "\r\n");
+        file.Components.Single(c => c.BaseClass.Role == ComponentRole.Menu)
+            .UnknownRawProperties.Should().ContainSingle(p => p.Name == "SubItems");
+    }
+
     private static ComponentInstance Root(FormDefinition file) => file.Components.Single(c => c.BaseClass is FormComponentClass);
 
     // As HexIDE wrote a new UserControl before #1538: with a form's Caption, which VB6's UserControl doesn't have.

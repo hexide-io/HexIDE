@@ -9,7 +9,7 @@ using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
 
-public class ListBoxComponentClass : ComponentBaseClass
+public class ListBoxComponentClass : ComponentBaseClass, IComponentMemberTable
 {
     public ListBoxComponentClass() : base([EnabledProperty,
         FontProperty,

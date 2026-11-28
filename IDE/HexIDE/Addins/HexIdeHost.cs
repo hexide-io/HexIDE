@@ -16,12 +16,15 @@ internal sealed class HexIdeHost(
     AddinCommandService commandService,
     AddinProjectTemplateService projectTemplateService,
     AddinOptionsService optionsService,
-    IComponentRegistry componentRegistry,
+    ComponentRegistry componentRegistry,
     IProjectRunnerService projectRunner,
     HexIDE.Lsp.LanguageServerContributions languageServers,
     HexIDE.Debugging.DebugLaunchService debugLaunches,
     HexIDE.Projects.ContributedProjects contributedProjects,
-    AddinResourceService resources) : IHexIdeHost
+    AddinResourceService resources,
+    AddinLanguagePackService languagePacks,
+    AddinLanguageEditingService languageEditing, AddinRunEngineService? runEngines = null) : IHexIdeHost,
+    HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration, IProjectMakerRegistration
 {
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void ReportFailure(string message, Exception? exception = null) =>
@@ -51,8 +54,39 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture, Func<bool>? canExecute, AddinOrigin origin) =>
         commandService.RegisterOwned(origin, id, label, onInvoke, gesture, canExecute);
 
+    // As resources: only an add-in's own host registers a component or a toolbox item, with the add-in as its owner (#5594).
     public IDisposable RegisterComponent(IComponentClass component) =>
-        componentRegistry.Register(component);
+        throw new InvalidOperationException("Components are registered only through the host an add-in is given.");
+
+    public IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey = null) =>
+        throw new InvalidOperationException("Toolbox items are registered only through the host an add-in is given.");
+
+    public IDisposable RegisterControlLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls) =>
+        throw new InvalidOperationException("Control libraries are registered only through the host an add-in is given.");
+
+    // Under the add-in's identity, which the registry checks (#5594). Taken out, as the add-in's other contributions are,
+    // when it is disabled or its consent is revoked (#5601): the designer stops offering the class, and the toolbox drops
+    // its item, which goes with its class. The composed provider's never meet a package's state (#5597).
+    internal IDisposable RegisterComponent(IComponentClass component, AddinOrigin origin)
+    {
+        var handle = componentRegistry.Register(component, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        return handle;
+    }
+
+    // Only the class's owner puts it in the toolbox, and the item goes when the class does, so tracking the class is enough.
+    internal IDisposable RegisterToolboxItem(IComponentClass component, string? iconKey, AddinOrigin origin) =>
+        componentRegistry.RegisterToolboxItem(component, iconKey, origin);
+
+    // Taken out, as its components are, when the add-in is disabled or its consent is revoked (#5601): the Components dialog
+    // stops listing it, and the toolbox stops offering its controls.
+    internal IDisposable RegisterControlLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls,
+        AddinOrigin origin)
+    {
+        var handle = componentRegistry.RegisterLibrary(library, controls, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        return handle;
+    }
 
     public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) =>
         projectTemplateService.Register(template);
@@ -89,15 +123,16 @@ internal sealed class HexIdeHost(
             {
                 BeforeLaunch = async token =>
                 {
-                    addins.CheckLanguageServerLaunch(origin.Id);
+                    addins.CheckLanguageServerLaunch(origin);
                     if (gate is not null) await gate(token);
-                    addins.CheckLanguageServerLaunch(origin.Id);
+                    addins.CheckLanguageServerLaunch(origin);
                 },
             };
         }
         var connection = languageServers.Register(server, origin.Title, origin.Id, origin.PublisherNamespaces);
-        optionsService.TrackServer(origin.Id, string.IsNullOrWhiteSpace(server.Entry.DisplayName) ? connection.Id : server.Entry.DisplayName, connection);
-        if (Registry is AddinRegistry owner) owner.TrackContribution(origin.Id, connection);
+        optionsService.TrackServer(origin.Id, string.IsNullOrWhiteSpace(server.Entry.DisplayName) ? connection.Id : server.Entry.DisplayName, connection,
+            origin.IsComposed);
+        if (Registry is AddinRegistry owner) owner.TrackContribution(origin, connection);
         AddinInitializationScope.Record(connection.Dispose);
         return connection;
     }
@@ -112,8 +147,8 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterDebugLaunch(AddinDebugLaunch launch, AddinOrigin origin)
     {
         var addins = Registry as AddinRegistry;
-        var handle = debugLaunches.Register(launch, origin, addins is null ? null : () => addins.CheckDebugLaunch(origin.Id));
-        addins?.TrackContribution(origin.Id, handle);
+        var handle = debugLaunches.Register(launch, origin, addins is null ? null : () => addins.CheckDebugLaunch(origin));
+        addins?.TrackContribution(origin, handle);
         return handle;
     }
 
@@ -126,8 +161,16 @@ internal sealed class HexIdeHost(
     // opened after that is one no loaded add-in reads.
     internal IDisposable RegisterProjectType(AddinProjectType type, AddinOrigin origin)
     {
+        // --no-vb6 leaves VB6's type out, as it always has. A no-op, not a refusal: a throw would stop the provider's other
+        // registrations (#5625).
+        if (HexIDE.Static.WithoutVb6 && contributedProjects.Reserves(type, origin) is { Id: Vb6ProjectType.Id })
+        {
+            Serilog.Log.Information("Project types: {Owner} ({OwnerId}) registered {Title}, which --no-vb6 leaves out",
+                origin.Title, origin.Id, type.Title);
+            return new HexIDE.Utils.ActionDisposable(() => { });
+        }
         var handle = contributedProjects.Register(type, origin);
-        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         return handle;
     }
 
@@ -140,7 +183,97 @@ internal sealed class HexIdeHost(
     internal IDisposable RegisterResources(Uri dictionary, AddinOrigin origin, System.Reflection.Assembly caller)
     {
         var handle = resources.Register(dictionary, origin, caller);
-        if (Registry is AddinRegistry addins) addins.TrackContribution(origin.Id, handle);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    // As resources: only an add-in's own host registers language packs, with the add-in as their owner (#5394).
+    public IDisposable RegisterLanguagePacks(Uri folder) =>
+        throw new InvalidOperationException("Language packs are registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked.
+    internal IDisposable RegisterLanguagePacks(Uri folder, AddinOrigin origin, System.Reflection.Assembly caller)
+    {
+        var handle = languagePacks.Register(folder, origin, caller);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    /// <summary>What draws the designer's controls (#5591). Its registrations are held per application.</summary>
+    internal AddinDesignerPictureService DesignerPictures { get; init; } = new();
+
+    // As resources: only an add-in's own host registers what draws the designer's controls, with the add-in as its owner.
+    public IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures) =>
+        throw new InvalidOperationException("What draws the designer's controls is registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked.
+    internal IDisposable RegisterDesignerPictures(Func<IDesignerDrawingSurface, IDesignerPictures> pictures, AddinOrigin origin)
+    {
+        var handle = DesignerPictures.Register(pictures, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    /// <summary>What gives VB6's scale rules at design time (#5758). Its registrations are held per application.</summary>
+    internal AddinDesignPositionService DesignPositions { get; init; } = new();
+
+    // As the drawer: only an add-in's own host registers the scale rules, with the add-in as their owner.
+    public IDisposable RegisterDesignPositions(IDesignPositions positions) =>
+        throw new InvalidOperationException("The designer's scale rules are registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked.
+    internal IDisposable RegisterDesignPositions(IDesignPositions positions, AddinOrigin origin)
+    {
+        var handle = DesignPositions.Register(positions, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    // As the drawer: only an add-in's own host registers a language's editing helpers, with the add-in as their owner (#5403).
+    public IDisposable RegisterLanguageEditing(HexIDE.Language.LanguageEditing editing) =>
+        throw new InvalidOperationException("A language's editing helpers are registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked. The withdrawal only
+    // takes them out of the table and tells the open code windows, which post their refresh, so it never waits on the UI
+    // thread while the add-in registry holds its lock.
+    internal IDisposable RegisterLanguageEditing(HexIDE.Language.LanguageEditing editing, AddinOrigin origin)
+    {
+        var handle = languageEditing.Register(editing, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    // As the drawer: only an add-in's own host registers the run engine, with the add-in as its owner (#5616).
+    public IDisposable RegisterRunEngine(Func<RunEngineServices, IRunEngine> engine) =>
+        throw new InvalidOperationException("The run engine is registered only through the host an add-in is given.");
+
+    // Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked: the handle posts
+    // the withdrawal, so the registry's lock is never held while a program ends.
+    internal IDisposable RegisterRunEngine(Func<RunEngineServices, IRunEngine> engine, AddinOrigin origin)
+    {
+        var engines = runEngines
+            ?? throw new InvalidOperationException("This host has no run engines to register with.");
+        var handle = engines.Register(engine, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    // As resources: only an add-in's own host registers a project maker, with the add-in as its owner (#5621).
+    public IDisposable RegisterProjectMaker(IProjectMaker maker) =>
+        throw new InvalidOperationException("A project maker is registered only through the host HexIDE gives an add-in.");
+
+    // The grant, one maker per type and the logging are the registry's own, so a caller reaching this by reflection gains
+    // nothing. Taken out, as the add-in's other contributions are, when it is disabled or its consent is revoked.
+    internal IDisposable RegisterProjectMaker(IProjectMaker maker, AddinOrigin origin)
+    {
+        var handle = contributedProjects.Makers.Register(maker, origin);
+        if (Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
         AddinInitializationScope.Record(handle.Dispose);
         return handle;
     }

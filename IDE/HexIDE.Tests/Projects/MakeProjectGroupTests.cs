@@ -12,6 +12,7 @@ using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
+using HexIDE.Runtime.Making;
 
 namespace HexIDE.Tests.Projects;
 
@@ -48,10 +49,10 @@ public class MakeProjectGroupTests : IDisposable
         service = new ProjectService(() => throw new InvalidOperationException(), windows, events, manager,
             Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<IUserSidecarService>(), new FileBaselineStore(), localization,
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
-        service.RuntimeDirectory = root;
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
+        service.WithMaker(root);
         var standalone = Directory.CreateDirectory(Path.Join(root, "standalone")).FullName;
-        File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runner");
+        File.WriteAllText(Path.Join(standalone, Vb6ProjectMaker.StandaloneRunnerName()!), "runner");
         windows.ShowDialog(Arg.Any<IDialog>()).Returns(true);
     }
 
@@ -137,6 +138,24 @@ public class MakeProjectGroupTests : IDisposable
         await service.MakeProjectGroup();
 
         File.Exists(ProjectOutputPath.OutputExePath(projects[0])).Should().BeFalse();
+        File.Exists(ProjectOutputPath.OutputExePath(projects[1])).Should().BeTrue();
+    }
+
+    // A maker is offered only for its own type (#5621), so a project nothing loaded makes isn't in the group's list.
+    [Fact]
+    public async Task A_project_whose_type_has_no_maker_is_not_offered()
+    {
+        projects[0].ContributedBy = "acme.project";
+        IReadOnlyList<ProjectDefinition>? offered = null;
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            offered = [.. ((MakeProjectGroupViewModel)call.Arg<IDialog>()).Projects.Select(item => item.Project)];
+            return true;
+        });
+
+        await service.MakeProjectGroup();
+
+        offered.Should().Equal(projects[1]);
         File.Exists(ProjectOutputPath.OutputExePath(projects[1])).Should().BeTrue();
     }
 

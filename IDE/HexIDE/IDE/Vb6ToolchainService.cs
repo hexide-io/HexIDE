@@ -3,64 +3,38 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HexIDE.Events;
-using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Lsp;
-using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
-using HexIDE.Runtime.Serialization;
 using Serilog;
 using HexIDE.Sidecar;
 
 namespace HexIDE.IDE;
 
+/// <summary>
+/// Make with VB6 and Run > Start with VB6 as a user meets them (#3411 slice 2.8, #5621): the dialogs, the trust prompt Start
+/// with VB6 asks first, the compiler's diagnostics in the editor, the last-run record, and starting what was made.
+/// </summary>
+/// <remarks>
+/// The build is the project type's toolchain, which its maker brings: for VB6's type, the Basic provider's, which finds
+/// <c>VB6.EXE</c>, builds and reads its log. With no maker registered for the project's type, or no compiler installed,
+/// neither command is offered.
+/// </remarks>
 public class Vb6ToolchainService : IVb6ToolchainService
 {
-    private static readonly string[] DefaultPaths =
-    [
-        @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE",
-        @"C:\Program Files\Microsoft Visual Studio\VB98\VB6.EXE",
-        @"C:\Program Files (x86)\Microsoft Visual Basic\VB6.EXE",
-        @"C:\Program Files\Microsoft Visual Basic\VB6.EXE",
-    ];
-
-    // A build is bounded so a VB6 that stalls on a modal (missing reference, licence prompt, …) can't
-    // hang the IDE indefinitely. Generous: a large real project can take a while to compile.
-    private static readonly TimeSpan BuildTimeout = TimeSpan.FromSeconds(180);
-
-    // What vb6.exe actually writes to /out, measured rather than assumed -- see "What `/make` writes to
-    // `/out`, and what "Line N" counts" in docs/vb6-fidelity-oracle/what-make-writes-to-out-and-what-line-n-counts.md:
-    //
-    //     <CRLF>Compile Error in File '<ABSOLUTE path>', Line <N> : <message><CRLF>Build of 'x.exe' failed.
-    //
-    // Note the spaces either side of the colon, and that the path is absolute even where the .vbp named
-    // the file relatively.
-    //
-    // This used to match `path(N) : error C0001: ...`, which is a C compiler's format and nothing VB6 has
-    // ever produced -- so every compiler diagnostic was silently dropped and that consumer had never once
-    // had live traffic (#477). Anchored on `', Line ` and on ` : ` rather than on the message, because a
-    // message may contain both a colon and an apostrophe and a path may contain either.
-    private static readonly Regex ErrorRegex = new(
-        @"^Compile Error in File '(?<path>.+)', Line (?<line>\d+) : (?<message>.*)$",
-        RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
     private readonly ILspClient lspClient;
     private readonly IEventBus eventBus;
     private readonly IWindowManager windowManager;
     private readonly ILocalizationService _localization;
-
-    public string? Vb6ExePath { get; }
-    public bool IsAvailable => Vb6ExePath != null;
-
     private readonly CodeTrust trust;
     private readonly IUserSidecarService sidecar;
+    private readonly ProjectMakers makers;
 
     public Vb6ToolchainService(ILspClient lspClient, IEventBus eventBus, IWindowManager windowManager, ILocalizationService localization,
-        CodeTrust trust, IUserSidecarService sidecar)
+        CodeTrust trust, IUserSidecarService sidecar, ContributedProjects contributed)
     {
         this.trust = trust;
         this.sidecar = sidecar;
@@ -68,18 +42,16 @@ public class Vb6ToolchainService : IVb6ToolchainService
         this.eventBus = eventBus;
         this.windowManager = windowManager;
         _localization = localization;
-
-        var envPath = Environment.GetEnvironmentVariable("VB6_EXE");
-        Vb6ExePath = envPath != null && File.Exists(envPath)
-            ? envPath
-            : DefaultPaths.FirstOrDefault(File.Exists);
+        makers = contributed.Makers;
     }
+
+    public bool IsAvailableFor(ProjectDefinition? project) => makers.InstalledToolchainFor(project) is not null;
 
     public Task<bool> MakeWithVb6Async(ProjectDefinition project) => BuildAsync(project, forRun: false);
 
     private async Task<bool> BuildAsync(ProjectDefinition project, bool forRun)
     {
-        if (!IsAvailable)
+        if (makers.For(project) is not { } maker || makers.InstalledToolchainFor(project) is not { } toolchain)
         {
             await windowManager.MessageBox(
                 _localization.GetString("Str.Vb6Toolchain.Vb6NotFound"),
@@ -95,7 +67,26 @@ public class Vb6ToolchainService : IVb6ToolchainService
             return false;
         }
 
-        var exePath = ProjectOutputPath.OutputExePath(project);
+        // The program's name comes from the project. VB6 writes it where a path there points when it builds in place, and
+        // the build would move it there, and Start with VB6 would start it there, so one that isn't a plain file name is
+        // refused before VB6 starts (#5622).
+        string exePath;
+        try
+        {
+            if (maker.RefusedProgramName(project) is { } refused)
+            {
+                await windowManager.MessageBox(
+                    string.Format(_localization.GetString("Str.Naming.Msg.NotAFileName"), project.Name, refused.Field, refused.Value),
+                    _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+                return false;
+            }
+            exePath = maker.ProgramPath(project);
+        }
+        catch (Exception ex)
+        {
+            return await ReportThrownAsync(ex, project);
+        }
+
         if (File.Exists(exePath) && !(forRun && IsLastRunExe(project, exePath)))
         {
             if (await windowManager.MessageBox(
@@ -110,7 +101,22 @@ public class Vb6ToolchainService : IVb6ToolchainService
         await Task.Delay(150);
 
         string? recovery = null;
-        var outcome = await BuildAndPublishAsync(project, exePath, path => recovery = path);
+        ToolchainBuild? outcome;
+        IReadOnlyList<(string Uri, HexIDE.Lsp.Messages.Diagnostic Diagnostic)> diagnostics;
+        try
+        {
+            outcome = await toolchain.BuildAsync(project, exePath, path => recovery = path);
+            diagnostics = outcome is { ExitCode: not 0 } ? toolchain.Diagnostics(outcome.Output, project) : [];
+        }
+        catch (Exception ex)
+        {
+            await lspClient.ClearDiagnosticsFromAsync(DiagnosticOwner.Vb6Compiler);
+            await ReportThrownAsync(ex, project);
+            // A build that threw after VB6 began writing in place has kept the program it replaced, so the user is told
+            // where, as after a failed build.
+            await ReportRecoveryAsync();
+            return false;
+        }
 
         // The previous build's errors expire here, whatever this one did — including a timeout, which used
         // to return before this point and so was the one path that left them on screen indefinitely.
@@ -125,8 +131,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
 
         if (outcome is null)
         {
-            Log.Warning("Vb6ToolchainService: VB6 /make exceeded {Timeout}s and was terminated",
-                BuildTimeout.TotalSeconds);
+            Log.Warning("Vb6ToolchainService: the VB6 build of {Project} ran too long and was stopped", project.Name);
             await windowManager.MessageBox(
                 _localization.GetString("Str.Vb6Toolchain.CompilationTimedOut"),
                 _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Error);
@@ -136,9 +141,9 @@ public class Vb6ToolchainService : IVb6ToolchainService
 
         if (outcome.ExitCode != 0)
         {
-            var byUri = ParseVb6Errors(outcome.Output, project)
-                .GroupBy(x => x.uri)
-                .ToDictionary(g => g.Key, g => g.Select(x => x.diagnostic).ToArray());
+            var byUri = diagnostics
+                .GroupBy(x => x.Uri)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Diagnostic).ToArray());
 
             foreach (var (uri, diags) in byUri)
                 await lspClient.InjectDiagnosticsAsync(uri, diags, DiagnosticOwner.Vb6Compiler);
@@ -165,253 +170,39 @@ public class Vb6ToolchainService : IVb6ToolchainService
         }
     }
 
-    private async Task<Vb6BuildOutcome?> BuildAndPublishAsync(ProjectDefinition project, string destination,
-        Action<string> keepRecovery)
+    // A maker that throws is a failed build: the IDE says so and stays usable, and nothing is started (#5621).
+    private async Task<bool> ReportThrownAsync(Exception ex, ProjectDefinition project)
     {
-        string? staging = null;
-        try
-        {
-            var folder = Path.GetDirectoryName(destination)!;
-            if (project.ProjectType != VBProjectType.EXE || !Directory.Exists(folder))
-                return await BuildInPlaceAsync(project, destination, keepRecovery);
-
-            var original = File.ReadAllBytes(project.AbsolutePath!);
-            // /outdir writes AutoIncrementVer projects back and ActiveX outputs register in place
-            // (oracle PR #4756, issue #4757). Those must keep building at their final location.
-            if (Regex.IsMatch(System.Text.Encoding.Latin1.GetString(original),
-                    @"^[\t ]*AutoIncrementVer[\t ]*=[\t ]*1[\t ]*\r?$", RegexOptions.Multiline | RegexOptions.IgnoreCase))
-                return await BuildInPlaceAsync(project, destination, keepRecovery);
-
-            staging = Path.Combine(folder, ".hexide-vb6make-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(staging);
-            Vb6BuildOutcome? outcome;
-            try
-            {
-                outcome = await RunVb6Async(project.AbsolutePath!, staging);
-            }
-            finally
-            {
-                RestoreMakePath(project.AbsolutePath!, original);
-            }
-            if (outcome?.ExitCode == 0)
-            {
-                var staged = Path.Combine(staging, Path.GetFileName(destination));
-                using (var stream = new FileStream(staged, FileMode.Open, FileAccess.Write, FileShare.None))
-                    stream.Flush(flushToDisk: true);
-                try
-                {
-                    File.Move(staged, destination, overwrite: true);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    // Windows' message doesn't name the file ("Access to the path is denied."), and an exe that's
-                    // running is the usual reason, so say which one couldn't be replaced.
-                    return new Vb6BuildOutcome(1, destination + ": " + ex.Message);
-                }
-            }
-            return outcome;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return new Vb6BuildOutcome(1, ex.Message);
-        }
-        finally
-        {
-            if (staging is not null)
-            {
-                try { Directory.Delete(staging, recursive: true); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    Log.Warning(ex, "Could not remove VB6 staging folder {Path}", staging);
-                }
-            }
-        }
-    }
-
-    private async Task<Vb6BuildOutcome?> BuildInPlaceAsync(ProjectDefinition project, string destination,
-        Action<string> keepRecovery)
-    {
-        string? recovery = null;
-        if (Directory.Exists(Path.GetDirectoryName(destination)) && File.Exists(destination))
-        {
-            recovery = destination + "." + Guid.NewGuid().ToString("N") + ".recovery";
-            var created = false;
-            try
-            {
-                using var input = File.OpenRead(destination);
-                using var copy = new FileStream(recovery, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-                created = true;
-                input.CopyTo(copy);
-                copy.Flush(flushToDisk: true);
-            }
-            catch
-            {
-                if (created) TryDeleteRecovery(recovery);
-                throw;
-            }
-        }
-
-        Vb6BuildOutcome? outcome;
-        try
-        {
-            outcome = await RunVb6Async(project.AbsolutePath!, null);
-        }
-        catch
-        {
-            // A build that never reported is settled as a failed one: the copy goes only where it's no longer needed.
-            if (recovery is not null) SettleAfterFailure(recovery);
-            throw;
-        }
-        if (outcome?.ExitCode == 0)
-        {
-            try
-            {
-                using var output = new FileStream(destination, FileMode.Open, FileAccess.Write, FileShare.None);
-                output.Flush(flushToDisk: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                Log.Warning(ex, "Could not flush VB6 output {Path}", destination);
-            }
-            if (recovery is not null) TryDeleteRecovery(recovery);
-            return outcome;
-        }
-
-        if (recovery is not null) SettleAfterFailure(recovery);
-        return outcome;
-
-        void SettleAfterFailure(string copy)
-        {
-            try
-            {
-                var unchanged = File.Exists(destination) &&
-                    File.ReadAllBytes(destination).AsSpan().SequenceEqual(File.ReadAllBytes(copy));
-                if (!unchanged)
-                {
-                    // Registration timing is unmeasured (#4952); only a Standard EXE is safe to restore.
-                    if (project.ProjectType != VBProjectType.EXE)
-                    {
-                        keepRecovery(copy);
-                        return;
-                    }
-                    AtomicFileWriter.Copy(copy, destination);
-                }
-                TryDeleteRecovery(copy);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                Log.Warning(ex, "Could not restore VB6 output {Path}; previous output kept at {Recovery}", destination, copy);
-                keepRecovery(copy);
-            }
-        }
-    }
-
-    private static void TryDeleteRecovery(string path)
-    {
-        try { File.Delete(path); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            Log.Warning(ex, "Could not remove VB6 recovery copy {Path}", path);
-        }
-    }
-
-    private static void RestoreMakePath(string projectPath, byte[] original)
-    {
-        var updated = File.ReadAllBytes(projectPath);
-        if (original.AsSpan().SequenceEqual(updated)) return;
-
-        // Latin-1 is a byte-preserving view: repair the ASCII key without re-encoding the rest
-        // of VB6's write-back, including its line endings and any ANSI or UTF-8 source bytes.
-        var codec = System.Text.Encoding.Latin1;
-        var pathLine = new Regex(@"^[\t ]*Path32[\t ]*=[^\r\n]*(?:\r\n|\r|\n|$)",
-            RegexOptions.Multiline | RegexOptions.IgnoreCase);
-        var previous = pathLine.Match(codec.GetString(original));
-        var text = codec.GetString(updated);
-        if (pathLine.IsMatch(text))
-            text = pathLine.Replace(text, _ => previous.Success ? previous.Value : "", 1);
-        else if (previous.Success)
-            text += (text.EndsWith('\n') || text.EndsWith('\r') ? "" : "\r\n") + previous.Value;
-        AtomicFileWriter.WriteAllBytes(projectPath, codec.GetBytes(text));
-    }
-
-    /// <summary>What one run of <c>VB6.EXE /make</c> reported.</summary>
-    /// <param name="ExitCode">Zero when the compiler produced a binary.</param>
-    /// <param name="Output">The <c>/out</c> log and both console streams, joined for parsing.</param>
-    internal sealed record Vb6BuildOutcome(int ExitCode, string Output);
-
-    /// <summary>
-    /// Runs the compiler once, or returns null if it had to be killed for exceeding
-    /// <see cref="BuildTimeout"/>.
-    ///
-    /// <para>
-    /// Separated from the diagnostics handling around it so that handling can be exercised at all. VB6 is
-    /// Windows-only and installed on developer machines rather than on CI, so a test that has to start the
-    /// real compiler is a test that never runs — which is how this method's caller came to erase every
-    /// form's diagnostics on every build with nothing to catch it. Overriding this is the seam that lets a
-    /// test say "the compiler exited 0" without one being present.
-    /// </para>
-    /// </summary>
-    internal virtual async Task<Vb6BuildOutcome?> RunVb6Async(string projectPath, string? outputDirectory)
-    {
-        // VB6.exe is a GUI app: under /make it writes compile errors to the file named by /out, not
-        // reliably to stdout/stderr. Capture the /out log (the authoritative error source) as well as
-        // the console streams, then parse all of them together.
-        var logPath = Path.Combine(Path.GetTempPath(), $"hexide-vb6make-{Guid.NewGuid():N}.log");
-
-        var psi = new ProcessStartInfo(Vb6ExePath!)
-        {
-            Arguments = $"/make \"{projectPath}\" /out \"{logPath}\"" +
-                (outputDirectory is null ? "" : $" /outdir \"{outputDirectory}\""),
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        using var process = Process.Start(psi)!;
-
-        // Drain both pipes immediately (a chatty child could otherwise fill a pipe buffer and deadlock),
-        // and bound the wait by BuildTimeout. On timeout, kill the tree — which also unblocks the reads.
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
-        using var cts = new CancellationTokenSource(BuildTimeout);
-
-        try
-        {
-            await process.WaitForExitAsync(cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            try
-            {
-                process.Kill(entireProcessTree: true);
-                await process.WaitForExitAsync();
-            }
-            catch { /* already exited */ }
-            TryDeleteLog(logPath);
-            return null;
-        }
-
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
-        var logText = ReadAndDeleteLog(logPath);
-
-        return new Vb6BuildOutcome(
-            process.ExitCode,
-            string.Join("\n", new[] { logText, stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s))));
+        Log.Warning(ex, "Vb6ToolchainService: the toolchain for {Type} projects threw while building {Project}",
+            project.ContributedBy, project.Name);
+        await windowManager.MessageBox(
+            string.Format(_localization.GetString("Str.Vb6Toolchain.CompilationFailed"), ex.Message),
+            _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Error);
+        return false;
     }
 
     public async Task RunWithVb6Async(ProjectDefinition project)
     {
-        // VB6 runs the code it makes, so code from outside this computer is asked about first, as F5 asks (#1121).
+        // VB6 runs the code it makes, so code from outside this computer is asked about first, as F5 asks (#1121). Asked
+        // here, before anything of the toolchain's runs.
         if (trust.Unapproved(project) is { Count: > 0 } files && !await trust.AskAsync(project.Name, files))
             return;
         var success = await BuildAsync(project, forRun: true);
         if (!success)
             return;
 
-        // /make uses Path32 only with ExeName32; otherwise the EXE sits beside the .vbp (#4538).
-        var exePath = ProjectOutputPath.OutputExePath(project);
+        // /make uses Path32 only with ExeName32; otherwise the EXE sits beside the .vbp (#4538). The build just refused a
+        // name that would put it elsewhere (#5622).
+        string exePath;
+        try
+        {
+            exePath = makers.For(project)?.ProgramPath(project) ?? throw new InvalidOperationException("Its maker has gone.");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Vb6ToolchainService: {Project}'s program couldn't be found after its build", project.Name);
+            return;
+        }
 
         if (!File.Exists(exePath))
         {
@@ -447,114 +238,4 @@ public class Vb6ToolchainService : IVb6ToolchainService
             return null;
         }
     }
-
-    private static string GetFormUri(FormDefinition form) => DocumentWireName.For(form);
-
-    private static string ReadAndDeleteLog(string logPath)
-    {
-        try
-        {
-            if (!File.Exists(logPath)) return "";
-            // Decoded rather than File.ReadAllText, which assumes UTF-8. The log is ANSI (measured), so
-            // a non-ASCII character anywhere in the absolute path becomes U+FFFD before the regex sees it
-            // -- and the path is how a diagnostic finds its document, so every error in that project would
-            // be dropped in silence. Vb6TextFile.Decode covers Latin-1 with no new dependency; a true ANSI
-            // codepage would need System.Text.Encoding.CodePages, a package, and a licence row for it.
-            var text = Vb6TextFile.Decode(File.ReadAllBytes(logPath));
-            File.Delete(logPath);
-            return text;
-        }
-        catch { return ""; }
-    }
-
-    private static void TryDeleteLog(string logPath)
-    {
-        try { if (File.Exists(logPath)) File.Delete(logPath); }
-        catch { /* best-effort */ }
-    }
-
-    /// <summary>
-    /// The log parser, for tests. Materialised, because every caller wants to index it and a lazy sequence
-    /// over a regex reads as a list that is sometimes empty for a different reason than it looks.
-    /// </summary>
-    internal static System.Collections.Generic.IReadOnlyList<(string uri, Diagnostic diagnostic)> ParseForTests(
-        string output, ProjectDefinition project) => [.. ParseVb6Errors(output, project)];
-
-    private static System.Collections.Generic.IEnumerable<(string uri, Diagnostic diagnostic)> ParseVb6Errors(
-        string output, ProjectDefinition project)
-    {
-        foreach (Match m in ErrorRegex.Matches(output))
-        {
-            var filePath = m.Groups["path"].Value.Trim();
-            var printed = int.Parse(m.Groups["line"].Value);
-            var message = m.Groups["message"].Value.Trim();
-
-            // By PATH, across every kind. It used to match forms only, by file stem -- so a .bas, a .cls,
-            // a .ctl and a .pag were all dropped, and a form whose file was not named after it was dropped
-            // too. The compiler prints an absolute path; that identifies a document exactly.
-            var document = DocumentLookup.FindByPath([project], filePath);
-            if (document is null) continue;
-
-            var line = EditorLineOf(document, printed);
-            var range = new HexIDE.Lsp.Messages.Range(new Position(line, 0), new Position(line, 999));
-
-            // vb6.exe writes no severity: the log says "Compile Error in File" and nothing else, and a
-            // compile error is never a warning. Read from the format rather than parsed out of it.
-            yield return (
-                DocumentWireName.For(document),
-                new Diagnostic(range, message, DiagnosticSeverity.Error, "VB6 Compiler"));
-        }
-    }
-
-    /// <summary>
-    /// Turns the line number <c>vb6.exe</c> printed into a 0-based line in the editor's buffer.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>VB6's <c>N</c> is a 0-based index into the CODE VIEW</b>, which is the file minus its header and
-    /// minus <b>every</b> logical <c>Attribute</c> line and its continuations, module-level and procedure-level
-    /// alike. Measured in the oracle, including #968. Both of the obvious readings are wrong: it is not a file line, and it
-    /// is not 1-based.
-    /// </para>
-    /// <para>
-    /// <b>Counted rather than offset.</b> The hidden total is not a constant per file kind -- a class
-    /// module with two procedure attributes above the error hides fifteen lines where one without them
-    /// hides thirteen. So this walks the buffer skipping exactly what VB6 skipped, which needs no table
-    /// and cannot drift from one.
-    /// </para>
-    /// <para>
-    /// <b>The buffer is the whole file (#273 task 3.2), so the header's lines come first.</b> A form's or a
-    /// designer module's designer block, and a module's own header, are all lines VB6 did not count, so the
-    /// walk is over the code and the header's line count is added after. Inside the code a form's
-    /// <c>Attribute</c> run and every procedure-level one are skipped, as VB6 skipped them.
-    /// </para>
-    /// </remarks>
-    internal static int EditorLineOf(DocumentIdentity document, int printedLine)
-    {
-        var code = document.Module?.Code ?? document.Form?.Code;
-        var header = document.Module is { } module ? FormCodeText.Prefix(module)
-            : document.Form is { } form ? FormCodeText.Prefix(form) : "";
-        var headerLines = header.Count(c => c == '\n');
-        if (string.IsNullOrEmpty(code)) return headerLines + Math.Max(printedLine, 0);
-
-        var lines = code.Replace("\r\n", "\n").Split('\n');
-        var counted = -1;
-        var continued = false;
-        var hidden = false;
-        for (var i = 0; i < lines.Length; i++)
-        {
-            if (!continued) hidden = IsHiddenFromVb6LineCount(lines[i]);
-            continued = ReadOnlyRegions.EndsWithContinuation(lines[i].AsSpan());
-            if (hidden) continue;
-            if (++counted == printedLine) return headerLines + i;
-        }
-
-        // Past the end of what we hold. Clamped rather than dropped: the developer is better served by a
-        // marker on the last line with the compiler's message than by silence about a build that failed.
-        return headerLines + Math.Max(lines.Length - 1, 0);
-    }
-
-    /// <summary>A logical line the compiler did not count when numbering the code view.</summary>
-    private static bool IsHiddenFromVb6LineCount(string line) =>
-        line.TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase);
 }

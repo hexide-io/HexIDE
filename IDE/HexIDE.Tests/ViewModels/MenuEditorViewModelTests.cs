@@ -10,6 +10,7 @@ using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Utils;
 using HexIDE.VisualDesigner;
 
 namespace HexIDE.Tests.ViewModels;
@@ -17,6 +18,240 @@ namespace HexIDE.Tests.ViewModels;
 // Measured sequence: https://github.com/hexide-io/HexIDE/issues/4141 (2026-11-16 oracle comment).
 public class MenuEditorViewModelTests
 {
+    // VB6 SP6 measurements: https://github.com/hexide-io/HexIDE/issues/853 (2026-11-23 table; oracle PR #5370).
+    [AvaloniaTheory]
+    [InlineData("mnuFile", null, "mnuFile", null, 0, "Menu control array element must have an index")]
+    [InlineData("mnuFile", 0, "mnuFile", null, 1, "Menu control array element must have an index")]
+    [InlineData("mnuFile", null, "mnuFile", 0, 0, "Menu control array element must have an index")]
+    [InlineData("mnuFile", 0, "mnuFile", 0, 1, "Menu control array indexes must be in ascending order")]
+    [InlineData("mnuFile", 1, "mnuFile", 0, 1, "Menu control array indexes must be in ascending order")]
+    [InlineData("Command1", null, null, null, 0, "'Command1' is a control name")]
+    [InlineData("1abc", null, null, null, 0, "Not a legal object name: '1abc'")]
+    [InlineData("a b", null, null, null, 0, "Not a legal object name: 'a b'")]
+    [InlineData("", null, null, null, 0, "Menu control must have a name")]
+    public async Task OK_refuses_the_measured_names_and_selects_the_faulty_row(
+        string firstName, int? firstIndex, string? secondName, int? secondIndex, int selected, string message)
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var project = TestHelpers.CreateProjectWithForm("P", "Form1");
+        var form = project.Forms.First();
+        form.UpdateComponents(form.Components.Append(new ComponentInstance(CommandButtonComponentClass.Instance, "Command1")).ToList());
+        using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
+            new LocalizationService()).Initialize(form);
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var editor = (MenuEditorViewModel)call[0];
+            var first = editor.SelectedMenu!;
+            first.Caption = "File";
+            first.Name = firstName;
+            first.Index = firstIndex;
+            if (secondName is not null)
+            {
+                editor.Next();
+                editor.SelectedMenu!.Caption = "Open";
+                editor.SelectedMenu.Name = secondName;
+                editor.SelectedMenu.Index = secondIndex;
+            }
+            editor.Next();
+            bool? closed = null;
+            editor.CloseRequested += result => closed = result;
+            editor.Accept();
+            closed.Should().BeNull();
+            editor.SelectedMenu.Should().BeSameAs(editor.FlatMenu[selected]);
+            windows.Received(1).MessageBox(message, Arg.Any<string>(), MessageBoxButtons.Ok, MessageBoxIcon.Error);
+            windows.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IWindowManager.MessageBox)).Should().Be(1);
+            return Task.FromResult(false);
+        });
+        await designer.EditMenu();
+        form.Components.Should().NotContain(c => c.BaseClass == MenuComponentClass.Instance);
+    }
+
+    // VB6 SP6, 2026-11-23 (#5428): a name repeated in a submenu, with no Index on either row, is refused as a
+    // missing index with the first row selected. The submenu is what this adds to the same-level rows above.
+    [AvaloniaFact]
+    public async Task OK_refuses_a_name_repeated_in_a_submenu_without_an_index()
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var form = TestHelpers.CreateProjectWithForm("P", "Form1").Forms.First();
+        using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
+            new LocalizationService()).Initialize(form);
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var editor = (MenuEditorViewModel)call[0];
+            editor.SelectedMenu!.Caption = "File";
+            editor.SelectedMenu.Name = "mnuFile";
+            editor.Next();
+            editor.SelectedMenu!.Caption = "Open";
+            editor.SelectedMenu.Name = "mnuFile";
+            editor.MoveRight();
+            editor.SelectedMenu.Indent.Should().Be(1);
+            bool? closed = null;
+            editor.CloseRequested += result => closed = result;
+            editor.Accept();
+            closed.Should().BeNull();
+            editor.SelectedMenu.Should().BeSameAs(editor.FlatMenu[0]);
+            windows.Received(1).MessageBox("Menu control array element must have an index", Arg.Any<string>(),
+                MessageBoxButtons.Ok, MessageBoxIcon.Error);
+            return Task.FromResult(false);
+        });
+        await designer.EditMenu();
+        form.Components.Should().NotContain(c => c.BaseClass == MenuComponentClass.Instance);
+    }
+
+    // VB6 SP6 m8–m11: https://github.com/hexide-io/HexIDE/issues/5428 (2026-11-23).
+    [AvaloniaTheory]
+    [InlineData(0, false, 1, 1)] // m8: different levels
+    [InlineData(0, true, 0, 2)] // m9: intervening sibling
+    [InlineData(1, true, 0, 2)] // m11: contiguity wins over descending indexes
+    public async Task OK_refuses_a_split_menu_array(int firstIndex, bool intervening, int lastIndent, int selected)
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var form = TestHelpers.CreateProjectWithForm("P", "Form1").Forms.First();
+        using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
+            new LocalizationService()).Initialize(form);
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var editor = (MenuEditorViewModel)call[0];
+            editor.SelectedMenu!.Caption = "File";
+            editor.SelectedMenu.Name = "mnuFile";
+            editor.SelectedMenu.Index = firstIndex;
+            editor.Next();
+            if (intervening)
+            {
+                editor.SelectedMenu!.Caption = "Edit";
+                editor.SelectedMenu.Name = "mnuEdit";
+                editor.Next();
+            }
+            editor.SelectedMenu!.Caption = "Open";
+            editor.SelectedMenu.Name = "mnuFile";
+            editor.SelectedMenu.Index = firstIndex == 0 ? 1 : 0;
+            if (lastIndent == 1)
+                editor.MoveRight();
+            bool? closed = null;
+            editor.CloseRequested += result => closed = result;
+            editor.Accept();
+            closed.Should().BeNull();
+            editor.SelectedMenu.Should().BeSameAs(editor.FlatMenu[selected]);
+            windows.Received(1).MessageBox("Menu control array elements must be contiguous and within the same submenu",
+                Arg.Any<string>(), MessageBoxButtons.Ok, MessageBoxIcon.Error);
+            return Task.FromResult(false);
+        });
+        await designer.EditMenu();
+        form.Components.Should().NotContain(c => c.BaseClass == MenuComponentClass.Instance);
+    }
+
+    // m10: the earlier element's own submenu does not interrupt consecutive siblings (#5428).
+    [AvaloniaFact]
+    public async Task OK_accepts_a_menu_array_with_an_elements_own_submenu_between_elements()
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var form = TestHelpers.CreateProjectWithForm("P", "Form1").Forms.First();
+        using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
+            new LocalizationService()).Initialize(form);
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var editor = (MenuEditorViewModel)call[0];
+            editor.SelectedMenu!.Caption = "File";
+            editor.SelectedMenu.Name = "mnuFile";
+            editor.SelectedMenu.Index = 0;
+            editor.Next();
+            editor.SelectedMenu!.Caption = "Sub";
+            editor.SelectedMenu.Name = "mnuSub";
+            editor.MoveRight();
+            editor.Next();
+            editor.MoveLeft();
+            editor.SelectedMenu!.Caption = "Open";
+            editor.SelectedMenu.Name = "mnuFile";
+            editor.SelectedMenu.Index = 1;
+            editor.FlatMenu.Take(3).Select(m => m.Indent).Should().Equal(0, 1, 0);
+            bool? closed = null;
+            editor.CloseRequested += result => closed = result;
+            editor.Accept();
+            closed.Should().BeTrue();
+            windows.ReceivedCalls().Should().NotContain(c => c.GetMethodInfo().Name == nameof(IWindowManager.MessageBox));
+            return Task.FromResult(closed == true);
+        });
+        await designer.EditMenu();
+        var text = new FormSerializer().Serialize(form, "Form1.frm").frmText.ReplaceLineEndings("\n");
+        text.Should().Contain("   Begin VB.Menu mnuFile");
+        text.Should().Contain("      Begin VB.Menu mnuSub");
+        form.Components.Where(c => c.BaseClass == MenuComponentClass.Instance)
+            .Select(PropertyText.ArrayIndexOf).Should().Equal(0, null, 1);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Print", false)]
+    [InlineData("If", false)]
+    [InlineData("mnuFile", true)]
+    public async Task OK_accepts_the_measured_names_and_writes_array_indexes(string name, bool array)
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var form = TestHelpers.CreateProjectWithForm("P", "Form1").Forms.First();
+        using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
+            new LocalizationService()).Initialize(form);
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var editor = (MenuEditorViewModel)call[0];
+            editor.SelectedMenu!.Caption = "File";
+            editor.SelectedMenu.Name = name;
+            if (array)
+            {
+                editor.SelectedMenu.Index = 0;
+                editor.Next();
+                editor.SelectedMenu!.Caption = "Open";
+                editor.SelectedMenu.Name = name;
+                editor.SelectedMenu.Index = 1;
+            }
+            bool? closed = null;
+            editor.CloseRequested += result => closed = result;
+            editor.Accept();
+            closed.Should().BeTrue();
+            windows.ReceivedCalls().Should().NotContain(c => c.GetMethodInfo().Name == nameof(IWindowManager.MessageBox));
+            return Task.FromResult(closed == true);
+        });
+        await designer.EditMenu();
+        var menus = form.Components.Where(c => c.BaseClass == MenuComponentClass.Instance).ToArray();
+        menus.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty)).Should().Equal(array ? [name, name] : [name]);
+        if (array)
+            menus.Select(PropertyText.ArrayIndexOf).Should().Equal(0, 1);
+    }
+
+    [AvaloniaFact]
+    public async Task Existing_item_rename_is_checked_only_on_OK()
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var form = TestHelpers.CreateProjectWithForm("P", "Form1").Forms.First();
+        var menu = new ComponentInstance(MenuComponentClass.Instance, "mnuFile")
+            .SetProperty(VBProperties.CaptionProperty, "File");
+        form.UpdateComponents(form.Components.Append(menu).ToList());
+        using var designer = new FormEditViewModel(null!, new EventBus(), Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(),
+            new LocalizationService()).Initialize(form);
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            var editor = (MenuEditorViewModel)call[0];
+            editor.SelectedMenu = editor.FlatMenu[0];
+            editor.SelectedMenu.Name = "1abc";
+            editor.Next();
+            windows.ReceivedCalls().Should().NotContain(c => c.GetMethodInfo().Name == nameof(IWindowManager.MessageBox));
+            editor.FlatMenu[0].Name = "a b";
+            bool? closed = null;
+            editor.CloseRequested += result => closed = result;
+            editor.Accept();
+            closed.Should().BeNull();
+            editor.SelectedMenu.Should().BeSameAs(editor.FlatMenu[0]);
+            windows.Received(1).MessageBox("Not a legal object name: 'a b'", Arg.Any<string>(), MessageBoxButtons.Ok, MessageBoxIcon.Error);
+            return Task.FromResult(false);
+        });
+        await designer.EditMenu();
+        menu.GetPropertyOrDefault(VBProperties.NameProperty).Should().Be("mnuFile");
+    }
+
     [Fact]
     public void Empty_editor_selects_a_blank_with_enabled_and_visible_checked()
     {

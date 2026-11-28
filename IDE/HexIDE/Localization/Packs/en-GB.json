@@ -19,23 +19,15 @@
     "Str.Toolbar.Tip.AlignCentersVertically": "Align Centres Vertically",
     "Str.Tool.ColorPalette.Button.DefineColors": "Define Colours",
     "Str.Dialog.ProjectProperties.General.RequireLicenseKey": "Require Licence Key",
-    "Str.PropDesc.ForeColor": "The colour used for the object's text and graphics.",
-    "Str.PropDesc.Icon": "The icon shown when the form is minimised.",
-    "Str.PropDesc.BackColor": "The background colour used for the object's text and graphics.",
-    "Str.PropDesc.BorderColor": "The colour of the object's border.",
-    "Str.PropDesc.FillColor": "The colour used to fill shapes such as circles and boxes.",
-    "Str.PropDesc.DrawMode": "How the line's colour combines with what is already drawn beneath it.",
-    "Str.PropDesc.MaxButton": "Whether the form's title bar shows a Maximise button.",
-    "Str.PropDesc.MinButton": "Whether the form's title bar shows a Minimise button.",
     "Str.PropCategory.Behavior": "Behaviour",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymised.",
     "Str.Automation.Minimize": "Minimise",
     "Str.Automation.MaximizeRestore": "Maximise or restore",
     "Str.Automation.ChooseColor": "Choose colour",
     "Str.Dock.MaximizeRestore": "Maximise or restore pane",
-    "Str.PropDesc.MaskColor": "The colour used for transparent pixels.",
-    "Str.PropDesc.UseMaskColor": "Whether to use the mask colour.",
     "Str.Menu.View.RecentEdits": "_Recent Edits",
-    "Str.Tool.LanguageServers.Editor.Help": "When customising, untouched fields inherit defaults. Clearing a populated field writes null. JSON fields take JSON values. Save remembers the command shown below; restart to apply."
+    "Str.Tool.LanguageServers.Editor.Help": "When customising, untouched fields inherit defaults. Clearing a populated field writes null. JSON fields take JSON values. Save remembers the command shown below; restart to apply.",
+    "Str.Tool.LanguageServers.Trial.Initialized": "The server initialised.",
+    "Str.Tool.LanguageServers.Trial.Failed": "The server did not initialise: {0}"
   }
 }

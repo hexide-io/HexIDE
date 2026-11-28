@@ -1,0 +1,7 @@
+{
+  "name": "Fixture direction",
+  "direction": "rtl",
+  "strings": {
+    "Str.Fixture.Rtl.A": "A (de)"
+  }
+}

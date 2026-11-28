@@ -405,7 +405,7 @@ public class DockFactoryTests
         Avalonia.Application.Current!.Styles.Add(new Avalonia.Themes.Simple.SimpleTheme());
         Avalonia.Application.Current.Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         var (factory, _) = CreateFactory(toolbox: toolbox);
         var root = factory.CreateLayout();
         factory.InitLayout(root);

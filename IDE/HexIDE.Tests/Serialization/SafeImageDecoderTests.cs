@@ -1,4 +1,5 @@
 using HexIDE.Runtime.Serialization;
+using HexIDE.Imaging;
 
 namespace HexIDE.Tests.Serialization;
 

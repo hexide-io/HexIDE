@@ -10,9 +10,11 @@ namespace HexIDE.Tests.ViewModels;
 public class UnopenedModuleMembersTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void BrowserUsesTextWhenNoSymbolsAreAvailable(bool running)
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    public void BrowserUsesTextWhenNoSymbolsAreAvailable(bool running, bool registered)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         var module = new ModuleDefinition(project, "Module2", ModuleKind.StandardModule);
@@ -27,9 +29,18 @@ public class UnopenedModuleMembersTests
         var editor = Substitute.For<IEditorService>();
         var browser = new ObjectBrowserToolViewModel(projects, client, editor,
             Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(),
-            Substitute.For<IFocusedProjectUtil>(), Substitute.For<ILocalizationService>(), Substitute.For<ILanguageConnectionRegistry>());
+            Substitute.For<IFocusedProjectUtil>(), Substitute.For<ILocalizationService>(), Substitute.For<ILanguageConnectionRegistry>())
+        {
+            LanguageEditing = registered ? InBoxRegistry.LanguageEditing() : new HexIDE.Addins.AddinLanguageEditingService(),
+        };
         browser.SelectedLibrary = browser.Libraries.Single(l => l.Name == "Project1");
         browser.SelectedClass = browser.SelectedLibrary.Classes.Single(c => c.Name == "Module2");
+        // With nothing registered for vb6, a module no server describes lists no members (#5403).
+        if (!registered)
+        {
+            browser.FilteredMembers.Should().BeEmpty();
+            return;
+        }
         browser.FilteredMembers.Select(m => m.Name).Should().Equal("Bump", "Twice", "Value (Get)", "Choices", "Record");
         browser.FilteredMembers.Select(m => m.Kind).Should().Equal(OBMemberKind.Method, OBMemberKind.Method,
             OBMemberKind.Property, OBMemberKind.Constant, OBMemberKind.Constant);

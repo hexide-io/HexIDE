@@ -1,3 +1,5 @@
+using HexIDE.Runtime.Serialization;
+using HexIDE.Tests.Infrastructure;
 using System.Reflection;
 using Avalonia.Platform.Storage;
 using HexIDE.Localization;
@@ -21,9 +23,9 @@ public sealed class ProjectFilePickerTests
     [InlineData(true, "ExistingGroupPath", "vbg", false)]
     public async Task Picker_uses_the_owning_type_and_format(bool custom, string method, string? extension, bool wholeName)
     {
-        var format = custom ? (IProjectFileFormat)new ProjectFileFormatSeamTests.StandInFormat { FormExtension = "xfrm", ClassExtension = "xcls" } : new Vb6ProjectFileFormat();
+        var format = custom ? (IProjectFileFormat)new StandInFormat { FormExtension = "xfrm", ClassExtension = "xcls" } : new Vb6ProjectFileFormat();
         var types = new ContributedProjects();
-        Vb6ProjectType.Register(types, custom ? new Vb6ProjectFileFormat() : format);
+        Vb6Types.Register(types, custom ? new Vb6ProjectFileFormat() : format);
         types.Register(new AddinProjectType("Other custom") { FileNames = ["*.wrong"], Format = new Vb6ProjectFileFormat() },
             new AddinOrigin("custom", "Custom", IsFirstParty: true));
         types.Register(new AddinProjectType("Custom")
@@ -49,7 +51,7 @@ public sealed class ProjectFilePickerTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: types);
+            localization, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: types);
         var existingGroup = method == "ExistingGroupPath";
         if (existingGroup) method = "ChooseGroupPath";
         object document = method switch
@@ -86,7 +88,7 @@ public sealed class ProjectFilePickerTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            new LocalizationService(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry(), contributed: new ContributedProjects());
+            new LocalizationService(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create(), contributed: new ContributedProjects());
 
         var save = () => service.SaveAllProjects(saveAs: true);
         await save.Should().ThrowAsync<OperationCanceledException>();

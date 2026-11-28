@@ -11,7 +11,7 @@ namespace HexIDE.Runtime.Components.InBox;
 /// The in-box control libraries' GUIDs, versions, control lists and constants were read from their type libraries on
 /// the oracle VM (the oracle's "In-box controls: the ProgressBar"). Nothing is hosted through COM.
 /// </remarks>
-public sealed class RuntimeLibrary
+public sealed class RuntimeLibrary : IControlLibrary, IControlLibraryContents
 {
     private readonly string? constantsResource;
     private readonly Lazy<Constants> constants;
@@ -61,6 +61,20 @@ public sealed class RuntimeLibrary
 
     // #2265 and oracle PRs #3956/#4023: measured names; Tab is qualified only.
     public IReadOnlyList<string> ControlClasses { get; internal init; } = [];
+
+    // Built on first read, so the classes FindComponentClass looks among load only once the Object Browser asks.
+    private IReadOnlyList<LibraryType>? types;
+
+    /// <summary>
+    /// Its measured control names, its controls and its classes, each once, as the Object Browser lists them when no type
+    /// library answers (#5610): a control's component class where HexIDE models it, and a class's declared members.
+    /// </summary>
+    public IReadOnlyList<LibraryType> Types => types ??=
+    [
+        .. ControlClasses.Concat(Controls.Keys).Concat(Classes.Select(c => c.Name)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(name => new LibraryType(name, FindComponentClass(name),
+                Classes.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))?.Members ?? [])),
+    ];
 
     /// <summary>An existing component model for a declared control, including controls outside the toolbox.</summary>
     public ComponentBaseClass? FindComponentClass(string name)
@@ -266,14 +280,8 @@ public static class ControlLibraries
     /// </summary>
     /// <remarks>VB6 writes both lines for a form that holds the control, and a form copied in from another project may
     /// bring its header line alone; the CommonDialog's reference is read the same way (#1084).</remarks>
-    public static IReadOnlyList<RuntimeLibrary> ReferencedBy(ProjectDefinition project)
-    {
-        var referenced = new List<RuntimeLibrary>();
-        foreach (var reference in project.ObjectReferences.Concat(project.Forms.SelectMany(f => f.ObjectReferences)))
-            if (For(reference) is { } library && !referenced.Contains(library))
-                referenced.Add(library);
-        return referenced;
-    }
+    public static IReadOnlyList<RuntimeLibrary> ReferencedBy(ProjectDefinition project) =>
+        ControlLibraryReferences.NamedByObjectLines(project, All);
 }
 
 /// <summary>A managed class supplied by a library. Members lists the names it exposes without an instance.</summary>
@@ -284,27 +292,8 @@ public static class RuntimeLibraries
 {
     public static IReadOnlyList<RuntimeLibrary> All { get; } = ControlLibraries.All;
 
+    // The order is Core's, which the IDE reads over the registered libraries too (#5610).
     public static IReadOnlyList<RuntimeLibrary> ReferencedBy(ProjectDefinition project,
-        IReadOnlyList<RuntimeLibrary>? known = null)
-    {
-        var result = new List<RuntimeLibrary>();
-        var entries = new List<(int Slot, int Kind, RuntimeLibrary Library)>();
-        var referenceSlots = project.KnownLineKeys.Select((key, slot) => (key, slot))
-            .Where(entry => entry.key.Equals("Reference", StringComparison.OrdinalIgnoreCase))
-            .Select(entry => entry.slot).ToList();
-        for (var i = 0; i < project.References.Count; i++)
-            foreach (var library in known ?? All)
-                if (library.IsNamedBy(project.References[i]))
-                    entries.Add((i < referenceSlots.Count ? referenceSlots[i] : -1, 1, library));
-        var afterForms = project.KnownLineKeys.FindLastIndex(key => key.Equals("Form", StringComparison.OrdinalIgnoreCase)) + 1;
-        foreach (var (hint, line) in project.UnknownPreSectionLines)
-            if (ObjectReference.TryParse(line, out var reference) && ControlLibraries.For(reference) is { } library)
-                entries.Add((hint == ProjectDefinition.AfterFormsHint ? afterForms : hint, 0, library));
-        // Unknown lines precede the recognised key at their slot; ties retain their read order (#2265).
-        foreach (var entry in entries.OrderBy(entry => entry.Slot).ThenBy(entry => entry.Kind))
-            if (!result.Contains(entry.Library)) result.Add(entry.Library);
-        foreach (var library in ControlLibraries.ReferencedBy(project))
-            if (!result.Contains(library)) result.Add(library);
-        return result;
-    }
+        IReadOnlyList<RuntimeLibrary>? known = null) =>
+        ControlLibraryReferences.ReferencedBy(project, known ?? All, ControlLibraries.All);
 }

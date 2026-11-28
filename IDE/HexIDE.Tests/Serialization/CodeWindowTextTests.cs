@@ -1,3 +1,4 @@
+using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Tests.Serialization;

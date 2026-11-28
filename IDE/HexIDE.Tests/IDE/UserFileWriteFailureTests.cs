@@ -13,6 +13,8 @@ using HexIDE.Tools.ProtocolInspector;
 using HexIDE.Conversations;
 using HexIDE.Redaction;
 using HexIDE.VisualDesigner;
+using HexIDE.Runtime.Making;
+using HexIDE.Tests.Projects;
 
 namespace HexIDE.Tests.IDE;
 
@@ -95,7 +97,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            localization, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         var form = await service.AddNewForm(project, "Form1", interactive: false);
         form.Components[0].SetProperty(VBProperties.IconProperty, new byte[] { 1, 2, 3, 4 });
@@ -163,7 +165,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         var form = await service.AddNewForm(project, "Form1", interactive: false);
         form.Components[0].SetProperty(VBProperties.IconProperty, new byte[] { 1, 2, 3, 4 });
@@ -189,7 +191,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         await service.AddNewForm(project, "Form1", interactive: false);
         await service.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
@@ -197,7 +199,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var target = Target(name);
         Fail(target);
 
-        var convert = () => ProjectService.EncodePackageSources(project);
+        var convert = () => Vb6ProjectMaker.EncodePackageSources(project, project.AbsolutePath!);
         convert.Should().Throw<IOException>().WithMessage("Disk full");
         Preserved(target);
     }
@@ -213,7 +215,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
         Fail(target);
 
         Func<Task> save = () => service.SaveAllProjects(saveAs: false);
@@ -234,10 +236,10 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
-        service.RuntimeDirectory = root;
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
+        service.WithMaker(root);
         Directory.CreateDirectory(Target("standalone"));
-        File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
+        File.WriteAllText(Path.Combine(Target("standalone"), Vb6ProjectMaker.StandaloneRunnerName()!), "runner");
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Target("Made.exe"));
         Func<Task> make = () => service.MakeProject(new ProjectDefinition(VBProjectType.EXE, "Project1"));
         await make.Should().ThrowAsync<IOException>();
@@ -259,10 +261,10 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
-        service.RuntimeDirectory = root;
+            localization, Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
+        service.WithMaker(root);
         Directory.CreateDirectory(Target("standalone"));
-        File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
+        File.WriteAllText(Path.Combine(Target("standalone"), Vb6ProjectMaker.StandaloneRunnerName()!), "runner");
         File.WriteAllText(Target("Made.dll"), "user archive");
         File.WriteAllText(Target("Made.exe"), "user executable");
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Target("Made.exe"));
@@ -293,10 +295,10 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
-        service.RuntimeDirectory = root;
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
+        service.WithMaker(root);
         Directory.CreateDirectory(Target("standalone"));
-        var runner = Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!);
+        var runner = Path.Combine(Target("standalone"), Vb6ProjectMaker.StandaloneRunnerName()!);
         File.WriteAllText(runner, "runner");
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(runner, UnixFileMode.UserRead | UnixFileMode.UserExecute | UnixFileMode.GroupExecute);

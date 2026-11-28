@@ -371,6 +371,20 @@ An umbrella. Apply **only** when the work itself lives in other, separately file
 enumerates sub-tasks it will close **under its own number** is not `tracking`, however explicitly it
 says it exists to track them.
 
+### `parked`
+
+TRUE when the maintainer has set the work aside on purpose. It is kept, but not wanted now, and the body
+says so, with the date and, where known, when to revisit it.
+
+FALSE when:
+
+- something in this repository must land before the work can start: that is `blocked`;
+- the maintainer has still to decide whether or how to do it: that is `needs-decision`;
+- nobody has decided to defer it. An issue that simply hasn't been started is not parked.
+
+Only the maintainer parks or unparks an issue, or someone she asks to. Nobody starts parked work, and a
+parked issue isn't queued for the agent lanes.
+
 ---
 
 ## Axis 5 — initiative (zero or more; usually none)

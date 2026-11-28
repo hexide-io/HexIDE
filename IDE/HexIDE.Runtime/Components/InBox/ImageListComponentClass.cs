@@ -4,7 +4,7 @@ using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components.InBox;
 
-public sealed class ImageListComponentClass : InBoxComponentClass
+public sealed class ImageListComponentClass : InBoxComponentClass, IDesignerAddedPlacement
 {
     public static readonly PropertyClass<int> ImageWidthProperty = new("ImageWidth", "", PropertyCategory.Appearance, 0);
     public static readonly PropertyClass<int> ImageHeightProperty = new("ImageHeight", "", PropertyCategory.Appearance, 0);
@@ -29,6 +29,9 @@ public sealed class ImageListComponentClass : InBoxComponentClass
     public override IEnumerable<RuntimeLibrary> Libraries => [ControlLibraries.MSComctlLib];
     public override Control InstantiateForDesigner(ComponentInstance instance) => new ImageListDesignerIcon();
     public override (int Width, int Height) AddedSize => (570, 570);
+
+    /// <summary>VB6 centres a double-clicked ImageList in pixels and doesn't put it on the grid (#1083).</summary>
+    public bool AddedOnGrid => false;
     public override (int X, int Y) DefaultExtent => (1005, 1005);
     public override bool IsAlwaysWritten(PropertyClass property) => property == ImageBackColorProperty || property == MaskColorProperty;
     public override IReadOnlyList<InBoxMember> Members { get; } =

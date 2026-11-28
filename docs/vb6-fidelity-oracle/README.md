@@ -20,7 +20,7 @@ date functions; graphics) should extend it the same way.
 
 ## The oracle
 
-- **Binary:** `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (the `Vb6ToolchainService`
+- **Binary:** `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (the Basic provider's `Vb6Toolchain`
   auto-discovers it; the `VB6_EXE` env var overrides). Windows + a VB6 install required — this is a dev-time
   fidelity check, not part of the shipped product. The install does **not** have to be on your own machine:
   see [the scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), which drives a copy in a Hyper-V
@@ -679,6 +679,7 @@ added afterwards.
 - [The designer's FileListBox lists files (2026-11-21, #164, SP6)](the-filesystem-controls-in-vb6s-designer.md#the-designers-filelistbox-lists-files-2026-11-21-164-sp6)
 - [What VB6's designer saves for a Line (2026-11-21, #163, SP6)](the-line-control.md#what-vb6s-designer-saves-for-a-line-2026-11-21-163-sp6)
 - [A Line's ends follow its container's current scale, whatever unit it was loaded in (2026-11-23, #5530, SP6)](the-line-control.md#a-lines-ends-follow-its-containers-current-scale-whatever-unit-it-was-loaded-in-2026-11-23-5530-sp6)
+- [A Line's ends add its container's origin (2026-11-23, #5530, SP6)](the-line-control.md#a-lines-ends-add-its-containers-origin-2026-11-23-5530-sp6)
 - [Sequential files (2026-10-17, #1145)](sequential-files.md#sequential-files-2026-10-17-1145)
 - [The CommonDialog control (2026-10-17, #1084)](the-commondialog-control.md#the-commondialog-control-2026-10-17-1084)
 - [A font's size, and the default font (2026-10-22, #910)](a-fonts-size-and-the-default-font.md#a-fonts-size-and-the-default-font-2026-10-22-910)
@@ -813,6 +814,7 @@ added afterwards.
 - [Text compare: every full-width letter (2026-11-23, #5253, SP6)](text-compare-beyond-latin-1-width-kana-and-the-double-byte-locales.md#every-full-width-letter-2026-11-23-5253-sp6)
 - [Text compare: each double-byte code page in full (2026-11-23, #5105, SP6)](text-compare-beyond-latin-1-width-kana-and-the-double-byte-locales.md#each-double-byte-code-page-in-full-2026-11-23-5105-sp6)
 - [The Text order in 44 user locales (2026-11-21, #5105, SP6)](the-text-order-in-44-user-locales.md#the-text-order-in-44-user-locales-2026-11-21-5105-sp6)
+- [One string set under every locale (2026-11-23, #5105, SP6)](the-text-order-in-44-user-locales.md#one-string-set-under-every-locale-2026-11-23-5105-sp6)
 - [The Text order: each locale's own script, in 21 locales (2026-11-21, #5105, SP6)](the-text-order-in-44-user-locales.md#each-locales-own-script-2026-11-21-5105-sp6)
 - [A compare of 2 or more: StrComp and InStr with a locale ID (2026-11-16, #4151)](option-compare-text-and-vb6s-text-compare.md#a-compare-of-2-or-more-strcomp-and-instr-with-a-locale-id-2026-11-16-4151)
 - [The Text order under other user locales (2026-11-21, #1573, SP6)](option-compare-text-and-vb6s-text-compare.md#the-text-order-under-other-user-locales-2026-11-21-1573-sp6)
@@ -1085,6 +1087,7 @@ added afterwards.
 - [In the IDE too: the line break is in the description itself (2026-11-18, #4676, SP6)](errobject-as-a-declared-type.md#in-the-ide-too-the-line-break-is-in-the-description-itself-2026-11-18-4676-sp6)
 - [A control's and a form's members through CallByName (2026-11-18, #4520)](callbyname.md#a-controls-and-a-forms-members-through-callbyname-2026-11-18-4520)
 - [Where `/make` puts its output: Path32, /outdir, a failed build, and an ActiveX DLL's registration (2026-11-18, #4538, #2503, SP6)](where-make-puts-its-output.md#where-make-puts-its-output-path32-outdir-a-failed-build-and-an-activex-dlls-registration-2026-11-18-4538-2503-sp6)
+- [A path in `ExeName32` (2026-11-25, #5622, SP6)](where-make-puts-its-output.md#a-path-in-exename32-2026-11-25-5622-sp6)
 - [The `Date` and `Time` statements: the other value types, an object, and the date range (2026-11-18, #4733)](the-date-and-time-statements.md#the-other-value-types-an-object-and-the-date-range-2026-11-18-4733)
 - [A StdFont in a PropertyBag (2026-11-18, #4741)](a-propertybag-at-run-time.md#a-stdfont-in-a-bag-2026-11-18-4741)
 - [When a StdFont takes its realized values (2026-11-20, #4741)](a-propertybag-at-run-time.md#when-a-stdfont-takes-its-realized-values-2026-11-20-4741)

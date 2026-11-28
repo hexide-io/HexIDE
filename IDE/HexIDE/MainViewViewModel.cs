@@ -789,6 +789,11 @@ public partial class MainViewViewModel : ObservableObject
             if (await file.ConfirmCloseAsync()) CloseDockable(file);
         }
 
+        private async Task CloseArchive(ArchiveDocumentViewModel archive)
+        {
+            if (await archive.ConfirmCloseAsync()) CloseDockable(archive);
+        }
+
         internal Func<CodeEditorViewModel, Task>? SharedCodeClosing { get; set; }
         private readonly HashSet<CodeEditorViewModel> closingCode = [];
         private bool skipSharedQuestion;
@@ -822,6 +827,11 @@ public partial class MainViewViewModel : ObservableObject
             if (!skipSharedQuestion && dockable is CodeEditorViewModel code && SharedCodeClosing is not null)
             {
                 CloseCode(code).ListenErrors();
+                return;
+            }
+            if (dockable is ArchiveDocumentViewModel archive && (archive.IsModified || archive.Saving))
+            {
+                CloseArchive(archive).ListenErrors();
                 return;
             }
             if (dockable is ProjectFileDocumentViewModel file && (file.IsModified || file.Applying))
@@ -1993,7 +2003,8 @@ public partial class MainViewViewModel : ObservableObject
 
         SaveFormCommand = new DelegateCommand(() => SaveActiveForm(false),
             () => FocusedProjectUtil.FocusedForm != null
-                || documentDockService.ActiveDocument is ProjectFileDocumentViewModel { IsReadOnlyDocument: false });
+                || documentDockService.ActiveDocument is ProjectFileDocumentViewModel { IsReadOnlyDocument: false }
+                || documentDockService.ActiveDocument is ArchiveDocumentViewModel { IsReadOnlyDocument: false });
         SaveFormAsCommand = new DelegateCommand(() => SaveActiveForm(true),
             () => FocusedProjectUtil.FocusedForm != null);
 
@@ -2016,9 +2027,9 @@ public partial class MainViewViewModel : ObservableObject
         RestartProjectCommand = new DelegateCommand(projectRunnerService.RestartProject,
             () => projectRunnerService.CanRestartProject);
         // What a project's type doesn't offer isn't offered here.
-        ProjectReferencesCommand = new DelegateCommand(() => projectService.EditProjectReferences(FocusedProjectUtil.FocusedOrStartupProject!),
+        ProjectReferencesCommand = new DelegateCommand(() => { _ = projectService.EditProjectReferences(FocusedProjectUtil.FocusedOrStartupProject!); },
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsReferences: true });
-        ProjectComponentsCommand = new DelegateCommand(() => projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!),
+        ProjectComponentsCommand = new DelegateCommand(() => { _ = projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!); },
             () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.SetsComponents: true });
         ProjectPropertiesCommand = new DelegateCommand(() =>
             {
@@ -2031,22 +2042,32 @@ public partial class MainViewViewModel : ObservableObject
                 if (FocusedProjectUtil.FocusedOrStartupProject is { } project)
                     projectService.MakeProject(project).ListenErrors();
             },
-            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true });
+            // Offered only while the project's type has a maker, which its provider registers (#5621).
+            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } project && projectService.CanMake(project));
         RemoveProjectCommand = new DelegateCommand(() => projectService.UnloadProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
         // Offered only with a group open, as VB6 offers it (measured, #746). Two projects loaded are a group, even before
         // HexIDE has made its Group1.
         MakeProjectGroupCommand = new DelegateCommand(MakeProjectGroup,
-            () => projectManager.CurrentGroup != null || projectManager.LoadedProjects.Count > 1);
+            () => (projectManager.CurrentGroup != null || projectManager.LoadedProjects.Count > 1)
+                  && projectManager.LoadedProjects.Any(projectService.CanMake));
         projectManager.ProjectLoaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
         projectManager.ProjectUnloaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
-        // Both hand vb6.exe the project's file, so they ask what Make asks.
+        // Both hand the type's toolchain the project's file, so they ask what Make asks, and that the toolchain is installed.
         RunWithVb6Command = new DelegateCommand(
             () => vb6Toolchain.RunWithVb6Async(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } && vb6Toolchain.IsAvailable);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } project && vb6Toolchain.IsAvailableFor(project));
         MakeWithVb6Command = new DelegateCommand(
             () => vb6Toolchain.MakeWithVb6Async(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } && vb6Toolchain.IsAvailable);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { Offers.Makes: true } project && vb6Toolchain.IsAvailableFor(project));
+        // A maker comes and goes with its provider (#5621), so what Make offers is asked again when one does.
+        projectService.MakersChanged += () =>
+        {
+            MakeProjectCommand.RaiseCanExecutedChanged();
+            MakeProjectGroupCommand.RaiseCanExecutedChanged();
+            RunWithVb6Command.RaiseCanExecutedChanged();
+            MakeWithVb6Command.RaiseCanExecutedChanged();
+        };
 
         AddFormCommand = new DelegateCommand(
             () => AddFormAsync().ListenErrors(),
@@ -2290,6 +2311,11 @@ public partial class MainViewViewModel : ObservableObject
 
     private void SaveActiveForm(bool saveAs)
     {
+        if (!saveAs && documentDockService.ActiveDocument is ArchiveDocumentViewModel archive)
+        {
+            archive.SaveAsync().ListenErrors();
+            return;
+        }
         if (!saveAs && documentDockService.ActiveDocument is ProjectFileDocumentViewModel file)
         {
             file.SaveAsync().ListenErrors();

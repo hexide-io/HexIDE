@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -7,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using HexIDE.Addins;
+using Avalonia.Threading;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -29,11 +31,28 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private readonly HashSet<string> _disabled;
     private IHexIdeHost? _host;
     private bool _disposed;
+    private bool _hasPackages;
+    private RevocationMonitor? _revocationMonitor;
     private readonly object _serverTrustGate = new();
     private readonly HashSet<string> _revokedConsent = new(StringComparer.Ordinal);
     // What each add-in contributed that is taken out when it is disabled or its consent is revoked: its language servers,
-    // debug launches and project types.
-    private readonly Dictionary<string, List<IDisposable>> _contributions = new(StringComparer.OrdinalIgnoreCase);
+    // debug launches, project types, resources, language packs and the designer's drawer, by owner.
+    private readonly Dictionary<ContributionOwner, List<IDisposable>> _contributions = [];
+
+    // Whose contributions a list holds (#5597): the package that loaded, by its directory; a composed owner, the Basic
+    // provider, which is never a package, by its id; or an owner in no package, a host or test assembly, by its id. No
+    // package's id addresses another's registrations: a refused row with a loaded package's id, or the provider's, owns none.
+    private enum OwnerKind { Package, Composed, Unpackaged }
+
+    private readonly record struct ContributionOwner(string Key, OwnerKind Kind)
+    {
+        // A package's directory as the file system gave it; an id in any case.
+        private StringComparer Comparer => Kind == OwnerKind.Package ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+
+        public bool Equals(ContributionOwner other) => Kind == other.Kind && Comparer.Equals(Key, other.Key);
+
+        public override int GetHashCode() => HashCode.Combine(Comparer.GetHashCode(Key), Kind);
+    }
     private readonly bool _recoveryMode = Static.IsRecoveryMode;
 
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
@@ -121,10 +140,10 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 Log.Error(ex, "AddinRegistry: failed to verify package {Dir} — skipped", packageDir);
             }
         }
-        // A normal cold start with only key-pinned first-party packages does no fetch or delay.
-        // Refresh before loading code or offering consent, with a short timeout and fail-open.
-        if (packages.Any(package => package.Result.Manifest is not null && !package.Result.IsFirstParty)
-            && !string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
+        // Refresh before loading code or offering consent, with a short timeout and fail-open. First-party packages
+        // count too: a build revocation applies to them, and a default install has nothing else (#5572).
+        _hasPackages = packages.Any(package => package.Result.Manifest is not null);
+        if (_hasPackages && !string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
             _revocations.RefreshFromUrl(_settings.RevocationListUrl, TimeSpan.FromSeconds(3));
 
         var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -160,8 +179,19 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 PackageVerification.RunningVersion.ToString(3));
             var message = string.Format(_localization.GetString(details.Key), details.Arguments);
             info = info with { CompatibilityError = message, CompatibilityMessage = details };
-            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Incompatible, ErrorMessage = message, PackageDirectory = packageDir });
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Incompatible, ErrorMessage = message, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Dir} is incompatible ({Reason}) — not loaded", packageDir, result.Error);
+            return;
+        }
+
+        // HexIDE's own ids, hexide. and under it, are kept for packages the first-party key signed: the Basic provider is
+        // hexide.basic, and phase 3 of #3411 loads it as such a package (#5597).
+        if (result.Manifest is { } reservedManifest && PublisherNamespaces.IsReserved(reservedManifest.Id) && !result.IsFirstParty)
+        {
+            var message = string.Format(_localization.GetString("Str.Addins.ReservedId"), reservedManifest.Id);
+            info = info with { LoadError = new AddinMessage("Str.Addins.ReservedId", reservedManifest.Id) };
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
+            Log.Warning("AddinRegistry: {Message}", message);
             return;
         }
 
@@ -169,14 +199,14 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             var message = string.Format(_localization.GetString("Str.Addins.DuplicateId"), duplicateManifest.Id, ownerDirectory);
             info = info with { LoadError = new AddinMessage("Str.Addins.DuplicateId", duplicateManifest.Id, ownerDirectory) };
-            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Error, ErrorMessage = message, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Message}", message);
             return;
         }
 
         if (!result.IsVerified && !allowUnsigned)
         {
-            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Untrusted, ErrorMessage = result.Error, PackageDirectory = packageDir });
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Untrusted, ErrorMessage = result.Error, PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Dir} is untrusted ({Reason}) — skipped (developer mode + load-unsigned-add-ins required)",
                 packageDir, result.Error);
             return;
@@ -184,7 +214,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
         if (result.Manifest is not { } manifest)
         {
-            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Error, ErrorMessage = result.Error ?? "no manifest", PackageDirectory = packageDir });
+            _contexts.Add(new AddinContext(info) { RefusedAtLoad = true, Status = AddinStatus.Error, ErrorMessage = result.Error ?? "no manifest", PackageDirectory = packageDir });
             Log.Warning("AddinRegistry: {Dir} has no usable manifest ({Reason}) — skipped", packageDir, result.Error);
             return;
         }
@@ -294,9 +324,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             var origin = new AddinOrigin(ctx.Info.Id, ctx.Info.Title, ctx.Info.Chain?.IsFirstParty == true,
                 status == AddinStatus.DeveloperUnsigned) { PublisherNamespaces = ctx.Info.PublisherNamespaces };
             addin.Initialize(host.ToolWindows is AddinToolWindowService tools
-                ? new AddinOwnedHost(host, tools.ForOwner(origin), origin)
+                ? new AddinOwnedHost(host, tools.ForOwner(origin), origin, () => ctx.RevokedMidSession)
                 : host);
-            contributions.Complete();
+            ctx.InitializationWithdrawals = contributions.Complete();
             ctx.Status = status;
             Log.Information("AddinRegistry: {Title} v{Version} loaded from {Dir} [{Trust}]",
                 ctx.Info.Title, ctx.Info.Version, ctx.PackageDirectory,
@@ -332,11 +362,14 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             var result = ctx.PendingResult!;
             ctx.PendingResult = null;   // clear up-front so an exception can't leave it pending/re-promptable
+            // A revocation can land while an earlier prompt is open: never ask about, or load, a build it refuses (#5577).
+            if (ctx.Status != AddinStatus.AwaitingConsent || RefuseIfRevoked(ctx, result))
+                continue;
             var vm = new AddinConsentDialogViewModel(
                 ctx.Info.Title, ctx.Info.Version, ctx.Info.Author,
                 result.IsVerified ? result.PublisherDisplayName : null,
                 _localization,
-                result.Chain, _windowManager);
+                result.Chain, _windowManager, result.UnrecognisedRootFingerprint);
 
             bool allowed;
             try
@@ -351,6 +384,14 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
             if (_disposed)
                 return;   // the IDE was shut down while the consent dialog was open — do not load anything
+
+            // Checked again: the hourly check can revoke it while the dialog is open, and its posted job runs in the modal's
+            // frame. Neither answer then changes anything, and nothing is recorded for a refused build.
+            if (ctx.Status != AddinStatus.AwaitingConsent || RefuseIfRevoked(ctx, result))
+            {
+                Log.Warning("AddinRegistry: {Title} was revoked while its consent prompt was open — not loaded", ctx.Info.Title);
+                continue;
+            }
 
             lock (_serverTrustGate)
                 _consent.Record(ctx.Info.Id, result.PublisherId ?? "", result.ManifestHash ?? "",
@@ -367,8 +408,208 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         }
     }
 
+    // Marks a pending add-in Revoked when the active list now refuses it, by the identity verified at load. Says whether it did.
+    private bool RefuseIfRevoked(AddinContext ctx, PackageVerificationResult result)
+    {
+        if (_revocations.IsRevoked(result.ManifestHash, result.PublisherId, result.IntermediateId, result.IsFirstParty) is not { } reason)
+            return false;
+        ctx.MarkRevokedMidSession();
+        ctx.Status = AddinStatus.Revoked;
+        ctx.ErrorMessage = reason;
+        return true;
+    }
+
+    // ── Hourly revocation check (#5577) ──────────────────────────
+
+    /// <summary>
+    /// Starts checking the revocation list every hour, as startup did once, while any add-in package is installed. Called
+    /// once startup has loaded the add-ins; tests never start it, so no test waits on a timer or reaches the network.
+    /// </summary>
+    public void StartRevocationChecks()
+    {
+        if (_recoveryMode || !_hasPackages || _revocationMonitor is not null)
+            return;
+        _revocationMonitor = new RevocationMonitor(CheckRevocations);
+        _revocationMonitor.Start();
+    }
+
+    // Off the UI thread, never holding the gate: the fetch can take its full timeout. The address is read each time, so an
+    // empty revocationListUrl stops the checks without a restart.
+    internal void CheckRevocations()
+    {
+        var url = _settings.RevocationListUrl;
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+        if (_revocations.RefreshFromUrl(url, TimeSpan.FromSeconds(3)) != RevocationRefresh.Applied)
+            return;
+        // Nothing awaits this task, so a failure is logged here, or nobody would know a newer list wasn't applied.
+        _ = Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            try { await ApplyRevocationsAndNotifyAsync(); }
+            catch (Exception ex) { Log.Error(ex, "AddinRegistry: couldn't apply a newer revocation list mid-session"); }
+        });
+    }
+
+    // ── The notice, and the state Options shows (#5577) ──────────
+
+    // Titles of revoked add-ins whose code is loaded, waiting for the notice. Only the UI thread touches these.
+    private readonly List<string> _noticePending = [];
+    private bool _noticeOpen;
+
+    /// <summary>Closes HexIDE the way File → Exit does, through the main window's Closing and its prompts to save.</summary>
+    internal Action CloseIde { get; set; } = () =>
+        (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow?.Close();
+
+    /// <summary>
+    /// Applies the active list, then tells the user about every add-in it revoked whose code is loaded, offering to close
+    /// HexIDE. An add-in that never loaded needs no notice: it shows as Revoked in Options and won't load again. Runs on the
+    /// UI thread, after the withdrawal and outside the gate.
+    /// </summary>
+    internal async Task ApplyRevocationsAndNotifyAsync()
+    {
+        var revoked = ApplyRevocations();
+        if (revoked.Count == 0)
+            return;
+        List<string> loaded;
+        lock (_serverTrustGate)
+            loaded = [.. _contexts
+                .Where(ctx => revoked.Contains(ctx.Info) && (ctx.Instance is not null || ctx.LoadContext is not null))
+                .Select(ctx => string.IsNullOrWhiteSpace(ctx.Info.Title) ? ctx.Info.Id ?? ctx.PackageDirectory : ctx.Info.Title)];
+        _noticePending.AddRange(loaded);
+        await ShowRevokedNoticeAsync();
+    }
+
+    // One notice at a time. Add-ins revoked while one is open are named in the next. If the notice can't be shown, the names
+    // stay pending, for the next revocation to show.
+    private async Task ShowRevokedNoticeAsync()
+    {
+        if (_noticeOpen)
+            return;
+        _noticeOpen = true;
+        try
+        {
+            while (_noticePending.Count > 0 && !_disposed)
+            {
+                var titles = _noticePending.ToList();
+                bool close;
+                try
+                {
+                    close = await _windowManager.ShowDialog(new AddinRevokedNoticeViewModel(titles, _localization));
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "AddinRegistry: couldn't show the notice for revoked add-ins");
+                    return;
+                }
+                _noticePending.RemoveRange(0, titles.Count);
+                if (close && !_disposed)
+                {
+                    CloseIde();
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _noticeOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// The line Options → Add-Ins shows about the revocation checks: off, not yet checked, when last checked, or that the last
+    /// check failed. Null when no add-in package is installed, since nothing is then checked.
+    /// </summary>
+    internal string? RevocationStatusLine()
+    {
+        if (!_hasPackages)
+            return null;
+        if (string.IsNullOrWhiteSpace(_settings.RevocationListUrl))
+            return _localization.GetString("Str.Options.Addins.Revocation.Off");
+        var checks = _revocations.Checks;
+        var issued = DateTimeOffset.TryParse(_revocations.ActiveIssuedUtc, CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal, out var time) ? Display(time) : "—";
+        return checks switch
+        {
+            { LastAttemptFailed: true, LastFailed: { } failed, LastSucceeded: { } worked } =>
+                Format("Str.Options.Addins.Revocation.Failed", Display(failed), Display(worked), issued),
+            { LastAttemptFailed: true, LastFailed: { } failed } =>
+                Format("Str.Options.Addins.Revocation.FailedNever", Display(failed), issued),
+            { LastSucceeded: { } worked } => Format("Str.Options.Addins.Revocation.Checked", Display(worked), issued),
+            _ => Format("Str.Options.Addins.Revocation.NotChecked", issued),
+        };
+
+        static string Display(DateTimeOffset time) => time.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+        string Format(string key, params object[] args) => string.Format(CultureInfo.CurrentCulture, _localization.GetString(key), args);
+    }
+
+    /// <summary>Raised on the UI thread after a newer list has revoked add-ins mid-session, so an open Options page can show
+    /// it (#5577).</summary>
+    internal event Action? RevocationsApplied;
+
+    /// <summary>
+    /// Re-checks every add-in against the active list, by the identity verified when it loaded, never re-read from disk.
+    /// A revoked one is marked Revoked, and everything it contributed is taken out: what Initialize registered and what it
+    /// registered since. Its code stays loaded until HexIDE restarts, but it gets no events, no command or menu of its runs,
+    /// and anything it registers from now on is refused. Runs on the UI thread. Returns the add-ins it revoked.
+    /// </summary>
+    internal IReadOnlyList<AddinInfo> ApplyRevocations()
+    {
+        var revoked = new List<AddinContext>();
+        lock (_serverTrustGate)
+        {
+            if (_disposed)
+                return [];
+            foreach (var ctx in _contexts)
+            {
+                if (ctx.RefusedAtLoad || ctx.RevokedMidSession || ctx.Status == AddinStatus.Revoked)
+                    continue;
+                var chain = ctx.Info.Chain;
+                if (_revocations.IsRevoked(ctx.Info.ManifestHash, chain?.Publisher.Id, chain?.Intermediate.Id,
+                        chain?.IsFirstParty == true) is not { } reason)
+                    continue;
+                ctx.MarkRevokedMidSession();
+                ctx.Status = AddinStatus.Revoked;
+                ctx.ErrorMessage = reason;
+                revoked.Add(ctx);
+            }
+        }
+
+        foreach (var ctx in revoked)
+        {
+            var withdrawn = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            lock (_serverTrustGate)
+            {
+                if (_contributions.TryGetValue(new ContributionOwner(ctx.PackageDirectory, OwnerKind.Package), out var tracked))
+                    withdrawn.UnionWith(tracked);
+                RemoveContributions(ctx);
+            }
+            // What Initialize registered, newest first, as a failed Initialize is rolled back; a handle already taken out
+            // above is skipped, since not every handle can be disposed twice.
+            var undo = ctx.InitializationWithdrawals;
+            ctx.InitializationWithdrawals = [];
+            for (var i = undo.Count - 1; i >= 0; i--)
+            {
+                if (undo[i].Target is { } target && withdrawn.Contains(target))
+                    continue;
+                try { undo[i](); }
+                catch (Exception ex) { Log.Warning(ex, "AddinRegistry: error withdrawing a contribution of {Title}", ctx.Info.Title); }
+            }
+            Log.Warning("AddinRegistry: {Title} REVOKED mid-session ({Reason}) — its contributions are withdrawn; its code stays "
+                + "loaded until HexIDE restarts", ctx.Info.Title, ctx.ErrorMessage);
+        }
+        // An open page's failure to follow must not keep the notice from showing.
+        if (revoked.Count > 0)
+        {
+            try { RevocationsApplied?.Invoke(); }
+            catch (Exception ex) { Log.Warning(ex, "AddinRegistry: an open page couldn't show a mid-session revocation"); }
+        }
+        return [.. revoked.Select(ctx => ctx.Info)];
+    }
+
     public void Dispose()
     {
+        _revocationMonitor?.Dispose();
         lock (_serverTrustGate) _disposed = true;
         foreach (var ctx in _contexts)
         {
@@ -410,13 +651,15 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
             if (!enabled)
                 foreach (var addin in _contexts.Where(c => string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase)))
-                    RemoveContributions(addin.Info.Id);
+                    RemoveContributions(addin);
 
             SaveDisabledSet();
 
             var ctx = _contexts.FirstOrDefault(c =>
                 string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase));
-            if (ctx is not null)
+            // A revoked add-in stays Revoked, whether revoked at load or mid-session: toggling it records the choice for the
+            // next start and changes nothing now (#5577).
+            if (ctx is not null && ctx.Status != AddinStatus.Revoked && !ctx.RevokedMidSession)
                 ctx.Status = !enabled ? AddinStatus.Disabled
                     : ctx.Info.CompatibilityError is not null ? AddinStatus.Incompatible
                     : ctx.Info.LoadError is not null ? AddinStatus.Error : AddinStatus.Loaded;
@@ -432,7 +675,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             _revokedConsent.Add(manifestHash);
             _consent.Revoke(manifestHash);
             foreach (var addin in _contexts.Where(c => c.Info.ManifestHash == manifestHash))
-                RemoveContributions(addin.Info.Id);
+                RemoveContributions(addin);
             var ctx = _contexts.FirstOrDefault(c => c.Info.ManifestHash == manifestHash);
             Log.Information("AddinRegistry: consent revoked for {Title} — re-prompts next launch",
                 ctx?.Info.Title ?? manifestHash);
@@ -450,7 +693,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         string title;
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, origin.Id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(origin);
             title = ctx?.Info.Title ?? origin.Title;
             if (!_disposed && ctx is not null && !_disabled.Contains(ctx.PackageDirectory)
                 && !_revokedConsent.Contains(ctx.Info.ManifestHash))
@@ -460,17 +703,17 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         Log.Warning(exception, "AddinRegistry: {Title} ({AddinId}) reported a failure: {Message}", title, origin.Id, message);
     }
 
-    internal void CheckLanguageServerLaunch(string id) => CheckLaunch(id, "Str.Addins.ServerLaunchRefused");
+    internal void CheckLanguageServerLaunch(AddinOrigin owner) => CheckLaunch(owner, "Str.Addins.ServerLaunchRefused");
 
-    internal void CheckDebugLaunch(string id) => CheckLaunch(id, "Str.Addins.DebugLaunchRefused");
+    internal void CheckDebugLaunch(AddinOrigin owner) => CheckLaunch(owner, "Str.Addins.DebugLaunchRefused");
 
     // Whether an add-in may start what it contributed, now: it is enabled and consented to, and neither it nor its
-    // publisher is revoked. Throws the refusal, naming the add-in, otherwise.
-    private void CheckLaunch(string id, string refusal)
+    // publisher is revoked. Throws the refusal, naming the add-in, otherwise. A composed owner has no package to ask.
+    private void CheckLaunch(AddinOrigin owner, string refusal)
     {
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(owner);
             if (ctx is null) return; // Host/test assemblies outside an add-in context retain their existing behaviour.
             var info = ctx.Info;
             var chain = info.Chain;
@@ -487,27 +730,39 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     }
 
     // Keeps what an add-in contributed, to take out when it is disabled or its consent is revoked; taken out at once when
-    // it is already.
-    internal void TrackContribution(string id, IDisposable contribution)
+    // it is already. A composed owner has no package to disable, so a package's state never reaches it (#5597).
+    internal void TrackContribution(AddinOrigin owner, IDisposable contribution)
     {
         lock (_serverTrustGate)
         {
-            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            var ctx = PackageContext(owner);
             if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
-                || _revokedConsent.Contains(ctx.Info.ManifestHash)))
+                || _revokedConsent.Contains(ctx.Info.ManifestHash) || ctx.RevokedMidSession))
             {
                 contribution.Dispose();
                 return;
             }
-            if (!_contributions.TryGetValue(id, out var contributions))
-                _contributions[id] = contributions = [];
+            var key = owner.IsComposed ? new ContributionOwner(owner.Id, OwnerKind.Composed)
+                : ctx is not null ? new ContributionOwner(ctx.PackageDirectory, OwnerKind.Package)
+                : new ContributionOwner(owner.Id, OwnerKind.Unpackaged);
+            if (!_contributions.TryGetValue(key, out var contributions))
+                _contributions[key] = contributions = [];
             contributions.Add(contribution);
         }
     }
 
-    private void RemoveContributions(string id)
+    // The package an owner is: the one with its id, in any case, that wasn't refused at load. A refused row shares a loaded
+    // package's id when it's a duplicate or reserved, and no package is a composed owner, the Basic provider: so another
+    // package's state can't refuse an owner's launches, take out its registrations or carry its failures (#5597). Call
+    // under _serverTrustGate.
+    private AddinContext? PackageContext(AddinOrigin owner) => owner.IsComposed ? null
+        : _contexts.FirstOrDefault(c => !c.RefusedAtLoad
+            && string.Equals(c.Info.Id, owner.Id, StringComparison.OrdinalIgnoreCase));
+
+    // What the package in addin contributed, by its directory: a row refused at load is never an owner, so it has none.
+    private void RemoveContributions(AddinContext addin)
     {
-        if (!_contributions.Remove(id, out var contributions)) return;
+        if (!_contributions.Remove(new ContributionOwner(addin.PackageDirectory, OwnerKind.Package), out var contributions)) return;
         foreach (var contribution in contributions) contribution.Dispose();
     }
 
@@ -517,7 +772,11 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         result.Manifest is { } m
             ? new AddinInfo(packageDir, m.Title, m.Description, m.Version, m.Author,
                             result.PublisherDisplayName ?? "", m.Id, result.ManifestHash ?? "",
-                            result.LogoPath, result.Chain) { VerifiedDeclaration = result.VerifiedDeclaration, PublisherNamespaces = result.PublisherNamespaces }
+                            result.LogoPath, result.Chain)
+              {
+                  VerifiedDeclaration = result.VerifiedDeclaration, PublisherNamespaces = result.PublisherNamespaces,
+                  UnrecognisedRootFingerprint = result.UnrecognisedRootFingerprint,
+              }
             : ShallowInfo(packageDir);
 
     private static AddinInfo ShallowInfo(string packageDir) =>

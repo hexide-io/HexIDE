@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.Themes.Simple;
+using HexIDE.Runtime.Components;
 
 [assembly: AvaloniaTestApplication(typeof(HexIDE.Integration.Tests.TestApp))]
 
@@ -92,7 +93,7 @@ public class TestApp : Application
         RegisterProvider();
         // The running IDE has every window in its lifetime's list, which the headless host has not got: a window a test showed
         // before its first call to the driver went untracked, and a test that ran first saw it as opening later.
-        HexIDE.IDE.RunningProgram.Current = new HexIDE.IDE.InterpreterRunningProgram();
+        HexIDE.IDE.RunningProgram.Current = new HexIDE.Runtime.Running.InterpreterRunningProgram();
         HexIDE.Automation.UiAutomationDriver.TrackWindows();
         WindowLeakGuard.Track();
         Console.Error.WriteLine("1085 probe: Initialize finished");
@@ -110,6 +111,13 @@ public class TestApp : Application
         var host = Substitute.For<HexIDE.Addins.IHexIdeHost>();
         host.RegisterResources(Arg.Any<Uri>()).Returns(call =>
             ProviderResources.Register(call.Arg<Uri>(), origin, typeof(HexIDE.Runtime.BasicProvider).Assembly));
+        // What draws the designer's controls (#5591): through the real service, so every designer here draws as the IDE's do.
+        host.RegisterDesignerPictures(Arg.Any<Func<IDesignerDrawingSurface, IDesignerPictures>>()).Returns(call =>
+            new HexIDE.Addins.AddinDesignerPictureService().Register(call.Arg<Func<IDesignerDrawingSurface, IDesignerPictures>>(), origin));
+        // VB6's scale rules (#5758), through the real service, so every designer and Properties window here shows and moves
+        // positions as the IDE's do.
+        host.RegisterDesignPositions(Arg.Any<IDesignPositions>()).Returns(call =>
+            new HexIDE.Addins.AddinDesignPositionService().Register(call.Arg<IDesignPositions>(), origin));
         new HexIDE.Runtime.BasicProvider().Initialize(host);
     }
 

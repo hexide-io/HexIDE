@@ -75,7 +75,7 @@ Project Explorer SHALL offer source-folder synchronization for a compound projec
 
 #### Scenario: Saved content differs from the preview
 - **WHEN** the saved archive changes after it was opened and the user invokes synchronization
-- **THEN** the physical folder reflects saved content while the existing read-only previews remain unchanged
+- **THEN** the physical folder reflects saved content while the existing document buffers remain unchanged
 - **AND** the completion message explains that explicit reload refreshes previews and folder edits are not imported
 
 ### Requirement: Responsive and serialized synchronization
@@ -141,3 +141,29 @@ The synchronizer SHALL recover interrupted legacy synchronization before moving 
 - **AND** tree, manifest and baseline bytes are preserved, and empty legacy directories are removed
 - **AND** both layouts without a record of a move are still refused
 - **AND** neither layout can be synchronized concurrently during the move, and no directory containing an engine-held handle is moved
+
+### Requirement: Bounded verified recovery retention
+After a changing sync deletes its journal, the synchronizer SHALL prune, under its lease, only direct directories in that file's `.sync` folder named as lower-case GUIDs in N format, and MUST NOT delete through a link. It SHALL keep the ten newest candidates and all candidates at most seven days old, ordered and dated by `new.json` UTC last-write time using its supplied clock. It SHALL verify retained trees before deletion and preserve recovery evidence and external edits.
+
+#### Scenario: Expired recovery trees
+- **WHEN** a changing sync completes with more than ten retained transactions
+- **THEN** only verified transactions outside the newest ten and older than seven days are removed
+- **AND** unrelated directories and loose files remain untouched
+
+#### Scenario: Protected recovery evidence
+- **WHEN** an old transaction contains a link, an external tree edit, or missing or unreadable new metadata
+- **THEN** that transaction remains and synchronization still succeeds
+- **AND** previous and staged trees must match their own old and new manifests before deletion
+- **AND** the just-completed transaction is always kept
+- **AND** an I/O or access failure leaves the affected transaction and continues with later candidates without failing sync
+- **AND** each transaction kept that way is reported for the IDE to log
+
+#### Scenario: Removing a pruned transaction
+- **WHEN** a transaction is pruned
+- **THEN** it is renamed to `<id>.pruning` first and then deleted bottom-up, one entry at a time, stopping at any link
+- **AND** a renamed transaction left by an interrupted deletion is finished by the next prune
+
+#### Scenario: No pruning before successful commit
+- **WHEN** synchronization is unchanged, recovering, fails, or still has a journal
+- **THEN** it does not prune recovery transactions
+- **AND** legacy synchronization folders are not pruned

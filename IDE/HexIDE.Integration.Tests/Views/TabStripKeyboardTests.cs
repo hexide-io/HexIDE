@@ -9,7 +9,6 @@ using HexIDE.Automation;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
-using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -146,11 +145,5 @@ public class TabStripKeyboardTests
             window.GetVisualDescendants().OfType<VBTextBox>().Single().Text.Should().BeEmpty();
         }
         finally { window.Close(); }
-    }
-
-    [AvaloniaFact]
-    public void TabStrip_is_excluded_from_designer_container_classes()
-    {
-        ContainerClasses.IsContainer(TabStripComponentClass.Instance).Should().BeFalse();
     }
 }

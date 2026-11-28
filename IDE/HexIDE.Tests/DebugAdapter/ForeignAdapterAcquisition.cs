@@ -61,6 +61,11 @@ internal static class ForeignAdapterAcquisition
         if (adapter == "netcoredbg" && OperatingSystem.IsWindows() && RuntimeInformation.OSArchitecture == Architecture.Arm64)
             return new(null, "netcoredbg publishes no Windows Arm build, and its x64 build crashes with an access violation launching an Arm program (#3548).",
                 NoBuildForPlatform: true);
+        // 3.2.0-1092's release has osx-arm64 and no Intel macOS asset, and an Intel Mac can't run an arm64 build. Found by
+        // the first macos-15-intel run (#5564).
+        if (adapter == "netcoredbg" && OperatingSystem.IsMacOS() && RuntimeInformation.OSArchitecture == Architecture.X64)
+            return new(null, $"netcoredbg {NetcoredbgVersion} publishes no Intel macOS build, and an Intel Mac can't run its arm64 one (#5564).",
+                NoBuildForPlatform: true);
         var pythonSearch = adapter == "debugpy" ? FindPython() : default;
         var python = pythonSearch.Path;
         if (adapter == "debugpy" && python is null) return new(null, pythonSearch.Unavailable);

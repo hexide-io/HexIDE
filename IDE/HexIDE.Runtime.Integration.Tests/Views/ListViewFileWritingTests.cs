@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
+using HexIDE.Integration.Tests;
 using HexIDE.Integration.Tests.Views;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Components.InBox;
@@ -17,11 +18,9 @@ public class ListViewFileWritingTests
 
     private static string Corpus(string folder)
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !Directory.Exists(Path.Join(directory.FullName, "corpus")))
-            directory = directory.Parent;
+        var directory = RepoTree.Root();
         directory.Should().NotBeNull();
-        var root = Path.Join(directory!.FullName, "corpus", "inbox-controls");
+        var root = Path.Join(directory, "corpus", "inbox-controls");
         var saved = Path.Join(root, "saved", folder);
         return Directory.Exists(saved) ? saved : Path.Join(root, "pending", folder);
     }

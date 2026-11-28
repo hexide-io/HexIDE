@@ -4,6 +4,7 @@ using System.Linq;
 using Avalonia.Headless.XUnit;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Runtime;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Components.InBox;
 using HexIDE.Runtime.ProjectElements;
@@ -22,7 +23,7 @@ public class ToolboxFromRegistryTests
     [AvaloniaFact]
     public void The_real_registry_gives_the_toolbox_its_controls_in_their_order()
     {
-        var toolbox = Toolbox(new ComponentRegistry());
+        var toolbox = Toolbox(InBoxRegistry.Create());
 
         toolbox.Components.Select(tool => tool.Name).Should().Equal("Mouse",
             "Picture", "Label", "Text", "Frame", "Command", "Check", "Option", "Combo", "List",
@@ -32,10 +33,98 @@ public class ToolboxFromRegistryTests
             "Geo.Hscroll", "Geo.Vscroll", "Geo.Timer", "Geo.Shape", "Geo.Image");
     }
 
+    // The IDE builds the toolbox before the Basic provider registers, so the provider's items arrive as an add-in's do, and
+    // the toolbox ends as it always was (#5594).
+    [AvaloniaFact]
+    public void A_toolbox_built_before_the_provider_registers_ends_in_its_order_with_the_libraries_after()
+    {
+        var registry = new ComponentRegistry();
+        var toolbox = Toolbox(registry);
+        toolbox.Components.Select(tool => tool.Name).Should().Equal("Mouse");
+
+        InBoxRegistry.Fill(registry);
+        toolbox.ShowProject(Referencing(ControlLibraries.MSComctlLib));
+
+        string[] inBox = ["Mouse", "Picture", "Label", "Text", "Frame", "Command", "Check", "Option", "Combo", "List",
+            "HScroll", "VScroll", "Timer", "Shape", "Image"];
+        toolbox.Components.Take(inBox.Length).Select(tool => tool.Name).Should().Equal(inBox);
+        toolbox.Components.Skip(1).Take(inBox.Length - 1).Select(tool => tool.IconKey).Should().Equal(
+            BasicProvider.Toolbox.Select(item => item.IconKey));
+        toolbox.Components.Skip(inBox.Length).Should().NotBeEmpty()
+            .And.OnlyContain(tool => ReferenceEquals(tool.Library, ControlLibraries.MSComctlLib));
+    }
+
+    [AvaloniaFact]
+    public void An_add_in_s_item_joins_after_the_registered_items_and_before_the_libraries_and_leaves_with_its_class()
+    {
+        var registry = InBoxRegistry.Create();
+        var toolbox = Toolbox(registry);
+        toolbox.ShowProject(Referencing(ControlLibraries.MSComctlLib));
+        var before = toolbox.Components.Select(tool => tool.Name).ToList();
+        var owner = new HexIDE.Addins.AddinOrigin("probe", "Probe");
+        var gauge = Named("Gauge");
+        gauge.VBTypeName.Returns("Probe.Gauge");
+
+        var registration = registry.Register(gauge, owner);
+        registry.RegisterToolboxItem(gauge, null, owner);
+
+        toolbox.Components.Select(tool => tool.Name).Should().Equal([.. before.Take(15), "Gauge", .. before.Skip(15)]);
+        toolbox.Components[15].IconKey.Should().Be("Geo.Object");
+        toolbox.SelectedComponent = toolbox.Components[15];
+
+        registration.Dispose();
+
+        toolbox.Components.Select(tool => tool.Name).Should().Equal(before);
+        toolbox.SelectedComponent.Should().BeSameAs(toolbox.Arrow);
+        toolbox.ShowProject(Referencing(ControlLibraries.MSComctlLib));
+        toolbox.Components.Select(tool => tool.Name).Should().Equal(before);
+    }
+
+    // A library registered or taken out after its project was shown changes what the toolbox offers (#5599), and a project
+    // that references no library never asks a library what it offers.
+    [AvaloniaFact]
+    public void A_library_registered_after_its_project_is_shown_offers_its_controls_until_it_goes()
+    {
+        var registry = new ComponentRegistry();
+        var toolbox = Toolbox(registry);
+        var asked = 0;
+        toolbox.ShowProject(Referencing(ControlLibraries.MSComctlLib));
+        toolbox.Components.Select(tool => tool.Name).Should().Equal("Mouse");
+
+        var registration = registry.RegisterLibrary(ControlLibraries.MSComctlLib,
+            () => { asked++; return BasicProvider.ControlsOf(ControlLibraries.MSComctlLib); },
+            HexIDE.Desktop.BasicProviderComposition.Origin);
+
+        toolbox.Components.Skip(1).Should().NotBeEmpty()
+            .And.OnlyContain(tool => ReferenceEquals(tool.Library, ControlLibraries.MSComctlLib));
+        toolbox.ShowProject(new ProjectDefinition(VBProjectType.EXE, "References nothing"));
+        toolbox.ShowProject(Referencing(ControlLibraries.MSComctlLib));
+        asked.Should().Be(1, "what a library offers is kept until a library comes or goes");
+
+        registration.Dispose();
+
+        toolbox.Components.Select(tool => tool.Name).Should().Equal("Mouse");
+    }
+
+    [AvaloniaFact]
+    public void A_project_that_references_no_library_never_asks_one_what_it_offers()
+    {
+        var registry = new ComponentRegistry();
+        var toolbox = Toolbox(registry);
+        var asked = 0;
+        using var registration = registry.RegisterLibrary(ControlLibraries.MSComctlLib,
+            () => { asked++; return BasicProvider.ControlsOf(ControlLibraries.MSComctlLib); },
+            HexIDE.Desktop.BasicProviderComposition.Origin);
+
+        toolbox.ShowProject(new ProjectDefinition(VBProjectType.EXE, "References nothing"));
+
+        asked.Should().Be(0);
+    }
+
     [AvaloniaFact]
     public void Every_registered_control_except_the_form_is_in_the_toolbox()
     {
-        var registry = new ComponentRegistry();
+        var registry = InBoxRegistry.Create();
         var toolbox = Toolbox(registry);
         toolbox.Components.Skip(1).Select(tool => tool.BaseClass).Should().BeEquivalentTo(
             registry.Components.Where(component => component != FormComponentClass.Instance));
@@ -112,7 +201,7 @@ public class ToolboxFromRegistryTests
     [AvaloniaFact]
     public void The_real_registry_says_where_a_control_comes_from()
     {
-        var toolbox = Toolbox(new ComponentRegistry());
+        var toolbox = Toolbox(InBoxRegistry.Create());
 
         toolbox.LibrariesOffering("ProgressBar").Select(c => c.Library.File).Should().Equal("MSCOMCTL.OCX", "COMCTL32.OCX");
         toolbox.LibrariesOffering("ComctlLib.ProgressBar").Select(c => c.Library.File).Should().Equal("MSCOMCTL.OCX", "COMCTL32.OCX");

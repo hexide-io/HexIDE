@@ -27,6 +27,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+        <ProjectReference Include="..\HexIDE.Imaging\HexIDE.Imaging.csproj" />
     </ItemGroup>
 
     <ItemGroup>
@@ -65,6 +66,8 @@
     <ItemGroup>
         <None Remove="form.ico" />
         <AvaloniaResource Include="form.ico" />
+        <None Remove="Localization\Packs\*.json" />
+        <AvaloniaResource Include="Localization\Packs\*.json" />
     </ItemGroup>
 
     <ItemGroup>

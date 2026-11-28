@@ -44,6 +44,25 @@ SDK surface: the project and component models are covered because SDK signatures
 - **WHEN** a public member is added to `FormDefinition` without an API entry
 - **THEN** the build fails with RS0016 even though its source is outside `Addins/`
 
+### Requirement: Component classes SHALL describe their designer role and containment
+`IComponentClass` SHALL expose default members `ComponentRole Role => ComponentRole.Control` and
+`bool IsContainer => false`, so existing implementations retain control semantics without recompilation.
+`ComponentRole` SHALL define `Control`, `Form`, `Menu` and `Line`. The designer SHALL use this metadata
+for root, menu, line and container recognition rather than testing the Basic provider's concrete classes.
+The provider SHALL mark Form, Frame, PictureBox, UserControl and SSTab as containers. A menu's
+`Shortcut` and `NegotiatePosition` SHALL be resolved through its class's `PropertiesByName`, and the
+menu tree's `SubItems` through Core's property registry. Every class's `PropertiesByName` SHALL hold
+exactly its `Properties`, so the form reader and the automation tools never take `SubItems` for a
+property.
+
+#### Scenario: A component class describes a designer root
+- **WHEN** a component class reports `Role` as `Form`
+- **THEN** the designer recognises its instance as the root and uses its `DesignerDoubleClickEvent`
+
+#### Scenario: A component class describes a container
+- **WHEN** a class reports `IsContainer` as true and a control is dropped inside its instance
+- **THEN** the designer attaches the dropped control to that instance
+
 ### Requirement: Add-ins SHALL extend the IDE through a curated host surface
 An add-in SHALL receive a single host object at initialization and SHALL reach every IDE capability through
 it, and the IDE SHALL NOT require an add-in to reference its internal assemblies.
@@ -118,11 +137,12 @@ need its own bespoke unregister call.
 
 ### Requirement: The IDE SHALL offer menu, tool window, command, control and template contribution
 The host surface SHALL let an add-in add menu items under Tools or AddIns (case-insensitive), register a dockable tool window
-from a factory, register a named command, register a custom VB6 control into the toolbox, and register a
+from a factory, register a named command, register a custom VB6 control and put it in the toolbox, and register a
 project template. Tool-window ids SHALL be scoped to the owning add-in id: duplicates within an add-in
 SHALL be refused before invoking the content factory; different add-ins MAY reuse the same window id.
-The owner SHALL remain attached to the host facade after initialization. A contributed control SHALL NOT be a container, and a form nesting a control under one
-SHALL be held read-only rather than saved.
+The owner SHALL remain attached to the host facade after initialization. A control contributed by an owner without the
+grant for it SHALL NOT be a container, and a form nesting a control under a class HexIDE didn't build SHALL be held
+read-only rather than saved.
 
 These are the extension points the original add-in ecosystem actually used. Controls and project templates
 matter disproportionately: a custom control that appears in the toolbox and a project type that appears in
@@ -156,8 +176,12 @@ harmless disposable handle.
 - **AND** its content is constructed eagerly at registration
 
 #### Scenario: Contributing a control
-- **WHEN** an add-in registers a custom VB6 control
+- **WHEN** an add-in registers a custom VB6 control and a toolbox item for it
 - **THEN** the control appears in the toolbox and can be placed on a form
+
+#### Scenario: A control with no toolbox item
+- **WHEN** an add-in registers a custom VB6 control and no toolbox item for it
+- **THEN** the toolbox doesn't offer it
 
 #### Scenario: A control nested under a contributed class
 - **WHEN** a form nests a control under a class an add-in contributed
@@ -534,6 +558,100 @@ owners.
 - **WHEN** a dictionary holds a `Str.*` key, at its top or in a merged dictionary, even one its owner's grant would cover
 - **THEN** the dictionary is refused and the IDE's text is unchanged
 
+### Requirement: A granted owner SHALL be able to draw the designer's controls, one owner at a time
+`IHexIdeHost.RegisterDesignerPictures` SHALL make the caller what draws the form designer's controls, only for an owner whose grant in
+HexIDE's own table says so (#5591). The IDE's own host SHALL refuse the call. While one registration holds, another SHALL be refused, and
+disposing a registration SHALL take out that registration only.
+
+#### Scenario: The provider draws the designer's controls
+- **WHEN** the Basic provider registers its drawer at startup, through the owned host the IDE composes for it
+- **THEN** each control the designer shows is the picture that drawer made
+
+#### Scenario: An owner with no grant for it
+- **WHEN** an add-in whose grant doesn't name designer pictures, or that holds no grant, registers a drawer
+- **THEN** it is refused and nothing draws for it
+
+#### Scenario: A second drawer
+- **WHEN** a granted owner registers a drawer while another owner's is held
+- **THEN** it is refused, naming both owners, and the first drawer stays
+
+#### Scenario: The place a drawer is lent
+- **WHEN** a drawer asks the designer to hold an object that isn't a control, a control that has a parent, or a second control
+- **THEN** it is refused, and the drawer can take out only the control it was lent
+
+### Requirement: Component registration SHALL be owned
+`RegisterComponent` and `RegisterToolboxItem` SHALL register under the owner the add-in's own host names, and the IDE's
+own host SHALL refuse both (#5594). Without a grant in HexIDE's own table naming components, a class whose role isn't
+`Control`, or a container, SHALL be refused. The registry SHALL start empty, and the Basic provider SHALL register its Form,
+controls and toolbox items the same way.
+
+#### Scenario: The provider's controls
+- **WHEN** the Basic provider registers its Form, its controls and their toolbox items at startup, through the owned host
+  the IDE composes for it
+- **THEN** the toolbox offers its controls in VB6's order, with their icons, and the designer places them
+
+#### Scenario: An add-in registers a form, menu, line or container
+- **WHEN** a signed third-party add-in registers a class whose role is `Form`, `Menu` or `Line`, or that's a container
+- **THEN** it is refused, naming the add-in and the class, and the designer offers no such class
+
+#### Scenario: Disabling an add-in that registered a control
+- **WHEN** an add-in that registered a control and its toolbox item is disabled, or its consent is revoked
+- **THEN** the toolbox drops the item and the designer stops offering the class, and the provider's controls stay (#5601)
+
+### Requirement: A type-name namespace SHALL be kept by the grant that names it
+A grant in HexIDE's own table SHALL name the type-name namespaces its owner keeps: `VB`, and its control libraries' names
+(#5599). A class whose type name is in a namespace any grant keeps, in any case, SHALL be refused to every other owner,
+whether or not the keeper has registered anything yet. A control library SHALL register only under a namespace its owner's
+grant keeps, so only the Basic provider registers one today.
+
+#### Scenario: An add-in registers a VB type name first
+- **WHEN** a signed third-party add-in registers a plain class named `VB.Gauge` before the provider has registered anything
+- **THEN** it is refused, naming the add-in, the class and the namespace's keeper
+
+#### Scenario: An add-in registers a type name in a library's namespace first
+- **WHEN** a signed third-party add-in registers a class named `MSComctlLib.Gauge`, before or after the provider registers
+  its libraries
+- **THEN** it is refused, naming the namespace's keeper
+
+#### Scenario: An add-in registers a control library
+- **WHEN** a signed third-party add-in registers a control library
+- **THEN** it is refused, and the Components dialog doesn't list it
+
+### Requirement: A component registration SHALL only add
+A class whose type name a registration holds, in any case and the owner's own included, SHALL be refused, naming both
+owners, and so SHALL a library whose name or GUID a registered library holds (#5594, #5599). A toolbox item SHALL be
+refused unless its owner registered the class, and the toolbox SHALL offer a class once at most.
+
+#### Scenario: A held type name
+- **WHEN** an add-in registers a class whose type name another registration holds, in any case
+- **THEN** it is refused, naming both owners, and the first registration stands
+
+#### Scenario: A toolbox item for a class that isn't the owner's
+- **WHEN** an add-in registers a toolbox item for a class another owner registered, or that nobody registered
+- **THEN** it is refused and the toolbox is unchanged
+
+#### Scenario: A held library
+- **WHEN** an owner registers a library whose name or GUID another registered library holds
+- **THEN** it is refused, naming both owners, and the first library stands
+
+### Requirement: A control library SHALL be asked what it offers only when that's needed
+A library registered through `RegisterControlLibrary` SHALL be asked what controls it offers only when something first needs
+to know, such as the toolbox showing a project that references it, and again only after the libraries change (#5599). A
+library that throws when asked SHALL offer nothing, and the others SHALL still offer theirs.
+
+#### Scenario: A project that references no library
+- **WHEN** the toolbox shows a project that references no library
+- **THEN** no library is asked what it offers
+
+#### Scenario: A library registered after its project is shown
+- **WHEN** a library is registered, or taken out, while the toolbox shows a project that references it
+- **THEN** the toolbox offers its controls, or stops offering them
+
+#### Scenario: Disabling an add-in that registered a library
+- **WHEN** an add-in that registered a control library is disabled, or its consent is revoked
+- **THEN** the Components dialog stops listing the library and the toolbox stops offering its controls, and the provider's
+  libraries stay (#5601)
+
 ### Requirement: Grants SHALL be held only by the owners HexIDE names
 A grant for an owner the IDE composes SHALL match only an origin marked as composed, which nothing that reads a package's manifest marks.
 Any other grant SHALL match only a package signed by the first-party key. No grant SHALL name a key the trust and consent views read. When
@@ -547,3 +665,17 @@ composed origin SHALL go.
 #### Scenario: The trust and consent views
 - **WHEN** the grant table is read against the resource keys the trust and consent views read
 - **THEN** no grant's families reach any of them
+
+### Requirement: HexIDE's own ids SHALL be kept from other packages
+A package whose manifest id is `hexide.` or under it, compared without regard to case, SHALL NOT load unless the
+first-party key signed it, and SHALL be listed with an error naming the reserved id (#5597). What an add-in contributed
+SHALL be kept by its owner and whether HexIDE composes that owner, so disabling a package, or revoking its consent, SHALL
+never take out a composed owner's registrations, whatever id the package's manifest names.
+
+#### Scenario: A third-party package named after the provider
+- **WHEN** a signed third-party package's manifest names it `HexIDE.Basic`
+- **THEN** it doesn't load, and its row names the reserved id
+
+#### Scenario: Disabling a package with the provider's id
+- **WHEN** a package with the provider's id is disabled, or its consent is revoked
+- **THEN** the provider's themes, text and drawer stay, including those it registers afterwards

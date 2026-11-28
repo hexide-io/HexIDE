@@ -31,7 +31,7 @@ public sealed class ExternalProjectChangeTests : IDisposable
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), Substitute.For<ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
@@ -154,7 +154,7 @@ public sealed class ExternalProjectChangeTests : IDisposable
         File.ReadAllBytes(ProjectFile).Should().Equal(before);
         _loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
         await _windows.Received().MessageBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
-            MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>(), Arg.Any<MessageBoxLayout>());
+            MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<MessageBoxLayout>());
     }
 
     [AvaloniaFact]

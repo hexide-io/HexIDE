@@ -11,10 +11,11 @@ using HexIDE.Lsp;
 using HexIDE.Localization;
 using HexIDE.TwinBasic;
 using HexIDE.Utils;
+using Serilog;
 
 namespace HexIDE.Projects;
 
-/// <summary>UI-owned read-only container lifecycle. Serialized file operations run on a worker thread.</summary>
+/// <summary>UI-owned container lifecycle. Serialized file operations run on a worker thread.</summary>
 public sealed class ArchiveProjectService
 {
     /// <summary>The project archives this service reads, which no project type may take (#3411 slice 10b).</summary>
@@ -29,7 +30,7 @@ public sealed class ArchiveProjectService
     private readonly IRecentProjectsService recent;
     private readonly ILocalizationService localization;
     private readonly IWindowManager windows;
-    private readonly IConditionalCodeReader conditionalCode;
+    private readonly ILanguageEditing languageEditing;
     private readonly Func<ILspClient>? lspClient;
     private bool treeSelected;
     private readonly Dictionary<string, string> folderChoices = new(ArchiveEntryIdentity.ContainerPathComparer);
@@ -39,14 +40,14 @@ public sealed class ArchiveProjectService
     public bool IsActive => treeSelected || dock.ActiveDocument is ArchiveDocumentViewModel;
 
     public ArchiveProjectService(IDocumentDockService dock, IRecentProjectsService recent,
-        ILocalizationService localization, IWindowManager windows, IConditionalCodeReader conditionalCode, Func<ILspClient>? lspClient = null)
+        ILocalizationService localization, IWindowManager windows, ILanguageEditing languageEditing, Func<ILspClient>? lspClient = null)
     {
         this.lspClient = lspClient;
         this.dock = dock;
         this.recent = recent;
         this.localization = localization;
         this.windows = windows;
-        this.conditionalCode = conditionalCode;
+        this.languageEditing = languageEditing;
         dock.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(dock.ActiveDocument)) return;
@@ -84,6 +85,8 @@ public sealed class ArchiveProjectService
 
     public async Task Reload(string path)
     {
+        foreach (var tab in Tabs(Path.GetFullPath(path)))
+            if (!await ConfirmClose(tab)) throw new OperationCanceledException();
         await gate.WaitAsync();
         try
         {
@@ -104,6 +107,8 @@ public sealed class ArchiveProjectService
     public async Task Close(string? path = null)
     {
         if (path != null) path = Path.GetFullPath(path);
+        foreach (var tab in Tabs(path))
+            if (!await ConfirmClose(tab)) throw new OperationCanceledException();
         await gate.WaitAsync();
         try
         {
@@ -139,6 +144,8 @@ public sealed class ArchiveProjectService
                 engine.ChosenRoot = choice;
                 result = await Task.Run(() => engine.Synchronize(path));
             }
+            foreach (var kept in result.Kept)
+                Log.Warning("Source-folder sync kept old recovery data it would have pruned: {Kept}", kept);
             message = string.Format(localization.GetString("Str.Archive.FolderReadyFormat"), result.Directory);
         }
         catch (ProjectLocalStatePathException ex)
@@ -171,7 +178,168 @@ public sealed class ArchiveProjectService
         }
         if (current.Archive == null && !current.IsDocument) return;
         if (!dock.TryActivate<ArchiveDocumentViewModel>(vm => vm.Entry.Identity.Equals(current.Identity)))
-            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, conditionalCode, project.BuildType, project.SupportsLanguageServers ? lspClient?.Invoke() : null, project.LanguageOf(current)));
+        {
+            var tab = new ArchiveDocumentViewModel(current, localization, languageEditing, project.BuildType,
+                project.SupportsLanguageServers ? lspClient?.Invoke() : null, project.LanguageOf(current));
+            if (project is TwinBasicBrowserProject) tab.EnableSaving(this);
+            dock.OpenDocument(tab);
+        }
+    }
+
+    internal async Task<bool> Save(ArchiveDocumentViewModel tab)
+    {
+        if (tab.IsReadOnlyDocument) return false;
+        string? failure = null;
+        await gate.WaitAsync();
+        var tabs = Tabs(tab.Entry.Identity.ContainerPath);
+        try
+        {
+            if (!projects.TryGetValue(tab.Entry.Identity.ContainerPath, out var project)
+                || project is not TwinBasicBrowserProject twin || !tabs.Contains(tab)) return false;
+            var edits = tabs.Where(t => t.IsModified).ToDictionary(t => t.Entry.Identity, t => t.Document.Text);
+            if (edits.Count == 0) return true;
+            foreach (var document in tabs) document.SetSaving(true);
+            var snapshot = await Task.Run(() => ArchiveProjectSave.Save(twin.Snapshot, edits));
+            var replacement = new TwinBasicBrowserProject(snapshot);
+            projects[project.ContainerPath] = replacement;
+            foreach (var document in tabs)
+                if (replacement.TryGetEntry(document.Entry.Identity, out var entry))
+                {
+                    var caret = document.CaretOffset;
+                    var start = document.SelectionStart;
+                    var length = document.SelectionLength;
+                    document.Update(entry, replacement.BuildType, replacement.LanguageOf(entry));
+                    document.CaretOffset = Math.Min(caret, document.Document.TextLength);
+                    document.SelectionStart = Math.Min(start, document.Document.TextLength);
+                    document.SelectionLength = Math.Min(length, document.Document.TextLength - document.SelectionStart);
+                }
+            dock.RecentlyClosed?.RefreshArchive(replacement);
+            Publish();
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            var key = ex is ArchiveSaveException { Failure: ArchiveSaveFailure.ChangedOnDisk }
+                ? "Str.Archive.SaveChanged" : "Str.Archive.SaveRefused";
+            failure = string.Format(localization.GetString(key), tab.Entry.Identity.ContainerPath);
+        }
+        finally
+        {
+            foreach (var document in tabs) document.SetSaving(false);
+            gate.Release();
+        }
+        await windows.MessageBox(failure, icon: MessageBoxIcon.Warning);
+        return false;
+    }
+
+    internal bool CanEditStructure(ContainerEntry entry, ArchiveStructureOperation operation) =>
+        projects.TryGetValue(entry.Identity.ContainerPath, out var project)
+        && project is TwinBasicBrowserProject twin && ArchiveProjectStructure.CanEdit(twin.Snapshot, entry.Identity, operation);
+
+    internal async Task<ArchiveEntryIdentity?> EditStructure(ContainerEntry entry, ArchiveStructureOperation operation)
+    {
+        var path = entry.Identity.ContainerPath;
+        if (Tabs(path).Any(tab => tab.IsModified || tab.Saving))
+        {
+            await windows.MessageBox(localization.GetString("Str.Archive.StructureUnsaved"), icon: MessageBoxIcon.Warning);
+            return null;
+        }
+        if (!CanEditStructure(entry, operation))
+        {
+            await windows.MessageBox(localization.GetString("Str.Archive.StructureUnmeasured"), icon: MessageBoxIcon.Warning);
+            return null;
+        }
+        var caption = localization.GetString(operation == ArchiveStructureOperation.Rename ? "Str.Archive.Rename"
+            : operation == ArchiveStructureOperation.Delete ? "Str.Archive.Delete" : "Str.Archive.NewFolder");
+        string? name = null;
+        if (operation == ArchiveStructureOperation.Delete)
+        {
+            if (await windows.MessageBox(string.Format(localization.GetString("Str.Archive.DeletePrompt"), entry.Name),
+                caption, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != MessageBoxResult.Yes) return null;
+        }
+        else
+        {
+            name = await windows.InputBox(localization.GetString("Str.Archive.NamePrompt"), caption,
+                operation == ArchiveStructureOperation.Rename ? entry.Name[..^5] : "");
+            if (name == null) return null;
+        }
+        string? failure = null;
+        await gate.WaitAsync();
+        var tabs = Tabs(path);
+        try
+        {
+            if (!projects.TryGetValue(path, out var project) || project is not TwinBasicBrowserProject twin) return null;
+            if (tabs.Any(tab => tab.IsModified || tab.Saving))
+                failure = localization.GetString("Str.Archive.StructureUnsaved");
+            else
+            {
+                foreach (var tab in tabs) tab.SetSaving(true);
+                var snapshot = await Task.Run(() => ArchiveProjectStructure.Save(twin.Snapshot, entry.Identity, operation, name));
+                var replacement = new TwinBasicBrowserProject(snapshot);
+                projects[path] = replacement;
+                foreach (var tab in tabs)
+                {
+                    var identity = tab.Entry.Identity;
+                    if (identity.Equals(entry.Identity))
+                    {
+                        if (operation == ArchiveStructureOperation.Delete)
+                        {
+                            tab.SetSaving(false);
+                            dock.CloseDocument(tab);
+                            continue;
+                        }
+                        if (operation == ArchiveStructureOperation.Rename)
+                            identity = new(path, identity.Segments.SetItem(identity.Segments.Length - 1, name + entry.Name[^5..]));
+                    }
+                    if (replacement.TryGetEntry(identity, out var current))
+                    {
+                        var caret = tab.CaretOffset;
+                        tab.Update(current, replacement.BuildType, replacement.LanguageOf(current));
+                        tab.CaretOffset = Math.Min(caret, tab.Document.TextLength);
+                    }
+                }
+                dock.RecentlyClosed?.RefreshArchive(replacement);
+                Publish();
+                return operation == ArchiveStructureOperation.Delete
+                    ? new(path, entry.Identity.Segments.RemoveAt(entry.Identity.Segments.Length - 1))
+                    : operation == ArchiveStructureOperation.Rename
+                        ? new(path, entry.Identity.Segments.SetItem(entry.Identity.Segments.Length - 1, name + entry.Name[^5..]))
+                        : new(path, entry.Identity.Segments.Add(name!));
+            }
+        }
+        catch (ArchiveStructureException ex)
+        {
+            failure = localization.GetString(ex.Failure == ArchiveStructureFailure.Name
+                ? "Str.Archive.StructureName" : "Str.Archive.StructureUnmeasured");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            failure = string.Format(localization.GetString(ex is ArchiveSaveException { Failure: ArchiveSaveFailure.ChangedOnDisk }
+                ? "Str.Archive.SaveChanged" : "Str.Archive.SaveRefused"), path);
+        }
+        finally
+        {
+            foreach (var tab in tabs) tab.SetSaving(false);
+            gate.Release();
+        }
+        await windows.MessageBox(failure, caption, icon: MessageBoxIcon.Warning);
+        return null;
+    }
+
+    internal async Task<bool> ConfirmClose(ArchiveDocumentViewModel tab)
+    {
+        if (tab.Saving) return false;
+        if (!tab.IsModified) return true;
+        var changed = new SaveChangesViewModel();
+        var file = new ChangedFileViewModel(tab.Entry.Identity.ContainerPath + " / " + tab.Entry.Name);
+        changed.ChangedFiles.Add(file);
+        changed.SelectedFiles.Add(file);
+        if (!await windows.ShowDialog(changed)) return false;
+        if (changed.SaveChanges && changed.SelectedFiles.Count > 0)
+            return await Save(tab) && !tab.IsModified;
+        var project = Projects.First(p => p.ContainerPath == tab.Entry.Identity.ContainerPath);
+        tab.Update(tab.Entry, project.BuildType, project.LanguageOf(tab.Entry));
+        return true;
     }
 
     private ArchiveDocumentViewModel[] Tabs(string? path) => dock.OpenDocuments

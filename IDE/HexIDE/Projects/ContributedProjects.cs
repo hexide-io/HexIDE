@@ -16,6 +16,12 @@ namespace HexIDE.Projects;
 /// <param name="Origin">The add-in's title, for display.</param>
 public sealed record ContributedProjectType(AddinProjectType Type, string AddinId, string Origin)
 {
+    /// <summary>
+    /// Who registered it, which disabling and consent go by: <see cref="AddinId"/>, except for a type a grant reserves, whose
+    /// identity is the reserved type's while its owner stays the one who registered it (#5625).
+    /// </summary>
+    public string OwnerId { get; init; } = AddinId;
+
     private readonly CancellationTokenSource _withdrawn = new();
 
     /// <summary>Cancelled once the type is taken out, as when its add-in is unloaded; an open in progress is called off.</summary>
@@ -279,10 +285,24 @@ public sealed partial class ContributedProjects
     /// The files HexIDE's own readers read, which a type may take only if it's the reader reserving them. Known from the
     /// start, so a type registered before VB6's is refused its files as one registered after it is (#3411 slice 10b).
     /// </summary>
-    internal IReadOnlyList<ProjectFileReservation> Reserved { get; init; } = [Vb6ProjectType.Reservation, ArchiveProjectService.Reservation, ArchiveProjectService.OfficeReservation];
+    internal IReadOnlyList<ProjectFileReservation> Reserved { get; init; } = [ArchiveProjectService.Reservation, ArchiveProjectService.OfficeReservation];
+
+    /// <summary>Who may register what: HexIDE's own table, which reserves VB6's project type to the Basic provider (#5625).</summary>
+    internal IReadOnlyList<RegistrationGrant> Grants { get; init; } = RegistrationGrants.All;
+
+    /// <summary>Every file a reader is reserved, its readers' and the grants' together, for what an unread file is called.</summary>
+    internal IReadOnlyList<ProjectFileReservation> Reservations =>
+        [.. Reserved, .. Grants.SelectMany(grant => grant.ProjectTypes)
+            .Select(type => new ProjectFileReservation(type.Id, type.Title, [.. type.Patterns]))];
 
     private readonly object _gate = new();
     private readonly List<ContributedProjectType> _types = [];
+
+    /// <summary>
+    /// What makes programs of each type (#5621): File > Make, Make Project Group and the type's own toolchain are offered
+    /// for a project only while a maker for its type is registered here.
+    /// </summary>
+    internal ProjectMakers Makers { get; init; } = new();
 
     /// <summary>Raised when a type is contributed or taken out.</summary>
     public event Action? TypesChanged;
@@ -308,19 +328,15 @@ public sealed partial class ContributedProjects
     // The formats registered for the kinds of member a project holds (#3411 slice 10b-3).
     private readonly List<(IReadOnlySet<ModuleKind> Modules, bool Forms, IProjectFileFormat Format, string? FormFormat)> memberFormats = [];
 
-    /// <summary>
-    /// Adds the format that reads members of the kinds named: modules of <paramref name="modules"/>, and forms where
-    /// <paramref name="forms"/> says so. Only HexIDE's own types may, as only they may carry a whole format.
-    /// </summary>
-    /// <returns>What takes it out again.</returns>
-    internal IDisposable RegisterMembers(IReadOnlySet<ModuleKind> modules, bool forms, IProjectFileFormat format, AddinOrigin origin, string? formFormat = null)
+    // The formats a reserved type carries for the members of projects another type opens, added with its type (#5625).
+    private IDisposable AddMembers(ReservedProjectType reserved, IProjectFileFormat format)
     {
-        ArgumentNullException.ThrowIfNull(format);
-        if (!origin.IsFirstParty)
-            throw new InvalidOperationException($"{origin.Title} registers a format for project members, which only HexIDE's own project types may.");
-        var entry = (Modules: modules, Forms: forms, Format: format, FormFormat: formFormat);
-        memberFormats.Add(entry);
-        return new HexIDE.Utils.ActionDisposable(() => memberFormats.Remove(entry));
+        var entry = (Modules: reserved.MemberKinds, Forms: reserved.Forms, Format: format, FormFormat: reserved.FormFormat);
+        lock (_gate) memberFormats.Add(entry);
+        return new HexIDE.Utils.ActionDisposable(() =>
+        {
+            lock (_gate) memberFormats.Remove(entry);
+        });
     }
 
     /// <summary>
@@ -333,6 +349,17 @@ public sealed partial class ContributedProjects
 
     internal IProjectFileFormat? FindFormFormat(string id) => memberFormats.FirstOrDefault(entry =>
         entry.Forms && string.Equals(entry.FormFormat, id, StringComparison.Ordinal)).Format;
+
+    /// <summary>
+    /// The type a grant reserves that <paramref name="type"/> registers as: <paramref name="origin"/>'s grant holds it and
+    /// <paramref name="type"/> names exactly its files. Null for any other type (#5625).
+    /// </summary>
+    internal ReservedProjectType? Reserves(AddinProjectType type, AddinOrigin origin) =>
+        Reserves([.. type.FileNames ?? []], [.. type.GroupFileNames ?? []], origin);
+
+    private ReservedProjectType? Reserves(IReadOnlyList<string> names, IReadOnlyList<string> groupNames, AddinOrigin origin) =>
+        RegistrationGrants.For(origin, Grants)?.ProjectTypes.FirstOrDefault(r =>
+            SameNames(r.FileNames, names) && SameNames(r.GroupFileNames, groupNames));
 
     /// <summary>Adds an add-in's project type.</summary>
     /// <returns>What takes it out again.</returns>
@@ -347,16 +374,6 @@ public sealed partial class ContributedProjects
             throw new ArgumentException("A project type reads group files only through a format of its own.", nameof(type));
         if (type.Forms is not null && type.FormFormat is not null)
             throw new ArgumentException("A project type cannot supply both Forms and FormFormat.", nameof(type));
-        // A format runs at every open, save, dirty check, recovery capture and close of the type's projects, which is more
-        // than an add-in has been trusted with so far, so for now only HexIDE's own types may bring one (#3411 slice 10b,
-        // and #4132 for opening it up).
-        if (type.Format is not null && !origin.IsFirstParty)
-        {
-            Log.Warning("Refused the project type {Title} from {Addin}: it has a format of its own, which only a first-party type may have",
-                type.Title, origin.Id);
-            throw new InvalidOperationException(
-                $"{origin.Title} contributes a project type with a format of its own, which only HexIDE's own project types may have.");
-        }
         // Copied, so the names checked below are the names read: a list the add-in changes later changes neither.
         IReadOnlyList<string> names = [.. type.FileNames];
         IReadOnlyList<string> groupNames = [.. type.GroupFileNames];
@@ -364,23 +381,63 @@ public sealed partial class ContributedProjects
             if (!IsFileNameOrPattern(name))
                 throw new ArgumentException($"'{name}' is neither a file name nor a pattern of the form '*.ext'.", nameof(type));
 
-        var contributed = new ContributedProjectType(type with { FileNames = names, GroupFileNames = groupNames }, origin.Id,
-            origin.Title) { FindFormFormat = FindFormFormat };
+        // A type its owner's grant reserves, registered with exactly the reserved files, takes the reserved identity: the
+        // owner's grant, not a first-party signature, admits its format. The alias is identity only: disabling, consent and
+        // launches still go by the owner. A partial or larger set takes nothing, and is refused below (#5625).
+        var reserved = Reserves(names, groupNames, origin);
+        if (reserved is not null && type.Format is null)
+            throw new ArgumentException($"{reserved.Title} is read through a format of its own.", nameof(type));
+        var reservations = Grants.SelectMany(grant => grant.ProjectTypes).ToList();
+        // Nobody else takes a reserved identity, whatever its files: not even an add-in whose own id is that identity.
+        if (reserved is null
+            && reservations.FirstOrDefault(r => string.Equals(r.Id, origin.Id, StringComparison.OrdinalIgnoreCase)) is { } named)
+        {
+            Log.Warning("Project types: refused {Title} from {Owner} ({OwnerId}): {IdentityId} is {Identity}'s, which a grant reserves",
+                type.Title, origin.Title, origin.Id, named.Id, named.Title);
+            throw new InvalidOperationException(
+                $"{origin.Title} contributes a project type as {named.Title}, which only the registration its grant reserves may.");
+        }
+        // A file a grant reserves is taken only by that reservation, registered whole by its owner, whatever the order things
+        // load in.
+        foreach (var name in names.Concat(groupNames))
+            if (reservations.FirstOrDefault(r => !ReferenceEquals(r, reserved) && r.Patterns.Any(own => Overlaps(own, name))) is { } taken)
+            {
+                Log.Warning("Project types: refused {Title} from {Owner} ({OwnerId}): '{Name}' is {Identity}'s ({IdentityId})",
+                    type.Title, origin.Title, origin.Id, name, taken.Title, taken.Id);
+                throw new InvalidOperationException(
+                    $"{origin.Title} contributes a project type for '{name}', which {taken.Title} reads.");
+            }
+        // A format runs at every open, save, dirty check, recovery capture and close of the type's projects, which is more
+        // than an add-in has been trusted with so far, so for now only HexIDE's own types may bring one (#3411 slice 10b,
+        // and #4132 for opening it up).
+        if (type.Format is not null && !origin.IsFirstParty && reserved is null)
+        {
+            Log.Warning("Refused the project type {Title} from {Addin}: it has a format of its own, which only a first-party type may have",
+                type.Title, origin.Id);
+            throw new InvalidOperationException(
+                $"{origin.Title} contributes a project type with a format of its own, which only HexIDE's own project types may have.");
+        }
+        var contributed = new ContributedProjectType(type with { FileNames = names, GroupFileNames = groupNames },
+            reserved?.Id ?? origin.Id, reserved?.Title ?? origin.Title) { FindFormFormat = FindFormFormat, OwnerId = origin.Id };
         lock (_gate)
         {
             foreach (var name in names.Concat(groupNames))
             {
                 // A reservation is its reader's, and only a first-party type of that reader's id may take it.
                 if (Reserved.FirstOrDefault(r => r.Patterns.Any(own => Overlaps(own, name))
-                        && !(origin.IsFirstParty && string.Equals(r.Owner, origin.Id, StringComparison.Ordinal))) is { } reserved)
+                        && !(origin.IsFirstParty && string.Equals(r.Owner, origin.Id, StringComparison.Ordinal))) is { } held)
                     throw new InvalidOperationException(
-                        $"{origin.Title} contributes a project type for '{name}', which {reserved.Title} reads.");
+                        $"{origin.Title} contributes a project type for '{name}', which {held.Title} reads.");
                 if (_types.Any(known => known.Type.FileNames.Concat(known.Type.GroupFileNames).Any(other => Overlaps(other, name))))
                     throw new InvalidOperationException(
                         $"{origin.Title} contributes a project type for '{name}', which another project type reads already.");
             }
             _types.Add(contributed);
         }
+        var members = reserved is not null ? AddMembers(reserved, type.Format!) : null;
+        if (reserved is not null)
+            Log.Information("Project types: {Owner} ({OwnerId}) registered {Title} as {Identity} ({IdentityId})",
+                origin.Title, origin.Id, type.Title, reserved.Title, reserved.Id);
         TypesChanged?.Invoke();
 
         var handle = new ActionDisposable(() =>
@@ -388,6 +445,7 @@ public sealed partial class ContributedProjects
             bool removed;
             lock (_gate) removed = _types.Remove(contributed);
             if (!removed) return;
+            members?.Dispose();
             contributed.Withdraw();
             TypeWithdrawn?.Invoke(contributed);
             TypesChanged?.Invoke();
@@ -445,6 +503,10 @@ public sealed partial class ContributedProjects
             : string.Equals(nameOrPattern, fileName, StringComparison.OrdinalIgnoreCase);
 
     // Whether some file is read by both: a name either one matches, or two patterns of one extension.
+    // The same files, in any order and any case: a reserved type is taken only whole (#5625).
+    private static bool SameNames(IReadOnlyList<string> reserved, IReadOnlyList<string> named) =>
+        named is not null && reserved.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(named);
+
     private static bool Overlaps(string a, string b) =>
         Matches(a, b.TrimStart('*')) || Matches(b, a.TrimStart('*')) || string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
@@ -550,8 +612,9 @@ public sealed partial class ContributedProjects
             throw new MemberNameTakenException(string.Format(localization.GetString("Str.ContributedProject.NameTaken"),
                 Path.GetFileName(member.Path), name, project.Name));
         fileRead?.Invoke(member.Path, bytes);
-        var designerAsModule = ModuleFileFormat.IsDesignerFile(read.Text);
-        var (header, body) = designerAsModule ? ("", read.Text) : ModuleFileFormat.SplitHeader(read.Text, kind);
+        var format = FormatForMembers(project);
+        var designerAsModule = format?.IsDesignerFile(read.Text) ?? false;
+        var (header, body) = designerAsModule || format is null ? ("", read.Text) : format.SplitModule(read.Text, kind);
         var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = member.Path,

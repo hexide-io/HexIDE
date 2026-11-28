@@ -48,14 +48,12 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             .Returns(call => tabs.OfType<ArchiveDocumentViewModel>().Any(call.Arg<Func<ArchiveDocumentViewModel, bool>>()));
         localization.GetString("Str.Archive.FolderReadyFormat").Returns("Ready: {0}");
         localization.GetString("Str.Archive.FolderErrorFormat").Returns("Stopped: {0}");
-        archives = new(dock, recent, localization, windows, new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode(), () => lsp);
+        archives = new(dock, recent, localization, windows, InBoxRegistry.LanguageEditing(), () => lsp);
     }
 
     private static string OfficeFile(string name)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root.Parent != null && !Directory.Exists(Path.Combine(root.FullName, "corpus"))) root = root.Parent;
-        return Path.Combine(root.FullName, "corpus", "office", "m365-x64", name);
+        return Path.Combine(RepoTree.Root(), "corpus", "office", "m365-x64", name);
     }
 
     [AvaloniaFact]
@@ -70,7 +68,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         localization.GetString("Str.ProjectLocalState.ChooseFormat").Returns(
             "Multiple saved states; choose one for this session or cancel. Nothing is written before choosing.\n{0}");
         var shown = false;
-        windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(), false).Returns(call =>
+        windows.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>()).Returns(call =>
         {
             var prompt = call.ArgAt<string>(0);
             var input = new HexIDE.Dialogs.InputBox { Prompt = prompt };
@@ -298,7 +296,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             tab.Markers.Should().ContainSingle();
             var editor = view.FindControl<TextEditor>("Editor")!;
             editor.TextArea.TextView.BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers.Should().ContainSingle();
-            FluentActions.Invoking(() => tab.Document.Insert(0, "bad")).Should().ThrowExactly<InvalidOperationException>();
+            tab.IsReadOnlyDocument.Should().BeFalse();
             Write("one.twinproj", "replacement", name: "Module # 1.twin");
             await archives.Reload(path);
             await lsp.Received(1).CloseDocumentAsync(uri);
@@ -422,7 +420,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     [AvaloniaFact]
     public async Task Text_is_searchable_but_editor_replace_and_direct_mutation_are_read_only()
     {
-        await archives.Open(Write("one.twinproj", "hello world hello"));
+        await archives.Open(Write("one.twinproj", "hello world hello", name: "preview.json"));
         archives.OpenDocument(archives.Projects[0].Root.Children[0]);
         var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
         dock.ActiveDocument.Returns(tab);
@@ -492,10 +490,12 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         const string source = "#If TWINBASIC_BUILD_TYPE = \"Standard EXE\" Then\r\nExeBranch\r\n#Else\r\nOtherBranch\r\n#End If\r\n";
         await archives.Open(Write("one.twinproj", source));
         var entry = archives.Projects[0].Root.Children[0];
+        // As the archive service opens and updates it, with the entry's language: its #If reader is twinbasic's (#5403).
+        var language = archives.Projects[0].LanguageOf(entry);
         var tab = new ArchiveDocumentViewModel(entry, localization,
-            new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode(),
-            updated ? "ActiveX DLL" : "Standard EXE");
-        if (updated) tab.Update(entry, "Standard EXE");
+            InBoxRegistry.LanguageEditing(),
+            updated ? "ActiveX DLL" : "Standard EXE", languageId: language);
+        if (updated) tab.Update(entry, "Standard EXE", language);
         tab.InactiveLines.Should().NotBeEmpty();
 
         var reopened = tab.Reopen();
@@ -548,7 +548,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task Source_folder_command_uses_selected_project_saved_bytes_and_keeps_previews_read_only()
+    public async Task Source_folder_command_uses_selected_project_saved_bytes_and_keeps_open_buffers_unchanged()
     {
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
@@ -571,7 +571,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         Directory.Exists(Path.Combine(directory, ".hexide", "two.twinproj")).Should().BeFalse();
         File.ReadAllBytes(path).Should().Equal(before);
         tab.Document.Text.Should().Be("preview");
-        tab.IsReadOnlyDocument.Should().BeTrue();
+        tab.IsReadOnlyDocument.Should().BeFalse();
         await windows.Received(1).MessageBox(Arg.Is<string>(s => s.StartsWith("Ready: ") && s.Contains("one.twinproj")),
             "Str.Archive.SyncFolder", MessageBoxButtons.Ok, MessageBoxIcon.Information);
         await archives.Reload(path);

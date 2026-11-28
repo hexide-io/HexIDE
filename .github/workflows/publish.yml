@@ -33,6 +33,13 @@ name: Publish Release
 # macOS bundles are sealed ad hoc, without a signing identity or notarisation.
 # Downloaded builds can carry quarantine, including through tar (#4507), so macOS
 # says it cannot verify HexIDE. See docs/macos-signing.md for notarisation prerequisites.
+#
+# First-party add-ins are signed by the sign-addins job, and only there (#4740). The key signs what HexIDE trusts as its
+# own, and first-party is immune to revocation by identity, so a copy that leaks stays useful until the root changes.
+# Every restore, build and publish runs the build-time code of each package it pulls in: source generators, analyzers,
+# MSBuild targets. So no job that does one holds the key. The packer and addins jobs build what signing needs, with no
+# key. sign-addins only runs the packer it is handed, inside the addin-signing environment that holds the secret, and
+# the build legs then copy the signed packages into both flavours.
 
 on:
   workflow_dispatch:
@@ -63,8 +70,9 @@ permissions:
 jobs:
   # Ten seconds, and it catches the mistake that otherwise ships silently: tagging v0.2.0 while
   # Directory.Build.props still says 0.1.0, so every binary reports a version nobody can find.
+  # It also refuses a tag whose release is already published, before any job builds (#5424).
   preflight:
-    name: Check tag matches Version
+    name: Check the tag
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -79,6 +87,15 @@ jobs:
             echo "::error::Tag '$tag' does not match <Version> '$version'. Bump Directory.Build.props, or tag v$version."
             exit 1
           fi
+
+      # Running again for a published release would replace its downloads with a build of this commit under the old tag
+      # (#5424). A draft can be re-run as often as needed until it is published. Every other job needs this one, so a
+      # refusal here comes before anything is built, signed or uploaded.
+      - name: Refuse a tag whose release is already published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: bash scripts/check-release-unpublished.sh "$TAG"
 
   # The revocation list hexide.io serves must verify against the root this release trusts. If it doesn't, every copy
   # ignores it and revocation does nothing, which went unnoticed until #4534. The check needs no key.
@@ -123,9 +140,154 @@ jobs:
           fi
           echo "::warning::$problem (only a warning: REVOCATIONS_MUST_VERIFY is 0)"
 
+  # The packer, built alone. This binary runs beside the key, so the build-time code that produces it is as trusted as
+  # the key itself. Keeping it apart from everything else keeps that to the SDK and the one analyzer package HexIDE.Core
+  # references, with no Avalonia. Self-contained, so sign-addins installs no .NET.
+  packer:
+    name: Build the add-in packer
+    needs: preflight
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '11.0.x'
+      - name: Publish the packer (linux-x64, self-contained, single file)
+        run: >-
+          dotnet publish IDE/HexIDE.AddinPacker -f net11.0 -c Release -r linux-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false
+          -o "$RUNNER_TEMP/addin-packer"
+      - id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: addin-packer
+          path: ${{ runner.temp }}/addin-packer/
+          if-no-files-found: error
+          retention-days: 1
+
+  # The first-party add-ins, built unsigned and apart from the packer: AI Chat's closure takes in Avalonia. The packer
+  # hashes and copies what this job builds, and runs none of it.
+  addins:
+    name: Build the first-party add-ins
+    needs: preflight
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '11.0.x'
+      # As the Desktop publish used to build it for packing: Release, with no runtime identifier, stamped with the commit.
+      - name: Build AI Chat
+        shell: bash
+        run: dotnet build IDE/HexIDE.AIChat -f net11.0 -c Release -p:SourceRevisionId="$(git rev-parse --short HEAD)"
+      - id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: addins-unsigned
+          path: IDE/HexIDE.AIChat/bin/Release/net11.0/
+          if-no-files-found: error
+          retention-days: 1
+
+  # The only job that holds the key, and it restores, builds and publishes nothing, so no package's build-time code runs
+  # here. Its inputs: the public trust records and pack.args from this run's own commit; the packer and the unsigned
+  # add-in, fetched by the ids their jobs reported, since an artifact replaced under the same name gets a new id; and the
+  # key, from the addin-signing environment. Its actions are pinned by commit.
+  sign-addins:
+    name: Sign the first-party add-ins
+    needs: [packer, addins]
+    runs-on: ubuntu-latest
+    environment: addin-signing
+    permissions:
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    env:
+      PACKER_ARTIFACT: ${{ needs.packer.outputs.artifact-id }}
+      ADDINS_ARTIFACT: ${{ needs.addins.outputs.artifact-id }}
+    steps:
+      # Given no id, download-artifact fetches every artifact of the run.
+      - name: Check both artifact ids arrived
+        run: |
+          if [ -z "$PACKER_ARTIFACT" ] || [ -z "$ADDINS_ARTIFACT" ]; then
+            echo "::error::the packer or addins job reported no artifact id"
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            /IDE/HexIDE.AddinPacker/firstparty/
+            /IDE/HexIDE.AIChat/pack.args
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.packer.outputs.artifact-id }}
+          path: ${{ runner.temp }}/addin-packer
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.addins.outputs.artifact-id }}
+          path: ${{ runner.temp }}/addins-unsigned
+      - name: Sign AI Chat
+        id: sign
+        shell: bash
+        env:
+          HEXIDE_FIRSTPARTY_KEY: ${{ secrets.HEXIDE_FIRSTPARTY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HEXIDE_FIRSTPARTY_KEY" ]; then
+            # A release from this repository without AI Chat would be a mistake, such as a secret set under another
+            # name. A fork may have no key, and its release goes out without first-party add-ins, as before.
+            if [ "$GITHUB_REPOSITORY" = hexide-io/HexIDE ]; then
+              echo "::error::the addin-signing environment has no HEXIDE_FIRSTPARTY_KEY, so this release would ship without its first-party add-ins"
+              exit 1
+            fi
+            echo "::warning::no HEXIDE_FIRSTPARTY_KEY: this release will omit first-party add-ins"
+            exit 0
+          fi
+          umask 077
+          trust="$RUNNER_TEMP/addin-trust"
+          mkdir "$trust"
+          cp IDE/HexIDE.AddinPacker/firstparty/{intermediate,publisher}.{json,sig} "$trust/"
+          printf '%s' "$HEXIDE_FIRSTPARTY_KEY" > "$trust/firstparty.key"
+          # One argument per line, read as HexIDE.Desktop.csproj reads them. The paths go first, and the packer takes
+          # the first value of a repeated option.
+          args=()
+          while IFS= read -r line || [ -n "$line" ]; do
+            line=${line%$'\r'}
+            if [ -n "$line" ]; then args+=("$line"); fi
+          done < IDE/HexIDE.AIChat/pack.args
+          packer="$RUNNER_TEMP/addin-packer/HexIDE.AddinPacker"
+          chmod +x "$packer"   # an artifact doesn't keep the execute bit
+          "$packer" pack --src "$RUNNER_TEMP/addins-unsigned" --out "$RUNNER_TEMP/addins-signed/com.hexide.aichat" \
+            --trust "$trust" "${args[@]}"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+      - name: Delete the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/addin-trust"
+      - id: upload
+        if: steps.sign.outputs.signed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: addins-signed
+          path: ${{ runner.temp }}/addins-signed/
+          if-no-files-found: error
+          retention-days: 1
+
   build:
     name: ${{ matrix.name }}
-    needs: preflight
+    needs: [preflight, sign-addins]
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -150,18 +312,6 @@ jobs:
         with:
           dotnet-version: '11.0.x'
 
-      - name: Restore first-party signing key (if configured)
-        shell: bash
-        env:
-          HEXIDE_FIRSTPARTY_KEY: ${{ secrets.HEXIDE_FIRSTPARTY_KEY }}
-        run: |
-          if [ -n "$HEXIDE_FIRSTPARTY_KEY" ]; then
-            printf '%s' "$HEXIDE_FIRSTPARTY_KEY" > HexIDE.AddinPacker/firstparty/firstparty.key
-            echo "first-party signing key restored — add-ins will be signed"
-          else
-            echo "no HEXIDE_FIRSTPARTY_KEY secret — this release will omit first-party add-ins"
-          fi
-
       # The standalone VB6 runner backs the IDE's "Make EXE" feature, so it ships inside BOTH packages.
       #
       # A made program IS this runner, renamed, beside its project archive, and Make copies that one
@@ -183,25 +333,40 @@ jobs:
         shell: bash
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
-      # The signing tool runs during the build, so cross-publishing needs a host copy even when the
-      # shipped executables target Arm. Keep it outside the staged payload.
-      - name: Publish host add-in packer
-        if: matrix.rid == 'linux-arm'
-        shell: bash
-        run: |
-          set -euo pipefail
-          dotnet publish HexIDE.AddinPacker -f net11.0 -c Release -r linux-x64 --self-contained false -o bin/addin-packer-host/
-          echo "ADDIN_PACKER_OVERRIDE=-p:AddinPacker=$PWD/bin/addin-packer-host/HexIDE.AddinPacker.dll" >> "$GITHUB_ENV"
-
       # The staging loop below copies bin/standalone into each flavour's standalone/.
       - name: Publish HexIDE.Standalone (${{ matrix.rid }}, single-file, self-contained)
         run: dotnet publish HexIDE.Standalone -f net11.0 -c Release -r ${{ matrix.rid }} -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone/
 
       - name: Publish HexIDE.Desktop (framework-dependent)
-        run: dotnet publish HexIDE.Desktop -f net11.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} ${{ env.ADDIN_PACKER_OVERRIDE }} -o bin/fdd/
+        run: dotnet publish HexIDE.Desktop -f net11.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/fdd/
 
       - name: Publish HexIDE.Desktop (self-contained)
-        run: dotnet publish HexIDE.Desktop -f net11.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} ${{ env.ADDIN_PACKER_OVERRIDE }} -o bin/sc/
+        run: dotnet publish HexIDE.Desktop -f net11.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/sc/
+
+      # Signed by sign-addins, the only job that holds the key. Where the Desktop publish used to pack them, before
+      # staging, so the macOS seal and the Windows installer take them in as before.
+      - name: Fetch the signed first-party add-ins
+        if: needs.sign-addins.outputs.artifact-id != ''
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.sign-addins.outputs.artifact-id }}
+          path: IDE/bin/addins-signed
+
+      - name: Add the signed first-party add-ins to both flavours
+        shell: bash
+        run: |
+          set -euo pipefail
+          for flavour in fdd sc; do
+            # Nothing in this job holds the key, so neither publish above packs an add-in. A folder here means one did.
+            if [ -e "bin/$flavour/addins" ]; then
+              echo "::error::bin/$flavour/addins existed before the signed add-ins were added, so this job packed one (#4740)"
+              exit 1
+            fi
+            if [ -d bin/addins-signed ]; then
+              mkdir "bin/$flavour/addins"
+              cp -R bin/addins-signed/. "bin/$flavour/addins/"
+            fi
+          done
 
       - name: Stage both flavours
         shell: bash
@@ -279,6 +444,8 @@ jobs:
 
       - name: Smoke-check the staged output
         shell: bash
+        env:
+          SIGNED_ADDINS: ${{ needs.sign-addins.outputs.artifact-id }}
         run: |
           set -euo pipefail
           fail=0
@@ -287,6 +454,10 @@ jobs:
             for f in HexIDE.VbLspServer.dll standalone; do
               [ -e "$d/$f" ] || { echo "MISSING $d/$f"; fail=1; }
             done
+            if [ -n "$SIGNED_ADDINS" ] && [ ! -e "$d/addins/com.hexide.aichat/addin.sig" ]; then
+              echo "MISSING $d/addins/com.hexide.aichat/addin.sig"
+              fail=1
+            fi
             if [ "${{ matrix.os }}" != "win" ]; then
               # Guards the regression class this pipeline exists to close.
               [ -x "$d/HexIDE.VbLspServer" ] || { echo "NOT EXECUTABLE: $d/HexIDE.VbLspServer"; fail=1; }
@@ -382,13 +553,31 @@ jobs:
     needs: [build, revocations]
     runs-on: ubuntu-latest
     steps:
+      # Only the guard script, for the last step before the upload. It comes first because a checkout empties the
+      # workspace, which would take the downloaded artifacts with it.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/check-release-unpublished.sh
+          sparse-checkout-cone-mode: false
+
+      # Only the release's own artifacts, which are all named hexide-*. Without a pattern this fetches every artifact of
+      # the run, and the packer and the unsigned add-in would become release assets.
       - uses: actions/download-artifact@v8
         with:
+          pattern: hexide-*
           path: artifacts
           merge-multiple: true
 
       - name: List assets
         run: ls -lh artifacts
+
+      # Checked again: the draft may have been published while this run built, and the upload would then replace a
+      # published release's downloads (#5424).
+      - name: Refuse a release published while this run built
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: bash scripts/check-release-unpublished.sh "$TAG"
 
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:

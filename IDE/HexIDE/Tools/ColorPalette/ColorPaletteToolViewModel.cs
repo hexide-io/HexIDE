@@ -218,7 +218,7 @@ public partial class ColorPaletteViewModel
     public ColorPaletteViewModel(ColorPaletteToolViewModel vm, Color color)
     {
         this.vm = vm;
-        this.color = VBColorAvaloniaExtensions.FromAvaloniaColor(color);
+        this.color = VBColor.FromColor(color.R, color.G, color.B);
     }
 
     public ColorPaletteViewModel(ColorPaletteToolViewModel vm, byte r, byte g, byte b)

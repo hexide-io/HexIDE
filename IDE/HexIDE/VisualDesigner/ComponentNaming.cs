@@ -63,13 +63,61 @@ public static class ComponentNaming
         return null;
     }
 
+    // Menu Editor measurements: #853 (2026-11-23), oracle PR #5370 and the oracle's
+    // "The Menu Editor's checks on a Name". Mixed-error precedence is reasoned: first row wins.
+    // #5428 measures consecutive siblings (an element's own submenu may intervene), checked before index order.
+    internal static (string Message, MenuViewModel Row)? MenuRefusalFor(
+        IEnumerable<MenuViewModel> items, IEnumerable<string> controlNames, ILocalizationService localization)
+    {
+        var rows = items.ToList();
+        var controls = new HashSet<string>(controlNames, StringComparer.OrdinalIgnoreCase);
+        var earlier = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var position = 0; position < rows.Count; position++)
+        {
+            var row = rows[position];
+            string? key = null;
+            if (string.IsNullOrEmpty(row.Name))
+            {
+                if (!string.IsNullOrEmpty(row.Caption))
+                    key = "NoName";
+            }
+            else if (!ProjectNaming.IsValidName(row.Name))
+                key = "NotLegalName";
+            else if (row.Index is null && rows.Count(other => string.Equals(other.Name, row.Name, StringComparison.OrdinalIgnoreCase)) > 1)
+                key = "ArrayNeedsIndex";
+            else if (row.Index is not null && earlier.TryGetValue(row.Name, out var previousPosition)
+                && (rows[previousPosition].Indent != row.Indent
+                    || rows.Skip(previousPosition + 1).Take(position - previousPosition - 1).Any(other => other.Indent <= row.Indent)))
+                key = "NotContiguous";
+            else if (row.Index is { } index && earlier.TryGetValue(row.Name, out var previous) && index <= rows[previous].Index)
+                key = "IndexesAscending";
+            else if (controls.Contains(row.Name))
+                key = "ControlName";
+
+            if (key is not null)
+                return (string.Format(localization.GetString("Str.Dialog.MenuEditor.Msg." + key), row.Name), row);
+            if (row.Index is not null)
+                earlier[row.Name] = position;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Whether naming <paramref name="target"/> <paramref name="proposed"/> makes it an element of an array of that name:
+    /// it has an Index, every control already holding the name has one, and none holds its Index (#1276).
+    /// </summary>
+    /// <remarks>
+    /// A preserved control holding the name refuses it: its Index is in text HexIDE does not read. A control with no Index
+    /// does not join an array, and an array does not take a control with none: in VB6 that offers to make a new array,
+    /// which is not measured, so it stays a refusal.
+    /// </remarks>
     // Measured: docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md (#1397 / PR #5234).
     // Cross-type creation/joining without an Index is unmeasured, so it keeps the existing refusal.
     internal static ComponentInstance? ArrayCreationHolder(ComponentInstance target, string? proposed,
         IEnumerable<ComponentInstance> formComponents)
     {
         if (string.IsNullOrEmpty(proposed) || !ProjectNaming.IsValidName(proposed)
-            || target.BaseClass is FormComponentClass || !HasNoIndex(target)
+            || target.BaseClass.Role == ComponentRole.Form || !HasNoIndex(target)
             || string.Equals(target.GetPropertyOrDefault(VBProperties.NameProperty), proposed, StringComparison.OrdinalIgnoreCase)
             || PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
             return null;
@@ -80,7 +128,7 @@ public static class ComponentNaming
 
     internal static int? JoiningIndex(ComponentInstance target, string proposed, IEnumerable<ComponentInstance> formComponents)
     {
-        if (target.BaseClass is FormComponentClass || !HasNoIndex(target)
+        if (target.BaseClass.Role == ComponentRole.Form || !HasNoIndex(target)
             || PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
             return null;
         var holders = Holders(target, proposed, formComponents);

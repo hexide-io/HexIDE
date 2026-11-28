@@ -17,6 +17,7 @@ kill switch — the same posture every comparable IDE takes. Containment would r
 process, which is a different capability and is not built.
 
 ## Requirements
+
 ### Requirement: An add-in SHALL be a signed package verified before any of its code runs
 An add-in SHALL be distributed as a package carrying a manifest, the manifest's signature, and the records
 and signatures forming a chain to a key the IDE ships. Verification SHALL complete before any assembly from
@@ -187,18 +188,22 @@ its absence as a revocation would do far more damage than the case it guards aga
 
 ### Requirement: Startup revocation retrieval SHALL depend on installed packages
 The default source SHALL be `https://hexide.io/revocations.json`, with its signature at the URL plus
-`.sig`. A user URL SHALL override it; null SHALL select the default and an empty URL SHALL disable retrieval. Startup SHALL fetch only
-when an enabled discovered package is not verified against the pinned first-party key, before packages
-load or await consent. Retrieval SHALL retain the three-second timeout, root verification and strictly
-newer `issuedUtc` check.
+`.sig`. A user URL SHALL override it; null SHALL select the default and an empty URL SHALL disable retrieval. Startup SHALL fetch
+whenever an enabled discovered package has a manifest, first-party packages included, before packages
+load or await consent, because a build revocation applies to first-party packages too. Retrieval SHALL retain the three-second
+timeout, root verification and strictly newer `issuedUtc` check.
 
 #### Scenario: Only first-party components installed
-- **WHEN** every enabled discovered package is verified against the pinned first-party key
-- **THEN** startup makes no revocation fetch
+- **WHEN** every enabled discovered package is verified against the pinned first-party key and a nonempty source is configured
+- **THEN** startup attempts retrieval before those packages load, so a revoked first-party build is refused
 
 #### Scenario: Third-party package awaiting consent
 - **WHEN** an enabled third-party package is discovered and a nonempty source is configured
 - **THEN** startup attempts retrieval before deciding whether that package may load
+
+#### Scenario: No add-in packages
+- **WHEN** no discovered package has a manifest
+- **THEN** startup makes no revocation fetch
 
 ### Requirement: The revocation cache SHALL replace signed pairs atomically
 The cache SHALL atomically replace the signed bytes and signature together, preserving the previous
@@ -386,3 +391,152 @@ retain their separate roles as chrome text and signed package metadata respectiv
 #### Scenario: A package supplies a translated chrome title
 - **WHEN** an add-in registers a translated menu, tool window or command label and the language changes
 - **THEN** the consent prompt and Options → Add-Ins retain its signed manifest title
+
+### Requirement: A refusal SHALL name a root the chain verifies under that this build doesn't carry
+A package MAY carry its root's public key as `root.pub`. When the intermediate's signature fails under the embedded
+root, the verifier SHALL check the chain under that key, and SHALL name the key's SHA-256 fingerprint only when the
+whole chain verifies under it. Such a package SHALL be refused like any other unverified package.
+
+#### Scenario: A package signed under a newer root
+- **WHEN** a package's whole chain verifies under the root it carries, and that root isn't this build's
+- **THEN** the package is refused, and Options → Add-Ins names that root's fingerprint and asks the user to compare it
+  with a newer release's TRUST.md
+
+#### Scenario: A real root's key copied into a forged package
+- **WHEN** a package carries a genuine root's public key, but its chain wasn't signed under it
+- **THEN** the package is refused as an invalid signature, and no fingerprint is named
+
+#### Scenario: A broken package under its own root
+- **WHEN** a package's chain leads to the root it carries, but a file's hash doesn't match
+- **THEN** the refusal names the hash mismatch, not the root
+
+### Requirement: A root key a package carries SHALL never be trusted
+The verifier SHALL NOT trust, remember or decide anything by a root key a package carries. Nothing SHALL offer to trust
+it, and no message SHALL say such an add-in is genuine, because a newer HexIDE's root and a forger's look alike.
+
+#### Scenario: A package signed under a root this build doesn't carry
+- **WHEN** such a package is installed
+- **THEN** it is never shown as verified, and no control offers to trust its root
+
+### Requirement: The packer SHALL write the chain's root into each package
+`pack` SHALL write the trust folder's `hexide-root.pub` into each package as `root.pub`. It SHALL refuse, before
+writing anything, a trust folder without `hexide-root.pub` or one whose root didn't sign its intermediate.
+
+#### Scenario: A trust folder whose root is from another chain
+- **WHEN** the trust folder's `hexide-root.pub` didn't sign its `intermediate.json`
+- **THEN** `pack` refuses and writes nothing
+
+### Requirement: A publisher request SHALL be signed by the key it asks to certify
+The packer's `request-publisher` command SHALL write `request.json` in one canonical ASCII form and sign it with the
+publisher's key, and a rotation also with the key it replaces. Every signature SHALL cover a fixed domain prefix
+followed by the request's bytes, so that it can't pass for any other signature HexIDE checks.
+
+#### Scenario: Making a request
+- **WHEN** a publisher runs `request-publisher` with a new key
+- **THEN** the key is written on its own, never into the request folder, and the request verifies
+
+#### Scenario: A signature over the bare bytes
+- **WHEN** a request's signature covers its bytes without the prefix
+- **THEN** `verify-request` refuses it
+
+### Requirement: verify-request SHALL treat a request as hostile input
+`verify-request` SHALL refuse a request that is oversized, a link, not in canonical form, has an unknown or invalid
+field, or whose signatures don't verify. With a ledger it SHALL refuse an id, key or overlapping namespace another
+publisher holds. It SHALL exit 0 only when every check passed, and 3 for a rotation it couldn't check against a ledger.
+
+#### Scenario: A request for a held id
+- **WHEN** the ledger already holds the request's id, key or an overlapping namespace
+- **THEN** the request is refused
+
+#### Scenario: A rotation checked without a ledger
+- **WHEN** a rotation is checked with no ledger
+- **THEN** it exits 3 and says its previous key was not checked
+
+### Requirement: Revocation SHALL be re-checked hourly while add-ins are installed
+While an add-in package is installed and a revocation source is configured, the IDE SHALL fetch the list again about
+every hour, in the background, after startup's fetch. The interval SHALL NOT be configurable. The list SHALL be requested
+conditionally with the validator of the last list that verified, kept in memory only.
+
+#### Scenario: A session left open for days
+- **WHEN** a newer list is published while the IDE runs
+- **THEN** the IDE fetches it within about an hour, or at once after waking from sleep
+
+#### Scenario: Checking turned off
+- **WHEN** the revocation source is set empty while the IDE runs
+- **THEN** the next hourly check fetches nothing
+
+### Requirement: A loaded add-in revoked mid-session SHALL be withdrawn
+When a newer list revokes a loaded add-in, by the identity verified when it loaded, the IDE SHALL mark it Revoked, take
+out what it contributed, run none of its commands, menu items or event handlers, and refuse what it registers afterwards.
+Its code SHALL stay loaded until restart.
+
+#### Scenario: A build revoked while it is loaded
+- **WHEN** a newer list names a loaded add-in's build
+- **THEN** its menus, commands and tool windows are taken out, and it hears no more events
+
+#### Scenario: A publisher revocation and a first-party add-in
+- **WHEN** a newer list revokes a publisher id while a first-party add-in is loaded
+- **THEN** the first-party add-in stays loaded
+
+### Requirement: issue-publisher SHALL sign only the approved request
+The packer's `issue-publisher` command SHALL sign a publisher record only from a request whose SHA-256 equals the approved
+one and whose `verify-request` check, against the ledger, the root and, for a rotation, the revocation list, passes with
+nothing refused or left unchecked. It SHALL ask for the publisher id to be typed back at a terminal, and refuse input that
+isn't one. It SHALL write nothing when it refuses.
+
+#### Scenario: A request edited after approval
+- **WHEN** the request's SHA-256 is not the approved one
+- **THEN** nothing is signed or written
+
+#### Scenario: A rotation from another account
+- **WHEN** a rotation's github handle or fingerprintUrl differs from the request its id was issued from
+- **THEN** it is left to a person, and nothing is signed
+
+### Requirement: The ledger SHALL hold every id and key ever issued
+Each issued record SHALL be added to the ledger with the request it was issued from. A rotation SHALL move the old record
+to `retired/<n>/`, numbered without gaps. No id or key in the ledger, live or retired, SHALL be issued again, and with a
+root every record and stored request SHALL be verified before the ledger is trusted. `issue-publisher` SHALL write the
+ledger entry before the publisher's `--out` folder, and SHALL refuse an `--out` inside the ledger, so that every record it
+signs is one the ledger holds.
+
+#### Scenario: A retired key requested under a new id
+- **WHEN** a request names a key the ledger holds in a retired record
+- **THEN** it is refused
+
+#### Scenario: A tampered ledger
+- **WHEN** a ledger record or its stored request doesn't verify under the root
+- **THEN** the check refuses rather than trusting the ledger
+
+#### Scenario: The publisher's folder can't be written
+- **WHEN** `issue-publisher` signs a record and then can't write `--out`
+- **THEN** the ledger already holds the record, and the error says where to copy it from
+
+#### Scenario: The publisher's folder inside the ledger
+- **WHEN** `--out` is the ledger or a folder inside it
+- **THEN** it is refused, and nothing is signed or written
+
+### Requirement: A mid-session revocation SHALL be announced
+When a newer list revokes add-ins whose code is loaded, the IDE SHALL show a notice naming them, with a button that closes
+the IDE through its normal close and its prompts to save. One notice SHALL show at a time, and add-ins revoked while it is
+open SHALL be named in the next. An add-in whose code never loaded SHALL be revoked without a notice.
+
+#### Scenario: A loaded add-in is revoked
+- **WHEN** the hourly check revokes a loaded add-in
+- **THEN** a notice names it, and its close button asks to save before HexIDE closes
+
+#### Scenario: A second revocation while the notice is open
+- **WHEN** another add-in is revoked while the notice is open
+- **THEN** a second notice names it once the first is answered
+
+### Requirement: Options SHALL show the revocation check's state
+While an add-in package is installed, Options → Add-Ins SHALL say when the revocation list was last checked and which list
+is in use, that the last check failed and when one last worked, or that checking is off. It SHALL NOT say a list was
+checked when no check has worked. A revoked add-in's page SHALL offer no Activate or Deactivate button.
+
+#### Scenario: Checking that has stopped working
+- **WHEN** the last check failed
+- **THEN** Options says so, with the time of the last check that worked
+
+#### Scenario: A page open during a revocation
+- **WHEN** an add-in is revoked while its Options page is open
+- **THEN** the page shows it as Revoked, with no Activate or Deactivate button

@@ -15,8 +15,12 @@ public sealed class PackRequest
     public required string Version { get; init; }
     public string Author { get; init; } = "";
     public required string Entry { get; init; }
-    /// <summary>Directory holding firstparty.key, publisher.json/.sig and intermediate.json/.sig.</summary>
+    /// <summary>Directory holding publisher.json/.sig and intermediate.json/.sig, and firstparty.key unless
+    /// <see cref="KeyFile"/> names the key.</summary>
     public required string TrustDir { get; init; }
+    /// <summary>The publisher's private key, wherever it is kept (#5318). Null reads <c>firstparty.key</c> from
+    /// <see cref="TrustDir"/>, which is what the release workflow and the Desktop build do.</summary>
+    public string? KeyFile { get; init; }
     /// <summary>Package-relative names of private-dependency files to bundle alongside the entry.</summary>
     public List<string> Include { get; init; } = [];
     /// <summary>Optional package-relative path of a PNG logo. Copied + hashed like an <see cref="Include"/>
@@ -140,7 +144,8 @@ public static class PackageSigner
         Console.WriteLine($"Publisher: {PackageCrypto.KeyFingerprint(firstPartyPublic)}");
     }
 
-    private static string ResolveOutputDirectory(string path, int links = 0)
+    // hexide-pack resolves a folder for private keys with this too, to refuse one inside a git clone (#5555).
+    public static string ResolveOutputDirectory(string path, int links = 0)
     {
         if (links > 40) throw new IOException("too many symbolic links in output directory");
         var full = Path.GetFullPath(path);
@@ -200,6 +205,34 @@ public static class PackageSigner
     public static void SignPublisher(string rootPublicKeyPath, string intermediateKeyPath, string intermediateDir,
         string publisherId, string displayName, string publicKeyPath, string outDir, IReadOnlyList<string>? namespaces = null)
     {
+        var signed = SignRecord(rootPublicKeyPath, intermediateKeyPath, intermediateDir, publisherId, displayName,
+            () =>
+            {
+                using var publisher = ReadKey(publicKeyPath, privateKey: false, "publisher public key");
+                return PackageCrypto.ExportPublicKey(publisher);
+            }, namespaces);
+        Directory.CreateDirectory(outDir);
+        WriteNewFiles(outDir, new Dictionary<string, byte[]>
+        {
+            ["publisher.json"] = signed.Record,
+            ["publisher.sig"] = Encoding.UTF8.GetBytes(signed.Signature),
+        });
+        VerifyWrittenChain(signed, intermediateDir, outDir);
+        Console.WriteLine("Verified publisher record against the intermediate and supplied root public key");
+    }
+
+    /// <summary>A publisher record signed by the intermediate, with the chain it was checked against.</summary>
+    internal sealed record SignedRecord(byte[] Record, string Signature, byte[] Intermediate, string IntermediateSignature,
+        IntermediateRecord IntermediateRecord, string RootPublicKey);
+
+    /// <summary>
+    /// What sign-publisher and issue-publisher share (#5322): every input checked, the intermediate verified against the
+    /// root and matched to its private key, then the record built and signed. Nothing is written. The publisher's public
+    /// key is read last, after the other checks, as sign-publisher always has.
+    /// </summary>
+    internal static SignedRecord SignRecord(string rootPublicKeyPath, string intermediateKeyPath, string intermediateDir,
+        string publisherId, string displayName, Func<string> publisherPublicKey, IReadOnlyList<string>? namespaces)
+    {
         // Issued namespaces bind an add-in's protocol prefixes (#4258): never one core keeps, never one of the wrong shape.
         if (namespaces?.FirstOrDefault(ns => !PublisherNamespaces.IsUsable(ns)) is { } bad)
             throw new ArgumentException($"'{bad}' is not a namespace that can be issued: one is a name followed by '.', "
@@ -222,42 +255,52 @@ public static class PackageSigner
         using var key = ReadKey(intermediateKeyPath, privateKey: true, "intermediate private key");
         if (PackageCrypto.ExportPublicKey(key) != PackageCrypto.ExportPublicKey(interPublic))
             throw new ArgumentException("intermediate private key does not match the intermediate record");
-        using var publisher = ReadKey(publicKeyPath, privateKey: false, "publisher public key");
         var record = new PublisherRecord
         {
             PublisherId = publisherId,
             DisplayName = displayName,
-            PublicKey = PackageCrypto.ExportPublicKey(publisher),
+            PublicKey = publisherPublicKey(),
             IntermediateId = inter.IntermediateId,
             Namespaces = namespaces?.Distinct(StringComparer.Ordinal).ToArray(),
         };
         var bytes = JsonSerializer.SerializeToUtf8Bytes(record, AddinJsonContext.Default.PublisherRecord);
-        var signature = PackageCrypto.Sign(key, bytes);
-        Directory.CreateDirectory(outDir);
-        WriteNewFiles(outDir, new Dictionary<string, byte[]>
-        {
-            ["publisher.json"] = bytes,
-            ["publisher.sig"] = Encoding.UTF8.GetBytes(signature),
-        });
+        return new SignedRecord(bytes, PackageCrypto.Sign(key, bytes), interBytes, interSig, inter,
+            PackageCrypto.ExportPublicKey(root));
+    }
+
+    // Reads back what was written and checks the chain again, so a write that went wrong can't pass for an issued record.
+    internal static void VerifyWrittenChain(SignedRecord signed, string intermediateDir, string outDir)
+    {
+        using var root = PackageCrypto.ImportPublicKey(signed.RootPublicKey);
+        using var interPublic = PackageCrypto.ImportPublicKey(signed.IntermediateRecord.PublicKey);
         if (!PackageCrypto.Verify(root, File.ReadAllBytes(Path.Combine(intermediateDir, "intermediate.json")),
                 File.ReadAllText(Path.Combine(intermediateDir, "intermediate.sig")).Trim())
             || !PackageCrypto.Verify(interPublic, File.ReadAllBytes(Path.Combine(outDir, "publisher.json")),
                 File.ReadAllText(Path.Combine(outDir, "publisher.sig")).Trim()))
             throw new InvalidOperationException("written publisher chain verification failed");
-        Console.WriteLine("Verified publisher record against the intermediate and supplied root public key");
     }
 
     private static void ValidateDisplayName(string displayName)
     {
-        // The trust inspector shows this name to users, so a bidi override or other invisible format character
-        // (U+202E, U+200B, U+FEFF, ...) could make one publisher's name read as another's. Refuse them with the controls.
-        if (string.IsNullOrWhiteSpace(displayName) || displayName != displayName.Trim()
+        if (!IsValidDisplayName(displayName))
+            throw new ArgumentException(InvalidDisplayName);
+    }
+
+    public const string InvalidDisplayName =
+        "invalid display name (expected 1–128 trimmed characters without control or invisible format characters)";
+
+    // The trust inspector shows this name to users, so a bidi override or other invisible format character
+    // (U+202E, U+200B, U+FEFF, ...) could make one publisher's name read as another's. Refuse them with the controls.
+    // hexide-pack checks a typed name with this before it runs a command (#5555).
+    public static bool IsValidDisplayName(string displayName) =>
+        !(string.IsNullOrWhiteSpace(displayName) || displayName != displayName.Trim()
             || displayName.Length > 128 || displayName.Any(c => char.IsControl(c)
                 || char.GetUnicodeCategory(c) is System.Globalization.UnicodeCategory.Format
                     or System.Globalization.UnicodeCategory.LineSeparator
-                    or System.Globalization.UnicodeCategory.ParagraphSeparator))
-            throw new ArgumentException("invalid display name (expected 1–128 trimmed characters without control or invisible format characters)");
-    }
+                    or System.Globalization.UnicodeCategory.ParagraphSeparator));
+
+    /// <summary>Reads a base64 PKCS#8 P-256 private key, never echoing key material in a refusal.</summary>
+    internal static ECDsa ReadPrivateKey(string path, string label) => ReadKey(path, privateKey: true, label);
 
     private static ECDsa ReadKey(string path, bool privateKey, string label)
     {
@@ -290,7 +333,7 @@ public static class PackageSigner
             throw new ArgumentException($"invalid {label}: expected ECDSA P-256");
     }
 
-    private static void WriteNewFiles(string directory, Dictionary<string, byte[]> outputs)
+    internal static void WriteNewFiles(string directory, Dictionary<string, byte[]> outputs)
     {
         var streams = new Dictionary<string, FileStream>();
         var completed = false;
@@ -336,17 +379,20 @@ public static class PackageSigner
         if (!AddinCapabilities.IsValid(capabilities))
             throw new ArgumentException("invalid capabilities declaration", nameof(r));
 
-        RequireKeyOfTheRecord(r.TrustDir);
+        var keyPath = KeyPathOf(r);
+        RequireKeyOfTheRecord(r.TrustDir, keyPath);
+        RequireRootOfTheIntermediate(r.TrustDir);
+        RequireKeyNotPacked(r, keyPath);
         var output = Path.TrimEndingDirectorySeparator(Path.GetFullPath(r.OutDir));
-        RequireOwnedOutput(output, r.TrustDir);
+        RequireOwnedOutput(output, r.TrustDir, keyPath);
         var staging = output + "." + Guid.NewGuid().ToString("N") + ".staging";
         var previous = output + "." + Guid.NewGuid().ToString("N") + ".previous";
         Directory.CreateDirectory(staging);
         try
         {
-            var count = WritePackage(r, staging, capabilities);
+            var count = WritePackage(r, staging, capabilities, keyPath);
             // Check again after staging: a user may have edited the old package while we built.
-            RequireOwnedOutput(output, r.TrustDir);
+            RequireOwnedOutput(output, r.TrustDir, keyPath);
             var replacing = Directory.Exists(output);
             var previousPackage = Path.Combine(previous, "package");
             if (replacing)
@@ -381,15 +427,45 @@ public static class PackageSigner
         }
     }
 
+    // Every package carries the root its chain was signed under, as root.pub, so a HexIDE that doesn't carry that root
+    // can say which one it is (#5316). The trust folder's hexide-root.pub has to be the root that signed its intermediate,
+    // or HexIDE would name a root the chain doesn't lead to: refused before anything is written.
+    private static void RequireRootOfTheIntermediate(string trust)
+    {
+        var rootPath = Path.Combine(trust, "hexide-root.pub");
+        var intermediatePath = Path.Combine(trust, "intermediate.json");
+        if (!File.Exists(rootPath))
+            throw new InvalidOperationException($"There's no hexide-root.pub in '{trust}'. It's the public root key your "
+                + "intermediate was signed under, issued with your publisher record. Nothing was packed.");
+        bool signed;
+        try
+        {
+            using var root = PackageCrypto.ImportPublicKey(File.ReadAllText(rootPath).Trim());
+            signed = PackageCrypto.Verify(root, File.ReadAllBytes(intermediatePath),
+                File.ReadAllText(Path.Combine(trust, "intermediate.sig")).Trim());
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException)
+        {
+            throw new InvalidOperationException($"'{rootPath}' isn't a public key this tool can read. Nothing was packed.");
+        }
+        if (!signed)
+            throw new InvalidOperationException($"'{intermediatePath}' isn't signed by '{rootPath}': they come from different "
+                + "signing chains. Nothing was packed. Get the root and the intermediate from the same issue.");
+    }
+
+    private static string KeyPathOf(PackRequest r) => r.KeyFile ?? Path.Combine(r.TrustDir, "firstparty.key");
+
     // The trust folder's key has to be the one its publisher record names. A firstparty.key left over from an earlier
     // chain, or a release secret not yet changed along with the records, would otherwise sign packages that every HexIDE
     // trusting that record refuses, and nothing would fail until someone tried to load one (#4109). Checked before the
     // output is read or anything is written. The match is a signature the record's key accepts, imported and checked as
     // the IDE does, so pack refuses exactly what the IDE would: a record may encode the same key in other valid bytes.
-    private static void RequireKeyOfTheRecord(string trust)
+    private static void RequireKeyOfTheRecord(string trust, string keyPath)
     {
-        var keyPath = Path.Combine(trust, "firstparty.key");
         var recordPath = Path.Combine(trust, "publisher.json");
+        if (!File.Exists(keyPath))
+            throw new InvalidOperationException($"There's no key at '{keyPath}'. Give your publisher key with --key, or keep it "
+                + "in the trust folder as firstparty.key. Nothing was packed.");
         ECDsa key;
         try
         {
@@ -430,7 +506,31 @@ public static class PackageSigner
         }
     }
 
-    private static void RequireOwnedOutput(string output, string trust)
+    // A private key named among the package's own files would be published inside it. Only the files pack is told to
+    // bundle are copied, so the key gets in only by being named, but a key kept beside the build output is one --include
+    // away (#5318). A path match is the weakest form, because File.Copy follows links: a copy of the key, a symlink or a
+    // hard link to it all have other paths. So each named file is read as File.Copy will read it, through any link, and
+    // refused if it holds the key's text, as UTF-8 or UTF-16. The path is compared too, ignoring case, which also covers
+    // a file named in another case on a case-insensitive disk. Neither message echoes the key.
+    private static void RequireKeyNotPacked(PackRequest r, string keyPath)
+    {
+        var key = Path.GetFullPath(keyPath);
+        var keyText = File.ReadAllText(keyPath).Trim();
+        byte[][] forms = [Encoding.UTF8.GetBytes(keyText), Encoding.Unicode.GetBytes(keyText)];
+        var named = new List<string> { r.Entry };
+        named.AddRange(r.Include);
+        if (!string.IsNullOrEmpty(r.Logo)) named.Add(r.Logo);
+        foreach (var name in named)
+        {
+            var path = Path.GetFullPath(Path.Combine(r.SrcDir, name.Replace('\\', '/')));
+            if (string.Equals(path, key, StringComparison.OrdinalIgnoreCase)
+                || (File.Exists(path) && File.ReadAllBytes(path) is var bytes && forms.Any(form => bytes.AsSpan().IndexOf(form) >= 0)))
+                throw new InvalidOperationException($"'{name}' is, or holds, your private key '{keyPath}', and it's named as a "
+                    + "file to bundle, so the key would be published inside the package. Nothing was packed.");
+        }
+    }
+
+    private static void RequireOwnedOutput(string output, string trust, string keyPath)
     {
         if (new DirectoryInfo(output).LinkTarget is not null)
             throw OutputRefusal(output, LinkedOutput);
@@ -457,7 +557,7 @@ public static class PackageSigner
             Scan(output);
             if (inventory.Count == 0) return;
             var manifestBytes = File.ReadAllBytes(Path.Combine(output, "addin.json"));
-            using var key = PackageCrypto.ImportPrivateKey(File.ReadAllText(Path.Combine(trust, "firstparty.key")).Trim());
+            using var key = PackageCrypto.ImportPrivateKey(File.ReadAllText(keyPath).Trim());
             if (!PackageCrypto.Verify(key, manifestBytes, File.ReadAllText(Path.Combine(output, "addin.sig"))))
                 throw new IOException(output);
             var manifest = JsonSerializer.Deserialize(manifestBytes, AddinJsonContext.Default.AddinManifest);
@@ -467,6 +567,14 @@ public static class PackageSigner
             {
                 expected.Add(name);
                 if (!File.ReadAllBytes(Path.Combine(output, name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(trust, name))))
+                    throw new IOException(output);
+            }
+            // A package from before #5316 has no root.pub, and is still this tool's own output to replace.
+            if (inventory.Contains(PackageVerification.PackageRootFile))
+            {
+                expected.Add(PackageVerification.PackageRootFile);
+                if (!File.ReadAllBytes(Path.Combine(output, PackageVerification.PackageRootFile)).AsSpan()
+                        .SequenceEqual(File.ReadAllBytes(Path.Combine(trust, "hexide-root.pub"))))
                     throw new IOException(output);
             }
             foreach (var file in manifest.Files)
@@ -495,7 +603,7 @@ public static class PackageSigner
     private static IOException OutputRefusal(string output, string reason) =>
         new($"Output '{output}' {reason}. Nothing was changed. Choose another folder or move this one aside.");
 
-    private static int WritePackage(PackRequest r, string destination, JsonElement capabilities)
+    private static int WritePackage(PackRequest r, string destination, JsonElement capabilities, string keyPath)
     {
         var files = new List<AddinFileHash>();
 
@@ -547,12 +655,14 @@ public static class PackageSigner
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, AddinJsonContext.Default.AddinManifest);
         File.WriteAllBytes(Path.Combine(destination, "addin.json"), manifestBytes);
 
-        var keyB64 = File.ReadAllText(Path.Combine(r.TrustDir, "firstparty.key")).Trim();
+        var keyB64 = File.ReadAllText(keyPath).Trim();
         using var key = PackageCrypto.ImportPrivateKey(keyB64);
         File.WriteAllText(Path.Combine(destination, "addin.sig"), PackageCrypto.Sign(key, manifestBytes));
 
         foreach (var f in new[] { "publisher.json", "publisher.sig", "intermediate.json", "intermediate.sig" })
             File.Copy(Path.Combine(r.TrustDir, f), Path.Combine(destination, f), overwrite: true);
+        File.Copy(Path.Combine(r.TrustDir, "hexide-root.pub"), Path.Combine(destination, PackageVerification.PackageRootFile),
+            overwrite: true);
 
         return files.Count;
     }

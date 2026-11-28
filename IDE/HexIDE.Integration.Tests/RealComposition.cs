@@ -24,5 +24,34 @@ internal sealed class RealComposition : IAsyncDisposable
 {
     public DISetup Composition { get; } = new();
 
-    public ValueTask DisposeAsync() => Composition.LspClient.DisposeAsync();
+    // As HexIDE.Desktop's startup does, the provider registers its controls and toolbox through the host an add-in is given
+    // (#5594): the composition's registry starts empty.
+    public RealComposition()
+    {
+        var host = new HexIDE.Addins.AddinOwnedHost(Composition.HexIdeHost, null!, HexIDE.Desktop.BasicProviderComposition.Origin);
+        foreach (var component in HexIDE.Runtime.BasicProvider.Components)
+            host.RegisterComponent(component);
+        foreach (var (component, iconKey) in HexIDE.Runtime.BasicProvider.Toolbox)
+            host.RegisterToolboxItem(component, iconKey);
+        foreach (var library in HexIDE.Runtime.BasicProvider.Libraries)
+            host.RegisterControlLibrary(library, () => HexIDE.Runtime.BasicProvider.ControlsOf(library));
+        host.RegisterLanguageEditing(HexIDE.Runtime.BasicProvider.LanguageEditing);
+        // And its interpreter, through the same host (#5616): with none, the composition runs nothing.
+        engineRegistration = host.RegisterRunEngine(services => Engine = new HexIDE.Runtime.Running.InterpreterRunEngine(services));
+        // VB6's projects, as the provider registers them (#5625).
+        host.RegisterProjectType(HexIDE.Runtime.Serialization.Vb6ProjectFileFormat.ProjectType());
+    }
+
+    private readonly IDisposable engineRegistration;
+    private readonly HexIDE.IDE.IRunningProgram programBefore = HexIDE.IDE.RunningProgram.Current;
+
+    /// <summary>The interpreter the provider registered, whose debugger the composition's controller forwards to.</summary>
+    public HexIDE.Runtime.Running.InterpreterRunEngine Engine { get; private set; } = null!;
+
+    public ValueTask DisposeAsync()
+    {
+        engineRegistration.Dispose();
+        HexIDE.IDE.RunningProgram.Current = programBefore;
+        return Composition.LspClient.DisposeAsync();
+    }
 }

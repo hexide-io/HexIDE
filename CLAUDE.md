@@ -487,7 +487,7 @@ The signatures in this curated table are checked by `McpToolTableDocumentationTe
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
 - `--ansi-code-page <n>` — read and write VB6 sources as a machine whose ANSI code page is `n` (e.g. `932`); DEBUG-only. The only way to reach the byte-for-byte read and its notice on a Western machine, where every byte decodes
-- `--profile <value>` — a built-in/installed profile name, directory path, or `none`; omission selects `vb6`. The old personality flag refuses startup with a replacement diagnostic
+- `--profile <value>` — a built-in/installed profile name, directory path, or `none`; omission selects `neutral`. The old personality flag refuses startup with a replacement diagnostic
 - Positional `.vbp` path — skip the startup dialog and open that project
 
 **Adding a flag is two places and a width budget, and the build enforces all three.** Declare it in
@@ -886,8 +886,9 @@ it's a mitigation.**
   may go is her call. The repository is public, and a leak cannot be taken back: GitHub content is cached
   and indexed even after it is deleted.
 - **The Team Desk banner (`board/banner`) sets the week's pace. Read it before starting anything sizeable.**
-  **Yellow** (`warn`) comes in two kinds, and its title says which. **Burning too fast** is the pace alarm: the
-  week's burn projects 100% more than a day before the reset. Prefer Codex for new work, keep runs short, and
+  **Yellow** (`warn`) comes in two kinds, and its title says which. **Burning too fast** is the pace alarm: at the
+  week's fitted pace, the Claude week reaches the 90% pause more than a day before the reset, or before that
+  week's Saturday 12:00Z pause. Prefer Codex for new work, keep runs short, and
   start no more parallel sessions. **Review and polish only** comes from 85% of the Claude week: finish or park
   what's in flight, push it, and start nothing new. **Red** (`pause`, from 90%): the team is paused, and nothing
   new starts. Jen may still contact a session about a specific item. If she does, keep the reply short and
@@ -897,7 +898,7 @@ it's a mitigation.**
 
 - **Avalonia 12 and Dock 12** — the project is on Avalonia 12. The exact versions live only in `Directory.Packages.props`; read them there rather than from this file. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple`, at Avalonia's version, is the base theme (`<SimpleTheme />` in App.axaml).
 - **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (removing VB6 chrome is intended, not incidental). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
-- **Anything compiled against Avalonia 11 fails only at render time.** That whole class of bug builds cleanly, passes view-model tests, and then kills the process the first time the control is painted. `HexIDE.Integration.Tests/Controls/ClassicRenderTests.cs` is the guard — it renders the affected controls for real under Skia (`UseHeadlessDrawing = false`) and asserts a frame came back. Add a case there before trusting any new `Classic.*` surface.
+- **Anything compiled against Avalonia 11 fails only at render time.** That whole class of bug builds cleanly, passes view-model tests, and then kills the process the first time the control is painted. Two files named `ClassicRenderTests.cs` are the guard. Each renders the affected controls for real under Skia (`UseHeadlessDrawing = false`) and asserts a frame came back. The one in `HexIDE.Runtime.Integration.Tests/Controls/` covers VB6 controls as a running program draws them. The one in `HexIDE.Integration.Tests/Controls/` covers the IDE's own drawing: the form designer's control bitmaps and the code window's syntax palette. Add a case to the matching file before trusting any new `Classic.*` surface, and to both if the IDE draws it as well as a running program.
 - **`Classic.CommonControls.Dialogs` is fully removed** — `MessageBoxResult`, `MessageBoxButtons`, `MessageBoxIcon` are now in `HexIDE.Core/IDE/MessageBoxEnums.cs` (namespace `HexIDE.IDE`). `FontDialogResult`/`AboutDialogOptions` are in `HexIDE/IDE/`. Program-only dialog controls (`MessageBox`, `InputBox`) are in `HexIDE.Runtime/Dialogs/`; the IDE owns its prompt pair in `HexIDE/Dialogs/`. Both MessageBoxes use `MessageBoxClosePolicy`, in Core beside the button enums. `AboutDialog`/`FontDialog` views and their ViewModels are in `HexIDE/Forms/Views/` and `HexIDE/Forms/ViewModels/`. `WindowManager` routes all paths (SingleView + desktop) through these managed controls.
 - **Native interop uses `LibraryImport`** (#608). `HexIDE`, `HexIDE.Desktop` and `HexIDE.Runtime`
   allow unsafe compilation for generated marshalling only; handwritten unsafe code in these projects
@@ -959,10 +960,11 @@ user-facing string is a localization key, never a hardcoded literal.**
 1. **Add the key at the use site:** AXAML → `{DynamicResource Str.Area.Element}`; user-facing C# →
    `ILocalizationService.GetString("Str.Area.Element")` (use a `{0}` placeholder + `string.Format` for
    interpolation). Keys are `Str.{Area}.{Element}` (PascalCase, dot-separated).
-2. **Add the key + English value to the canonical pack** `IDE/HexIDE/Localization/Packs/en.json` — the
-   single source of truth (US-spelled neutral English; renamed from `en-US.json` in P17). `LocalizationCoverageTests`
+2. **Add the key + English value to its owner's canonical pack:** `IDE/HexIDE/Localization/Packs/en.json` for the
+   shell, `IDE/HexIDE.Runtime/Localization/Packs/en.json` for the Basic provider (#5395). Their disjoint union is the
+   source of truth (US-spelled neutral English; renamed from `en-US.json` in P17). `LocalizationCoverageTests`
    **fails the build** if an AXAML `Str.*` key (or a VB6 property's `Str.PropDesc.*`) is missing from `en`.
-   **C# `GetString` keys are NOT auto-checked — add them to `en` by hand**, or the call renders the raw key.
+   Literal C# `GetString` keys are checked against the same union; computed keys still need an explicit guard.
    New VB6 property ⇒ add its `Str.PropDesc.{name}`.
 3. **Translate every new key into all shipped packs in the same change — the build enforces it.**
    `ShippedPackParityTests` fails when a pack named in `LanguageManifest.Packs` is missing a canonical key,
@@ -1158,10 +1160,15 @@ widening visibility to `public` just for a test. When a new test project needs r
 ## Git Workflow
 
 **Before merging, including a session merging its own pull request, wait until every job on the head
-commit has finished and none is red. Do not merge while main's latest run is red.** This includes the
-advisory macOS job: `build-ide (windows)` is required by branch protection, while `build-ide (macos)`
-remains advisory because there is no local macOS to reproduce a failure on. For a known flake, post the
-failing run on its issue and re-run it green before merging (#1331).
+commit has finished and none is red, apart from the advisory ones. Do not merge while main's latest run
+is red, apart from those.** `build-ide (windows)` is required by branch protection. The jobs named
+advisory, Windows on Arm and macOS, don't hold a merge: while HexIDE is in alpha, win-x64 is the one
+essential build, and macOS runs only on pushes to main and to `release/` branches (#5674). **The rule for
+every other platform (the maintainer, 2026-11-26): pace and efficiency come first.** A platform that keeps
+pace with Windows, in time and without flaking, stays a gate on every build, as Linux does today. One that
+starts holding merges goes advisory, like macOS, and is checked when it's released. Follow up a red
+advisory job on its own issue. Once post-v1 releases ship, macOS red counts again. For a known flake,
+post the failing run on its issue and re-run it green before merging (#1331).
 
 **Claim the issue before starting non-trivial work.** Find or open it, then take it: with maintainer
 access, `gh issue edit N --repo hexide-io/HexIDE --add-assignee @me`; without it, comment asking to be

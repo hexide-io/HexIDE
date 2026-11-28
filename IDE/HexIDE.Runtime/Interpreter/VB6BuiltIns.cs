@@ -31,6 +31,8 @@ public partial class VB6BuiltIns
     /// </summary>
     public Func<Func<bool>>? WatchRunEnd { get; set; }
 
+    internal Func<IDisposable>? HoldFormsForMessageBox { get; set; }
+
     // The 713-entry flat name-to-value table that used to live here is gone. It could not answer VB6
     // correctly: the qualifier SELECTS, so vbCancel is 2 through VBA and 0 through VBRUN, and a
     // library-blind map has to be wrong about one of them. It also built every value through
@@ -445,7 +447,11 @@ public partial class VB6BuiltIns
         else if (defaultButton == VBMsgBoxStyle.vbDefaultButton3
             && buttons is MessageBoxButtons.AbortRetryIgnore or MessageBoxButtons.YesNoCancel)
             layout |= MessageBoxLayout.ThirdButtonDefault;
-        var result = await stdLib.MsgBox(text ?? "", title, buttons, icon, layout);
+        MessageBoxResult result;
+        // Every loaded form refuses input while the box waits (SP6 native and p-code, oracle #834). The hold is
+        // counted across overlapping boxes and survives a form hiding and showing; the event pump is unchanged.
+        using (HoldFormsForMessageBox?.Invoke())
+            result = await stdLib.MsgBox(text ?? "", title, buttons, icon, layout);
         // None is a box that went away without an answer. The hosts answer a person's close themselves, as Windows does
         // (measured: OK alone answers vbOK, a box with Cancel answers vbCancel, and Yes/No and Abort/Retry/Ignore
         // have no close), and keep a box waiting when its owner hides. So None means HexIDE closed the box:

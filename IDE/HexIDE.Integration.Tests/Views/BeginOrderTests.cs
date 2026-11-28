@@ -137,7 +137,7 @@ public class BeginOrderTests
         var form = new FormDeserializer().Deserialize(project, Frm(spec), new NullSink())!;
         project.AddForm(form);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            new ComponentRegistry(), Substitute.For<ILocalizationService>());
+            InBoxRegistry.Create(), Substitute.For<ILocalizationService>());
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!,
             windows!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
         return (vm, form);

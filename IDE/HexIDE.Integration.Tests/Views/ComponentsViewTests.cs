@@ -30,7 +30,7 @@ public class ComponentsViewTests
         project.AddForm(new FormDeserializer().Deserialize(project,
             "VERSION 5.00\r\nObject = \"{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCTL.OCX\"\r\n"
           + "Begin VB.Form Form1\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n", new NullSink())!);
-        var vm = new ComponentsViewModel(project, new ComponentRegistry());
+        var vm = new ComponentsViewModel(project, InBoxRegistry.Create());
         var window = new Window { Content = new ComponentsView { DataContext = vm }, Width = 480, Height = 400 };
         window.Show();
         try

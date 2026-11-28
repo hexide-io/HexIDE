@@ -35,6 +35,7 @@ public class EditorServiceNavigationTests
     }
 
     private EditorService Sut() => new(
+        Substitute.For<IWindowManager>(),
         _dock,
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),

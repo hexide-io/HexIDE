@@ -13,18 +13,86 @@ public class ReleaseBuildTests
             @"(?m)^\s+- \{ name: linux-arm,\s+runner: ubuntu-latest,\s+rid: linux-arm,\s+os: linux \}$");
     }
 
+    // ── The first-party signing key (#4740) ──────────────────────────────────────────────────────────────────
+    // Every restore, build and publish runs the build-time code of the packages it pulls in, so the key is only ever
+    // on a runner that does none of them: publish.yml's sign-addins job, behind the addin-signing environment.
+
+    private static string Publish => File.ReadAllText(
+        Path.Combine(RepoTree.Root(), ".github", "workflows", "publish.yml")).ReplaceLineEndings("\n");
+
+    private static string PublishJob(string name) => Regex.Match(
+        Publish, $@"(?ms)^  {Regex.Escape(name)}:\n.*?(?=^  [a-z][\w-]*:|\z)").Value;
+
     [Fact]
-    public void LinuxArmCrossPublishUsesHostAddinPacker()
+    public void Only_the_signing_job_names_the_first_party_key()
     {
-        var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "publish.yml"))
+        var workflows = Directory.GetFiles(Path.Combine(RepoTree.Root(), ".github", "workflows"), "*.y*ml");
+        var namings = workflows.Sum(file => Regex.Matches(File.ReadAllText(file), @"secrets\.HEXIDE_FIRSTPARTY_KEY\b").Count);
+
+        namings.Should().Be(1, "only publish.yml's sign-addins job may receive the key");
+        PublishJob("sign-addins").Should().Contain("${{ secrets.HEXIDE_FIRSTPARTY_KEY }}")
+            .And.Contain("\n    environment: addin-signing\n");
+    }
+
+    [Fact]
+    public void The_signing_job_builds_nothing_and_pins_its_actions()
+    {
+        var job = PublishJob("sign-addins");
+
+        job.Should().NotBeEmpty();
+        job.Should().NotContain("dotnet ", "the packer arrives built and self-contained, so nothing here restores or builds")
+            .And.NotContain("setup-dotnet").And.NotContain("msbuild");
+        job.Should().Contain("\n    permissions:\n      contents: read\n");
+        var uses = Regex.Matches(job, @"(?m)^\s+(?:- )?uses: (\S+)").Select(m => m.Groups[1].Value).ToArray();
+        uses.Should().NotBeEmpty().And.OnlyContain(
+            action => Regex.IsMatch(action, @"@[0-9a-f]{40}$"), "a moved tag would run new code beside the key");
+        job.Should().Contain("artifact-ids: ${{ needs.packer.outputs.artifact-id }}")
+            .And.Contain("artifact-ids: ${{ needs.addins.outputs.artifact-id }}");
+    }
+
+    [Fact]
+    public void Build_legs_take_the_signed_addins_instead_of_packing()
+    {
+        var build = PublishJob("build");
+
+        build.Should().Contain("needs: [preflight, sign-addins]")
+            .And.Contain("artifact-ids: ${{ needs.sign-addins.outputs.artifact-id }}");
+        build.Should().NotContain("firstparty").And.NotContain("AddinPacker")
+            .And.NotContain("AddinTrustDir", "a build leg holds no key and packs nothing");
+        build.IndexOf("Add the signed first-party add-ins to both flavours", StringComparison.Ordinal).Should()
+            .BeLessThan(build.IndexOf("- name: Stage both flavours", StringComparison.Ordinal),
+                "the macOS seal and the Windows installer must take the add-ins in");
+    }
+
+    private static string[] UploadedArtifacts(string job) => Regex.Matches(
+            PublishJob(job), @"uses: actions/upload-artifact@[^\n]*\n\s+with:\n\s+name: (\S+)")
+        .Select(m => m.Groups[1].Value).ToArray();
+
+    [Fact]
+    public void The_release_takes_only_the_build_legs_artifacts()
+    {
+        PublishJob("release").Should().Contain("\n          pattern: hexide-*\n",
+            "with no pattern, download-artifact fetches every artifact of the run, the packer's included");
+        UploadedArtifacts("build").Should().NotBeEmpty()
+            .And.OnlyContain(name => name.StartsWith("hexide-", StringComparison.Ordinal));
+        foreach (var job in new[] { "packer", "addins", "sign-addins" })
+            UploadedArtifacts(job).Should().ContainSingle()
+                .Which.Should().NotStartWith("hexide-", $"{job}'s artifact isn't a release asset");
+    }
+
+    [Fact]
+    public void Release_and_Desktop_build_read_one_set_of_pack_arguments()
+    {
+        var arguments = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.AIChat", "pack.args"))
             .ReplaceLineEndings("\n");
-        workflow.Should().Contain("if: matrix.rid == 'linux-arm'\n")
-            .And.Contain("dotnet publish HexIDE.AddinPacker -f net11.0 -c Release -r linux-x64 --self-contained false -o bin/addin-packer-host/")
-            .And.Contain("ADDIN_PACKER_OVERRIDE=-p:AddinPacker=$PWD/bin/addin-packer-host/HexIDE.AddinPacker.dll");
-        var desktopPublishes = workflow.Split('\n')
-            .Where(line => line.Contains("run: dotnet publish HexIDE.Desktop")).ToArray();
-        desktopPublishes.Should().HaveCount(2);
-        desktopPublishes.Should().OnlyContain(line => line.Contains("${{ env.ADDIN_PACKER_OVERRIDE }}"));
+        var desktop = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "HexIDE.Desktop.csproj"));
+
+        arguments.Should().StartWith("--id\ncom.hexide.aichat\n");
+        arguments.Should().NotContain("--src").And.NotContain("--out").And.NotContain("--trust");
+        PublishJob("sign-addins").Should().Contain("done < IDE/HexIDE.AIChat/pack.args")
+            .And.Contain("--out \"$RUNNER_TEMP/addins-signed/com.hexide.aichat\"");
+        desktop.Should().Contain("<ReadLinesFromFile File=\"$(MSBuildProjectDirectory)/../HexIDE.AIChat/pack.args\">")
+            .And.Contain("--out &quot;$(OutDir)addins/com.hexide.aichat&quot;");
     }
 
     public static bool IsLinux => OperatingSystem.IsLinux();
@@ -65,5 +133,67 @@ public class ReleaseBuildTests
         build.Should().BeGreaterThanOrEqualTo(0);
         check.Should().BeGreaterThan(build);
         Job.Should().NotContain("continue-on-error: true\n        run: bash ../scripts/check-release-output.sh");
+    }
+
+    // ── A published release is never replaced (#5424) ────────────────────────────────────────────────────────
+    // Dispatching publish.yml again for a published tag would replace its downloads with a build of another commit under
+    // the old tag. A draft stays re-runnable: the maintainer checks a draft's assets, and re-runs it, before publishing.
+
+    private const string UnpublishedGuard = "run: bash scripts/check-release-unpublished.sh \"$TAG\"";
+
+    // The guard's steps run unconditionally and take the tag through the environment, never pasted into the script.
+    private static void ShouldGuard(string job)
+    {
+        var step = Regex.Match(job, @"(?ms)^      - name: Refuse [^\n]*\n(?:        [^\n]*\n)+").Value;
+        step.Should().Contain(UnpublishedGuard).And.Contain("TAG: ${{ inputs.tag }}").And.Contain("GH_TOKEN: ${{ github.token }}")
+            .And.NotContain("if:", "nothing may switch the guard off");
+    }
+
+    [Fact]
+    public void Every_job_waits_for_the_preflight_that_refuses_a_published_release()
+    {
+        ShouldGuard(PublishJob("preflight"));
+
+        var jobs = Regex.Matches(Publish[Publish.IndexOf("\njobs:\n", StringComparison.Ordinal)..], @"(?m)^  ([a-z][\w-]*):\n")
+            .Select(m => m.Groups[1].Value).ToList();
+        var needs = jobs.ToDictionary(job => job, job =>
+            Regex.Match(PublishJob(job), @"(?m)^    needs: \[?([^\]\n]*)\]?$").Groups[1].Value
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+        bool Reaches(string job) => needs[job].Any(need => need == "preflight" || Reaches(need));
+
+        jobs.Should().Contain(["preflight", "build", "sign-addins", "release"]);
+        jobs.Where(job => job != "preflight" && !Reaches(job)).Should().BeEmpty(
+            "no job may build, sign or upload before preflight has refused a published release");
+    }
+
+    [Fact]
+    public void The_release_job_checks_again_just_before_uploading()
+    {
+        var release = PublishJob("release");
+        ShouldGuard(release);
+
+        var steps = Regex.Matches(release, @"(?m)^      - (?:name: |uses: )([^\n]*)$").Select(m => m.Groups[1].Value).ToList();
+        steps.FindIndex(step => step.StartsWith("actions/checkout@", StringComparison.Ordinal)).Should()
+            .BeLessThan(steps.FindIndex(step => step.StartsWith("actions/download-artifact@", StringComparison.Ordinal)),
+                "a checkout empties the workspace, so it must come before the artifacts arrive");
+        var upload = steps.FindIndex(step => step.StartsWith("softprops/action-gh-release@", StringComparison.Ordinal));
+        steps[upload - 1].Should().Be("Refuse a release published while this run built",
+            "the draft may have been published while the run built");
+    }
+
+    [Fact(Skip = "The CI shell guard runs on Linux", SkipUnless = nameof(IsLinux))]
+    public void UnpublishedGuardRefusesAPublishedReleaseAndAllowsADraft()
+    {
+        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "bash",
+            ArgumentList = { Path.Combine(RepoTree.Root(), "scripts", "check-release-unpublished.selftest.sh") },
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        })!;
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        process.ExitCode.Should().Be(0, output + error);
     }
 }

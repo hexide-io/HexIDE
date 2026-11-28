@@ -1,17 +1,17 @@
+using HexIDE.Tests.Infrastructure;
 using System.IO;
 using HexIDE.Addins;
 using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Sidecar;
-using StandInFormat = HexIDE.Tests.Projects.ProjectFileFormatSeamTests.StandInFormat;
 
 namespace HexIDE.Tests.Projects;
 
 /// <summary>
-/// That VB6 registers as a first-party project type, that its files and the archives' are reserved against every other
-/// type whatever order they register in, and that a project file opens through the type that claims it (#4053, #3411
-/// slice 10b).
+/// That VB6's type registers through the Basic provider's grant, under VB6's identity (#5625), that its files and the
+/// archives' are reserved against every other type whatever order they register in, and that a project file opens through
+/// the type that claims it (#4053, #3411 slice 10b).
 /// </summary>
 public sealed class Vb6ProjectTypeTests : IDisposable
 {
@@ -30,13 +30,15 @@ public sealed class Vb6ProjectTypeTests : IDisposable
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { /* best effort */ }
     }
 
+    private static readonly AddinOrigin Provider = HexIDE.Desktop.BasicProviderComposition.Origin;
+
     private static AddinProjectType Reading(params string[] names) =>
         new("Other") { FileNames = names, OpenAsync = (_, _, _) => throw new NotImplementedException() };
 
     private static ContributedProjects WithVb6(IProjectFileFormat format)
     {
         var types = new ContributedProjects();
-        Vb6ProjectType.Register(types, format);
+        Vb6Types.Register(types, format);
         return types;
     }
 
@@ -68,7 +70,7 @@ public sealed class Vb6ProjectTypeTests : IDisposable
         var register = () => types.Register(Reading(name), Other);
 
         register.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain(reader);
-        Vb6ProjectType.Register(types, _format);
+        Vb6Types.Register(types, _format);
         types.Find(Path.Join(_dir, "x.vbp"))!.AddinId.Should().Be(Vb6ProjectType.Id, "VB6's files stayed VB6's");
     }
 
@@ -81,7 +83,7 @@ public sealed class Vb6ProjectTypeTests : IDisposable
 
         using var mine = types.Register(Reading("*.mypro"), Other);
         if (!vb6First)
-            Vb6ProjectType.Register(types, _format);
+            Vb6Types.Register(types, _format);
 
         types.Find(Path.Join(_dir, "x.mypro"))!.AddinId.Should().Be("other");
         types.Find(Path.Join(_dir, "x.vbp"))!.AddinId.Should().Be(Vb6ProjectType.Id);
@@ -92,9 +94,127 @@ public sealed class Vb6ProjectTypeTests : IDisposable
     {
         var types = new ContributedProjects();
 
-        var register = () => types.Register(Vb6ProjectType.For(_format), OtherFirstParty);
+        var register = () => types.Register(HexIDE.Runtime.Serialization.Vb6ProjectFileFormat.ProjectType(_format), OtherFirstParty);
 
         register.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Visual Basic 6.0");
+    }
+
+    // ── The provider's grant: VB6's identity, for exactly VB6's files (#5625) ───────────────────────────────────
+
+    [Fact]
+    public void VB6_s_type_takes_VB6_s_identity_and_keeps_the_provider_as_its_owner()
+    {
+        var types = WithVb6(_format);
+
+        var type = types.Find(Path.Join(_dir, "x.vbp"))!;
+
+        type.AddinId.Should().Be(Vb6ProjectType.Id, "VB6's projects carry VB6's identity, as they did before the provider registered it");
+        type.Origin.Should().Be(Vb6ProjectType.Title);
+        type.OwnerId.Should().Be(RegistrationGrants.BasicProvider, "disabling and consent go by who registered it");
+        types.FindGroup(Path.Join(_dir, "x.vbg"))!.OwnerId.Should().Be(RegistrationGrants.BasicProvider);
+    }
+
+    [Theory]
+    [InlineData(new[] { "*.vbp" }, new string[0])]
+    [InlineData(new[] { "*.mypro" }, new[] { "*.vbg" })]
+    [InlineData(new[] { "*.vbp", "*.mypro" }, new[] { "*.vbg" })]
+    [InlineData(new[] { "*.vbp" }, new[] { "*.vbg", "*.mygrp" })]
+    [InlineData(new[] { "Project1.vbp" }, new[] { "*.vbg" })]
+    public void The_provider_registering_part_of_VB6_s_files_or_more_than_them_is_refused_and_logged(string[] files, string[] groups)
+    {
+        var types = new ContributedProjects();
+        using var log = new RefusalLog();
+
+        var register = () => types.Register(new AddinProjectType("Partial") { FileNames = files, GroupFileNames = groups, Format = _format },
+            Provider);
+
+        register.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Visual Basic 6.0");
+        types.Types.Should().BeEmpty();
+        log.Refusals.Should().ContainSingle().Which.Should().Contain("hexide.basic").And.Contain("hexide.vb6");
+    }
+
+    [Fact]
+    public void The_old_first_party_route_to_VB6_s_identity_is_gone()
+    {
+        var types = new ContributedProjects();
+        using var log = new RefusalLog();
+
+        var register = () => types.Register(HexIDE.Runtime.Serialization.Vb6ProjectFileFormat.ProjectType(_format),
+            new AddinOrigin(Vb6ProjectType.Id, Vb6ProjectType.Title, IsFirstParty: true));
+
+        register.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Visual Basic 6.0");
+        types.Types.Should().BeEmpty();
+        log.Refusals.Should().ContainSingle();
+    }
+
+    // A package can't hold the id either: AddinRegistry refuses a package under hexide. at load unless the first-party key
+    // signed it (ReservedProviderIdTests). This is the check behind that one, for whatever registers with the id.
+    [Theory]
+    [InlineData("hexide.vb6", false)]
+    [InlineData("HexIDE.VB6", false)]
+    [InlineData("hexide.vb6", true)]
+    public void An_add_in_whose_id_is_VB6_s_identity_is_refused_whatever_its_files(string id, bool firstParty)
+    {
+        var types = new ContributedProjects();
+        using var log = new RefusalLog();
+
+        var register = () => types.Register(Reading("*.mypro"), new AddinOrigin(id, "Impostor", IsFirstParty: firstParty));
+
+        register.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Impostor").And.Contain("Visual Basic 6.0");
+        types.Types.Should().BeEmpty();
+        log.Refusals.Should().ContainSingle().Which.Should().Contain(id);
+    }
+
+    [Fact]
+    public void A_provider_type_of_other_files_gets_no_reserved_identity()
+    {
+        var types = new ContributedProjects();
+
+        using var mine = types.Register(Reading("*.mypro"), Provider);
+
+        var type = types.Find(Path.Join(_dir, "x.mypro"))!;
+        type.AddinId.Should().Be(RegistrationGrants.BasicProvider);
+        type.OwnerId.Should().Be(RegistrationGrants.BasicProvider);
+    }
+
+    [Fact]
+    public void A_provider_type_of_VB6_s_files_needs_its_format()
+    {
+        var types = new ContributedProjects();
+
+        var register = () => types.Register(Reading("*.vbp") with { GroupFileNames = ["*.vbg"] }, Provider);
+
+        register.Should().Throw<ArgumentException>();
+        types.Types.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Taking_out_VB6_s_type_takes_out_its_member_formats()
+    {
+        var types = new ContributedProjects();
+        var project = new ProjectDefinition(HexIDE.Runtime.ProjectElements.VBProjectType.EXE, "P");
+
+        var registration = Vb6Types.Register(types, _format);
+        types.FormatForMembers(project).Should().BeSameAs(_format);
+        types.FindFormFormat("vb6").Should().BeSameAs(_format);
+        registration.Dispose();
+
+        types.FormatForMembers(project).Should().BeNull();
+        types.FindFormFormat("vb6").Should().BeNull();
+    }
+
+    private sealed class RefusalLog : Serilog.Core.ILogEventSink, IDisposable
+    {
+        private readonly Serilog.ILogger previous = Serilog.Log.Logger;
+        private readonly List<string> refusals = [];
+        public RefusalLog() => Serilog.Log.Logger = new Serilog.LoggerConfiguration().WriteTo.Sink(this).CreateLogger();
+        public IReadOnlyList<string> Refusals { get { lock (refusals) return [.. refusals]; } }
+        public void Emit(Serilog.Events.LogEvent logEvent)
+        {
+            if (logEvent.Level == Serilog.Events.LogEventLevel.Warning && logEvent.MessageTemplate.Text.StartsWith("Project types: refused", StringComparison.Ordinal))
+                lock (refusals) refusals.Add(logEvent.RenderMessage());
+        }
+        public void Dispose() => Serilog.Log.Logger = previous;
     }
 
     // ── A format of its own is first-party only ──────────────────────────────────────────────────────────────────
@@ -161,12 +281,12 @@ public sealed class Vb6ProjectTypeTests : IDisposable
         });
         var archives = withArchives ? new ArchiveProjectService(Substitute.For<IDocumentDockService>(),
             Substitute.For<IRecentProjectsService>(), localization, _windows,
-            Substitute.For<HexIDE.Language.IConditionalCodeReader>()) : null;
+            Substitute.For<HexIDE.Language.ILanguageEditing>()) : null;
         return new ProjectService(
             () => throw new InvalidOperationException("no new-project dialog here"), _windows, Substitute.For<IEventBus>(),
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(), sidecar,
             new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(),
-            new ComponentRegistry(), archives: archives, contributed: types);
+            InBoxRegistry.Create(), archives: archives, contributed: types);
     }
 
     private string Vbp()
@@ -262,7 +382,7 @@ public sealed class Vb6ProjectTypeTests : IDisposable
         _loaded.Should().BeEmpty();
         message.Should().NotContain("add-in");
         await _windows.Received(1).MessageBox(message, Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(),
-            MessageBoxIcon.Information, Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+            MessageBoxIcon.Information, Arg.Any<Avalonia.Controls.Window?>());
     }
 
     [Fact]

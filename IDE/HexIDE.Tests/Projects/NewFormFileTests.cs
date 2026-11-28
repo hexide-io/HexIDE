@@ -56,7 +56,7 @@ public class NewFormFileTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>(), new ComponentRegistry());
+            Substitute.For<IHeaderRefresher>(), InBoxRegistry.Create());
     }
 
     private ProjectDefinition NewProject()
@@ -90,7 +90,7 @@ public class NewFormFileTests : IDisposable
     [Fact]
     public void A_new_Standard_EXE_starts_from_a_form_in_VB6s_shape()
     {
-        var project = Vb6ProjectType.StandardExe.Create("Project1");
+        var project = Vb6ProjectType.StandardExe.Create("Project1", new HexIDE.Runtime.Serialization.Vb6ProjectFileFormat());
 
         var form = project.Forms.Single();
         form.Code.Should().StartWith("Attribute VB_Name = \"Form1\"\r\n");
