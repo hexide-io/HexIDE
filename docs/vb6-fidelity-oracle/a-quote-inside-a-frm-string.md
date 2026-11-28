@@ -48,7 +48,7 @@ names line 13, one past the Caption's line 12.
 - A font's `Name` with a quote, which names no real face. HexIDE reads and writes it through the same code as every
   other string.
 - Strings VB6 keeps in the `.frx`, such as a multi-line TextBox's `Text`, which are stored with a length rather than
-  quoted.
+  quoted. Their layout was measured later (#5843): see `a-textboxs-multiline-and-scrollbars.md`.
 - What the VB6 IDE does when opening the malformed form.
 
 HexIDE now halves a doubled quote on read and doubles each quote on write (`VbFrmFormatDeserializer.ParseValue`,
