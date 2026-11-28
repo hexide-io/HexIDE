@@ -61,6 +61,7 @@ public class DesignerCommitTests
     private sealed class NoopCommand : IDesignerCommand
     {
         public string Description => "noop";
+        public DesignerUndoName DisplayName => DesignerUndoName.Verbatim(Description);
         public void Execute(FormEditViewModel vm) { }
         public void Undo(FormEditViewModel vm) { }
     }

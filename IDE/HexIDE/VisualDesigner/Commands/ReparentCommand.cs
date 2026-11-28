@@ -32,13 +32,14 @@ internal class ReparentCommand : IDesignerCommand
     private readonly int _newSiblingIndex;
 
     public string Description { get; }
+    public DesignerUndoName DisplayName { get; }
 
     internal ReparentCommand(
         ComponentInstanceViewModel target,
         ComponentInstance? oldContainer, ComponentInstance? newContainer,
         Rect oldRect, Rect newRect,
         int oldSiblingIndex, int newSiblingIndex,
-        string description)
+        string description, DesignerUndoName displayName)
     {
         _target = target;
         _oldContainer = oldContainer;
@@ -48,6 +49,7 @@ internal class ReparentCommand : IDesignerCommand
         _oldSiblingIndex = oldSiblingIndex;
         _newSiblingIndex = newSiblingIndex;
         Description = description;
+        DisplayName = displayName;
     }
 
     public void Execute(FormEditViewModel vm) => Apply(_newContainer, _newRect, _newSiblingIndex);

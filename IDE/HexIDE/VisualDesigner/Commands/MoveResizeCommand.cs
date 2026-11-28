@@ -50,6 +50,7 @@ internal class MoveResizeCommand : IDesignerCommand
     private readonly List<Entry> _entries;
 
     public string Description { get; }
+    public DesignerUndoName DisplayName { get; }
 
     internal MoveResizeCommand(IReadOnlyList<(ComponentInstanceViewModel Vm, Rect Before, Rect After)> entries)
         : this([.. entries.Select(e => new Entry(e.Vm, new Geometry(e.Before, null), new Geometry(e.After, null)))])
@@ -59,7 +60,7 @@ internal class MoveResizeCommand : IDesignerCommand
     internal MoveResizeCommand(IReadOnlyList<Entry> entries)
     {
         _entries = [.. entries];
-        Description = BuildDescription(_entries);
+        (Description, DisplayName) = BuildNames(_entries);
     }
 
     public void Execute(FormEditViewModel vm)
@@ -74,9 +75,9 @@ internal class MoveResizeCommand : IDesignerCommand
             e.Before.Apply(e.Vm);
     }
 
-    private static string BuildDescription(List<Entry> entries)
+    private static (string Description, DesignerUndoName DisplayName) BuildNames(List<Entry> entries)
     {
-        if (entries.Count == 0) return "Move";
+        if (entries.Count == 0) return ("Move", DesignerUndoName.Localized("Str.Designer.Undo.Move"));
         // A Line's entry holds its endpoints and no box, so it is a move, never a resize (#5797).
         bool anyResize = entries.Any(e => e.Before.Bounds.Width != e.After.Bounds.Width || e.Before.Bounds.Height != e.After.Bounds.Height);
         bool anyMove = entries.Any(e => e.Before.Bounds.Left != e.After.Bounds.Left || e.Before.Bounds.Top != e.After.Bounds.Top
@@ -84,11 +85,17 @@ internal class MoveResizeCommand : IDesignerCommand
         if (entries.Count == 1)
         {
             var target = entries[0].Vm;
-            if (target.Instance.BaseClass.Role == ComponentRole.Form) return "Resize Form";
-            if (anyResize && !anyMove) return $"Resize: {target.Name}";
-            if (anyMove && !anyResize) return $"Move: {target.Name}";
-            return $"Move/Resize: {target.Name}";
+            if (target.Instance.BaseClass.Role == ComponentRole.Form)
+                return ("Resize Form", DesignerUndoName.Localized("Str.Designer.Undo.ResizeForm"));
+            var name = target.Name;
+            if (anyResize && !anyMove)
+                return ($"Resize: {name}", DesignerUndoName.Localized("Str.Designer.Undo.ResizeControl", name));
+            if (anyMove && !anyResize)
+                return ($"Move: {name}", DesignerUndoName.Localized("Str.Designer.Undo.MoveControl", name));
+            return ($"Move/Resize: {name}", DesignerUndoName.Localized("Str.Designer.Undo.MoveResizeControl", name));
         }
-        return anyResize ? $"Move/Resize: {entries.Count} controls" : $"Move: {entries.Count} controls";
+        return anyResize
+            ? ($"Move/Resize: {entries.Count} controls", DesignerUndoName.Localized("Str.Designer.Undo.MoveResizeControls", entries.Count))
+            : ($"Move: {entries.Count} controls", DesignerUndoName.Localized("Str.Designer.Undo.MoveControls", entries.Count));
     }
 }

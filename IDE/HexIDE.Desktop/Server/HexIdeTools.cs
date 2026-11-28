@@ -1702,7 +1702,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_undo_state")]
-    [Description("The reply identifies an active source editor or designer by project and document. Returns the current undo/redo state of the active document: what kind it is, whether Undo and Redo are available, and, for a form designer, the step each would act on as the Edit menu names it. 'activeEditorKind' is FormDesigner, CodeEditor, Other (a document with no undo of its own, such as the Object Browser; canUndo and canRedo are then false) or None (no document is open). A code editor's steps have no names, so its descriptions are null; invoke_menu_item(\"Edit/Undo\") undoes there, and invoke_designer_undo is for a designer only.")]
+    [Description("The reply identifies an active source editor or designer by project and document. Returns the current undo/redo state of the active document: what kind it is, whether Undo and Redo are available, and, for a form designer, the step each would act on as the Edit menu names it in English. 'activeEditorKind' is FormDesigner, CodeEditor, Other (a document with no undo of its own, such as the Object Browser; canUndo and canRedo are then false) or None (no document is open). A code editor's steps have no names, so its descriptions are null; invoke_menu_item(\"Edit/Undo\") undoes there, and invoke_designer_undo is for a designer only.")]
     public async Task<UndoStateResult> GetUndoStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1731,7 +1731,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     /// <summary>
-    /// What Undo and Redo would now do, as the Edit menu names them. The undo tools replied {"success":true} and
+    /// What Undo and Redo would now do, as the Edit menu names them in English. The undo tools replied {"success":true} and
     /// nothing else, so a caller had to call get_undo_state to learn which step had gone and which was next (#655).
     /// </summary>
     private static string UndoStackNote(HexIDE.VisualDesigner.FormEditViewModel designer) =>

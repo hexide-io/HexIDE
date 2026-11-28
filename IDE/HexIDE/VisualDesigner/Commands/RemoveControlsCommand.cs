@@ -9,13 +9,15 @@ internal class RemoveControlsCommand : IDesignerCommand
     private readonly List<(ComponentInstanceViewModel Vm, int ComponentsIdx, int AllComponentsIdx)> _entries;
 
     public string Description { get; }
+    public DesignerUndoName DisplayName { get; }
 
     internal RemoveControlsCommand(
         IReadOnlyList<(ComponentInstanceViewModel Vm, int ComponentsIdx, int AllComponentsIdx)> entries,
-        string description)
+        string description, DesignerUndoName displayName)
     {
         _entries = [.. entries];
         Description = description;
+        DisplayName = displayName;
     }
 
     public void Undo(FormEditViewModel vm)
