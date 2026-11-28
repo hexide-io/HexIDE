@@ -78,6 +78,7 @@ internal static partial class BrandText
         "Str.Options.Addin.Status.ConsentDenied",
         "Str.Options.Addin.Status.Revoked",
         "Str.Options.Addin.RevokeConsent",
+        "Str.Options.Addin.TakenOutNote",
         "Str.Options.Addins.Revocation.Off",
         "Str.Options.Addins.Revocation.NotChecked",
         "Str.Options.Addins.Revocation.Checked",

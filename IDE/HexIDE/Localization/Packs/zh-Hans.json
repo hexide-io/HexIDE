@@ -683,6 +683,7 @@
     "Str.Options.Addin.Details.Status": "状态：",
     "Str.Options.Addin.RevokeConsent": "撤销授权",
     "Str.Options.Addin.RestartNote": "在下次 IDE 重启时生效。",
+    "Str.Options.Addin.TakenOutNote": "其菜单、命令、窗口和语言服务器现已移除。在 HexIDE 关闭之前，其代码仍处于加载状态。",
     "Str.Options.Addin.Trust": "信任",
     "Str.Dialog.About.SigningKeys.Header": "加载项签名密钥",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE 根密钥 (SHA-256)",

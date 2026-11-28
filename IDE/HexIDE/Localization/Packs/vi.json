@@ -650,6 +650,7 @@
     "Str.Options.Addin.Details.Status": "Trạng thái:",
     "Str.Options.Addin.RevokeConsent": "Thu hồi chấp thuận",
     "Str.Options.Addin.RestartNote": "Có hiệu lực ở lần khởi động lại IDE tiếp theo.",
+    "Str.Options.Addin.TakenOutNote": "Menu, lệnh, cửa sổ và máy chủ ngôn ngữ của phần bổ trợ đã bị gỡ bỏ. Mã của phần bổ trợ vẫn được nạp cho đến khi đóng HexIDE.",
     "Str.Options.Addin.Trust": "Tin cậy",
     "Str.Dialog.About.SigningKeys.Header": "Khóa ký phần bổ trợ",
     "Str.Dialog.About.SigningKeys.RootKey": "Khóa gốc HexIDE (SHA-256)",

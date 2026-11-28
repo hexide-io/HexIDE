@@ -689,6 +689,7 @@
     "Str.Options.Addin.Details.Status": "상태:",
     "Str.Options.Addin.RevokeConsent": "동의 취소",
     "Str.Options.Addin.RestartNote": "다음 IDE 재시작 시 적용됩니다.",
+    "Str.Options.Addin.TakenOutNote": "해당 메뉴, 명령, 창, 언어 서버가 제거되었습니다. 코드는 HexIDE를 닫을 때까지 로드된 상태로 남습니다.",
     "Str.Options.Addin.Trust": "신뢰",
     "Str.Dialog.About.SigningKeys.Header": "추가 기능 서명 키",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE 루트 키 (SHA-256)",

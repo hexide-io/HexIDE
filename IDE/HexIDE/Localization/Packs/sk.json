@@ -655,6 +655,7 @@
     "Str.Options.Addin.Details.Status": "Stav:",
     "Str.Options.Addin.RevokeConsent": "Odvolať súhlas",
     "Str.Options.Addin.RestartNote": "Prejaví sa pri ďalšom reštarte IDE.",
+    "Str.Options.Addin.TakenOutNote": "Jeho ponuky, príkazy, okná a jazykové servery boli odstránené. Jeho kód zostane načítaný, kým HexIDE nezavriete.",
     "Str.Options.Addin.Trust": "Dôveryhodnosť",
     "Str.Dialog.About.SigningKeys.Header": "Podpisové kľúče doplnkov",
     "Str.Dialog.About.SigningKeys.RootKey": "Koreňový kľúč HexIDE (SHA-256)",

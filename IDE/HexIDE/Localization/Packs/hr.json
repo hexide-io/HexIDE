@@ -727,6 +727,7 @@
     "Str.Options.Addin.Details.Status": "Stanje:",
     "Str.Options.Addin.RevokeConsent": "Opozovi pristanak",
     "Str.Options.Addin.RestartNote": "Primjenjuje se pri sljedećem ponovnom pokretanju IDE-a.",
+    "Str.Options.Addin.TakenOutNote": "Njegovi izbornici, naredbe, prozori i jezični poslužitelji sada su uklonjeni. Njegov kôd ostaje učitan dok se HexIDE ne zatvori.",
     "Str.Options.Addin.Trust": "Pouzdanost",
     "Str.Dialog.About.SigningKeys.Header": "Ključevi za potpisivanje dodataka",
     "Str.Dialog.About.SigningKeys.RootKey": "Korijenski ključ HexIDE-a (SHA-256)",

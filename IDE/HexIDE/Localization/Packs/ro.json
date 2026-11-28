@@ -655,6 +655,7 @@
     "Str.Options.Addin.Details.Status": "Stare:",
     "Str.Options.Addin.RevokeConsent": "Revocă acordul",
     "Str.Options.Addin.RestartNote": "Se aplică la următoarea repornire a IDE-ului.",
+    "Str.Options.Addin.TakenOutNote": "Meniurile, comenzile, ferestrele și serverele de limbaj ale sale au fost eliminate. Codul său rămâne încărcat până la închiderea HexIDE.",
     "Str.Options.Addin.Trust": "Încredere",
     "Str.Dialog.About.SigningKeys.Header": "Chei de semnare a programelor de completare",
     "Str.Dialog.About.SigningKeys.RootKey": "Cheia rădăcină HexIDE (SHA-256)",

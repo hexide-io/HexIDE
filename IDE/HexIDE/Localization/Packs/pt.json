@@ -655,6 +655,7 @@
     "Str.Options.Addin.Details.Status": "Estado:",
     "Str.Options.Addin.RevokeConsent": "Revogar consentimento",
     "Str.Options.Addin.RestartNote": "Tem efeito no próximo reinício do IDE.",
+    "Str.Options.Addin.TakenOutNote": "Os seus menus, comandos, janelas e servidores de linguagem foram removidos. O seu código permanece carregado até o HexIDE ser fechado.",
     "Str.Options.Addin.Trust": "Confiar",
     "Str.Dialog.About.SigningKeys.Header": "Chaves de assinatura de suplementos",
     "Str.Dialog.About.SigningKeys.RootKey": "Chave de raiz do HexIDE (SHA-256)",

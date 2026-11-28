@@ -692,6 +692,7 @@
     "Str.Options.Addin.Details.Status": "Status:",
     "Str.Options.Addin.RevokeConsent": "Revoke consent",
     "Str.Options.Addin.RestartNote": "Takes effect on the next IDE restart.",
+    "Str.Options.Addin.TakenOutNote": "Its menus, commands, windows and language servers are gone now. Its code stays loaded until HexIDE closes.",
     "Str.Options.Addin.Trust": "Trust",
     "Str.Dialog.About.SigningKeys.Header": "Add-in signing keys",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE root key (SHA-256)",

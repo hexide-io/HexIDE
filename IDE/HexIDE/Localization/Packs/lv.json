@@ -694,6 +694,7 @@
     "Str.Options.Addin.Details.Status": "Statuss:",
     "Str.Options.Addin.RevokeConsent": "Atsaukt piekrišanu",
     "Str.Options.Addin.RestartNote": "Stājas spēkā pēc nākamās IDE pārstartēšanas.",
+    "Str.Options.Addin.TakenOutNote": "Tās izvēlnes, komandas, logi un valodu serveri tagad ir noņemti. Tās kods paliek ielādēts, līdz HexIDE tiek aizvērts.",
     "Str.Options.Addin.Trust": "Uzticamība",
     "Str.Dialog.About.SigningKeys.Header": "Pievienojumprogrammu parakstīšanas atslēgas",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE saknes atslēga (SHA-256)",

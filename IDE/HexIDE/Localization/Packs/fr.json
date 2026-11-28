@@ -688,6 +688,7 @@
     "Str.Options.Addin.Details.Status": "État :",
     "Str.Options.Addin.RevokeConsent": "Révoquer le consentement",
     "Str.Options.Addin.RestartNote": "Prend effet au prochain redémarrage de l'EDI.",
+    "Str.Options.Addin.TakenOutNote": "Ses menus, commandes, fenêtres et serveurs de langage ont été retirés. Son code reste chargé jusqu'à la fermeture de HexIDE.",
     "Str.Options.Addin.Trust": "Approuver",
     "Str.Dialog.About.SigningKeys.Header": "Clés de signature des modules complémentaires",
     "Str.Dialog.About.SigningKeys.RootKey": "Clé racine HexIDE (SHA-256)",

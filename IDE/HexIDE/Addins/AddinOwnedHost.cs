@@ -6,34 +6,46 @@ namespace HexIDE.Addins;
 
 // The facade retains its owner even when an add-in registers a window after Initialize returns. Once the add-in is revoked
 // mid-session (withdrawn), none of its commands, menu items or event handlers run, whenever they were registered (#5577).
+// Its commands, menu items, tool windows, Options pages and project templates are tracked whenever they are registered, so
+// revoking, disabling or revoking consent takes them out at once, and one registered after that is taken out as it is made
+// (#5661).
 internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor tools, AddinOrigin origin, Func<bool>? withdrawn = null)
     : IHexIdeHost, HexIDE.Language.ILanguageEditingRegistration, IRunEngineRegistration, HexIDE.IDE.IProjectMakerRegistration
 {
     private readonly Func<bool> _withdrawn = withdrawn ?? (() => false);
+
+    // Initialize's registrations are in its rollback ledger too, so a handle may be disposed twice; each of these five kinds'
+    // handles ignores a second Dispose.
+    private static T Track<T>(IHexIdeHost host, AddinOrigin origin, T handle) where T : IDisposable
+    {
+        if (host.Registry is AddinRegistry addins) addins.TrackContribution(origin, handle);
+        return handle;
+    }
 
     // Internal for phase 2 (#5621): only HexIDE's own host can check the owner's grant, so any other is refused.
     public IDisposable RegisterProjectMaker(HexIDE.IDE.IProjectMaker maker) =>
         host is HexIdeHost concrete ? concrete.RegisterProjectMaker(maker, origin)
             : throw new InvalidOperationException("A project maker is registered only through the host HexIDE gives an add-in.");
 
-    public IToolWindowContributor ToolWindows => tools;
-    public IMenuContributor Menus { get; } = new OwnedMenus(host.Menus, origin, withdrawn ?? (() => false));
+    public IToolWindowContributor ToolWindows { get; } = new TrackedToolWindows(tools, handle => Track(host, origin, handle));
+    public IMenuContributor Menus { get; } = new OwnedMenus(host.Menus, origin, withdrawn ?? (() => false),
+        handle => Track(host, origin, handle));
     public IAddinEvents Events { get; } = new OwnedEvents(host.Events, withdrawn ?? (() => false));
     public IAddinRegistry Registry => host.Registry;
     public IEditorAccess Editor => host.Editor;
     public IProjectAccess Project => host.Project;
     public IDiagnosticsAccess Diagnostics => host.Diagnostics;
-    public IOptionsPageContributor Options => host.Options;
+    public IOptionsPageContributor Options { get; } = new TrackedOptions(host.Options, handle => Track(host, origin, handle));
     // HexIDE's own add-ins only (#4257): the caller supplies the approval callback, so any other add-in could answer yes for
     // the person. A developer-unsigned add-in exists only in a Debug build's developer mode, as RegisteredAddinTitle allows.
     public IServerChatTools ServerChatTools =>
         origin.IsFirstParty || origin.IsDeveloperUnsigned ? host.ServerChatTools : ServerChatToolsUnavailable.Instance;
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
-        host.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn));
+        Track(host, origin, host.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn)));
     public IDisposable RegisterCommand(string id, AddinTitle label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
-        host is HexIdeHost concrete
+        Track(host, origin, host is HexIdeHost concrete
             ? concrete.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn), origin)
-            : host.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn));
+            : host.RegisterCommand(id, label, Guard(onInvoke, _withdrawn), gesture, Guard(canExecute, _withdrawn)));
 
     // A withdrawn add-in's command or menu item never runs, if anything of it outlives the withdrawal, and one that says when it
     // can run says no. One with no such check is left without one, as registered: running it does nothing.
@@ -41,20 +53,41 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
     private static Func<bool>? Guard(Func<bool>? canExecute, Func<bool> withdrawn) =>
         canExecute is null ? null : () => !withdrawn() && canExecute();
 
-    private sealed class OwnedMenus(IMenuContributor menus, AddinOrigin owner, Func<bool> withdrawn) : IMenuContributor
+    private sealed class OwnedMenus(IMenuContributor menus, AddinOrigin owner, Func<bool> withdrawn,
+        Func<IDisposable, IDisposable> track) : IMenuContributor
     {
         [MethodImpl(MethodImplOptions.NoInlining)]
         public IDisposable Add(string parentPath, string label, object? icon, Action onInvoke, Func<bool>? canExecute = null) =>
-            menus is AddinMenuService service
+            track(menus is AddinMenuService service
                 ? service.AddOwned(owner, parentPath, new AddinTitle(label), icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn),
                     Assembly.GetCallingAssembly())
-                : menus.Add(parentPath, label, icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn));
+                : menus.Add(parentPath, label, icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn)));
         [MethodImpl(MethodImplOptions.NoInlining)]
         public IDisposable Add(string parentPath, AddinTitle label, object? icon, Action onInvoke, Func<bool>? canExecute = null) =>
-            menus is AddinMenuService service
+            track(menus is AddinMenuService service
                 ? service.AddOwned(owner, parentPath, label, icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn),
                     Assembly.GetCallingAssembly())
-                : menus.Add(parentPath, label, icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn));
+                : menus.Add(parentPath, label, icon, Guard(onInvoke, withdrawn), Guard(canExecute, withdrawn)));
+    }
+
+    private sealed class TrackedToolWindows(IToolWindowContributor tools, Func<IToolWindowHandle, IToolWindowHandle> track)
+        : IToolWindowContributor
+    {
+        public IToolWindowHandle Register(string id, string title, object? icon, Func<object> factory) =>
+            track(tools.Register(id, title, icon, factory));
+        public IToolWindowHandle Register(string id, AddinTitle title, object? icon, Func<object> factory) =>
+            track(tools.Register(id, title, icon, factory));
+    }
+
+    // The Options service keys a page by the assembly that registered it, so the add-in's is passed on, as the menus' is.
+    private sealed class TrackedOptions(IOptionsPageContributor options, Func<IOptionsPageHandle, IOptionsPageHandle> track)
+        : IOptionsPageContributor
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public IOptionsPageHandle RegisterOptionsPage(Func<object> factory) =>
+            track(options is AddinOptionsService service
+                ? service.RegisterOptionsPage(factory, Assembly.GetCallingAssembly())
+                : options.RegisterOptionsPage(factory));
     }
 
     // Each handler is wrapped so a withdrawn add-in stops hearing events, including ones it subscribed after Initialize, which
@@ -123,7 +156,8 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
         host is HexIdeHost concrete ? concrete.RegisterToolboxItem(component, iconKey, origin) : host.RegisterToolboxItem(component, iconKey);
     public IDisposable RegisterControlLibrary(IControlLibrary library, Func<IReadOnlyList<IComponentClass>> controls) =>
         host is HexIdeHost concrete ? concrete.RegisterControlLibrary(library, controls, origin) : host.RegisterControlLibrary(library, controls);
-    public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) => host.RegisterProjectTemplate(template);
+    public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) =>
+        Track(host, origin, host.RegisterProjectTemplate(template));
     public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server) =>
         host is HexIdeHost concrete ? concrete.RegisterLanguageServer(server, origin) : host.RegisterLanguageServer(server);
     public IDisposable RegisterDebugLaunch(AddinDebugLaunch launch) =>

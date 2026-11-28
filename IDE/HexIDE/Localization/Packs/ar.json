@@ -688,6 +688,7 @@
     "Str.Options.Addin.Details.Status": "الحالة:",
     "Str.Options.Addin.RevokeConsent": "إلغاء الموافقة",
     "Str.Options.Addin.RestartNote": "يسري عند إعادة تشغيل بيئة التطوير التالية.",
+    "Str.Options.Addin.TakenOutNote": "أُزيلت قوائمها وأوامرها ونوافذها وخوادم اللغة الخاصة بها الآن. تبقى شيفرتها محمّلة حتى يُغلق HexIDE.",
     "Str.Options.Addin.Trust": "الثقة",
     "Str.Dialog.About.SigningKeys.Header": "مفاتيح توقيع الإضافات",
     "Str.Dialog.About.SigningKeys.RootKey": "المفتاح الجذري لـ HexIDE (SHA-256)",

@@ -655,6 +655,7 @@
     "Str.Options.Addin.Details.Status": "Κατάσταση:",
     "Str.Options.Addin.RevokeConsent": "Ανάκληση συγκατάθεσης",
     "Str.Options.Addin.RestartNote": "Ισχύει από την επόμενη επανεκκίνηση του IDE.",
+    "Str.Options.Addin.TakenOutNote": "Τα μενού, οι εντολές, τα παράθυρα και οι διακομιστές γλώσσας του αφαιρέθηκαν. Ο κώδικάς του παραμένει φορτωμένος μέχρι να κλείσει το HexIDE.",
     "Str.Options.Addin.Trust": "Εμπιστοσύνη",
     "Str.Dialog.About.SigningKeys.Header": "Κλειδιά υπογραφής προσθέτων",
     "Str.Dialog.About.SigningKeys.RootKey": "Ριζικό κλειδί HexIDE (SHA-256)",

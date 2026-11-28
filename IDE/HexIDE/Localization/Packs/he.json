@@ -722,6 +722,7 @@
     "Str.Options.Addin.Details.Status": "מצב:",
     "Str.Options.Addin.RevokeConsent": "בטל הסכמה",
     "Str.Options.Addin.RestartNote": "נכנס לתוקף בהפעלה הבאה של ה-IDE.",
+    "Str.Options.Addin.TakenOutNote": "התפריטים, הפקודות, החלונות ושרתי השפה שלו הוסרו. הקוד שלו נשאר טעון עד ש-HexIDE ייסגר.",
     "Str.Options.Addin.Trust": "אמון",
     "Str.Dialog.About.SigningKeys.Header": "מפתחות חתימה של תוספים",
     "Str.Dialog.About.SigningKeys.RootKey": "מפתח שורש של HexIDE ‏(SHA-256)",

@@ -688,6 +688,7 @@
     "Str.Options.Addin.Details.Status": "Stav:",
     "Str.Options.Addin.RevokeConsent": "Odvolat souhlas",
     "Str.Options.Addin.RestartNote": "Projeví se při příštím restartu IDE.",
+    "Str.Options.Addin.TakenOutNote": "Jeho nabídky, příkazy, okna a jazykové servery byly odebrány. Jeho kód zůstane načtený, dokud HexIDE nezavřete.",
     "Str.Options.Addin.Trust": "Důvěřovat",
     "Str.Dialog.About.SigningKeys.Header": "Podpisové klíče doplňků",
     "Str.Dialog.About.SigningKeys.RootKey": "Kořenový klíč HexIDE (SHA-256)",

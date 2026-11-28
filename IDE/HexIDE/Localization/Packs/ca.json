@@ -693,6 +693,7 @@
     "Str.Options.Addin.Details.Status": "Estat:",
     "Str.Options.Addin.RevokeConsent": "Revoca el consentiment",
     "Str.Options.Addin.RestartNote": "S'aplica al proper reinici de l'IDE.",
+    "Str.Options.Addin.TakenOutNote": "Els seus menús, ordres, finestres i servidors de llenguatge ja s'han eliminat. El seu codi continua carregat fins que es tanqui HexIDE.",
     "Str.Options.Addin.Trust": "Confiança",
     "Str.Dialog.About.SigningKeys.Header": "Claus de signatura dels complements",
     "Str.Dialog.About.SigningKeys.RootKey": "Clau arrel d'HexIDE (SHA-256)",
