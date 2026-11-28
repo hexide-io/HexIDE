@@ -216,3 +216,52 @@ gets:
 - **Not measured: Click and double-click.** Click is raised on a release over the control, and DblClick isn't raised.
 - **A form holding an in-box control HexIDE doesn't model yet** is refused with a message naming the control's issue:
   "HexIDE cannot create ListView1 (MSComctlLib.ListView), which isn't implemented yet (#1085)."
+
+## How VB6's save writes a fractional or large Max (2026-11-28, #5838, IDE, SP6)
+
+**The question.** #5838: HexIDE saves a ProgressBar's `Max = 5e-3` as `Max = 0.005`. What does VB6's own save write?
+The issue offered three answers: `5e-3`, `5E-03` or `0.005`.
+
+**The rig.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console by the IDE step driver. Each
+project was a one-form Standard EXE using MSComctlLib 6.0, and each ran in a fresh vb6.exe. In the form's code window
+the driver pressed Ctrl+End, typed `x`, pressed Backspace, then saved with Ctrl+S. VB6 opened each form with no message,
+and wrote each file 9 to 11 s after it was copied in. The forms were:
+- **#5838's `Form3`,** exactly as the issue gives it: one ProgressBar, `_Version 393216`, with `Max = 5e-3`;
+- **two forms of eight ProgressBars,** each the same block with a different Max.
+
+Every saved file matched its input except in the Max lines below, and in one empty line at the end of the code, which
+the edit left.
+
+**Result for #5838: VB6 writes `Max = 0.005`,** as HexIDE does. The guess behind the issue was that VB6 keeps a small
+value in exponent form, because a form in the wild had `5e-3`. That guess is wrong for this value. Where that form's
+text came from is unknown.
+
+| Max as read | Max as VB6 wrote it |
+|---|---|
+| `5e-3`, `5E-03` | `0.005` |
+| `0.005`, `0.05`, `0.5`, `0.001`, `123.456` | unchanged |
+| `0.0005` | `5e-4` |
+| `0.00015` | `1.5e-4` |
+| `0.0001`, `1e-4` | `1e-4` |
+| `2.5e-7` | `2.5e-7` |
+| `1000000` | `1e6` |
+| `10000000` | `1e7` |
+| `1e8` | `1e8` |
+| `12345678` | `1.23457e7` |
+
+**The rule these rows fit:**
+- six significant digits, with trailing zeros dropped;
+- exponent form when the value is below 0.001, or 1,000,000 or more, and fixed otherwise;
+- the exponent written with a lowercase `e`, a minus sign when it's negative, and no plus sign or leading zeros.
+
+That isn't C's `%g`, which writes 0.0005 as `0.0005` and an exponent with a sign and two digits, as `1e+06`.
+
+**A save rounds the value.** 12345678 is exact as a Single, but VB6 writes `1.23457e7`, which reads back as 12345700.
+So opening and saving that form in VB6 raises its Max by 22.
+
+**Not measured:**
+- values from 0.0001 to 0.001 other than 0.0005 and 0.00015, and from 100,000 to 1,000,000;
+- a value whose rounding to six digits carries into a new digit, such as 999999.7;
+- negative values, and Min;
+- what HexIDE writes for the rows other than #5838's;
+- whether other Single properties, an intrinsic control's or a form's, are written by the same rule.
