@@ -160,3 +160,44 @@ hypothesis and then measured: both refused with *Expected: identifier*. Worth pi
 incidental, because the illegality is load-bearing for anyone extending the language — a dialect that wants
 `New` to name a constructor can only do so cleanly because VB6 leaves the name unavailable.
 
+
+## An Enum member whose bracketed name holds a dot (2026-11-28, #5833, SP6)
+
+**The obvious guess, overturned:** that a construct HexIDE's grammars refuse is one VB6 refuses too. A dot inside
+brackets is part of one member's name, `[Ver1.5]`, and VB6 builds it in the declaration and in a use. HexIDE at
+`603e079ce` refused both lines in both of its grammars. That is the corpus pilot's measurement, recorded on #5833, and
+it is not repeated here.
+
+**Measured on vb6.exe 6.00.9782 (SP6)** in the oracle VM on 2026-11-28. The probe is #5833's second example, verbatim,
+as a Standard EXE with `Startup="Sub Main"` and a reference to OLE Automation. It was written to the VM with CRLF line
+endings and built with `/make` twice: as native code (`CompilationType=0`) and as p-code (`CompilationType=-1`). It was
+built, not run.
+
+| Probe | Native | P-code |
+|---|---|---|
+| `[Ver1.5] = 15` declared, and read as `v = [Ver1.5]` | builds | builds |
+| control: `Ver1.5 = 15` unbracketed, with `v = Ver2` | **refused**: "Line 3 : Invalid inside Enum" | **refused**, the same |
+
+The builds that succeeded wrote "Build of 'p.exe' succeeded." to the `/out` log. The control's `Line 3` is the 0-based
+code-view count described in
+[What `/make` writes to `/out`](what-make-writes-to-out-and-what-line-n-counts.md#what-make-writes-to-out-and-what-line-n-counts-2026-09-19):
+the file's fifth line, `Ver1.5 = 15`, with the one `Attribute` line left out.
+
+```vb
+Attribute VB_Name = "Module9"
+Option Explicit
+
+Private Enum E6
+    [Ver1.5] = 15
+    Ver2 = 20
+End Enum
+
+Sub Main()
+    Dim v As E6
+    v = [Ver1.5]
+    Debug.Print v
+End Sub
+```
+
+**Not measured:** what `[Ver1.5]` reads as when the program runs, and whether a dotted bracketed name is accepted
+anywhere other than as an Enum member.
