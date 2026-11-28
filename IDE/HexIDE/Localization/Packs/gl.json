@@ -137,6 +137,8 @@
     "Str.Dialog.About.Provenance": "Baseado en HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Saída",
     "Str.Tool.LanguageServers.OutputEmpty": "Aínda non se recibiu ningunha saída.",
+    "Str.Tool.Properties.ColorPalette": "Paleta",
+    "Str.Tool.Properties.ColorSystem": "Sistema",
     "Str.Tool.Properties.LoadPicture": "Cargar imaxe",
     "Str.Tool.Properties.Binary": "(binario)",
     "Str.Tool.Properties.LoadPictureFailed": "Non se pode cargar a imaxe de «{0}».",

@@ -101,6 +101,8 @@
     "Str.Dialog.About.Provenance": "สร้างบนพื้นฐานของ HexIDE {0} {1}",
     "Str.Tool.LanguageServers.Output": "เอาต์พุต",
     "Str.Tool.LanguageServers.OutputEmpty": "ยังไม่ได้รับเอาต์พุต",
+    "Str.Tool.Properties.ColorPalette": "จานสี",
+    "Str.Tool.Properties.ColorSystem": "ระบบ",
     "Str.Tool.Properties.LoadPicture": "โหลดรูปภาพ",
     "Str.Tool.Properties.Binary": "(ไบนารี)",
     "Str.Tool.Properties.LoadPictureFailed": "ไม่สามารถโหลดรูปภาพจาก “{0}” ได้",

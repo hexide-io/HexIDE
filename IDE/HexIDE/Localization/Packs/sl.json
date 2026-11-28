@@ -101,6 +101,8 @@
     "Str.Dialog.About.Provenance": "Temelji na HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Izhod",
     "Str.Tool.LanguageServers.OutputEmpty": "Izhod še ni bil prejet.",
+    "Str.Tool.Properties.ColorPalette": "Paleta",
+    "Str.Tool.Properties.ColorSystem": "Sistem",
     "Str.Tool.Properties.LoadPicture": "Naloži sliko",
     "Str.Tool.Properties.Binary": "(binarno)",
     "Str.Tool.Properties.LoadPictureFailed": "Slike iz »{0}« ni mogoče naložiti.",

@@ -101,6 +101,8 @@
     "Str.Dialog.About.Provenance": "Založené na HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Výstup",
     "Str.Tool.LanguageServers.OutputEmpty": "Zatiaľ nebol prijatý žiadny výstup.",
+    "Str.Tool.Properties.ColorPalette": "Paleta",
+    "Str.Tool.Properties.ColorSystem": "Systémové",
     "Str.Tool.Properties.LoadPicture": "Načítať obrázok",
     "Str.Tool.Properties.Binary": "(binárne)",
     "Str.Tool.Properties.LoadPictureFailed": "Obrázok z „{0}“ sa nedá načítať.",

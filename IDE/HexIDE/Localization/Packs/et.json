@@ -104,6 +104,8 @@
     "Str.Dialog.About.Provenance": "Põhineb tarkvaral HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Väljund",
     "Str.Tool.LanguageServers.OutputEmpty": "Väljundit pole veel saabunud.",
+    "Str.Tool.Properties.ColorPalette": "Palett",
+    "Str.Tool.Properties.ColorSystem": "Süsteem",
     "Str.Tool.Properties.LoadPicture": "Laadi pilt",
     "Str.Tool.Properties.Binary": "(binaarne)",
     "Str.Tool.Properties.LoadPictureFailed": "Pilti asukohast „{0}” ei saa laadida.",
