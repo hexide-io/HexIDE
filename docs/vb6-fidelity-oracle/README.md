@@ -866,6 +866,7 @@ added afterwards.
 - [Len of declared scalars and numeric expressions (#780)](len-of-declared-scalars-and-numeric-expressions.md#len-of-declared-scalars-and-numeric-expressions-780)
 - [A For loop with a fraction (2026-10-24, #983)](a-for-loop-with-a-fraction.md#a-for-loop-with-a-fraction-2026-10-24-983)
 - [In-box controls: the ProgressBar (2026-10-25, #1082)](in-box-controls-the-progressbar.md#in-box-controls-the-progressbar-2026-10-25-1082)
+- [How VB6's save writes a fractional or large Max (2026-11-28, #5838, IDE, SP6)](in-box-controls-the-progressbar.md#how-vb6s-save-writes-a-fractional-or-large-max-2026-11-28-5838-ide-sp6)
 - [TabIndex and TabStop at run time (2026-10-26, #1974)](tabindex-and-tabstop-at-run-time.md#tabindex-and-tabstop-at-run-time-2026-10-26-1974)
 - [The Components dialog and an in-box library's lines (2026-10-26, #1103, design-time)](the-components-dialog-and-an-in-box-librarys-lines.md#the-components-dialog-and-an-in-box-librarys-lines-2026-10-26-1103-design-time)
 - [Data-bound TextBox startup value (#859, #856)](data-bound-textbox-startup-value.md#data-bound-textbox-startup-value-859-856)
@@ -887,6 +888,7 @@ added afterwards.
 - [A class file's Instancing, read from its lines (2026-11-21, #21, IDE, SP6)](a-class-files-instancing-read-from-its-lines.md#a-class-files-instancing-read-from-its-lines-2026-11-21-21-ide-sp6)
 - [Controls.Add and Controls.Remove (2026-10-26, #1556)](controls-add-and-controls-remove.md#controlsadd-and-controlsremove-2026-10-26-1556)
 - [A control without a Font block takes the form's font (#2062)](form-font-inheritance.md)
+- [What VB6's IDE saves for a control without a Font block (2026-11-28, #5836, IDE, SP6)](form-font-inheritance.md#what-vb6s-ide-saves-for-a-control-without-a-font-block-2026-11-28-5836-ide-sp6)
 - [Compile refusals: Continue Do, With Debug and a private field through Me](compile-refusals-continue-with-debug-and-me.md) — SP6 native and p-code measurements supplied in #2121.
 - [A compile error met while a program runs, with Compile On Demand on and off (2026-11-21, #833, IDE, SP6)](a-compile-error-met-while-a-program-runs.md#a-compile-error-met-while-a-program-runs-with-compile-on-demand-on-and-off-2026-11-21-833-ide-sp6)
 - [What `/make` says for a syntax error or an unbalanced block (2026-11-20, #4415, SP6)](what-make-says-for-a-syntax-error-or-an-unbalanced-block.md#what-make-says-for-a-syntax-error-or-an-unbalanced-block-2026-11-20-4415-sp6)
@@ -1101,3 +1103,4 @@ added afterwards.
 - [A Public Type, and a variable in another module (2026-11-20, #4907)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-public-type-and-a-variable-in-another-module-2026-11-20-4907)
 - [Format presence and RTF text (2026-11-20, #4955, SP6)](text-clipboard.md#format-presence-and-rtf-text-2026-11-20-4955-sp6)
 - [Clipboard: another application's data, by GetFormat, GetText and GetData (2026-11-21, #5075, SP6)](text-clipboard.md#another-applications-data-getformat-gettext-and-getdata-2026-11-21-5075-sp6)
+- [Five constructs VB6 builds that HexIDE's grammars refused (2026-11-28, #5831 to #5835, SP6)](five-constructs-vb6-builds-that-hexides-grammars-refused.md#five-constructs-vb6-builds-that-hexides-grammars-refused-2026-11-28-5831-to-5835-sp6)
