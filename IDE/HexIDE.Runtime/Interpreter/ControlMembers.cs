@@ -27,6 +27,9 @@ internal static class ControlMembers
     {
         if (value.Value is not Control control)
             return new(value);
+        // #5549: an empty PictureBox's default reads its picture handle as Long zero.
+        if (control is VBPictureBox { PictureData: not { Length: > 0 } })
+            return new(WrapLateBoundDefault(value, new Vb6Value(0L)));
         if (DefaultMember(value) is { } member)
             return ReadDefaultMember(value, member);
         if (value.Type == Vb6Value.ValueType.Control
@@ -36,12 +39,12 @@ internal static class ControlMembers
         return new(value);
     }
 
-    private static async ValueTask<Vb6Value> ReadDefaultMember(Vb6Value value, string member)
-    {
-        var result = await Read(value, member, null);
-        // A late-bound default reads as a Variant (#5504, SP6 native and p-code).
-        return IsLateBoundListReference(value) ? result.AsVariant() : result;
-    }
+    private static async ValueTask<Vb6Value> ReadDefaultMember(Vb6Value value, string member) =>
+        WrapLateBoundDefault(value, await Read(value, member, null));
+
+    // A late-bound default reads as a Variant (#5504, SP6 native and p-code).
+    private static Vb6Value WrapLateBoundDefault(Vb6Value value, Vb6Value result) =>
+        IsLateBoundListReference(value) ? result.AsVariant() : result;
 
     // Measured late-bound list receivers, including Collection items and function results (#5135).
     // VB.Control declarations also reach dispatch with the bare Control view.
