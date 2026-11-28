@@ -1101,3 +1101,4 @@ added afterwards.
 - [A Public Type, and a variable in another module (2026-11-20, #4907)](what-an-enum-members-value-and-a-types-bounds-may-name.md#a-public-type-and-a-variable-in-another-module-2026-11-20-4907)
 - [Format presence and RTF text (2026-11-20, #4955, SP6)](text-clipboard.md#format-presence-and-rtf-text-2026-11-20-4955-sp6)
 - [Clipboard: another application's data, by GetFormat, GetText and GetData (2026-11-21, #5075, SP6)](text-clipboard.md#another-applications-data-getformat-gettext-and-getdata-2026-11-21-5075-sp6)
+- [Five constructs VB6 builds that HexIDE's grammars refused (2026-11-28, #5831 to #5835, SP6)](five-constructs-vb6-builds-that-hexides-grammars-refused.md#five-constructs-vb6-builds-that-hexides-grammars-refused-2026-11-28-5831-to-5835-sp6)
