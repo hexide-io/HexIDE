@@ -339,7 +339,7 @@ public class ReadOnlyGreyingTests : IDisposable
         var project = new ProjectDefinition(VBProjectType.EXE, "P")
         {
             VbaBitness = bitness,
-            Target = rdcore ? ProjectTarget.RDCore : ProjectTarget.None,
+            ExtensionTail = rdcore ? "[HexIDE]\r\nTargets=RDCore\r\n" : null,
         };
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode("#If Probe Then\nx = (1)\n#End If\n");
@@ -392,7 +392,7 @@ public class ReadOnlyGreyingTests : IDisposable
     {
         var themes = new ThemeService();
         using var scope = TheIdesThemes(themes);
-        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P") { Target = ProjectTarget.RDCore },
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P") { ExtensionTail = "[HexIDE]\r\nTargets=RDCore\r\n" },
             "Module1", ModuleKind.StandardModule);
         module.UpdateCode("#If Win64 Then\nDebug.Print 1\n#Else\nDebug.Print 0\n#End If\n");
         var vm = MakeViewModel().Initialize(module);
@@ -413,16 +413,19 @@ public class ReadOnlyGreyingTests : IDisposable
 
     // #4821/#4890: use the real selector, debounce and rendered line transformer on this host.
     [AvaloniaTheory]
-    [InlineData(nameof(ProjectTarget.RDCore), false)]
-    [InlineData(nameof(ProjectTarget.RDCore), true)]
-    [InlineData(nameof(ProjectTarget.None), false)]
-    [InlineData(nameof(ProjectTarget.None), true)]
-    public async Task Project_target_greys_the_same_NavalBattle_branch_as_the_run(string targetName, bool windowsOnly)
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    public async Task Project_target_greys_the_same_NavalBattle_branch_as_the_run(bool rdcore, bool windowsOnly)
     {
-        var target = Enum.Parse<ProjectTarget>(targetName);
         var themes = new ThemeService();
         using var scope = TheIdesThemes(themes);
-        var project = new ProjectDefinition(VBProjectType.EXE, "NavalBattle") { Target = target, VbaBitness = VbaBitness.Bit64 };
+        var project = new ProjectDefinition(VBProjectType.EXE, "NavalBattle")
+        {
+            ExtensionTail = rdcore ? "[HexIDE]\r\nTargets=RDCore\r\n" : null,
+            VbaBitness = VbaBitness.Bit64,
+        };
         var module = new ModuleDefinition(project, "Pause", ModuleKind.StandardModule);
         module.UpdateCode("#If Win32 Or Win64 Then\nDebug.Print \"Declare\"\n#Else\nDebug.Print \"Timer\"\n#End If\n");
         var vm = MakeViewModel().Initialize(module);
@@ -430,13 +433,13 @@ public class ReadOnlyGreyingTests : IDisposable
         var editor = Show(vm);
         var view = (CodeEditorView)windows.Last().Content!;
         var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
-        if (target == ProjectTarget.RDCore) selector.ItemCount.Should().Be(6);
-        selector.SelectedIndex.Should().Be(target == ProjectTarget.RDCore ? 5 : 2);
+        if (rdcore) selector.ItemCount.Should().Be(6);
+        selector.SelectedIndex.Should().Be(rdcore ? 5 : 2);
         // Changing away and back exercises SelectionChanged and the actual dispatcher timer.
         selector.SelectedIndex = 0;
-        selector.SelectedIndex = target == ProjectTarget.RDCore ? 5 : 2;
+        selector.SelectedIndex = rdcore ? 5 : 2;
         await WaitForConditionalEvaluation(view);
-        var windowsBranch = target != ProjectTarget.RDCore || OperatingSystem.IsWindows() ||
+        var windowsBranch = !rdcore || OperatingSystem.IsWindows() ||
             (OperatingSystem.IsMacOS() && !windowsOnly);
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         ColoursOn(editor, LineOf(editor, windowsBranch ? "Debug.Print \"Timer\"" : "Debug.Print \"Declare\""))

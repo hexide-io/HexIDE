@@ -263,7 +263,7 @@ public class ProjectSerializer
             writer.WriteLine(line);
 
         // Append the extension tail (third-party [SectionName]...EOF content)
-        var extensionTail = ProjectEncodingRecords.Write(project.ExtensionTail, encodingPaths, project.VbaBitness, project.Target);
+        var extensionTail = ProjectEncodingRecords.Write(project.ExtensionTail, encodingPaths, project.VbaBitness, ProjectTargets.Of(project));
         if (!string.IsNullOrEmpty(extensionTail))
         {
             writer.WriteLine();

@@ -1,11 +1,14 @@
+using System.Runtime.InteropServices;
 using HexIDE.Bookmarks;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 
@@ -40,11 +43,18 @@ public class CodeEditorViewModelTests : IDisposable
             .Returns(Substitute.For<IDisposable>());
     }
 
-    private CodeEditorViewModel CreateSut()
+    private CodeEditorViewModel CreateSut(ILanguageEditing? editing = null)
     {
         _sut = new CodeEditorViewModel(
-            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization, recentEditHistory: recentEdits);
+            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization, recentEditHistory: recentEdits, languageEditing: editing);
         return _sut;
+    }
+
+    private CodeEditorViewModel CreateConditionalEditor(InterpreterConditionalCode? reader = null)
+    {
+        var editing = Substitute.For<ILanguageEditing>();
+        editing.ConditionalCodeFor(DocumentLanguage.Vb6).Returns(reader ?? new InterpreterConditionalCode());
+        return CreateSut(editing);
     }
 
     public void Dispose()
@@ -464,12 +474,12 @@ public class CodeEditorViewModelTests : IDisposable
     {
         var module = TestHelpers.CreateModule();
         module.Owner.VbaBitness = bitness;
-        var moduleVm = CreateSut().Initialize(module);
+        var moduleVm = CreateConditionalEditor().Initialize(module);
         moduleVm.ConditionalTargetIndex.Should().Be(expected);
         moduleVm.Dispose();
         var form = TestHelpers.CreateForm(name: "Form1");
         form.Owner.VbaBitness = bitness;
-        CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(expected);
+        CreateConditionalEditor().Initialize(form).ConditionalTargetIndex.Should().Be(expected);
     }
 
     // #4821: the constants target takes precedence over the bitness default, for forms and modules.
@@ -480,15 +490,15 @@ public class CodeEditorViewModelTests : IDisposable
     public void RDCore_project_defaults_to_RDCore_preview(VbaBitness bitness)
     {
         var module = TestHelpers.CreateModule();
-        module.Owner.Target = ProjectTarget.RDCore;
+        module.Owner.ExtensionTail = "[HexIDE]\r\nTargets=RDCore\r\n";
         module.Owner.VbaBitness = bitness;
-        var moduleVm = CreateSut().Initialize(module);
+        var moduleVm = CreateConditionalEditor().Initialize(module);
         moduleVm.ConditionalTargetIndex.Should().Be(5);
         moduleVm.Dispose();
         var form = TestHelpers.CreateForm(name: "Form1");
-        form.Owner.Target = ProjectTarget.RDCore;
+        form.Owner.ExtensionTail = "[HexIDE]\r\nTargets=RDCore\r\n";
         form.Owner.VbaBitness = bitness;
-        CreateSut().Initialize(form).ConditionalTargetIndex.Should().Be(5);
+        CreateConditionalEditor().Initialize(form).ConditionalTargetIndex.Should().Be(5);
     }
 
     // #4890: RDCore.SDK PredefinedConditionalConstants.cs (Of), SDK 0.1.11-alpha.
@@ -502,20 +512,22 @@ public class CodeEditorViewModelTests : IDisposable
     public void Editor_greying_uses_the_recorded_host_table(string host, bool windowsOnly, string row)
     {
         var module = TestHelpers.CreateModule();
-        module.Owner.Target = ProjectTarget.RDCore;
+        module.Owner.ExtensionTail = "[HexIDE]\r\nTargets=RDCore\r\n";
         _settingsService.RDCoreWin64OnlySetOnWindows.Returns(windowsOnly);
-        var vm = CreateSut().Initialize(module);
-        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None,
-            System.Runtime.InteropServices.OSPlatform.Create(host), vm.ConditionalWin64OnlySetOnWindows);
+        var reader = new InterpreterConditionalCode();
+        using var vm = CreateConditionalEditor(reader).Initialize(module);
+        var constants = new ConditionalConstants(ConditionalConstants.NoArguments)
+        {
+            Target = vm.ConditionalTargetId,
+            Win64OnlySetOnWindows = vm.ConditionalWin64OnlySetOnWindows,
+        };
+        var platform = OSPlatform.Create(host);
         var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7" };
         var values = row.Split(',');
         var condition = string.Join(" And ", names.Select((name, i) => $"({name} = {values[i]})"));
         var source = $"#If {condition} Then\nactive\n#Else\ninactive\n#End If\n";
-        new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode().InactiveLines(source,
-            new HexIDE.Language.ConditionalConstants(HexIDE.Language.ConditionalConstants.NoArguments) { BuiltIns = builtIns })
-            .Should().Equal(new HexIDE.Language.LineRange(4, 4));
-        builtIns.Keys.Should().BeEquivalentTo(names);
-        vm.Dispose();
+        reader.InactiveLines(source, constants, platform).Should().Equal(new LineRange(4, 4));
+        InterpreterConditionalCode.TargetBuiltIns(constants, platform)!.Keys.Should().BeEquivalentTo(names);
     }
 
     // Excel for Mac 16.115, #4821: the RDCore option leaves VBA previews unchanged.
@@ -524,12 +536,16 @@ public class CodeEditorViewModelTests : IDisposable
     [InlineData(true)]
     public void Mac_VBA_preview_retains_its_table(bool windowsOnly)
     {
-        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit64,
-            System.Runtime.InteropServices.OSPlatform.OSX, windowsOnly);
+        var constants = new ConditionalConstants(ConditionalConstants.NoArguments)
+        {
+            Target = "vba64",
+            Win64OnlySetOnWindows = windowsOnly,
+        };
+        var builtIns = InterpreterConditionalCode.TargetBuiltIns(constants, OSPlatform.OSX)!;
         builtIns.Keys.Should().BeEquivalentTo("Win16", "Win32", "Win64", "Mac", "VBA6", "VBA7");
-        builtIns["Win32"].Should().Be(0);
-        builtIns["Win64"].Should().Be(1);
-        builtIns["Mac"].Should().Be(1);
+        new InterpreterConditionalCode().InactiveLines(
+            "#If Win32 = 0 And Win64 = 1 And Mac = 1 Then\nactive\n#Else\ninactive\n#End If",
+            constants, OSPlatform.OSX).Should().Equal(new LineRange(4, 4));
     }
 
     [AvaloniaTheory]
@@ -538,16 +554,18 @@ public class CodeEditorViewModelTests : IDisposable
     public void Mac_editor_pause_preview_follows_the_installation_setting(bool windowsOnly)
     {
         var form = TestHelpers.CreateForm();
-        form.Owner.Target = ProjectTarget.RDCore;
+        form.Owner.ExtensionTail = "[HexIDE]\r\nTargets=RDCore\r\n";
         _settingsService.RDCoreWin64OnlySetOnWindows.Returns(windowsOnly);
-        var vm = CreateSut().Initialize(form);
-        var builtIns = HexIDE.Forms.Views.CodeEditorView.TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None,
-            System.Runtime.InteropServices.OSPlatform.OSX, vm.ConditionalWin64OnlySetOnWindows);
-        new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode().InactiveLines(
+        var reader = new InterpreterConditionalCode();
+        using var vm = CreateConditionalEditor(reader).Initialize(form);
+        var constants = new ConditionalConstants(ConditionalConstants.NoArguments)
+        {
+            Target = vm.ConditionalTargetId,
+            Win64OnlySetOnWindows = vm.ConditionalWin64OnlySetOnWindows,
+        };
+        reader.InactiveLines(
             "#If Win32 Or Win64 Then\nSleep 1\n#Else\nTimer\n#End If",
-            new HexIDE.Language.ConditionalConstants(HexIDE.Language.ConditionalConstants.NoArguments) { BuiltIns = builtIns })
-            .Should().Equal(new HexIDE.Language.LineRange(windowsOnly ? 2 : 4, windowsOnly ? 2 : 4));
-        vm.Dispose();
+            constants, OSPlatform.OSX).Should().Equal(new LineRange(windowsOnly ? 2 : 4, windowsOnly ? 2 : 4));
     }
 
     [AvaloniaFact]

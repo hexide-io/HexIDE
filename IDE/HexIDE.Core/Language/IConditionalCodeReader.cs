@@ -1,3 +1,5 @@
+using HexIDE.Runtime.ProjectElements;
+
 namespace HexIDE.Language;
 
 /// <summary>
@@ -11,6 +13,9 @@ public interface IConditionalCodeReader
     /// None when a directive cannot be read.
     /// </summary>
     IReadOnlyList<LineRange> InactiveLines(string source, ConditionalConstants constants);
+
+    /// <summary>The target id a project's modules start on in the code window, or null for the reader's default.</summary>
+    string? DefaultTarget(ProjectDefinition project) => null;
 }
 
 /// <summary>What a module's <c>#If</c>s can name besides its own <c>#Const</c>s.</summary>
@@ -25,6 +30,12 @@ public sealed record ConditionalConstants(IReadOnlyDictionary<string, short> Arg
     /// <see cref="int"/> or a <see cref="string"/>, or null for a constant that compiler defines and the project does not record.
     /// </summary>
     public IReadOnlyDictionary<string, object?>? BuiltIns { get; init; }
+
+    /// <summary>The selected target id, or null for the reader's own compiler. Explicit <see cref="BuiltIns"/> take precedence.</summary>
+    public string? Target { get; init; }
+
+    /// <summary>The IDE's setting for a target whose <c>Win64</c> it decides.</summary>
+    public bool Win64OnlySetOnWindows { get; init; }
 
     /// <summary>A function call in an <c>#If</c> reads as 0, whatever it names, rather than being called.</summary>
     public bool CallsReadZero { get; init; }

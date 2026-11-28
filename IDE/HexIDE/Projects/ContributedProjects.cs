@@ -522,8 +522,6 @@ public sealed partial class ContributedProjects
         var project = new ProjectDefinition(VBProjectType.EXE, content.Name)
         {
             ContributedBy = type.AddinId,
-            Target = type.Type.FileNames.Any(name => name.Equals(".rdproj", StringComparison.OrdinalIgnoreCase) ||
-                name.Equals("*.rdproj", StringComparison.OrdinalIgnoreCase)) ? ProjectTarget.RDCore : ProjectTarget.None,
             Offers = type.Offers,
             ContributorTitle = type.Origin,
             FormFormat = format,

@@ -250,7 +250,7 @@ Agreed while slicing phase 2. Each is confirmed by the supervisor unless it says
     (2.6, #5403). The provider registers them for `vb6`, the code window's id for every VB-family project's members, and
     for `twinbasic`, which a twinBASIC container's sources have in the archive view. A language with none registered gets
     no greyed branches, no coloured brackets and no declarations.
-- **Still open: a public shape for a project's targets (2.12, #5404).** The draft is on #5404
-  (issuecomment-7092255114). It has `ProjectDefinition.Targets` and `AddinProjectContent.Targets` as lists of engine
-  ids, with rules for an empty list, one known id, an unknown id and several ids. Its wording waits on RDCore's
-  maintainer, and this record gains it once that's answered.
+- **The project's target stays private to the Basic provider (2.12a, #5404).** The provider derives it from the
+  contributed project's path or the `.vbp`'s `[HexIDE] Targets=` line. The code window asks the registered
+  conditional-code reader for the default preview target and passes the selected preview id back to it.
+  RDCore's server reporting inactive branches belongs to 2.12b.

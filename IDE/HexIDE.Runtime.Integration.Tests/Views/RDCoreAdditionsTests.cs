@@ -550,7 +550,10 @@ public class RDCoreAdditionsTests
         Action<VBFormRuntime>? inspect = null, string designer = Designer, bool activation = false,
         string extraCode = "", bool vba = false)
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "P") { Target = target };
+        var project = new ProjectDefinition(VBProjectType.EXE, "P")
+        {
+            ExtensionTail = target == ProjectTarget.RDCore ? "[HexIDE]\r\nTargets=RDCore\r\n" : null,
+        };
         if (vba) project.VbaBitness = VbaBitness.Bit64;
         var code = "\r\nPrivate Sub Form_" + (activation ? "Activate" : "Load") + "()\r\n" + load + "\r\nEnd Sub\r\n" + extraCode;
         var form1 = new FormDeserializer().Deserialize(project, (designer + code).ReplaceLineEndings("\r\n"), new NullSink())!;

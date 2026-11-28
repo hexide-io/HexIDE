@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -79,29 +77,21 @@ public partial class CodeEditorView
         ConditionalTargetCombo.IsVisible = Regex.IsMatch(source, @"^\s*#If\b", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant);
         var project = vm.ModuleDefinition?.Owner ?? vm.FormDefinition?.Owner;
         var twinBasic = vm.ConditionalTargetIndex is 3 or 4;
-        var builtIns = vm.ConditionalTargetIndex switch
-        {
-            1 => TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit32),
-            2 => TargetBuiltIns(ProjectTarget.None, VbaBitness.Bit64),
-            5 => TargetBuiltIns(ProjectTarget.RDCore, VbaBitness.None, win64OnlySetOnWindows: vm.ConditionalWin64OnlySetOnWindows),
-            3 or 4 => TwinBasicBuiltIns(vm.ConditionalTargetIndex == 4, project?.ProjectType),
-            _ => null,
-        };
+        var target = vm.ConditionalTargetId;
         // A CondComp line vb6.exe refuses stops the program before it runs, so no line can be said to be left out.
         var arguments = project is null ? ConditionalConstants.NoArguments : project.ConditionalArguments();
         _inactiveLines = vm.ConditionalCode is { } reader && arguments is not null
             ? reader.InactiveLines(source, new ConditionalConstants(arguments)
             {
-                BuiltIns = builtIns,
+                BuiltIns = twinBasic ? TwinBasicBuiltIns(vm.ConditionalTargetIndex == 4, project?.ProjectType) : null,
+                Target = target,
+                Win64OnlySetOnWindows = target is not null && vm.ConditionalWin64OnlySetOnWindows,
                 CallsReadZero = twinBasic,
                 NullIsUndetermined = twinBasic,
             })
             : [];
         TextEditor.TextArea.TextView.Redraw();
     }
-
-    internal static IReadOnlyDictionary<string, object?> TargetBuiltIns(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null, bool win64OnlySetOnWindows = false) =>
-        PredefinedCompilationConstants.ForTarget(target, bitness, host, win64OnlySetOnWindows).ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase);
 
     private static IReadOnlyDictionary<string, object?> TwinBasicBuiltIns(bool win64, VBProjectType? projectType)
     {
