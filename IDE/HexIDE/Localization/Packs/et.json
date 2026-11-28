@@ -128,7 +128,7 @@
     "Str.LspArtifact.Grants": "Allpool on serverid, millel on lubatud tööruumi faile luua. Lähtesta luba, et järgmisel seansil uuesti küsitaks.",
     "Str.LspArtifact.Reset": "Lähtesta",
     "Str.LspArtifact.ResetGrant": "Lähtesta {0} serveri {1} jaoks asukohas {2}",
-    "Str.Archive.ProjectFormat": "{0} (kirjutuskaitstud arhiiv)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC-i projekt)",
     "Str.Archive.Hidden": "Näita peidetud arhiivikirjeid",
     "Str.Archive.SaveChanged": "Faili '{0}' ei saa salvestada: fail on kettal muutunud. Laadige see enne salvestamist uuesti.",
     "Str.Archive.SaveRefused": "Faili '{0}' ei saa salvestada: konteinerit ei saanud turvaliselt kontrollida ja kirjutada. Muudatus jääb salvestamata.",

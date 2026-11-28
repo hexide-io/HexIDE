@@ -125,7 +125,7 @@
     "Str.LspArtifact.Grants": "Spodaj so navedeni strežniki, ki smejo ustvarjati datoteke delovnega prostora. Ponastavite dovoljenje, da boste v naslednji seji znova vprašani.",
     "Str.LspArtifact.Reset": "Ponastavi",
     "Str.LspArtifact.ResetGrant": "Ponastavi {0} za {1} v {2}",
-    "Str.Archive.ProjectFormat": "{0} (arhiv samo za branje)",
+    "Str.TwinBasic.ProjectCaption": "{0} (projekt twinBASIC)",
     "Str.Archive.Hidden": "Prikaži skrite vnose arhiva",
     "Str.Archive.ReadOnly": "Predogled arhiva samo za branje. Urejanje, gradnja in zagon niso na voljo.",
     "Str.Archive.UnsupportedType": "Besedilni predogled za to vrsto datoteke ni na voljo.",

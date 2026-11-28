@@ -161,7 +161,7 @@
     "Str.LspArtifact.Grants": "A continuación lístanse os servidores autorizados para xerar ficheiros no espazo de traballo. Restableza unha autorización para que se volva preguntar na seguinte sesión.",
     "Str.LspArtifact.Reset": "Restablecer",
     "Str.LspArtifact.ResetGrant": "Restablecer {0} para {1} en {2}",
-    "Str.Archive.ProjectFormat": "{0} (arquivo de só lectura)",
+    "Str.TwinBasic.ProjectCaption": "{0} (proxecto de twinBASIC)",
     "Str.Archive.Hidden": "Mostrar as entradas ocultas do arquivo",
     "Str.Archive.SaveChanged": "Non se pode gardar '{0}': o ficheiro cambiou no disco. Cárgueo de novo antes de gardar.",
     "Str.Archive.SaveRefused": "Non se pode gardar '{0}': non se puido verificar e escribir o contedor con seguridade. O cambio segue sen gardar.",

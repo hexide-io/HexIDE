@@ -156,7 +156,7 @@
     "Str.LspArtifact.Grants": "Hieronder staan servers die werkruimtebestanden mogen genereren. Stel een toestemming opnieuw in om het bij de volgende sessie opnieuw te vragen.",
     "Str.LspArtifact.Reset": "Opnieuw instellen",
     "Str.LspArtifact.ResetGrant": "{0} voor {1} in {2} opnieuw instellen",
-    "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC-project)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",
     "Str.Archive.SaveChanged": "Kan '{0}' niet opslaan: het bestand is op schijf gewijzigd. Laad het opnieuw voordat u opslaat.",
     "Str.Archive.SaveRefused": "Kan '{0}' niet opslaan: de container kon niet veilig worden gecontroleerd en geschreven. De bewerking blijft onopgeslagen.",

@@ -125,7 +125,7 @@
     "Str.LspArtifact.Grants": "Nižšie sú uvedené servery, ktoré smú vytvárať súbory pracovného priestoru. Zrušte povolenie, aby sa pri ďalšom spustení vyžiadalo znova.",
     "Str.LspArtifact.Reset": "Obnoviť",
     "Str.LspArtifact.ResetGrant": "Zrušiť povolenie {0} pre {1} v {2}",
-    "Str.Archive.ProjectFormat": "{0} (archív iba na čítanie)",
+    "Str.TwinBasic.ProjectCaption": "{0} (projekt twinBASIC)",
     "Str.Archive.Hidden": "Zobraziť skryté položky archívu",
     "Str.Archive.ReadOnly": "Náhľad archívu iba na čítanie. Úpravy, zostavenie a spustenie nie sú dostupné.",
     "Str.Archive.UnsupportedType": "Textový náhľad nie je pre tento typ súboru dostupný.",

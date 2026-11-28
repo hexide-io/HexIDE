@@ -125,7 +125,7 @@
     "Str.LspArtifact.Grants": "Serveri kojima je dozvoljeno generisanje datoteka radnog prostora navedeni su ispod. Poništite dozvolu da biste ponovo dobili upit u sledećoj sesiji.",
     "Str.LspArtifact.Reset": "Poništi",
     "Str.LspArtifact.ResetGrant": "Poništi {0} za {1} u {2}",
-    "Str.Archive.ProjectFormat": "{0} (arhiva samo za čitanje)",
+    "Str.TwinBasic.ProjectCaption": "{0} (projekat twinBASIC)",
     "Str.Archive.Hidden": "Prikaži skrivene stavke arhive",
     "Str.Archive.ReadOnly": "Pregled arhive samo za čitanje. Uređivanje, izrada i pokretanje nisu dostupni.",
     "Str.Archive.UnsupportedType": "Pregled teksta nije dostupan za ovaj tip datoteke.",

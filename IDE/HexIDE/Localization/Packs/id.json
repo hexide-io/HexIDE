@@ -156,7 +156,7 @@
     "Str.LspArtifact.Grants": "Server yang diizinkan membuat berkas ruang kerja tercantum di bawah. Atur ulang izin agar ditanyakan lagi pada sesi berikutnya.",
     "Str.LspArtifact.Reset": "Atur ulang",
     "Str.LspArtifact.ResetGrant": "Atur ulang {0} untuk {1} di {2}",
-    "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
+    "Str.TwinBasic.ProjectCaption": "{0} (proyek twinBASIC)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",
     "Str.Archive.SaveChanged": "Tidak dapat menyimpan '{0}': berkas telah berubah di disk. Muat ulang sebelum menyimpan.",
     "Str.Archive.SaveRefused": "Tidak dapat menyimpan '{0}': kontainer tidak dapat diverifikasi dan ditulis dengan aman. Suntingan belum tersimpan.",

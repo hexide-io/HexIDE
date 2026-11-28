@@ -122,7 +122,7 @@
     "Str.LspArtifact.Grants": "Alla ovat palvelimet, jotka saavat luoda työtilan tiedostoja. Nollaa lupa, jotta sitä kysytään uudelleen seuraavassa istunnossa.",
     "Str.LspArtifact.Reset": "Nollaa",
     "Str.LspArtifact.ResetGrant": "Nollaa {0}: {1} kansiossa {2}",
-    "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC-projekti)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",
     "Str.Archive.SaveChanged": "Tiedostoa '{0}' ei voi tallentaa: se on muuttunut levyllä. Lataa se uudelleen ennen tallentamista.",
     "Str.Archive.SaveRefused": "Tiedostoa '{0}' ei voi tallentaa: säilöä ei voitu tarkistaa ja kirjoittaa turvallisesti. Muutos on yhä tallentamatta.",
