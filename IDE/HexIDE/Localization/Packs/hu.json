@@ -734,6 +734,7 @@
     "Str.Options.Addin.Details.Status": "Állapot:",
     "Str.Options.Addin.RevokeConsent": "Hozzájárulás visszavonása",
     "Str.Options.Addin.RestartNote": "Az IDE következő újraindításakor lép érvénybe.",
+    "Str.Options.Addin.TakenOutNote": "Menüi, parancsai, ablakai és nyelvi kiszolgálói most eltűntek. A kódja betöltve marad, amíg a HexIDE be nem zárul.",
     "Str.Options.Addin.Trust": "Bizalom",
     "Str.Dialog.About.SigningKeys.Header": "Bővítményaláíró kulcsok",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE gyökérkulcs (SHA-256)",

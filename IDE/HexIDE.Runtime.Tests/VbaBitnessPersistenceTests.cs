@@ -56,7 +56,7 @@ public class VbaBitnessPersistenceTests : IDisposable
         var bytes = File.ReadAllBytes(path);
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
         read.VbaBitness.Should().Be(VbaBitness.None);
-        read.Target.Should().Be(ProjectTarget.None);
+        ProjectTargets.Of(read).Should().Be(ProjectTarget.None);
         File.WriteAllText(path, new ProjectSerializer().Serialize(read, path));
         File.ReadAllBytes(path).Should().Equal(bytes);
         original.Should().NotContain("[HexIDE]");
@@ -77,12 +77,12 @@ public class VbaBitnessPersistenceTests : IDisposable
         };
         File.WriteAllText(path, new ProjectSerializer().Serialize(project, path) + $"Targets={target}\r\n");
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
-        read.Target.Should().Be(ProjectTarget.RDCore);
+        ProjectTargets.Of(read).Should().Be(ProjectTarget.RDCore);
         read.VbaBitness.Should().Be(VbaBitness.Bit64);
         var saved = new ProjectSerializer().Serialize(read, path);
         saved.ReplaceLineEndings("\n").Should().Contain("VbaBitness=64\nTargets=RDCore\n");
         saved.ReplaceLineEndings("\n").Should().Contain("[Other]\nKeep=verbatim\n[HexIDE]\nFuture=kept\n");
-        read.Target = ProjectTarget.None;
+        read.ExtensionTail = project.ExtensionTail;
         var cleared = new ProjectSerializer().Serialize(read, path);
         cleared.Should().NotContain("Targets=");
         cleared.Should().Contain("VbaBitness=64");
@@ -92,7 +92,7 @@ public class VbaBitnessPersistenceTests : IDisposable
     public async Task Setting_RDCore_survives_fresh_open_and_retains_encoding_records()
     {
         var path = Path.Join(directory, "Test.vbp");
-        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Target = ProjectTarget.RDCore };
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { ExtensionTail = "[HexIDE]\r\nTargets=RDCore\r\n" };
         var module = new ModuleDefinition(project, "Main", ModuleKind.StandardModule)
             { TextEncoding = Vb6TextEncoding.Utf8, AbsolutePath = Path.Join(directory, "Main.bas") };
         module.UpdateCode("' café");
@@ -100,7 +100,7 @@ public class VbaBitnessPersistenceTests : IDisposable
         File.WriteAllText(Path.Join(directory, "Main.bas"), "Attribute VB_Name = \"Main\"\r\n' café", new System.Text.UTF8Encoding(false));
         File.WriteAllText(path, new ProjectSerializer().Serialize(project, path));
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
-        read.Target.Should().Be(ProjectTarget.RDCore);
+        ProjectTargets.Of(read).Should().Be(ProjectTarget.RDCore);
         var saved = new ProjectSerializer().Serialize(read, path);
         saved.ReplaceLineEndings("\n").Should().Contain("Targets=RDCore\n").And.Contain("Main.bas=utf-8\n");
         read.Modules.Single().TextEncoding.Should().Be(Vb6TextEncoding.Utf8);
@@ -122,7 +122,7 @@ public class VbaBitnessPersistenceTests : IDisposable
         var original = new ProjectSerializer().Serialize(project, path);
         File.WriteAllText(path, original);
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
-        read.Target.Should().Be(ProjectTarget.None);
+        ProjectTargets.Of(read).Should().Be(ProjectTarget.None);
         read.Modules.Single().TextEncoding.Should().Be(Vb6TextEncoding.Utf8);
         read.Modules.Single().Code.Should().Contain("café");
         new ProjectSerializer().Serialize(read, path).Should().Be(original);
@@ -140,7 +140,7 @@ public class VbaBitnessPersistenceTests : IDisposable
         File.WriteAllText(path, original);
         var bytes = File.ReadAllBytes(path);
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
-        read.Target.Should().Be(ProjectTarget.None);
+        ProjectTargets.Of(read).Should().Be(ProjectTarget.None);
         File.WriteAllText(path, new ProjectSerializer().Serialize(read, path));
         File.ReadAllBytes(path).Should().Equal(bytes);
     }
@@ -160,7 +160,7 @@ public class VbaBitnessPersistenceTests : IDisposable
         File.WriteAllText(path, original);
         var bytes = File.ReadAllBytes(path);
         var read = (await new ProjectLoader().LoadAsync(path, Substitute.For<IDeserializeErrorSink>())).Project;
-        read.Target.Should().Be(ProjectTarget.None);
+        ProjectTargets.Of(read).Should().Be(ProjectTarget.None);
         File.WriteAllText(path, new ProjectSerializer().Serialize(read, path));
         File.ReadAllBytes(path).Should().Equal(bytes);
     }

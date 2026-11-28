@@ -700,6 +700,7 @@
     "Str.Options.Addin.Details.Status": "Olek:",
     "Str.Options.Addin.RevokeConsent": "Tühista nõusolek",
     "Str.Options.Addin.RestartNote": "Rakendub IDE järgmisel taaskäivitamisel.",
+    "Str.Options.Addin.TakenOutNote": "Selle menüüd, käsud, aknad ja keeleserverid on nüüd eemaldatud. Selle kood jääb laadituks, kuni HexIDE suletakse.",
     "Str.Options.Addin.Trust": "Usaldus",
     "Str.Dialog.About.SigningKeys.Header": "Lisandmoodulite allkirjastamisvõtmed",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE juurvõti (SHA-256)",

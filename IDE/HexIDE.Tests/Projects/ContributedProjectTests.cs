@@ -110,19 +110,22 @@ public sealed class ContributedProjectTests : IDisposable
         return _loaded.Should().ContainSingle().Subject;
     }
 
+    // Main's rule was recorded here as:
     // #4821: select the table from the type which read the project, not the add-in's display title.
+    // #5404 uses the contributed project's opened path, including when its type lists several names.
     [AvaloniaTheory]
-    [InlineData(".rdproj", nameof(ProjectTarget.RDCore))]
-    [InlineData("*.RDPROJ", nameof(ProjectTarget.RDCore))]
-    [InlineData("*.other", nameof(ProjectTarget.None))]
-    public async Task Project_type_selects_the_predefined_constants_target(string pattern, string expectedName)
+    [InlineData(".rdproj", "P.rdproj", true)]
+    [InlineData("*.RDPROJ", "P.RDPROJ", true)]
+    [InlineData("*.other", "P.other", false)]
+    [InlineData("Ledger.rdproj", "Ledger.rdproj", true)]
+    [InlineData(".rdproj;*.other", "Ledger.other", false)]
+    public async Task Opened_file_selects_the_predefined_constants_target(string patterns, string fileName, bool rdcore)
     {
-        var expected = Enum.Parse<ProjectTarget>(expectedName);
-        var type = new ContributedProjectType(new AddinProjectType("Projects") { FileNames = [pattern] }, "backend", "Backend");
-        var (project, problems) = await _types.BuildAsync(ProjectFile, Content(), type, Vb6TextEncoding.Ansi,
+        var type = new ContributedProjectType(new AddinProjectType("Projects") { FileNames = patterns.Split(';') }, "backend", "Backend");
+        var (project, problems) = await _types.BuildAsync(Path.Join(_dir, fileName), Content(), type, Vb6TextEncoding.Ansi,
             null, Substitute.For<ILocalizationService>());
         problems.Should().BeEmpty();
-        project.Target.Should().Be(expected);
+        ProjectTargets.Of(project).Should().Be(rdcore ? ProjectTarget.RDCore : ProjectTarget.None);
         project.Offers.Runs.Should().BeFalse();
     }
 

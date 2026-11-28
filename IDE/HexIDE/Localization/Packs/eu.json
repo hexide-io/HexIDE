@@ -700,6 +700,7 @@
     "Str.Options.Addin.Details.Status": "Egoera:",
     "Str.Options.Addin.RevokeConsent": "Ezeztatu baimena",
     "Str.Options.Addin.RestartNote": "IDEa hurrengo aldiz berrabiaraztean izango du eragina.",
+    "Str.Options.Addin.TakenOutNote": "Haren menuak, komandoak, leihoak eta hizkuntza-zerbitzariak kendu dira. Haren kodea kargatuta geratzen da HexIDE itxi arte.",
     "Str.Options.Addin.Trust": "Konfiantza",
     "Str.Dialog.About.SigningKeys.Header": "Gehigarriak sinatzeko gakoak",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDEren erro-gakoa (SHA-256)",

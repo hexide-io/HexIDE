@@ -63,6 +63,10 @@
                        IsVisible="{CompiledBinding RestartNoteVisible}"
                        Text="{DynamicResource Str.Options.Addin.RestartNote}" />
         </StackPanel>
+        <!-- Below the buttons, where it can wrap: it is longer than the restart note, and a horizontal row never wraps (#5661). -->
+        <TextBlock Opacity="0.7" FontStyle="Italic" TextWrapping="Wrap"
+                   IsVisible="{CompiledBinding TakenOutNoteVisible}"
+                   Text="{DynamicResource Str.Options.Addin.TakenOutNote}" />
 
         <!-- Read-only trust-chain inspector: the verified signing chain + key fingerprints. -->
         <Expander Header="{DynamicResource Str.Options.Addin.Trust}" Margin="0,8,0,0">

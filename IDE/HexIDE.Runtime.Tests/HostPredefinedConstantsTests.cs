@@ -10,6 +10,8 @@ namespace HexIDE.Runtime.Tests;
 // https://github.com/hexide-io/HexIDE/issues/4821
 public class HostPredefinedConstantsTests : BaseVBTestFixture
 {
+    private const string RDCoreTargetTail = "[HexIDE]\r\nTargets=RDCore\r\n";
+
     [Theory]
     [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), false, "0,1,1,0,0,1,1,1")]
     [InlineData("WINDOWS", nameof(ProjectTarget.RDCore), true, "0,1,1,0,0,1,1,1")]
@@ -23,7 +25,8 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     {
         var target = Enum.Parse<ProjectTarget>(targetName);
         Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "Test")
-            { Target = target, VbaBitness = VbaBitness.Bit64 }, OSPlatform.Create(host), windowsOnly);
+            { ExtensionTail = target == ProjectTarget.RDCore ? RDCoreTargetTail : null, VbaBitness = VbaBitness.Bit64 },
+            OSPlatform.Create(host), windowsOnly);
         var names = new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7" };
         var values = row.Split(',');
         for (var i = 0; i < names.Length; i++)
@@ -38,7 +41,7 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     [InlineData("LINUX")]
     public void RDCore_defines_all_eight_platform_names(string host)
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Target = ProjectTarget.RDCore, VbaBitness = VbaBitness.Bit64 };
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { ExtensionTail = RDCoreTargetTail, VbaBitness = VbaBitness.Bit64 };
         CompilationConstants.ForProject(project, OSPlatform.Create(host)).BuiltIns.Keys.Should()
             .BeEquivalentTo("Win16", "Win32", "Win64", "Mac", "Linux", "Is64BitEnv", "VBA6", "VBA7");
     }
@@ -53,7 +56,7 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     [InlineData("LINUX", true)]
     public async Task Linux64_is_undefined_unless_the_project_defines_it(string host, bool defined)
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Target = ProjectTarget.RDCore };
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { ExtensionTail = RDCoreTargetTail };
         if (defined) project.UnknownPreSectionLines.Add((0, "CondComp=\"Linux64 = 1\""));
         Compilation = CompilationConstants.ForProject(project, OSPlatform.Create(host));
         Compilation.BuiltIns.Should().NotContainKey("Linux64");
@@ -82,7 +85,8 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     {
         var target = Enum.Parse<ProjectTarget>(targetName);
         Compilation = CompilationConstants.ForProject(new ProjectDefinition(VBProjectType.EXE, "NavalBattle")
-            { Target = target, VbaBitness = VbaBitness.Bit64 }, OSPlatform.Create(host), windowsOnly);
+            { ExtensionTail = target == ProjectTarget.RDCore ? RDCoreTargetTail : null, VbaBitness = VbaBitness.Bit64 },
+            OSPlatform.Create(host), windowsOnly);
         await Run("""
             #If Win32 Or Win64 Then
             Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal milliseconds As Long)
@@ -113,7 +117,7 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     [InlineData(true)]
     public async Task Program_definitions_shadow_RDCore_constants(bool module)
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Target = ProjectTarget.RDCore };
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { ExtensionTail = RDCoreTargetTail };
         project.UnknownPreSectionLines.Add((0, "CondComp=\"Mac = 0\""));
         Compilation = CompilationConstants.ForProject(project, OSPlatform.OSX);
         await Run((module ? "#Const Mac = 1\n" : "") +
@@ -145,7 +149,7 @@ public class HostPredefinedConstantsTests : BaseVBTestFixture
     [Fact]
     public void Default_selection_uses_the_current_host()
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { Target = ProjectTarget.RDCore };
+        var project = new ProjectDefinition(VBProjectType.EXE, "Test") { ExtensionTail = RDCoreTargetTail };
         var expected = OperatingSystem.IsWindows() ? OSPlatform.Windows : OperatingSystem.IsMacOS() ? OSPlatform.OSX : OSPlatform.Linux;
         var selected = CompilationConstants.ForProject(project).BuiltIns;
         selected.Should().BeSameAs(CompilationConstants.ForProject(project, expected).BuiltIns);

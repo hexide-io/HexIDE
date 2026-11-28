@@ -1054,8 +1054,14 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal bool ConditionalWin64OnlySetOnWindows => Settings.RDCoreWin64OnlySetOnWindows;
 
-    private static int ConditionalTargetFor(ProjectDefinition project) => project.Target == ProjectTarget.RDCore ? 5 :
-        project.VbaBitness switch { VbaBitness.Bit32 => 1, VbaBitness.Bit64 => 2, _ => 0 };
+    // The provider's ids, in the order the code window shows them. The twinBASIC entries supply their own constants.
+    private static readonly string?[] ConditionalTargetIds = [null, "vba32", "vba64", null, null, "rdcore"];
+
+    internal string? ConditionalTargetId => ConditionalTargetIndex >= 0 && ConditionalTargetIndex < ConditionalTargetIds.Length
+        ? ConditionalTargetIds[ConditionalTargetIndex] : null;
+
+    private int ConditionalTargetFor(ProjectDefinition project) =>
+        Math.Max(0, Array.IndexOf(ConditionalTargetIds, ConditionalCode?.DefaultTarget(project)));
 
     public CodeEditorViewModel Initialize(FormDefinition formElement)
     {

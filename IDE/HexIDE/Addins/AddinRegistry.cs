@@ -762,11 +762,16 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         : _contexts.FirstOrDefault(c => !c.RefusedAtLoad
             && string.Equals(c.Info.Id, owner.Id, StringComparison.OrdinalIgnoreCase));
 
-    // What the package in addin contributed, by its directory: a row refused at load is never an owner, so it has none.
+    // What the package in addin contributed, by its directory: a row refused at load is never an owner, so it has none. One
+    // contribution that fails to come out doesn't keep the rest in, as with Initialize's rollback (#5661).
     private void RemoveContributions(AddinContext addin)
     {
         if (!_contributions.Remove(new ContributionOwner(addin.PackageDirectory, OwnerKind.Package), out var contributions)) return;
-        foreach (var contribution in contributions) contribution.Dispose();
+        foreach (var contribution in contributions)
+        {
+            try { contribution.Dispose(); }
+            catch (Exception ex) { Log.Warning(ex, "AddinRegistry: error withdrawing a contribution of {Title}", addin.Info.Title); }
+        }
     }
 
     // ── Metadata helpers ─────────────────────────────────────────

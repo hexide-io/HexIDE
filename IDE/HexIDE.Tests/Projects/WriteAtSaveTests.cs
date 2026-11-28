@@ -266,6 +266,38 @@ public class WriteAtSaveTests : IDisposable
         project.WorkingDirectory.Should().BeNull("neither Add nor the save chose a scratch folder");
     }
 
+    // #5404: even a VB6 project saved under an .rdproj name remains a VB6 project.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Saving_a_VB6_project_as_an_rdproj_keeps_its_target(bool fromTemplate)
+    {
+        var manager = new ProjectManager(Substitute.For<IEditorService>(), new EventBus());
+        var service = MakeService(manager: manager);
+        if (fromTemplate)
+            await service.CreateNewProject(Vb6ProjectType.StandardExe);
+        else
+        {
+            var vbp = Path.Join(dir, "Ledger.vbp");
+            File.WriteAllText(vbp, "Type=Exe\r\nName=\"Ledger\"\r\n");
+            await service.OpenProject(vbp);
+        }
+        var project = manager.LoadedProjects.Single();
+        var destination = Path.Join(dir, "Ledger.rdproj");
+        windowManager.SaveFilePickerAsync(
+            Arg.Is<Avalonia.Platform.Storage.FilePickerSaveOptions>(o => o.SuggestedFileName != null &&
+                o.SuggestedFileName.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase)),
+            Arg.Any<string?>()).Returns(destination);
+
+        await service.SaveProject(project, saveAs: true);
+
+        project.AbsolutePath.Should().Be(destination);
+        ProjectTargets.Of(project).Should().Be(ProjectTarget.None);
+        File.ReadAllText(destination).Should().NotContain("Targets=");
+        await service.SaveProject(project, saveAs: false);
+        File.ReadAllText(destination).Should().NotContain("Targets=");
+    }
+
     [Fact]
     public async Task A_new_member_is_saved_with_the_header_it_was_created_with()
     {

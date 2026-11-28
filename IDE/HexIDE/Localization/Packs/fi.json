@@ -695,6 +695,7 @@
     "Str.Options.Addin.Details.Status": "Tila:",
     "Str.Options.Addin.RevokeConsent": "Peru suostumus",
     "Str.Options.Addin.RestartNote": "Tulee voimaan, kun IDE käynnistetään uudelleen.",
+    "Str.Options.Addin.TakenOutNote": "Sen valikot, komennot, ikkunat ja kielipalvelimet on nyt poistettu. Sen koodi pysyy ladattuna, kunnes HexIDE suljetaan.",
     "Str.Options.Addin.Trust": "Luota",
     "Str.Dialog.About.SigningKeys.Header": "Lisäosien allekirjoitusavaimet",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE:n juuriavain (SHA-256)",
