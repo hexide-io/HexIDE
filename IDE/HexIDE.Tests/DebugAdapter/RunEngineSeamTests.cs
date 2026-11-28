@@ -52,7 +52,7 @@ public class RunEngineSeamTests
         settings.RDCoreWin64OnlySetOnWindows.Returns(enabled);
         var engine = new InterpreterRunEngine(TestRunners.Services(Substitute.For<IProgramHost>(), settings), new DebugController())
         { Host = System.Runtime.InteropServices.OSPlatform.OSX };
-        var project = new ProjectDefinition(VBProjectType.EXE, "P") { StartsAtSubMain = true, Target = ProjectTarget.RDCore };
+        var project = new ProjectDefinition(VBProjectType.EXE, "P") { StartsAtSubMain = true, ExtensionTail = "[HexIDE]\r\nTargets=RDCore\r\n" };
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
         module.UpdateCode("Sub Main()\n#If Win64 Then\nError 5\n#Else\nError 6\n#End If\nEnd Sub\n");
         project.AddModule(module);
@@ -75,7 +75,7 @@ public class RunEngineSeamTests
         var engine = new InterpreterRunEngine(TestRunners.Services(Substitute.For<IProgramHost>(), settings), new DebugController())
         { Host = System.Runtime.InteropServices.OSPlatform.OSX };
         var project = TestHelpers.CreateProjectWithForm();
-        project.Target = ProjectTarget.RDCore;
+        project.ExtensionTail = "[HexIDE]\r\nTargets=RDCore\r\n";
         project.VbaBitness = VbaBitness.Bit64;
         project.StartupForm = project.Forms.Single();
         // HexIDE's existing PtrSafe refusal tests the selected branch during real form construction (#4245).

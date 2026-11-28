@@ -1,10 +1,10 @@
 using System.Runtime.InteropServices;
 using HexIDE.Runtime.ProjectElements;
 
-namespace HexIDE.Language;
+namespace HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 /// <summary>The numeric predefined #If tables shared by run engines and editor previews (#4821).</summary>
-public static class PredefinedCompilationConstants
+internal static class PredefinedCompilationConstants
 {
     // vb6.exe SP6, #1112/#4245. An undefined name is not an entry in the table.
     private static readonly IReadOnlyDictionary<string, int> Vb6 = Numbers(("Win16", 0), ("Win32", 1));

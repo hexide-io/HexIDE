@@ -1,6 +1,7 @@
 using System.Threading;
 using HexIDE.Language;
 using HexIDE.Lsp.Messages;
+using HexIDE.Runtime.ProjectElements;
 using Serilog;
 
 namespace HexIDE.Addins;
@@ -140,6 +141,20 @@ internal sealed class AddinLanguageEditingService : ILanguageEditing
     // registry's lock.
     private sealed class ConditionalCodeReader(AddinLanguageEditingService service, string? languageId) : IConditionalCodeReader
     {
+        public string? DefaultTarget(ProjectDefinition project)
+        {
+            if (service.Find(languageId) is not { ConditionalCode: { } reader } registration) return null;
+            try
+            {
+                return reader.DefaultTarget(project);
+            }
+            catch (Exception ex)
+            {
+                registration.ConditionalCodeThrew(ex);
+                return null;
+            }
+        }
+
         public IReadOnlyList<LineRange> InactiveLines(string source, ConditionalConstants constants)
         {
             if (service.Find(languageId) is not { ConditionalCode: { } reader } registration) return [];

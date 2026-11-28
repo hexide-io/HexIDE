@@ -293,8 +293,8 @@ a settings change SHALL apply to the next run. The legacy project key SHALL be i
 - **AND** unmeasured 32-bit VBA7 on macOS and VBA7 on Linux retain their Windows tables
 - **AND** VB6 retains its existing table on every host
 
-#### Scenario: A project opened by its external backend type
-- **WHEN** a project is opened through the `.rdproj` project type
+#### Scenario: A contributed RDCore project opens
+- **WHEN** a contributed project is opened from a path ending in `.rdproj` (#5404)
 - **THEN** the code window defaults to the external backend constants target
 - **AND** the project's run offers are unchanged
 

@@ -1,5 +1,6 @@
 using HexIDE.Language;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
+using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -22,6 +23,48 @@ public class InterpreterConditionalCodeTests
     [Fact]
     public void With_no_built_ins_given_the_interpreter_uses_VB6s_own() =>
         Reader.InactiveLines(Win32Branches, NoConstants).Should().Equal(new LineRange(4, 4));
+
+    // #5404: the reader supplies the same defaults as the code window did.
+    [Theory]
+    [InlineData(VbaBitness.None, false, null)]
+    [InlineData(VbaBitness.Bit32, false, "vba32")]
+    [InlineData(VbaBitness.Bit64, false, "vba64")]
+    [InlineData(VbaBitness.Bit64, true, "rdcore")]
+    public void Default_preview_follows_project_target_then_bitness(VbaBitness bitness, bool rdcore, string? expected)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P")
+        {
+            VbaBitness = bitness,
+            ExtensionTail = rdcore ? "[HexIDE]\r\nTargets=RDCore\r\n" : null,
+        };
+
+        Reader.DefaultTarget(project).Should().Be(expected);
+    }
+
+    // #5404: selecting the RDCore preview uses the same measured host table as #4821 and #4890.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RDCore_preview_id_uses_the_same_built_ins_as_an_explicit_table(bool windowsOnly)
+    {
+        const string source = "#If VBA7 And (Win32 Or Mac Or Linux) Then\nDebug.Print 1\n#Else\nDebug.Print 2\n#End If\n";
+        var table = PredefinedCompilationConstants.ForTarget(ProjectTarget.RDCore, VbaBitness.None, win64OnlySetOnWindows: windowsOnly);
+        var explicitTable = WithBuiltIns(table.Select(pair => (pair.Key, (object?)pair.Value)).ToArray());
+
+        var expected = Reader.InactiveLines(source, explicitTable);
+        expected.Should().Equal(new LineRange(4, 4));
+        Reader.InactiveLines(source, NoConstants with { Target = "rdcore", Win64OnlySetOnWindows = windowsOnly })
+            .Should().Equal(expected);
+    }
+
+    [Theory]
+    [InlineData("rdcore")]
+    [InlineData("unknown")]
+    public void Explicit_built_ins_take_precedence_over_the_preview_id(string target)
+    {
+        const string source = "#If VBA7 Then\nDebug.Print 1\n#Else\nDebug.Print 2\n#End If\n";
+        Reader.InactiveLines(source, WithBuiltIns(("VBA7", 0)) with { Target = target }).Should().Equal(new LineRange(2, 2));
+    }
 
     [Fact]
     public void A_project_argument_shadows_a_built_in()

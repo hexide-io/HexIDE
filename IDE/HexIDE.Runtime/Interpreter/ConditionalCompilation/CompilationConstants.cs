@@ -71,9 +71,12 @@ public sealed class CompilationConstants
 
     internal static CompilationConstants ForProject(ProjectDefinition project, bool win64OnlySetOnWindows) => ForProject(project, null, win64OnlySetOnWindows);
 
-    internal static CompilationConstants ForProject(ProjectDefinition project, OSPlatform? host, bool win64OnlySetOnWindows = false) =>
-        new(CompilationArguments.ForProject(project), BuiltInsFor(project.Target, project.VbaBitness, host, win64OnlySetOnWindows))
-        { VbaBitness = project.VbaBitness, Target = project.Target };
+    internal static CompilationConstants ForProject(ProjectDefinition project, OSPlatform? host, bool win64OnlySetOnWindows = false)
+    {
+        var target = ProjectTargets.Of(project);
+        return new(CompilationArguments.ForProject(project), BuiltInsFor(target, project.VbaBitness, host, win64OnlySetOnWindows))
+        { VbaBitness = project.VbaBitness, Target = target };
+    }
 
     /// <summary>The predefined constants shared by interpreter runs and editor previews, on the current or specified host.</summary>
     internal static IReadOnlyDictionary<string, Vb6Value> BuiltInsFor(ProjectTarget target, VbaBitness bitness, OSPlatform? host = null, bool win64OnlySetOnWindows = false) =>

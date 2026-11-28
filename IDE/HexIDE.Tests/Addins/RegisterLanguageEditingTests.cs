@@ -65,6 +65,8 @@ public sealed class RegisterLanguageEditingTests
     private sealed class Throwing : IConditionalCodeReader, IBracketReader, IDeclarationReader
     {
         public bool Throws { get; set; } = true;
+        public string? DefaultTarget(ProjectDefinition project) =>
+            Throws ? throw new InvalidOperationException("default target broke") : "probe";
         public IReadOnlyList<LineRange> InactiveLines(string source, ConditionalConstants constants) =>
             Throws ? throw new InvalidOperationException("#If broke") : [new LineRange(2, 2)];
         public IReadOnlyList<BracketMark> Brackets(string source) =>
@@ -205,10 +207,12 @@ public sealed class RegisterLanguageEditingTests
         var conditional = editing.ConditionalCodeFor("acme");
         var brackets = editing.BracketsFor("acme");
         var declarations = editing.DeclarationsFor("acme");
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
 
         for (var i = 0; i < 2; i++)
         {
             conditional.InactiveLines("x", NoConstants).Should().BeEmpty();
+            conditional.DefaultTarget(project).Should().BeNull();
             brackets.Brackets("()").Should().BeEmpty();
             declarations.Declarations("x").Should().BeEmpty();
         }
@@ -217,10 +221,11 @@ public sealed class RegisterLanguageEditingTests
         thrown.Where(e => e.Level == LogEventLevel.Warning).Select(e => e.Exception!.Message)
             .Should().Equal("#If broke", "brackets broke", "declarations broke");
         thrown.Where(e => e.Level == LogEventLevel.Debug).Select(e => e.Exception!.Message)
-            .Should().Equal("#If broke", "brackets broke", "declarations broke");
+            .Should().Equal("default target broke", "#If broke", "default target broke", "brackets broke", "declarations broke");
         thrown.Should().OnlyContain(e => e.RenderMessage(null).Contains("\"Probe\"", StringComparison.Ordinal));
 
         helpers.Throws = false;
+        conditional.DefaultTarget(project).Should().Be("probe");
         conditional.InactiveLines("x", NoConstants).Should().Equal(new LineRange(2, 2));
         brackets.Brackets("()").Should().Equal(new BracketMark(0, 0));
         declarations.Declarations("x").Select(s => s.Name).Should().Equal("Sub1");
