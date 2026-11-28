@@ -16,9 +16,11 @@ internal class ZOrderCommand : IDesignerCommand
     private readonly int _carriedBelowAfter;
 
     public string Description { get; }
+    public DesignerUndoName DisplayName { get; }
 
     internal ZOrderCommand(ComponentInstanceViewModel target, IReadOnlyList<ComponentInstanceViewModel> before,
-        IReadOnlyList<ComponentInstanceViewModel> after, int carriedBelowBefore, int carriedBelowAfter, string description)
+        IReadOnlyList<ComponentInstanceViewModel> after, int carriedBelowBefore, int carriedBelowAfter,
+        string description, DesignerUndoName displayName)
     {
         _target = target;
         _before = before;
@@ -26,6 +28,7 @@ internal class ZOrderCommand : IDesignerCommand
         _carriedBelowBefore = carriedBelowBefore;
         _carriedBelowAfter = carriedBelowAfter;
         Description = description;
+        DisplayName = displayName;
     }
 
     public void Execute(FormEditViewModel vm) => Apply(vm, _after, _carriedBelowAfter);

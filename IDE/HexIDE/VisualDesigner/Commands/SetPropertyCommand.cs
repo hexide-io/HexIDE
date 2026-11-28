@@ -16,9 +16,11 @@ internal class SetPropertyCommand : IDesignerCommand
         _before = before;
         _after = after;
         Description = $"{property.Name}: {target.GetPropertyOrDefault(VBProperties.NameProperty) ?? ""}";
+        DisplayName = DesignerUndoName.Verbatim(Description);
     }
 
     public string Description { get; }
+    public DesignerUndoName DisplayName { get; }
 
     public void Execute(FormEditViewModel vm) => _target.SetUntypedProperty(_property, _after);
     public void Undo(FormEditViewModel vm) => _target.SetUntypedProperty(_property, _before);

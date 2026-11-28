@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HexIDE.Localization;
 
 namespace HexIDE.VisualDesigner;
 
@@ -11,6 +12,12 @@ public class DesignerUndoStack(FormEditViewModel vm)
     public bool CanRedo => _redo.Count > 0;
     public string? UndoDescription => CanUndo ? _undo.Last!.Value.Description : null;
     public string? RedoDescription => CanRedo ? _redo.First!.Value.Description : null;
+
+    internal string? GetUndoDisplayName(ILocalizationService localization) =>
+        _undo.Last?.Value.DisplayName.Resolve(localization);
+
+    internal string? GetRedoDisplayName(ILocalizationService localization) =>
+        _redo.First?.Value.DisplayName.Resolve(localization);
 
     /// <summary>
     /// The stack's contents changed. Raised by every operation below, <see cref="Clear"/> included, because
