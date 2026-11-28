@@ -44,3 +44,51 @@ text, raised when the statement runs, also where VB6 refuses it at compile time.
 - KeyDown and KeyPress, which a TextBox doesn't raise here yet;
 - a lone LF or CR, which Avalonia draws as a line break where VB6 draws none. `Text` still reads back as set.
 
+
+## Where VB6's save keeps a TextBox's Text, and the `.frx` record it writes (2026-11-28, #5843, IDE, SP6)
+
+**The question.** #5843: HexIDE refuses to save a form whose multi-line TextBox keeps its `Text` in the `.frx`. What does
+VB6's own IDE write for that text? In particular, how wide is the length in front of it, and does that change for
+longer text?
+
+**The rig.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console by the IDE step driver.
+- **The forms:** each project was a one-form Standard EXE holding #5843's `Form4`, with one TextBox, `Text4`. Its `Text`
+  was given each case's way: in the `.frx` as the issue gives it, or quoted in the `.frm`. In the single-line cases,
+  `MultiLine` was left out.
+- **Each save:** in a fresh vb6.exe, Shift+F7 opened the designer, and Tab selected `Text4`. Ctrl+Right and Ctrl+Left
+  followed, then Ctrl+S.
+- **Every save happened.** VB6 opened each form with no message, and wrote each `.frm` 11.9 to 12.9 s after it was
+  copied in. It changed at most the `Text` line.
+
+| Case | Text as read | `Text` line VB6 wrote | `.frx` VB6 wrote |
+|---|---|---|---|
+| Multi-line | `.frx`: `05` then `Hello` | `"Form4.frx":0000` | 6 bytes, identical: `05 48 65 6C 6C 6F` |
+| Multi-line | `.frx`: `0C` then `Hello`, CR LF, `World` | `"Form4.frx":0000` | 13 bytes, identical |
+| Multi-line | `"Hello"` in the `.frm` | `"Form4.frx":0000` | 6 bytes: `05`, then `Hello` |
+| Multi-line | `""` | `""`, unchanged | none |
+| Multi-line | 254 characters, quoted | `"Form4.frx":0000` | 255 bytes: `FE`, then the text |
+| Multi-line | 255 characters, quoted | `"Form4.frx":0000` | 258 bytes: `FF`, then `FF 00`, then the text |
+| Multi-line | 300 characters, quoted | `"Form4.frx":0000` | 303 bytes: `FF`, then `2C 01`, then the text |
+| Single-line | 100 characters, quoted | unchanged | none |
+| Single-line | 254 characters, quoted | `$"Form4.frx":0000` | 258 bytes: `FE 00 00 00`, then the text |
+| Single-line | 255 characters, quoted | `$"Form4.frx":0000` | 259 bytes: `FF 00 00 00`, then the text |
+| Single-line | 256 characters, quoted | `$"Form4.frx":0000` | 260 bytes: `00 01 00 00`, then the text |
+| Single-line | 300 characters, quoted | `$"Form4.frx":0000` | 304 bytes: `2C 01 00 00`, then the text |
+
+**A multi-line TextBox's text goes to the `.frx` whenever it isn't empty,** even five characters with no line break.
+- **Up to 254 bytes,** the record is a one-byte length, then the text.
+- **From 255 bytes,** the record is `FF`, then a two-byte little-endian length, then the text.
+- **The empty text stays in the `.frm`,** as `Text = ""`.
+
+So the issue's hand-written `.frx` was already in VB6's own layout, and VB6 wrote it back byte for byte.
+
+**A single-line TextBox's long text goes to the `.frx` in another shape.** The `.frm` line gains a `$` before the
+citation, and the record is a four-byte little-endian length, then the text. 100 characters stayed quoted in the `.frm`,
+and 254 went to the `.frx`.
+
+**Not measured:**
+- the length at which a single-line text moves to the `.frx`, which is somewhere from 101 to 254;
+- a multi-line text of 65,536 bytes or more, past what the two-byte length can hold;
+- text outside ASCII, so whether a length counts bytes or characters;
+- where VB6 puts a second text record in the same `.frx`, after a picture or a list, for example;
+- other controls whose text can go to the `.frx`, and a TextBox's text typed in the Properties window.

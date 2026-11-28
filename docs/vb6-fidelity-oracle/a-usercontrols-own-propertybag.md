@@ -174,6 +174,40 @@ line), Italic True, Underline False, Strikethrough False, Weight 700, Charset 0.
 | `Ambient.Font` | a Font: MS Sans Serif, 8.25, Weight 400 |
 | `T_Dup` written as `1`, then `2` | Integer 2: here the last write wins |
 
+### The order a form's save writes a project UserControl's instance in (2026-11-28, #5844, IDE, SP6)
+
+**The question.** #5844: HexIDE's project save writes the properties of a project UserControl's instance in
+alphabetical order. What order does VB6's IDE write them in?
+
+**The rig.** VB6.EXE 6.00.9782 (SP6) in a clone of the oracle VM, driven on its console by the IDE step driver.
+- **The project,** `MvceUc`, was a Standard EXE with #5844's `Form5`, holding `Widget1`, and its `UserControl1`:
+  - **`UserControl1`** has public `Label` (String) and `Level` (Long) properties. Each `Property Let` calls
+    `PropertyChanged`, and `ReadProperties` reads both.
+  - **`Widget1`'s block,** as read: Height, Left, TabIndex, Top, Width, `_ExtentX`, `_ExtentY`, `Label = "hello"` and
+    `Level = 7`.
+- **Two runs,** each in a fresh vb6.exe. In the first, `WriteProperties` wrote `Label` then `Level`. In the second, it
+  wrote `Level` then `Label`.
+- **Each save:** Shift+F7 opened `Form5`'s designer, and Tab selected `Widget1`. Ctrl+Right and Ctrl+Left followed,
+  then Ctrl+S. VB6 wrote `Form5.frm` 14.6 and 14.8 s after it was copied in.
+
+| `WriteProperties` writes | `Widget1`'s block as VB6 saved it |
+|---|---|
+| `Label`, then `Level` | byte-identical to the input: Height, Left, TabIndex, Top, Width, `_ExtentX`, `_ExtentY`, Label, Level |
+| `Level`, then `Label` | the same, but `Level` before `Label` |
+
+**So VB6 writes the instance in three runs:**
+1. the extender's properties, in name order;
+2. `_ExtentX` and `_ExtentY`;
+3. the control's own properties, in the order its `WriteProperties` writes them.
+
+This is the order the in-box ProgressBar showed (`in-box-controls-the-progressbar.md`, *The save*). The second run
+rules out name order for the control's own properties.
+
+**Not measured:**
+- a property `WriteProperties` writes at its default, which VB6 is expected to leave out;
+- extender properties other than these five, such as Tag, ToolTipText and Visible, for a project UserControl;
+- a UserControl from another project or an OCX.
+
 ### Not measured
 
 - **An F5 run with the form open in the designer,** where a design-time instance of the control is live. These IDE
