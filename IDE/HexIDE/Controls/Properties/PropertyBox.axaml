@@ -152,7 +152,7 @@
                                 Placement="BottomEdgeAlignedRight"
                                 FlyoutPresenterTheme="{DynamicResource FlatFlyoutPresenter}">
                                 <TabControl Width="151" DockPanel.Dock="Bottom">
-                                    <TabItem Header="Palette">
+                                    <TabItem Header="{DynamicResource Str.Tool.Properties.ColorPalette}">
                                         <ListBox
                                             Name="PART_PaletteListBox"
                                             BorderThickness="1"
@@ -207,7 +207,7 @@
                                             </ListBox.ItemsPanel>
                                         </ListBox>
                                     </TabItem>
-                                    <TabItem Header="System">
+                                    <TabItem Header="{DynamicResource Str.Tool.Properties.ColorSystem}">
                                         <ListBox
                                             Name="PART_SystemColorsListBox"
                                             Width="142"
