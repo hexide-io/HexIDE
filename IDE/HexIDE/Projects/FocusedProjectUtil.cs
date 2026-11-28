@@ -84,20 +84,24 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
         // Use the Properties window's units and precision, including the frame round a form (#1641).
         var left = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeLeft)
-                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.LeftProperty, pixels)));
+            .Select(x => x!.ObservePropertyChanged(y => y.RelativeLeft)
+                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.LeftProperty, pixels)))
+            .Switch();
         var top = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeTop)
-                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.TopProperty, pixels)));
+            .Select(x => x!.ObservePropertyChanged(y => y.RelativeTop)
+                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.TopProperty, pixels)))
+            .Switch();
         var width = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.Width)
-                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.WidthProperty, pixels)));
+            .Select(x => x!.ObservePropertyChanged(y => y.Width)
+                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.WidthProperty, pixels)))
+            .Switch();
         var height = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.Height)
-                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.HeightProperty, pixels)));
+            .Select(x => x!.ObservePropertyChanged(y => y.Height)
+                .Select(pixels => Shown(formEditor, x!.Instance, VBProperties.HeightProperty, pixels)))
+            .Switch();
 
         activeWindowDisposable = new CompositeDisposable(left.CombineLatest(top, (a, b) => $"{a}, {b}")
             .Subscribe(position => FocusedComponentPosition = position), width.CombineLatest(height, (a, b) => $"{a} x {b}")

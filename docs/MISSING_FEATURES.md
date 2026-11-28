@@ -625,7 +625,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Browse an Office document's VBA project | Partial | Read-only container browser for supported modern Excel, Word and PowerPoint files and legacy Excel/Word files (#4331). Host/module folders, references, locks and source/p-code notices; UserForm code only (#1114). Read-only VBA language-server sessions use export extensions as project members (#4453). No writes (#1120) or execution ([#4479](https://github.com/hexide-io/HexIDE/issues/4479), which will ask first through #1121's prompt). Headless checked; supervisor live verification pending. See [Office containers](office-containers.md). |
+| Browse an Office document's VBA project | Partial | Read-only container browser for supported modern Excel, Word and PowerPoint files and legacy Excel/Word files (#4331). Host/module folders, references, locks and source/p-code notices; UserForm code only (#1114). Read-only VBA language-server sessions use export extensions as project members (#4453). No writes (#1120) or execution ([#4479](https://github.com/hexide-io/HexIDE/issues/4479), which will ask first through #1121's prompt). Headless checked, and checked live on 2026-11-28 (#4331). See [Office containers](office-containers.md). |
 
 ## Windows-only (IsWindows-gated)
 

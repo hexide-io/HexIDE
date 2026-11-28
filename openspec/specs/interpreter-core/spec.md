@@ -2146,9 +2146,14 @@ Conditions, loop bounds, Select Case and conversion functions are outside this c
 - **THEN** an early-bound read raises 13
 - **AND** the same comparison through an Object reference returns Boolean False with no error
 
-#### Scenario: A PictureBox operand refuses the unmodeled handle
-- **WHEN** an empty PictureBox is added to 2 under On Error Resume Next
-- **THEN** execution refuses with NotImplementedException naming #790 instead of resuming with error 13
+#### Scenario: A PictureBox with no picture supplies Long zero
+- **WHEN** Let, an operator, or output reads an empty PictureBox's default
+- **THEN** the default SHALL supply Long 0, wrapped as a Variant for a late-bound reference ([#5549 measurements](https://github.com/hexide-io/HexIDE/issues/5549))
+- **AND** `Picture1 + 2` yields Long 2, `2 / Picture1` raises 11, and `Write #` of the control writes `"0"`
+
+#### Scenario: A PictureBox holding a picture refuses the unmodeled handle
+- **WHEN** a PictureBox holding a picture is added to 2 under On Error Resume Next
+- **THEN** execution refuses with NotImplementedException naming #790
 
 ### Requirement: New on a form creates a separate instance
 

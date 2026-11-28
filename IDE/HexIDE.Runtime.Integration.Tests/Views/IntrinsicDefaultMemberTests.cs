@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using HexIDE.Integration.Tests.Views;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Interpreter;
 
@@ -14,6 +15,8 @@ namespace HexIDE.Runtime.Integration.Tests.Views;
 // "Each intrinsic control's default member" (SP6, native and p-code).
 public class IntrinsicDefaultMemberTests
 {
+    private const string PictureBoxControl = "Begin VB.PictureBox Picture1\nEnd";
+
     private static async Task<List<Vb6Value>> Run(
         string kind, string properties, string code)
     {
@@ -22,10 +25,12 @@ public class IntrinsicDefaultMemberTests
 
     private static async Task<List<Vb6Value>> Run(string controls, string code)
     {
-        var form = $"VERSION 5.00\nBegin VB.Form Form1\n{controls}\nEnd\nAttribute VB_Name = \"Form1\"\n";
-        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(form.ReplaceLineEndings("\r\n"));
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithControls(controls));
         return await ContainerRuntimeHarness.Run(ctx, env, code);
     }
+
+    private static string FormWithControls(string controls) =>
+        $"VERSION 5.00\nBegin VB.Form Form1\n{controls}\nEnd\nAttribute VB_Name = \"Form1\"\n".ReplaceLineEndings("\r\n");
 
     [AvaloniaTheory]
     [InlineData("Label", "Caption = \"L1\"", "L1", "String")]
@@ -70,7 +75,6 @@ public class IntrinsicDefaultMemberTests
     [AvaloniaTheory]
     [InlineData("Timer", "Dim v\nv = Ctl")]
     [InlineData("Line", "Dim v\nv = Ctl")]
-    [InlineData("PictureBox", "Dim v\nv = Ctl")]
     [InlineData("Image", "Dim v\nv = Ctl")]
     [InlineData("Shape", "Ctl = 3")]
     [InlineData("Timer", "Ctl = False")]
@@ -220,13 +224,72 @@ public class IntrinsicDefaultMemberTests
         values.ConvertAll(v => v.Value).Should().Equal("Boolean", false, 0);
     }
 
+    // #5549, a-control-as-an-operand.md and #5504's first comment (SP6, native and p-code).
+    [AvaloniaTheory]
+    [InlineData("Picture1 + 2", "Long", 2L, 0)]
+    [InlineData("Not Picture1", "Long", -1L, 0)]
+    [InlineData("Picture1 Xor 2", "Long", 2L, 0)]
+    [InlineData("Picture1 Eqv 2", "Long", -3L, 0)]
+    [InlineData("Picture1 Imp 2", "Long", -1L, 0)]
+    [InlineData("Picture1 = 0", "Boolean", true, 0)]
+    [InlineData("2 / Picture1", "Empty", null, 11)]
+    [InlineData("2 \\ Picture1", "Empty", null, 11)]
+    [InlineData("2 Mod Picture1", "Empty", null, 11)]
+    [InlineData("Picture1 & \"\"", "String", "0", 0)]
+    public async Task Empty_PictureBox_operand_has_measured_result(string expression, string type, object? expected, int error)
+    {
+        var values = await Run(PictureBoxControl, OperandResult(expression));
+        values.ConvertAll(v => v.Value).Should().Equal(type, expected, error);
+    }
+
+    public static IEnumerable<object[]> PictureBoxOperandCases()
+    {
+        foreach (var row in BinaryControlOperandCases())
+            yield return [((string)row[0]).Replace("Ctl", "Picture1")];
+        yield return ["Not Picture1"];
+        yield return ["-Picture1"];
+        yield return ["Picture1 + \"1\""];
+        yield return ["Picture1 Like \"1*\""];
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(PictureBoxOperandCases))]
+    public async Task Empty_PictureBox_operand_matches_a_Long_zero(string expression)
+    {
+        var actual = await Run(PictureBoxControl, OperandResult(expression));
+        var handle = await Run(PictureBoxControl, OperandResult(expression.Replace("Picture1", "CLng(0)")));
+        actual.ConvertAll(v => v.Value).Should().Equal(handle.ConvertAll(v => v.Value));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("o + 2", "Picture1 + 2")]
+    [InlineData("2 * o", "2 * Picture1")]
+    [InlineData("Not o", "Not Picture1")]
+    [InlineData("o = 2", "Picture1 = 2")]
+    public async Task Empty_PictureBox_operand_through_Object_matches_early_bound(string expression, string earlyBoundExpression)
+    {
+        var actual = await Run(PictureBoxControl, $"Dim o As Object\nSet o = Picture1\n{OperandResult(expression)}");
+        var earlyBound = await Run(PictureBoxControl, OperandResult(earlyBoundExpression));
+        actual.ConvertAll(v => v.Value).Should().Equal(earlyBound.ConvertAll(v => v.Value));
+    }
+
+    // #5549, a-control-where-a-value-is-wanted-is-its-default-member.md (SP6, native and p-code).
+    [AvaloniaFact]
+    public async Task Let_reads_an_empty_PictureBox_as_Long_zero()
+    {
+        var values = await Run(PictureBoxControl, "Dim v\nv = Picture1\nDebug.Print TypeName(v)\nDebug.Print v");
+        values.ConvertAll(v => v.Value).Should().Equal("Long", 0L);
+    }
+
     [AvaloniaFact]
     public async Task PictureBox_operand_refuses_its_unmodeled_handle()
     {
-        var form = "VERSION 5.00\nBegin VB.Form Form1\nBegin VB.PictureBox Ctl\nEnd\nEnd\nAttribute VB_Name = \"Form1\"\n";
-        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(form.ReplaceLineEndings("\r\n"));
+        var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithControls(PictureBoxControl));
+        var box = (VBPictureBox)ContainerRuntimeHarness.Child(canvas, "Picture1");
+        box.PictureData = PictureBoxAutoSizeTests.Bitmap();
+        box.Picture.Should().NotBeNull();
         var library = Substitute.For<IBasicStandardLibrary>();
-        var act = () => new BasicInterpreter(library, ctx, env, OperandResult("Ctl + 2")).Execute();
+        var act = () => new BasicInterpreter(library, ctx, env, OperandResult("Picture1 + 2")).Execute();
         (await act.Should().ThrowAsync<System.NotImplementedException>()).WithMessage("*`+`*#790*");
         library.DidNotReceiveWithAnyArgs().DebugPrint(default);
     }
@@ -323,10 +386,52 @@ public class IntrinsicDefaultMemberTests
         await AssertFileOutput("Begin VB.CheckBox Ctl\nEnd", setup, $"Write #1, {item}", expected);
     }
 
+    // #5549, the first form in a-control-where-a-value-is-wanted-is-its-default-member.md.
+    [AvaloniaTheory]
+    [InlineData("Print #1, Command1; Check1; Picture1", "False 0  0 ")]
+    [InlineData("Write #1, Label1, Command1, Check1, Picture1", "\"L1\",#FALSE#,\"0\",\"0\"")]
+    public async Task File_output_reads_the_empty_PictureBox_in_a_control_list(string statement, string expected)
+    {
+        await AssertFileOutput("""
+            Begin VB.Label Label1
+            End
+            Begin VB.CommandButton Command1
+            End
+            Begin VB.CheckBox Check1
+            End
+            Begin VB.PictureBox Picture1
+            End
+            """, "Label1.Caption = \"L1\"", statement, expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Dim c As Control", "c")]
+    [InlineData("Dim o As Object", "o")]
+    [InlineData("Dim v", "v")]
+    public async Task Print_file_reads_an_empty_PictureBox_through_a_late_bound_reference(string declaration, string name)
+    {
+        await AssertFileOutput(PictureBoxControl, $"{declaration}\nSet {name} = Picture1", $"Print #1, {name}", " 0 ");
+    }
+
+    // #5549 also shares the new default with Debug.Print and the paused Immediate window.
+    [AvaloniaTheory]
+    [InlineData("PictureBox", false)]
+    [InlineData("Object", true)]
+    [InlineData("Control", true)]
+    [InlineData("Variant", true)]
+    public async Task Debug_Print_reads_the_PictureBox_default_with_its_binding(string declaration, bool lateBound)
+    {
+        var values = await Run(PictureBoxControl, $"Dim p As {declaration}\nSet p = Picture1\nDebug.Print p");
+        var value = values.Should().ContainSingle().Which;
+        value.Type.Should().Be(Vb6Value.ValueType.Long);
+        value.Value.Should().Be(0L);
+        value.HeldAsVariant.Should().Be(lateBound);
+    }
+
     [AvaloniaFact]
     public async Task Debug_Print_refuses_an_unmodeled_default()
     {
-        var act = () => Run("PictureBox", "", "Debug.Print Ctl");
+        var act = () => Run("Image", "", "Debug.Print Ctl");
         (await act.Should().ThrowAsync<System.NotImplementedException>()).WithMessage("*#790*");
     }
 
@@ -338,13 +443,12 @@ public class IntrinsicDefaultMemberTests
     }
 
     [AvaloniaTheory]
-    [InlineData("? Ctl", "L1")]
-    [InlineData("? Ctl; Ctl", "L1L1")]
-    public async Task Immediate_print_reads_control_defaults(string line, string expected)
+    [InlineData("Begin VB.Label Ctl\nCaption = \"L1\"\nEnd", "? Ctl", "L1")]
+    [InlineData("Begin VB.Label Ctl\nCaption = \"L1\"\nEnd", "? Ctl; Ctl", "L1L1")]
+    [InlineData(PictureBoxControl, "? Picture1", " 0 ")]
+    public async Task Immediate_print_reads_control_defaults(string controls, string line, string expected)
     {
-        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(
-            "VERSION 5.00\nBegin VB.Form Form1\nBegin VB.Label Ctl\nCaption = \"L1\"\nEnd\nEnd\nAttribute VB_Name = \"Form1\"\n"
-                .ReplaceLineEndings("\r\n"));
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithControls(controls));
         var debugger = new DebugController();
         var interpreter = new BasicInterpreter(Substitute.For<IBasicStandardLibrary>(), ctx, env, "Stop")
             { DebugController = debugger };
