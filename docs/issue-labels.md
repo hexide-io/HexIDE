@@ -389,8 +389,9 @@ parked issue isn't queued for the agent lanes.
 
 ## Axis 5 — initiative (zero or more; usually none)
 
-An initiative label is named for another product HexIDE is being made to work with; the current set is on
-GitHub, each with the same name as its organisation project. It applies when the issue **exists to make HexIDE
+Most initiative labels are named for another product HexIDE is being made to work with; the current set is on
+GitHub, each with the same name as its organisation project. `corpus`, below, is the exception. A product label
+applies when the issue **exists to make HexIDE
 work with that product**: the work would not be done but for it. A product named only as where a generic bug
 was found, or as one target among several, does not qualify. That is the landing rule's counterpart, and it is
 why these are not areas: the fix still lands in an area, and takes that area as well.
@@ -398,6 +399,19 @@ why these are not areas: the fix still lands in an area, and takes that area as 
 Each initiative's project adds labelled issues itself, so label the issue and the board follows; nobody curates
 a board by hand. Releases are milestones, not labels: `Alpha` holds what must land before the first public
 alpha.
+
+### `corpus`: found by running real-world code
+
+`corpus` marks an issue filed by the corpus research runs, which put real-world VB6 and VBA code through HexIDE.
+Its purpose is to make those findings countable: `gh issue list --repo hexide-io/HexIDE --label corpus --state all`.
+
+- **Who applies it:** the run applies it when it files the issue. A run files about ten issues at most, and each
+  one describes a problem without proposing a fix.
+- **The other axes:** the issue still takes its type, size and area as usual. It takes a milestone only when it
+  is goal work.
+- **How it differs:** unlike the product labels, it says where an issue came from rather than which product it
+  serves, and it has no organisation project. So the rule above doesn't limit it: a generic bug found this way
+  takes `corpus` too.
 
 ---
 
