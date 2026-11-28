@@ -161,7 +161,7 @@
     "Str.LspArtifact.Grants": "A continuació es mostren els servidors autoritzats a generar fitxers a l'espai de treball. Restabliu un permís per tornar a preguntar a la sessió següent.",
     "Str.LspArtifact.Reset": "Restableix",
     "Str.LspArtifact.ResetGrant": "Restableix {0} per a {1} a {2}",
-    "Str.Archive.ProjectFormat": "{0} (arxiu de només lectura)",
+    "Str.TwinBasic.ProjectCaption": "{0} (projecte de twinBASIC)",
     "Str.Archive.Hidden": "Mostra les entrades ocultes de l'arxiu",
     "Str.Archive.SaveChanged": "No es pot desar '{0}': el fitxer ha canviat al disc. Torneu-lo a carregar abans de desar.",
     "Str.Archive.SaveRefused": "No es pot desar '{0}': no s'ha pogut verificar i escriure el contenidor amb seguretat. El canvi continua sense desar.",

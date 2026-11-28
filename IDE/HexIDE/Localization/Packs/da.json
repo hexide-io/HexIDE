@@ -122,7 +122,7 @@
     "Str.LspArtifact.Grants": "Nedenfor vises servere, der må oprette arbejdsområdefiler. Nulstil en tilladelse for at blive spurgt igen næste session.",
     "Str.LspArtifact.Reset": "Nulstil",
     "Str.LspArtifact.ResetGrant": "Nulstil {0} for {1} i {2}",
-    "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC-projekt)",
     "Str.Archive.Hidden": "Vis skjulte arkivposter",
     "Str.Archive.SaveChanged": "Kan ikke gemme '{0}': filen er ændret på disken. Genindlæs den før du gemmer.",
     "Str.Archive.SaveRefused": "Kan ikke gemme '{0}': beholderen kunne ikke verificeres og skrives sikkert. Ændringen er stadig ikke gemt.",

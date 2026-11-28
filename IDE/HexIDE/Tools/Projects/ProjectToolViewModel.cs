@@ -232,7 +232,7 @@ public partial class ProjectToolViewModel : Tool
             {
                 var root = new ArchiveTreeNode(project.Root, ShowHiddenArchiveEntries,
                     project.FolderFormat() is not null
-                        ? string.Format(localization.GetString("Str.Archive.ProjectFormat"), project.Name)
+                        ? string.Format(localization.GetString("Str.TwinBasic.ProjectCaption"), project.Name)
                         : string.Format(localization.GetString(project.IsLocked ? "Str.Office.LockedCaption" : "Str.Office.ProjectCaption"), project.Name, System.IO.Path.GetFileName(project.ContainerPath)),
                     localization, project.NoticeKey is { } key ? localization.GetString(key) : null, project.FolderFormat() is not null);
                 foreach (var node in WalkArchive(root))

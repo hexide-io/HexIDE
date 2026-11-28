@@ -119,7 +119,7 @@
     "Str.LspArtifact.Grants": "Ниже перечислены серверы, которым разрешено создавать файлы рабочей области. Сбросьте разрешение, чтобы запросить его снова в следующем сеансе.",
     "Str.LspArtifact.Reset": "Сбросить",
     "Str.LspArtifact.ResetGrant": "Сбросить {0} для {1} в {2}",
-    "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
+    "Str.TwinBasic.ProjectCaption": "{0} (проект twinBASIC)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",
     "Str.Archive.ReadOnly": "Просмотр архива только для чтения. Редактирование, сборка и запуск недоступны.",
     "Str.Archive.UnsupportedType": "Просмотр текста недоступен для этого типа файла.",

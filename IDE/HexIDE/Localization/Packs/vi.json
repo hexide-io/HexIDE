@@ -119,7 +119,7 @@
     "Str.LspArtifact.Grants": "Dưới đây là các máy chủ được phép tạo tệp trong không gian làm việc. Đặt lại quyền để hỏi lại trong phiên tiếp theo.",
     "Str.LspArtifact.Reset": "Đặt lại",
     "Str.LspArtifact.ResetGrant": "Đặt lại {0} cho {1} trong {2}",
-    "Str.Archive.ProjectFormat": "{0} (kho lưu trữ chỉ đọc)",
+    "Str.TwinBasic.ProjectCaption": "{0} (dự án twinBASIC)",
     "Str.Archive.Hidden": "Hiện các mục ẩn trong kho lưu trữ",
     "Str.Archive.ReadOnly": "Bản xem trước kho lưu trữ chỉ đọc. Không thể chỉnh sửa, biên dịch hoặc chạy.",
     "Str.Archive.UnsupportedType": "Không hỗ trợ xem trước văn bản cho loại tệp này.",

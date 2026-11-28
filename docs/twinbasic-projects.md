@@ -1,6 +1,7 @@
 # Editing twinBASIC projects
 
-Open a `.twinproj` through Open Project. Its stored folders and entries appear separately from VB6 projects.
+Open a `.twinproj` through Open Project. Project Explorer shows its stored folders and entries under
+`Name (twinBASIC project)`, separately from VB6 projects.
 Available UTF-8 `.twin` sources are editable and mark their tabs with an asterisk while unsaved. Ordinary
 Save writes all modified source tabs belonging to that container. Closing a modified tab, closing its
 project or exiting asks whether to save the changes. Reload also asks before discarding edits.

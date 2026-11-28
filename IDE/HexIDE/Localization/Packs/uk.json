@@ -119,7 +119,7 @@
     "Str.LspArtifact.Grants": "Нижче наведено сервери, яким дозволено створювати файли робочої області. Скиньте дозвіл, щоб запитати знову в наступному сеансі.",
     "Str.LspArtifact.Reset": "Скинути",
     "Str.LspArtifact.ResetGrant": "Скинути {0} для {1} у {2}",
-    "Str.Archive.ProjectFormat": "{0} (архів лише для читання)",
+    "Str.TwinBasic.ProjectCaption": "{0} (проєкт twinBASIC)",
     "Str.Archive.Hidden": "Показати приховані елементи архіву",
     "Str.Archive.ReadOnly": "Перегляд архіву лише для читання. Редагування, збирання та запуск недоступні.",
     "Str.Archive.UnsupportedType": "Перегляд тексту недоступний для цього типу файлу.",

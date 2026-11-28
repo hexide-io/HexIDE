@@ -122,7 +122,7 @@
     "Str.LspArtifact.Grants": "Abaixo estão os servidores autorizados a gerar ficheiros na área de trabalho. Reponha uma autorização para voltar a perguntar na próxima sessão.",
     "Str.LspArtifact.Reset": "Repor",
     "Str.LspArtifact.ResetGrant": "Repor {0} para {1} em {2}",
-    "Str.Archive.ProjectFormat": "{0} (arquivo só de leitura)",
+    "Str.TwinBasic.ProjectCaption": "{0} (projeto twinBASIC)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas do arquivo",
     "Str.Archive.SaveChanged": "Não é possível guardar '{0}': o ficheiro foi alterado no disco. Volte a carregá-lo antes de guardar.",
     "Str.Archive.SaveRefused": "Não é possível guardar '{0}': não foi possível verificar e escrever o contentor em segurança. A alteração continua por guardar.",

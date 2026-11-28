@@ -162,7 +162,7 @@
     "Str.LspArtifact.Grants": "Az alábbi kiszolgálók létrehozhatnak fájlokat a munkaterületen. Az engedély visszaállításával a következő munkamenetben ismét megjelenik a kérdés.",
     "Str.LspArtifact.Reset": "Visszaállítás",
     "Str.LspArtifact.ResetGrant": "{0} visszaállítása ehhez: {1}, itt: {2}",
-    "Str.Archive.ProjectFormat": "{0} (írásvédett archívum)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC-projekt)",
     "Str.Archive.Hidden": "Rejtett archívumbejegyzések megjelenítése",
     "Str.Archive.SaveChanged": "A(z) '{0}' nem menthető: a fájl megváltozott a lemezen. Mentés előtt töltse be újra.",
     "Str.Archive.SaveRefused": "A(z) '{0}' nem menthető: a tárolót nem sikerült biztonságosan ellenőrizni és kiírni. A módosítás mentetlen marad.",

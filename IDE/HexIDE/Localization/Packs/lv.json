@@ -162,7 +162,7 @@
     "Str.LspArtifact.Grants": "Zemāk norādīti serveri, kuriem atļauts ģenerēt darbvietas failus. Atiestatiet atļauju, lai nākamajā sesijā jautātu vēlreiz.",
     "Str.LspArtifact.Reset": "Atiestatīt",
     "Str.LspArtifact.ResetGrant": "Atiestatīt {0} serverim {1} darbvietā {2}",
-    "Str.Archive.ProjectFormat": "{0} (tikai lasāms arhīvs)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC projekts)",
     "Str.Archive.Hidden": "Rādīt slēptos arhīva ierakstus",
     "Str.Archive.SaveChanged": "Nevar saglabāt '{0}': fails diskā ir mainījies. Pirms saglabāšanas ielādējiet to vēlreiz.",
     "Str.Archive.SaveRefused": "Nevar saglabāt '{0}': konteineru nevarēja droši pārbaudīt un ierakstīt. Labojums paliek nesaglabāts.",

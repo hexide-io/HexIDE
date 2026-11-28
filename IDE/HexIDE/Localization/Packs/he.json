@@ -189,7 +189,7 @@
     "Str.LspArtifact.Grants": "להלן השרתים שמורשים ליצור קובצי סביבת עבודה. אפס הרשאה כדי להישאל שוב בהפעלה הבאה.",
     "Str.LspArtifact.Reset": "אפס",
     "Str.LspArtifact.ResetGrant": "אפס את {0} עבור {1} ב-{2}",
-    "Str.Archive.ProjectFormat": "{0} (ארכיון לקריאה בלבד)",
+    "Str.TwinBasic.ProjectCaption": "{0} (פרויקט twinBASIC)",
     "Str.Archive.Hidden": "הצגת פריטים מוסתרים בארכיון",
     "Str.Archive.SaveChanged": "לא ניתן לשמור את '{0}': הקובץ השתנה בדיסק. יש לטעון אותו מחדש לפני השמירה.",
     "Str.Archive.SaveRefused": "לא ניתן לשמור את '{0}': לא ניתן היה לאמת ולכתוב את המכולה בבטחה. העריכה טרם נשמרה.",
