@@ -66,13 +66,13 @@ public sealed class RevocationNoticeTests : IDisposable
         catch (IOException) { }
     }
 
-    private AddinContext Add(string id, bool loaded, AddinStatus status = AddinStatus.Loaded)
+    private AddinContext Add(string id, bool loaded, AddinStatus status = AddinStatus.Loaded, string publisherKey = "key")
     {
         var info = new AddinInfo(Path.Combine(_root, id), id + " Add-in", "", "1", "", Id: id, ManifestHash: id + "-hash",
             Chain: new TrustChain
             {
                 BuildVersion = "1", BuildHash = id + "-hash", IsFirstParty = false,
-                Publisher = new TrustLink("Publisher", "acme", "key"),
+                Publisher = new TrustLink("Publisher", "acme", publisherKey),
                 Intermediate = new TrustLink("Marketplace", "marketplace", "key"),
                 Root = new TrustLink("Root", "root", "key"),
             });
@@ -85,6 +85,14 @@ public sealed class RevocationNoticeTests : IDisposable
     {
         var json = Encoding.UTF8.GetBytes("{\"schema\":1,\"issuedUtc\":\"" + issued.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
             + "\",\"revoked\":{\"manifestHashes\":[" + string.Join(",", ids.Select(id => $"\"{id}-hash\"")) + "],\"publisherIds\":[],\"intermediateIds\":[]}}");
+        _next = new FetchedList(json, PackageCrypto.Sign(_key, json), null);
+        _store.RefreshFromUrl(Url, TimeSpan.FromSeconds(3)).Should().Be(RevocationRefresh.Applied);
+    }
+
+    private void RevokeKey(DateTimeOffset issued, string fingerprint)
+    {
+        var json = Encoding.UTF8.GetBytes("{\"schema\":1,\"issuedUtc\":\"" + issued.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)
+            + "\",\"revoked\":{\"manifestHashes\":[],\"publisherIds\":[],\"intermediateIds\":[],\"keyFingerprints\":[\"" + fingerprint + "\"]}}");
         _next = new FetchedList(json, PackageCrypto.Sign(_key, json), null);
         _store.RefreshFromUrl(Url, TimeSpan.FromSeconds(3)).Should().Be(RevocationRefresh.Applied);
     }
@@ -137,6 +145,26 @@ public sealed class RevocationNoticeTests : IDisposable
         notice.AddinTitles[0].Should().Be(new string('x', 80), "a title of exactly 80 characters is shown whole");
         notice.AddinTitles[1].Should().Be(new string('y', 80) + "…");
         notice.AddinTitles[2].Should().Be(string.Concat(Enumerable.Repeat("😀", 80)) + "…", "a character outside the BMP counts once, and isn't split");
+    }
+
+    // A newer list naming a loaded add-in's publisher key withdraws it as a build revocation does, by the chain verified at
+    // load (#5315). Its other add-ins with other keys stay.
+    [Fact]
+    public async Task A_loaded_add_in_whose_publisher_key_a_newer_list_revokes_is_withdrawn_and_named()
+    {
+        var stolen = string.Join(" ", Enumerable.Repeat("A1B2", 16));
+        var probe = Add("probe", loaded: true, publisherKey: stolen);
+        var other = Add("other", loaded: true, publisherKey: string.Join(" ", Enumerable.Repeat("C3D4", 16)));
+        AddinRevokedNoticeViewModel? notice = null;
+        _windows.ShowDialog(Arg.Do<IDialog>(dialog => notice = dialog as AddinRevokedNoticeViewModel)).Returns(false);
+        RevokeKey(_now, stolen.Replace(" ", "").ToLowerInvariant());
+
+        await _registry.ApplyRevocationsAndNotifyAsync();
+
+        probe.Status.Should().Be(AddinStatus.Revoked);
+        probe.ErrorMessage.Should().Be("publisher key revoked");
+        other.Status.Should().Be(AddinStatus.Loaded);
+        notice!.AddinTitles.Should().Equal("probe Add-in");
     }
 
     [Fact]

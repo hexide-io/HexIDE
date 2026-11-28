@@ -156,7 +156,7 @@
     "Str.LspArtifact.Grants": "Poniżej są serwery uprawnione do generowania plików obszaru roboczego. Zresetuj zgodę, aby zapytać ponownie w następnej sesji.",
     "Str.LspArtifact.Reset": "Resetuj",
     "Str.LspArtifact.ResetGrant": "Resetuj {0} dla {1} w {2}",
-    "Str.Archive.ProjectFormat": "{0} (archiwum tylko do odczytu)",
+    "Str.TwinBasic.ProjectCaption": "{0} (projekt twinBASIC)",
     "Str.Archive.Hidden": "Pokaż ukryte elementy archiwum",
     "Str.Archive.SaveChanged": "Nie można zapisać '{0}': plik zmienił się na dysku. Wczytaj go ponownie przed zapisaniem.",
     "Str.Archive.SaveRefused": "Nie można zapisać '{0}': nie udało się bezpiecznie zweryfikować i zapisać kontenera. Zmiana pozostaje niezapisana.",

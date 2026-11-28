@@ -125,7 +125,7 @@
     "Str.LspArtifact.Grants": "Serverele autorizate să genereze fișiere în spațiul de lucru sunt enumerate mai jos. Resetează o permisiune pentru a fi întrebat din nou în sesiunea următoare.",
     "Str.LspArtifact.Reset": "Resetează",
     "Str.LspArtifact.ResetGrant": "Resetează {0} pentru {1} în {2}",
-    "Str.Archive.ProjectFormat": "{0} (arhivă doar în citire)",
+    "Str.TwinBasic.ProjectCaption": "{0} (proiect twinBASIC)",
     "Str.Archive.Hidden": "Afișează intrările ascunse din arhivă",
     "Str.Archive.ReadOnly": "Previzualizare a arhivei doar în citire. Editarea, compilarea și rularea nu sunt disponibile.",
     "Str.Archive.UnsupportedType": "Previzualizarea textului nu este disponibilă pentru acest tip de fișier.",

@@ -54,7 +54,7 @@ verify-request --request <dir> [--ledger <dir>] [--github <handle>] [--root <fil
   it must be signed under the record's key, with the record's id and, byte for byte, the record's key. An entry that
   doesn't verify refuses.
 - **`--revocations <json> --revocations-sig <sig>`** is the signed revocation list, verified against `--root`. A rotation
-  of a revoked publisher id is refused.
+  of a revoked publisher id is refused, and so is a request whose key the list names.
 - **It treats a request as hostile.** It refuses a request file over 16 KiB, or a link, before reading it. Every line it
   prints starts with its own words, so a request can't forge a line of a workflow's log.
 - **Exit codes:**
@@ -63,6 +63,7 @@ verify-request --request <dir> [--ledger <dir>] [--github <handle>] [--root <fil
   - **3:** verified, but something only a person can settle:
     - a rotation checked without the ledger or the revocation list;
     - a rotation whose ledger entry has no stored request, or a different handle or `fingerprintUrl`;
+    - a rotation away from a key the revocation list names, whose signature then proves nothing;
     - a revocation list more than 7 days old.
   - **1:** a usage or I/O error.
 
@@ -177,6 +178,19 @@ longer verifies, so check the bytes that ship, not a copy.
 
 `.github/workflows/publish.yml` runs it against hexide.io's list on every release, and a list that doesn't verify fails
 the release. `REVOCATIONS_MUST_VERIFY: 0` in that workflow makes it a warning instead.
+
+**What a list names.** `revoked` holds four sets: `manifestHashes` (builds), `publisherIds`, `intermediateIds` and
+`keyFingerprints`. A key fingerprint is the SHA-256 one TRUST.md and **Trust details** show: 64 hex digits, with case and
+spaces ignored. HexIDE skips fields it doesn't know and never reads `schema`, so a new field leaves older versions
+updating; they just don't apply it.
+
+**A list HexIDE would ignore is never signed.** `sign-revocations` refuses one, before it reads the root key, when:
+- it doesn't parse;
+- a set is null;
+- its `issuedUtc` isn't a time, so it would never be the newest list;
+- a key fingerprint isn't 64 hex digits, so it would revoke nothing.
+
+`verify-revocations` fails such a list, with exit 2, even when its signature verifies.
 
 ## Replacing package output
 

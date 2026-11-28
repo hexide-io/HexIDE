@@ -156,7 +156,7 @@
     "Str.LspArtifact.Grants": "Nedenfor vises servere som kan opprette arbeidsområdefiler. Tilbakestill en tillatelse for å bli spurt igjen i neste økt.",
     "Str.LspArtifact.Reset": "Tilbakestill",
     "Str.LspArtifact.ResetGrant": "Tilbakestill {0} for {1} i {2}",
-    "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC-prosjekt)",
     "Str.Archive.Hidden": "Vis skjulte arkivoppføringer",
     "Str.Archive.SaveChanged": "Kan ikke lagre '{0}': filen er endret på disken. Last den inn på nytt før lagring.",
     "Str.Archive.SaveRefused": "Kan ikke lagre '{0}': beholderen kunne ikke verifiseres og skrives trygt. Endringen er fortsatt ikke lagret.",

@@ -128,7 +128,7 @@
     "Str.LspArtifact.Grants": "Lan-eremuko fitxategiak sortzeko baimena duten zerbitzariak behean ageri dira. Berrezarri baimen bat hurrengo saioan berriro galdetzeko.",
     "Str.LspArtifact.Reset": "Berrezarri",
     "Str.LspArtifact.ResetGrant": "Berrezarri {0}: {1}, {2} kokalekuan",
-    "Str.Archive.ProjectFormat": "{0} (irakurtzeko soilik den artxiboa)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC proiektua)",
     "Str.Archive.Hidden": "Erakutsi artxiboko sarrera ezkutuak",
     "Str.Archive.SaveChanged": "Ezin da '{0}' gorde: fitxategia diskoan aldatu da. Kargatu berriro gorde aurretik.",
     "Str.Archive.SaveRefused": "Ezin da '{0}' gorde: edukiontzia ezin izan da segurtasunez egiaztatu eta idatzi. Aldaketa gorde gabe dago.",

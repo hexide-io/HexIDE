@@ -578,11 +578,19 @@ public static partial class PublisherRequests
         if (now - issued > RevocationListMaxAge)
             notChecked.Add($"whether a revocation since {issued.UtcDateTime:yyyy-MM-dd} applies: the revocation list is more "
                 + $"than {RevocationListMaxAge.TotalDays:0} days old, so confirm by hand that it is the current one");
-        // A rotation away from a revoked publisher is never automatic. The list can't name a key yet, so a request whose new
-        // key is revoked can't be caught here until #5315 adds key fingerprints to it.
+        // A rotation away from a revoked publisher is never automatic.
         if (r.Kind == RotationKind && list.Revoked.PublisherIds.Contains(r.PublisherId, StringComparer.OrdinalIgnoreCase))
             refusals.Add("the revocation list names this publisher id; a rotation away from a revoked publisher is "
                 + "handled by hand");
+        // A revoked key is never issued. A rotation away from one is left to a person: once the key is stolen, its signature
+        // on the request proves nothing about who sent it (#5315). FieldRefusals has already checked both keys.
+        if (RevocationCheck.IsKeyRevoked(list, PackageCrypto.KeyFingerprint(r.PublicKey)))
+            refusals.Add("the revocation list names this request's publicKey; a revoked key is never issued");
+        if (r.Kind == RotationKind && r.PreviousPublicKey is { } previous
+            && RevocationCheck.IsKeyRevoked(list, PackageCrypto.KeyFingerprint(previous)))
+            notChecked.Add("whether this rotation comes from the publisher: the revocation list names the key it replaces, so "
+                + "that key's signature proves nothing. Confirm by hand that the GitHub account and the fingerprint on the "
+                + "publisher's own site are theirs");
     }
 
     // One namespace inside another, ignoring case: either publisher's add-ins could then claim the deeper prefix.

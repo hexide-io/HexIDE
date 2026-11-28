@@ -195,7 +195,7 @@
     "Str.LspArtifact.Grants": "U nastavku su poslužitelji kojima je dopušteno stvaranje datoteka radnog prostora. Poništite dopuštenje kako bi se upit ponovno prikazao u sljedećoj sesiji.",
     "Str.LspArtifact.Reset": "Poništi",
     "Str.LspArtifact.ResetGrant": "Poništi {0} za {1} u {2}",
-    "Str.Archive.ProjectFormat": "{0} (arhiva samo za čitanje)",
+    "Str.TwinBasic.ProjectCaption": "{0} (projekt twinBASIC)",
     "Str.Archive.Hidden": "Prikaži skrivene stavke arhive",
     "Str.Archive.SaveChanged": "Nije moguće spremiti '{0}': datoteka je promijenjena na disku. Ponovno je učitajte prije spremanja.",
     "Str.Archive.SaveRefused": "Nije moguće spremiti '{0}': spremnik nije bilo moguće sigurno provjeriti i zapisati. Izmjena ostaje nespremljena.",

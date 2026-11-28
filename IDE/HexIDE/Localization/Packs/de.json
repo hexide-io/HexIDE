@@ -155,7 +155,7 @@
     "Str.LspArtifact.Grants": "Unten stehen Server, die Arbeitsbereichsdateien erzeugen dürfen. Setzen Sie eine Erlaubnis zurück, um in der nächsten Sitzung erneut gefragt zu werden.",
     "Str.LspArtifact.Reset": "Zurücksetzen",
     "Str.LspArtifact.ResetGrant": "{0} für {1} in {2} zurücksetzen",
-    "Str.Archive.ProjectFormat": "{0} (schreibgeschütztes Archiv)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC-Projekt)",
     "Str.Archive.Hidden": "Ausgeblendete Archiveinträge anzeigen",
     "Str.Archive.SaveChanged": "'{0}' kann nicht gespeichert werden: Die Datei wurde auf dem Datenträger geändert. Laden Sie sie vor dem Speichern neu.",
     "Str.Archive.SaveRefused": "'{0}' kann nicht gespeichert werden: Der Container konnte nicht sicher geprüft und geschrieben werden. Die Änderung bleibt ungespeichert.",

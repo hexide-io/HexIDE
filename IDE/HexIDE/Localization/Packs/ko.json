@@ -156,7 +156,7 @@
     "Str.LspArtifact.Grants": "작업 영역 파일을 생성하도록 허용된 서버 목록입니다. 권한을 초기화하면 다음 세션에서 다시 묻습니다.",
     "Str.LspArtifact.Reset": "초기화",
     "Str.LspArtifact.ResetGrant": "{2}의 {1}에 대한 {0} 초기화",
-    "Str.Archive.ProjectFormat": "{0} (읽기 전용 아카이브)",
+    "Str.TwinBasic.ProjectCaption": "{0} (twinBASIC 프로젝트)",
     "Str.Archive.Hidden": "숨겨진 아카이브 항목 표시",
     "Str.Archive.SaveChanged": "'{0}'을(를) 저장할 수 없습니다. 디스크의 파일이 변경되었습니다. 저장하기 전에 다시 불러오세요.",
     "Str.Archive.SaveRefused": "'{0}'을(를) 저장할 수 없습니다. 컨테이너를 안전하게 검증하고 기록할 수 없습니다. 편집 내용은 저장되지 않았습니다.",

@@ -156,7 +156,7 @@
     "Str.LspArtifact.Grants": "Di seguito sono elencati i server autorizzati a generare file nell’area di lavoro. Reimposta un’autorizzazione per richiederla nella prossima sessione.",
     "Str.LspArtifact.Reset": "Reimposta",
     "Str.LspArtifact.ResetGrant": "Reimposta {0} per {1} in {2}",
-    "Str.Archive.ProjectFormat": "{0} (archivio di sola lettura)",
+    "Str.TwinBasic.ProjectCaption": "{0} (progetto twinBASIC)",
     "Str.Archive.Hidden": "Mostra le voci nascoste dell’archivio",
     "Str.Archive.SaveChanged": "Impossibile salvare '{0}': il file è cambiato sul disco. Ricaricarlo prima di salvare.",
     "Str.Archive.SaveRefused": "Impossibile salvare '{0}': non è stato possibile verificare e scrivere il contenitore in sicurezza. La modifica resta non salvata.",

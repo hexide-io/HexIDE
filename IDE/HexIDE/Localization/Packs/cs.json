@@ -155,7 +155,7 @@
     "Str.LspArtifact.Grants": "Níže jsou servery oprávněné vytvářet soubory pracovního prostoru. Obnovte oprávnění pro nový dotaz v příští relaci.",
     "Str.LspArtifact.Reset": "Obnovit",
     "Str.LspArtifact.ResetGrant": "Obnovit {0} pro {1} v {2}",
-    "Str.Archive.ProjectFormat": "{0} (archiv jen pro čtení)",
+    "Str.TwinBasic.ProjectCaption": "{0} (projekt twinBASIC)",
     "Str.Archive.Hidden": "Zobrazit skryté položky archivu",
     "Str.Archive.SaveChanged": "Nelze uložit '{0}': soubor se na disku změnil. Před uložením jej znovu načtěte.",
     "Str.Archive.SaveRefused": "Nelze uložit '{0}': kontejner se nepodařilo bezpečně ověřit a zapsat. Úprava zůstává neuložená.",

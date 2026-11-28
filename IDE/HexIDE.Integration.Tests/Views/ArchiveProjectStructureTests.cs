@@ -46,6 +46,27 @@ public sealed class ArchiveProjectStructureTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Twinbasic_project_root_shows_the_project_caption()
+    {
+        var english = new LocalizationService();
+        localization.GetString(Arg.Any<string>()).Returns(call => english.GetString(call.Arg<string>()));
+        await archives.Open(Write());
+        var view = new ProjectToolView { DataContext = model };
+        view.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE/"))
+        { Source = new Uri("avares://HexIDE/Themes/IconGeometry.axaml") });
+        var window = new Window { Content = view, Width = 600, Height = 400 };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var tree = view.GetLogicalDescendants().OfType<TreeView>().Single();
+            tree.GetLogicalDescendants().OfType<TextBlock>().Select(block => block.Text)
+                .Should().Contain("Project (twinBASIC project)");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task Menus_offer_only_measured_operations_and_bound_rename_keeps_the_open_tab()
     {
         var path = Write();

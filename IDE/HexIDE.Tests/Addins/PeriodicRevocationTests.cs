@@ -38,9 +38,9 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
 
     private string RootPub => PackageCrypto.ExportPublicKey(_key);
 
-    private static byte[] List(string issued, string[]? hashes = null, string[]? publishers = null) => Encoding.UTF8.GetBytes(
-        "{\"schema\":1,\"issuedUtc\":\"" + issued + "\",\"revoked\":{\"manifestHashes\":[" + Quoted(hashes)
-        + "],\"publisherIds\":[" + Quoted(publishers) + "],\"intermediateIds\":[]}}");
+    private static byte[] List(string issued, string[]? hashes = null, string[]? publishers = null, string[]? keys = null) =>
+        Encoding.UTF8.GetBytes("{\"schema\":1,\"issuedUtc\":\"" + issued + "\",\"revoked\":{\"manifestHashes\":[" + Quoted(hashes)
+        + "],\"publisherIds\":[" + Quoted(publishers) + "],\"intermediateIds\":[],\"keyFingerprints\":[" + Quoted(keys) + "]}}");
 
     private static string Quoted(string[]? values) => string.Join(",", (values ?? []).Select(v => $"\"{v}\""));
 
@@ -59,7 +59,7 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
         store.RefreshFromUrl(Url, TimeSpan.FromSeconds(3)).Should().Be(RevocationRefresh.Unchanged);
 
         validators.Should().Equal(null, "\"v1\"");
-        store.IsRevoked("bad", null, null, isFirstParty: false).Should().NotBeNull();
+        store.IsRevoked("bad", null, null, isFirstParty: false, null, null).Should().NotBeNull();
     }
 
     [Fact]
@@ -299,11 +299,14 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
     // The supervisor's review of #5660: the hourly check's job runs in the consent modal's frame, so a revocation can land
     // while a prompt is open. Neither that add-in nor a later one in the same pass may load. Without the job having run yet,
     // the active list alone must stop it.
+    // By key (#5315): with the job not yet run, only the re-check by the chain verified at load can stop it.
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task A_revocation_landing_while_a_consent_prompt_is_open_loads_nothing(bool jobRanDuringThePrompt)
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    public async Task A_revocation_landing_while_a_consent_prompt_is_open_loads_nothing(bool jobRanDuringThePrompt, bool byKey)
     {
+        var publisherKey = string.Join(" ", Enumerable.Repeat("A1B2", 16));
         var store = new RevocationStore(RootPub, Path.Combine(_root, "cache"), (_, _) => throw new IOException("unused"));
         var windows = Substitute.For<IWindowManager>();
         var consent = new ConsentStore(Path.Combine(_root, "consent.json"));
@@ -320,14 +323,25 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
             {
                 Status = AddinStatus.AwaitingConsent, Manifest = manifest,
                 PendingResult = new PackageVerificationResult(PackageVerdict.Verified, manifest, "Publisher", "acme", null)
-                    { ManifestHash = id + "-hash", IntermediateId = "marketplace" },
+                {
+                    ManifestHash = id + "-hash", IntermediateId = "marketplace",
+                    Chain = new TrustChain
+                    {
+                        BuildVersion = "1", BuildHash = id + "-hash", IsFirstParty = false,
+                        Publisher = new TrustLink("Publisher", "acme", publisherKey),
+                        Intermediate = new TrustLink("Marketplace", "marketplace", string.Join(" ", Enumerable.Repeat("C3D4", 16))),
+                        Root = new TrustLink("HexIDE root", "", "root"),
+                    },
+                },
             });
         }
         typeof(AddinRegistry).GetField("_host", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .SetValue(registry, Substitute.For<IHexIdeHost>());
         windows.ShowDialog(Arg.Any<IDialog>()).Returns(_ =>
         {
-            Publish(store, List("2099-01-01T00:00:00Z", ["first-hash", "second-hash"]));
+            Publish(store, byKey
+                ? List("2099-01-01T00:00:00Z", keys: [publisherKey.Replace(" ", "").ToLowerInvariant()])
+                : List("2099-01-01T00:00:00Z", ["first-hash", "second-hash"]));
             if (jobRanDuringThePrompt) registry.ApplyRevocations();
             return Task.FromResult(true);
         });

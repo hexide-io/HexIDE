@@ -155,7 +155,7 @@
     "Str.LspArtifact.Grants": "Estos servidores pueden generar archivos del espacio de trabajo. Restablece un permiso para volver a preguntar en la próxima sesión.",
     "Str.LspArtifact.Reset": "Restablecer",
     "Str.LspArtifact.ResetGrant": "Restablecer {0} para {1} en {2}",
-    "Str.Archive.ProjectFormat": "{0} (archivo de solo lectura)",
+    "Str.TwinBasic.ProjectCaption": "{0} (proyecto de twinBASIC)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas del archivo",
     "Str.Archive.SaveChanged": "No se puede guardar '{0}': el archivo ha cambiado en el disco. Vuelva a cargarlo antes de guardar.",
     "Str.Archive.SaveRefused": "No se puede guardar '{0}': no se pudo verificar y escribir el contenedor de forma segura. La edición sigue sin guardar.",
