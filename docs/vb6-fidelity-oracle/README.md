@@ -554,6 +554,7 @@ added afterwards.
 - [Omitted optional arguments, and string operands to numeric intrinsics (2026-09-02)](omitted-optional-arguments-and-string-operands-to-numeric-intrinsics.md#omitted-optional-arguments-and-string-operands-to-numeric-intrinsics-2026-09-02)
 - [Line continuations and statement separators (2026-09-02)](line-continuations-and-statement-separators.md#line-continuations-and-statement-separators-2026-09-02)
 - [Enums (2026-09-03)](enums.md#enums-2026-09-03)
+- [An Enum member whose bracketed name holds a dot (2026-11-28, #5833, SP6)](enums.md#an-enum-member-whose-bracketed-name-holds-a-dot-2026-11-28-5833-sp6)
 - [Module scope for Types and Enums (2026-09-03)](module-scope-for-types-and-enums.md#module-scope-for-types-and-enums-2026-09-03)
 - [What the corpus PRINTS, not just whether it parses (2026-09-03)](what-the-corpus-prints-not-just-whether-it-parses.md#what-the-corpus-prints-not-just-whether-it-parses-2026-09-03)
 - [`Select Case` layout — colons, blank lines, and continuations (2026-09-03)](select-case-layout--colons-blank-lines-and-continuations.md#select-case-layout--colons-blank-lines-and-continuations-2026-09-03)
