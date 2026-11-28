@@ -586,7 +586,7 @@ public class OptionsViewModelTests
         a.ToggleEnabledCommand.Execute(null);
 
         _addinRegistry.Received().SetEnabled(_addinA.AssemblyPath, false);
-        a.RestartNoteVisible.Should().BeTrue();
+        a.TakenOutNoteVisible.Should().BeTrue();
     }
 
     [AvaloniaFact]

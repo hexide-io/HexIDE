@@ -690,6 +690,7 @@
     "Str.Options.Addin.Details.Status": "Стан:",
     "Str.Options.Addin.RevokeConsent": "Відкликати згоду",
     "Str.Options.Addin.RestartNote": "Набуває чинності після наступного перезапуску IDE.",
+    "Str.Options.Addin.TakenOutNote": "Її меню, команди, вікна та мовні сервери вилучено. Її код залишається завантаженим, доки HexIDE не буде закрито.",
     "Str.Options.Addin.Trust": "Довіра",
     "Str.Dialog.About.SigningKeys.Header": "Ключі підпису надбудов",
     "Str.Dialog.About.SigningKeys.RootKey": "Кореневий ключ HexIDE (SHA-256)",

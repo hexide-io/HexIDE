@@ -23,6 +23,7 @@ public class AddinOptionsPageViewModelTests
         sut.IsAddinEnabled.Should().BeTrue();
         sut.ToggleLabel.Should().Be("Deactivate");
         sut.RestartNoteVisible.Should().BeFalse();
+        sut.TakenOutNoteVisible.Should().BeFalse();
     }
 
     [Fact]
@@ -38,8 +39,9 @@ public class AddinOptionsPageViewModelTests
         sut.Author.Should().Be("—");
     }
 
+    // Disabling takes out what the add-in registered at once; only its code waits for HexIDE to close (#5661).
     [Fact]
-    public void Toggle_FromEnabled_Deactivates_AndShowsRestartNote()
+    public void Toggle_FromEnabled_Deactivates_AndSaysWhatIsTakenOutNow()
     {
         _registry.GetStatus(Info.AssemblyPath).Returns(AddinStatus.Loaded);
         var sut = new AddinOptionsPageViewModel(_registry, Info);
@@ -47,7 +49,53 @@ public class AddinOptionsPageViewModelTests
         sut.ToggleEnabledCommand.Execute(null);
 
         _registry.Received(1).SetEnabled(Info.AssemblyPath, false);
+        sut.TakenOutNoteVisible.Should().BeTrue();
+        sut.RestartNoteVisible.Should().BeFalse();
+    }
+
+    // Only code that ran registered anything to take out. Disabling a row that failed, was refused or never asked changes
+    // the next start and nothing now, so it keeps the restart note.
+    [Theory]
+    [InlineData(AddinStatus.Error)]
+    [InlineData(AddinStatus.Incompatible)]
+    [InlineData(AddinStatus.Untrusted)]
+    [InlineData(AddinStatus.AwaitingConsent)]
+    [InlineData(AddinStatus.ConsentDenied)]
+    public void Deactivating_an_add_in_that_never_ran_says_it_takes_effect_at_the_next_restart(AddinStatus status)
+    {
+        _registry.GetStatus(Info.AssemblyPath).Returns(status);
+        var sut = new AddinOptionsPageViewModel(_registry, Info);
+
+        sut.ToggleEnabledCommand.Execute(null);
+
+        _registry.Received(1).SetEnabled(Info.AssemblyPath, false);
         sut.RestartNoteVisible.Should().BeTrue();
+        sut.TakenOutNoteVisible.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Deactivating_a_developer_build_that_ran_says_what_is_taken_out_now()
+    {
+        _registry.GetStatus(Info.AssemblyPath).Returns(AddinStatus.DeveloperUnsigned);
+        var sut = new AddinOptionsPageViewModel(_registry, Info);
+
+        sut.ToggleEnabledCommand.Execute(null);
+
+        sut.TakenOutNoteVisible.Should().BeTrue();
+        sut.RestartNoteVisible.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Toggle_FromDisabled_Activates_AndSaysItTakesEffectAtTheNextRestart()
+    {
+        _registry.GetStatus(Info.AssemblyPath).Returns(AddinStatus.Disabled);
+        var sut = new AddinOptionsPageViewModel(_registry, Info);
+
+        sut.ToggleEnabledCommand.Execute(null);
+
+        _registry.Received(1).SetEnabled(Info.AssemblyPath, true);
+        sut.RestartNoteVisible.Should().BeTrue();
+        sut.TakenOutNoteVisible.Should().BeFalse();
     }
 
     [Theory]
@@ -63,7 +111,7 @@ public class AddinOptionsPageViewModelTests
 
         asked.Should().Equal("the-addin");
         _registry.Received(deactivated ? 1 : 0).SetEnabled(Identified.AssemblyPath, false);
-        sut.RestartNoteVisible.Should().Be(deactivated);
+        sut.TakenOutNoteVisible.Should().Be(deactivated);
     }
 
     [Theory]
@@ -185,7 +233,7 @@ public class AddinOptionsPageViewModelTests
     }
 
     [Fact]
-    public void RevokeConsent_CallsRegistry_WithManifestHash_AndShowsRestartNote()
+    public void RevokeConsent_CallsRegistry_WithManifestHash_AndSaysWhatIsTakenOutNow()
     {
         _registry.GetStatus(Arg.Any<string>()).Returns(AddinStatus.Loaded);
         var sut = new AddinOptionsPageViewModel(_registry, Signed("the-hash"));
@@ -193,7 +241,21 @@ public class AddinOptionsPageViewModelTests
         sut.RevokeConsentCommand.Execute(null);
 
         _registry.Received(1).RevokeConsent("the-hash");
-        sut.RestartNoteVisible.Should().BeTrue();
+        sut.TakenOutNoteVisible.Should().BeTrue();
+        sut.RestartNoteVisible.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Revoking_a_blocked_decision_says_it_takes_effect_at_the_next_restart()
+    {
+        _registry.GetStatus(Arg.Any<string>()).Returns(AddinStatus.ConsentDenied);
+        var sut = new AddinOptionsPageViewModel(_registry, Signed("the-hash"));
+
+        sut.RevokeConsentCommand.Execute(null);
+
+        _registry.Received(1).RevokeConsent("the-hash");
+        sut.RestartNoteVisible.Should().BeTrue("nothing of a blocked add-in ran, so nothing is taken out now");
+        sut.TakenOutNoteVisible.Should().BeFalse();
     }
 
     [Fact]

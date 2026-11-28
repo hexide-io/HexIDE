@@ -729,6 +729,7 @@
     "Str.Options.Addin.Details.Status": "Status:",
     "Str.Options.Addin.RevokeConsent": "Toestemming intrekken",
     "Str.Options.Addin.RestartNote": "Wordt van kracht bij de volgende herstart van de IDE.",
+    "Str.Options.Addin.TakenOutNote": "De menu's, opdrachten, vensters en taalservers ervan zijn nu verwijderd. De code blijft geladen totdat HexIDE wordt gesloten.",
     "Str.Options.Addin.Trust": "Vertrouwen",
     "Str.Dialog.About.SigningKeys.Header": "Ondertekeningssleutels voor invoegtoepassingen",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE-hoofdsleutel (SHA-256)",

@@ -734,6 +734,7 @@
     "Str.Options.Addin.Details.Status": "Būsena:",
     "Str.Options.Addin.RevokeConsent": "Atšaukti sutikimą",
     "Str.Options.Addin.RestartNote": "Įsigalios kitą kartą paleidus IDE.",
+    "Str.Options.Addin.TakenOutNote": "Jo meniu, komandos, langai ir kalbos serveriai dabar pašalinti. Jo kodas lieka įkeltas, kol HexIDE bus uždarytas.",
     "Str.Options.Addin.Trust": "Pasitikėjimas",
     "Str.Dialog.About.SigningKeys.Header": "Priedų pasirašymo raktai",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE šakninis raktas (SHA-256)",

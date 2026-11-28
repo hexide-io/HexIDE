@@ -695,6 +695,7 @@
     "Str.Options.Addin.Details.Status": "Status:",
     "Str.Options.Addin.RevokeConsent": "Tilbagekald samtykke",
     "Str.Options.Addin.RestartNote": "Træder i kraft ved næste genstart af IDE'en.",
+    "Str.Options.Addin.TakenOutNote": "Dets menuer, kommandoer, vinduer og sprogservere er fjernet nu. Dets kode forbliver indlæst, indtil HexIDE lukkes.",
     "Str.Options.Addin.Trust": "Stol på",
     "Str.Dialog.About.SigningKeys.Header": "Signeringsnøgler til tilføjelsesprogrammer",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE-rodnøgle (SHA-256)",

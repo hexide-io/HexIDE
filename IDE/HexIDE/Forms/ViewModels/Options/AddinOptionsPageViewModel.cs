@@ -18,8 +18,9 @@ namespace HexIDE.Forms.ViewModels.Options;
 /// <summary>
 /// Add-Ins &#8594; {add-in}: a fixed details header (title / description / version / author / status)
 /// plus an Activate/Deactivate toggle. Unlike the first-party settings pages, enable/disable is
-/// persisted immediately via <see cref="IAddinRegistry"/> (independent of the dialog's OK/Cancel)
-/// and takes effect on the next IDE restart.
+/// persisted immediately via <see cref="IAddinRegistry"/> (independent of the dialog's OK/Cancel).
+/// Disabling a running add-in takes out what it registered at once (#5661); its code, and enabling, wait for the next
+/// start.
 /// </summary>
 public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
 {
@@ -126,6 +127,10 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private AddinStatus _status;
     [ObservableProperty] private bool _restartNoteVisible;
+    /// <summary>After disabling a running add-in or revoking its consent: what it registered is gone at once, and only its code
+    /// waits for HexIDE to close (#5661). Enabling, or either change to an add-in that never ran, still waits for the next
+    /// start, as <see cref="RestartNoteVisible"/> says.</summary>
+    [ObservableProperty] private bool _takenOutNoteVisible;
     [ObservableProperty] private bool _consentRevoked;
 
     /// <summary>An add-in is "enabled" unless it has been explicitly disabled.</summary>
@@ -178,10 +183,16 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
     {
         if (IsAddinEnabled && !await MayWithdraw())
             return;
+        var takenOut = IsAddinEnabled && IsRunning;
         _registry.SetEnabled(_assemblyPath, !IsAddinEnabled);
         Status = _registry.GetStatus(_assemblyPath);
-        RestartNoteVisible = true;
+        TakenOutNoteVisible = takenOut;
+        RestartNoteVisible = !takenOut;
     }
+
+    // Only an add-in whose code ran registered anything to take out. Disabling one that failed, was refused or was never
+    // allowed changes the next start and nothing now, so it keeps the restart note.
+    private bool IsRunning => Status is AddinStatus.Loaded or AddinStatus.DeveloperUnsigned;
 
     /// <summary>Drops the recorded consent so the add-in is re-prompted next launch.</summary>
     [RelayCommand]
@@ -189,9 +200,11 @@ public partial class AddinOptionsPageViewModel : ObservableObject, IDisposable
     {
         if (!await MayWithdraw())
             return;
+        var takenOut = IsRunning;
         _registry.RevokeConsent(_manifestHash);
         ConsentRevoked = true;   // hide the button; in-process add-in code unloads on restart
-        RestartNoteVisible = true;
+        TakenOutNoteVisible = takenOut;
+        RestartNoteVisible = !takenOut;
     }
 
     // Asked before the add-in is taken out, so what it writes can be saved while it still can.

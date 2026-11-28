@@ -690,6 +690,7 @@
     "Str.Options.Addin.Details.Status": "Durum:",
     "Str.Options.Addin.RevokeConsent": "İzni geri al",
     "Str.Options.Addin.RestartNote": "Bir sonraki IDE yeniden başlatmasında etkili olur.",
+    "Str.Options.Addin.TakenOutNote": "Menüleri, komutları, pencereleri ve dil sunucuları kaldırıldı. Kodu, HexIDE kapanana kadar yüklü kalır.",
     "Str.Options.Addin.Trust": "Güven",
     "Str.Dialog.About.SigningKeys.Header": "Eklenti imzalama anahtarları",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE kök anahtarı (SHA-256)",

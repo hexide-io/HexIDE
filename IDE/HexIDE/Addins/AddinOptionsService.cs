@@ -34,10 +34,14 @@ public sealed class AddinOptionsService : IOptionsPageContributor
     // NoInlining keeps RegisterOptionsPage a real stack frame so GetCallingAssembly resolves to
     // the add-in that called it (not this assembly).
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public IOptionsPageHandle RegisterOptionsPage(Func<object> factory)
+    public IOptionsPageHandle RegisterOptionsPage(Func<object> factory) =>
+        RegisterOptionsPage(factory, Assembly.GetCallingAssembly());
+
+    /// <summary>For the host an add-in is given, which registers on the add-in's behalf and passes its assembly on (#5661).</summary>
+    internal IOptionsPageHandle RegisterOptionsPage(Func<object> factory, Assembly caller)
     {
         ArgumentNullException.ThrowIfNull(factory);
-        var path = Normalize(Assembly.GetCallingAssembly().Location);
+        var path = Normalize(caller.Location);
         var registration = new Registration(path, factory);
         _pages.Add(registration);
         var handle = new Handle(() => _pages.Remove(registration));

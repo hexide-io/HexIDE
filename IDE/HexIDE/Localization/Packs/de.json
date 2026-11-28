@@ -728,6 +728,7 @@
     "Str.Options.Addin.Details.Status": "Status:",
     "Str.Options.Addin.RevokeConsent": "Zustimmung widerrufen",
     "Str.Options.Addin.RestartNote": "Wird beim nächsten Neustart der IDE wirksam.",
+    "Str.Options.Addin.TakenOutNote": "Seine Menüs, Befehle, Fenster und Sprachserver wurden entfernt. Sein Code bleibt geladen, bis HexIDE geschlossen wird.",
     "Str.Options.Addin.Trust": "Vertrauen",
     "Str.Dialog.About.SigningKeys.Header": "Add-in-Signaturschlüssel",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE-Stammschlüssel (SHA-256)",

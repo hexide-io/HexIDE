@@ -695,6 +695,7 @@
     "Str.Options.Addin.Details.Status": "สถานะ:",
     "Str.Options.Addin.RevokeConsent": "เพิกถอนความยินยอม",
     "Str.Options.Addin.RestartNote": "มีผลเมื่อเริ่ม IDE ใหม่ครั้งถัดไป",
+    "Str.Options.Addin.TakenOutNote": "เมนู คำสั่ง หน้าต่าง และเซิร์ฟเวอร์ภาษาของส่วนเสริมถูกนำออกแล้ว โค้ดของส่วนเสริมยังคงโหลดอยู่จนกว่าจะปิด HexIDE",
     "Str.Options.Addin.Trust": "ความเชื่อถือ",
     "Str.Dialog.About.SigningKeys.Header": "คีย์ลงลายเซ็นส่วนเสริม",
     "Str.Dialog.About.SigningKeys.RootKey": "คีย์รากของ HexIDE (SHA-256)",

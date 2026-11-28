@@ -729,6 +729,7 @@
     "Str.Options.Addin.Details.Status": "Stan:",
     "Str.Options.Addin.RevokeConsent": "Cofnij zgodę",
     "Str.Options.Addin.RestartNote": "Obowiązuje przy następnym ponownym uruchomieniu IDE.",
+    "Str.Options.Addin.TakenOutNote": "Jego menu, polecenia, okna i serwery języka zostały usunięte. Jego kod pozostaje załadowany do zamknięcia HexIDE.",
     "Str.Options.Addin.Trust": "Zaufaj",
     "Str.Dialog.About.SigningKeys.Header": "Klucze podpisywania dodatków",
     "Str.Dialog.About.SigningKeys.RootKey": "Klucz główny HexIDE (SHA-256)",

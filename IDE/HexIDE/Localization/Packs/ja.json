@@ -762,6 +762,7 @@
     "Str.Options.Addin.Details.Status": "状態:",
     "Str.Options.Addin.RevokeConsent": "同意を取り消す",
     "Str.Options.Addin.RestartNote": "次回の IDE 再起動時に有効になります。",
+    "Str.Options.Addin.TakenOutNote": "メニュー、コマンド、ウィンドウ、言語サーバーは削除されました。コードは HexIDE を閉じるまで読み込まれたままです。",
     "Str.Options.Addin.Trust": "信頼する",
     "Str.Dialog.About.SigningKeys.Header": "アドインの署名キー",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE ルートキー (SHA-256)",

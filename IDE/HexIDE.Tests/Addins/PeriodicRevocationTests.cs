@@ -153,7 +153,12 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
     }
 
     private sealed record Session(AddinRegistry Registry, AddinContext Context, ProbeAddin Probe, RevocationStore Store,
-        AddinCommandService Commands, AddinMenuService Menus, DebugLaunchService Launches, IProjectRunnerService Runner);
+        AddinCommandService Commands, AddinMenuService Menus, DebugLaunchService Launches, IProjectRunnerService Runner)
+    {
+        public AddinToolWindowService ToolWindows { get; init; } = null!;
+        public AddinOptionsService Options { get; init; } = null!;
+        public AddinProjectTemplateService Templates { get; init; } = null!;
+    }
 
     private Session Load(bool firstParty)
     {
@@ -181,10 +186,13 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
         var commands = new AddinCommandService();
         var menus = new AddinMenuService();
         var launches = new DebugLaunchService(new ExternalDebugService(_log));
-        var host = new HexIdeHost(menus, new AddinToolWindowService(), new AddinEventService(projects, runner, new EventBus()), registry,
+        var tools = new AddinToolWindowService();
+        var options = new AddinOptionsService();
+        var templates = new AddinProjectTemplateService();
+        var host = new HexIdeHost(menus, tools, new AddinEventService(projects, runner, new EventBus()), registry,
             new AddinEditorService(Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), projects),
-            new AddinProjectService(projects), new AddinDiagnosticsService(router, projects), commands, new AddinProjectTemplateService(),
-            new AddinOptionsService(), InBoxRegistry.Create(), runner,
+            new AddinProjectService(projects), new AddinDiagnosticsService(router, projects), commands, templates,
+            options, InBoxRegistry.Create(), runner,
             new LanguageServerContributions(Substitute.For<ISettingsService>(), router,
                 new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
@@ -193,7 +201,10 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
             new AddinLanguageEditingService());
         var probe = new ProbeAddin();
         registry.InitializeAddin(context, probe, AddinStatus.Loaded, host);
-        return new Session(registry, context, probe, store, commands, menus, launches, runner);
+        return new Session(registry, context, probe, store, commands, menus, launches, runner)
+        {
+            ToolWindows = tools, Options = options, Templates = templates,
+        };
     }
 
     private void Publish(RevocationStore store, byte[] list)
@@ -244,11 +255,149 @@ public sealed class PeriodicRevocationTests : IAsyncDisposable
         session.Probe.Host.Events.RunStarted += () => session.Probe.Ran++;
 
         session.Launches.Launches.Should().BeEmpty("a tracked contribution registered after the revocation is refused");
-        var late = session.Commands.Commands.Should().ContainSingle(c => c.Id == "probe.late").Subject;
-        late.CanExecute!().Should().BeFalse();
-        late.OnInvoke();
+        session.Commands.Commands.Should().NotContain(c => c.Id == "probe.late",
+            "a command registered after the revocation is taken out as it is made (#5661)");
         StartRun(session.Runner);
         session.Probe.Ran.Should().Be(0, "a command registered or an event subscribed after the revocation doesn't run");
+    }
+
+    // ── What an add-in registers after it started (#5661) ─────────
+
+    private const string ProbePage = "the probe's Options page";
+
+    // What a running add-in adds later, outside Initialize: each through the host it was given, as the add-in would.
+    private static void RegisterLate(Session session)
+    {
+        session.Probe.Host.ToolWindows.Register("probe.window", "Probe window", null, () => new object());
+        session.Probe.Host.Options.RegisterOptionsPage(() => ProbePage);
+        session.Probe.Host.RegisterProjectTemplate(Substitute.For<IAddinProjectTemplate>());
+        session.Probe.Host.RegisterCommand("probe.late", "Late", () => session.Probe.Ran++);
+        session.Probe.Host.Menus.Add("Tools", "Late", null, () => session.Probe.Ran++);
+    }
+
+    private static string TestAssembly => typeof(PeriodicRevocationTests).Assembly.Location;
+
+    private static void EverythingIsTakenOut(Session session)
+    {
+        session.ToolWindows.Tools.Should().BeEmpty();
+        session.Options.GetFactoryFor(TestAssembly).Should().BeNull();
+        session.Templates.Templates.Should().BeEmpty();
+        session.Commands.Commands.Should().NotContain(c => c.Id.StartsWith("probe.", StringComparison.Ordinal));
+        session.Menus.ToolsItems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void What_an_add_in_registers_after_it_started_is_taken_out_when_it_is_revoked()
+    {
+        var session = Load(firstParty: false);
+        RegisterLate(session);
+        session.ToolWindows.Tools.Should().ContainSingle();
+        session.Options.GetFactoryFor(TestAssembly).Should().NotBeNull("the page is keyed by the add-in's assembly, not HexIDE's");
+        session.Templates.Templates.Should().ContainSingle();
+        session.Menus.ToolsItems.Should().HaveCount(2);
+
+        Publish(session.Store, List("2099-01-01T00:00:00Z", ["probe-hash"]));
+        session.Registry.ApplyRevocations();
+
+        EverythingIsTakenOut(session);
+    }
+
+    // The maintainer's choice, 2026-11-28: disabling or revoking consent takes these out at once too, whenever they were
+    // registered, as it already did an add-in's language servers.
+    [Theory]
+    [InlineData("disable")]
+    [InlineData("consent")]
+    public void Disabling_or_revoking_consent_takes_out_everything_the_add_in_registered_at_once(string how)
+    {
+        var session = Load(firstParty: false);
+        RegisterLate(session);
+
+        if (how == "disable") session.Registry.SetEnabled(session.Context.PackageDirectory, false);
+        else session.Registry.RevokeConsent("probe-hash");
+
+        EverythingIsTakenOut(session);
+        session.Launches.Launches.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("disable")]
+    [InlineData("consent")]
+    public void What_an_add_in_registers_after_it_is_disabled_or_its_consent_revoked_is_taken_out_as_it_is_made(string how)
+    {
+        var session = Load(firstParty: false);
+        if (how == "disable") session.Registry.SetEnabled(session.Context.PackageDirectory, false);
+        else session.Registry.RevokeConsent("probe-hash");
+
+        RegisterLate(session);
+
+        EverythingIsTakenOut(session);
+    }
+
+    private sealed class ThrowingContribution : IDisposable
+    {
+        public int Disposed;
+        public void Dispose() { Disposed++; throw new InvalidOperationException("a contribution that fails to come out"); }
+    }
+
+    // The supervisor's review of #5823: one contribution whose removal throws must not keep the rest in.
+    [Theory]
+    [InlineData("revoke")]
+    [InlineData("disable")]
+    [InlineData("consent")]
+    public void A_contribution_that_fails_to_come_out_does_not_keep_the_rest_in(string how)
+    {
+        var session = Load(firstParty: false);
+        var throwing = new ThrowingContribution();
+        session.Registry.TrackContribution(new AddinOrigin("probe", "Probe Add-in"), throwing);
+        RegisterLate(session);   // tracked after the one that throws, so removed after it
+
+        switch (how)
+        {
+            case "revoke":
+                Publish(session.Store, List("2099-01-01T00:00:00Z", ["probe-hash"]));
+                session.Registry.ApplyRevocations();
+                break;
+            case "disable": session.Registry.SetEnabled(session.Context.PackageDirectory, false); break;
+            default: session.Registry.RevokeConsent("probe-hash"); break;
+        }
+
+        throwing.Disposed.Should().Be(1);
+        EverythingIsTakenOut(session);
+        session.Launches.Launches.Should().BeEmpty();
+    }
+
+    // The add-in's code stays loaded and keeps its window handle, and a refused registration hands one back too. Showing
+    // it must not bring the window back.
+    [Theory]
+    [InlineData("revoke", false)]
+    [InlineData("revoke", true)]
+    [InlineData("disable", false)]
+    [InlineData("disable", true)]
+    [InlineData("consent", false)]
+    [InlineData("consent", true)]
+    public void A_window_taken_out_or_refused_does_not_come_back_when_the_add_in_shows_it(string how, bool registeredAfter)
+    {
+        var session = Load(firstParty: false);
+        var shown = 0;
+        session.ToolWindows.ShowRequested += _ => shown++;
+        IToolWindowHandle? window = registeredAfter
+            ? null
+            : session.Probe.Host.ToolWindows.Register("probe.window", "Probe window", null, () => new object());
+
+        switch (how)
+        {
+            case "revoke":
+                Publish(session.Store, List("2099-01-01T00:00:00Z", ["probe-hash"]));
+                session.Registry.ApplyRevocations();
+                break;
+            case "disable": session.Registry.SetEnabled(session.Context.PackageDirectory, false); break;
+            default: session.Registry.RevokeConsent("probe-hash"); break;
+        }
+        window ??= session.Probe.Host.ToolWindows.Register("probe.window", "Probe window", null, () => new object());
+        window.Show();
+
+        session.ToolWindows.Tools.Should().BeEmpty();
+        shown.Should().Be(0);
     }
 
     [Fact]

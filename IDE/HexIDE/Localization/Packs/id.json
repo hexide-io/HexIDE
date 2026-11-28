@@ -729,6 +729,7 @@
     "Str.Options.Addin.Details.Status": "Status:",
     "Str.Options.Addin.RevokeConsent": "Cabut persetujuan",
     "Str.Options.Addin.RestartNote": "Berlaku saat IDE dimulai ulang berikutnya.",
+    "Str.Options.Addin.TakenOutNote": "Menu, perintah, jendela, dan server bahasanya kini telah dihapus. Kodenya tetap dimuat hingga HexIDE ditutup.",
     "Str.Options.Addin.Trust": "Percayai",
     "Str.Dialog.About.SigningKeys.Header": "Kunci penanda tangan add-in",
     "Str.Dialog.About.SigningKeys.RootKey": "Kunci utama HexIDE (SHA-256)",
