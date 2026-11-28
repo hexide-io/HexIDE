@@ -536,7 +536,7 @@ internal sealed class LspDocumentSession : IDisposable
             // unstated severity as a hint would hide real problems from a server that never sets it.
             var isError = diagnostic.Severity is null || diagnostic.Severity == DiagnosticSeverity.Error;
             markers.Add(new LspMarker(startOffset, endOffset, isError, diagnostic.Message, diagnostic.Source,
-                diagnostic.Tags, diagnostic.RelatedInformation));
+                diagnostic.Tags, diagnostic.RelatedInformation, diagnostic.Severity));
         }
 
         return markers;

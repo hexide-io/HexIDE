@@ -1036,8 +1036,9 @@ all attached servers and navigates to their primary locations (#1991).
 
 Both inbound paths retain `tags` 1 (Unnecessary) and 2 (Deprecated), ignoring unknown values,
 and `relatedInformation` locations and messages, skipping malformed entries (#453). Unnecessary
-text is faded and deprecated text is struck through in the editor and diagnostics list; the severity
-squiggle remains. The tooltip lists related messages below their diagnostic, with clickable locations
+text is faded and deprecated text is struck through in the editor and diagnostics list. The editor omits
+the squiggle for a Hint tagged Unnecessary (#5808). All other diagnostics keep their severity squiggle.
+The tooltip lists related messages below their diagnostic, with clickable locations
 labelled by loaded member name and one-based line, falling back to the URI. Links use the editor
 navigation service, and the tooltip stays open while the pointer moves into it. The client advertises
 `publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.

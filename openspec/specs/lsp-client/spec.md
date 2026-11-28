@@ -568,11 +568,12 @@ is disposed. An absent `data` member SHALL remain absent when the diagnostic is 
 ### Requirement: Diagnostic tags style text
 The client SHALL advertise `publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
 Unnecessary ranges SHALL have faded text and deprecated ranges SHALL have strikethrough text in the editor
-and diagnostics list messages. These styles SHALL add to the existing severity squiggle.
+and diagnostics list messages. A Hint tagged Unnecessary SHALL have no editor squiggle (#5808).
+All other diagnostics SHALL keep their existing severity squiggle.
 
 #### Scenario: Both tags accompany a hint
-- **WHEN** a diagnostic has tags 1 and 2
-- **THEN** its editor range and list message are faded and struck through while its severity squiggle remains
+- **WHEN** a Hint diagnostic has tags 1 and 2
+- **THEN** its editor range and list message are faded and struck through, and it has no editor squiggle
 
 ### Requirement: Related diagnostic locations are navigable
 Diagnostic tooltips SHALL list each related location and message below the primary message. Locations

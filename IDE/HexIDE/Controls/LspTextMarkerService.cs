@@ -60,7 +60,11 @@ public sealed class LspTextMarkerService : IBackgroundRenderer
             if (marker.StartOffset < 0 || marker.EndOffset > document.TextLength)
                 continue;
 
-            var brush = marker.Marker.IsError ? Brushes.Red : Brushes.Orange;
+            var diagnostic = marker.Marker;
+            if (!DrawsSquiggle(diagnostic))
+                continue;
+
+            var brush = diagnostic.IsError ? Brushes.Red : Brushes.Orange;
             var pen = new Pen(brush, 1.0);
 
             foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(
@@ -70,6 +74,9 @@ public sealed class LspTextMarkerService : IBackgroundRenderer
             }
         }
     }
+
+    internal static bool DrawsSquiggle(LspMarker marker) =>
+        marker.Severity != DiagnosticSeverity.Hint || marker.Tags?.Contains(1) != true;
 
     /// <summary>
     /// Builds a zigzag squiggle geometry along the bottom of a text segment.
@@ -163,7 +170,7 @@ public sealed class LspDiagnosticsColorizer : DocumentColorizingTransformer
 }
 
 public readonly record struct LspMarker(int StartOffset, int EndOffset, bool IsError, string Message, string? Source = null,
-    int[]? Tags = null, DiagnosticRelatedInformation[]? RelatedInformation = null);
+    int[]? Tags = null, DiagnosticRelatedInformation[]? RelatedInformation = null, DiagnosticSeverity? Severity = null);
 
 internal sealed class AnchoredLspMarker : TextSegment
 {

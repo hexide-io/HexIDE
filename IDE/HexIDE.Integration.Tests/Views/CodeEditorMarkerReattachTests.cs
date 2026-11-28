@@ -159,6 +159,29 @@ public class CodeEditorMarkerReattachTests : IDisposable
             .Should().ContainSingle().Which.IsError.Should().Be(error);
     }
 
+    [AvaloniaTheory]
+    [InlineData(DiagnosticSeverity.Hint, new[] { 1 }, false)]
+    [InlineData(DiagnosticSeverity.Warning, new[] { 1 }, true)]
+    [InlineData(DiagnosticSeverity.Error, new[] { 1 }, true)]
+    [InlineData(DiagnosticSeverity.Hint, null, true)]
+    [InlineData(DiagnosticSeverity.Hint, new[] { 2 }, true)]
+    [InlineData(DiagnosticSeverity.Hint, new[] { 1, 2 }, false)]
+    public void DiagnosticSeverityAndTagsDetermineWhetherToDrawASquiggle(
+        DiagnosticSeverity severity, int[]? tags, bool drawsSquiggle)
+    {
+        using var vm = MakeViewModel();
+        vm.Initialize(AModule());
+        var view = Show(vm);
+        _lspClient.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            _lspClient, new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), [new Diagnostic(
+                new LspRange(new Position(0, 4), new Position(0, 8)), "diagnostic", severity, Tags: tags)]));
+        Dispatcher.UIThread.RunJobs();
+
+        var marker = TextViewOf(view).BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers
+            .Should().ContainSingle().Which;
+        LspTextMarkerService.DrawsSquiggle(marker).Should().Be(drawsSquiggle);
+    }
+
     [AvaloniaFact]
     public void AViewBuiltAfterTheDiagnosticsArrivedStillDrawsThem()
     {
