@@ -119,7 +119,7 @@ public class PictureBoxAutoSizeTests
 
 
 
-    private static byte[] Bitmap()
+    internal static byte[] Bitmap()
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
