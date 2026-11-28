@@ -5,12 +5,14 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using AwesomeAssertions.Execution;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Menus;
 using HexIDE.IDE;
 using HexIDE.Keymaps;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Lsp;
 using HexIDE.Tools.LanguageServers;
@@ -51,6 +53,41 @@ public class MainViewViewModelTests
         _projectService.CanMake(Arg.Any<ProjectDefinition?>()).Returns(true);
 
         _sut = Build(_runnerService);
+    }
+
+    [AvaloniaFact]
+    public void Edit_menu_relocalizes_both_designer_steps_after_a_language_switch()
+    {
+        var dock = Substitute.For<IDocumentDockService>();
+        var shell = Build(_runnerService, dock);
+        var pack = new LocalizationService();
+        var language = "en";
+        _localization.GetString(Arg.Any<string>()).Returns(call => pack.GetStringFrom(language, call.Arg<string>()));
+        var form = new FormDefinition(TestHelpers.CreateProject(),
+            [new ComponentInstance(FormComponentClass.Instance, "Form1"),
+                new ComponentInstance(CommandButtonComponentClass.Instance, "Command1")], "");
+        using var designer = new FormEditViewModel(null!, _eventBus, _projectService, Substitute.For<IEditorService>(),
+            _windowManager, _settingsService, _localization).Initialize(form);
+        dock.ActiveDocument.Returns(designer);
+        dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock,
+            new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
+        var button = designer.Components.Single();
+        designer.BeginDrag([button]);
+        button.Left += 3;
+        designer.EndDrag();
+        designer.ToggleLockControls();
+        designer.UndoStack.Undo();
+        shell.UndoHeader.Should().Be("_Undo Move: Command1");
+        shell.RedoHeader.Should().Be("_Redo Lock Controls");
+
+        language = "de";
+        _localization.LanguageChanged += Raise.Event<Action>();
+
+        var move = string.Format(pack.GetStringFrom("de", "Str.Designer.Undo.MoveControl"), "Command1");
+        var lockControls = pack.GetStringFrom("de", "Str.Designer.Undo.LockControls");
+        using var assertions = new AssertionScope();
+        shell.UndoHeader.Should().Be(string.Format(pack.GetStringFrom("de", "Str.Menu.Edit.UndoFormat"), move));
+        shell.RedoHeader.Should().Be(string.Format(pack.GetStringFrom("de", "Str.Menu.Edit.RedoFormat"), lockControls));
     }
 
     [Avalonia.Headless.XUnit.AvaloniaFact]

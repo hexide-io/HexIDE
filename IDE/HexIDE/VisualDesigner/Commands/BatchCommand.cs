@@ -6,13 +6,15 @@ internal class BatchCommand : IDesignerCommand
 {
     private readonly IReadOnlyList<IDesignerCommand> _inner;
 
-    internal BatchCommand(string description, IReadOnlyList<IDesignerCommand> inner)
+    internal BatchCommand(string description, DesignerUndoName displayName, IReadOnlyList<IDesignerCommand> inner)
     {
         Description = description;
+        DisplayName = displayName;
         _inner = inner;
     }
 
     public string Description { get; }
+    public DesignerUndoName DisplayName { get; }
 
     public void Execute(FormEditViewModel vm)
     {

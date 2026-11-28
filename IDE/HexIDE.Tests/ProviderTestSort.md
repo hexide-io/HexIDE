@@ -172,6 +172,7 @@ A test that reaches the provider only at run time, through the application's com
 | `ViewModels/ComponentRoleTests.cs` | split |
 | `ViewModels/ComponentsViewModelTests.cs` | split |
 | `ViewModels/DesignerLibraryControlTests.cs` | split |
+| `ViewModels/DesignerUndoLocalizationTests.cs` | split |
 | `ViewModels/DialogChromeLocalizationTests.cs` | split |
 | `ViewModels/DockFactoryTests.cs` | split |
 | `ViewModels/DockFactoryWiringTests.cs` | split |

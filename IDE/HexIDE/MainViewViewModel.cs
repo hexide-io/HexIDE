@@ -2272,10 +2272,10 @@ public partial class MainViewViewModel : ObservableObject
     private void UpdateUndoHeaders()
     {
         UndoHeader = _activeDesigner is { CanUndo: true } d
-            ? string.Format(localization.GetString("Str.Menu.Edit.UndoFormat"), d.UndoStack.UndoDescription)
+            ? string.Format(localization.GetString("Str.Menu.Edit.UndoFormat"), d.UndoStack.GetUndoDisplayName(localization))
             : localization.GetString("Str.Menu.Edit.Undo");
         RedoHeader = _activeDesigner is { CanRedo: true } d2
-            ? string.Format(localization.GetString("Str.Menu.Edit.RedoFormat"), d2.UndoStack.RedoDescription)
+            ? string.Format(localization.GetString("Str.Menu.Edit.RedoFormat"), d2.UndoStack.GetRedoDisplayName(localization))
             : localization.GetString("Str.Menu.Edit.Redo");
     }
 

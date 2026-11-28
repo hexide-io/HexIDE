@@ -1069,7 +1069,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         AllComponents.Add(newComponent);
         UndoStack.Push(new AddControlsCommand(
             [(newComponent, Components.IndexOf(newComponent), AllComponents.IndexOf(newComponent))],
-            $"Add: {newComponent.Name}"));
+            $"Add: {newComponent.Name}", DesignerUndoName.Localized("Str.Designer.Undo.Add", newComponent.Name)));
 
         ToolsBoxToolViewModel.SelectedComponent = ToolsBoxToolViewModel.Arrow;
         SelectedComponent = newComponent;
@@ -1152,7 +1152,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         }
     }
 
-    public void BringToFront(ComponentInstanceViewModel instance) => MoveInPlane(instance, toFront: true, "Bring to Front");
+    public void BringToFront(ComponentInstanceViewModel instance) =>
+        MoveInPlane(instance, toFront: true, "Bring to Front", "Str.Designer.Undo.BringToFront");
 
     public void SendSelectedToBack()
     {
@@ -1160,7 +1161,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             SendToBack(selectedComponent);
     }
 
-    public void SendToBack(ComponentInstanceViewModel instance) => MoveInPlane(instance, toFront: false, "Send to Back");
+    public void SendToBack(ComponentInstanceViewModel instance) =>
+        MoveInPlane(instance, toFront: false, "Send to Back", "Str.Designer.Undo.SendToBack");
 
     /// <summary>
     /// Moves a control to the top or the bottom of its plane in its container, with what it holds, as VB6's Bring to Front
@@ -1168,7 +1170,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// windowed control never goes under a Label, a Label never over a windowed control, and nothing leaves its
     /// container. Its TabIndex does not change.
     /// </summary>
-    private void MoveInPlane(ComponentInstanceViewModel instance, bool toFront, string verb)
+    private void MoveInPlane(ComponentInstanceViewModel instance, bool toFront, string verb, string undoNameKey)
     {
         // A menu has no z-order. It is only in this collection because a loaded menu item becomes a zero-sized item
         // parked at the origin, which is a separate defect.
@@ -1199,7 +1201,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         SelectedComponent = instance;
         var after = Components.ToList();
         if (!before.SequenceEqual(after) || carriedBefore != instance.CarriedBelow)
-            UndoStack.Push(new ZOrderCommand(instance, before, after, carriedBefore, instance.CarriedBelow, $"{verb}: {instance.Name}"));
+            UndoStack.Push(new ZOrderCommand(instance, before, after, carriedBefore, instance.CarriedBelow,
+                $"{verb}: {instance.Name}", DesignerUndoName.Localized(undoNameKey, instance.Name)));
     }
 
     public void CenterHorizontally()
@@ -1207,7 +1210,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (selectedComponent == null) return;
         var target = selectedComponent;
         // ScaleWidth\2 - Width\2: 4680 and 1215 give 2340 - 607 = 1733, where the exact answer is 1732.5 (measured).
-        PushBatch($"Center H: {target.Name}", [target], [VBProperties.LeftProperty],
+        PushBatch($"Center H: {target.Name}",
+            DesignerUndoName.Localized("Str.Designer.Undo.CenterHorizontally", target.Name), [target], [VBProperties.LeftProperty],
             () => target.Left = Pixels(Twips(Form.Width) / 2 - Twips(target.Width) / 2));
     }
 
@@ -1216,7 +1220,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (selectedComponent == null) return;
         var target = selectedComponent;
         // 3195 and 510 give 1597 - 255 = 1342: the exact 1342.5 goes down, where 1732.5 went up across (measured).
-        PushBatch($"Center V: {target.Name}", [target], [VBProperties.TopProperty],
+        PushBatch($"Center V: {target.Name}",
+            DesignerUndoName.Localized("Str.Designer.Undo.CenterVertically", target.Name), [target], [VBProperties.TopProperty],
             () => target.Top = Pixels(Twips(Form.Height) / 2 - Twips(target.Height) / 2));
     }
 
@@ -1225,7 +1230,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Align Lefts: {targets.Count} controls", targets, [VBProperties.LeftProperty],
+        PushBatch($"Align Lefts: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.AlignLefts", targets.Count), targets, [VBProperties.LeftProperty],
             () => { foreach (var c in targets) c.Left = primary.Left; });
     }
 
@@ -1234,7 +1240,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Align Rights: {targets.Count} controls", targets, [VBProperties.LeftProperty],
+        PushBatch($"Align Rights: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.AlignRights", targets.Count), targets, [VBProperties.LeftProperty],
             () => { foreach (var c in targets) c.Left = primary.Left + primary.Width - c.Width; });
     }
 
@@ -1243,7 +1250,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Align Tops: {targets.Count} controls", targets, [VBProperties.TopProperty],
+        PushBatch($"Align Tops: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.AlignTops", targets.Count), targets, [VBProperties.TopProperty],
             () => { foreach (var c in targets) c.Top = primary.Top; });
     }
 
@@ -1252,7 +1260,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Align Bottoms: {targets.Count} controls", targets, [VBProperties.TopProperty],
+        PushBatch($"Align Bottoms: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.AlignBottoms", targets.Count), targets, [VBProperties.TopProperty],
             () => { foreach (var c in targets) c.Top = primary.Top + primary.Height - c.Height; });
     }
 
@@ -1261,7 +1270,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Align Centers H: {targets.Count} controls", targets, [VBProperties.LeftProperty],
+        PushBatch($"Align Centers H: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.AlignCentersHorizontally", targets.Count), targets, [VBProperties.LeftProperty],
             () => { foreach (var c in targets) c.Left = primary.Left + Pixels(Twips(primary.Width) / 2 - Twips(c.Width) / 2); });
     }
 
@@ -1270,7 +1280,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Align Centers V: {targets.Count} controls", targets, [VBProperties.TopProperty],
+        PushBatch($"Align Centers V: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.AlignCentersVertically", targets.Count), targets, [VBProperties.TopProperty],
             () => { foreach (var c in targets) c.Top = primary.Top + Pixels(Twips(primary.Height) / 2 - Twips(c.Height) / 2); });
     }
 
@@ -1279,7 +1290,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Same Width: {targets.Count} controls", targets, [VBProperties.WidthProperty],
+        PushBatch($"Same Width: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.MakeSameWidth", targets.Count), targets, [VBProperties.WidthProperty],
             () => { foreach (var c in targets) c.Width = primary.Width; });
     }
 
@@ -1288,7 +1300,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Same Height: {targets.Count} controls", targets, [VBProperties.HeightProperty],
+        PushBatch($"Same Height: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.MakeSameHeight", targets.Count), targets, [VBProperties.HeightProperty],
             () => { foreach (var c in targets) c.Height = primary.Height; });
     }
 
@@ -1297,7 +1310,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (!HasMultipleSelectedControls || selectedComponent == null) return;
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Same Size: {targets.Count} controls", targets,
+        PushBatch($"Same Size: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.MakeSameSize", targets.Count), targets,
             [VBProperties.WidthProperty, VBProperties.HeightProperty], () =>
             {
                 foreach (var c in targets) c.Width = primary.Width;
@@ -1311,7 +1325,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (sorted.Count < 2) return;
         // The gap is truncated, and the last control stays where it was, its gap taking what is left over: Lefts 300, 2000
         // and 4005, 1200 wide, become 300, 2152 and 4005 (measured).
-        PushBatch($"Equal H-Spacing: {sorted.Count} controls", sorted, [VBProperties.LeftProperty], () =>
+        PushBatch($"Equal H-Spacing: {sorted.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.EqualHorizontalSpacing", sorted.Count), sorted, [VBProperties.LeftProperty], () =>
         {
             long start = Twips(sorted[0].Left);
             long span = Twips(sorted[^1].Left) + Twips(sorted[^1].Width) - start;
@@ -1325,7 +1340,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Left).ToList();
         if (sorted.Count < 2) return;
-        PushBatch($"Increase H-Spacing: {sorted.Count} controls", sorted, [VBProperties.LeftProperty], () =>
+        PushBatch($"Increase H-Spacing: {sorted.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.IncreaseHorizontalSpacing", sorted.Count), sorted, [VBProperties.LeftProperty], () =>
         {
             double unit = settingsService.GridWidth;
             for (int i = 1; i < sorted.Count; i++)
@@ -1337,7 +1353,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Left).ToList();
         if (sorted.Count < 2) return;
-        PushBatch($"Decrease H-Spacing: {sorted.Count} controls", sorted, [VBProperties.LeftProperty], () =>
+        PushBatch($"Decrease H-Spacing: {sorted.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.DecreaseHorizontalSpacing", sorted.Count), sorted, [VBProperties.LeftProperty], () =>
         {
             double unit = settingsService.GridWidth;
             // Compute original gaps, decrease each by unit (min 0), then reposition.
@@ -1357,7 +1374,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Left).ToList();
         if (sorted.Count < 2) return;
-        PushBatch($"Remove H-Spacing: {sorted.Count} controls", sorted, [VBProperties.LeftProperty], () =>
+        PushBatch($"Remove H-Spacing: {sorted.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.RemoveHorizontalSpacing", sorted.Count), sorted, [VBProperties.LeftProperty], () =>
         {
             double cursor = sorted[0].Left;
             foreach (var c in sorted) { c.Left = cursor; cursor += c.Width; }
@@ -1369,7 +1387,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var sorted = SelectedComponents.OrderBy(c => c.Top).ToList();
         if (sorted.Count < 2) return;
         // As across: the gap truncated, the last control left where it was.
-        PushBatch($"Equal V-Spacing: {sorted.Count} controls", sorted, [VBProperties.TopProperty], () =>
+        PushBatch($"Equal V-Spacing: {sorted.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.EqualVerticalSpacing", sorted.Count), sorted, [VBProperties.TopProperty], () =>
         {
             long start = Twips(sorted[0].Top);
             long span = Twips(sorted[^1].Top) + Twips(sorted[^1].Height) - start;
@@ -1383,7 +1402,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Top).ToList();
         if (sorted.Count < 2) return;
-        PushBatch($"Increase V-Spacing: {sorted.Count} controls", sorted, [VBProperties.TopProperty], () =>
+        PushBatch($"Increase V-Spacing: {sorted.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.IncreaseVerticalSpacing", sorted.Count), sorted, [VBProperties.TopProperty], () =>
         {
             double unit = settingsService.GridHeight;
             for (int i = 1; i < sorted.Count; i++)
@@ -1395,7 +1415,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Top).ToList();
         if (sorted.Count < 2) return;
-        PushBatch($"Decrease V-Spacing: {sorted.Count} controls", sorted, [VBProperties.TopProperty], () =>
+        PushBatch($"Decrease V-Spacing: {sorted.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.DecreaseVerticalSpacing", sorted.Count), sorted, [VBProperties.TopProperty], () =>
         {
             double unit = settingsService.GridHeight;
             double[] gaps = new double[sorted.Count - 1];
@@ -1414,7 +1435,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Top).ToList();
         if (sorted.Count < 2) return;
-        PushBatch($"Remove V-Spacing: {sorted.Count} controls", sorted, [VBProperties.TopProperty], () =>
+        PushBatch($"Remove V-Spacing: {sorted.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.RemoveVerticalSpacing", sorted.Count), sorted, [VBProperties.TopProperty], () =>
         {
             double cursor = sorted[0].Top;
             foreach (var c in sorted) { c.Top = cursor; cursor += c.Height; }
@@ -1427,7 +1449,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         int gridH = settingsService.GridHeight;
         if (gridW == 0 || gridH == 0) return;
         var targets = SelectedComponents.ToList();
-        PushBatch($"Size to Grid: {targets.Count} controls", targets,
+        PushBatch($"Size to Grid: {targets.Count} controls",
+            DesignerUndoName.Localized("Str.Designer.Undo.SizeToGrid", targets.Count), targets,
             [VBProperties.LeftProperty, VBProperties.TopProperty, VBProperties.WidthProperty, VBProperties.HeightProperty],
             () =>
             {
@@ -1441,7 +1464,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             });
     }
 
-    private void PushBatch(string description, IReadOnlyList<ComponentInstanceViewModel> targets,
+    private void PushBatch(string description, DesignerUndoName displayName, IReadOnlyList<ComponentInstanceViewModel> targets,
         IReadOnlyList<PropertyClass> relevantProperties, Action operation)
     {
         var before = targets.ToDictionary(
@@ -1458,7 +1481,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                     inner.Add(new Commands.SetPropertyCommand(t.Instance, p, bv, av));
             }
         if (inner.Count > 0)
-            UndoStack.Push(new Commands.BatchCommand(description, inner));
+            UndoStack.Push(new Commands.BatchCommand(description, displayName, inner));
     }
 
     public void ToggleLockControls()
@@ -1487,8 +1510,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             AllComponents.Remove(c);
         }
         SelectedComponent = Form;
-        string desc = entries.Count == 1 ? $"Delete: {entries[0].Item1.Name}" : $"Delete: {entries.Count} controls";
-        UndoStack.Push(new RemoveControlsCommand(entries, desc));
+        var (desc, displayName) = entries.Count == 1
+            ? ($"Delete: {entries[0].Item1.Name}", DesignerUndoName.Localized("Str.Designer.Undo.Delete", entries[0].Item1.Name))
+            : ($"Delete: {entries.Count} controls", DesignerUndoName.Localized("Str.Designer.Undo.DeleteControls", entries.Count));
+        UndoStack.Push(new RemoveControlsCommand(entries, desc, displayName));
     }
 
     /// <summary>
@@ -1565,8 +1590,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             AllComponents.Remove(c);
         }
         SelectedComponent = Form;
-        string desc = entries.Count == 1 ? $"Cut: {entries[0].Item1.Name}" : $"Cut: {entries.Count} controls";
-        UndoStack.Push(new RemoveControlsCommand(entries, desc));
+        var (desc, displayName) = entries.Count == 1
+            ? ($"Cut: {entries[0].Item1.Name}", DesignerUndoName.Localized("Str.Designer.Undo.Cut", entries[0].Item1.Name))
+            : ($"Cut: {entries.Count} controls", DesignerUndoName.Localized("Str.Designer.Undo.CutControls", entries.Count));
+        UndoStack.Push(new RemoveControlsCommand(entries, desc, displayName));
     }
 
     public void PasteControls()
@@ -1695,8 +1722,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var pastedEntries = pasted.Select(vm => (Vm: vm, ComponentsIdx: Components.IndexOf(vm), AllComponentsIdx: AllComponents.IndexOf(vm))).ToList();
         if (pastedEntries.Count > 0)
         {
-            string desc = pastedEntries.Count == 1 ? $"Paste: {pastedEntries[0].Vm.Name}" : $"Paste: {pastedEntries.Count} controls";
-            UndoStack.Push(new AddControlsCommand(pastedEntries, desc));
+            var (desc, displayName) = pastedEntries.Count == 1
+                ? ($"Paste: {pastedEntries[0].Vm.Name}", DesignerUndoName.Localized("Str.Designer.Undo.Paste", pastedEntries[0].Vm.Name))
+                : ($"Paste: {pastedEntries.Count} controls", DesignerUndoName.Localized("Str.Designer.Undo.PasteControls", pastedEntries.Count));
+            UndoStack.Push(new AddControlsCommand(pastedEntries, desc, displayName));
         }
     }
 
@@ -1721,7 +1750,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             new Commands.SetPropertyCommand(target, VBProperties.NameProperty,
                 target.GetPropertyOrDefault(VBProperties.NameProperty), name)
         };
-        var command = new Commands.BatchCommand(changes[^1].Description, changes);
+        var nameSource = changes[^1];
+        var command = new Commands.BatchCommand(nameSource.Description, nameSource.DisplayName, changes);
         command.Execute(this);
         UndoStack.Push(command);
     }
@@ -1756,7 +1786,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         inner.Add(command);
         foreach (var change in consequences)
             inner.Add(new Commands.SetPropertyCommand(target, change.Property, change.Before, change.After));
-        UndoStack.Push(new Commands.BatchCommand(command.Description, inner));
+        UndoStack.Push(new Commands.BatchCommand(command.Description, command.DisplayName, inner));
         return consequences;
     }
 
