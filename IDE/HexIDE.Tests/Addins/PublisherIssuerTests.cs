@@ -287,6 +287,61 @@ public sealed class PublisherIssuerTests : IDisposable
         outcome.Reasons.Should().ContainSingle().Which.Should().Contain("revoked publisher");
     }
 
+    // ── Revoked keys (#5315) ─────────────────────────────────────
+
+    private string RevokedKeys(params string[] fingerprints)
+    {
+        var name = "revocations-" + Guid.NewGuid().ToString("N");
+        File.WriteAllText(In(name + ".json"), "{\"schema\":1,\"issuedUtc\":\""
+            + _listIssued.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture)
+            + "\",\"revoked\":{\"manifestHashes\":[],\"publisherIds\":[],\"intermediateIds\":[],\"keyFingerprints\":["
+            + string.Join(",", fingerprints.Select(key => $"\"{key}\"")) + "]}}");
+        PackageSigner.SignRevocations(In(name + ".json"), In("chain", "root.key"), In(name));
+        return In(name);
+    }
+
+    private string RequestKey(string requestDir) =>
+        PackageCrypto.KeyFingerprint(PublisherRequests.Verify(In(requestDir), new RequestCheckContext()).Request!.PublicKey);
+
+    [Fact]
+    public void A_request_for_a_revoked_key_is_never_issued()
+    {
+        Request("request");
+
+        var outcome = Issue("request", revocations: RevokedKeys(RequestKey("request")));
+
+        outcome.ExitCode.Should().Be(2);
+        outcome.Reasons.Should().ContainSingle().Which.Should().Contain("a revoked key is never issued");
+        NothingWritten();
+    }
+
+    // Once the old key is stolen, its signature on the request proves nothing about who sent it.
+    [Fact]
+    public void A_rotation_away_from_a_revoked_key_is_left_to_a_person()
+    {
+        Request("rotation", previousKey: IssueFirst());
+
+        var outcome = Issue("rotation", revocations: RevokedKeys(RequestKey("first")), outName: "out2");
+
+        outcome.ExitCode.Should().Be(3);
+        outcome.Reasons.Should().ContainSingle().Which.Should().Contain("names the key it replaces");
+        Directory.Exists(In("out2")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Nothing_is_issued_under_an_intermediate_whose_key_is_revoked()
+    {
+        Request("request");
+        var intermediate = System.Text.Json.JsonDocument.Parse(File.ReadAllText(In("chain", "intermediate.json")))
+            .RootElement.GetProperty("publicKey").GetString()!;
+
+        var outcome = Issue("request", revocations: RevokedKeys(PackageCrypto.KeyFingerprint(intermediate)));
+
+        outcome.ExitCode.Should().Be(2);
+        outcome.Reasons.Should().ContainSingle().Which.Should().Contain("this intermediate's key");
+        NothingWritten();
+    }
+
     // ── What is written, and in what order (#5678) ───────────────
 
     // The ledger is written before --out, so a record that reached the publisher is always one whose id and key are held.

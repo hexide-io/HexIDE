@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text;
@@ -163,9 +164,12 @@ public static class PackageSigner
     /// <c>revocations.json</c> and writes the detached root signature to <c>revocations.sig</c>.</summary>
     public static void SignRevocations(string inJsonPath, string rootKeyPath, string outDir)
     {
+        var jsonBytes = File.ReadAllBytes(inJsonPath);
+        // Checked before the root key is read: a list HexIDE would ignore, wholly or in part, is never signed (#5315).
+        if (RevocationListProblems(jsonBytes) is { Count: > 0 } problems)
+            throw new ArgumentException($"{inJsonPath} is not signed: {string.Join("; ", problems)}");
         Directory.CreateDirectory(outDir);
         var outputs = new Dictionary<string, byte[]>();
-        var jsonBytes = File.ReadAllBytes(inJsonPath);
         var keyB64 = File.ReadAllText(rootKeyPath).Trim();
         using var key = PackageCrypto.ImportPrivateKey(keyB64);
         outputs["revocations.json"] = jsonBytes;
@@ -197,8 +201,44 @@ public static class PackageSigner
             Console.Error.WriteLine($"Revocation list {jsonPath} verifies against root {fingerprint} but doesn't parse");
             return false;
         }
+        if (RevocationListProblems(jsonBytes) is { Count: > 0 } problems)
+        {
+            Console.Error.WriteLine($"Revocation list {jsonPath} verifies against root {fingerprint}, but HexIDE would ignore "
+                + $"some or all of it: {string.Join("; ", problems)}");
+            return false;
+        }
         Console.WriteLine($"Verified: revocation list issued {list.IssuedUtc} verifies against root {fingerprint}");
         return true;
+    }
+
+    /// <summary>
+    /// What would make HexIDE ignore a revocation list, or part of it, without a word (#5315). That is JSON that isn't a
+    /// list, a set that is null, an issue time it can't read (so the list is never the newest), or a key fingerprint that
+    /// isn't 64 hex digits (so it revokes nothing). Empty when there is none.
+    /// </summary>
+    public static List<string> RevocationListProblems(byte[] json)
+    {
+        RevocationList? list;
+        try { list = JsonSerializer.Deserialize(json, RevocationJsonContext.Default.RevocationList); }
+        catch (JsonException ex) { return [$"it isn't a revocation list ({ex.Message})"]; }
+        if (list?.Revoked is not { } revoked)
+            return ["it isn't a revocation list: it has no 'revoked'"];
+        var problems = new List<string>();
+        if (!DateTimeOffset.TryParse(list.IssuedUtc, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out _))
+            problems.Add($"its issuedUtc, '{list.IssuedUtc}', isn't a time, so HexIDE would never take it as the newest list");
+        foreach (var (name, set) in new[] { ("manifestHashes", revoked.ManifestHashes), ("publisherIds", revoked.PublisherIds),
+                     ("intermediateIds", revoked.IntermediateIds), ("keyFingerprints", revoked.KeyFingerprints) })
+        {
+            if (set is null)
+                problems.Add($"'{name}' is null");
+            else if (set.Any(entry => entry is null))
+                problems.Add($"'{name}' holds a null");
+        }
+        foreach (var entry in revoked.KeyFingerprints ?? [])
+            if (entry is not null && RevocationCheck.NormalizeKeyFingerprint(entry) is null)
+                problems.Add($"'{entry}' in keyFingerprints isn't a key fingerprint: 64 hex digits, spaces allowed");
+        return problems;
     }
 
     /// <summary>Issues a publisher's public key using an offline intermediate signing key.</summary>

@@ -209,3 +209,8 @@ static HexIDE.Runtime.Components.DesignerBounds.operator ==(HexIDE.Runtime.Compo
 HexIDE.Addins.IAddinProjectTemplate.Create(string! name, HexIDE.IDE.IProjectFileFormat! format) -> HexIDE.Runtime.ProjectElements.ProjectDefinition!
 HexIDE.IDE.IProjectFileFormat.NewMenuClass.get -> HexIDE.Runtime.Components.IComponentClass?
 HexIDE.IDE.IProjectFileFormat.NewRootClass(string! typeName) -> HexIDE.Runtime.Components.IComponentClass?
+HexIDE.Addins.RevokedSets.KeyFingerprints.get -> string![]!
+HexIDE.Addins.RevokedSets.KeyFingerprints.init -> void
+static HexIDE.Addins.RevocationCheck.IsKeyRevoked(HexIDE.Addins.RevocationList! list, string? keyFingerprint) -> bool
+static HexIDE.Addins.RevocationCheck.NormalizeKeyFingerprint(string? fingerprint) -> string?
+static HexIDE.Addins.RevocationCheck.Reason(HexIDE.Addins.RevocationList! list, string? manifestHash, string? publisherId, string? intermediateId, bool isFirstParty, string? publisherKeyFingerprint, string? intermediateKeyFingerprint) -> string?

@@ -70,8 +70,12 @@ internal sealed class RevocationStore
         _active = PickFreshest(LoadBundled(), LoadCached()) ?? new RevocationList();
     }
 
-    public string? IsRevoked(string? manifestHash, string? publisherId, string? intermediateId, bool isFirstParty) =>
-        RevocationCheck.Reason(_active, manifestHash, publisherId, intermediateId, isFirstParty);
+    /// <summary>Why the active list refuses this package, or null. The key fingerprints have no default, so every caller says
+    /// which keys it checked (#5315); pass null only where no key is known.</summary>
+    public string? IsRevoked(string? manifestHash, string? publisherId, string? intermediateId, bool isFirstParty,
+        string? publisherKeyFingerprint, string? intermediateKeyFingerprint) =>
+        RevocationCheck.Reason(_active, manifestHash, publisherId, intermediateId, isFirstParty,
+            publisherKeyFingerprint, intermediateKeyFingerprint);
 
     /// <summary>Blocking fetch (off the UI thread) with a timeout. Fail-open: any failure keeps the
     /// current (cached/bundled) list. A valid, newer list updates the cache and becomes active, and the result says
